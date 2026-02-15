@@ -12,7 +12,7 @@ describe "Document Elements" do
   describe Components::Elements::Html do
     it "renders html element" do
       html = Components::Elements::Html.new(lang: "en")
-      html.render.should eq("<html lang=\"en\"></html>")
+      html.render.should eq("<!DOCTYPE html><html lang=\"en\"></html>")
     end
     
     it "validates language tags" do

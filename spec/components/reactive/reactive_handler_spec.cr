@@ -90,43 +90,49 @@ describe Components::Reactive::ReactiveHandler do
     
     handler.call(context)
     response.close
-    
+
     # Check response
     response.status.should eq(HTTP::Status::OK)
-    
-    result = JSON.parse(io.to_s)
+
+    # Parse the full HTTP response from the IO to extract just the body
+    io.rewind
+    parsed_response = HTTP::Client::Response.from_io(io)
+    result = JSON.parse(parsed_response.body)
     result["success"].as_bool.should be_true
     result["componentId"].as_s.should eq(component.component_id)
     result["html"].as_s.should contain("Count: 1")
   end
-  
+
   it "returns error for unknown components" do
     handler = Components::Reactive::ReactiveHandler.new
-    
+
     # Create POST request for non-existent component
     body = {
       componentId: "unknown-component",
       method: "someMethod",
       event: {} of String => JSON::Any
     }.to_json
-    
+
     io = IO::Memory.new
     request = HTTP::Request.new(
-      "POST", 
+      "POST",
       "/components/action/unknown",
       HTTP::Headers{"Content-Type" => "application/json"},
       body
     )
     response = HTTP::Server::Response.new(io)
     context = HTTP::Server::Context.new(request, response)
-    
+
     handler.call(context)
     response.close
-    
+
     # Check error response
     response.status.should eq(HTTP::Status::NOT_FOUND)
-    
-    result = JSON.parse(io.to_s)
+
+    # Parse the full HTTP response from the IO to extract just the body
+    io.rewind
+    parsed_response = HTTP::Client::Response.from_io(io)
+    result = JSON.parse(parsed_response.body)
     result["success"].as_bool.should be_false
     result["error"].as_s.should eq("Component not found")
   end

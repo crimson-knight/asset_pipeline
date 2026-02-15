@@ -11,7 +11,7 @@ module Components
       
       # Register a component for cache warming
       def register(component : Component) : Nil
-        @components << component if component.responds_to?(:warm_cache)
+        @components << component
       end
       
       # Register multiple components
