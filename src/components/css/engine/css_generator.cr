@@ -100,6 +100,38 @@ module Components
               # Print
             when "print"
               rule.with_media("print")
+              # Contrast preference (WCAG 1.4.3)
+            when "contrast-more"
+              rule.with_media("(prefers-contrast: more)")
+              # Forced colors (WCAG 1.4.1)
+            when "forced-colors"
+              rule.with_media("(forced-colors: active)")
+              # Pointer type (WCAG 2.5.8)
+            when "pointer-coarse"
+              rule.with_media("(pointer: coarse)")
+            when "pointer-fine"
+              rule.with_media("(pointer: fine)")
+              # Container query modifiers
+            when .starts_with?("@")
+              container_bp = modifier.lchop("@")
+              if bp = @config.containers[container_bp]?
+                rule.with_container("(min-width: #{bp})")
+              end
+
+              # Form state pseudo classes
+            when "required"
+              rule.with_pseudo("required")
+            when "checked"
+              rule.with_pseudo("checked")
+            when "indeterminate"
+              rule.with_pseudo("indeterminate")
+            when "read-only"
+              rule.with_pseudo("read-only")
+            when "placeholder-shown"
+              rule.with_pseudo("placeholder-shown")
+              # Details/dialog open state
+            when "open"
+              rule.with_pseudo("open")
               # ARIA state variants (WCAG 1.3.1)
             when "aria-expanded"
               rule.with_attribute("aria-expanded", "true")
@@ -109,6 +141,15 @@ module Components
               rule.with_attribute("aria-checked", "true")
             when "aria-disabled"
               rule.with_attribute("aria-disabled", "true")
+            when "aria-hidden"
+              rule.with_attribute("aria-hidden", "true")
+            when "aria-pressed"
+              rule.with_attribute("aria-pressed", "true")
+            when "aria-busy"
+              rule.with_attribute("aria-busy", "true")
+              # Inert (WCAG 2.1.2)
+            when "inert"
+              rule.with_complex_pseudo(":is([inert], [inert] *)")
             end
           end
 

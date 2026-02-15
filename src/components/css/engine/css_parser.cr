@@ -231,6 +231,89 @@ module Components
             if value = config.spacing[$1]?
               {"min-height" => value}
             end
+            # Logical property utilities (ms/me = margin-inline, ps/pe = padding-inline)
+          when /^ms-(.+)$/
+            if value = config.spacing[$1]?
+              {"margin-inline-start" => value}
+            end
+          when /^me-(.+)$/
+            if value = config.spacing[$1]?
+              {"margin-inline-end" => value}
+            end
+          when /^ps-(.+)$/
+            if value = config.spacing[$1]?
+              {"padding-inline-start" => value}
+            end
+          when /^pe-(.+)$/
+            if value = config.spacing[$1]?
+              {"padding-inline-end" => value}
+            end
+            # Container query utility
+          when "container"
+            {"container-type" => "inline-size"}
+            # Scroll padding/margin (WCAG 2.4.11 Focus Not Obscured)
+          when /^scroll-p-(.+)$/
+            if value = config.spacing[$1]?
+              {"scroll-padding" => value}
+            end
+          when /^scroll-pt-(.+)$/
+            if value = config.spacing[$1]?
+              {"scroll-padding-top" => value}
+            end
+          when /^scroll-pb-(.+)$/
+            if value = config.spacing[$1]?
+              {"scroll-padding-bottom" => value}
+            end
+          when /^scroll-m-(.+)$/
+            if value = config.spacing[$1]?
+              {"scroll-margin" => value}
+            end
+          when /^scroll-mt-(.+)$/
+            if value = config.spacing[$1]?
+              {"scroll-margin-top" => value}
+            end
+          when /^scroll-mb-(.+)$/
+            if value = config.spacing[$1]?
+              {"scroll-margin-bottom" => value}
+            end
+            # Touch action (WCAG 2.5.2)
+          when "touch-auto"
+            {"touch-action" => "auto"}
+          when "touch-none"
+            {"touch-action" => "none"}
+          when "touch-manipulation"
+            {"touch-action" => "manipulation"}
+            # User select (WCAG 3.3.8)
+          when "select-all"
+            {"user-select" => "all"}
+          when "select-text"
+            {"user-select" => "text"}
+          when "select-none"
+            {"user-select" => "none"}
+          when "select-auto"
+            {"user-select" => "auto"}
+            # Appearance
+          when "appearance-none"
+            {"appearance" => "none"}
+          when "appearance-auto"
+            {"appearance" => "auto"}
+            # Forced color adjust
+          when "forced-color-adjust-auto"
+            {"forced-color-adjust" => "auto"}
+          when "forced-color-adjust-none"
+            {"forced-color-adjust" => "none"}
+            # Accent color
+          when "accent-auto"
+            {"accent-color" => "auto"}
+          when /^accent-(.+)$/
+            if color = config.get_color($1)
+              {"accent-color" => color}
+            end
+            # Caret color
+          when /^caret-(.+)$/
+            if color = config.get_color($1)
+              {"caret-color" => color}
+            end
           else
             nil
           end

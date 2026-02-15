@@ -38,6 +38,9 @@ module Components
       # Opacity scale
       property opacity : Hash(String, String)
 
+      # Container query breakpoints
+      property containers : Hash(String, String)
+
       # Custom extensions
       property extend : Hash(String, Hash(String, String))
 
@@ -54,6 +57,7 @@ module Components
         @transitions = default_transitions
         @z_index = default_z_index
         @opacity = default_opacity
+        @containers = default_containers
         @extend = {} of String => Hash(String, String)
       end
 
@@ -313,6 +317,17 @@ module Components
         }
       end
 
+      # Default container query breakpoints
+      private def default_containers
+        {
+          "sm"  => "640px",
+          "md"  => "768px",
+          "lg"  => "1024px",
+          "xl"  => "1280px",
+          "2xl" => "1536px",
+        }
+      end
+
       # Get a color value (handles nested hashes)
       def get_color(name : String) : String?
         parts = name.split("-")
@@ -429,6 +444,7 @@ module Components
         result.transitions = @transitions.merge(other.transitions)
         result.z_index = @z_index.merge(other.z_index)
         result.opacity = @opacity.merge(other.opacity)
+        result.containers = @containers.merge(other.containers)
         result.extend = @extend.merge(other.extend)
 
         result
