@@ -70,9 +70,28 @@ module Components
             # Pseudo classes
             when "hover", "focus", "active", "disabled", "visited"
               rule.with_pseudo(modifier)
+              # Focus pseudo variants (WCAG 2.4.7)
+            when "focus-visible"
+              rule.with_pseudo("focus-visible")
+            when "focus-within"
+              rule.with_pseudo("focus-within")
+              # Form validation pseudo classes (WCAG 1.3.1, 3.3.1)
+            when "invalid"
+              rule.with_pseudo("invalid")
+            when "valid"
+              rule.with_pseudo("valid")
+            when "user-invalid"
+              rule.with_pseudo("user-invalid")
+            when "user-valid"
+              rule.with_pseudo("user-valid")
               # Dark mode
             when "dark"
               rule.with_media("(prefers-color-scheme: dark)")
+              # Motion preferences (WCAG 2.2.2, 2.3.1)
+            when "motion-safe"
+              rule.with_media("(prefers-reduced-motion: no-preference)")
+            when "motion-reduce"
+              rule.with_media("(prefers-reduced-motion: reduce)")
               # Responsive breakpoints
             when "sm", "md", "lg", "xl", "2xl"
               if breakpoint = @config.screens[modifier]?
@@ -81,6 +100,15 @@ module Components
               # Print
             when "print"
               rule.with_media("print")
+              # ARIA state variants (WCAG 1.3.1)
+            when "aria-expanded"
+              rule.with_attribute("aria-expanded", "true")
+            when "aria-selected"
+              rule.with_attribute("aria-selected", "true")
+            when "aria-checked"
+              rule.with_attribute("aria-checked", "true")
+            when "aria-disabled"
+              rule.with_attribute("aria-disabled", "true")
             end
           end
 
