@@ -7,3 +7,16 @@
 # Libraries don't need dependency lock
 # Dependencies will be locked in applications that use them
 /shard.lock
+.claude/settings.local.json
+
+# macOS metadata
+.DS_Store
+
+# Build artifacts
+src/ui/native/*.o
+samples/cross_platform/ios_host/build/
+samples/cross_platform/macos_host/bin/
+samples/cross_platform/macos_host/*.o
+
+# HIG validation history — grows unbounded, regenerates from code
+.claude/skills/apple-platform-guide/validation/history/

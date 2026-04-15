@@ -53,6 +53,12 @@ The asset_pipeline extends beyond web with a cross-platform native UI component 
 
 **Core model:** App code builds a tree of `UI::View` objects. A compile-time-selected `PlatformRenderer` (a `PlatformVisitor` subclass) walks the tree and produces native UI. The web renderer delegates to `Components::Elements`; native renderers call through ObjC or JNI bridges.
 
+### Design philosophy: beauty-by-default, overridable for brand
+
+A `UI::View` must produce the most beautiful Apple-native render possible with zero configuration on iOS / iPadOS / macOS — Liquid Glass materials, system typography, semantic colors, correct hit targets, destructive/cancel role wiring, SF Symbols, and section chrome. This is the library's North Star: a developer who writes `UI::Sheet.new([...])` gets a HIG-authentic Apple sheet by default, in both light and dark appearance. When they want to impose their brand voice, they override explicit knobs on the view or theme — and every component usage doc must document both the default and the override paths.
+
+Validation work enforces this standard: see `.claude/agents/apple-platform-designer/agent.md` for the per-iteration playbook. Every surface component is validated in four captures (macOS light + dark, iOS light + dark) against the HIG reference illustration, and every component usage doc must include both a "Light / dark appearance notes" section and a "Customization / brand override" section before it counts as shipped.
+
 ### Key Architecture Decisions
 
 - Native components only — no custom drawing engine (unlike Flutter)
@@ -61,7 +67,25 @@ The asset_pipeline extends beyond web with a cross-platform native UI component 
 - `NativeHandle` with explicit `ReleaseStrategy` for memory management
 - `CallbackRegistry` prevents Crystal Proc GC while native code holds function pointers
 
-### Current View Types (9)
+### Current View Types (59)
+
+**Core (9):** `Label`, `Button`, `VStack`, `HStack`, `ZStack`, `Image`, `TextField`, `ScrollView`, `Spacer`
+
+**Controls / Selection (P1):** `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `Stepper`, `SegmentedControl`, `Picker`, `DatePicker`, `TimePicker`, `ColorPicker`, `SecureField`, `SearchField`, `TextArea`, `TextEditor`
+
+**Navigation / Surfaces (P1):** `NavigationStack`, `NavigationLink`, `NavigationSplitView`, `TabView`, `Toolbar`, `Sheet`, `Popover`, `Alert`, `ConfirmationDialog`, `Snackbar`, `Card`, `Surface`, `Divider`, `Form`, `Grid`
+
+**Feedback (P1):** `ProgressView`, `ActivityIndicator`
+
+**Buttons (P1):** `IconButton`, `LinkButton`, `MenuButton`, `ToggleButton`
+
+**Rich / Media (P2):** `RichText`, `AsyncImage`, `VideoPlayer`, `MapView`, `WebViewComponent`, `ChartView`, `Tooltip`
+
+**Shapes / Drawing (P2):** `Circle`, `Rectangle`, `RoundedRectangle`, `Capsule`, `Canvas`, `PathView`
+
+**Apple glass (P1):** `GlassBackground` — maps to `NSVisualEffectView` / `UIVisualEffectView + UIBlurEffect`.
+
+Source files in `src/ui/views/`. Canonical core mapping:
 
 | UI::View | Web | macOS (AppKit) | iOS (UIKit) | Android |
 |----------|-----|----------------|-------------|---------|
@@ -74,6 +98,9 @@ The asset_pipeline extends beyond web with a cross-platform native UI component 
 | `TextField` | `<input>` | NSTextField | UITextField | EditText |
 | `ScrollView` | overflow:auto | NSScrollView | UIScrollView | ScrollView |
 | `Spacer` | flex:1 | gravity space | UILayoutGuide | Space weight=1 |
+| `GlassBackground` | (backdrop-filter) | NSVisualEffectView | UIVisualEffectView | elevation fallback |
+
+For the full cross-platform mapping (SwiftUI / UIKit / AppKit / Compose / Android View / HTML) see the `component-mapping-matrix` skill.
 
 ## Quick Reference
 
@@ -83,7 +110,7 @@ The asset_pipeline extends beyond web with a cross-platform native UI component 
 | CSS styling, ClassBuilder, design tokens | `css-styling` |
 | JavaScript, Stimulus, reactive components | `javascript` |
 | WCAG 2.2 AA accessibility | `accessibility` |
-| Cross-platform UI overview and 9 core views | `cross-platform-components` |
+| Cross-platform UI overview (59 UI::View types) | `cross-platform-components` |
 | Full API reference for UI::View types | `component-api` |
 | Platform renderer implementations | `platform-renderers` |
 | Apple glass/translucency effects | `glass-effects` |
@@ -92,6 +119,38 @@ The asset_pipeline extends beyond web with a cross-platform native UI component 
 | Cross-platform component mapping matrix | `component-mapping-matrix` |
 | Flutter architecture lessons and patterns | `flutter-architecture-lessons` |
 | Graphics/3D rendering API survey (stub) | `graphics-rendering` |
+| Native UI testing with AXUIElement | `ax-test` |
+| Apple HIG corpus (166 pages, offline, searchable) | `apple-hig` |
+| **Apple platform developer guide (HIG-backed usage docs)** | **`apple-platform-guide`** |
+
+> **Compiler:** Use `crystal-alpha` (NOT `crystal`) for all builds. Match `happy_coach`'s proven toolchain — see `~/personal_coding_projects/happy_coach/Makefile` and `mobile/ios/build_crystal_lib.sh` for the canonical patterns.
+
+## Native App Development Workflow
+
+When building or modifying a native macOS/iOS app with Asset Pipeline UI, follow this cycle:
+
+### 1. Build Views
+Use the `build-ui` and `component-api` skills to create views with `UI::VStack`, `UI::Button`, etc.
+**Every interactive element MUST have `accessibility_label` set.**
+
+### 2. Compile & Bundle
+Build with `-Dmacos` flag. For distribution: `make bundle` → sign → install.
+
+### 3. Test with AXTest (REQUIRED before shipping)
+Use the `ax-test` skill. Write specs in `spec/ui/` that:
+- Launch the installed .app
+- Open each window (settings, wizard, about)
+- Verify all accessibility-labeled elements exist
+- Take screenshots for visual review
+- Run with: `crystal-alpha spec spec/ui/ -Dmacos --link-flags="-framework ApplicationServices -framework CoreFoundation"`
+
+**Do NOT ship a build without running UI tests.** The AXTest library queries the real accessibility tree of the running app — if elements are missing or windows don't render, the tests fail.
+
+### 4. Verify Accessibility
+Use the `accessibility` skill for WCAG 2.2 AA compliance. Use `ax-test` to verify VoiceOver can discover all interactive elements.
+
+### 5. Platform Polish
+Use `glass-effects` for macOS Liquid Glass, `platform-renderers` for renderer-specific behavior.
 
 ## Using in a Project (Shard Dependency)
 
@@ -138,10 +197,31 @@ native_view = renderer.render(main_view)
 # native_view is a UI::NativeView wrapping an NSStackView
 ```
 
+## UI Testing (AXTest)
+
+For native macOS apps, use the built-in AXTest library to verify UI rendering:
+
+```crystal
+require "asset_pipeline/ui/ax_test"
+
+app = UI::AXTest::App.launch("/Applications/MyApp.app")
+prefs = app.window("Preferences")
+prefs.not_nil!.find(label: "Save").should_not be_nil
+app.screenshot("/tmp/test.png")
+app.terminate
+```
+
+**Link flags:** `-framework ApplicationServices -framework CoreFoundation`
+**Prerequisite:** Terminal needs Accessibility permission in System Settings.
+**Convention:** UI tests go in `spec/ui/`, run with `make test-ui`.
+
+See the `ax-test` skill for the full API reference.
+
 ## Build & Test
 
 ```bash
-crystal spec                    # Run tests
+crystal spec                    # Run unit tests
+crystal spec spec/ui/ -Dmacos   # Run UI tests (requires Accessibility permission)
 crystal tool format --check     # Check formatting
 crystal run src/generators/brand_kit.cr  # Generate style guide
 ```
