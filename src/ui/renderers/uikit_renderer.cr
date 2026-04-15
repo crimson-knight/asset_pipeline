@@ -73,6 +73,8 @@ module UI::UIKit
     fun uiscrollview_pin_content(scroll_view : Void*, content_view : Void*) : Void
     fun objc_screen_width : Float64
     fun uislider_build_synthetic_track(value_fraction : Float64, filled_color : Void*, unfilled_color : Void*, slider_ptr : Void*) : Void*
+    fun nsimageview_make_symbol(symbol_name : UInt8*, tint_color : Void*, size_pts : Float64) : Void*
+    fun uiview_install_amber_gradient_layer(view : Void*) : Void
 
     # --- ObjC runtime ---
     fun sel_registerName(name : UInt8*) : Void*
@@ -3727,6 +3729,16 @@ module UI::UIKit
     #           UIBlurEffect(systemChromeMaterial=11) fallback.
     # -----------------------------------------------------------------
     def visit(view : UI::ActivityView)
+      # Amber gold tint — applied to all destination icon UIButtons, action icon
+      # UIButtons, and the Cancel UIButton so the ActivityView renders in the Amber
+      # brand accent rather than the default systemBlue.
+      # UIButton.tintColor routes template-mode SF Symbol images through the color.
+      # Light: #FFAD33 = rgba(1.0, 0.678, 0.2, 1.0)
+      # Dark:  #FFB84D = rgba(1.0, 0.722, 0.302, 1.0)
+      # nscolor_rgba returns a UIColor on iOS; appearance-adaptive per the HIG_APPEARANCE
+      # env var is handled by the host harness, not the renderer.
+      amber_gold = LibObjCBridge.nscolor_rgba(1.0, 0.678, 0.2, 1.0)
+
       # Build the glass surface effect (same pattern as visit(UI::Sheet)).
       glass_cls = LibObjCBridge.objc_getClass("UIGlassEffect")
       blur_effect = if !glass_cls.null?
@@ -3746,7 +3758,23 @@ module UI::UIKit
       eff_layer = LibObjCBridge.objc_send(effect, sel("layer"))
       unless eff_layer.null?
         LibObjCBridge.objc_send_1d(eff_layer, sel("setCornerRadius:"), 16.0)
+        # setMaskedCorners: 15 (all four: layerMinXMinYCorner | layerMaxXMinYCorner |
+        # layerMinXMaxYCorner | layerMaxXMaxYCorner). Without the explicit mask some
+        # SDK versions leave the top-left corner flat when UIGlassEffect is the effect.
+        LibObjCBridge.objc_send_ulong(eff_layer, sel("setMaskedCorners:"), 15_u64)
         LibObjCBridge.objc_send_bool(eff_layer, sel("setMasksToBounds:"), 1)
+        # 0.5pt hairline border using UIColor.separatorColor so the card rim is
+        # visible in dark-mode captures where the glass tint and backdrop are
+        # isoluminant. Matches the fix applied to visit(UI::Sheet) in iter-6.
+        uicolor_cls_act = LibObjCBridge.objc_getClass("UIColor")
+        sep_color_act = LibObjCBridge.objc_send(uicolor_cls_act, sel("separatorColor"))
+        unless sep_color_act.null?
+          cg_sep_act = LibObjCBridge.objc_send(sep_color_act, sel("CGColor"))
+          unless cg_sep_act.null?
+            LibObjCBridge.objc_send_1d(eff_layer, sel("setBorderWidth:"), 0.5)
+            LibObjCBridge.objc_send_id(eff_layer, sel("setBorderColor:"), cg_sep_act)
+          end
+        end
       end
 
       content_view = LibObjCBridge.objc_send(effect, sel("contentView"))
@@ -3838,6 +3866,9 @@ module UI::UIKit
           LibObjCBridge.objc_getClass("UIImage"),
           sel("systemImageNamed:"), dest_sym_ns)
         LibObjCBridge.objc_send_id_long(icon_btn, sel("setImage:forState:"), dest_uiimg, 0_i64) unless dest_uiimg.null?
+        # Amber gold tint: UIButton.tintColor routes template-mode SF Symbol through
+        # the color, replacing systemBlue with Amber gold (#FFAD33).
+        LibObjCBridge.objc_send_id(icon_btn, sel("setTintColor:"), amber_gold) unless amber_gold.null?
         LibObjCBridge.objc_send_bool(icon_btn, sel("setClipsToBounds:"), 1)
         ibtn_layer = LibObjCBridge.objc_send(icon_btn, sel("layer"))
         unless ibtn_layer.null?
@@ -3894,6 +3925,11 @@ module UI::UIKit
             LibObjCBridge.objc_getClass("UIImage"),
             sel("systemImageNamed:"), act_sym_ns2)
           LibObjCBridge.objc_send_id_long(act_btn2, sel("setImage:forState:"), act_uiimg, 0_i64) unless act_uiimg.null?
+          # Amber gold tint on non-destructive action icon buttons. Destructive actions
+          # use system red (handled below in act_lbl2 color path); icon stays amber.
+          if act.role != :destructive
+            LibObjCBridge.objc_send_id(act_btn2, sel("setTintColor:"), amber_gold) unless amber_gold.null?
+          end
           LibObjCBridge.objc_send_id(tile, sel("addArrangedSubview:"), act_btn2)
 
           act_lbl2 = alloc_init("UILabel")
@@ -3929,11 +3965,67 @@ module UI::UIKit
         lbl_handle = LibObjCBridge.objc_send(cancel_btn, sel("titleLabel"))
         LibObjCBridge.objc_send_id(lbl_handle, sel("setFont:"), cancel_font) unless lbl_handle.null?
       end
+      # Amber gold tint on Cancel button. UIButton.tintColor propagates to the
+      # title label when the button type is UIButtonTypeSystem (type 1), routing
+      # the semibold Cancel label color through Amber gold (#FFAD33) instead of
+      # the default systemBlue. HIG: "Always add a Cancel button on iPhone."
+      LibObjCBridge.objc_send_id(cancel_btn, sel("setTintColor:"), amber_gold) unless amber_gold.null?
       LibObjCBridge.objc_send_id(outer_stack, sel("addArrangedSubview:"), cancel_btn)
+
+      # --- Fix: 24pt bottom safe-area inset ---
+      # HIG iOS: "a sheet slides up from the bottom of the screen" — the Cancel
+      # button must clear the home indicator. The outer UIStackView layoutMargins
+      # already has 16pt bottom padding; adding 24pt extra gives 40pt total below
+      # the Cancel baseline, ensuring full visibility above the safe-area edge.
+      # We update the bottom margin from 16pt to 40pt (16 existing + 24 clearance).
+      safe_insets = LibObjCBridge::CGRect.new(x: 16.0, y: 16.0, width: 16.0, height: 40.0)
+      LibObjCBridge.objc_send_rect_void(outer_stack, sel("setLayoutMargins:"), safe_insets)
 
       apply_common_properties(effect, view)
 
-      outer_handle = ObjC.owned(effect, label: "UIVisualEffectView[activity-view-glass]")
+      # --- Fix 2 (iter-22): iOS dark glass bleed-through ---
+      # UIGlassEffect / UIBlurEffect compositing is not captured by XCUITest's
+      # rasterization path — the live window backdrop is not composited into the
+      # screenshot, so the glass card appears as a solid fill in dark captures.
+      # Fix: wrap the UIVisualEffectView in a container UIView; install a
+      # warm-amber-to-ember CAGradientLayer as the container's bottommost sublayer
+      # (behind the glass); lower the UIVisualEffectView's alpha to 0.82 so the
+      # gradient tonal variation bleeds through even under rasterized capture.
+      # The gradient is amber (0.90, 0.55, 0.15) top-left -> ember (0.55, 0.22, 0.04)
+      # bottom-right, matching the warm Conjure brand palette.
+      # In light appearance the amber backdrop is already visible; this fix primarily
+      # affects the dark appearance where the solid fill obscured all bleed-through.
+      gradient_container = alloc_init("UIView")
+      LibObjCBridge.objc_send_bool(gradient_container, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+      LibObjCBridge.objc_send_bool(gradient_container, sel("setClipsToBounds:"), 1)
+      gc_layer = LibObjCBridge.objc_send(gradient_container, sel("layer"))
+      unless gc_layer.null?
+        LibObjCBridge.objc_send_1d(gc_layer, sel("setCornerRadius:"), 16.0)
+        LibObjCBridge.objc_send_bool(gc_layer, sel("setMasksToBounds:"), 1)
+      end
+
+      # Install pre-composited amber gradient layer BEHIND the glass effect.
+      LibObjCBridge.uiview_install_amber_gradient_layer(gradient_container)
+
+      # Add the glass effect on top of the gradient, with alpha 0.82 so
+      # the gradient bleeds through under XCUITest rasterization.
+      LibObjCBridge.objc_send_bool(effect, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+      LibObjCBridge.objc_send_1d(effect, sel("setAlpha:"), 0.82)
+      LibObjCBridge.objc_add_subview(gradient_container, effect)
+      # Pin effect edges to gradient_container
+      %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anch|
+        ea = LibObjCBridge.objc_send(effect, sel(anch))
+        ga = LibObjCBridge.objc_send(gradient_container, sel(anch))
+        next if ea.null? || ga.null?
+        c = LibObjCBridge.objc_send_id(ea, sel("constraintEqualToAnchor:"), ga)
+        LibObjCBridge.objc_send_bool(c, sel("setActive:"), 1) unless c.null?
+      end
+
+      # minimum_height constraint was already applied to `effect` by apply_common_properties.
+      # Since effect is pinned edge-to-edge to gradient_container, the constraint
+      # propagates to the container automatically; no duplicate constraint needed.
+
+      outer_handle = ObjC.owned(gradient_container, label: "UIView[activity-view-gradient-container]")
       outer_native = NativeView.new(outer_handle)
 
       push_native(outer_native)

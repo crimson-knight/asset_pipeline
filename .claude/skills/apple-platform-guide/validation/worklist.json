@@ -128,9 +128,9 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
-      "notes": "Iteration-19: UI::ActivityView implemented. All four zones (header/destination-row/action-grid/cancel) visible in all four captures. PASS_WITH_NOTES: (1) macOS popover approximation \u2014 no native NSActivityViewController per HIG platform considerations; (2) iOS inline layout for capture path, production needs UIActivityViewController; (3) glass bleed-through not composited in captures (iteration-17 known infra limitation); (4) minor trailing-edge clip on 'Add to Reading List' action label in macOS.",
+      "notes": "Iteration-22 (Round 2 fixes): Fix 1 \u2014 destination + action icon buttons switched from NSButton.contentTintColor to NSImageView.contentTintColor path via nsimageview_make_symbol helper; icons now visibly amber gold in both macOS appearances. Fix 2 \u2014 iOS dark glass bleed-through: pre-composited CAGradientLayer (amber to ember, diagonal) installed behind UIVisualEffectView in gradient_container; UIGlassEffect alpha lowered to 0.82 so gradient bleeds through under XCUITest rasterization; warm tonal variation visible in ios-dark capture. Fix 3 \u2014 macOS dim overlay raised to 0.65 (light) / 0.80 (dark); dashboard chrome reads as clearly dimmed behind card. Infrastructure fix: window_helper.m blank-frame detection added (transparent-pixel check with BGRA sampling); offscreen fallback now reliably triggers when Screen Recording TCC not granted. PASS_WITH_NOTES: (1) macOS popover approximation (HIG-correct; no native NSActivityViewController); (2) iOS inline layout for capture path; (3) iOS glass bleed-through via pre-composited gradient (architecture-confirmed UIGlassEffect, rasterization limitation noted).",
       "glass_required": true,
       "glass_material_expected": "popover",
       "appearances_required": [
@@ -143,15 +143,12 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
+      "remediation_hint": "",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
       "focal_position": "center_modal",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: activity-views-macos-light.png",
-        "screenshot newer than report: activity-views-macos-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "airplay",

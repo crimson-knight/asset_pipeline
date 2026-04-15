@@ -496,6 +496,75 @@ int objc_capture_window_to_png(void *pair_ptr, const char *output_path) {
         return 0;
     }
 
+    // White-frame detector: CGWindowListCreateImage can return a valid-dimension
+    // all-white image when the capture window has not yet been composited by the
+    // window server (window off-screen, level too low, or compositor not settled).
+    // This is distinct from TCC-denied (which returns 1x1). Detect only the true
+    // blank-frame case by downsampling the ENTIRE image and requiring every sampled
+    // pixel to be near-white. A center-only detector false-positives on valid light
+    // Liquid Glass captures because the middle of a sheet can legitimately be white.
+    //
+    // Trigger condition: ALL sampled pixels have R >= 250, G >= 250, B >= 250
+    // (pure white or near-white) AND A >= 10 (opaque -- rules out transparency).
+    // This catches the CGWindowListCreateImage-returns-white-compositor-not-ready
+    // case without false-positiving on amber-backdrop glass cards (which have
+    // amber gradient pixels somewhere in the full-frame downsample).
+    //
+    // On trigger: return 0 so the caller can fall back to the offscreen path.
+    // The transparent-alpha check from the old detector is intentionally omitted:
+    // TCC-denied returns 1x1 (caught above), not a transparent 2400x1800 image.
+    {
+        int white_frame = 1;  // assume white until proven otherwise
+        CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+        size_t sample_w = 96, sample_h = 96;
+        size_t bytes_per_row = sample_w * 4;
+        uint8_t *buf = (uint8_t *)calloc(sample_h * bytes_per_row, 1);
+        if (buf && cs) {
+            CGContextRef ctx = CGBitmapContextCreate(
+                buf, sample_w, sample_h, 8, bytes_per_row, cs,
+                kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
+            if (ctx) {
+                CGContextDrawImage(ctx, CGRectMake(0, 0, sample_w, sample_h), img);
+                CGContextRelease(ctx);
+                // BGRA layout: byte0=B, byte1=G, byte2=R, byte3=A
+                // White frame: all pixels R>=250, G>=250, B>=250, A>=10.
+                // Any pixel with at least one channel < 250 proves real content.
+                int has_non_white = 0;
+                for (size_t i = 0; i < sample_w * sample_h; i++) {
+                    uint8_t b_px = buf[i * 4 + 0];
+                    uint8_t g_px = buf[i * 4 + 1];
+                    uint8_t r_px = buf[i * 4 + 2];
+                    uint8_t a_px = buf[i * 4 + 3];
+                    if (a_px >= 10 && (r_px < 250 || g_px < 250 || b_px < 250)) {
+                        has_non_white = 1;
+                        break;
+                    }
+                }
+                white_frame = has_non_white ? 0 : 1;
+                if (white_frame) {
+                    fprintf(stdout, "CAPTURE_INFO -- full-frame 96x96 downsample is all-white "
+                            "(compositor not settled); falling back to offscreen path\n");
+                    fflush(stdout);
+                }
+            } else {
+                white_frame = 0;  // ctx alloc failed; assume not blank
+            }
+            free(buf);
+        } else {
+            white_frame = 0;  // alloc failed; assume not blank
+        }
+        if (cs) CGColorSpaceRelease(cs);
+
+        if (white_frame) {
+            fprintf(stdout, "CAPTURE_FAIL windowID=%u -- white frame detected "
+                    "(dimensions %zux%zu; window compositor not settled; "
+                    "returning 0 for offscreen fallback)\n", win_id, img_w, img_h);
+            fflush(stdout);
+            CGImageRelease(img);
+            return 0;
+        }
+    }
+
     // Write PNG via ImageIO.
     CFStringRef path_cf = CFStringCreateWithCString(NULL, output_path, kCFStringEncodingUTF8);
     CFURLRef url = CFURLCreateWithFileSystemPath(NULL, path_cf, kCFURLPOSIXPathStyle, false);

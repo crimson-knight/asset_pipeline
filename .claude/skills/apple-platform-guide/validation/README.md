@@ -9,7 +9,7 @@ that cites concrete visual attributes in both appearances.
 
 ## Acceptance bar (beauty-by-default)
 
-A slug reaches `PASS` only when all four conditions hold:
+A slug reaches `PASS` only when all five conditions hold:
 
 1. **Four fresh screenshots.** `<slug>-macos-light.png`, `<slug>-macos-dark.png`,
    `<slug>-ios-light.png`, `<slug>-ios-dark.png` — each captured in the current
@@ -25,9 +25,16 @@ A slug reaches `PASS` only when all four conditions hold:
    must include a "Light / dark appearance notes" section and a
    "Customization / brand override" section. Missing either means
    `docs_written: false`.
+5. **Evidence chain is current.** `audit_evidence.py` must pass for the slug:
+   the report links all four appearance-specific screenshots, no screenshot is
+   newer than the report that evaluates it, and the evidence manifest records
+   SHA256 hashes, mtimes, byte sizes, and pixel dimensions for the current PNGs.
 
 `PASS_WITH_NOTES` is reserved for at most one minor, documented, non-
-legibility-impairing deviation. Do not use it as a dumping ground.
+legibility-impairing deviation. Do not use it as a dumping ground. Stale
+screenshots, missing captures, clipped primary content, debug labels, visible
+letterboxing, and absent Liquid Glass on a glass-required surface are not notes;
+they are `INSUFFICIENT_EVIDENCE` or `NEEDS_WORK`.
 
 See `.claude/agents/apple-platform-designer/agent.md` for the full
 per-iteration playbook and the strict report / component-doc templates.
@@ -38,12 +45,33 @@ per-iteration playbook and the strict report / component-doc templates.
 validation/
   worklist.json       Ralph-loop state machine (one row per HIG component page)
   screenshots/        <slug>-{macos,ios}-{light,dark}.png per validated slug
+  evidence/           <slug>.json screenshot/report hashes and freshness checks
   reports/            <slug>.md — HIG ref + 4 screenshots + verdict + citations
   gaps.md             Slugs the loop could not validate, queued for human review
   progress.log.md     Iteration-by-iteration ledger
   index.html          Generated dashboard (python3 /tmp/build_hig_index.py)
   README.md           This file
 ```
+
+## Evidence audit
+
+Run the audit before asking design-critic to review a slug and again after
+writing the report:
+
+```bash
+python3 .claude/skills/apple-platform-guide/validation/audit_evidence.py \
+  --slug <slug> --write-manifest
+```
+
+Run the whole dashboard audit:
+
+```bash
+python3 .claude/skills/apple-platform-guide/validation/audit_evidence.py
+```
+
+The script exits nonzero when any pass/pass_with_notes component row is invalid.
+Use `--requeue-invalid` only when intentionally resetting those rows to
+`pending`; it writes `worklist.json`.
 
 ## How to read a report
 
@@ -81,6 +109,9 @@ verdict_per_appearance:
 ![iOS dark](../screenshots/<slug>-ios-dark.png)
 
 ## Verdict: PASS_WITH_NOTES
+
+### Evidence manifest
+- Manifest path, screenshot hashes, and freshness result
 
 ### Liquid Glass check
 - Required for this slug: yes (HIG Presentation / overlay)

@@ -14,14 +14,15 @@ require "../views/glass_background"
 
 module UI
   module ValidationScenes
-    # DashboardScene -- the Amber "focus dashboard" view.
+    # DashboardScene -- legacy Amber app-context validation scene.
     #
     # Plain Crystal class (NOT a UI::View subclass). Call `.build` to get a
     # UI::View tree that the renderer can walk.
     #
-    # Renders realistic Amber app chrome around a focal component so
-    # validation captures show the component IN-CONTEXT rather than
-    # floating in a void.
+    # Use this only when the selected preview stage needs app structure. Most
+    # component validation should prefer the isolation/relationship contract in
+    # .claude/skills/apple-platform-guide/foundations/preview-composition.md so
+    # the focal component stays visually dominant.
     #
     # Layout (macOS: 3-column; iOS: single-column main area only):
     #   - Top bar: Amber wordmark (left), search field stub (center),

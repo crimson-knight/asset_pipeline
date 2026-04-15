@@ -74,7 +74,12 @@ final class HIGVisualTests: XCTestCase {
         //   the full iPhone viewport including the home-indicator region is
         //   captured and the Cancel capsule is fully visible.
         let window = app.windows.firstMatch
-        let useFullScreen = (slug == "action-sheets")
+        // Use XCUIScreen.main.screenshot() for presentation-style components
+        // (action-sheets, activity-views) that extend to the bottom safe-area
+        // edge or below. window.screenshot() crops the bottom of the glass card
+        // and the Cancel button region for these components. Full-screen capture
+        // includes the home-indicator region and eliminates bottom crop.
+        let useFullScreen = (slug == "action-sheets" || slug == "activity-views")
         let screenshot = useFullScreen
             ? XCUIScreen.main.screenshot()
             : (window.exists ? window.screenshot() : XCUIScreen.main.screenshot())

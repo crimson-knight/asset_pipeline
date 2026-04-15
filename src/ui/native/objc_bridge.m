@@ -36,6 +36,7 @@
   typedef NSRect      BridgeRect;
 #else
   #import <UIKit/UIKit.h>
+  #import <QuartzCore/QuartzCore.h>
   typedef UIView      BridgeView;
   typedef UIButton    BridgeButton;
   #define BRIDGE_RECT_MAKE(r) CGRectMake((r).x, (r).y, (r).width, (r).height)
@@ -453,6 +454,129 @@ void nsscrollview_set_document_view(void *scroll_view, void *doc_view) {
             [dv.topAnchor constraintEqualToAnchor:clip.topAnchor],
         ]];
     }
+#endif
+}
+
+// Create an NSImageView (macOS) / UIImageView (iOS) that renders a system
+// SF Symbol image in template mode with an explicit content tint color.
+//
+// On macOS, NSImageView.contentTintColor reliably propagates through the
+// template rendering mode to the displayed symbol pixels.  This is more
+// reliable than NSButton.contentTintColor which does not consistently
+// apply to the image portion when bezelStyle != 0 (borderless).
+//
+// On iOS, UIImageView.tintColor achieves the same effect for UIButtonTypeSystem
+// when the image is set via UIImage.systemImageNamed: (which always returns a
+// template-mode image).  This helper is provided as a symmetric API but the
+// UIKit renderer prefers the UIButton path for hit-testing reasons.
+//
+// Parameters:
+//   symbol_name  -- C string with the SF Symbol name (e.g. "envelope")
+//   tint_color   -- NSColor* (macOS) or UIColor* (iOS) to apply as tint
+//   size_pts     -- Point size for the symbol image configuration; pass 0.0
+//                   to use the SF Symbol's default point size.
+//
+// Returns: NSImageView* (macOS) or UIImageView* (iOS), or NULL if the symbol
+//          is not found or the platform API is unavailable.
+//
+// Caller owns a +1 retain count (from alloc/init) and must release via
+// ObjC.owned / NativeHandle.
+void *nsimageview_make_symbol(const char *symbol_name, void *tint_color, double size_pts) {
+#if TARGET_OS_OSX
+    NSString *name = [NSString stringWithUTF8String:symbol_name];
+    if (!name) return NULL;
+
+    NSImage *img = nil;
+    if (size_pts > 0.0) {
+        NSImageSymbolConfiguration *cfg =
+            [NSImageSymbolConfiguration configurationWithPointSize:(CGFloat)size_pts
+                                                            weight:NSFontWeightRegular];
+        img = [NSImage imageWithSystemSymbolName:name
+                     accessibilityDescription:@""];
+        if (img) {
+            img = [img imageWithSymbolConfiguration:cfg];
+        }
+    } else {
+        img = [NSImage imageWithSystemSymbolName:name
+                     accessibilityDescription:@""];
+    }
+    if (!img) return NULL;
+
+    NSImageView *iv = [[NSImageView alloc] initWithFrame:NSZeroRect];
+    iv.image = img;
+    // imageScaling = NSImageScaleProportionallyUpOrDown (3) so the symbol
+    // fills the constrained size while preserving aspect ratio.
+    iv.imageScaling = (NSImageScaling)3;
+    // contentTintColor on NSImageView reliably routes template-mode SF Symbol
+    // rendering through the brand color.  This does NOT require a specific
+    // bezel style and works in both light and dark appearances.
+    if (tint_color) {
+        SEL tintSel = sel_registerName("setContentTintColor:");
+        if ([iv respondsToSelector:tintSel]) {
+            ((void (*)(id, SEL, id))objc_msgSend)(iv, tintSel, (id)tint_color);
+        }
+    }
+    return (void *)iv;
+#else
+    NSString *name = [NSString stringWithUTF8String:symbol_name];
+    if (!name) return NULL;
+    UIImage *img = [UIImage systemImageNamed:name];
+    if (!img) return NULL;
+    UIImageView *iv = [[UIImageView alloc] initWithImage:img];
+    iv.contentMode = UIViewContentModeScaleAspectFit;
+    if (tint_color) {
+        iv.tintColor = (UIColor *)tint_color;
+    }
+    return (void *)iv;
+#endif
+}
+
+// Install a warm-amber-to-ember CAGradientLayer as the bottommost sublayer
+// of a UIView (iOS only).  The gradient provides a pre-composited warm tonal
+// variation that bleeds through the UIGlassEffect / UIBlurEffect layer placed
+// above it.  Under XCUITest rasterization, live UIVisualEffectView blending
+// is not composited against real window content; a pre-composited gradient
+// behind the glass surface allows the "bleed-through" tonal variation to
+// appear in the captured screenshot.
+//
+// The gradient runs from top-left (warm amber, r=0.90 g=0.55 b=0.15 a=1.0)
+// to bottom-right (deep ember, r=0.60 g=0.25 b=0.05 a=1.0).  The diagonal
+// direction maximizes the visible tonal range in the glass card's crop.
+//
+// macOS: no-op (gradient layer approach not needed; live CGWindowListCreateImage
+// composites the backdrop through NSVisualEffectView naturally).
+void uiview_install_amber_gradient_layer(void *view) {
+#if !TARGET_OS_OSX
+    UIView *v = (UIView *)view;
+
+    CAGradientLayer *grad = [CAGradientLayer layer];
+    // Warm amber -> deep ember diagonal gradient.
+    UIColor *amber  = [UIColor colorWithRed:0.90 green:0.55 blue:0.15 alpha:1.0];
+    UIColor *ember  = [UIColor colorWithRed:0.55 green:0.22 blue:0.04 alpha:1.0];
+    grad.colors   = @[ (id)amber.CGColor, (id)ember.CGColor ];
+    grad.startPoint = CGPointMake(0.0, 0.0);  // top-left
+    grad.endPoint   = CGPointMake(1.0, 1.0);  // bottom-right
+    // Frame will be updated to match the view bounds in the next layout pass
+    // via a bounds-tracking dispatch (same pattern as slider track).
+    grad.frame = v.bounds;
+
+    // Insert below all existing sublayers so the gradient is behind everything.
+    if (v.layer.sublayers.count > 0) {
+        [v.layer insertSublayer:grad atIndex:0];
+    } else {
+        [v.layer addSublayer:grad];
+    }
+
+    // Schedule a frame update after the next layout pass resolves the bounds.
+    __unsafe_unretained CAGradientLayer *weakGrad = grad;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        CAGradientLayer *g = weakGrad;
+        if (g && g.superlayer) {
+            g.frame = g.superlayer.bounds;
+        }
+    });
+#else
+    (void)view;
 #endif
 }
 

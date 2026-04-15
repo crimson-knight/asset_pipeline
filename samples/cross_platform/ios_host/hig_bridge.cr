@@ -45,8 +45,9 @@ module CrystalHIGHost::Bridge
     when "sheets"        then "dashboard"
     when "alerts"        then "dashboard"
     when "popovers"      then "dashboard"
-    when "action-sheets" then "dashboard"
-    when "edit-menus"    then "document"
+    when "action-sheets"   then "dashboard"
+    when "activity-views"  then "dashboard"
+    when "edit-menus"      then "document"
     when "context-menus" then "document"
     when "dock-menus"    then "dock"
     else                      nil
@@ -74,6 +75,15 @@ module CrystalHIGHost::Bridge
         # HIG iOS: "On iPhone, action sheets always appear at the bottom of the screen."
         # Use :bottom_sheet focal position to place the glass at the bottom of a
         # compact single-column iOS backdrop (no sidebar, no 3-col chrome).
+        UI::ValidationScenes::DashboardScene.new(focal: focal, focal_position: :bottom_sheet).build
+      elsif slug == "activity-views"
+        # iOS activity view (share sheet): appears as a bottom-anchored modal per HIG.
+        # HIG: "An activity view can appear as a sheet or a popover, depending on the
+        # device and orientation." On iPhone it is always a sheet from the bottom.
+        # Use :bottom_sheet focal position — same compact single-column iOS backdrop
+        # as action-sheets — so the glass card is visible in the capture viewport.
+        # The 1200pt minimum_width of the 3-column :center_modal chrome overflows the
+        # iPhone display and pushes the focal off-screen.
         UI::ValidationScenes::DashboardScene.new(focal: focal, focal_position: :bottom_sheet).build
       else
         # All other dashboard slugs (alerts, popovers) use :center_modal.
@@ -174,7 +184,11 @@ module CrystalHIGHost::Bridge
               # and actions like Copy and Print, in addition to quick access to
               # frequently used apps." Rendered inline for capture path.
               # Production: dispatch UIActivityViewController instead.
-              UI::ActivityView.new(
+              # minimum_height=320pt: header ~50pt + dest row ~80pt + action
+              # grid ~110pt + cancel ~44pt + insets 36pt = ~320pt. Fixed height
+              # so UIStackView distribution does not collapse the glass card in
+              # the :bottom_sheet compact iOS scene. Amber content per brand/amber.md.
+              act = UI::ActivityView.new(
                 title: "Nature Walks",
                 subtitle: "12 photos · 3.4 MB",
                 thumbnail: UI::Image.new("photo"),
@@ -183,15 +197,22 @@ module CrystalHIGHost::Bridge
                   UI::ActivityDestination.new(icon_symbol: "message",   label: "Messages"),
                   UI::ActivityDestination.new(icon_symbol: "wifi",      label: "AirDrop"),
                   UI::ActivityDestination.new(icon_symbol: "note.text", label: "Notes"),
+                  UI::ActivityDestination.new(icon_symbol: "archivebox", label: "Vault"),
                 ],
                 actions: [
                   UI::ActivityAction.new(icon_symbol: "folder",     label: "Save to Files"),
-                  UI::ActivityAction.new(icon_symbol: "printer",    label: "Print"),
+                  UI::ActivityAction.new(icon_symbol: "wand.and.stars", label: "Conjure copy"),
                   UI::ActivityAction.new(icon_symbol: "doc.on.doc", label: "Copy"),
-                  UI::ActivityAction.new(icon_symbol: "book",       label: "Add to Reading List"),
+                  UI::ActivityAction.new(icon_symbol: "printer",    label: "Print"),
                 ],
                 on_cancel: -> { }
-              ).as(UI::View)
+              )
+              # minimum_height=300pt prevents UIStackView from collapsing the
+              # glass card. No maximum_height — the card auto-sizes to content
+              # (all four HIG zones: header + dest row + action grid + cancel).
+              act.minimum_height = 300.0
+              act.accessibility_label = "Activity view: Nature Walks share sheet"
+              act.as(UI::View)
             when "boxes"
               # HIG Box -> UI::Card -> UIView grouped container. iOS/iPadOS
               # HIG platform note: "iOS and iPadOS use the secondary and

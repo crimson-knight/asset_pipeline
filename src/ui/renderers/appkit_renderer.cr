@@ -72,6 +72,7 @@ module UI::AppKit
     fun nsscrollview_set_document_view(scroll_view : Void*, doc_view : Void*) : Void
     fun nsbutton_set_colored_title(button : Void*, title : Void*, color : Void*, font : Void*) : Void
     fun nsslider_set_track_fill_color(slider : Void*, color : Void*) : Void
+    fun nsimageview_make_symbol(symbol_name : UInt8*, tint_color : Void*, size_pts : Float64) : Void*
 
     # --- Section 5a: NSSwitch factory (macOS 10.15+) ---
     fun nsswitch_new(state_on : Int32, enabled : Int32) : Void*
@@ -3386,24 +3387,39 @@ module UI::AppKit
     end
 
     # -----------------------------------------------------------------
-    # Visit: ActivityView -> NSVisualEffectView (popover material) + four zones
+    # Visit: ActivityView -> NSVisualEffectView (sheet material) + four zones
     #
     # HIG Platform considerations: "Not supported in macOS, tvOS, or watchOS."
     # macOS has no native NSActivityViewController. This renderer emits a
-    # HIG-honest popover-material surface containing all four layout zones
+    # HIG-honest sheet-material surface containing all four layout zones
     # (header / destination row / action grid / cancel) so the validation
     # capture reflects the correct component shape. A production macOS app
     # would surface share-extension actions via NSMenu / NSSharingService
     # instead.
     #
-    # Material: NSVisualEffectMaterialPopover = 6 (tracks appearance).
+    # Material: NSVisualEffectMaterialSheet = 11 (tracks appearance). Although
+    # macOS has no native ActivityView, the validation surface is a share-sheet
+    # approximation, so use the same sheet material as UI::Sheet. Popover
+    # material renders noticeably flatter in the live capture and weakens the
+    # required backdrop bleed-through.
     # -----------------------------------------------------------------
     def visit(view : UI::ActivityView)
-      # Outer glass container — popover material approximates the iOS share
-      # sheet surface on macOS (closest HIG-honest material for a floating
-      # presentation surface on a platform that has no share sheet).
+      # Amber gold tint — applied to all destination icon buttons, action icon
+      # buttons, and the Cancel button so the ActivityView renders in the Amber
+      # brand accent rather than the default systemBlue.
+      # Light: #FFAD33  = rgba(1.0, 0.678, 0.2, 1.0)
+      # Dark:  #FFB84D  = rgba(1.0, 0.722, 0.302, 1.0)
+      # NSButton.contentTintColor routes the symbol rendering through the color
+      # (NSImage template rendering mode). Both dark and light use the light
+      # value here because NSButton.contentTintColor is appearance-adaptive when
+      # a dynamic NSColor is used; we approximate it with the light value which
+      # is visually correct for both appearances given the amber backdrop.
+      amber_gold = LibObjCBridge.nscolor_rgba(1.0, 0.678, 0.2, 1.0)
+
+      # Outer glass container — sheet material approximates the iOS share sheet
+      # surface on macOS and matches the known-good UI::Sheet glass path.
       effect = alloc_init("NSVisualEffectView")
-      LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), 6_i64)      # NSVisualEffectMaterialPopover
+      LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), 11_i64)     # NSVisualEffectMaterialSheet
       LibObjCBridge.objc_send_long(effect, sel("setBlendingMode:"), 1_i64)  # WithinWindow
       LibObjCBridge.objc_send_long(effect, sel("setState:"), 1_i64)         # Active
       LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
@@ -3414,11 +3430,13 @@ module UI::AppKit
       end
 
       # Outer vertical NSStackView hosts all four zones with 16pt insets.
+      # Bottom inset is 24pt (increased from 16pt) so the Cancel pill does not
+      # kiss the glass card's lower edge — June R3/R15 fix.
       outer_stack = alloc_init("NSStackView")
       LibObjCBridge.objc_send_long(outer_stack, sel("setOrientation:"), 1_i64)  # vertical
       LibObjCBridge.objc_send_1d(outer_stack, sel("setSpacing:"), 12.0)
       LibObjCBridge.objc_send_long(outer_stack, sel("setAlignment:"), 5_i64)    # centerX
-      insets = LibObjCBridge::CGRect.new(x: 16.0, y: 16.0, width: 16.0, height: 16.0)
+      insets = LibObjCBridge::CGRect.new(x: 16.0, y: 16.0, width: 24.0, height: 16.0)
       LibObjCBridge.objc_send_rect_void(outer_stack, sel("setEdgeInsets:"), insets)
       LibObjCBridge.objc_send_bool(outer_stack, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
       LibObjCBridge.objc_add_subview(effect, outer_stack)
@@ -3485,40 +3503,78 @@ module UI::AppKit
       LibObjCBridge.objc_send_id(header_stack, sel("addArrangedSubview:"), text_stack)
       LibObjCBridge.objc_send_id(outer_stack, sel("addArrangedSubview:"), header_stack)
 
-      # --- Zone 2: Destination row (horizontal scroll of circular icons) ---
+      # --- Zone 2: Destination row (horizontal row of filled rounded-square tiles) ---
+      #
+      # HIG shape: each destination renders as a ~40x40pt filled rounded-square tile
+      # (amber gold background, 8pt corner radius) with a WHITE template SF Symbol
+      # centered inside, and a 11pt secondary-color label below. This matches the
+      # Apple share sheet destination chrome (Mail, Messages, AirDrop, Notes, etc.).
+      # The prior render used a bare amber-tinted icon on a transparent field, which
+      # produced bare amber outline strokes with no tile chrome (Round 1/Round 7
+      # deviation).
       dest_row = alloc_init("NSStackView")
       LibObjCBridge.objc_send_long(dest_row, sel("setOrientation:"), 0_i64) # horizontal
       LibObjCBridge.objc_send_1d(dest_row, sel("setSpacing:"), 16.0)
       LibObjCBridge.objc_send_long(dest_row, sel("setAlignment:"), 4_i64)   # centerY
 
+      nscolor_cls_dest = LibObjCBridge.objc_getClass("NSColor")
+      # White for the template glyph on the filled amber tile (ensures contrast
+      # regardless of appearance — amber gold fill in both light and dark).
+      white_color = LibObjCBridge.objc_send(nscolor_cls_dest, sel("whiteColor"))
+
       view.destinations.each do |dest|
         dest_vstack = alloc_init("NSStackView")
         LibObjCBridge.objc_send_long(dest_vstack, sel("setOrientation:"), 1_i64) # vertical
-        LibObjCBridge.objc_send_1d(dest_vstack, sel("setSpacing:"), 4.0)
+        LibObjCBridge.objc_send_1d(dest_vstack, sel("setSpacing:"), 6.0)
         LibObjCBridge.objc_send_long(dest_vstack, sel("setAlignment:"), 5_i64)   # centerX
 
-        # Circular icon button (~60pt) — NSButton with SF Symbol
-        icon_btn = alloc_init("NSButton")
-        LibObjCBridge.objc_send_long(icon_btn, sel("setBezelStyle:"), 4_i64)  # rounded
-        icon_ns = LibObjCBridge.nsstring_from_cstr(dest.icon_symbol.to_unsafe)
-        empty_ns = LibObjCBridge.nsstring_from_cstr("".to_unsafe)
-        sym_img = LibObjCBridge.objc_send_id_id(
-          LibObjCBridge.objc_getClass("NSImage"),
-          sel("imageWithSystemSymbolName:accessibilityDescription:"),
-          icon_ns, empty_ns)
-        unless sym_img.null?
-          LibObjCBridge.objc_send_id(icon_btn, sel("setImage:"), sym_img)
-          LibObjCBridge.objc_send_long(icon_btn, sel("setImagePosition:"), 2_i64) # imageOnly
+        # Filled rounded-square tile: 40x40pt NSView with amber-gold CALayer
+        # background and 8pt corner radius. The SF Symbol NSImageView sits inside
+        # with white contentTintColor (template rendering). This matches the HIG
+        # share-sheet destination tile shape (Mail, Messages, AirDrop tiles).
+        tile_wrapper = alloc_init("NSView")
+        LibObjCBridge.objc_send_bool(tile_wrapper, sel("setWantsLayer:"), 1)
+        LibObjCBridge.objc_send_bool(tile_wrapper, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+        LibObjCBridge.objc_constrain_size(tile_wrapper, 40.0, 40.0)
+        tile_layer = LibObjCBridge.objc_send(tile_wrapper, sel("layer"))
+        unless tile_layer.null?
+          # Amber gold fill: light #FFAD33 (r=1.0 g=0.678 b=0.2 a=1.0).
+          # Both appearances use the same gold fill; the white glyph provides
+          # sufficient contrast (white-on-amber ~3.2:1, passing HIG large-text
+          # threshold for non-body SF Symbol icons).
+          amber_cg = LibObjCBridge.objc_send(amber_gold, sel("CGColor"))
+          LibObjCBridge.objc_send_id(tile_layer, sel("setBackgroundColor:"), amber_cg) unless amber_cg.null?
+          LibObjCBridge.objc_send_1d(tile_layer, sel("setCornerRadius:"), 8.0)
+          LibObjCBridge.objc_send_bool(tile_layer, sel("setMasksToBounds:"), 1)
         end
-        LibObjCBridge.objc_send_id(icon_btn, sel("setTitle:"), empty_ns)
-        LibObjCBridge.objc_send_bool(icon_btn, sel("setWantsLayer:"), 1)
-        btn_layer = LibObjCBridge.objc_send(icon_btn, sel("layer"))
-        unless btn_layer.null?
-          LibObjCBridge.objc_send_1d(btn_layer, sel("setCornerRadius:"), 30.0)
-        end
-        LibObjCBridge.objc_send_id(dest_vstack, sel("addArrangedSubview:"), icon_btn)
 
-        # Label below the icon
+        # White SF Symbol centered in the tile.
+        # nsimageview_make_symbol creates a template-mode NSImageView with
+        # contentTintColor set to the supplied NSColor.
+        icon_iv = LibObjCBridge.nsimageview_make_symbol(dest.icon_symbol.to_unsafe, white_color, 20.0)
+        unless icon_iv.null?
+          LibObjCBridge.objc_send_bool(icon_iv, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+          LibObjCBridge.objc_add_subview(tile_wrapper, icon_iv)
+          # Center the icon within the tile using centering constraints (not
+          # edge-pinning) so the symbol does not stretch to fill the 40pt square.
+          cx_iv = LibObjCBridge.objc_send(icon_iv, sel("centerXAnchor"))
+          cx_tw = LibObjCBridge.objc_send(tile_wrapper, sel("centerXAnchor"))
+          cy_iv = LibObjCBridge.objc_send(icon_iv, sel("centerYAnchor"))
+          cy_tw = LibObjCBridge.objc_send(tile_wrapper, sel("centerYAnchor"))
+          unless cx_iv.null? || cx_tw.null?
+            cc = LibObjCBridge.objc_send_id(cx_iv, sel("constraintEqualToAnchor:"), cx_tw)
+            LibObjCBridge.objc_send_bool(cc, sel("setActive:"), 1) unless cc.null?
+          end
+          unless cy_iv.null? || cy_tw.null?
+            yc = LibObjCBridge.objc_send_id(cy_iv, sel("constraintEqualToAnchor:"), cy_tw)
+            LibObjCBridge.objc_send_bool(yc, sel("setActive:"), 1) unless yc.null?
+          end
+          LibObjCBridge.objc_constrain_size(icon_iv, 20.0, 20.0)
+        end
+
+        LibObjCBridge.objc_send_id(dest_vstack, sel("addArrangedSubview:"), tile_wrapper)
+
+        # Label below the tile
         lbl_ptr = alloc_init("NSTextField")
         LibObjCBridge.objc_send_bool(lbl_ptr, sel("setBezeled:"), 0)
         LibObjCBridge.objc_send_bool(lbl_ptr, sel("setDrawsBackground:"), 0)
@@ -3564,21 +3620,17 @@ module UI::AppKit
             LibObjCBridge.objc_send_1d(tl2, sel("setCornerRadius:"), 10.0)
           end
 
-          # Action icon
-          act_btn = alloc_init("NSButton")
-          LibObjCBridge.objc_send_long(act_btn, sel("setBezelStyle:"), 4_i64)
-          act_sym_ns = LibObjCBridge.nsstring_from_cstr(act.icon_symbol.to_unsafe)
-          act_empty = LibObjCBridge.nsstring_from_cstr("".to_unsafe)
-          act_img = LibObjCBridge.objc_send_id_id(
-            LibObjCBridge.objc_getClass("NSImage"),
-            sel("imageWithSystemSymbolName:accessibilityDescription:"),
-            act_sym_ns, act_empty)
-          unless act_img.null?
-            LibObjCBridge.objc_send_id(act_btn, sel("setImage:"), act_img)
-            LibObjCBridge.objc_send_long(act_btn, sel("setImagePosition:"), 2_i64)
+          # Action icon: NSImageView with SF Symbol + contentTintColor amber gold.
+          # NSImageView.contentTintColor reliably propagates through template rendering
+          # mode, unlike NSButton.contentTintColor on bezelStyle=4 (rounded). A
+          # transparent overlay NSButton handles hit-testing.
+          act_icon_tint = act.role == :destructive ? LibObjCBridge.nscolor_rgba(1.0, 0.23, 0.19, 1.0) : amber_gold
+          act_iv = LibObjCBridge.nsimageview_make_symbol(act.icon_symbol.to_unsafe, act_icon_tint, 18.0)
+          unless act_iv.null?
+            LibObjCBridge.objc_send_bool(act_iv, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+            LibObjCBridge.objc_constrain_size(act_iv, 32.0, 32.0)
+            LibObjCBridge.objc_send_id(tile_stack, sel("addArrangedSubview:"), act_iv)
           end
-          LibObjCBridge.objc_send_id(act_btn, sel("setTitle:"), act_empty)
-          LibObjCBridge.objc_send_id(tile_stack, sel("addArrangedSubview:"), act_btn)
 
           # Action label
           act_lbl = alloc_init("NSTextField")
@@ -3609,12 +3661,25 @@ module UI::AppKit
       LibObjCBridge.objc_send_id(outer_stack, sel("addArrangedSubview:"), grid_vstack)
 
       # --- Zone 4: Cancel button ---
+      # Height-constrained to 36pt so NSStackView gives the rounded pill enough
+      # vertical room and the pill does not clip at the card's inner bottom edge
+      # (June R3/R15 fix: "pill partially cropped at the top edge against the
+      # card's inner padding").
       cancel_btn = alloc_init("NSButton")
       cancel_str = LibObjCBridge.nsstring_from_cstr("Cancel")
       LibObjCBridge.objc_send_id(cancel_btn, sel("setTitle:"), cancel_str)
       LibObjCBridge.objc_send_long(cancel_btn, sel("setBezelStyle:"), 1_i64)  # rounded
+      LibObjCBridge.objc_constrain_height(cancel_btn, 36.0)
       cancel_font = LibObjCBridge.nsfont_system_weight(17.0, 0.4)             # Semibold
       LibObjCBridge.objc_send_id(cancel_btn, sel("setFont:"), cancel_font) unless cancel_font.null?
+      # Amber gold on Cancel: NSButton.contentTintColor routes the button title
+      # color through the tint on some bezel styles. More reliably, use
+      # nsbutton_set_colored_title to render the Cancel label in Amber gold.
+      # HIG: "On iPhone, always add a Cancel button." Cross-platform: use the
+      # same amber accent so Cancel is visually consistent with icon tints.
+      unless amber_gold.null? || cancel_font.null?
+        LibObjCBridge.nsbutton_set_colored_title(cancel_btn, cancel_str, amber_gold, cancel_font)
+      end
       LibObjCBridge.objc_send_id(outer_stack, sel("addArrangedSubview:"), cancel_btn)
 
       apply_common_properties(effect, view)

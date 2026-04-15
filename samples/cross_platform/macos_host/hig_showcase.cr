@@ -26,8 +26,12 @@ SLUG = ENV["HIG_SLUG"]? || ARGV[0]? || "buttons"
 # Scene dispatch
 # ---------------------------------------------------------------------------
 #
-# Scene composers wrap a focal component in realistic Amber app chrome so
-# validation captures show the component IN-CONTEXT rather than in a void.
+# Scene composers provide only the context required to judge the HIG component.
+# Default preview guidance lives in:
+# .claude/skills/apple-platform-guide/foundations/preview-composition.md
+#
+# Prefer an isolation-style component study. Use app chrome only when the slug's
+# HIG behavior depends on structure such as sidebars, toolbars, or split views.
 #
 # scene_for_slug returns the scene name for a given slug, or nil if the slug
 # renders without a scene (raw component fill).
@@ -40,6 +44,7 @@ SLUG_SCENES = {
   "sheets"            => "dashboard",
   "alerts"            => "dashboard",
   "popovers"          => "dashboard",
+  "action-sheets"     => "dashboard",
   "edit-menus"        => "document",
   "context-menus"     => "document",
   "dock-menus"        => "dock",
@@ -176,18 +181,64 @@ def build_component(slug : String) : UI::View
     alert.add_button("Reshape", :destructive)
     alert.as(UI::View)
   when "action-sheets"
-    # Amber action sheet: destructive "Banish draft forever" at top, secondary
-    # action "Archive to vault", cancel "Never mind" at bottom.
-    # HIG: "Use a sheet to present destructive choices; place the destructive
-    # action at the top." Rendered inline (NOT via is_presented) so the host
-    # window shows content for the screenshot path.
-    # NSVisualEffectView grouped_card material tracks appearance.
-    content = UI::VStack.new(spacing: 8.0)
-    content << UI::Label.new("What should Amber do with this draft?")
-    content << UI::Button.new("Banish draft forever", role: :destructive)
-    content << UI::Button.new("Archive to vault")
-    content << UI::Button.new("Never mind", role: :cancel)
-    UI::Sheet.new(content.as(UI::View), surface_style: :grouped_card).as(UI::View)
+    # Amber action sheet gallery — three variants in a VStack.
+    # HIG: "Make destructive choices visually prominent... place these buttons
+    # at the top of the action sheet where they tend to be most noticeable."
+    # HIG: "Place the Cancel button at the bottom of the action sheet."
+    # Four buttons per brand/amber.md Action sheet content library.
+    # Rendered inline (NOT via is_presented) so the host window shows content.
+    # NSVisualEffectView grouped_card material (setMaterial: 11) tracks appearance.
+    # Corner radius 16pt (Amber phi-scale "sheet" token). June R5 fix.
+
+    # --- Variant A: Primary (4-action) -- full Amber draft management flow ---
+    main_content = UI::VStack.new(spacing: 8.0)
+    main_label = UI::Label.new("What should Amber do with this draft?")
+    main_label.font = UI::Font.new(size: 15.0, weight: :semibold)
+    main_label.accessibility_label = "Action sheet prompt"
+    main_content << main_label.as(UI::View)
+    main_content << UI::Button.new("Banish draft forever", role: :destructive)
+    main_content << UI::Button.new("Archive to vault")
+    main_content << UI::Button.new("Conjure copy")
+    main_content << UI::Button.new("Never mind", role: :cancel)
+    main_sheet = UI::Sheet.new(main_content.as(UI::View), surface_style: :grouped_card)
+    main_sheet.accessibility_label = "Action sheet: draft management"
+
+    # --- Variant B: 2-action confirm (destructive + cancel only, R10) ---
+    confirm_content = UI::VStack.new(spacing: 8.0)
+    confirm_title = UI::Label.new("Banish this memory permanently?")
+    confirm_title.font = UI::Font.new(size: 15.0, weight: :semibold)
+    confirm_title.accessibility_label = "Confirmation prompt"
+    confirm_detail = UI::Label.new("Amber cannot retrieve a banished memory.")
+    confirm_detail.font = UI::Font.new(size: 13.0, weight: :regular)
+    confirm_content << confirm_title.as(UI::View)
+    confirm_content << confirm_detail.as(UI::View)
+    confirm_content << UI::Button.new("Banish forever", role: :destructive)
+    confirm_content << UI::Button.new("Keep it", role: :cancel)
+    confirm_sheet = UI::Sheet.new(confirm_content.as(UI::View), surface_style: :grouped_card)
+    confirm_sheet.accessibility_label = "Action sheet: 2-action confirm"
+
+    # --- Variant C: title+message with no cancel (edge-case, R10) ---
+    # HIG: "Avoid using a cancel button with a destructive action sheet
+    # ... to avoid ambiguity." Demonstrates no-cancel edge case.
+    edge_content = UI::VStack.new(spacing: 8.0)
+    edge_title = UI::Label.new("Delete all synced memories?")
+    edge_title.font = UI::Font.new(size: 15.0, weight: :semibold)
+    edge_title.accessibility_label = "Edge-case prompt"
+    edge_msg = UI::Label.new("All 142 memories will be removed from this device. Amber Cloud copies remain intact.")
+    edge_msg.font = UI::Font.new(size: 13.0, weight: :regular)
+    edge_content << edge_title.as(UI::View)
+    edge_content << edge_msg.as(UI::View)
+    edge_content << UI::Button.new("Delete from device", role: :destructive)
+    edge_sheet = UI::Sheet.new(edge_content.as(UI::View), surface_style: :grouped_card)
+    edge_sheet.accessibility_label = "Action sheet: destructive-only edge case"
+
+    # Stack the three variants vertically for the gallery capture.
+    gallery = UI::VStack.new(spacing: 21.0)
+    gallery.accessibility_label = "Action sheet gallery"
+    gallery << main_sheet.as(UI::View)
+    gallery << confirm_sheet.as(UI::View)
+    gallery << edge_sheet.as(UI::View)
+    gallery.as(UI::View)
   when "activity-views"
     # UI::ActivityView — four-zone share sheet component.
     # HIG: "An activity view — often called a share sheet — presents a range
@@ -195,7 +246,10 @@ def build_component(slug : String) : UI::View
     # HIG Platform considerations: "Not supported in macOS, tvOS, or watchOS."
     # The macOS renderer emits an NSVisualEffectView (popover material)
     # approximation with all four HIG layout zones inline.
-    UI::ActivityView.new(
+    # Amber content per brand/amber.md: five destinations including Vault;
+    # actions updated to Save to Files / Conjure copy / Copy / Print.
+    # accessibility_label required per HIG interactive-element rule.
+    act_macos = UI::ActivityView.new(
       title: "Nature Walks",
       subtitle: "12 photos · 3.4 MB",
       thumbnail: UI::Image.new("photo"),
@@ -204,15 +258,18 @@ def build_component(slug : String) : UI::View
         UI::ActivityDestination.new(icon_symbol: "message",   label: "Messages"),
         UI::ActivityDestination.new(icon_symbol: "wifi",      label: "AirDrop"),
         UI::ActivityDestination.new(icon_symbol: "note.text", label: "Notes"),
+        UI::ActivityDestination.new(icon_symbol: "archivebox", label: "Vault"),
       ],
       actions: [
-        UI::ActivityAction.new(icon_symbol: "folder",     label: "Save to Files"),
-        UI::ActivityAction.new(icon_symbol: "printer",    label: "Print"),
-        UI::ActivityAction.new(icon_symbol: "doc.on.doc", label: "Copy"),
-        UI::ActivityAction.new(icon_symbol: "book",       label: "Add to Reading List"),
+        UI::ActivityAction.new(icon_symbol: "folder",         label: "Save to Files"),
+        UI::ActivityAction.new(icon_symbol: "wand.and.stars", label: "Conjure copy"),
+        UI::ActivityAction.new(icon_symbol: "doc.on.doc",     label: "Copy"),
+        UI::ActivityAction.new(icon_symbol: "printer",        label: "Print"),
       ],
       on_cancel: -> { }
-    ).as(UI::View)
+    )
+    act_macos.accessibility_label = "Activity view: Nature Walks share sheet"
+    act_macos.as(UI::View)
   when "boxes"
     # HIG Box (UI::Card -> NSBox on macOS, UIView on iOS): a visually distinct
     # grouped surface. HIG abstract: "A box creates a visually distinct group
@@ -762,7 +819,7 @@ def build_component(slug : String) : UI::View
     # HIG macOS: default button minimum 28pt tall; prominent minimum 32pt tall.
     # HIG Buttons — Best practices: "a button needs a hit region of at least
     # 44x44 pt" on iOS; macOS standard is 28pt minimum for default, 32pt for
-    # prominent. Label/button column gap: 8pt (sm token per Fibonacci-golden).
+    # prominent. Label/button column gap: 8pt (sm token on Apple 8pt grid).
     btn_gallery = UI::VStack.new(spacing: 10.0)
 
     btn_gallery << UI::Label.new("Button Style / Role Gallery").tap { |l|
@@ -2837,10 +2894,11 @@ elsif sn = scene_name
   top_view = wrap_in_scene(SLUG, focal)
   native = renderer.render(top_view)
 else
-  root = UI::VStack.new(spacing: 16.0)
-  root << UI::Label.new("HIG: #{SLUG}")
-  root << focal
-  native = renderer.render(root)
+  # No scene wrapper: render focal directly as the root view.
+  # Debug labels (previously "HIG: <slug>") are NOT added here —
+  # such strings would appear as visible text in validation captures,
+  # which is a hard blocker per design-critic rules (R9 / R16).
+  native = renderer.render(focal)
 end
 
 screenshot_path = ENV["HIG_SCREENSHOT_PATH"]?
@@ -2900,11 +2958,25 @@ if screenshot_path && !screenshot_path.empty?
         LibWindowHelper.objc_install_sheet_top_anchored(cap_window, nf.handle.ptr!, 44.0, 540.0)
       else
         # Alerts, popovers, and other centered-modal slugs.
+        # activity-views: 540pt matches the HIG ActivityView maxWidth and the
+        # objc_constrain_width call in visit(UI::ActivityView). Adding a dimming
+        # overlay (0.35 alpha) gives the glass card sufficient compositional
+        # weight against the amber gradient backdrop.
         focal_max_w = case SLUG
-                      when "alerts"   then 380.0
-                      when "popovers" then 320.0
-                      else                 400.0
+                      when "alerts"          then 380.0
+                      when "popovers"        then 320.0
+                      when "activity-views"  then 540.0
+                      else                        400.0
                       end
+        if SLUG == "activity-views"
+          # Keep the dashboard dimmed, but do not bury the backdrop before the
+          # NSVisualEffectView samples it. Higher alpha values made the live
+          # CGWindowListCreateImage capture look like a flat opaque card because
+          # the glass was blurring mostly black overlay instead of the amber
+          # backdrop.
+          dim_alpha = (appearance == "dark") ? 0.45 : 0.30
+          LibWindowHelper.objc_install_dimming_overlay(cap_window, dim_alpha)
+        end
         LibWindowHelper.objc_install_content_view_centered(cap_window, nf.handle.ptr!, focal_max_w, 0.0)
       end
     end
@@ -2912,15 +2984,9 @@ if screenshot_path && !screenshot_path.empty?
     # Document / dock: single tree, full-stretch.
     LibWindowHelper.objc_install_content_view(cap_window, native.handle.ptr!)
   else
-    centered_slugs = {
-      "action-sheets"  => {540.0, 0.0},
-      "activity-views" => {540.0, 0.0},
-    }
-    if dims = centered_slugs[SLUG]?
-      LibWindowHelper.objc_install_content_view_centered(cap_window, native.handle.ptr!, dims[0], dims[1])
-    else
-      LibWindowHelper.objc_install_content_view(cap_window, native.handle.ptr!)
-    end
+    # No scene wrapper: render focal directly, full-stretch.
+    # (activity-views is in SLUG_SCENES["dashboard"] and handled above.)
+    LibWindowHelper.objc_install_content_view(cap_window, native.handle.ptr!)
   end
 
   # Pump the AppKit run loop so NSVisualEffectView can render its blur.
@@ -2940,15 +3006,31 @@ if screenshot_path && !screenshot_path.empty?
 
   LibWindowHelper.objc_run_loop_for(0.6)
 
-  # Use the offscreen rasterization path. This renders the full view hierarchy
-  # into a private bitmap context without requiring Screen Recording TCC permission.
-  # NSVisualEffectView renders as a solid tinted fill (no live backdrop blur) but
-  # all layout, text, controls, role colors, and backgrounds are accurate.
-  # This is the correct path for automated layout validation in CI or agent
-  # execution environments where Screen Recording may not be granted.
-  # For live-compositor glass validation, run manually with HIG_INTERACTIVE=1
-  # and Screen Recording permission enabled in System Settings.
-  ok = LibWindowHelper.objc_capture_view_offscreen(cap_window, screenshot_path.to_unsafe, 1200.0, 900.0)
+  # Capture path selection:
+  # Surface-glass slugs (sheets, alerts, popovers, action-sheets, activity-views)
+  # need the live-window path (objc_capture_window_to_png) so NSVisualEffectView
+  # composites its backdrop-blur against the installed NSImageView backdrop layer.
+  # The live path requires Screen Recording TCC permission (CGWindowListCreateImage).
+  # For all other slugs, or when the live path returns 0 (permission denied),
+  # fall back to the offscreen path (objc_capture_view_offscreen) which renders
+  # correctly for layout/color/typography but shows NSVisualEffectView as solid fill.
+  glass_slugs = {"sheets", "alerts", "popovers", "action-sheets", "activity-views"}
+  use_live_window = glass_slugs.includes?(SLUG)
+
+  ok = if use_live_window
+    result = LibWindowHelper.objc_capture_window_to_png(cap_window, screenshot_path.to_unsafe)
+    if result == 0
+      # Live path failed (Screen Recording permission not granted or window not
+      # yet on screen). Fall back to offscreen path.
+      STDERR.puts "[hig_showcase] INFO: live-window capture failed for #{SLUG} -- " \
+                  "falling back to offscreen path (glass will show as solid fill)"
+      LibWindowHelper.objc_capture_view_offscreen(cap_window, screenshot_path.to_unsafe, 1200.0, 900.0)
+    else
+      result
+    end
+  else
+    LibWindowHelper.objc_capture_view_offscreen(cap_window, screenshot_path.to_unsafe, 1200.0, 900.0)
+  end
   LibWindowHelper.objc_close_capture_window(cap_window)
   # Touch gc_guard after capture to ensure it stays live through the run loop.
   # Without this the compiler may optimize it away before objc_run_loop_for.

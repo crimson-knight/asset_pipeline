@@ -1,8 +1,8 @@
 # Amber — the Amber-verse brand persona
 
-A single coherent brand used across every validation capture in the `apple-platform-guide`. Every slug's showcase renders Amber's content against Amber's palette so reviewers judge components *in character*, not as abstract demos.
+A single coherent brand used across every validation capture in the `apple-platform-guide`. Every slug's showcase uses Amber's palette, role colors, and content voice so reviewers judge the default UI system *in character*, not as abstract demos.
 
-Amber is the mascot-personification of the Amber web framework. In the validation harness she owns an app (also called "Amber") — a futuristic AI companion + journaling + productivity tool. Pastel-anime / V-tuber aesthetic; slightly mischievous; tech-forward but warm.
+Amber is the mascot-personification of the Amber web framework. In the validation harness she supplies the default taste layer: warm gold primary actions, plum destructive/emphasis states, sage success, peach warnings, glass-friendly cream/ember backdrops, and concise app-like copy. A full Amber app shell appears only when a preview stage explicitly needs `app_scene` structure.
 
 ## Palette
 
@@ -36,6 +36,32 @@ All values override HIG semantic defaults via a theme layer. HIG semantics still
 
 ### Labels (semantic, tracks appearance)
 Use Apple's `labelColor` / `secondaryLabelColor` / etc. where possible. Amber does NOT override these — dark-mode legibility is non-negotiable.
+
+### Role color contract
+
+Use these mappings in validation captures unless a native platform control
+cannot expose them. If a native exception exists, name it in the validation
+report and keep every other visible action on-palette.
+
+| Role | Amber color | Do not use |
+|------|-------------|------------|
+| Primary action / default action | Amber gold | Raw `systemBlue` |
+| Link / selection / active state | Amber gold | Raw `systemBlue` |
+| Destructive / danger emphasis | Plum | Raw `systemRed` beside Amber gold |
+| Warning / caution | Peach | Plum or red |
+| Success / completed | Sage | Blue or generic green if it clashes |
+| Neutral text | Apple label colors | Custom cream/white text that loses contrast |
+| Separator / disabled | Apple semantic colors | Decorative orange/plum lines |
+| Glass surface | Native material + subtle tint | Opaque cream/brown fill for glass-required surfaces |
+
+Palette budget per capture:
+- `isolation`: one brand accent plus neutral/material colors.
+- `relationship`: one brand accent plus at most one role color.
+- `app_scene`: one brand accent, one role color, and quiet neutral app chrome.
+
+Do not mix orange primary, raw blue links, raw red destructive controls, peach
+warnings, and plum emphasis in the same screenshot. That reads as unowned UI,
+not as a coherent opinionated system.
 
 ## Typography
 
@@ -114,22 +140,26 @@ Use these as the default when the builder wires a case arm, so every capture has
 - Dynamic Island expanded: "Deep focus · 45m remaining · Amber is holding space"
 - Lock screen: full timer + current ritual name
 
-## Spacing scale (Fibonacci-golden hybrid)
+## Spacing scale
 
-Spacing values come from this scale — nothing else. Builders use the named token, not the raw value.
+Native Apple validation uses the Apple 8pt grid from
+`../foundations/spacing-and-layout.md` and
+`../foundations/preview-composition.md`. Amber brand can influence color,
+voice, and illustration tone, but it must not override HIG-native spacing.
+Builders use named tokens and keep layout spacing on the Apple grid unless a
+native control or measured HIG reference requires an optical exception. `xxs`
+is only for stroke/optical corrections, not layout gaps.
 
 | Token | Value | Role |
 |---|---|---|
-| `xxs` | 2pt | Hairlines, optical adjustments only |
+| `xxs` | 2pt | Hairlines, optical adjustments only; not layout spacing |
 | `xs` | 4pt | Tight inline (icon ↔ label in a button) |
 | `sm` | 8pt | Default stack gap, row internal padding |
-| `md` | 13pt | Comfortable row padding, between-group gaps |
-| `lg` | 21pt | Card padding, section separators |
-| `xl` | 34pt | Major block separation, hero gaps |
-| `xxl` | 55pt | Page hero spacing |
-| `xxxl` | 89pt | Oversized hero / empty-state breathing |
-
-Golden ratio φ ≈ 1.618. Each step approximates the previous × φ, with Fibonacci-style rounding to whole points.
+| `md` | 12pt | Comfortable row padding, compact between-group gaps |
+| `lg` | 16pt | Compact card padding, iOS horizontal margin |
+| `xl` | 20pt | macOS content margin, regular card padding |
+| `xxl` | 24pt | Modal inner padding, regular-width margins |
+| `xxxl` | 32pt | Section separation, large group breathing |
 
 Touch targets (min 44pt on iOS, 28pt on macOS) are composed from these:
 - `sm` padding (8pt) + 28pt content = 44pt touch target ✓

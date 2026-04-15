@@ -81,7 +81,7 @@ re-invokes you until every slug is terminal and every non-skipped slug has
 
 ## Per-iteration workflow
 
-Execute these 14 steps in order per invocation. Each step has a verifiable
+Execute these steps in order per invocation. Each step has a verifiable
 output. Do not skip. Four screenshots are captured per slug — two platforms
 × two appearances. Both appearances are mandatory; this project's thesis is
 that the default render works in light and dark.
@@ -91,7 +91,7 @@ that the default render works in light and dark.
    (P0 before P1 before P2 before P3). If every row is terminal (`pass`,
    `pass_with_notes`, `skipped`, `needs_xcode_upgrade`) AND every non-skipped
    row has `docs_written: true`, emit the completion promise and exit (see
-   step 12).
+   "Completion condition").
 
 2. **Read HIG source.** Open `../apple-hig/pages/<slug>.md` and the primary
    reference illustration pointed to by the worklist row's `hig_ref_image`
@@ -100,10 +100,15 @@ that the default render works in light and dark.
    component doc's Feel-of-the-flow, Quickstart rationale, and HIG citations
    sections.
 
-3. **Read mapping context.** Consult these three skills before touching code:
-   `component-mapping-matrix`, `ios26-native-components`, `glass-effects`.
-   Confirm the slug maps to the `UI::View` the worklist names, and note the
-   native SwiftUI / UIKit / AppKit classes you should be emitting.
+3. **Read mapping and preview context.** Consult these three skills before
+   touching code: `component-mapping-matrix`, `ios26-native-components`,
+   `glass-effects`. Also read
+   `.claude/skills/apple-platform-guide/foundations/preview-composition.md`
+   and
+   `.claude/skills/apple-platform-guide/foundations/preview-screen-recipes.md`.
+   Confirm the slug maps to the `UI::View` the worklist names, note the native
+   SwiftUI / UIKit / AppKit classes you should be emitting, and choose the
+   preview stage mode plus the screen recipe you will use for validation.
 
 4. **Locate or implement the `UI::View`.**
    - If the worklist row says `status: "implemented"` — read the existing
@@ -117,11 +122,34 @@ that the default render works in light and dark.
      both renderers. On iOS 26, apply Liquid Glass automatically where HIG says
      the component should use it.
 
+4.5. **Design the preview stage.** Before editing host factories, choose exactly
+   one stage mode from `foundations/preview-composition.md`:
+   - `isolation` for a component study with no invented app chrome.
+   - `relationship` when the component needs an anchor/source object.
+   - `app_scene` only when HIG behavior depends on app structure.
+
+   Then choose one screen recipe from
+   `foundations/preview-screen-recipes.md`: HIG mirror, relationship overlay,
+   state gallery, form, structural app, content/data, or window/chrome.
+
+   Default to `isolation` and the simplest recipe that matches the HIG
+   reference. If you choose `relationship` or `app_scene`, write down why
+   isolation would not prove the HIG behavior. Decide the focal geometry,
+   supporting context budget, and the one or two backdrop elements needed to
+   prove Liquid Glass. Also declare the default-taste contract: component,
+   state, palette role map, alignment rails, and required anatomy.
+   Do not build a full Amber dashboard, fake product shell, profile area,
+   search field, or tutorial screen unless the slug itself is that structure.
+
 5. **Update host slug factories.** Add or update the `case` arm in
    `samples/cross_platform/ios_host/hig_bridge.cr` and the equivalent in
    `samples/cross_platform/macos_host/hig_showcase.cr`. The arm should
-   construct a minimal but realistic instance of the view — one that exercises
-   the HIG "Best practices" recommended usage (not an empty stub).
+   construct a beautiful, minimal instance of the view that exercises the HIG
+   "Best practices" recommended usage. It should obey the chosen preview stage
+   contract, keep the focal component visually dominant, use Amber role tokens
+   instead of raw system blue/red for visible action colors, align content to
+   explicit rails, and avoid invented brand/app chrome unless the stage mode
+   justifies it.
 
 6. **Build macOS host.**
    ```bash
@@ -171,6 +199,21 @@ that the default render works in light and dark.
    capture is stale (mtime older than iteration start) the iteration is
    incomplete — re-run that capture.
 
+8.5. **Write and verify evidence.** After all four captures exist, run the
+   evidence audit for the slug:
+
+   ```bash
+   python3 .claude/skills/apple-platform-guide/validation/audit_evidence.py \
+     --slug <slug> --write-manifest
+   ```
+
+   This writes `validation/evidence/<slug>.json` with SHA256 hashes, mtimes,
+   byte sizes, and pixel dimensions for the four screenshots and the report if
+   present. If the script reports stale screenshots, missing images, old
+   two-capture report links, or mismatched report/screenshot mtimes, the
+   iteration is not reviewable. Re-capture and regenerate the report before
+   asking design-critic to grade it.
+
 9. **Liquid Glass check (surface components).** If the slug is a surface
    component — sheets, alerts, popovers, menus (context / edit / dock),
    sidebars, toolbars, navigation bars, tab bars, activity views, or any
@@ -184,9 +227,10 @@ that the default render works in light and dark.
 
    If a surface component renders with a solid opaque fill in any of the
    four captures, the verdict is NEEDS_WORK regardless of other attributes.
-   State this explicitly in the Deviations section of the report, and cite
-   the existing `validation/gaps.md` entry about UI::Sheet glass
-   composition (or open one if the gap is genuinely new).
+   A "material object exists but the capture harness cannot show live
+   compositing" explanation is not a pass. If the screenshot cannot prove
+   visible Liquid Glass, either fix the capture path or mark the iteration
+   INSUFFICIENT_EVIDENCE / NEEDS_WORK and leave the row pending.
 
    Content-only components (labels, plain text fields, plain images, plain
    lists when used as primary content rather than inside a surface) are
@@ -200,8 +244,8 @@ that the default render works in light and dark.
       on (roughly 4.5:1 for body, 3:1 for large text — trust your eye
       rather than computing, but flag obvious failures).
     - Destructive role color is distinguishable from link/tint color in
-      BOTH light and dark (a destructive red that reads as the same hue
-      as system blue in dark mode is a NEEDS_WORK).
+      BOTH light and dark (Plum destructive must not collapse into Amber
+      primary or into neutral text).
     - Separators, borders, and icon strokes are visible in both
       appearances.
     - Any deviation that impairs legibility in either appearance is
@@ -215,7 +259,10 @@ that the default render works in light and dark.
 
 12. **Write `validation/reports/<slug>.md`.** Use the report template
     verbatim (see below). Embed all five images, the prose verdict with
-    both-appearance observations, and the HIG source citations.
+    both-appearance observations, and the HIG source citations. The report
+    must describe the current screenshot hashes in
+    `validation/evidence/<slug>.json`; do not describe older captures from
+    memory or from a prior report.
 
 13. **Write `components/<slug>.md`** following the strict template below.
     Pull source material as follows:
@@ -241,8 +288,8 @@ that the default render works in light and dark.
       practices" and "Platform considerations" sections.
 
 14. **Update worklist.** Set the row's `validation_state` to `pass`,
-    `pass_with_notes`, or leave `pending` if the verdict is NEEDS_WORK
-    (NEEDS_WORK means Ralph re-picks it). Populate the per-appearance
+    `pass_with_notes`, or leave `pending` if the verdict is NEEDS_WORK or
+    INSUFFICIENT_EVIDENCE (both mean Ralph re-picks it). Populate the per-appearance
     sub-verdicts (`verdict_per_appearance.macos_light`, `.macos_dark`,
     `.ios_light`, `.ios_dark`) — the row-level state is the WORST of
     the four. Set `docs_written: true` iff you wrote `components/<slug>.md`
@@ -255,7 +302,20 @@ that the default render works in light and dark.
     `<promise>HIG_VALIDATION_COMPLETE</promise>` and stop. Otherwise, stop.
     Ralph re-invokes you for the next slug.
 
-15. **Checkpoint commit (mandatory if PASS / PASS_WITH_NOTES).** When the
+15. **Re-run evidence audit after report write.** Before invoking
+    design-critic, run:
+
+    ```bash
+    python3 .claude/skills/apple-platform-guide/validation/audit_evidence.py \
+      --slug <slug> --write-manifest
+    ```
+
+    The report must be newer than or equal to the screenshots it evaluates,
+    and it must link all four appearance-specific screenshot names. If this
+    audit fails, do not submit to design-critic and do not update the row to
+    pass/pass_with_notes.
+
+16. **Checkpoint commit (mandatory if PASS / PASS_WITH_NOTES).** When the
     design-critic returns the row-level verdict `PASS` or `PASS_WITH_NOTES`
     (NOT before — never commit on NEEDS_WORK or self-graded passes), commit
     the work as a durable checkpoint:
@@ -278,9 +338,9 @@ that the default render works in light and dark.
 
     The checkpoint commit is what allows future iterations to bisect past
     progress. Skipping it — or committing on a self-graded pass without the
-    critic gate — defeats the safety net. If the critic returned NEEDS_WORK,
-    the worklist row stays `pending` and you do NOT commit; the next iteration
-    will pick the same slug back up.
+    critic gate — defeats the safety net. If the critic returned NEEDS_WORK or
+    INSUFFICIENT_EVIDENCE, the worklist row stays `pending` and you do NOT
+    commit; the next iteration will pick the same slug back up.
 
 ## Strict `components/<slug>.md` template
 
@@ -402,14 +462,14 @@ Validation report with side-by-side HIG ref / live screenshots:
 ````markdown
 ---
 slug: <slug>
-verdict: <PASS|PASS_WITH_NOTES|NEEDS_WORK>
+verdict: <PASS|PASS_WITH_NOTES|NEEDS_WORK|INSUFFICIENT_EVIDENCE>
 validated_at: <ISO-8601 timestamp>
 iteration: <integer>
 verdict_per_appearance:
-  macos_light: <PASS|PASS_WITH_NOTES|NEEDS_WORK>
-  macos_dark:  <PASS|PASS_WITH_NOTES|NEEDS_WORK>
-  ios_light:   <PASS|PASS_WITH_NOTES|NEEDS_WORK>
-  ios_dark:    <PASS|PASS_WITH_NOTES|NEEDS_WORK>
+  macos_light: <PASS|PASS_WITH_NOTES|NEEDS_WORK|INSUFFICIENT_EVIDENCE>
+  macos_dark:  <PASS|PASS_WITH_NOTES|NEEDS_WORK|INSUFFICIENT_EVIDENCE>
+  ios_light:   <PASS|PASS_WITH_NOTES|NEEDS_WORK|INSUFFICIENT_EVIDENCE>
+  ios_dark:    <PASS|PASS_WITH_NOTES|NEEDS_WORK|INSUFFICIENT_EVIDENCE>
 ---
 
 # <Title> — Visual validation
@@ -429,9 +489,33 @@ verdict_per_appearance:
 ## Rendered — iOS (dark)
 ![iOS dark](../screenshots/<slug>-ios-dark.png)
 
-## Verdict: <PASS|PASS_WITH_NOTES|NEEDS_WORK>
+## Verdict: <PASS|PASS_WITH_NOTES|NEEDS_WORK|INSUFFICIENT_EVIDENCE>
 
 The row-level verdict is the worst of the four per-appearance verdicts.
+
+### Evidence manifest
+- **Manifest:** `../evidence/<slug>.json`
+- **Report/screenshot freshness:** <PASS|FAIL — no screenshot newer than this report>
+- **Required captures:** <PASS|FAIL — list hashes or missing files>
+- **Report links:** <PASS|FAIL — all four light/dark screenshot filenames are linked>
+
+### Preview stage
+- **Stage mode:** `<isolation|relationship|app_scene>`
+- **Screen recipe:** `<HIG mirror|relationship overlay|state gallery|form|structural app|content/data|window/chrome>`
+- **Why this mode:** <why this amount of context is required; if not
+  `isolation`, explain why isolation would not prove the HIG behavior>
+- **Focal geometry:** <component width/height estimate, placement, outer margin,
+  and percentage of visual weight>
+- **Displayed state:** <default|selected|expanded|editing|destructive|disabled|loading|mixed — why this state proves the component>
+- **Palette role map:** <visible role tokens, e.g. primary=Amber gold,
+  destructive=Plum, neutral text=labelColor; name any native raw-color exception>
+- **Alignment rails:** <primary leading rail, icon column, action alignment, row/card equality>
+- **Component anatomy:** <title/body/actions/icons/separators/source object required for this component>
+- **Supporting context budget:** <0-2 support objects/regions, why each exists>
+- **Excluded on purpose:** <app chrome, brand copy, tutorial content, or
+  decorative objects intentionally left out so the component stays dominant>
+- **Platform N/A handling:** <real capture, standardized N/A card, or
+  implementation gap; never call an N/A card a visual pass>
 
 ### Liquid Glass check
 - **Required for this slug:** <yes|no — justify from HIG page category>
@@ -472,6 +556,16 @@ PASS.
   - Every HIG attribute cited (material, radius, hit target, typography,
     spacing, color, role visual) matches the HIG illustration and "Best
     practices" prose.
+  - The preview stage obeys `foundations/preview-composition.md`: the stage
+    mode is named, the screen recipe is named, the context is justified, and
+    supporting chrome does not compete with the component.
+  - Palette roles are coherent: Amber gold for primary/link/selection, Plum
+    for destructive/emphasis, Sage for success, Peach for warning, Apple
+    semantic neutrals for text/separators/materials. No raw system blue/red
+    action color appears without a documented native-control exception.
+  - Alignment rails and component anatomy are visible: text, icons, rows,
+    separators, and actions line up cleanly and the chosen state is the HIG
+    state being validated.
   - Component doc includes both mandatory sections (appearance notes +
     customization override).
   - No deviations worth flagging.
@@ -480,6 +574,11 @@ PASS.
   or PASS_WITH_NOTES, with at most one minor documented deviation that:
   - Does NOT impair legibility in either appearance.
   - Does NOT omit Liquid Glass on a surface component.
+  - Does NOT involve clipped, missing, stale, or overwritten screenshots.
+  - Does NOT involve a confusing preview stage, noisy fake app chrome, or brand
+    content competing with the component.
+  - Does NOT involve off-palette primary/destructive colors, unexplained
+    saturated hues, or obvious alignment-rail drift.
   - Does NOT omit the component doc's mandatory sections.
   - Has a justification (e.g. "HIG illustration shows ~12pt corner
     radius; rendered component shows 10pt because `UIButton.configuration.
@@ -490,6 +589,31 @@ PASS.
 
 - **`NEEDS_WORK`** — any of the following in any of the four captures:
   - A surface component rendered with a solid opaque fill (no glass).
+  - A glass-required capture where the current screenshot cannot demonstrate
+    visible backdrop bleed-through.
+  - Visible debug/test text such as `HIG: <slug>` in the product surface.
+  - Black letterboxing or simulator chrome that is not part of the intended
+    device/frame composition.
+  - Primary content clipped, truncated mid-word, hidden, collapsed to zero
+    size, or touching/crowding rounded corners.
+  - Preview context that makes the capture read as a tutorial, fake dashboard,
+    brand ad, or generic app shell instead of the HIG component being validated.
+  - More than two unrelated support regions in `isolation` or `relationship`
+    mode, or any invented app chrome that is not required by the chosen stage.
+  - The capture uses the wrong screen recipe for the component family, such as
+    a fake dashboard for an action sheet, an inert empty field for text fields,
+    or a custom card pretending to validate real window chrome.
+  - A target-platform native component is skipped instead of implemented or
+    left pending with an implementation gap.
+  - Raw system blue or raw system red appears as visible primary/destructive
+    action color in an Amber validation capture without a named native-control
+    exception.
+  - Mixed saturated action hues make the palette read unowned: orange primary,
+    blue links, red destructive controls, peach warnings, and plum emphasis
+    competing in one screenshot.
+  - Alignment rails are visibly inconsistent: title/body/actions start at
+    unrelated x positions, icons use different cell sizes, row heights drift,
+    or cards/tiles almost-but-not-quite line up.
   - Illegible text, invisible separators, or indistinguishable role
     colors in either appearance.
   - Hit target below 44pt on iOS for an interactive element.
@@ -501,11 +625,22 @@ PASS.
   `needs_work` as a terminal state — pending means Ralph re-picks it).
   Set `remediation_hint` to guide the next iteration.
 
+- **`INSUFFICIENT_EVIDENCE`** — the screenshot/report chain is not reviewable:
+  - Any required capture is missing, under 10 KB, unreadable, stale, or not
+    linked from the report.
+  - Any capture file is newer than the report that claims to evaluate it.
+  - The report describes older pixels or old two-capture filenames like
+    `<slug>-ios.png` / `<slug>-macos.png`.
+  - The capture harness cannot show a required visual property, such as live
+    Liquid Glass composition.
+  Leave the worklist row pending and regenerate the evidence before asking
+  design-critic for a taste verdict.
+
 Never mark a slug `pass` or `pass_with_notes` without all four fresh
 screenshots captured in THIS iteration (mtime check every capture) and
-without having personally Read each PNG. An un-screenshoted pass is a
-lie; a sub-agent's written claim of "chrome landed" without visual
-verification is a lie.
+without having personally Read each PNG and run `audit_evidence.py`. An
+un-screenshoted pass is a lie; a sub-agent's written claim of "chrome landed"
+without visual verification is a lie.
 
 ## How to write a VLM verdict
 
@@ -528,13 +663,19 @@ appearance observations, and Deviations sections must name one of:
   legibility.
 - **Spacing in pt.** "12pt leading padding, 16pt trailing — on the 8pt
   grid."
+- **Preview stage discipline.** "Stage mode is relationship: one 320pt source
+  object plus the 420pt activity surface; no unrelated dashboard/sidebar
+  chrome."
+- **Palette role map.** "Primary action resolves to Amber gold; destructive
+  resolves to Plum; no raw system blue/red visible."
+- **Alignment rails.** "Title, subtitle, row labels, and actions share a 24pt
+  leading rail; icons sit in a fixed 28pt column."
 - **Color token used, in both appearances.** "Foreground color
-  `Theme.apple_default.primary` — light resolves to system blue
-  0.0/0.478/1.0; dark resolves to 0.039/0.518/1.0 (system blue adjusted
-  for dark background contrast)."
+  `Theme.apple_default.primary` — light resolves to Amber gold `#FFAD33`;
+  dark resolves to Amber gold dark `#FFB84D`."
 - **Role-appropriate visual in both appearances.** "Destructive action
-  uses system red — light resolves to 1.0/0.23/0.19; dark resolves to
-  1.0/0.27/0.23. Distinguishable from system blue in both."
+  uses Plum — light resolves to `#5B3A94`; dark resolves to `#7D59B8`.
+  Distinguishable from Amber gold and neutral labels in both."
 
 Quote HIG "Best practices" inline where it justifies a design choice:
 "HIG Buttons — Best practices: 'a button needs a hit region of at least
@@ -558,13 +699,17 @@ xcodegen generate --spec samples/cross_platform/ios_host/project.yml
 # iOS screenshot
 ./scripts/run_ios_hig_tests.sh --only <slug>
 
+# Evidence audit
+python3 .claude/skills/apple-platform-guide/validation/audit_evidence.py \
+  --slug <slug> --write-manifest
+
 # Worklist regeneration (rare, only after HIG corpus or UI::View additions)
 python3 .claude/skills/apple-hig/_build/triage.py
 ```
 
 ## Completion condition
 
-Emit `<promise>HIG_VALIDATION_COMPLETE</promise>` only when **all three**
+Emit `<promise>HIG_VALIDATION_COMPLETE</promise>` only when **all four**
 conditions hold in `worklist.json`:
 
 1. Zero rows have `validation_state == "pending"`. Every row is terminal:
@@ -577,8 +722,10 @@ conditions hold in `worklist.json`:
    on disk (`<slug>-macos-light.png`, `<slug>-macos-dark.png`,
    `<slug>-ios-light.png`, `<slug>-ios-dark.png`), each > 10 KB, each
    non-black.
+4. `audit_evidence.py` reports zero invalid pass/pass_with_notes component
+   rows. Report files must be current relative to their screenshots.
 
-Until all three hold, do not emit the promise. Ralph relies on the absence of
+Until all four hold, do not emit the promise. Ralph relies on the absence of
 the promise as the signal to re-invoke you.
 
 ## What to do if a build fails
