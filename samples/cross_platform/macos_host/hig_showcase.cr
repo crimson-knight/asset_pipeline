@@ -1018,7 +1018,7 @@ def build_component(slug : String) : UI::View
     # macOS: NSTextField (rounded bezel) or NSSecureTextField.
 
     tf_stack = UI::VStack.new(spacing: 14.0)
-    tf_stack << UI::Label.new("HIG: text-fields").tap { |l| l.font = UI::Font.new(size: 15.0, weight: :semibold) }
+    tf_stack << UI::Label.new("Account details").tap { |l| l.font = UI::Font.new(size: 15.0, weight: :semibold) }
 
     # Row 1: Name (empty, placeholder visible)
     row1 = UI::VStack.new(spacing: 4.0)
@@ -1083,7 +1083,7 @@ def build_component(slug : String) : UI::View
     #   3. Attributed-style multi-span -- demonstrates bold + italic co-present.
 
     tv_stack = UI::VStack.new(spacing: 16.0)
-    tv_stack << UI::Label.new("HIG: text-views").tap { |l| l.font = UI::Font.new(size: 15.0, weight: :semibold); l.accessibility_label = "HIG text-views heading" }
+    tv_stack << UI::Label.new("Morning pages draft").tap { |l| l.font = UI::Font.new(size: 15.0, weight: :semibold); l.accessibility_label = "Morning pages heading" }
 
     # Row 1: Read-only paragraph (3-4 lines at typical window width)
     row1_lbl = UI::Label.new("Read-only paragraph:")
@@ -1691,9 +1691,9 @@ def build_component(slug : String) : UI::View
     # rows. The content height (~15 * 32pt row height = ~480pt) intentionally
     # exceeds the clipping frame (~200pt) so the scroll boundary is visible
     # and content clearly continues past the clip edge.
-    sv_title = UI::Label.new("HIG: scroll-views")
+    sv_title = UI::Label.new("Morning pages archive")
     sv_title.font = UI::Font.new(size: 20.0, weight: :medium)
-    sv_title.accessibility_label = "scroll-views showcase title"
+    sv_title.accessibility_label = "Morning pages archive title"
 
     # Build a VStack of 15 labeled rows as the scrollable content
     sv_content = UI::VStack.new(spacing: 0.0)
@@ -1758,18 +1758,13 @@ def build_component(slug : String) : UI::View
 
     # Wrap in VStack with context label so validation host can screenshot
     # both the toolbar and its glass surface against white content below.
-    tb_heading = UI::Label.new("HIG: toolbars (macOS NSToolbar)")
+    tb_heading = UI::Label.new("Document")
     tb_heading.font = UI::Font.new(size: 13.0, weight: :semibold)
-    tb_heading.accessibility_label = "Toolbars showcase heading"
-
-    tb_desc = UI::Label.new("Liquid Glass toolbar — icon items with separators")
-    tb_desc.font = UI::Font.new(size: 12.0, weight: :regular)
-    tb_desc.accessibility_label = "Toolbars showcase description"
+    tb_heading.accessibility_label = "Document heading"
 
     tb_outer = UI::VStack.new(spacing: 12.0)
     tb_outer << tb_heading
     tb_outer << tb
-    tb_outer << tb_desc
     tb_outer
   when "search-fields"
     # HIG: "A search field lets people search a collection of content for
@@ -1778,9 +1773,9 @@ def build_component(slug : String) : UI::View
     # Showcase: two states side-by-side — empty (placeholder visible) and
     # filled (text + trailing clear button).
 
-    sf_title = UI::Label.new("Search Fields — NSSearchField")
+    sf_title = UI::Label.new("Find memories")
     sf_title.font = UI::Font.new(size: 15.0, weight: :medium)
-    sf_title.accessibility_label = "Search Fields showcase title"
+    sf_title.accessibility_label = "Find memories title"
 
     # State 1: empty field — shows leading magnifying-glass + placeholder
     sf_empty_label = UI::Label.new("Empty (placeholder visible)")
@@ -2520,12 +2515,12 @@ def build_component(slug : String) : UI::View
     search_lbl = UI::Label.new("Search")
     search_lbl.font = UI::Font.new(size: 15.0, weight: :semibold)
     search_lbl.accessibility_label = "Search section content"
-    search_desc = UI::Label.new("Tab bars -- NSVisualEffectView (menu material)")
-    search_desc.font = UI::Font.new(size: 12.0, weight: :regular)
-    search_desc.text_color_role = UI::LabelRole::Secondary
-    search_desc.accessibility_label = "Tab bar description"
+    search_hint = UI::Label.new("Find memories, rituals, and vaults")
+    search_hint.font = UI::Font.new(size: 13.0, weight: :regular)
+    search_hint.text_color_role = UI::LabelRole::Secondary
+    search_hint.accessibility_label = "Search section hint"
     search_content << search_lbl
-    search_content << search_desc
+    search_content << search_hint
 
     tabs = [
       UI::TabView::Tab.new(label: "Home",       icon: "house",          content: home_content.as(UI::View)),
@@ -2563,14 +2558,9 @@ def build_component(slug : String) : UI::View
     general_row2.font = UI::Font.new(size: 13.0, weight: :regular)
     general_row2.text_color_role = UI::LabelRole::Secondary
     general_row2.accessibility_label = "Date and time format setting"
-    general_desc = UI::Label.new("Tab views -- NSVisualEffectView (menu material) bar_position: :top")
-    general_desc.font = UI::Font.new(size: 11.0, weight: :regular)
-    general_desc.text_color_role = UI::LabelRole::Secondary
-    general_desc.accessibility_label = "Tab view description"
     general_content << general_heading
     general_content << general_row1
     general_content << general_row2
-    general_content << general_desc
 
     tv_tabs = [
       UI::TabView::Tab.new(label: "General",       content: general_content.as(UI::View)),
