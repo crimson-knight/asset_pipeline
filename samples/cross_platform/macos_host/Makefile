@@ -18,6 +18,12 @@ CRYSTAL     := crystal-alpha
 BIN         := bin/hig_showcase
 SRC         := hig_showcase.cr
 
+# Code-signing identity. TCC permissions (Screen Recording, Accessibility, etc.)
+# persist across rebuilds ONLY if the binary is signed with a stable identity.
+# Ad-hoc signatures change hash on every rebuild — TCC grants get invalidated.
+# Override with `make CODESIGN_IDENTITY="..."` or set to `-` to disable signing.
+CODESIGN_IDENTITY ?= Developer ID Application: AgentC Consulting LLC (PXDF92M2T4)
+
 # Asset Pipeline ObjC bridge (ARM64-safe objc_msgSend wrappers).
 # IMPORTANT: -fno-objc-arc is REQUIRED -- the bridge manages its own memory.
 AP_BRIDGE     := $(SHARD_ROOT)/src/ui/native/objc_bridge.o
@@ -60,6 +66,26 @@ $(BIN): $(SRC) ext-ap ext-win
 	@mkdir -p bin
 	$(CRYSTAL) build $(SRC) -o $(BIN) -Dmacos \
 		--link-flags="$(MACOS_LINK_FLAGS)"
+	@$(MAKE) --no-print-directory sign
+
+# --- Code signing ---
+# Sign with a stable identity so TCC permissions (Screen Recording, etc.)
+# persist across rebuilds. The Developer ID identity hash is derived from
+# the signing certificate's team ID, which is stable forever — so granting
+# Screen Recording to this binary once makes it work for every rebuild.
+
+.PHONY: sign
+sign:
+	@if [ "$(CODESIGN_IDENTITY)" = "-" ]; then \
+		echo "[codesign] Skipping (CODESIGN_IDENTITY=-)"; \
+	else \
+		echo "[codesign] Signing $(BIN) with: $(CODESIGN_IDENTITY)"; \
+		codesign --force --sign "$(CODESIGN_IDENTITY)" \
+			--options runtime \
+			--timestamp=none \
+			$(BIN); \
+		codesign --verify --verbose=1 $(BIN); \
+	fi
 
 # --- ObjC bridge ---
 # IMPORTANT: -fno-objc-arc is REQUIRED.
