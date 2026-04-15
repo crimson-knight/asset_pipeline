@@ -255,6 +255,33 @@ that the default render works in light and dark.
     `<promise>HIG_VALIDATION_COMPLETE</promise>` and stop. Otherwise, stop.
     Ralph re-invokes you for the next slug.
 
+15. **Checkpoint commit (mandatory if PASS / PASS_WITH_NOTES).** When the
+    design-critic returns the row-level verdict `PASS` or `PASS_WITH_NOTES`
+    (NOT before — never commit on NEEDS_WORK or self-graded passes), commit
+    the work as a durable checkpoint:
+
+    ```bash
+    git add .claude/skills/apple-platform-guide/validation/worklist.json \
+            .claude/skills/apple-platform-guide/validation/reports/<slug>.md \
+            .claude/skills/apple-platform-guide/validation/progress.log.md \
+            .claude/skills/apple-platform-guide/validation/gaps.md \
+            .claude/skills/apple-platform-guide/components/<slug>.md \
+            .claude/skills/apple-platform-guide/validation/screenshots/<slug>-*.png \
+            <any src/ files you modified for this slug>
+    git commit -m "feat(<slug>): pass design-critic at iteration N — <verdict>
+
+    Per-appearance: macos_light=<v>, macos_dark=<v>, ios_light=<v>, ios_dark=<v>
+    <one-line summary of what changed>
+
+    Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
+    ```
+
+    The checkpoint commit is what allows future iterations to bisect past
+    progress. Skipping it — or committing on a self-graded pass without the
+    critic gate — defeats the safety net. If the critic returned NEEDS_WORK,
+    the worklist row stays `pending` and you do NOT commit; the next iteration
+    will pick the same slug back up.
+
 ## Strict `components/<slug>.md` template
 
 Deviations from this template count as incomplete work. Copy the shape

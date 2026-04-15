@@ -59,6 +59,8 @@ A `UI::View` must produce the most beautiful Apple-native render possible with z
 
 Validation work enforces this standard: see `.claude/agents/apple-platform-designer/agent.md` for the per-iteration playbook. Every surface component is validated in four captures (macOS light + dark, iOS light + dark) against the HIG reference illustration, and every component usage doc must include both a "Light / dark appearance notes" section and a "Customization / brand override" section before it counts as shipped.
 
+**Checkpoint commit on every passing slug.** When the design-critic agent (`.claude/agents/design-critic/agent.md` — June, the staff-designer persona) returns `PASS` or `PASS_WITH_NOTES` for a slug, the orchestrator (or the apple-platform-designer agent itself per its step-15 playbook) MUST commit the slug's work as a checkpoint. Format: `feat(<slug>): pass design-critic at iteration N — <verdict>` with per-appearance verdicts in the body. Never commit on a self-graded pass or NEEDS_WORK. The checkpoint is the safety net that allows bisecting progress and reverting regressions.
+
 ### Key Architecture Decisions
 
 - Native components only — no custom drawing engine (unlike Flutter)
