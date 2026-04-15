@@ -81,11 +81,14 @@ sign:
 	else \
 		echo "[codesign] Signing $(BIN) with: $(CODESIGN_IDENTITY)"; \
 		codesign --force --sign "$(CODESIGN_IDENTITY)" \
-			--options runtime \
 			--timestamp=none \
 			$(BIN); \
 		codesign --verify --verbose=1 $(BIN); \
 	fi
+	# Note: hardened runtime (--options runtime) is intentionally NOT enabled.
+	# The binary loads homebrew dylibs (libssl, libcrypto) signed by their own
+	# teams; hardened runtime would reject them as "different Team IDs."
+	# Hardened runtime is required for notarized distribution, not dev tools.
 
 # --- ObjC bridge ---
 # IMPORTANT: -fno-objc-arc is REQUIRED.
