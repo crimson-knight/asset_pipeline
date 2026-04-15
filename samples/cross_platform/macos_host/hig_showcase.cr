@@ -1830,7 +1830,13 @@ def build_component(slug : String) : UI::View
     # Amber plum for secondary accent (r:0.357 g:0.227 b:0.58)
     amber_plum = UI::Color.new(r: 0.357, g: 0.227, b: 0.58)
 
-    sidebar_stack = UI::VStack.new(spacing: 0.0)
+    sidebar_stack = UI::VStack.new(spacing: 6.0)
+    sidebar_stack.alignment = UI::Alignment::Leading
+    sidebar_stack.minimum_width = 220.0
+    sidebar_stack.maximum_width = 220.0
+    sidebar_stack.minimum_height = 856.0
+    sidebar_stack.maximum_height = 856.0
+    sidebar_stack.padding = UI::EdgeInsets.new(top: 13.0, trailing: 13.0, bottom: 13.0, leading: 13.0)
 
     # MEMORIES section header
     memories_hdr = UI::Label.new("MEMORIES")
@@ -1974,6 +1980,8 @@ def build_component(slug : String) : UI::View
     msg_list.alignment = UI::Alignment::Leading
     msg_list.minimum_width = 280.0
     msg_list.maximum_width = 280.0
+    msg_list.minimum_height = 856.0
+    msg_list.maximum_height = 856.0
 
     inbox_hdr = UI::Label.new("INBOX")
     inbox_hdr.font = UI::Font.new(size: 11.0, weight: :semibold)
@@ -2075,12 +2083,17 @@ def build_component(slug : String) : UI::View
     detail_hint.accessibility_label = "Select a memory to read"
 
     # Vertical centering: Spacer + icon + hint + Spacer fills the detail column.
-    # Horizontal centering: leading Spacer + content + trailing Spacer.
+    # Horizontal centering: leading Spacer + content + trailing Spacer,
+    # pinned to 697pt so the Spacers have definite space to distribute.
     detail_center_h = UI::HStack.new(spacing: 0.0)
-    detail_center_h << UI::Spacer.new.as(UI::View)
+    detail_center_h.alignment = UI::Alignment::Fill
+    detail_center_h.minimum_width = 697.0
+    detail_center_h.maximum_width = 697.0
     detail_icon_hint = UI::VStack.new(spacing: 8.0)
+    detail_icon_hint.alignment = UI::Alignment::Center
     detail_icon_hint << detail_icon.as(UI::View)
     detail_icon_hint << detail_hint.as(UI::View)
+    detail_center_h << UI::Spacer.new.as(UI::View)
     detail_center_h << detail_icon_hint.as(UI::View)
     detail_center_h << UI::Spacer.new.as(UI::View)
 
@@ -2089,6 +2102,10 @@ def build_component(slug : String) : UI::View
     detail_empty << detail_center_h.as(UI::View)
     detail_empty << UI::Spacer.new.as(UI::View)
     detail_empty.alignment = UI::Alignment::Fill
+    detail_empty.minimum_width = 697.0
+    detail_empty.maximum_width = 697.0
+    detail_empty.minimum_height = 856.0
+    detail_empty.maximum_height = 856.0
     detail_empty.accessibility_label = "Detail empty state"
 
     # --- Sidebar glass wrapper ---
@@ -2101,6 +2118,8 @@ def build_component(slug : String) : UI::View
     sidebar_glass.material = :sidebar
     sidebar_glass.minimum_width = 220.0
     sidebar_glass.maximum_width = 220.0
+    sidebar_glass.minimum_height = 856.0
+    sidebar_glass.maximum_height = 856.0
     sidebar_glass.accessibility_label = "Amber sidebar glass column"
 
     # --- Option A: explicit 3-column HStack ---
@@ -2116,6 +2135,10 @@ def build_component(slug : String) : UI::View
 
     three_col = UI::HStack.new(spacing: 0.0)
     three_col.alignment = UI::Alignment::Fill
+    three_col.minimum_width = 1200.0
+    three_col.maximum_width = 1200.0
+    three_col.minimum_height = 856.0
+    three_col.maximum_height = 856.0
     three_col << sidebar_glass.as(UI::View)
     three_col << sep_a.as(UI::View)
     three_col << msg_list.as(UI::View)
@@ -2202,50 +2225,33 @@ def build_component(slug : String) : UI::View
     sv_work_row << sv_work_lbl
     sv_work_row.accessibility_label = "Work folder navigation row"
 
-    sv_sidebar_stack = UI::VStack.new(spacing: 0.0)
+    sv_sidebar_stack = UI::VStack.new(spacing: 6.0)
+    sv_sidebar_stack.alignment = UI::Alignment::Leading
+    sv_sidebar_stack.minimum_width = 200.0
+    sv_sidebar_stack.maximum_width = 200.0
+    sv_sidebar_stack.minimum_height = 856.0
+    sv_sidebar_stack.maximum_height = 856.0
+    sv_sidebar_stack.padding = UI::EdgeInsets.new(top: 13.0, trailing: 13.0, bottom: 13.0, leading: 13.0)
     sv_sidebar_stack << sv_mailboxes_hdr
     sv_sidebar_stack << sv_inbox_row
     sv_sidebar_stack << sv_flagged_row
     sv_sidebar_stack << sv_sep1
     sv_sidebar_stack << sv_folders_hdr
     sv_sidebar_stack << sv_work_row
+    sv_sidebar_stack << UI::Spacer.new
 
-    # --- Pane 2: Message list (middle ~220pt) ---
+    # --- Pane 2: Message list (middle ~280pt) ---
     sv_list_hdr = UI::Label.new("Inbox")
     sv_list_hdr.font = UI::Font.new(size: 15.0, weight: :semibold)
     sv_list_hdr.accessibility_label = "Inbox list header"
 
-    [
-      {"Alice Martin", "Quarterly report", "Hi, please find the Q1 numbers attached."},
-      {"Bob Chen", "Re: Meeting notes", "Thanks for sending those. I've reviewed..."},
-      {"Carol Davis", "Weekend plans", "Are you free Saturday? We're thinking of..."},
-      {"Dave Kim", "Invoice #4821", "Please find the attached invoice for March."},
-    ].each_with_index do |(sender, subject, preview), idx|
-      msg_row = UI::VStack.new(spacing: 2.0)
-
-      msg_sender = UI::Label.new(sender)
-      msg_sender.font = UI::Font.new(size: 13.0, weight: :semibold)
-      msg_sender.accessibility_label = "Sender: #{sender}"
-
-      msg_subject = UI::Label.new(subject)
-      msg_subject.font = UI::Font.new(size: 12.0, weight: :regular)
-      msg_subject.accessibility_label = "Subject: #{subject}"
-
-      msg_preview = UI::Label.new(preview)
-      msg_preview.font = UI::Font.new(size: 11.0, weight: :regular)
-      msg_preview.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-      msg_preview.accessibility_label = "Preview: #{preview}"
-
-      msg_row << msg_sender
-      msg_row << msg_subject
-      msg_row << msg_preview
-      msg_row.accessibility_label = "Message from #{sender}"
-      sv_list_hdr.accessibility_label = "Inbox list header" if idx == 0
-
-      sv_list_hdr.accessibility_label = "Inbox list header"
-    end
-
-    sv_list_content = UI::VStack.new(spacing: 0.0)
+    sv_list_content = UI::VStack.new(spacing: 6.0)
+    sv_list_content.alignment = UI::Alignment::Leading
+    sv_list_content.minimum_width = 280.0
+    sv_list_content.maximum_width = 280.0
+    sv_list_content.minimum_height = 856.0
+    sv_list_content.maximum_height = 856.0
+    sv_list_content.padding = UI::EdgeInsets.new(top: 13.0, trailing: 13.0, bottom: 13.0, leading: 13.0)
     sv_list_content << sv_list_hdr
     [
       {"Alice Martin", "Quarterly report", "Hi, please find the Q1 numbers attached."},
@@ -2291,10 +2297,17 @@ def build_component(slug : String) : UI::View
     sv_detail_body.accessibility_label = "Message body"
 
     sv_detail_pane = UI::VStack.new(spacing: 8.0)
+    sv_detail_pane.alignment = UI::Alignment::Leading
+    sv_detail_pane.minimum_width = 718.0
+    sv_detail_pane.maximum_width = 718.0
+    sv_detail_pane.minimum_height = 856.0
+    sv_detail_pane.maximum_height = 856.0
+    sv_detail_pane.padding = UI::EdgeInsets.new(top: 21.0, trailing: 34.0, bottom: 21.0, leading: 34.0)
     sv_detail_pane << sv_detail_from
     sv_detail_pane << sv_detail_subject
     sv_detail_pane << sv_detail_sep
     sv_detail_pane << sv_detail_body
+    sv_detail_pane << UI::Spacer.new
 
     # --- Assemble: sidebar | divider | list | divider | detail ---
     # Using NavigationSplitView with content + detail populated so all three
@@ -2310,6 +2323,11 @@ def build_component(slug : String) : UI::View
     sv_col_sep_b.accessibility_label = "Column divider between list and detail"
 
     sv_outer = UI::HStack.new(spacing: 0.0)
+    sv_outer.alignment = UI::Alignment::Fill
+    sv_outer.minimum_width = 1200.0
+    sv_outer.maximum_width = 1200.0
+    sv_outer.minimum_height = 856.0
+    sv_outer.maximum_height = 856.0
     sv_outer << sv_sidebar_stack
     sv_outer << sv_col_sep_a
     sv_outer << sv_list_content
