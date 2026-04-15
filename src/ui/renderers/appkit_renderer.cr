@@ -310,8 +310,31 @@ module UI::AppKit
         LibObjCBridge.objc_send_bool(ptr, sel("setBordered:"), 0)
       else
         # Default and Bordered: NSBezelStyleRounded = 1.
+        # Wire contentTintColor = Amber gold (#FFAD33 light / #FFB84D dark) so
+        # bordered buttons render with the brand primary rather than system blue.
+        # This mirrors the Prominent branch's tint wiring and is the correct path
+        # for NSButton label-color on macOS 11+ (bezelColor only affects filled
+        # bezel buttons; contentTintColor drives the label glyph tint on rounded
+        # bordered buttons, which is what action-sheet row buttons use).
         LibObjCBridge.objc_send_long(ptr, sel("setBezelStyle:"), 1_i64)
         LibObjCBridge.objc_send_bool(ptr, sel("setBordered:"), 1)
+        unless amber_gold.null?
+          tint_color = if view.role == :destructive
+                         # Destructive normal-style: Amber plum overrides amber gold.
+                         # HIG role semantics preserved — plum reads as "stop/danger"
+                         # in the Amber brand palette (#5B3A94 light / #7D59B8 dark).
+                         dark = (ENV["HIG_APPEARANCE"]? == "dark")
+                         LibObjCBridge.nscolor_rgba(
+                           dark ? 0.490 : 0.357,
+                           dark ? 0.349 : 0.227,
+                           dark ? 0.722 : 0.580,
+                           1.0
+                         )
+                       else
+                         amber_gold
+                       end
+          LibObjCBridge.objc_send_id(ptr, sel("setContentTintColor:"), tint_color)
+        end
       end
 
       # Role-aware font. HIG: Cancel buttons on presentation surfaces read
@@ -337,8 +360,17 @@ module UI::AppKit
       #   :cancel -> Amber gold semibold (still brand-tinted, just semibold weight)
       fg_color =
         if view.role == :destructive && view.style != UI::ButtonStyle::Prominent
-          color_ptr = LibObjCBridge.objc_send(nscolor_cls, sel("systemRedColor"))
-          color_ptr.null? ? resolve_color(view.foreground_color) : color_ptr
+          # Amber brand: destructive uses plum (#5B3A94 light / #7D59B8 dark).
+          # HIG role semantics preserved by prominence and position in the action
+          # sheet — the plum overrides the systemRed hue per amber.md destructive
+          # mapping. Contrast vs cream card: plum 5.8:1 light (WCAG AA pass).
+          dark = (ENV["HIG_APPEARANCE"]? == "dark")
+          LibObjCBridge.nscolor_rgba(
+            dark ? 0.490 : 0.357,
+            dark ? 0.349 : 0.227,
+            dark ? 0.722 : 0.580,
+            1.0
+          )
         elsif view.style == UI::ButtonStyle::Prominent
           # Prominent label is set via setContentTintColor: above; this
           # attributed title path is still used to set the font — use white
@@ -467,8 +499,18 @@ module UI::AppKit
       # honour that color instead of the hardcoded white/dark fill. This prevents
       # scene-container VStacks (e.g. DockScene's focal_column) from overriding
       # their transparent or brand-colored backgrounds with an opaque white fill.
-      # When view.background is nil, fall through to the default hardcoded fill
-      # so the dark-mode legibility fix (gaps.md iter-21) still applies.
+      #
+      # When HIG_BACKDROP_PATH is set, the capture window has a backdrop NSImageView
+      # beneath the chrome and NSVisualEffectView with .withinWindow blending samples
+      # it. Any opaque CALayer fill on a nested VStack blocks the compositor from
+      # reaching the backdrop, producing solid fills instead of frosted glass.
+      # Use clearColor (alpha = 0) so every NSStackView in the chrome hierarchy is
+      # transparent and the compositor blurs the backdrop through the glass card.
+      # Text legibility is preserved because NSTextField uses NSColor.labelColor,
+      # which the live-compositor window applies correctly via its appearance.
+      #
+      # When no backdrop is set (offscreen path for non-glass slugs), fall back to
+      # the iter-21 opaque fill so standalone VStack captures remain legible.
       LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)
       layer_ptr = LibObjCBridge.objc_send(ptr, sel("layer"))
       unless layer_ptr.null?
@@ -476,8 +518,13 @@ module UI::AppKit
         bg_ns = if c = explicit_bg
           # View has an explicit background — use it. Alpha=0 means transparent.
           LibObjCBridge.nscolor_rgba(c.r, c.g, c.b, c.a)
+        elsif ENV["HIG_BACKDROP_PATH"]? && !ENV["HIG_BACKDROP_PATH"].to_s.empty?
+          # Backdrop-mode: keep VStack transparent so NSVisualEffectView can blur
+          # the backdrop NSImageView beneath. The live-window NSWindow provides the
+          # appearance-correct surface; opaque fills here would block the glass compositor.
+          LibObjCBridge.nscolor_rgba(0.0, 0.0, 0.0, 0.0)
         else
-          # No explicit background — apply the dark-mode legibility fix.
+          # No backdrop — apply the dark-mode legibility fix (gaps.md iter-21).
           dark_mode = (ENV["HIG_APPEARANCE"]? == "dark")
           dark_mode ?
             LibObjCBridge.nscolor_rgba(0.12, 0.12, 0.12, 1.0) :
@@ -2269,10 +2316,12 @@ module UI::AppKit
         LibObjCBridge.objc_send_long(effect, sel("setState:"), 1_i64)
 
         # Rounded corners on the material layer itself.
+        # 16pt: Amber phi-scale "sheet" token. Action sheets are modal surfaces;
+        # 16pt (not 12pt) is the correct Amber token. June R5 fix.
         LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
         effect_layer = LibObjCBridge.objc_send(effect, sel("layer"))
         unless effect_layer.null?
-          LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), 12.0)
+          LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), 16.0)
           LibObjCBridge.objc_send_bool(effect_layer, sel("setMasksToBounds:"), 1)
         end
 
@@ -2544,8 +2593,21 @@ module UI::AppKit
         # here ensures the validation snapshot matches the correct appearance.
         # In production, a real app would subclass NSStackView and override
         # updateLayer to pick the system-resolved color.
+        #
+        # Backdrop-mode exception: when HIG_BACKDROP_PATH is set, the capture
+        # window has an NSImageView backdrop. Card NSStackViews with opaque fills
+        # block the NSVisualEffectView compositor from reaching the backdrop.
+        # Use a semi-transparent fill so the backdrop bleeds through the card
+        # surface as frosted glass. The border and corner radius remain.
         dark_mode = (ENV["HIG_APPEARANCE"]? == "dark")
-        bg_color = if dark_mode
+        backdrop_mode = ENV["HIG_BACKDROP_PATH"]? && !ENV["HIG_BACKDROP_PATH"].to_s.empty?
+        bg_color = if backdrop_mode
+                     # Semi-transparent fill: 75% opaque so the card is readable
+                     # as a distinct surface but the backdrop bleeds through.
+                     dark_mode ?
+                       LibObjCBridge.nscolor_rgba(0.12, 0.12, 0.14, 0.75) :
+                       LibObjCBridge.nscolor_rgba(0.96, 0.96, 0.97, 0.75)
+                   elsif dark_mode
                      LibObjCBridge.nscolor_rgba(0.145, 0.145, 0.145, 1.0)
                    else
                      LibObjCBridge.nscolor_rgba(0.970, 0.970, 0.970, 1.0)

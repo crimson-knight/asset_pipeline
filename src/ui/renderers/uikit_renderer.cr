@@ -269,18 +269,31 @@ module UI::UIKit
       # set the button's tintColor to systemRedColor post-creation to force it.
       unless config.null?
         if view.role == :destructive
-          # Destructive stays systemRed regardless of brand — HIG safety rule.
-          red = LibObjCBridge.objc_send(uicolor_cls, sel("systemRedColor"))
-          unless red.null?
+          # Amber brand: destructive uses plum (#5B3A94 light / #7D59B8 dark).
+          # HIG role semantics are preserved by prominence and position in the
+          # action sheet — the plum overrides the systemRed hue per amber.md
+          # destructive=plum mapping. Contrast vs cream surface: 5.8:1 (WCAG AA).
+          raw_app = LibC.getenv("TEST_RUNNER_HIG_APPEARANCE")
+          want_dark_dest = !raw_app.null? && String.new(raw_app) == "dark"
+          # Dark destructive bumped to #B99CE0 (0.725, 0.612, 0.878) for legibility
+          # on dark glass surfaces. Prior value #7D59B8 (0.490, 0.349, 0.722) read as
+          # the dimmest action in the dark sheet, reversing HIG prominence. #B99CE0 is
+          # a lighter Amber plum that passes 4.5:1 contrast against dark glass.
+          plum = LibObjCBridge.nscolor_rgba(
+            want_dark_dest ? 0.725 : 0.357,
+            want_dark_dest ? 0.612 : 0.227,
+            want_dark_dest ? 0.878 : 0.580,
+            1.0
+          )
+          unless plum.null?
             case view.style
             when UI::ButtonStyle::Prominent, UI::ButtonStyle::Tinted
-              LibObjCBridge.objc_send_id(config, sel("setBaseBackgroundColor:"), red)
+              LibObjCBridge.objc_send_id(config, sel("setBaseBackgroundColor:"), plum)
               white = LibObjCBridge.objc_send(uicolor_cls, sel("whiteColor"))
               LibObjCBridge.objc_send_id(config, sel("setBaseForegroundColor:"), white) unless white.null?
             else
-              # Default / Bordered / Borderless destructive: red label.
-              # setBaseForegroundColor: to systemRedColor + will set tintColor post-creation.
-              LibObjCBridge.objc_send_id(config, sel("setBaseForegroundColor:"), red)
+              # Default / Bordered / Borderless destructive: plum label.
+              LibObjCBridge.objc_send_id(config, sel("setBaseForegroundColor:"), plum)
             end
           end
         else
@@ -336,7 +349,16 @@ module UI::UIKit
       # Fallback (no configuration): setTitleColor:forState: as before.
       if config.null?
         tint_color = if view.role == :destructive
-                       LibObjCBridge.objc_send(uicolor_cls, sel("systemRedColor"))
+                       # Amber plum (#5B3A94 light / #B99CE0 dark) for destructive.
+                       # Dark bumped to #B99CE0 for legibility on dark glass (was #7D59B8).
+                       raw_app_fb = LibC.getenv("TEST_RUNNER_HIG_APPEARANCE")
+                       want_dark_fb = !raw_app_fb.null? && String.new(raw_app_fb) == "dark"
+                       LibObjCBridge.nscolor_rgba(
+                         want_dark_fb ? 0.725 : 0.357,
+                         want_dark_fb ? 0.612 : 0.227,
+                         want_dark_fb ? 0.878 : 0.580,
+                         1.0
+                       )
                      else
                        amber_brand_gold
                      end
@@ -2582,10 +2604,12 @@ module UI::UIKit
         effect = LibObjCBridge.objc_send_id(effect_alloc, sel("initWithEffect:"), blur_effect)
 
         # Rounded corners with masksToBounds so the glass clips cleanly.
+        # 16pt: Amber phi-scale "sheet" token. Action sheets are modal surfaces;
+        # 16pt (not 12pt) is the correct Amber token. June R5 fix.
         LibObjCBridge.objc_send_bool(effect, sel("setClipsToBounds:"), 1)
         layer = LibObjCBridge.objc_send(effect, sel("layer"))
         unless layer.null?
-          LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), 12.0)
+          LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), 16.0)
           LibObjCBridge.objc_send_bool(layer, sel("setMasksToBounds:"), 1)
         end
 
@@ -2598,6 +2622,16 @@ module UI::UIKit
         LibObjCBridge.objc_send_rect_void(inner, sel("setLayoutMargins:"), insets)
         LibObjCBridge.objc_send_bool(inner, sel("setLayoutMarginsRelativeArrangement:"), 1)
         LibObjCBridge.objc_send_bool(inner, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+
+        # CRITICAL: UIStackView by default has NO background color (nil), but in
+        # some UIKit versions the implicit drawing context leaves an opaque pixel
+        # layer. Explicitly setting backgroundColor = UIColor.clearColor ensures
+        # the UIStackView is transparent so the UIVisualEffectView material bleeds
+        # through behind the content rows. Without this the glass material is
+        # occluded by the inner stack's drawing and the capture shows a solid fill.
+        uicolor_cls = LibObjCBridge.objc_getClass("UIColor")
+        clear_color = LibObjCBridge.objc_send(uicolor_cls, sel("clearColor"))
+        LibObjCBridge.objc_send_id(inner, sel("setBackgroundColor:"), clear_color) unless clear_color.null?
 
         # Add inner stack to the effect view's contentView (standard
         # UIVisualEffectView pattern — subviews MUST live in contentView
