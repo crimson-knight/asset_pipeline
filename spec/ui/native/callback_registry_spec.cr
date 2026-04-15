@@ -166,4 +166,43 @@ describe UI::CallbackRegistry do
       (id2 <= id1).should be_true
     end
   end
+
+  describe "typed callbacks" do
+    it "registers and calls bool callbacks" do
+      called_with = false
+      id = UI::CallbackRegistry.register_bool(->(val : Bool) { called_with = val; nil })
+      UI::CallbackRegistry.call_bool(id, true)
+      called_with.should be_true
+    end
+
+    it "registers and calls float callbacks" do
+      called_with = 0.0
+      id = UI::CallbackRegistry.register_float(->(val : Float64) { called_with = val; nil })
+      UI::CallbackRegistry.call_float(id, 0.75)
+      called_with.should eq(0.75)
+    end
+
+    it "registers and calls int callbacks" do
+      called_with = -1
+      id = UI::CallbackRegistry.register_int(->(val : Int32) { called_with = val; nil })
+      UI::CallbackRegistry.call_int(id, 3)
+      called_with.should eq(3)
+    end
+
+    it "registers and calls string callbacks" do
+      called_with = ""
+      id = UI::CallbackRegistry.register_string(->(val : String) { called_with = val; nil })
+      UI::CallbackRegistry.call_string(id, "hello")
+      called_with.should eq("hello")
+    end
+
+    it "unregister removes from all typed hashes" do
+      id1 = UI::CallbackRegistry.register(->() { nil })
+      id2 = UI::CallbackRegistry.register_bool(->(val : Bool) { nil })
+      UI::CallbackRegistry.size.should eq(2)
+      UI::CallbackRegistry.unregister(id1)
+      UI::CallbackRegistry.unregister(id2)
+      UI::CallbackRegistry.size.should eq(0)
+    end
+  end
 end

@@ -1,0 +1,254 @@
+{% if flag?(:macos) %}
+
+require "./ax_ffi"
+
+module UI::AXTest
+  # Wraps an AXUIElementRef with a Crystal-friendly API for querying
+  # accessibility attributes and performing actions.
+  #
+  # Example:
+  #   element = Element.new(ax_ref)
+  #   puts element.role       # => "AXButton"
+  #   puts element.label      # => "Browse for audio save location"
+  #   element.click           # performs AXPress action
+  class Element
+    getter ref : LibAX::AXUIElementRef
+
+    def initialize(@ref : LibAX::AXUIElementRef)
+    end
+
+    # --- Attribute Readers ---
+
+    # The accessibility role (e.g., "AXButton", "AXTextField", "AXWindow")
+    def role : String
+      read_string_attribute("AXRole") || "unknown"
+    end
+
+    # The element's title (window title, button title, etc.)
+    def title : String?
+      read_string_attribute("AXTitle")
+    end
+
+    # The element's current value
+    def value : String?
+      read_string_attribute("AXValue")
+    end
+
+    # The accessibility label (set via setAccessibilityLabel: in AppKit)
+    def label : String?
+      read_string_attribute("AXDescription")
+    end
+
+    # The accessibility help text
+    def help : String?
+      read_string_attribute("AXHelp")
+    end
+
+    # The subrole (e.g., "AXCloseButton", "AXZoomButton")
+    def subrole : String?
+      read_string_attribute("AXSubrole")
+    end
+
+    # Whether the element is enabled
+    def enabled? : Bool
+      read_bool_attribute("AXEnabled") != false
+    end
+
+    # Whether the element has keyboard focus
+    def focused? : Bool
+      read_bool_attribute("AXFocused") == true
+    end
+
+    # --- Children & Windows ---
+
+    # All child elements
+    def children : Array(Element)
+      read_element_array_attribute("AXChildren")
+    end
+
+    # All windows (only meaningful on application-level elements)
+    def windows : Array(Element)
+      read_element_array_attribute("AXWindows")
+    end
+
+    # --- Actions ---
+
+    # Click/press the element
+    def click
+      action_str = cfstring("AXPress")
+      LibAX.AXUIElementPerformAction(@ref, action_str)
+      LibCF.CFRelease(action_str)
+    end
+
+    # List available action names
+    def action_names : Array(String)
+      names_ref = Pointer(Void).null
+      err = LibAX.AXUIElementCopyActionNames(@ref, pointerof(names_ref))
+      return [] of String unless err == LibAX::AXErrorSuccess && !names_ref.null?
+
+      result = cfarray_to_strings(names_ref)
+      LibCF.CFRelease(names_ref)
+      result
+    end
+
+    # --- Search ---
+
+    # Find the first descendant matching the given criteria.
+    # Searches breadth-first through the accessibility tree.
+    def find(role : String? = nil, label : String? = nil, title : String? = nil, max_depth : Int32 = 10) : Element?
+      return nil if max_depth <= 0
+      children.each do |child|
+        matches = true
+        matches = false if role && child.role != role
+        matches = false if label && child.label != label
+        matches = false if title && child.title != title
+        return child if matches
+
+        if found = child.find(role: role, label: label, title: title, max_depth: max_depth - 1)
+          return found
+        end
+      end
+      nil
+    end
+
+    # Find ALL descendants matching the given criteria.
+    def find_all(role : String? = nil, label : String? = nil, title : String? = nil, max_depth : Int32 = 10) : Array(Element)
+      return [] of Element if max_depth <= 0
+      results = [] of Element
+      children.each do |child|
+        matches = true
+        matches = false if role && child.role != role
+        matches = false if label && child.label != label
+        matches = false if title && child.title != title
+        results << child if matches
+
+        results.concat(child.find_all(role: role, label: label, title: title, max_depth: max_depth - 1))
+      end
+      results
+    end
+
+    # --- Debugging ---
+
+    # Print the accessibility tree rooted at this element (for debugging)
+    def dump(indent : Int32 = 0)
+      prefix = "  " * indent
+      r = role
+      t = title
+      l = label
+      v = value
+      parts = [r]
+      parts << "title=#{t}" if t
+      parts << "label=#{l}" if l
+      parts << "value=#{v}" if v
+      puts "#{prefix}#{parts.join(" | ")}"
+      children.each { |c| c.dump(indent + 1) }
+    end
+
+    # --- Private Helpers ---
+
+    private def read_string_attribute(attr_name : String) : String?
+      attr_cf = cfstring(attr_name)
+      value_ref = Pointer(Void).null
+      err = LibAX.AXUIElementCopyAttributeValue(@ref, attr_cf, pointerof(value_ref))
+      LibCF.CFRelease(attr_cf)
+
+      return nil unless err == LibAX::AXErrorSuccess && !value_ref.null?
+
+      # Check if it's a CFString
+      if LibCF.CFGetTypeID(value_ref) == LibCF.CFStringGetTypeID
+        result = cfstring_to_crystal(value_ref)
+        LibCF.CFRelease(value_ref)
+        result
+      else
+        LibCF.CFRelease(value_ref)
+        nil
+      end
+    end
+
+    private def read_bool_attribute(attr_name : String) : Bool?
+      attr_cf = cfstring(attr_name)
+      value_ref = Pointer(Void).null
+      err = LibAX.AXUIElementCopyAttributeValue(@ref, attr_cf, pointerof(value_ref))
+      LibCF.CFRelease(attr_cf)
+
+      return nil unless err == LibAX::AXErrorSuccess && !value_ref.null?
+
+      if LibCF.CFGetTypeID(value_ref) == LibCF.CFBooleanGetTypeID
+        result = LibCF.CFBooleanGetValue(value_ref) != 0
+        LibCF.CFRelease(value_ref)
+        result
+      else
+        LibCF.CFRelease(value_ref)
+        nil
+      end
+    end
+
+    private def read_element_array_attribute(attr_name : String) : Array(Element)
+      attr_cf = cfstring(attr_name)
+      value_ref = Pointer(Void).null
+      err = LibAX.AXUIElementCopyAttributeValue(@ref, attr_cf, pointerof(value_ref))
+      LibCF.CFRelease(attr_cf)
+
+      return [] of Element unless err == LibAX::AXErrorSuccess && !value_ref.null?
+
+      if LibCF.CFGetTypeID(value_ref) == LibCF.CFArrayGetTypeID
+        count = LibCF.CFArrayGetCount(value_ref)
+        result = Array(Element).new(count.to_i32)
+        count.times do |i|
+          child_ref = LibCF.CFArrayGetValueAtIndex(value_ref, i)
+          unless child_ref.null?
+            # Retain the child ref since the array will be released
+            LibCF.CFRetain(child_ref)
+            result << Element.new(child_ref.as(LibAX::AXUIElementRef))
+          end
+        end
+        LibCF.CFRelease(value_ref)
+        result
+      else
+        LibCF.CFRelease(value_ref)
+        [] of Element
+      end
+    end
+
+    # Create a CFString from a Crystal String
+    private def cfstring(str : String) : Void*
+      LibCF.CFStringCreateWithCString(Pointer(Void).null, str.to_unsafe, LibCF::CFStringEncodingUTF8)
+    end
+
+    # Convert a CFString to a Crystal String
+    private def cfstring_to_crystal(cf_str : Void*) : String?
+      # Try the fast path first (direct pointer)
+      cstr = LibCF.CFStringGetCStringPtr(cf_str, LibCF::CFStringEncodingUTF8)
+      if !cstr.null?
+        return String.new(cstr)
+      end
+
+      # Slow path: copy to buffer
+      length = LibCF.CFStringGetLength(cf_str)
+      buffer_size = length * 4 + 1 # UTF-8 can be up to 4 bytes per char
+      buffer = Bytes.new(buffer_size.to_i32, 0_u8)
+      success = LibCF.CFStringGetCString(cf_str, buffer.to_unsafe, buffer_size, LibCF::CFStringEncodingUTF8)
+      if success != 0
+        String.new(buffer.to_unsafe)
+      else
+        nil
+      end
+    end
+
+    private def cfarray_to_strings(cf_array : Void*) : Array(String)
+      count = LibCF.CFArrayGetCount(cf_array)
+      result = Array(String).new(count.to_i32)
+      count.times do |i|
+        item = LibCF.CFArrayGetValueAtIndex(cf_array, i)
+        unless item.null?
+          if str = cfstring_to_crystal(item)
+            result << str
+          end
+        end
+      end
+      result
+    end
+  end
+end
+
+{% end %}

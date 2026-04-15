@@ -156,7 +156,11 @@ fetch_pcre2() {
 build_pcre2_cmake() {
     local prefix="$1" cmake_toolchain_file="$2"
     shift 2
-    local extra_cmake_args=("$@")
+    # `set -u` trips on empty arrays with bash<5; guard with default.
+    local extra_cmake_args=()
+    if [[ $# -gt 0 ]]; then
+        extra_cmake_args=("$@")
+    fi
     local build_dir="${BUILD_DIR}/build/pcre2-$(basename "$prefix")"
 
     if [[ -f "$prefix/lib/libpcre2-8.a" ]]; then
@@ -175,7 +179,7 @@ build_pcre2_cmake() {
         -DPCRE2_BUILD_PCRE2GREP=OFF \
         -DPCRE2_SUPPORT_JIT=OFF \
         ${cmake_toolchain_file:+-DCMAKE_TOOLCHAIN_FILE="$cmake_toolchain_file"} \
-        "${extra_cmake_args[@]}"
+        ${extra_cmake_args[@]+"${extra_cmake_args[@]}"}
     step "Building libpcre2 (-j$JOBS)"
     cmake --build "$build_dir" -j"$JOBS"
     step "Installing libpcre2 to $prefix"

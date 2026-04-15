@@ -30,9 +30,10 @@ module Components
         self
       end
       
-      # Add a child element or text content (alias for <<)
+      # Add a child element or text content
       def add_child(child : HTMLElement | String | RawHTML) : self
-        self << child
+        @children << child
+        self
       end
       
       # Add multiple children at once

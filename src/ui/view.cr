@@ -25,6 +25,48 @@ module UI
     URL
   end
 
+  # Style for toggle/switch controls
+  enum ToggleStyle
+    Switch     # iOS-style toggle switch
+    Checkbox   # Standard checkbox
+  end
+
+  # Style for picker controls
+  enum PickerStyle
+    Wheel     # Spinning wheel picker
+    Segmented # Segmented control inline
+    Menu      # Dropdown/popup menu
+    Inline    # Expanded inline
+  end
+
+  # Mode for date/time pickers
+  enum DatePickerMode
+    Date         # Date only
+    Time         # Time only
+    DateAndTime  # Both date and time
+  end
+
+  # Style for progress indicators
+  enum ProgressStyle
+    Linear    # Horizontal progress bar
+    Circular  # Spinning circular progress
+  end
+
+  # Style for list views
+  enum ListStyle
+    Plain         # No grouping, no separators between sections
+    Inset         # Rounded group sections with insets
+    Grouped       # Grouped with section headers
+    InsetGrouped  # Rounded grouped sections
+    Sidebar       # macOS-style sidebar list
+  end
+
+  # Layout mode for list/collection views
+  enum ListLayout
+    List # Vertical row layout (default; maps to UITableView / NSTableView semantics)
+    Grid # Multi-column grid layout (maps to UICollectionView / NSCollectionView semantics)
+  end
+
   # Value type representing an RGBA color
   record Color,
     r : Float64,
@@ -69,6 +111,32 @@ module UI
 
     # Opacity from 0.0 (fully transparent) to 1.0 (fully opaque)
     property opacity : Float64 = 1.0
+
+    # Shape modifiers
+    property corner_radius : Float64 = 0.0
+    property clip_to_bounds : Bool = false
+
+    # Shadow modifier
+    property shadow_radius : Float64 = 0.0
+    property shadow_color : Color? = nil
+    property shadow_offset_x : Float64 = 0.0
+    property shadow_offset_y : Float64 = 0.0
+
+    # Border modifier
+    property border_width : Float64 = 0.0
+    property border_color : Color? = nil
+
+    # Blur modifier
+    property blur_radius : Float64 = 0.0
+
+    # Size constraints
+    property minimum_width : Float64? = nil
+    property minimum_height : Float64? = nil
+    property maximum_width : Float64? = nil
+    property maximum_height : Float64? = nil
+
+    # Test identifier for automated UI testing, maps to native test attributes
+    property test_id : String? = nil
 
     # Accept a platform visitor for rendering dispatch.
     # Each concrete view type calls `visitor.visit(self)`.

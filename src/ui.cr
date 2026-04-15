@@ -1,6 +1,7 @@
 require "./ui/view"
 require "./ui/views/*"
 require "./ui/platform_visitor"
+require "./ui/theme"
 require "./ui/renderers/web_renderer"
 
 # Reactive state and component bridge
@@ -23,3 +24,5 @@ require "./ui/native/jni_collections"
 
 # Platform-specific renderers (compile-time gated)
 require "./ui/renderers/appkit_renderer"
+require "./ui/renderers/uikit_renderer"
+require "./ui/renderers/android_renderer"

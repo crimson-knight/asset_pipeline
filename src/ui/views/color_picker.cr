@@ -1,0 +1,17 @@
+require "../view"
+
+module UI
+  class ColorPicker < View
+    property selected_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
+    property on_change : Proc(Color, Nil)? = nil
+    property label : String = ""
+    property supports_alpha : Bool = false
+
+    def initialize
+    end
+
+    def accept(visitor : PlatformVisitor)
+      visitor.visit(self)
+    end
+  end
+end

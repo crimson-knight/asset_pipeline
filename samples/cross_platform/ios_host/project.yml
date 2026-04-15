@@ -1,0 +1,45 @@
+name: CrystalHIGHost
+options:
+  bundleIdPrefix: com.assetpipeline.hig
+  deploymentTarget:
+    # If Xcode SDK < 26, triage script will have set environment.ios_target = "17.0"
+    # in worklist.json -- manually edit this to match if needed.
+    iOS: "26.0"
+settings:
+  # CRITICAL: Crystal only compiles arm64. Exclude x86_64 from simulator builds.
+  EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
+targets:
+  CrystalHIGHost:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      PRODUCT_BUNDLE_IDENTIFIER: com.assetpipeline.hig.CrystalHIGHost
+      LIBRARY_SEARCH_PATHS:
+        - $(PROJECT_DIR)/build
+        # libgc.a + libpcre2-8.a for iOS simulator — produced by
+        # ./scripts/cross_compile_deps.sh ios. Override via env BUILD_DIR if
+        # your cross-dep output prefix differs.
+        - /tmp/crystal-cross-deps/ios-simulator/lib
+      SWIFT_OBJC_BRIDGING_HEADER: Sources/CrystalHIGHost-Bridging-Header.h
+      OTHER_LDFLAGS:
+        - -lhighost
+        - -lgc
+        - -liconv
+        - -framework UIKit
+        - -framework Foundation
+        - -lobjc
+    dependencies: []
+  CrystalHIGHostUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      PRODUCT_BUNDLE_IDENTIFIER: com.assetpipeline.hig.CrystalHIGHostUITests
+      TEST_TARGET_NAME: CrystalHIGHost
+    dependencies:
+      - target: CrystalHIGHost

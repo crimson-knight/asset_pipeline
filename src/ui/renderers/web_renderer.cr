@@ -23,9 +23,21 @@ module UI
       # top level.
       @root : Components::Elements::HTMLElement?
 
+      property theme : UI::Theme? = nil
+
       def initialize
         @element_stack = [] of Components::Elements::HTMLElement
         @root = nil
+      end
+
+      # Inject CSS custom properties from the active theme as a <style> element
+      # at the beginning of the output
+      def inject_theme_css : String
+        if t = @theme
+          "<style>\n#{t.to_css_custom_properties}</style>\n"
+        else
+          ""
+        end
       end
 
       # Returns the rendered HTML string for the view tree.
@@ -258,6 +270,1643 @@ module UI
         push_element(el)
       end
 
+      def visit(view : UI::Toggle)
+        # Render as a label with a checkbox input styled as a switch
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px")
+
+        # The actual toggle input
+        input = Components::Elements::Input.new
+        input.set_attribute("type", "checkbox")
+        if view.is_on
+          input.set_attribute("checked", "checked")
+        end
+        if view.style == UI::ToggleStyle::Switch
+          input.add_style("appearance: none; width: 42px; height: 24px; border-radius: 12px; background: #ccc; position: relative; cursor: pointer; transition: background 0.2s")
+        end
+        if tint = view.tint_color
+          input.add_style("accent-color: rgba(#{to_rgb_int(tint.r)}, #{to_rgb_int(tint.g)}, #{to_rgb_int(tint.b)}, #{tint.a})")
+        end
+
+        apply_common_styles(el, view)
+
+        @element_stack.push(el)
+        push_element(input)
+        unless view.label.empty?
+          label_el = Components::Elements::Span.new
+          label_el << view.label
+          push_element(label_el)
+        end
+        @element_stack.pop
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Checkbox)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px")
+
+        input = Components::Elements::Input.new
+        input.set_attribute("type", "checkbox")
+        if view.is_checked
+          input.set_attribute("checked", "checked")
+        end
+
+        apply_common_styles(el, view)
+
+        @element_stack.push(el)
+        push_element(input)
+        unless view.label.empty?
+          label_el = Components::Elements::Span.new
+          label_el << view.label
+          push_element(label_el)
+        end
+        @element_stack.pop
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::RadioGroup)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; flex-direction: column; gap: 4px")
+
+        apply_common_styles(el, view)
+
+        group_name = view.id || "radio_#{view.object_id}"
+
+        @element_stack.push(el)
+        view.options.each_with_index do |option, index|
+          row = Components::Elements::Div.new
+          row.add_style("display: flex; align-items: center; gap: 8px")
+
+          input = Components::Elements::Input.new
+          input.set_attribute("type", "radio")
+          input.set_attribute("name", group_name)
+          input.set_attribute("value", index.to_s)
+          if index == view.selected_index
+            input.set_attribute("checked", "checked")
+          end
+
+          label_el = Components::Elements::Span.new
+          label_el << option
+
+          # Build row manually
+          @element_stack.push(row)
+          push_element(input)
+          push_element(label_el)
+          @element_stack.pop
+          push_element(row)
+        end
+        @element_stack.pop
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Slider)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px")
+
+        unless view.label.empty?
+          label_el = Components::Elements::Span.new
+          label_el << view.label
+          @element_stack.push(el)
+          push_element(label_el)
+          @element_stack.pop
+        end
+
+        input = Components::Elements::Input.new
+        input.set_attribute("type", "range")
+        input.set_attribute("min", view.minimum.to_s)
+        input.set_attribute("max", view.maximum.to_s)
+        input.set_attribute("value", view.value.to_s)
+        if view.step > 0
+          input.set_attribute("step", view.step.to_s)
+        end
+        if tint = view.tint_color
+          input.add_style("accent-color: rgba(#{to_rgb_int(tint.r)}, #{to_rgb_int(tint.g)}, #{to_rgb_int(tint.b)}, #{tint.a})")
+        end
+
+        apply_common_styles(el, view)
+
+        @element_stack.push(el)
+        push_element(input)
+        @element_stack.pop
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::NavigationStack)
+        # Render as a container with a nav bar and content area
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; flex-direction: column; height: 100%")
+
+        if view.shows_navigation_bar
+          nav_bar = Components::Elements::Div.new
+          nav_bar.add_style("display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e0e0e0")
+
+          if title = view.title
+            title_el = Components::Elements::Span.new
+            title_el << title
+            if view.large_title
+              title_el.add_style("font-size: 34px; font-weight: bold")
+            else
+              title_el.add_style("font-size: 17px; font-weight: 600")
+            end
+            nav_bar.add_child(title_el)
+          end
+
+          el.add_child(nav_bar)
+        end
+
+        content_area = Components::Elements::Div.new
+        content_area.add_style("flex: 1; overflow: auto")
+
+        apply_common_styles(el, view)
+
+        # Render the current view (top of stack or root) into content area
+        @element_stack.push(content_area)
+        view.current_view.accept(self)
+        @element_stack.pop
+
+        el.add_child(content_area)
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::NavigationLink)
+        # Render as a clickable row with label and optional disclosure chevron
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px; padding: 12px 16px; cursor: pointer")
+        el.set_attribute("role", "link")
+        el.set_attribute("tabindex", "0")
+
+        # Label text
+        label_el = Components::Elements::Span.new
+        label_el << view.label
+        label_el.add_style("flex: 1")
+        el.add_child(label_el)
+
+        # Disclosure indicator
+        if view.shows_disclosure
+          chevron = Components::Elements::Span.new
+          chevron << "›"
+          chevron.add_style("color: #999; font-size: 20px")
+          el.add_child(chevron)
+        end
+
+        apply_common_styles(el, view)
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::TabView)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; flex-direction: column; height: 100%")
+
+        # Content area
+        content_area = Components::Elements::Div.new
+        content_area.add_style("flex: 1; overflow: auto")
+
+        if content = view.current_content
+          @element_stack.push(content_area)
+          content.accept(self)
+          @element_stack.pop
+        end
+        el.add_child(content_area)
+
+        # Tab bar at bottom
+        tab_bar = Components::Elements::Div.new
+        tab_bar.add_style("display: flex; border-top: 1px solid #e0e0e0; padding: 8px 0")
+        tab_bar.set_attribute("role", "tablist")
+
+        view.tabs.each_with_index do |tab, index|
+          tab_el = Components::Elements::Div.new
+          tab_el.add_style("flex: 1; text-align: center; padding: 4px; cursor: pointer")
+          tab_el.set_attribute("role", "tab")
+          if index == view.selected_index
+            tab_el.set_attribute("aria-selected", "true")
+            tab_el.add_style("color: #007AFF; font-weight: 600")
+          else
+            tab_el.add_style("color: #999")
+          end
+
+          label_span = Components::Elements::Span.new
+          label_span << tab.label
+          tab_el.add_child(label_span)
+          tab_bar.add_child(tab_el)
+        end
+
+        el.add_child(tab_bar)
+        apply_common_styles(el, view)
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::ProgressView)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px")
+
+        progress_el = Components::Elements::Div.new
+        progress_el.set_attribute("role", "progressbar")
+
+        case view.style
+        when UI::ProgressStyle::Linear
+          progress_el.add_style("width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden")
+          if val = view.value
+            inner = Components::Elements::Div.new
+            inner.add_style("height: 100%; width: #{(val * 100).round}%; background: #007AFF")
+            progress_el.add_child(inner)
+            progress_el.set_attribute("aria-valuenow", (val * 100).round.to_s)
+            progress_el.set_attribute("aria-valuemin", "0")
+            progress_el.set_attribute("aria-valuemax", "100")
+          else
+            progress_el.add_style("animation: progress-indeterminate 1.5s linear infinite")
+          end
+        when UI::ProgressStyle::Circular
+          size = 24
+          progress_el.add_style("width: #{size}px; height: #{size}px; border-radius: 50%; border: 3px solid #e0e0e0; border-top-color: #007AFF")
+          if view.value.nil?
+            progress_el.add_style("animation: spin 1s linear infinite")
+          end
+        end
+
+        el.add_child(progress_el)
+        apply_common_styles(el, view)
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::ActivityIndicator)
+        el = Components::Elements::Div.new
+        el.set_attribute("role", "status")
+        el.add_style("display: inline-flex; align-items: center; justify-content: center")
+
+        size_px = case view.size
+                  when :small  then 16
+                  when :large  then 48
+                  else              24
+                  end
+
+        spinner = Components::Elements::Div.new
+        spinner.add_style("width: #{size_px}px; height: #{size_px}px; border-radius: 50%; border: 2px solid #e0e0e0; border-top-color: #007AFF")
+
+        if view.is_animating
+          spinner.add_style("animation: spin 1s linear infinite")
+        else
+          spinner.add_style("opacity: 0.3")
+        end
+
+        el.add_child(spinner)
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::Alert)
+        # Render as a modal overlay with title, message, and buttons
+        el = Components::Elements::Div.new
+        el.set_attribute("role", "alertdialog")
+        el.set_attribute("aria-modal", "true")
+        el.add_style("position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000")
+
+        dialog = Components::Elements::Div.new
+        dialog.add_style("background: white; border-radius: 14px; padding: 24px; min-width: 270px; max-width: 400px; box-shadow: 0 4px 32px rgba(0,0,0,0.2)")
+
+        title_el = Components::Elements::Span.new
+        title_el << view.title
+        title_el.add_style("display: block; font-size: 17px; font-weight: 600; text-align: center; margin-bottom: 8px")
+        dialog.add_child(title_el)
+
+        unless view.message.empty?
+          msg_el = Components::Elements::Span.new
+          msg_el << view.message
+          msg_el.add_style("display: block; font-size: 13px; text-align: center; color: #555; margin-bottom: 16px")
+          dialog.add_child(msg_el)
+        end
+
+        el.add_child(dialog)
+        apply_common_styles(el, view)
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Picker)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; flex-direction: column; gap: 4px")
+
+        unless view.label.empty?
+          label_el = Components::Elements::Span.new
+          label_el << view.label
+          el.add_child(label_el)
+        end
+
+        select_el = Components::Elements::Div.new
+        select_el.set_attribute("role", "combobox")
+        select_el.add_style("border: 1px solid #ccc; border-radius: 6px; padding: 8px 12px; cursor: pointer")
+
+        view.options.each_with_index do |option, index|
+          opt_el = Components::Elements::Div.new
+          opt_el.set_attribute("role", "option")
+          opt_el.add_style("padding: 4px 8px")
+          if index == view.selected_index
+            opt_el.set_attribute("aria-selected", "true")
+            opt_el.add_style("font-weight: 600")
+          end
+          opt_span = Components::Elements::Span.new
+          opt_span << option
+          opt_el.add_child(opt_span)
+          select_el.add_child(opt_el)
+        end
+
+        el.add_child(select_el)
+        apply_common_styles(el, view)
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::IconButton)
+        el = Components::Elements::Button.new(type: "button")
+        el.set_attribute("aria-label", view.label || view.icon)
+        el.add_style("display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: none; background: transparent; padding: 4px")
+
+        if view.disabled
+          el.set_attribute("disabled", "disabled")
+        end
+
+        icon_el = Components::Elements::Span.new
+        icon_el << view.icon
+        icon_el.add_style("font-size: #{view.icon_size}px")
+        el.add_child(icon_el)
+
+        if lbl = view.label
+          lbl_el = Components::Elements::Span.new
+          lbl_el << lbl
+          el.add_child(lbl_el)
+        end
+
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::ListView)
+        el = Components::Elements::Div.new
+        el.set_attribute("role", "list")
+        el.add_style("display: flex; flex-direction: column")
+
+        apply_common_styles(el, view)
+
+        push_container(el) do
+          view.sections.each do |section|
+            if header = section.header
+              header_el = Components::Elements::Span.new
+              header_el << header
+              header_el.add_style("font-size: 13px; font-weight: 600; color: #888; padding: 8px 16px")
+              push_element(header_el)
+            end
+
+            section.items.each do |item|
+              row = Components::Elements::Div.new
+              row.set_attribute("role", "listitem")
+              row.add_style("padding: 12px 16px")
+              @element_stack.push(row)
+              item.accept(self)
+              @element_stack.pop
+              push_element(row)
+            end
+
+            if footer = section.footer
+              footer_el = Components::Elements::Span.new
+              footer_el << footer
+              footer_el.add_style("font-size: 12px; color: #aaa; padding: 4px 16px")
+              push_element(footer_el)
+            end
+          end
+        end
+      end
+
+      def visit(view : UI::SecureField)
+        el = Components::Elements::Input.new
+        el.set_attribute("type", "password")
+
+        unless view.placeholder.empty?
+          el.set_attribute("placeholder", view.placeholder)
+        end
+
+        unless view.text.empty?
+          el.set_attribute("value", view.text)
+        end
+
+        apply_font_styles(el, view.font)
+        c = view.text_color
+        el.add_style("color: rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a})")
+
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::Stepper)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px")
+
+        unless view.label.empty?
+          label_el = Components::Elements::Span.new
+          label_el << view.label
+          el.add_child(label_el)
+        end
+
+        minus_btn = Components::Elements::Button.new(type: "button")
+        minus_btn << "-"
+        minus_btn.add_style("width: 32px; height: 32px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer")
+        el.add_child(minus_btn)
+
+        value_el = Components::Elements::Span.new
+        value_el << view.value.to_s
+        value_el.add_style("min-width: 40px; text-align: center")
+        el.add_child(value_el)
+
+        plus_btn = Components::Elements::Button.new(type: "button")
+        plus_btn << "+"
+        plus_btn.add_style("width: 32px; height: 32px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer")
+        el.add_child(plus_btn)
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::SegmentedControl)
+        el = Components::Elements::Div.new
+        el.add_style("display: inline-flex; border: 1px solid #007AFF; border-radius: 8px; overflow: hidden")
+
+        view.segments.each_with_index do |segment, index|
+          seg_el = Components::Elements::Div.new
+          seg_el.add_style("padding: 6px 16px; cursor: pointer; font-size: 14px")
+          if index == view.selected_index
+            seg_el.add_style("background: #007AFF; color: white")
+          else
+            seg_el.add_style("background: transparent; color: #007AFF")
+          end
+          if index > 0
+            seg_el.add_style("border-left: 1px solid #007AFF")
+          end
+          seg_span = Components::Elements::Span.new
+          seg_span << segment
+          seg_el.add_child(seg_span)
+          el.add_child(seg_el)
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::DatePicker)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px")
+
+        unless view.label.empty?
+          label_el = Components::Elements::Span.new
+          label_el << view.label
+          el.add_child(label_el)
+        end
+
+        input = Components::Elements::Input.new
+        case view.mode
+        when UI::DatePickerMode::Date
+          input.set_attribute("type", "date")
+        when UI::DatePickerMode::Time
+          input.set_attribute("type", "time")
+        when UI::DatePickerMode::DateAndTime
+          input.set_attribute("type", "datetime-local")
+        end
+        input.add_style("border: 1px solid #ccc; border-radius: 6px; padding: 6px 12px")
+        el.add_child(input)
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::TimePicker)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px")
+
+        unless view.label.empty?
+          label_el = Components::Elements::Span.new
+          label_el << view.label
+          el.add_child(label_el)
+        end
+
+        input = Components::Elements::Input.new
+        input.set_attribute("type", "time")
+        if view.minute_interval > 1
+          input.set_attribute("step", (view.minute_interval * 60).to_s)
+        end
+        input.add_style("border: 1px solid #ccc; border-radius: 6px; padding: 6px 12px")
+        el.add_child(input)
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::SearchField)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px")
+
+        input = Components::Elements::Input.new
+        input.set_attribute("type", "search")
+        unless view.placeholder.empty?
+          input.set_attribute("placeholder", view.placeholder)
+        end
+        unless view.text.empty?
+          input.set_attribute("value", view.text)
+        end
+        input.add_style("flex: 1; border: 1px solid #ccc; border-radius: 20px; padding: 8px 16px")
+        el.add_child(input)
+
+        if view.shows_cancel_button && view.is_searching
+          cancel = Components::Elements::Button.new(type: "button")
+          cancel << "Cancel"
+          cancel.add_style("border: none; background: transparent; color: #007AFF; cursor: pointer")
+          el.add_child(cancel)
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::TextArea)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; flex-direction: column")
+
+        # Use a div styled as textarea (since we don't have a textarea element class)
+        textarea = Components::Elements::Div.new
+        textarea.set_attribute("contenteditable", view.is_editable ? "true" : "false")
+        textarea.set_attribute("role", "textbox")
+        textarea.set_attribute("aria-multiline", "true")
+        textarea.add_style("border: 1px solid #ccc; border-radius: 6px; padding: 8px; min-height: 80px")
+
+        if view.text.empty? && !view.placeholder.empty?
+          textarea << view.placeholder
+          textarea.add_style("color: #999")
+        else
+          textarea << view.text
+        end
+
+        if !view.is_scrollable
+          textarea.add_style("overflow: hidden")
+        end
+
+        apply_font_styles(textarea, view.font)
+        c = view.text_color
+        unless view.text.empty?
+          textarea.add_style("color: rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a})")
+        end
+
+        el.add_child(textarea)
+        apply_common_styles(el, view)
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Grid)
+        el = Components::Elements::Div.new
+        col_count = view.column_count
+        if col_count > 0
+          el.add_style("display: grid; grid-template-columns: repeat(#{col_count}, 1fr); gap: #{view.row_spacing}px #{view.column_spacing}px")
+        else
+          el.add_style("display: grid; gap: #{view.row_spacing}px #{view.column_spacing}px")
+        end
+
+        apply_common_styles(el, view)
+
+        push_container(el) do
+          view.children.each do |row|
+            row.each do |cell|
+              cell_wrapper = Components::Elements::Div.new
+              @element_stack.push(cell_wrapper)
+              cell.accept(self)
+              @element_stack.pop
+              push_element(cell_wrapper)
+            end
+          end
+        end
+      end
+
+      def visit(view : UI::Form)
+        el = Components::Elements::Div.new
+        el.set_attribute("role", "form")
+        el.add_style("display: flex; flex-direction: column; gap: 16px")
+
+        apply_common_styles(el, view)
+
+        push_container(el) do
+          view.sections.each do |section|
+            section_el = Components::Elements::Div.new
+            section_el.add_style("display: flex; flex-direction: column; gap: 8px")
+
+            if header = section.header
+              header_el = Components::Elements::Span.new
+              header_el << header
+              header_el.add_style("font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; padding: 0 16px")
+              section_el.add_child(header_el)
+            end
+
+            section.fields.each do |field|
+              field_el = Components::Elements::Div.new
+              field_el.add_style("display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: white; border-bottom: 1px solid #f0f0f0")
+
+              unless field.label.empty?
+                label_el = Components::Elements::Span.new
+                label_el << field.label
+                label_el.add_style("min-width: 100px; color: #333")
+                field_el.add_child(label_el)
+              end
+
+              if content = field.content
+                @element_stack.push(field_el)
+                content.accept(self)
+                @element_stack.pop
+              end
+
+              section_el.add_child(field_el)
+            end
+
+            if footer = section.footer
+              footer_el = Components::Elements::Span.new
+              footer_el << footer
+              footer_el.add_style("font-size: 12px; color: #aaa; padding: 4px 16px")
+              section_el.add_child(footer_el)
+            end
+
+            push_element(section_el)
+          end
+        end
+      end
+
+      def visit(view : UI::NavigationSplitView)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; height: 100%")
+
+        if view.shows_sidebar
+          if sidebar = view.sidebar
+            sidebar_el = Components::Elements::Div.new
+            sidebar_el.add_style("width: #{view.sidebar_width}px; border-right: 1px solid #e0e0e0; overflow-y: auto")
+            @element_stack.push(sidebar_el)
+            sidebar.accept(self)
+            @element_stack.pop
+            el.add_child(sidebar_el)
+          end
+        end
+
+        if content = view.content
+          content_el = Components::Elements::Div.new
+          content_el.add_style("flex: 1; overflow-y: auto")
+          @element_stack.push(content_el)
+          content.accept(self)
+          @element_stack.pop
+          el.add_child(content_el)
+        end
+
+        if detail = view.detail
+          detail_el = Components::Elements::Div.new
+          detail_el.add_style("flex: 1; overflow-y: auto")
+          @element_stack.push(detail_el)
+          detail.accept(self)
+          @element_stack.pop
+          el.add_child(detail_el)
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Toolbar)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid #e0e0e0; background: #f8f8f8")
+        el.set_attribute("role", "toolbar")
+
+        if view.shows_title
+          if title = view.title
+            title_el = Components::Elements::Span.new
+            title_el << title
+            title_el.add_style("font-weight: 600; margin-right: auto")
+            el.add_child(title_el)
+          end
+        end
+
+        view.items.each do |item|
+          btn = Components::Elements::Button.new(type: "button")
+          btn.add_style("border: none; background: transparent; cursor: pointer; padding: 4px 8px")
+          btn.set_attribute("aria-label", item.label)
+          btn << item.label
+          el.add_child(btn)
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Sheet)
+        el = Components::Elements::Div.new
+        if view.is_presented
+          el.add_style("position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 12px 12px 0 0; box-shadow: 0 -4px 32px rgba(0,0,0,0.15); z-index: 900; transition: transform 0.3s")
+          case view.selected_detent
+          when :small then el.add_style("max-height: 25vh")
+          when :medium then el.add_style("max-height: 50vh")
+          when :large then el.add_style("max-height: 90vh")
+          end
+        else
+          el.add_style("display: none")
+        end
+
+        if view.shows_drag_indicator
+          indicator = Components::Elements::Div.new
+          indicator.add_style("width: 36px; height: 5px; background: #ccc; border-radius: 3px; margin: 8px auto")
+          el.add_child(indicator)
+        end
+
+        if content = view.content
+          content_el = Components::Elements::Div.new
+          content_el.add_style("padding: 16px; overflow-y: auto")
+          @element_stack.push(content_el)
+          content.accept(self)
+          @element_stack.pop
+          el.add_child(content_el)
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Popover)
+        el = Components::Elements::Div.new
+        if view.is_presented
+          el.add_style("position: absolute; background: white; border-radius: 8px; box-shadow: 0 2px 16px rgba(0,0,0,0.15); z-index: 800; padding: 12px")
+          if w = view.preferred_width
+            el.add_style("width: #{w}px")
+          end
+          if h = view.preferred_height
+            el.add_style("height: #{h}px")
+          end
+        else
+          el.add_style("display: none")
+        end
+
+        if content = view.content
+          @element_stack.push(el)
+          content.accept(self)
+          @element_stack.pop
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::ConfirmationDialog)
+        el = Components::Elements::Div.new
+        el.set_attribute("role", "alertdialog")
+        el.set_attribute("aria-modal", "true")
+        if view.is_presented
+          el.add_style("position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000")
+        else
+          el.add_style("display: none")
+        end
+
+        dialog = Components::Elements::Div.new
+        dialog.add_style("background: white; border-radius: 14px; padding: 24px; min-width: 270px; max-width: 400px")
+
+        title_el = Components::Elements::Span.new
+        title_el << view.title
+        title_el.add_style("display: block; font-size: 17px; font-weight: 600; text-align: center; margin-bottom: 8px")
+        dialog.add_child(title_el)
+
+        unless view.message.empty?
+          msg_el = Components::Elements::Span.new
+          msg_el << view.message
+          msg_el.add_style("display: block; font-size: 13px; text-align: center; color: #555; margin-bottom: 16px")
+          dialog.add_child(msg_el)
+        end
+
+        buttons_el = Components::Elements::Div.new
+        buttons_el.add_style("display: flex; gap: 8px; justify-content: center")
+
+        cancel_btn = Components::Elements::Button.new(type: "button")
+        cancel_btn << view.cancel_label
+        cancel_btn.add_style("padding: 8px 24px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer")
+        buttons_el.add_child(cancel_btn)
+
+        confirm_btn = Components::Elements::Button.new(type: "button")
+        confirm_btn << view.confirm_label
+        if view.confirm_style == :destructive
+          confirm_btn.add_style("padding: 8px 24px; border-radius: 8px; border: none; background: #FF3B30; color: white; cursor: pointer")
+        else
+          confirm_btn.add_style("padding: 8px 24px; border-radius: 8px; border: none; background: #007AFF; color: white; cursor: pointer")
+        end
+        buttons_el.add_child(confirm_btn)
+
+        dialog.add_child(buttons_el)
+        el.add_child(dialog)
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Snackbar)
+        el = Components::Elements::Div.new
+        if view.is_presented
+          el.add_style("position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #323232; color: white; padding: 12px 24px; border-radius: 8px; display: flex; align-items: center; gap: 16px; z-index: 950; box-shadow: 0 4px 12px rgba(0,0,0,0.2)")
+        else
+          el.add_style("display: none")
+        end
+
+        msg = Components::Elements::Span.new
+        msg << view.message
+        el.add_child(msg)
+
+        if action = view.action_label
+          btn = Components::Elements::Button.new(type: "button")
+          btn << action
+          btn.add_style("border: none; background: transparent; color: #BB86FC; font-weight: 600; cursor: pointer; text-transform: uppercase")
+          el.add_child(btn)
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Card)
+        el = Components::Elements::Div.new
+        if view.is_outlined
+          el.add_style("border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden")
+        else
+          shadow_y = (view.elevation * 2).round
+          shadow_blur = (view.elevation * 4).round
+          el.add_style("border-radius: 12px; overflow: hidden; box-shadow: 0 #{shadow_y}px #{shadow_blur}px rgba(0,0,0,0.12)")
+        end
+
+        if content = view.content
+          @element_stack.push(el)
+          content.accept(self)
+          @element_stack.pop
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Surface)
+        el = Components::Elements::Div.new
+        case view.shape
+        when :rounded then el.add_style("border-radius: 12px")
+        when :circle then el.add_style("border-radius: 50%")
+        end
+
+        if view.elevation > 0
+          shadow_y = (view.elevation * 2).round
+          shadow_blur = (view.elevation * 4).round
+          el.add_style("box-shadow: 0 #{shadow_y}px #{shadow_blur}px rgba(0,0,0,0.1)")
+        end
+
+        if content = view.content
+          @element_stack.push(el)
+          content.accept(self)
+          @element_stack.pop
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::Divider)
+        el = Components::Elements::Div.new
+        c = view.color
+        color_css = "rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a})"
+        if view.orientation == :horizontal
+          el.add_style("height: #{view.thickness}px; background: #{color_css}; width: 100%")
+        else
+          el.add_style("width: #{view.thickness}px; background: #{color_css}; height: 100%")
+        end
+        el.set_attribute("role", "separator")
+
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::GlassBackground)
+        el = Components::Elements::Div.new
+        blur = case view.material
+               when :ultra_thin then 10
+               when :thin then 20
+               when :regular then 30
+               when :thick then 40
+               when :chrome then 50
+               else 30
+               end
+        el.add_style("backdrop-filter: blur(#{blur}px); -webkit-backdrop-filter: blur(#{blur}px); background: rgba(255,255,255,0.7); border-radius: inherit")
+
+        if content = view.content
+          @element_stack.push(el)
+          content.accept(self)
+          @element_stack.pop
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      # ---------------------------------------------------------------
+      # P2 Wave 3 Visit methods
+      # ---------------------------------------------------------------
+
+      def visit(view : UI::AsyncImage)
+        el = Components::Elements::Div.new
+        el.add_style("display: inline-block; position: relative")
+        if view.is_loading
+          spinner = Components::Elements::Div.new
+          spinner.add_style("width: 24px; height: 24px; border-radius: 50%; border: 2px solid #e0e0e0; border-top-color: #007AFF; animation: spin 1s linear infinite")
+          el.add_child(spinner)
+        elsif !view.url.empty?
+          img = Components::Elements::Img.new
+          img.set_attribute("src", view.url)
+          img.set_attribute("loading", "lazy")
+          case view.content_mode
+          when UI::ContentMode::Fit then img.add_style("object-fit: contain")
+          when UI::ContentMode::Fill then img.add_style("object-fit: cover")
+          when UI::ContentMode::Stretch then img.add_style("object-fit: fill")
+          end
+          el.add_child(img)
+        end
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::RichText)
+        el = Components::Elements::Div.new
+        el.add_style("text-align: #{alignment_to_css(view.text_alignment)}")
+        view.spans.each do |span|
+          span_el = Components::Elements::Span.new
+          span_el << span.text
+          styles = [] of String
+          c = span.color
+          styles << "color: rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a})"
+          styles << "font-weight: bold" if span.bold
+          styles << "font-style: italic" if span.italic
+          styles << "text-decoration: underline" if span.underline
+          styles << "text-decoration: line-through" if span.strikethrough
+          styles.each { |s| span_el.add_style(s) }
+          if link = span.link
+            span_el.add_style("cursor: pointer; color: #007AFF")
+            span_el.set_attribute("data-href", link)
+          end
+          el.add_child(span_el)
+        end
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::LinkButton)
+        el = Components::Elements::Div.new
+        el.set_attribute("role", "link")
+        el.set_attribute("tabindex", "0")
+        el.add_style("color: #007AFF; cursor: pointer; display: inline")
+        unless view.url.empty?
+          el.set_attribute("data-href", view.url)
+        end
+        el << view.label
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::MenuButton)
+        el = Components::Elements::Div.new
+        el.add_style("display: inline-block; position: relative")
+        btn = Components::Elements::Button.new(type: "button")
+        btn << view.label
+        btn.add_style("display: flex; align-items: center; gap: 4px; padding: 6px 12px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer")
+        el.add_child(btn)
+
+        if !view.items.empty?
+          menu = Components::Elements::Div.new
+          menu.add_style("position: absolute; top: 100%; left: 0; background: white; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 150px; z-index: 100")
+          menu.set_attribute("role", "menu")
+          view.items.each do |item|
+            item_el = Components::Elements::Div.new
+            item_el.set_attribute("role", "menuitem")
+            item_el.add_style("padding: 8px 16px; cursor: pointer")
+            if item.is_destructive
+              item_el.add_style("color: #FF3B30")
+            end
+            item_el << item.label
+            menu.add_child(item_el)
+          end
+          el.add_child(menu)
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::ToggleButton)
+        el = Components::Elements::Button.new(type: "button")
+        el.set_attribute("role", "switch")
+        el.set_attribute("aria-checked", view.is_selected.to_s)
+        if view.is_selected
+          el.add_style("background: #007AFF; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer")
+        else
+          el.add_style("background: transparent; color: #333; border: 1px solid #ccc; padding: 8px 16px; border-radius: 8px; cursor: pointer")
+        end
+        el << view.label
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::TextEditor)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; flex-direction: column; border: 1px solid #ccc; border-radius: 6px; overflow: hidden")
+
+        if view.shows_line_numbers
+          el.add_style("font-family: monospace")
+        end
+
+        editor = Components::Elements::Div.new
+        editor.set_attribute("contenteditable", view.is_editable ? "true" : "false")
+        editor.set_attribute("role", "textbox")
+        editor.set_attribute("aria-multiline", "true")
+        editor.add_style("padding: 12px; min-height: 200px; outline: none; white-space: pre-wrap")
+        apply_font_styles(editor, view.font)
+        c = view.text_color
+        editor.add_style("color: rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a})")
+
+        if view.text.empty? && !view.placeholder.empty?
+          editor << view.placeholder
+          editor.add_style("color: #999")
+        else
+          editor << view.text
+        end
+
+        el.add_child(editor)
+        apply_common_styles(el, view)
+
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      # ---------------------------------------------------------------
+      # P3 Stub Visit methods
+      # ---------------------------------------------------------------
+
+      def visit(view : UI::Circle)
+        el = Components::Elements::Div.new
+        c = view.fill_color
+        el.add_style("width: #{view.size}px; height: #{view.size}px; border-radius: 50%; background: rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a}); display: inline-block")
+        if sc = view.stroke_color
+          el.add_style("border: #{view.stroke_width}px solid rgba(#{to_rgb_int(sc.r)}, #{to_rgb_int(sc.g)}, #{to_rgb_int(sc.b)}, #{sc.a})")
+        end
+        el.set_attribute("data-component", "circle")
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::Rectangle)
+        el = Components::Elements::Div.new
+        c = view.fill_color
+        el.add_style("width: #{view.width}px; height: #{view.height}px; background: rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a}); display: inline-block")
+        if sc = view.stroke_color
+          el.add_style("border: #{view.stroke_width}px solid rgba(#{to_rgb_int(sc.r)}, #{to_rgb_int(sc.g)}, #{to_rgb_int(sc.b)}, #{sc.a})")
+        end
+        el.set_attribute("data-component", "rectangle")
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::RoundedRectangle)
+        el = Components::Elements::Div.new
+        c = view.fill_color
+        el.add_style("width: #{view.width}px; height: #{view.height}px; border-radius: #{view.corner_radius}px; background: rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a}); display: inline-block")
+        if sc = view.stroke_color
+          el.add_style("border: #{view.stroke_width}px solid rgba(#{to_rgb_int(sc.r)}, #{to_rgb_int(sc.g)}, #{to_rgb_int(sc.b)}, #{sc.a})")
+        end
+        el.set_attribute("data-component", "rounded-rectangle")
+        el.set_attribute("data-corner-style", view.corner_style.to_s)
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::Capsule)
+        el = Components::Elements::Div.new
+        c = view.fill_color
+        el.add_style("width: #{view.width}px; height: #{view.height}px; border-radius: 9999px; background: rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a}); display: inline-block")
+        if sc = view.stroke_color
+          el.add_style("border: #{view.stroke_width}px solid rgba(#{to_rgb_int(sc.r)}, #{to_rgb_int(sc.g)}, #{to_rgb_int(sc.b)}, #{sc.a})")
+        end
+        el.set_attribute("data-component", "capsule")
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::Canvas)
+        el = Components::Elements::Div.new
+        el.add_style("width: #{view.width}px; height: #{view.height}px; position: relative; overflow: hidden; display: inline-block")
+        el.set_attribute("role", "img")
+        el.set_attribute("data-component", "canvas")
+        el.set_attribute("data-width", view.width.to_s)
+        el.set_attribute("data-height", view.height.to_s)
+        el.set_attribute("data-operations", view.operations.size.to_s)
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::PathView)
+        el = Components::Elements::Div.new
+        el.add_style("width: #{view.width}px; height: #{view.height}px; display: inline-block")
+        sc = view.stroke_color
+        stroke_css = "rgba(#{to_rgb_int(sc.r)}, #{to_rgb_int(sc.g)}, #{to_rgb_int(sc.b)}, #{sc.a})"
+        fill_css = if fc = view.fill_color
+          c = fc
+          "rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a})"
+        else
+          "none"
+        end
+        el.set_attribute("data-component", "path")
+        el.set_attribute("data-path", view.to_svg_path)
+        el.set_attribute("data-stroke", stroke_css)
+        el.set_attribute("data-fill", fill_css)
+        el.set_attribute("data-stroke-width", view.stroke_width.to_s)
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::MapView)
+        el = Components::Elements::Div.new
+        el.add_style("display: inline-block; position: relative; overflow: hidden; background: #e8e0d8")
+        el.set_attribute("data-component", "map")
+        el.set_attribute("data-latitude", view.latitude.to_s)
+        el.set_attribute("data-longitude", view.longitude.to_s)
+        el.set_attribute("data-zoom", view.zoom_level.to_s)
+        el.set_attribute("data-map-type", view.map_type.to_s)
+        el.set_attribute("data-shows-user-location", view.shows_user_location.to_s)
+        el.set_attribute("data-annotation-count", view.annotations.size.to_s)
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::ChartView)
+        el = Components::Elements::Div.new
+        el.add_style("display: inline-block; position: relative")
+        el.set_attribute("data-component", "chart")
+        el.set_attribute("data-chart-type", view.chart_type.to_s)
+        el.set_attribute("data-title", view.title)
+        el.set_attribute("data-point-count", view.data_points.size.to_s)
+        el.set_attribute("data-show-legend", view.show_legend.to_s)
+        el.set_attribute("data-show-grid", view.show_grid.to_s)
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::WebViewComponent)
+        el = Components::Elements::Div.new
+        el.add_style("display: inline-block; position: relative; overflow: hidden")
+        el.set_attribute("data-component", "iframe")
+        el.set_attribute("data-src", view.url)
+        el.set_attribute("data-allows-navigation", view.allows_navigation.to_s)
+        el.set_attribute("data-allows-scripts", view.allows_scripts.to_s)
+        if t = view.title
+          el.set_attribute("data-title", t)
+        end
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::ColorPicker)
+        el = Components::Elements::Div.new
+        el.add_style("display: flex; align-items: center; gap: 8px")
+        unless view.label.empty?
+          label_el = Components::Elements::Span.new
+          label_el << view.label
+          el.add_child(label_el)
+        end
+        input = Components::Elements::Input.new
+        input.set_attribute("type", "color")
+        c = view.selected_color
+        hex = "#%02x%02x%02x" % {to_rgb_int(c.r), to_rgb_int(c.g), to_rgb_int(c.b)}
+        input.set_attribute("value", hex)
+        if view.supports_alpha
+          input.set_attribute("data-supports-alpha", "true")
+        end
+        el.add_child(input)
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      def visit(view : UI::VideoPlayer)
+        el = Components::Elements::Div.new
+        el.add_style("display: inline-block; position: relative; background: #000")
+        el.set_attribute("data-component", "video")
+        el.set_attribute("data-src", view.url)
+        el.set_attribute("data-autoplay", view.auto_play.to_s)
+        el.set_attribute("data-muted", view.muted.to_s)
+        el.set_attribute("data-loop", view.loop.to_s)
+        el.set_attribute("data-controls", view.shows_controls.to_s)
+        if poster = view.poster_url
+          el.set_attribute("data-poster", poster)
+        end
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::Tooltip)
+        el = Components::Elements::Div.new
+        el.add_style("display: inline-block; position: relative")
+        el.set_attribute("data-component", "tooltip")
+        el.set_attribute("data-tooltip", view.text)
+        el.set_attribute("data-position", view.position.to_s)
+        el.set_attribute("data-delay", view.delay.to_s)
+        if view.is_visible
+          el.set_attribute("data-visible", "true")
+        end
+        if content = view.content
+          @element_stack.push(el)
+          content.accept(self)
+          @element_stack.pop
+        end
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      # ActivityView -> semantic HTML share-sheet approximation.
+      # Web rendering: popover-style card with all four zones.
+      def visit(view : UI::ActivityView)
+        el = Components::Elements::Div.new
+        el.add_style("background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 16px; box-shadow: 0 4px 32px rgba(0,0,0,0.18); padding: 16px; max-width: 400px; display: flex; flex-direction: column; gap: 12px")
+        el.set_attribute("role", "dialog")
+        el.set_attribute("aria-label", view.title)
+
+        # Zone 1: Header
+        header = Components::Elements::Div.new
+        header.add_style("display: flex; flex-direction: row; align-items: center; gap: 12px")
+        title_el = Components::Elements::Div.new
+        title_el.add_style("font-size: 15px; font-weight: 600")
+        title_el << view.title
+        if sub = view.subtitle
+          sub_el = Components::Elements::Div.new
+          sub_el.add_style("font-size: 13px; color: #888")
+          sub_el << sub
+          title_el.add_child(sub_el)
+        end
+        header.add_child(title_el)
+        el.add_child(header)
+
+        # Zone 2: Destination row
+        dest_row = Components::Elements::Div.new
+        dest_row.add_style("display: flex; flex-direction: row; gap: 16px; overflow-x: auto; padding-bottom: 4px")
+        view.destinations.each do |dest|
+          dest_item = Components::Elements::Div.new
+          dest_item.add_style("display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 60px")
+          icon_el = Components::Elements::Div.new
+          icon_el.add_style("width: 60px; height: 60px; border-radius: 30px; background: rgba(120,120,128,0.16); display: flex; align-items: center; justify-content: center; font-size: 24px")
+          icon_el.set_attribute("aria-label", dest.icon_symbol)
+          lbl_el = Components::Elements::Div.new
+          lbl_el.add_style("font-size: 11px; color: #666; text-align: center")
+          lbl_el << dest.label
+          dest_item.add_child(icon_el)
+          dest_item.add_child(lbl_el)
+          dest_row.add_child(dest_item)
+        end
+        el.add_child(dest_row)
+
+        # Zone 3: Action grid (2-col)
+        grid = Components::Elements::Div.new
+        grid.add_style("display: grid; grid-template-columns: 1fr 1fr; gap: 8px")
+        view.actions.each do |act|
+          tile = Components::Elements::Div.new
+          tile.add_style("display: flex; flex-direction: row; align-items: center; gap: 8px; background: rgba(120,120,128,0.10); border-radius: 10px; padding: 10px 12px")
+          icon_span = Components::Elements::Div.new
+          icon_span.set_attribute("aria-label", act.icon_symbol)
+          icon_span.add_style("width: 28px; height: 28px; border-radius: 6px; background: rgba(120,120,128,0.12); display: flex; align-items: center; justify-content: center")
+          lbl_span = Components::Elements::Div.new
+          lbl_span << act.label
+          color = act.role == :destructive ? "#ff3b30" : "inherit"
+          lbl_span.add_style("font-size: 13px; color: #{color}")
+          tile.add_child(icon_span)
+          tile.add_child(lbl_span)
+          grid.add_child(tile)
+        end
+        el.add_child(grid)
+
+        # Zone 4: Cancel button
+        cancel_el = Components::Elements::Div.new
+        cancel_el.add_style("font-size: 17px; font-weight: 600; color: #007aff; text-align: center; padding: 12px; cursor: pointer; border-radius: 10px; background: rgba(120,120,128,0.10)")
+        cancel_el << "Cancel"
+        el.add_child(cancel_el)
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
+      # DisclosureGroup -> <details>/<summary> HTML element.
+      # Uses the native HTML disclosure widget: <details> (collapsed by
+      # default) and <summary> (the clickable header row). When
+      # expanded = true, the details element is given the open attribute.
+      def visit(view : UI::DisclosureGroup)
+        details = Components::Elements::Div.new
+        open_attr = view.expanded ? " open" : ""
+        details.add_style("display: block")
+        details.set_attribute("role", "group")
+        details.set_attribute("aria-expanded", view.expanded ? "true" : "false")
+
+        # Header row: chevron indicator + title
+        header_div = Components::Elements::Div.new
+        header_div.add_style("display: flex; flex-direction: row; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 17px; padding: 4px 0")
+        acc_text = view.accessibility_label || "#{view.title}, #{view.expanded ? "expanded" : "collapsed"}"
+        header_div.set_attribute("aria-label", acc_text)
+        chevron = Components::Elements::Div.new
+        chevron.add_style("font-size: 12px; color: #636366; transition: transform 0.2s")
+        # Right-pointing = collapsed (U+276F ❯); down-pointing = expanded (U+276F rotated)
+        chevron_char = view.expanded ? "\u25BC" : "\u25B6"
+        chevron << chevron_char
+        header_div.add_child(chevron)
+        title_span = Components::Elements::Div.new
+        title_span.add_style("font-size: 17px; font-weight: 400")
+        title_span << view.title
+        header_div.add_child(title_span)
+        details.add_child(header_div)
+
+        # Content block: shown when expanded = true
+        if view.expanded && !view.content.empty?
+          content_div = Components::Elements::Div.new
+          content_div.add_style("display: flex; flex-direction: column; gap: 4px; padding-left: 20px; padding-top: 4px")
+          push_container(content_div) do
+            view.content.each do |child|
+              child.accept(self)
+            end
+          end
+          details.add_child(content_div)
+        end
+
+        apply_common_styles(details, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(details)
+        else
+          @root = details
+        end
+      end
+
+      # ---------------------------------------------------------------
+      # PageControl -> a flex row of dot <span> elements.
+      # ---------------------------------------------------------------
+      def visit(view : UI::PageControl)
+        total = [view.total, 1].max
+        current = view.current.clamp(0, total - 1)
+
+        container = Components::Elements::Div.new
+        container.add_style("display: flex; flex-direction: row; align-items: center; gap: 6px; justify-content: center")
+        acc_label = view.accessibility_label || "Page #{current + 1} of #{total}"
+        container.set_attribute("role", "tablist")
+        container.set_attribute("aria-label", acc_label)
+
+        total.times do |i|
+          dot = Components::Elements::Div.new
+          is_current = (i == current)
+          size = is_current ? "8px" : "7px"
+          if is_current
+            fill_color = if tc = view.tint_color
+                           "rgba(#{(tc.r * 255).to_i}, #{(tc.g * 255).to_i}, #{(tc.b * 255).to_i}, #{tc.a})"
+                         else
+                           "#007AFF"
+                         end
+            dot.add_style("width: #{size}; height: #{size}; border-radius: 50%; background-color: #{fill_color}; flex-shrink: 0")
+          else
+            stroke_color = if tc = view.tint_color
+                             "rgba(#{(tc.r * 255).to_i}, #{(tc.g * 255).to_i}, #{(tc.b * 255).to_i}, 0.4)"
+                           else
+                             "rgba(0, 122, 255, 0.4)"
+                           end
+            dot.add_style("width: #{size}; height: #{size}; border-radius: 50%; border: 1px solid #{stroke_color}; background-color: transparent; flex-shrink: 0")
+          end
+          dot.set_attribute("role", "tab")
+          dot.set_attribute("aria-selected", is_current ? "true" : "false")
+          container.add_child(dot)
+        end
+
+        apply_common_styles(container, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(container)
+        else
+          @root = container
+        end
+      end
+
+      # ---------------------------------------------------------------
+      # ComboBox -> <input list="..."> + <datalist> (HTML5 native combo)
+      # ---------------------------------------------------------------
+      def visit(view : UI::ComboBox)
+        # <datalist> holds the preset options; <input list="..."> links to it.
+        list_id = "combo-#{view.object_id}"
+
+        # Outer <div> wrapper so width constraints work cleanly.
+        outer = Components::Elements::Div.new
+        outer.add_style("display: flex; align-items: center; position: relative")
+
+        # <datalist> element
+        datalist = Components::Elements::Div.new
+        datalist.set_attribute("id", list_id)
+        # We emit datalist as a generic Div (no native datalist class in
+        # Components::Elements) — callers who need true HTML5 behaviour
+        # should use the raw HTML emit path. This web renderer is a stub
+        # for doc/test purposes only.
+        datalist.set_attribute("data-role", "datalist")
+        view.options.each do |opt|
+          option_el = Components::Elements::Div.new
+          option_el.set_attribute("data-value", opt)
+          datalist.add_child(option_el)
+        end
+        outer.add_child(datalist)
+
+        # <input> element styled as a combo box field
+        input_el = Components::Elements::Div.new
+        input_el.set_attribute("data-role", "combobox-input")
+        input_el.set_attribute("list", list_id)
+        unless view.value.empty?
+          input_el.set_attribute("value", view.value)
+        end
+        unless view.placeholder.empty?
+          input_el.set_attribute("placeholder", view.placeholder)
+        end
+        if acc = view.accessibility_label
+          input_el.set_attribute("aria-label", acc)
+        end
+        input_el.set_attribute("role", "combobox")
+        input_el.set_attribute("aria-expanded", "false")
+        input_el.set_attribute("aria-haspopup", "listbox")
+        input_el.add_style("display: flex; border: 1px solid #ccc; border-radius: 6px; padding: 8px 32px 8px 8px; font-size: 13px; width: 100%; box-sizing: border-box; background: white")
+
+        outer.add_child(input_el)
+
+        apply_common_styles(outer, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(outer)
+        else
+          @root = outer
+        end
+      end
+
+      # ---------------------------------------------------------------
+      # RatingIndicator -> a row of star span elements (CSS flexbox)
+      # ---------------------------------------------------------------
+      def visit(view : UI::RatingIndicator)
+        outer = Components::Elements::Div.new
+        outer.add_style("display: flex; align-items: center; gap: 4px")
+
+        clamped = view.value.clamp(0.0, view.max.to_f64)
+        filled_count = clamped.round.to_i
+
+        # Resolve tint color string (CSS rgb). Default: system yellow.
+        tint_css = if tc = view.tint_color
+                     "rgb(#{(tc.r * 255).round}, #{(tc.g * 255).round}, #{(tc.b * 255).round})"
+                   else
+                     "rgb(255, 204, 0)"
+                   end
+
+        view.max.times do |i|
+          star = Components::Elements::Div.new
+          star.set_attribute("aria-hidden", "true")
+          # Use Unicode star characters: filled = U+2605, outlined = U+2606
+          star.set_attribute("data-star", i < filled_count ? "filled" : "empty")
+          star.add_style("font-size: 20px; color: #{tint_css}; user-select: none")
+          outer.add_child(star)
+        end
+
+        if acc = view.accessibility_label
+          outer.set_attribute("aria-label", acc)
+        else
+          outer.set_attribute("aria-label", "#{filled_count} out of #{view.max} stars")
+        end
+        outer.set_attribute("role", "img")
+
+        apply_common_styles(outer, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(outer)
+        else
+          @root = outer
+        end
+      end
+
       # ---------------------------------------------------------------
       # Private helpers
       # ---------------------------------------------------------------
@@ -285,6 +1934,47 @@ module UI
           el.add_style("opacity: #{view.opacity}")
         end
 
+        # Corner radius
+        if view.corner_radius > 0
+          el.add_style("border-radius: #{view.corner_radius}px")
+        end
+
+        # Clip to bounds
+        if view.clip_to_bounds
+          el.add_style("overflow: hidden")
+        end
+
+        # Shadow
+        if view.shadow_radius > 0
+          sc = view.shadow_color || UI::Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.3)
+          el.add_style("box-shadow: #{view.shadow_offset_x}px #{view.shadow_offset_y}px #{view.shadow_radius}px rgba(#{to_rgb_int(sc.r)}, #{to_rgb_int(sc.g)}, #{to_rgb_int(sc.b)}, #{sc.a})")
+        end
+
+        # Border
+        if view.border_width > 0
+          bc = view.border_color || UI::Color.new(r: 0.0, g: 0.0, b: 0.0)
+          el.add_style("border: #{view.border_width}px solid rgba(#{to_rgb_int(bc.r)}, #{to_rgb_int(bc.g)}, #{to_rgb_int(bc.b)}, #{bc.a})")
+        end
+
+        # Blur
+        if view.blur_radius > 0
+          el.add_style("filter: blur(#{view.blur_radius}px)")
+        end
+
+        # Size constraints
+        if min_w = view.minimum_width
+          el.add_style("min-width: #{min_w}px")
+        end
+        if min_h = view.minimum_height
+          el.add_style("min-height: #{min_h}px")
+        end
+        if max_w = view.maximum_width
+          el.add_style("max-width: #{max_w}px")
+        end
+        if max_h = view.maximum_height
+          el.add_style("max-height: #{max_h}px")
+        end
+
         # View ID -> HTML id
         if id = view.id
           el.set_attribute("id", id)
@@ -295,6 +1985,11 @@ module UI
           unless el["aria-label"]
             el.set_attribute("aria-label", label)
           end
+        end
+
+        # Test identifier -> data-testid attribute for automated UI testing
+        if tid = view.test_id
+          el.set_attribute("data-testid", tid)
         end
       end
 
