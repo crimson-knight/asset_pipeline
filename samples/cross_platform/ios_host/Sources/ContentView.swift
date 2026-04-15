@@ -9,6 +9,7 @@ struct ContentView: View {
         // the backdrop UIImageView installed by HIGBackdropController.
         // Do NOT add a solid .background() here -- that would flatten glass.
         CrystalHost(slug: slug)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             .accessibilityIdentifier("hig-component-root-host")
     }
 }

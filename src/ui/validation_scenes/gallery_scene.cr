@@ -97,6 +97,10 @@ module UI
         when :grid_full
           # Focal IS the gallery content.
           container = VStack.new(spacing: 0.0)
+          container.alignment = Alignment::Center
+          container.minimum_width = 1200.0
+          container.maximum_width = 1200.0
+          container.minimum_height = 856.0
           container.padding = EdgeInsets.new(top: 21.0, trailing: 21.0, bottom: 21.0, leading: 21.0)
           container << @focal
           container.as(View)

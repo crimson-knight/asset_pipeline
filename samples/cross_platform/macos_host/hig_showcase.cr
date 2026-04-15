@@ -59,7 +59,7 @@ SLUG_SCENES = {
   "page-controls"     => "gallery",
   # Iter B -- chart scene
   "charts"            => "chart",
-  "progress-indicators" => "chart",
+  "progress-indicators" => "ambient",
   # Iter B -- settings scene
   "buttons"           => "settings",
   "toggles"           => "settings",
@@ -278,19 +278,39 @@ def build_component(slug : String) : UI::View
     # contents" -- we render title + body text + a couple of label/value rows
     # to exercise the grouped surface chrome. Pure surface demo: no role-colored
     # buttons (that would trigger the known UI::Button#role gap from gaps.md).
-    box_body = UI::VStack.new(spacing: 8.0)
-    box_body << UI::Label.new("Your order ships in a reusable padded mailer.")
+    box_body = UI::VStack.new(spacing: 10.0)
+    box_body.alignment = UI::Alignment::Leading
+    box_body.padding = UI::EdgeInsets.new(top: 16.0, trailing: 18.0, bottom: 16.0, leading: 18.0)
+    box_intro = UI::Label.new("Your order ships in a reusable padded mailer.")
+    box_intro.font = UI::Font.new(size: 13.0, weight: :regular)
+    box_body << box_intro.as(UI::View)
     row1 = UI::HStack.new(spacing: 12.0)
-    row1 << UI::Label.new("Carrier")
-    row1 << UI::Label.new("USPS Ground")
+    row1.alignment = UI::Alignment::Center
+    carrier_label = UI::Label.new("Carrier")
+    carrier_label.font = UI::Font.new(size: 12.0, weight: :semibold)
+    carrier_label.text_color = UI::Color.new(r: 0.45, g: 0.45, b: 0.45)
+    carrier_value = UI::Label.new("USPS Ground")
+    carrier_value.font = UI::Font.new(size: 13.0, weight: :regular)
+    row1 << carrier_label.as(UI::View)
+    row1 << UI::Spacer.new.as(UI::View)
+    row1 << carrier_value.as(UI::View)
     row2 = UI::HStack.new(spacing: 12.0)
-    row2 << UI::Label.new("Estimated arrival")
-    row2 << UI::Label.new("Apr 17 - Apr 19")
+    row2.alignment = UI::Alignment::Center
+    arrival_label = UI::Label.new("Estimated arrival")
+    arrival_label.font = UI::Font.new(size: 12.0, weight: :semibold)
+    arrival_label.text_color = UI::Color.new(r: 0.45, g: 0.45, b: 0.45)
+    arrival_value = UI::Label.new("Apr 17 - Apr 19")
+    arrival_value.font = UI::Font.new(size: 13.0, weight: :regular)
+    row2 << arrival_label.as(UI::View)
+    row2 << UI::Spacer.new.as(UI::View)
+    row2 << arrival_value.as(UI::View)
     box_body << row1
     box_body << row2
     card = UI::Card.new(box_body.as(UI::View))
     card.title = "Shipping details"
     card.is_outlined = true
+    card.minimum_width = 420.0
+    card.maximum_width = 420.0
     card.as(UI::View)
   when "collections"
     # HIG Collections: "A collection manages an ordered set of content and
@@ -301,14 +321,20 @@ def build_component(slug : String) : UI::View
     # (simulating a photo thumbnail) and a caption label below it.
     # This matches HIG "Best practices": "Use the standard row or grid
     # layout whenever possible."
-    make_tile = ->(caption : String) do
+    make_tile = ->(symbol : String, caption : String) do
       tile = UI::VStack.new(spacing: 4.0)
-      # Placeholder thumbnail: a label with fixed text standing in for an
-      # image -- the validation renderer uses Label not AsyncImage here
-      # to keep the ObjC bridge simple.
-      thumb = UI::Label.new("[photo]")
-      thumb.font = UI::Font.new(size: 28.0, weight: :regular)
-      thumb.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+      tile.alignment = UI::Alignment::Center
+      tile.minimum_width = 124.0
+      tile.maximum_width = 124.0
+      tile.minimum_height = 116.0
+      tile.padding = UI::EdgeInsets.new(top: 12.0, trailing: 10.0, bottom: 10.0, leading: 10.0)
+      tile.corner_radius = 10.0
+      tile.background = UI::Color.new(r: 0.96, g: 0.92, b: 0.86, a: 0.78)
+      thumb = UI::Image.new(symbol)
+      thumb.minimum_width = 42.0
+      thumb.minimum_height = 42.0
+      thumb.content_mode = UI::ContentMode::Fit
+      thumb.tint_color = UI::Color.new(r: 0.36, g: 0.23, b: 0.58)
       cap = UI::Label.new(caption)
       cap.font = UI::Font.new(size: 11.0, weight: :regular)
       cap.text_color = UI::Color.new(r: 0.45, g: 0.45, b: 0.45)
@@ -317,19 +343,23 @@ def build_component(slug : String) : UI::View
       tile.as(UI::View)
     end
     tiles = [
-      make_tile.call("Big Sur"),
-      make_tile.call("Morning"),
-      make_tile.call("Trail"),
-      make_tile.call("Coffee"),
-      make_tile.call("Sunset"),
-      make_tile.call("Coast"),
-      make_tile.call("Forest"),
-      make_tile.call("Lake"),
-      make_tile.call("City"),
+      make_tile.call("mountain.2", "Big Sur"),
+      make_tile.call("sunrise", "Morning"),
+      make_tile.call("figure.walk", "Trail"),
+      make_tile.call("cup.and.saucer", "Coffee"),
+      make_tile.call("sunset", "Sunset"),
+      make_tile.call("water.waves", "Coast"),
+      make_tile.call("leaf", "Forest"),
+      make_tile.call("drop", "Lake"),
+      make_tile.call("building.2", "City"),
     ]
     section = UI::ListView::Section.new(header: "Photos", items: tiles)
     list = UI::ListView.new(sections: [section], style: UI::ListStyle::Plain, layout: UI::ListLayout::Grid, columns: 3)
-    list.item_spacing = 10.0
+    list.item_spacing = 14.0
+    list.minimum_width = 430.0
+    list.maximum_width = 430.0
+    list.minimum_height = 388.0
+    list.background = UI::Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.0)
     list.shows_separators = false
     list.as(UI::View)
   when "lists-and-tables"
@@ -1018,14 +1048,21 @@ def build_component(slug : String) : UI::View
     # macOS: NSTextField (rounded bezel) or NSSecureTextField.
 
     tf_stack = UI::VStack.new(spacing: 14.0)
+    tf_stack.alignment = UI::Alignment::Leading
+    tf_stack.minimum_width = 360.0
+    tf_stack.maximum_width = 360.0
+    tf_stack.padding = UI::EdgeInsets.new(top: 18.0, trailing: 20.0, bottom: 18.0, leading: 20.0)
     tf_stack << UI::Label.new("Account details").tap { |l| l.font = UI::Font.new(size: 15.0, weight: :semibold) }
 
     # Row 1: Name (empty, placeholder visible)
     row1 = UI::VStack.new(spacing: 4.0)
+    row1.alignment = UI::Alignment::Leading
     lbl1 = UI::Label.new("Name:")
     lbl1.font = UI::Font.new(size: 13.0, weight: :regular)
     lbl1.accessibility_label = "Name label"
     tf1 = UI::TextField.new("Your name")
+    tf1.minimum_width = 280.0
+    tf1.maximum_width = 280.0
     tf1.accessibility_label = "Name field"
     row1 << lbl1.as(UI::View)
     row1 << tf1.as(UI::View)
@@ -1033,11 +1070,14 @@ def build_component(slug : String) : UI::View
 
     # Row 2: Email (filled value — primary text visible)
     row2 = UI::VStack.new(spacing: 4.0)
+    row2.alignment = UI::Alignment::Leading
     lbl2 = UI::Label.new("Email:")
     lbl2.font = UI::Font.new(size: 13.0, weight: :regular)
     lbl2.accessibility_label = "Email label"
     tf2 = UI::TextField.new("Email address")
     tf2.text = "alice@example.com"
+    tf2.minimum_width = 280.0
+    tf2.maximum_width = 280.0
     tf2.keyboard_type = UI::KeyboardType::EmailAddress
     tf2.accessibility_label = "Email field"
     row2 << lbl2.as(UI::View)
@@ -1046,12 +1086,15 @@ def build_component(slug : String) : UI::View
 
     # Row 3: Password (secure entry — dots)
     row3 = UI::VStack.new(spacing: 4.0)
+    row3.alignment = UI::Alignment::Leading
     lbl3 = UI::Label.new("Password:")
     lbl3.font = UI::Font.new(size: 13.0, weight: :regular)
     lbl3.accessibility_label = "Password label"
     tf3 = UI::TextField.new("Password")
     tf3.secure_entry = true
     tf3.text = "secretpassword"
+    tf3.minimum_width = 280.0
+    tf3.maximum_width = 280.0
     tf3.accessibility_label = "Password field"
     row3 << lbl3.as(UI::View)
     row3 << tf3.as(UI::View)
@@ -1059,10 +1102,13 @@ def build_component(slug : String) : UI::View
 
     # Row 4: Numeric / formatted (number pad keyboard on iOS)
     row4 = UI::VStack.new(spacing: 4.0)
+    row4.alignment = UI::Alignment::Leading
     lbl4 = UI::Label.new("Amount:")
     lbl4.font = UI::Font.new(size: 13.0, weight: :regular)
     lbl4.accessibility_label = "Amount label"
     tf4 = UI::TextField.new("0.00")
+    tf4.minimum_width = 160.0
+    tf4.maximum_width = 160.0
     tf4.keyboard_type = UI::KeyboardType::NumberPad
     tf4.accessibility_label = "Amount field"
     row4 << lbl4.as(UI::View)
@@ -1404,7 +1450,11 @@ def build_component(slug : String) : UI::View
     # context for the task."
     # HIG macOS: "Prefer an activity indicator (spinner) to communicate the
     # status of a background operation or when space is constrained."
-    gallery = UI::VStack.new(spacing: 20.0)
+    gallery = UI::VStack.new(spacing: 16.0)
+    gallery.alignment = UI::Alignment::Leading
+    gallery.minimum_width = 430.0
+    gallery.maximum_width = 430.0
+    gallery.padding = UI::EdgeInsets.new(top: 8.0, trailing: 0.0, bottom: 8.0, leading: 0.0)
 
     # --- Section: Spinners ---
     spinner_hdr = UI::Label.new("Spinners (indeterminate)")
@@ -1419,9 +1469,9 @@ def build_component(slug : String) : UI::View
     med_spinner.accessibility_label = "Loading indicator medium"
     spinner_row << med_spinner
 
-    # Large spinner, tinted blue
+    # Large spinner, tinted with the Amber role color.
     lg_spinner = UI::ActivityIndicator.new(true, :large)
-    lg_spinner.color = UI::Color.new(r: 0.0, g: 0.478, b: 1.0, a: 1.0)
+    lg_spinner.color = UI::Color.new(r: 1.0, g: 0.678, b: 0.2, a: 1.0)
     lg_spinner.accessibility_label = "Loading indicator large"
     spinner_row << lg_spinner
 
@@ -1435,6 +1485,8 @@ def build_component(slug : String) : UI::View
 
     det_bar = UI::ProgressView.new(0.6, UI::ProgressStyle::Linear)
     det_bar.label = "Uploading... 60%"
+    det_bar.minimum_width = 320.0
+    det_bar.maximum_width = 320.0
     det_bar.accessibility_label = "Upload progress 60 percent"
     gallery << det_bar
 
@@ -1451,6 +1503,8 @@ def build_component(slug : String) : UI::View
 
     indet_bar = UI::ProgressView.new(nil, UI::ProgressStyle::Linear)
     indet_bar.label = "Syncing..."
+    indet_bar.minimum_width = 320.0
+    indet_bar.maximum_width = 320.0
     indet_bar.accessibility_label = "Syncing progress indeterminate"
     gallery << indet_bar
 
@@ -1466,11 +1520,15 @@ def build_component(slug : String) : UI::View
     gallery << upload_hdr
 
     upload_row = UI::HStack.new(spacing: 12.0)
+    upload_row.alignment = UI::Alignment::Center
     upload_lbl = UI::Label.new("Uploading file.zip")
     upload_lbl.font = UI::Font.new(size: 13.0, weight: :regular)
     upload_lbl.accessibility_label = "Upload filename"
     upload_row << upload_lbl
-    upload_row << UI::ProgressView.new(0.6, UI::ProgressStyle::Linear)
+    upload_bar = UI::ProgressView.new(0.6, UI::ProgressStyle::Linear)
+    upload_bar.minimum_width = 160.0
+    upload_bar.maximum_width = 160.0
+    upload_row << upload_bar.as(UI::View)
     cancel_btn = UI::Button.new("Cancel")
     cancel_btn.role = :cancel
     cancel_btn.accessibility_label = "Cancel upload"
@@ -2885,6 +2943,11 @@ if scene_name == "dashboard"
   native_focal = focal_renderer.render(focal)
   # native still needs a value for the interactive path below; use native_chrome.
   native = native_chrome.not_nil!
+elsif scene_name == "ambient" || SLUG == "collections"
+  # Isolation plates: render the focal component directly and let the capture
+  # installer center it. Fake app chrome makes simple component studies look
+  # like unfinished app screens instead of default component taste examples.
+  native = renderer.render(focal)
 elsif sn = scene_name
   # Document / dock scenes: single tree, full-stretch.
   top_view = wrap_in_scene(SLUG, focal)
@@ -2976,6 +3039,15 @@ if screenshot_path && !screenshot_path.empty?
         LibWindowHelper.objc_install_content_view_centered(cap_window, nf.handle.ptr!, focal_max_w, 0.0)
       end
     end
+  elsif scene_name == "ambient" || SLUG == "collections"
+    focal_max_w = case SLUG
+                  when "text-views"          then 680.0
+                  when "progress-indicators" then 500.0
+                  when "collections"         then 500.0
+                  when "boxes"               then 460.0
+                  else                            420.0
+                  end
+    LibWindowHelper.objc_install_content_view_centered(cap_window, native.handle.ptr!, focal_max_w, 0.0)
   elsif scene_name
     # Document / dock: single tree, full-stretch.
     LibWindowHelper.objc_install_content_view(cap_window, native.handle.ptr!)

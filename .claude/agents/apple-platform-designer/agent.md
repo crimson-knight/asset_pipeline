@@ -315,6 +315,21 @@ that the default render works in light and dark.
     audit fails, do not submit to design-critic and do not update the row to
     pass/pass_with_notes.
 
+15.5. **External Codex review (mandatory for P0 and pass candidates).** Before
+    invoking design-critic for a P0 slug, or before marking any slug
+    `pass` / `pass_with_notes`, run:
+
+    ```bash
+    scripts/codex_hig_review.sh <slug>
+    ```
+
+    This writes
+    `validation/codex-reviews/<slug>.json` using the protocol in
+    `validation/codex-review-protocol.md`. If Codex returns
+    `INSUFFICIENT_EVIDENCE` or `NEEDS_WORK`, leave the row pending, apply the
+    listed fixes, and re-run captures/report/audit before asking design-critic
+    again. A platform N/A verdict is not a visual pass.
+
 16. **Checkpoint commit (mandatory if PASS / PASS_WITH_NOTES).** When the
     design-critic returns the row-level verdict `PASS` or `PASS_WITH_NOTES`
     (NOT before — never commit on NEEDS_WORK or self-graded passes), commit

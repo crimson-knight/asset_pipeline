@@ -90,6 +90,7 @@ module UI
 
       private def build_centered_content : View
         inner = VStack.new(spacing: 13.0)
+        inner.alignment = Alignment::Leading
 
         # Optional context label (small gray, above the focal)
         if ctx = @context_label
@@ -104,18 +105,29 @@ module UI
 
         # Center focal horizontally with spacers
         h_centered = HStack.new(spacing: 0.0)
+        h_centered.alignment = Alignment::Fill
+        h_centered.minimum_width = 1090.0
+        h_centered.maximum_width = 1090.0
+        h_centered.minimum_height = 746.0
         h_centered << Spacer.new.as(View)
         h_centered << inner.as(View)
         h_centered << Spacer.new.as(View)
 
         # Center focal vertically with spacers
         v_centered = VStack.new(spacing: 0.0)
+        v_centered.minimum_width = 1090.0
+        v_centered.maximum_width = 1090.0
+        v_centered.minimum_height = 746.0
         v_centered << Spacer.new.as(View)
         v_centered << h_centered.as(View)
         v_centered << Spacer.new.as(View)
 
         # 55pt padding from all window edges (xxl Fibonacci-golden token)
         wrapper = VStack.new(spacing: 0.0)
+        wrapper.alignment = Alignment::Center
+        wrapper.minimum_width = 1200.0
+        wrapper.maximum_width = 1200.0
+        wrapper.minimum_height = 856.0
         wrapper << v_centered.as(View)
         wrapper.padding = EdgeInsets.new(top: 55.0, trailing: 55.0, bottom: 55.0, leading: 55.0)
         wrapper.accessibility_label = "Ambient scene content area"

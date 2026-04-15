@@ -366,6 +366,21 @@ void objc_constrain_width(void *view, double w) {
     wc.active = YES;
 }
 
+// Constrain width at required priority. Use sparingly for exact design tokens
+// (minimum_width == maximum_width) in validation previews where UIKit's fitting
+// pass otherwise breaks the 999-priority width and lets rounded containers clip.
+void objc_constrain_required_width(void *view, double w) {
+    BridgeView *v = (BridgeView *)view;
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    NSLayoutConstraint *wc = [v.widthAnchor constraintEqualToConstant:(CGFloat)w];
+#if TARGET_OS_OSX
+    wc.priority = NSLayoutPriorityRequired;
+#else
+    wc.priority = UILayoutPriorityRequired;
+#endif
+    wc.active = YES;
+}
+
 // Apply a MINIMUM width constraint (>=) to a view.
 // Use this for content panels that should expand to fill available space
 // without being pinned to an exact width. NSStackView GravityAreas distribution

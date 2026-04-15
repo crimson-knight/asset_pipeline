@@ -9,7 +9,7 @@ that cites concrete visual attributes in both appearances.
 
 ## Acceptance bar (beauty-by-default)
 
-A slug reaches `PASS` only when all five conditions hold:
+A slug reaches `PASS` only when all six conditions hold:
 
 1. **Four fresh screenshots.** `<slug>-macos-light.png`, `<slug>-macos-dark.png`,
    `<slug>-ios-light.png`, `<slug>-ios-dark.png` — each captured in the current
@@ -29,6 +29,12 @@ A slug reaches `PASS` only when all five conditions hold:
    the report links all four appearance-specific screenshots, no screenshot is
    newer than the report that evaluates it, and the evidence manifest records
    SHA256 hashes, mtimes, byte sizes, and pixel dimensions for the current PNGs.
+6. **External Codex review clears P0 / pass candidates.** For P0 slugs and any
+   row being marked `PASS` or `PASS_WITH_NOTES`, run
+   `scripts/codex_hig_review.sh <slug>` and preserve
+   `codex-reviews/<slug>.json`. `NEEDS_WORK` and `INSUFFICIENT_EVIDENCE`
+   responses are blocking until fixed or concretely rebutted with current
+   screenshot/code evidence.
 
 `PASS_WITH_NOTES` is reserved for at most one minor, documented, non-
 legibility-impairing deviation. Do not use it as a dumping ground. Stale
@@ -46,7 +52,10 @@ validation/
   worklist.json       Ralph-loop state machine (one row per HIG component page)
   screenshots/        <slug>-{macos,ios}-{light,dark}.png per validated slug
   evidence/           <slug>.json screenshot/report hashes and freshness checks
+  codex-reviews/      <slug>.json external Codex review artifacts
   reports/            <slug>.md — HIG ref + 4 screenshots + verdict + citations
+  codex-review.schema.json
+  codex-review-protocol.md
   gaps.md             Slugs the loop could not validate, queued for human review
   progress.log.md     Iteration-by-iteration ledger
   index.html          Generated dashboard (python3 /tmp/build_hig_index.py)
@@ -72,6 +81,20 @@ python3 .claude/skills/apple-platform-guide/validation/audit_evidence.py
 The script exits nonzero when any pass/pass_with_notes component row is invalid.
 Use `--requeue-invalid` only when intentionally resetting those rows to
 `pending`; it writes `worklist.json`.
+
+## External Codex review
+
+Run this after screenshots, report, and evidence manifest are current, before
+asking design-critic to approve a P0 slug or any pass/pass_with_notes candidate:
+
+```bash
+scripts/codex_hig_review.sh <slug>
+```
+
+The command writes `codex-reviews/<slug>.json` using
+`codex-review.schema.json`. See `codex-review-protocol.md` for the blocking
+rules and alternatives such as `codex review --uncommitted` and
+`codex mcp-server`.
 
 ## How to read a report
 

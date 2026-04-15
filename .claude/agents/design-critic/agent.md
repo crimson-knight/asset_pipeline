@@ -20,6 +20,7 @@ Required evidence per slug:
 - Four current captures: `<slug>-macos-light.png`, `<slug>-macos-dark.png`, `<slug>-ios-light.png`, `<slug>-ios-dark.png`.
 - The HIG reference image from the worklist row's `hig_ref_image`.
 - A current report or evidence manifest that lists the SHA256, mtime, byte size, and pixel dimensions for all four captures.
+- For P0 slugs and pass/pass_with_notes candidates, the external Codex review at `validation/codex-reviews/<slug>.json`.
 
 Fail the evidence gate when:
 - Any capture is missing, under 10 KB, unreadable, all black/blank, or the wrong platform/appearance.
@@ -27,8 +28,13 @@ Fail the evidence gate when:
 - The report links old two-capture names like `<slug>-ios.png` or `<slug>-macos.png` instead of the four required light/dark files.
 - The report text describes content that is not visible in the current PNGs.
 - The builder asks you to accept a known capture-harness limitation for a requirement the screenshot must prove, such as Liquid Glass bleed-through.
+- The required Codex review is missing, or it returns `INSUFFICIENT_EVIDENCE` with unrebutted evidence problems.
 
 `INSUFFICIENT_EVIDENCE` is not a soft pass. The builder must re-capture, regenerate the report, and re-submit.
+
+Codex review is an independent outside opinion, not an override of current
+pixels. If Codex returns `NEEDS_WORK`, either fail the row or cite concrete
+current screenshot/code evidence that rebuts the finding. Do not ignore it.
 
 ## Hard visual blockers
 

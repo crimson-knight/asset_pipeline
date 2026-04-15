@@ -66,6 +66,7 @@ module UI::UIKit
     fun objc_set_frame(obj : Void*, frame : CGRect) : Void
     fun objc_constrain_size(view : Void*, w : Float64, h : Float64) : Void
     fun objc_constrain_width(view : Void*, w : Float64) : Void
+    fun objc_constrain_required_width(view : Void*, w : Float64) : Void
     fun objc_constrain_height(view : Void*, h : Float64) : Void
     fun objc_constrain_minimum_height(view : Void*, min_h : Float64) : Void
     fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
@@ -483,6 +484,7 @@ module UI::UIKit
 
       # Common properties
       apply_common_properties(ptr, view)
+      apply_stack_padding(ptr, view)
 
       handle = ObjC.owned(ptr, label: "UIStackView[v]")
       native = NativeView.new(handle)
@@ -523,6 +525,7 @@ module UI::UIKit
 
       # Common properties
       apply_common_properties(ptr, view)
+      apply_stack_padding(ptr, view)
 
       handle = ObjC.owned(ptr, label: "UIStackView[h]")
       native = NativeView.new(handle)
@@ -2898,10 +2901,18 @@ module UI::UIKit
       # Fill alignment (0) so children use the card's full width.
       LibObjCBridge.objc_send_long(ptr, sel("setAlignment:"), 0_i64)
       # Use layout-margin-relative arrangement so arranged subviews are
-      # inset from the card's edges. UIStackView default layoutMargins
-      # are (8,8,8,8) which is close to HIG 16pt content padding after
-      # accounting for the outer parent's inset; for a richer pad call
-      # setLayoutMargins: via a dedicated bridge fn (future work).
+      # inset from the card's edges. UI::Card#content_padding is the
+      # cross-platform contract for readable rounded containers; without
+      # it, title labels sit on the clipped corner and body copy reads as
+      # unfinished.
+      card_pad = view.content_padding
+      card_insets = LibObjCBridge::CGRect.new(
+        x: card_pad.top,
+        y: card_pad.leading,
+        width: card_pad.bottom,
+        height: card_pad.trailing
+      )
+      LibObjCBridge.objc_send_rect_void(ptr, sel("setLayoutMargins:"), card_insets)
       LibObjCBridge.objc_send_bool(ptr, sel("setLayoutMarginsRelativeArrangement:"), 1)
 
       # Grouped-container background per HIG. UIColor class method
@@ -4578,9 +4589,27 @@ module UI::UIKit
         end
       end
 
-      # Minimum width from UI::View base. Applied as >= constraint.
-      if mw = view.minimum_width
-        LibObjCBridge.objc_constrain_minimum_width(ptr, mw)
+      # Minimum / maximum width constraints from UI::View base properties.
+      # These mirror the height semantics above:
+      #   - minimum_width && maximum_width == minimum_width -> exact width
+      #   - minimum_width only -> >= constraint
+      #   - maximum_width only -> exact cap proxy
+      #
+      # UIKit validation previews rely on exact min/max pairs for cards,
+      # tiles, grabbers, and tab shells. Ignoring maximum_width lets
+      # UIStackView stretch a component until text and chrome clip at the
+      # screenshot edge.
+      min_w = view.minimum_width
+      max_w = view.maximum_width
+      if !min_w.nil? && !max_w.nil? && min_w == max_w
+        LibObjCBridge.objc_constrain_required_width(ptr, min_w.not_nil!)
+      else
+        if mw = min_w
+          LibObjCBridge.objc_constrain_minimum_width(ptr, mw)
+        end
+        if mxw = max_w
+          LibObjCBridge.objc_constrain_width(ptr, mxw)
+        end
       end
 
       # Accessibility label
@@ -4624,6 +4653,15 @@ module UI::UIKit
       @stack_is_uistack = saved_is_uistack
       @result = saved_result
       detached
+    end
+
+    private def apply_stack_padding(ptr : Void*, view : UI::View) : Nil
+      p = view.padding
+      return unless p.top > 0.0 || p.leading > 0.0 || p.bottom > 0.0 || p.trailing > 0.0
+
+      insets = LibObjCBridge::CGRect.new(x: p.top, y: p.leading, width: p.bottom, height: p.trailing)
+      LibObjCBridge.objc_send_rect_void(ptr, sel("setLayoutMargins:"), insets)
+      LibObjCBridge.objc_send_bool(ptr, sel("setLayoutMarginsRelativeArrangement:"), 1)
     end
 
     # -----------------------------------------------------------------

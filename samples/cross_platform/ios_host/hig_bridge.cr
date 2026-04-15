@@ -111,7 +111,48 @@ module CrystalHIGHost::Bridge
     # If a scene is mapped for this slug, wrap it; otherwise return the plain focal.
     # Use scene_for_slug (a case expression) rather than a Hash constant lookup
     # to avoid the Crystal runtime crash documented in scene_for_slug above.
-    scene_for_slug(slug) ? wrap_in_scene(slug, focal) : focal
+    if scene_for_slug(slug)
+      wrap_in_scene(slug, focal)
+    elsif isolation_plate_slug?(slug)
+      centered_isolation_plate(focal)
+    else
+      focal
+    end
+  end
+
+  private def self.isolation_plate_slug?(slug : String) : Bool
+    case slug
+    when "boxes", "collections", "progress-indicators", "text-fields"
+      true
+    else
+      false
+    end
+  end
+
+  private def self.centered_isolation_plate(focal : UI::View) : UI::View
+    side_gutter = -> do
+      spacer = UI::Spacer.new
+      spacer.minimum_width = 16.0
+      spacer.maximum_width = 16.0
+      spacer.as(UI::View)
+    end
+
+    row = UI::HStack.new(spacing: 0.0)
+    row.alignment = UI::Alignment::Center
+    row << side_gutter.call
+    row << focal
+    row << side_gutter.call
+
+    plate = UI::VStack.new(spacing: 0.0)
+    plate.alignment = UI::Alignment::Center
+    plate.minimum_width = 390.0
+    plate.minimum_height = 760.0
+    plate << UI::Spacer.new.as(UI::View)
+    plate << row.as(UI::View)
+    plate << UI::Spacer.new.as(UI::View)
+    plate.accessibility_label = "hig-component-root"
+    plate.test_id = "hig-component-root"
+    plate.as(UI::View)
   end
 
   # Build just the focal component (the raw view without scene chrome).
@@ -220,19 +261,39 @@ module CrystalHIGHost::Bridge
               # two label/value rows; keep buttons out so the verdict can
               # evaluate the card chrome itself (avoiding the UI::Button#role
               # gap documented in gaps.md).
-              box_body = UI::VStack.new(spacing: 8.0)
-              box_body << UI::Label.new("Your order ships in a reusable padded mailer.")
+              box_body = UI::VStack.new(spacing: 10.0)
+              box_body.alignment = UI::Alignment::Leading
+              box_intro = UI::Label.new("Your order ships in a reusable padded mailer.")
+              box_intro.font = UI::Font.new(size: 15.0, weight: :regular)
+              box_body << box_intro.as(UI::View)
               box_row1 = UI::HStack.new(spacing: 12.0)
-              box_row1 << UI::Label.new("Carrier")
-              box_row1 << UI::Label.new("USPS Ground")
+              box_row1.alignment = UI::Alignment::Center
+              box_carrier_label = UI::Label.new("Carrier")
+              box_carrier_label.font = UI::Font.new(size: 13.0, weight: :semibold)
+              box_carrier_label.text_color_role = UI::LabelRole::Secondary
+              box_carrier_value = UI::Label.new("USPS Ground")
+              box_carrier_value.font = UI::Font.new(size: 15.0, weight: :regular)
+              box_row1 << box_carrier_label.as(UI::View)
+              box_row1 << UI::Spacer.new.as(UI::View)
+              box_row1 << box_carrier_value.as(UI::View)
               box_row2 = UI::HStack.new(spacing: 12.0)
-              box_row2 << UI::Label.new("Estimated arrival")
-              box_row2 << UI::Label.new("Apr 17 - Apr 19")
+              box_row2.alignment = UI::Alignment::Center
+              box_arrival_label = UI::Label.new("Estimated arrival")
+              box_arrival_label.font = UI::Font.new(size: 13.0, weight: :semibold)
+              box_arrival_label.text_color_role = UI::LabelRole::Secondary
+              box_arrival_value = UI::Label.new("Apr 17 - Apr 19")
+              box_arrival_value.font = UI::Font.new(size: 15.0, weight: :regular)
+              box_row2 << box_arrival_label.as(UI::View)
+              box_row2 << UI::Spacer.new.as(UI::View)
+              box_row2 << box_arrival_value.as(UI::View)
               box_body << box_row1
               box_body << box_row2
               box_card = UI::Card.new(box_body.as(UI::View))
               box_card.title = "Shipping details"
+              box_card.content_padding = UI::EdgeInsets.new(top: 16.0, trailing: 18.0, bottom: 16.0, leading: 18.0)
               box_card.is_outlined = true
+              box_card.minimum_width = 300.0
+              box_card.maximum_width = 300.0
               box_card.as(UI::View)
             when "collections"
               # HIG Collections: "A collection manages an ordered set of
@@ -243,34 +304,51 @@ module CrystalHIGHost::Bridge
               # practice: "Use the standard row or grid layout whenever
               # possible." Each tile is a VStack with a placeholder label
               # and a caption.
-              make_tile = ->(caption : String) do
+              make_tile = ->(symbol : String, caption : String) do
                 tile = UI::VStack.new(spacing: 4.0)
-                thumb = UI::Label.new("[photo]")
-                thumb.font = UI::Font.new(size: 28.0, weight: :regular)
-                thumb.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+                tile.alignment = UI::Alignment::Center
+                tile.minimum_width = 96.0
+                tile.maximum_width = 96.0
+                tile.minimum_height = 96.0
+                tile.padding = UI::EdgeInsets.new(top: 10.0, trailing: 8.0, bottom: 8.0, leading: 8.0)
+                tile.corner_radius = 10.0
+                tile.background = UI::Color.new(r: 0.96, g: 0.92, b: 0.86, a: 0.78)
+                thumb = UI::Image.new(symbol)
+                thumb.minimum_width = 34.0
+                thumb.minimum_height = 34.0
+                thumb.content_mode = UI::ContentMode::Fit
+                thumb.tint_color = UI::Color.new(r: 0.36, g: 0.23, b: 0.58)
                 cap = UI::Label.new(caption)
-                cap.font = UI::Font.new(size: 11.0, weight: :regular)
+                cap.font = UI::Font.new(size: 12.0, weight: :regular)
+                cap.text_color_role = nil
                 cap.text_color = UI::Color.new(r: 0.45, g: 0.45, b: 0.45)
                 tile << thumb.as(UI::View)
                 tile << cap.as(UI::View)
                 tile.as(UI::View)
               end
               coll_tiles = [
-                make_tile.call("Big Sur"),
-                make_tile.call("Morning"),
-                make_tile.call("Trail"),
-                make_tile.call("Coffee"),
-                make_tile.call("Sunset"),
-                make_tile.call("Coast"),
-                make_tile.call("Forest"),
-                make_tile.call("Lake"),
-                make_tile.call("City"),
+                make_tile.call("mountain.2", "Big Sur"),
+                make_tile.call("sunrise", "Morning"),
+                make_tile.call("figure.walk", "Trail"),
+                make_tile.call("cup.and.saucer", "Coffee"),
+                make_tile.call("sunset", "Sunset"),
+                make_tile.call("water.waves", "Coast"),
+                make_tile.call("leaf", "Forest"),
+                make_tile.call("drop", "Lake"),
+                make_tile.call("building.2", "City"),
               ]
-              coll_section = UI::ListView::Section.new(header: "Photos", items: coll_tiles)
-              coll_list = UI::ListView.new(sections: [coll_section], style: UI::ListStyle::Plain, layout: UI::ListLayout::Grid, columns: 3)
-              coll_list.item_spacing = 10.0
-              coll_list.shows_separators = false
-              coll_list.as(UI::View)
+              coll_stack = UI::VStack.new(spacing: 14.0)
+              coll_stack.alignment = UI::Alignment::Leading
+              coll_stack.minimum_width = 228.0
+              coll_stack.maximum_width = 228.0
+              coll_stack << UI::Label.new("Photos").tap { |l| l.font = UI::Font.new(size: 17.0, weight: :semibold) }.as(UI::View)
+              coll_tiles.first(6).each_slice(2) do |pair|
+                row = UI::HStack.new(spacing: 12.0)
+                row.alignment = UI::Alignment::Center
+                pair.each { |tile| row << tile }
+                coll_stack << row.as(UI::View)
+              end
+              coll_stack.as(UI::View)
             when "lists-and-tables"
               # HIG "Lists and tables" gallery -- iter-31.
               # Three sections: plain list, inset-grouped card, accessory rows.
@@ -770,14 +848,20 @@ module CrystalHIGHost::Bridge
               # iOS: "Display a Clear button in the trailing end."
 
               ios_tf_stack = UI::VStack.new(spacing: 14.0)
-              ios_tf_stack << UI::Label.new("HIG: text-fields").tap { |l| l.font = UI::Font.new(size: 15.0, weight: :semibold) }
+              ios_tf_stack.alignment = UI::Alignment::Leading
+              ios_tf_stack.minimum_width = 320.0
+              ios_tf_stack.maximum_width = 320.0
+              ios_tf_stack.padding = UI::EdgeInsets.new(top: 18.0, trailing: 20.0, bottom: 18.0, leading: 20.0)
+              ios_tf_stack << UI::Label.new("Account details").tap { |l| l.font = UI::Font.new(size: 17.0, weight: :semibold) }
 
               # Row 1: Name (empty, placeholder)
               ios_row1 = UI::VStack.new(spacing: 4.0)
+              ios_row1.alignment = UI::Alignment::Leading
               ios_lbl1 = UI::Label.new("Name:")
               ios_lbl1.font = UI::Font.new(size: 13.0, weight: :regular)
               ios_lbl1.accessibility_label = "Name label"
               ios_tf1 = UI::TextField.new("Your name")
+              ios_tf1.minimum_width = 260.0
               ios_tf1.accessibility_label = "Name field"
               ios_row1 << ios_lbl1.as(UI::View)
               ios_row1 << ios_tf1.as(UI::View)
@@ -785,11 +869,13 @@ module CrystalHIGHost::Bridge
 
               # Row 2: Email (filled)
               ios_row2 = UI::VStack.new(spacing: 4.0)
+              ios_row2.alignment = UI::Alignment::Leading
               ios_lbl2 = UI::Label.new("Email:")
               ios_lbl2.font = UI::Font.new(size: 13.0, weight: :regular)
               ios_lbl2.accessibility_label = "Email label"
               ios_tf2 = UI::TextField.new("Email address")
               ios_tf2.text = "alice@example.com"
+              ios_tf2.minimum_width = 260.0
               ios_tf2.keyboard_type = UI::KeyboardType::EmailAddress
               ios_tf2.accessibility_label = "Email field"
               ios_row2 << ios_lbl2.as(UI::View)
@@ -798,12 +884,14 @@ module CrystalHIGHost::Bridge
 
               # Row 3: Password (secure entry)
               ios_row3 = UI::VStack.new(spacing: 4.0)
+              ios_row3.alignment = UI::Alignment::Leading
               ios_lbl3 = UI::Label.new("Password:")
               ios_lbl3.font = UI::Font.new(size: 13.0, weight: :regular)
               ios_lbl3.accessibility_label = "Password label"
               ios_tf3 = UI::TextField.new("Password")
               ios_tf3.secure_entry = true
               ios_tf3.text = "secretpassword"
+              ios_tf3.minimum_width = 260.0
               ios_tf3.accessibility_label = "Password field"
               ios_row3 << ios_lbl3.as(UI::View)
               ios_row3 << ios_tf3.as(UI::View)
@@ -811,10 +899,12 @@ module CrystalHIGHost::Bridge
 
               # Row 4: Numeric (number pad keyboard)
               ios_row4 = UI::VStack.new(spacing: 4.0)
+              ios_row4.alignment = UI::Alignment::Leading
               ios_lbl4 = UI::Label.new("Amount:")
               ios_lbl4.font = UI::Font.new(size: 13.0, weight: :regular)
               ios_lbl4.accessibility_label = "Amount label"
               ios_tf4 = UI::TextField.new("0.00")
+              ios_tf4.minimum_width = 160.0
               ios_tf4.keyboard_type = UI::KeyboardType::NumberPad
               ios_tf4.accessibility_label = "Amount field"
               ios_row4 << ios_lbl4.as(UI::View)
@@ -1148,7 +1238,11 @@ module CrystalHIGHost::Bridge
               # HIG: "When possible, use a determinate progress indicator."
               # HIG: "If it's helpful, display a description that provides
               # additional context for the task."
-              ios_gallery = UI::VStack.new(spacing: 20.0)
+              ios_gallery = UI::VStack.new(spacing: 16.0)
+              ios_gallery.alignment = UI::Alignment::Leading
+              ios_gallery.minimum_width = 330.0
+              ios_gallery.maximum_width = 330.0
+              ios_gallery.padding = UI::EdgeInsets.new(top: 12.0, trailing: 20.0, bottom: 12.0, leading: 20.0)
 
               # --- Section: Spinners ---
               ios_spinner_hdr = UI::Label.new("Spinners (indeterminate)")
@@ -1163,9 +1257,9 @@ module CrystalHIGHost::Bridge
               ios_med.accessibility_label = "Loading indicator medium"
               ios_spinner_row << ios_med
 
-              # Large spinner, tinted blue (UIActivityIndicatorViewStyle.large = 101)
+              # Large spinner, tinted with the Amber role color.
               ios_lg = UI::ActivityIndicator.new(true, :large)
-              ios_lg.color = UI::Color.new(r: 0.0, g: 0.478, b: 1.0, a: 1.0)
+              ios_lg.color = UI::Color.new(r: 1.0, g: 0.678, b: 0.2, a: 1.0)
               ios_lg.accessibility_label = "Loading indicator large"
               ios_spinner_row << ios_lg
 
@@ -1179,6 +1273,7 @@ module CrystalHIGHost::Bridge
 
               ios_det_bar = UI::ProgressView.new(0.6, UI::ProgressStyle::Linear)
               ios_det_bar.label = "Uploading... 60%"
+              ios_det_bar.minimum_width = 260.0
               ios_det_bar.accessibility_label = "Upload progress 60 percent"
               ios_gallery << ios_det_bar
 
@@ -1195,6 +1290,7 @@ module CrystalHIGHost::Bridge
 
               ios_indet_bar = UI::ProgressView.new(nil, UI::ProgressStyle::Linear)
               ios_indet_bar.label = "Syncing..."
+              ios_indet_bar.minimum_width = 260.0
               ios_indet_bar.accessibility_label = "Syncing progress indeterminate"
               ios_gallery << ios_indet_bar
 
@@ -1210,16 +1306,20 @@ module CrystalHIGHost::Bridge
               ios_gallery << ios_upload_hdr
 
               ios_upload_row = UI::HStack.new(spacing: 12.0)
+              ios_upload_row.alignment = UI::Alignment::Center
               ios_upload_lbl = UI::Label.new("Uploading file.zip")
               ios_upload_lbl.font = UI::Font.new(size: 15.0, weight: :regular)
               ios_upload_lbl.accessibility_label = "Upload filename"
               ios_upload_row << ios_upload_lbl
-              ios_upload_row << UI::ProgressView.new(0.6, UI::ProgressStyle::Linear)
+              ios_upload_row << UI::Spacer.new.as(UI::View)
               ios_cancel_btn = UI::Button.new("Cancel")
               ios_cancel_btn.role = :cancel
               ios_cancel_btn.accessibility_label = "Cancel upload"
               ios_upload_row << ios_cancel_btn
               ios_gallery << ios_upload_row
+              ios_upload_bar = UI::ProgressView.new(0.6, UI::ProgressStyle::Linear)
+              ios_upload_bar.minimum_width = 260.0
+              ios_gallery << ios_upload_bar.as(UI::View)
 
               ios_gallery.as(UI::View)
             when "activity-indicators" then UI::ActivityIndicator.new(true, :medium).as(UI::View)
