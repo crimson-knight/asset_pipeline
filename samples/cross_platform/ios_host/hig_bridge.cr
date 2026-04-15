@@ -130,25 +130,29 @@ module CrystalHIGHost::Bridge
   end
 
   private def self.centered_isolation_plate(focal : UI::View) : UI::View
-    side_gutter = -> do
-      spacer = UI::Spacer.new
-      spacer.minimum_width = 16.0
-      spacer.maximum_width = 16.0
-      spacer.as(UI::View)
-    end
-
-    row = UI::HStack.new(spacing: 0.0)
-    row.alignment = UI::Alignment::Center
-    row << side_gutter.call
-    row << focal
-    row << side_gutter.call
+    # Centering contract (measured iteration, root-cause recorded in
+    # feedback_reflection_over_shotgun.md):
+    #
+    # SwiftUI's ContentView uses `.frame(maxWidth: .infinity, alignment: .center)`
+    # on the UIViewRepresentable. UIStackView with alignment=Center does not
+    # reliably center a pinned-width child when the parent's own width is
+    # proposed by SwiftUI — the child either flush-lefts or stretches past
+    # its required-priority width pin.
+    #
+    # Robust centering pattern: surround the focal with a pair of unpinned
+    # Spacers inside an HStack (default Fill distribution). Two unpinned
+    # Spacers in a horizontal UIStackView split the remaining space evenly.
+    # The focal's own width pin survives because the Spacers absorb the
+    # difference. Works on both macOS and iOS.
+    h_center = UI::HStack.new(spacing: 0.0)
+    h_center << UI::Spacer.new.as(UI::View)
+    h_center << focal
+    h_center << UI::Spacer.new.as(UI::View)
 
     plate = UI::VStack.new(spacing: 0.0)
-    plate.alignment = UI::Alignment::Center
-    plate.minimum_width = 390.0
     plate.minimum_height = 760.0
     plate << UI::Spacer.new.as(UI::View)
-    plate << row.as(UI::View)
+    plate << h_center.as(UI::View)
     plate << UI::Spacer.new.as(UI::View)
     plate.accessibility_label = "hig-component-root"
     plate.test_id = "hig-component-root"
