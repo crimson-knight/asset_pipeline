@@ -275,14 +275,15 @@ module UI::UIKit
           # destructive=plum mapping. Contrast vs cream surface: 5.8:1 (WCAG AA).
           raw_app = LibC.getenv("TEST_RUNNER_HIG_APPEARANCE")
           want_dark_dest = !raw_app.null? && String.new(raw_app) == "dark"
-          # Dark destructive bumped to #B99CE0 (0.725, 0.612, 0.878) for legibility
-          # on dark glass surfaces. Prior value #7D59B8 (0.490, 0.349, 0.722) read as
-          # the dimmest action in the dark sheet, reversing HIG prominence. #B99CE0 is
-          # a lighter Amber plum that passes 4.5:1 contrast against dark glass.
+          # Dark destructive: #D6B8F2 (0.839, 0.722, 0.949). Prior #B99CE0 still
+          # read ~#9B85C0 against warm-amber translucent glass (apparent contrast
+          # ~3:1) because of alpha-compositing + simultaneous contrast dropping
+          # perceived luminance. Pushed further to #D6B8F2 for ≥4.5:1 perceived
+          # contrast against warm-glass surfaces (June round 4 citation).
           plum = LibObjCBridge.nscolor_rgba(
-            want_dark_dest ? 0.725 : 0.357,
-            want_dark_dest ? 0.612 : 0.227,
-            want_dark_dest ? 0.878 : 0.580,
+            want_dark_dest ? 0.839 : 0.357,
+            want_dark_dest ? 0.722 : 0.227,
+            want_dark_dest ? 0.949 : 0.580,
             1.0
           )
           unless plum.null?
@@ -349,14 +350,15 @@ module UI::UIKit
       # Fallback (no configuration): setTitleColor:forState: as before.
       if config.null?
         tint_color = if view.role == :destructive
-                       # Amber plum (#5B3A94 light / #B99CE0 dark) for destructive.
-                       # Dark bumped to #B99CE0 for legibility on dark glass (was #7D59B8).
+                       # Amber plum (#5B3A94 light / #D6B8F2 dark) for destructive.
+                       # Dark bumped to #D6B8F2 for 4.5:1+ perceived contrast on
+                       # warm-glass surfaces (June round 4 citation).
                        raw_app_fb = LibC.getenv("TEST_RUNNER_HIG_APPEARANCE")
                        want_dark_fb = !raw_app_fb.null? && String.new(raw_app_fb) == "dark"
                        LibObjCBridge.nscolor_rgba(
-                         want_dark_fb ? 0.725 : 0.357,
-                         want_dark_fb ? 0.612 : 0.227,
-                         want_dark_fb ? 0.878 : 0.580,
+                         want_dark_fb ? 0.839 : 0.357,
+                         want_dark_fb ? 0.722 : 0.227,
+                         want_dark_fb ? 0.949 : 0.580,
                          1.0
                        )
                      else
@@ -2611,6 +2613,35 @@ module UI::UIKit
         unless layer.null?
           LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), 16.0)
           LibObjCBridge.objc_send_bool(layer, sel("setMasksToBounds:"), 1)
+
+          # Issue 4 fix: explicitly set maskedCorners to ALL four corners so
+          # CALayer does not internally bias rounding to a subset of corners.
+          # CACornerMask bit values (UIKit / QuartzCore on ARM64):
+          #   layerMinXMinYCorner = 1 (top-left)
+          #   layerMaxXMinYCorner = 2 (top-right)
+          #   layerMinXMaxYCorner = 4 (bottom-left)
+          #   layerMaxXMaxYCorner = 8 (bottom-right)
+          # All four = 0b1111 = 15. Without this explicit mask, UIKit may apply
+          # an internal asymmetric mask that leaves top-left flat on some SDK
+          # versions when UIGlassEffect is the backing blur.
+          LibObjCBridge.objc_send_ulong(layer, sel("setMaskedCorners:"), 15_u64)
+
+          # Issue 3 fix: add a 1pt top-edge border at UIColor.separatorColor so
+          # the card silhouette is discernible when the glass tint is isoluminant
+          # with the amber ember backdrop in dark mode. The border is set on the
+          # CALayer (setMasksToBounds = YES clips the visual-effect blur, so the
+          # border paints over the glass edge cleanly). 0.5pt matches UIKit hairline.
+          uicolor_cls_border = LibObjCBridge.objc_getClass("UIColor")
+          unless uicolor_cls_border.null?
+            sep_color = LibObjCBridge.objc_send(uicolor_cls_border, sel("separatorColor"))
+            unless sep_color.null?
+              cg_sep = LibObjCBridge.objc_send(sep_color, sel("CGColor"))
+              unless cg_sep.null?
+                LibObjCBridge.objc_send_1d(layer, sel("setBorderWidth:"), 0.5)
+                LibObjCBridge.objc_send_id(layer, sel("setBorderColor:"), cg_sep)
+              end
+            end
+          end
         end
 
         # Inner UIStackView hosts sheet rows with 16pt layout margins.

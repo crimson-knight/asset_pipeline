@@ -68,21 +68,23 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
-      "notes": "Iteration 18: label-color gap resolved. UI::Label defaults to text_color_role=LabelRole::Primary -> NSColor.labelColor / UIColor.labelColor. Title text legible in all four captures (black on light, white on dark). Sheet composes NSVisualEffectView (macOS) / UIVisualEffectView (iOS); true glass bleed-through is not visible in cacheDisplayInRect captures (iter-17 gotcha, unchanged).",
+      "notes": "Round 5 PASS_WITH_NOTES per June (design-critic). All 4 appearances clear the evidence gate + R1-R18. Amber gold + plum palette applied; destructive #D6B8F2 on ios_dark for perceived contrast on warm-glass. Detached Cancel capsule, soft scrim, symmetric radii.",
       "glass_required": true,
-      "glass_material_expected": "popover",
+      "glass_material_expected": "sheet",
       "appearances_required": [
         "light",
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "PASS",
-        "macos_dark": "PASS",
-        "ios_light": "PASS",
-        "ios_dark": "PASS"
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Captured 2026-04-13 iteration 18. Label-color gap resolved via LabelRole semantic token. Glass material present but capture harness cannot composite live bleed-through (iteration-17 cacheDisplayInRect limitation); row marked pass_with_notes instead of pass for that reason alone.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "remediation_hint": null,
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "activity-rings",
@@ -126,7 +128,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "notes": "Iteration-19: UI::ActivityView implemented. All four zones (header/destination-row/action-grid/cancel) visible in all four captures. PASS_WITH_NOTES: (1) macOS popover approximation \u2014 no native NSActivityViewController per HIG platform considerations; (2) iOS inline layout for capture path, production needs UIActivityViewController; (3) glass bleed-through not composited in captures (iteration-17 known infra limitation); (4) minor trailing-edge clip on 'Add to Reading List' action label in macOS.",
       "glass_required": true,
@@ -141,10 +143,15 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
-      "focal_position": "center_modal"
+      "focal_position": "center_modal",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: activity-views-macos-light.png",
+        "screenshot newer than report: activity-views-macos-dark.png"
+      ]
     },
     {
       "slug": "airplay",
@@ -174,9 +181,9 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "notes": "Iteration 20: visit(UI::Alert) rewritten on both renderers to emit NSVisualEffectView (hudWindow=7) / UIVisualEffectView (UIGlassEffect/UIBlurEffect) inline glass card. All four appearances captured fresh (macos-light 34739B, macos-dark 34850B, ios-light 121022B, ios-dark 100903B). Title bold/legible, message secondary-gray/legible, destructive red distinct from cancel/default blue in all four captures. macOS buttons stack vertically (HIG-justified); live glass bleed-through not visible on macOS (iter-17 gotcha). Both mandatory doc sections present.",
       "glass_required": true,
       "glass_material_expected": "hudWindow",
@@ -191,7 +198,14 @@
         "ios_dark": "pass"
       },
       "backdrop": "sheet-backdrop-amber-gradient",
-      "scene": "dashboard"
+      "scene": "dashboard",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: alerts-macos-light.png",
+        "screenshot newer than report: alerts-macos-dark.png",
+        "screenshot newer than report: alerts-ios-light.png",
+        "screenshot newer than report: alerts-ios-dark.png"
+      ]
     },
     {
       "slug": "always-on",
@@ -325,7 +339,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -341,10 +355,17 @@
       },
       "validated_at": "2026-04-13T18:57:00Z",
       "iteration": 21,
-      "remediation_hint": "macOS leading inset missing (title flush to left edge, no 12pt padding). Non-legibility-impairing. Future: add NSEdgeInsets(top:12,left:12,bottom:12,right:12) to NSStackView in visit(UI::Card) in appkit_renderer.cr.",
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
-      "focal_position": "centered"
+      "focal_position": "centered",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: boxes-macos-light.png",
+        "screenshot newer than report: boxes-macos-dark.png",
+        "screenshot newer than report: boxes-ios-light.png",
+        "screenshot newer than report: boxes-ios-dark.png"
+      ]
     },
     {
       "slug": "branding",
@@ -374,7 +395,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "notes": "Iteration 23: ButtonStyle enum added (Default/Prominent/Tinted/Bordered/Borderless). UIKit renderer wired to UIButton.Configuration API via buttonWithConfiguration:primaryAction: (iOS 15+). AppKit renderer wired to NSBezelStyle + bezelColor/contentTintColor. Gallery expanded to 11 rows. All four captures fresh (Apr 13 19:17-21). iOS now shows distinct bezeled pill buttons for each style: gray Default, filled-blue Prominent, translucent-tint Tinted, gray Bordered, text-link Borderless. Destructive rows show red bezel (Prominent) or red label (others). macOS shows rounded-bezel styles; Prominent style visually similar to Default (NSButton bezelColor fill is subtler than UIButton.Configuration.filled -- documented PASS_WITH_NOTES deviation). docs_written: true.",
       "glass_required": false,
@@ -391,10 +412,17 @@
       },
       "validated_at": "2026-04-13T19:22:00Z",
       "iteration": 23,
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
-      "focal_position": "multi_row"
+      "focal_position": "multi_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: buttons-macos-light.png",
+        "screenshot newer than report: buttons-macos-dark.png",
+        "screenshot newer than report: buttons-ios-light.png",
+        "screenshot newer than report: buttons-ios-dark.png"
+      ]
     },
     {
       "slug": "camera-control",
@@ -456,7 +484,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -470,12 +498,19 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "validated_at": "2026-04-14T12:50:00Z",
       "iteration": 53,
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "chart",
-      "focal_position": "card_focal"
+      "focal_position": "card_focal",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: charts-macos-light.png",
+        "screenshot newer than report: charts-macos-dark.png",
+        "screenshot newer than report: charts-ios-light.png",
+        "screenshot newer than report: charts-ios-dark.png"
+      ]
     },
     {
       "slug": "collaboration-and-sharing",
@@ -505,9 +540,9 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -522,7 +557,12 @@
       },
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "gallery",
-      "focal_position": "grid_full"
+      "focal_position": "grid_full",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: collections-macos-light.png",
+        "screenshot newer than report: collections-macos-dark.png"
+      ]
     },
     {
       "slug": "color",
@@ -552,7 +592,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -566,10 +606,15 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
-      "focal_position": "multi_row"
+      "focal_position": "multi_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: color-wells-macos-light.png",
+        "screenshot newer than report: color-wells-macos-dark.png"
+      ]
     },
     {
       "slug": "column-views",
@@ -607,7 +652,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -624,7 +669,13 @@
       "notes": "iOS chevron.down trailing icon not rendered (UIButton alloc/init zero-size implicit frame). Text-input chrome legible in both iOS appearances. HIG explicitly states component is not supported on iOS/iPadOS; the UITextField fallback is the correct platform approach. Single deviation, qualifies for PASS_WITH_NOTES.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
-      "focal_position": "single_row"
+      "focal_position": "single_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: combo-boxes-macos-light.png",
+        "screenshot newer than report: combo-boxes-macos-dark.png"
+      ],
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
     },
     {
       "slug": "complications",
@@ -694,9 +745,9 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "glass_required": true,
       "glass_material_expected": "menu",
       "appearances_required": [
@@ -710,7 +761,14 @@
         "ios_dark": "PASS_WITH_NOTES"
       },
       "backdrop": "menu-backdrop-amber-document",
-      "scene": "document"
+      "scene": "document",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: context-menus-macos-light.png",
+        "screenshot newer than report: context-menus-macos-dark.png",
+        "screenshot newer than report: context-menus-ios-light.png",
+        "screenshot newer than report: context-menus-ios-dark.png"
+      ]
     },
     {
       "slug": "controls",
@@ -868,7 +926,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "mapping_note": "Implemented UI::DisclosureGroup in iteration 26 (Path B). Replaces UI::Toggle surrogate. macOS: NSButton bezelStyle=disclosure (5) + NSTextField in NSStackView. iOS: UIButton chevron SF Symbol + UILabel in UIStackView. Both shapes (disclosure triangle + push-disclosure button) rendered; push-disclosure uses bezelStyle=5 (deviation) rather than 23.",
       "glass_required": false,
@@ -883,10 +941,15 @@
         "ios_light": "pass",
         "ios_dark": "pass"
       },
-      "remediation_hint": "Follow-up: add style: :triangle | :push_disclosure to UI::DisclosureGroup; map :push_disclosure to bezelStyle=23 (NSButton.BezelStyle.pushDisclosure) in appkit_renderer.cr.",
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
-      "focal_position": "multi_row"
+      "focal_position": "multi_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: disclosure-controls-macos-light.png",
+        "screenshot newer than report: disclosure-controls-macos-dark.png"
+      ]
     },
     {
       "slug": "dock-menus",
@@ -900,7 +963,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "notes": "Iteration 27: four fresh captures (macos-light 86550b, macos-dark 87422b, ios-light 291378b, ios-dark 262660b), all dated 2026-04-13 20:06-20:08. macOS: UI::Sheet grouped_card with NSVisualEffectMaterial.menu (10), multi-group surface (New Window / Open Recent / separator / Recent docs / separator / Options subgroup / system items). Glass visible in both macOS appearances. iOS: explicit N/A placeholder card legible in both appearances. Two non-legibility-impairing deviations: (1) blue labels vs labelColor (systemic, gaps.md iter-12); (2) submenu chevron via text character not NSMenuItem.submenu (systemic, gaps.md iter-25). Both mandatory sections (Light/dark appearance notes + Customization/brand override) present in components/dock-menus.md.",
       "glass_required": true,
@@ -915,9 +978,16 @@
         "ios_light": "n/a (platform)",
         "ios_dark": "n/a (platform)"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "menu-backdrop-amber-document",
-      "scene": "dock"
+      "scene": "dock",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: dock-menus-macos-light.png",
+        "screenshot newer than report: dock-menus-macos-dark.png",
+        "screenshot newer than report: dock-menus-ios-light.png",
+        "screenshot newer than report: dock-menus-ios-dark.png"
+      ]
     },
     {
       "slug": "drag-and-drop",
@@ -947,9 +1017,9 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "glass_required": true,
       "glass_material_expected": "menu",
       "appearances_required": [
@@ -963,7 +1033,14 @@
         "ios_dark": "pass_with_notes"
       },
       "backdrop": "menu-backdrop-amber-document",
-      "scene": "document"
+      "scene": "document",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: edit-menus-macos-light.png",
+        "screenshot newer than report: edit-menus-macos-dark.png",
+        "screenshot newer than report: edit-menus-ios-light.png",
+        "screenshot newer than report: edit-menus-ios-dark.png"
+      ]
     },
     {
       "slug": "entering-data",
@@ -1313,7 +1390,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "validated_at": "2026-04-13T21:28:00Z",
       "iteration": 29,
@@ -1332,7 +1409,15 @@
       "notes": "Iteration 29: six-variant gallery (SF Symbol, square thumbnail, circular avatar, rounded card, loading spinner, error placeholder). macOS arm uses NSView shapes sized via objc_constrain_size (TAMIC:NO + priority-999 NSLayoutConstraints). iOS arm uses UILabel placeholders with background/corner_radius (UIView shapes collapse in UIStackView without intrinsicContentSize). SF Symbol NSImageView collapses (imageNamed: does not resolve SF Symbol names; planned: symbol_name -> systemSymbolName:). iOS viewport clips rows 3-6 (same gap as iter-28 edit-menus). Both mandatory doc sections present: Light/dark appearance notes + Customization/brand override.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "gallery",
-      "focal_position": "grid_full"
+      "focal_position": "grid_full",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: image-views-macos-light.png",
+        "screenshot newer than report: image-views-macos-dark.png",
+        "screenshot newer than report: image-views-ios-light.png",
+        "screenshot newer than report: image-views-ios-dark.png"
+      ],
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
     },
     {
       "slug": "image-wells",
@@ -1482,7 +1567,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "notes": "Iteration-19 (2026-04-14): 8-row gallery with all four LabelRole semantic color tokens verified. macOS light+dark PASS -- all four LabelRole values visibly distinct in both appearances (Primary near-black/white, Secondary medium gray, Tertiary light gray, Quaternary very faint gray). iOS light+dark PASS_WITH_NOTES -- rows 1-3 visible and LabelRole distinction confirmed; rows 4-8 clip below viewport (pre-existing iOS host scrollview gap, gaps.md iter 28/29). Dynamic Type not wired (font_style gap, iter-12 open). selectable not wired (iter-12 open).",
       "glass_required": false,
@@ -1497,10 +1582,17 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
-      "focal_position": "centered"
+      "focal_position": "centered",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: labels-macos-light.png",
+        "screenshot newer than report: labels-macos-dark.png",
+        "screenshot newer than report: labels-ios-light.png",
+        "screenshot newer than report: labels-ios-dark.png"
+      ]
     },
     {
       "slug": "launching",
@@ -1562,7 +1654,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -1576,7 +1668,7 @@
         "ios_light": "PASS_WITH_NOTES",
         "ios_dark": "PASS_WITH_NOTES"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "pass_with_notes_reasons": [
         "Sounds & Haptics label wraps to two lines on iOS (cosmetic, not a legibility failure)",
         "Row Accessories section falls below iOS simulator viewport due to gallery VStack height exceeding UIViewRepresentable frame (harness constraint, not component defect)",
@@ -1585,7 +1677,12 @@
       ],
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "inbox",
-      "focal_position": "right_pane"
+      "focal_position": "right_pane",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: lists-and-tables-macos-light.png",
+        "screenshot newer than report: lists-and-tables-macos-dark.png"
+      ]
     },
     {
       "slug": "live-activities",
@@ -1791,7 +1888,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "menu",
@@ -1808,7 +1905,13 @@
       "notes": "Iteration 33: Two menu surfaces (File pull-down + Sort By pop-up) rendered. Glass (NSVisualEffectMaterial.menu / UIVisualEffectView grouped_card path) confirmed in all four captures. Submenu chevron and checkmark selected-state visible on macOS. Three systemic PASS_WITH_NOTES deviations: (1) system-blue button labels instead of labelColor (gaps.md iter-12, not yet resolved); (2) pill bezels instead of full-width NSMenuItem / UIMenuElement rows (gaps.md iter-25); (3) Sort By card partially clipped on iOS viewport (harness sizing, not renderer). ObjC bridge bug fixed: objc_constrain_equal_width used UIView/UILayoutPriorityRequired directly without TARGET_OS_OSX guard; replaced with BridgeView typedef and conditional NSLayoutPriorityRequired / UILayoutPriorityRequired.",
       "backdrop": "menu-backdrop-amber-document",
       "scene": "document",
-      "focal_position": "adjacent_to_selection"
+      "focal_position": "adjacent_to_selection",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: menus-macos-light.png",
+        "screenshot newer than report: menus-macos-dark.png"
+      ],
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
     },
     {
       "slug": "menus-and-actions",
@@ -2038,7 +2141,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2052,10 +2155,15 @@
         "ios_light": "pass",
         "ios_dark": "pass"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "gallery",
-      "focal_position": "carousel"
+      "focal_position": "carousel",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: page-controls-macos-light.png",
+        "screenshot newer than report: page-controls-macos-dark.png"
+      ]
     },
     {
       "slug": "panels",
@@ -2150,7 +2258,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2164,10 +2272,15 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Iter-35: iOS now uses inline-list-with-checkmarks (resolved empty-wheel gap from iter-34). Two minor non-legibility-impairing deviations remain: row text is center-aligned (layout-margins propagation issue) and card surface not distinct from white host in light mode. Both can be addressed in a future styling pass.",
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
-      "focal_position": "single_row"
+      "focal_position": "single_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: pickers-macos-light.png",
+        "screenshot newer than report: pickers-macos-dark.png"
+      ]
     },
     {
       "slug": "playing-audio",
@@ -2245,7 +2358,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2259,10 +2372,15 @@
         "ios_light": "PASS_WITH_NOTES",
         "ios_dark": "PASS_WITH_NOTES"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "menu-backdrop-amber-document",
       "scene": "settings",
-      "focal_position": "single_row"
+      "focal_position": "single_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: pop-up-buttons-macos-light.png",
+        "screenshot newer than report: pop-up-buttons-macos-dark.png"
+      ]
     },
     {
       "slug": "popovers",
@@ -2276,7 +2394,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "popover",
@@ -2290,9 +2408,16 @@
         "ios_light": "PASS_WITH_NOTES",
         "ios_dark": "PASS_WITH_NOTES"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "scene": "dashboard"
+      "scene": "dashboard",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: popovers-macos-light.png",
+        "screenshot newer than report: popovers-macos-dark.png",
+        "screenshot newer than report: popovers-ios-light.png",
+        "screenshot newer than report: popovers-ios-dark.png"
+      ]
     },
     {
       "slug": "presentation",
@@ -2354,7 +2479,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2368,10 +2493,15 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "chart",
-      "focal_position": "inline_rows"
+      "focal_position": "inline_rows",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: progress-indicators-macos-light.png",
+        "screenshot newer than report: progress-indicators-macos-dark.png"
+      ]
     },
     {
       "slug": "pull-down-buttons",
@@ -2385,7 +2515,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "menu",
@@ -2400,10 +2530,15 @@
         "ios_dark": "PASS_WITH_NOTES"
       },
       "notes": "Iteration 1: is_pull_down mode added to UI::MenuButton. NSPopUpButton pullsDown:YES on macOS (setPullsDown: selector). UIButton showsMenuAsPrimaryAction on iOS with chevron.down. Two deviations: iOS chevron leading-placed (non-legibility-impairing); macOS prominent style not visually elevated (bridge gap). Glass menu surface visible at runtime but not in inline capture path (gaps.md).",
-      "remediation_hint": "iOS: set UIButtonConfiguration imagePlacement = .trailing via objc_send_long to move chevron to trailing edge. macOS: add setBezelColor: bridge helper for prominent style tinting.",
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "menu-backdrop-amber-document",
       "scene": "settings",
-      "focal_position": "single_row"
+      "focal_position": "single_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: pull-down-buttons-macos-light.png",
+        "screenshot newer than report: pull-down-buttons-macos-dark.png"
+      ]
     },
     {
       "slug": "rating-indicators",
@@ -2417,7 +2552,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2431,10 +2566,17 @@
         "ios_light": "PASS",
         "ios_dark": "PASS"
       },
-      "remediation_hint": "macOS: switch AppKit renderer from NSImageView to NSLevelIndicator(style=rating) in a live-render validation pass for click-to-rate interactivity; NSLevelIndicator cell drawing composites correctly in CGWindowListCreateImage but not in cacheDisplayInRect snapshot path.",
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "gallery",
-      "focal_position": "inline_rows"
+      "focal_position": "inline_rows",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: rating-indicators-macos-light.png",
+        "screenshot newer than report: rating-indicators-macos-dark.png",
+        "screenshot newer than report: rating-indicators-ios-light.png",
+        "screenshot newer than report: rating-indicators-ios-dark.png"
+      ]
     },
     {
       "slug": "ratings-and-reviews",
@@ -2512,7 +2654,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2526,8 +2668,13 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Increase row count to 25+ or reduce font size to guarantee visible content clipping in iOS first-frame static capture.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: scroll-views-macos-light.png",
+        "screenshot newer than report: scroll-views-macos-dark.png"
+      ]
     },
     {
       "slug": "search-fields",
@@ -2541,7 +2688,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2555,10 +2702,15 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
-      "focal_position": "centered"
+      "focal_position": "centered",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: search-fields-macos-light.png",
+        "screenshot newer than report: search-fields-macos-dark.png"
+      ]
     },
     {
       "slug": "searching",
@@ -2588,7 +2740,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2602,10 +2754,15 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "iOS layout clipping: constrain UISegmentedControl width to safe-area width in hig_bridge showcase arm (cf. search-fields objc_constrain_size pattern). Icon segments: add segment_images Array(String)? property and setImage:forSegment: renderer paths.",
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
-      "focal_position": "single_row"
+      "focal_position": "single_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: segmented-controls-macos-light.png",
+        "screenshot newer than report: segmented-controls-macos-dark.png"
+      ]
     },
     {
       "slug": "selection-and-input",
@@ -2699,7 +2856,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "NSVisualEffectMaterialSheet=11",
@@ -2716,7 +2873,15 @@
       "iteration": 19,
       "validated_at": "2026-04-15T08:45:00Z",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "scene": "direct-glass"
+      "scene": "direct-glass",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: sheets-macos-light.png",
+        "screenshot newer than report: sheets-macos-dark.png",
+        "screenshot newer than report: sheets-ios-light.png",
+        "screenshot newer than report: sheets-ios-dark.png"
+      ],
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
     },
     {
       "slug": "sidebars",
@@ -2730,7 +2895,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "sidebar",
@@ -2744,12 +2909,19 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "iteration": 20,
       "validated_at": "2026-04-15T08:56:00Z",
       "backdrop": "sidebar-backdrop-amber-inbox",
       "scene": "inbox",
-      "focal_position": "left_pane"
+      "focal_position": "left_pane",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: sidebars-macos-light.png",
+        "screenshot newer than report: sidebars-macos-dark.png",
+        "screenshot newer than report: sidebars-ios-light.png",
+        "screenshot newer than report: sidebars-ios-dark.png"
+      ]
     },
     {
       "slug": "sign-in-with-apple",
@@ -2795,7 +2967,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2809,11 +2981,18 @@
         "ios_light": "PASS_WITH_NOTES",
         "ios_dark": "PASS_WITH_NOTES"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "iteration": 43,
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
-      "focal_position": "multi_row"
+      "focal_position": "multi_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: sliders-macos-light.png",
+        "screenshot newer than report: sliders-macos-dark.png",
+        "screenshot newer than report: sliders-ios-light.png",
+        "screenshot newer than report: sliders-ios-dark.png"
+      ]
     },
     {
       "slug": "spatial-layout",
@@ -2843,7 +3022,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2859,10 +3038,17 @@
       },
       "iteration": 44,
       "validated_at": "2026-04-14T10:25:00Z",
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sidebar-backdrop-amber-inbox",
       "scene": "inbox",
-      "focal_position": "full_2pane"
+      "focal_position": "full_2pane",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: split-views-macos-light.png",
+        "screenshot newer than report: split-views-macos-dark.png",
+        "screenshot newer than report: split-views-ios-light.png",
+        "screenshot newer than report: split-views-ios-dark.png"
+      ]
     },
     {
       "slug": "status",
@@ -2916,7 +3102,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2930,10 +3116,15 @@
         "ios_light": "pass",
         "ios_dark": "pass"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
-      "focal_position": "single_row"
+      "focal_position": "single_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: steppers-macos-light.png",
+        "screenshot newer than report: steppers-macos-dark.png"
+      ]
     },
     {
       "slug": "system-experiences",
@@ -2963,7 +3154,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "menu",
@@ -2977,10 +3168,15 @@
         "ios_light": "PASS",
         "ios_dark": "PASS"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
-      "focal_position": "toolbar_trailing"
+      "focal_position": "toolbar_trailing",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: tab-bars-macos-light.png",
+        "screenshot newer than report: tab-bars-macos-dark.png"
+      ]
     },
     {
       "slug": "tab-views",
@@ -2994,7 +3190,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": "menu",
@@ -3008,10 +3204,15 @@
         "ios_light": "PASS_WITH_NOTES",
         "ios_dark": "PASS_WITH_NOTES"
       },
-      "remediation_hint": null,
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
-      "focal_position": "toolbar_trailing"
+      "focal_position": "toolbar_trailing",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: tab-views-macos-light.png",
+        "screenshot newer than report: tab-views-macos-dark.png"
+      ]
     },
     {
       "slug": "tap-to-pay-on-iphone",
@@ -3057,7 +3258,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3071,10 +3272,15 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "iOS Password secure field renders blank in static screenshots (expected UIKit behavior for unfocused secure fields); consider pre-populating text before setSecureTextEntry so static capture shows dots.",
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
-      "focal_position": "centered"
+      "focal_position": "centered",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: text-fields-macos-light.png",
+        "screenshot newer than report: text-fields-macos-dark.png"
+      ]
     },
     {
       "slug": "text-views",
@@ -3088,7 +3294,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3102,10 +3308,15 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "iOS UITextView horizontal clip is a showcase layout issue (no leading/trailing margin in UIStackView); add 8pt insets in the host arm to show full-width wrapped text in static screenshots.",
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
-      "focal_position": "centered"
+      "focal_position": "centered",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: text-views-macos-light.png",
+        "screenshot newer than report: text-views-macos-dark.png"
+      ]
     },
     {
       "slug": "the-menu-bar",
@@ -3143,7 +3354,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3157,10 +3368,17 @@
         "ios_light": "PASS",
         "ios_dark": "PASS"
       },
-      "remediation_hint": "Iteration 51: NSButton-vs-NSSwitch shape mismatch resolved. macOS now renders pill-shaped NSSwitch via nsswitch_new() bridge helper. Remaining PASS_WITH_NOTES: (1) tint_color does not override NSSwitch track color on macOS -- platform constraint, no fix without subclassing; (2) disabled-OFF vs enabled-OFF subtle distinction in dark mode -- platform behavior. Both are non-legibility-impairing.",
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
-      "focal_position": "multi_row"
+      "focal_position": "multi_row",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: toggles-macos-light.png",
+        "screenshot newer than report: toggles-macos-dark.png",
+        "screenshot newer than report: toggles-ios-light.png",
+        "screenshot newer than report: toggles-ios-dark.png"
+      ]
     },
     {
       "slug": "token-fields",
@@ -3198,7 +3416,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "menu",
@@ -3214,10 +3432,15 @@
       },
       "iteration": 52,
       "validated_at": "2026-04-14T12:20:00Z",
-      "remediation_hint": "NSBox separator in macOS toolbar renders default title text instead of hairline; fix by calling setTitle: with empty string after setBoxType: in appkit_renderer.cr visit(UI::Toolbar).",
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
-      "focal_position": "toolbar_trailing"
+      "focal_position": "toolbar_trailing",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: toolbars-macos-light.png",
+        "screenshot newer than report: toolbars-macos-dark.png"
+      ]
     },
     {
       "slug": "top-shelf",
@@ -3367,7 +3590,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3382,7 +3605,13 @@
         "ios_dark": "pass_with_notes"
       },
       "notes": "Iteration 57. NSView/UIView placeholder instead of live WKWebView (static capture limitation). Container visible in all four captures. Both mandatory doc sections present.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: web-views-macos-light.png",
+        "screenshot newer than report: web-views-macos-dark.png"
+      ],
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
     },
     {
       "slug": "widgets",

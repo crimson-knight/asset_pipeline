@@ -64,12 +64,20 @@ final class HIGVisualTests: XCTestCase {
         //     pass before XCUIScreen.main.screenshot() reads the framebuffer.
         Thread.sleep(forTimeInterval: 1.2)
 
-        // XCUIScreen.main.screenshot() captures the simulator's ACTUAL
-        // rendered framebuffer via the SpringBoard process. This is the
-        // out-of-process path that preserves UIVisualEffectView blur --
-        // unlike UIGraphicsImageRenderer which runs in-process and
-        // flattens glass to a solid fill.
-        let screenshot = XCUIScreen.main.screenshot()
+        // Screenshot strategy:
+        // - For most slugs: app.windows.firstMatch.screenshot() captures only
+        //   the app window bounds, eliminating SpringBoard chrome (status bar
+        //   and home indicator region). June fix #5.
+        // - For action-sheets: the HIG places the Cancel capsule flush with
+        //   the bottom safe-area inset. window.screenshot() crops the bottom
+        //   of the sheet. Use XCUIScreen.main.screenshot() for this slug so
+        //   the full iPhone viewport including the home-indicator region is
+        //   captured and the Cancel capsule is fully visible.
+        let window = app.windows.firstMatch
+        let useFullScreen = (slug == "action-sheets")
+        let screenshot = useFullScreen
+            ? XCUIScreen.main.screenshot()
+            : (window.exists ? window.screenshot() : XCUIScreen.main.screenshot())
         let att = XCTAttachment(screenshot: screenshot)
         att.name = "\(slug)-ios-\(appearance).png"
         att.lifetime = .keepAlways

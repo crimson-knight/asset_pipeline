@@ -45,6 +45,7 @@ module CrystalHIGHost::Bridge
     when "sheets"        then "dashboard"
     when "alerts"        then "dashboard"
     when "popovers"      then "dashboard"
+    when "action-sheets" then "dashboard"
     when "edit-menus"    then "document"
     when "context-menus" then "document"
     when "dock-menus"    then "dock"
@@ -68,6 +69,12 @@ module CrystalHIGHost::Bridge
         # The glass has minimum_height == maximum_height == 400pt so SwiftUI sizes
         # it correctly via systemLayoutSizeFitting.
         focal
+      elsif slug == "action-sheets"
+        # iOS action sheet: bottom-anchored layout per HIG.
+        # HIG iOS: "On iPhone, action sheets always appear at the bottom of the screen."
+        # Use :bottom_sheet focal position to place the glass at the bottom of a
+        # compact single-column iOS backdrop (no sidebar, no 3-col chrome).
+        UI::ValidationScenes::DashboardScene.new(focal: focal, focal_position: :bottom_sheet).build
       else
         # All other dashboard slugs (alerts, popovers) use :center_modal.
         UI::ValidationScenes::DashboardScene.new(focal: focal, focal_position: :center_modal).build
@@ -119,16 +126,48 @@ module CrystalHIGHost::Bridge
               ios_alert.add_button("Reshape", :destructive)
               ios_alert.as(UI::View)
             when "action-sheets"
-              # Amber action sheet: destructive "Banish draft forever" at top,
-              # "Archive to vault" secondary, "Never mind" cancel at bottom.
-              # Amber copy per brand/amber.md Action sheet / Activity view section.
-              # HIG: destructive action at top of action sheet. Not via is_presented.
-              sheet_content = UI::VStack.new(spacing: 8.0)
-              sheet_content << UI::Label.new("What should Amber do with this draft?")
-              sheet_content << UI::Button.new("Banish draft forever", role: :destructive)
-              sheet_content << UI::Button.new("Archive to vault")
-              sheet_content << UI::Button.new("Never mind", role: :cancel)
-              UI::Sheet.new(sheet_content.as(UI::View), surface_style: :grouped_card).as(UI::View)
+              # HIG canonical action sheet layout (Mail cancel-draft pattern).
+              # HIG iOS: "On iPhone, action sheets always appear at the bottom."
+              # HIG: "Make destructive choices visually prominent; place them at
+              # the top of the action sheet." HIG: "Place the Cancel button at
+              # the bottom, separated from the other actions."
+              # The Cancel button renders as a VISUALLY SEPARATE capsule with an
+              # 8pt gap below the main action group — matching HIG canonical
+              # Mail action-sheet illustration. Bottom-anchored via :bottom_sheet.
+              # Corner radius 16pt (Amber phi-scale "sheet" token).
+
+              # Main action card: prompt + 3 actions (destructive first, per HIG).
+              main_content = UI::VStack.new(spacing: 8.0)
+              main_prompt = UI::Label.new("What should Amber do with this draft?")
+              main_prompt.font = UI::Font.new(size: 15.0, weight: :semibold)
+              main_prompt.accessibility_label = "Action sheet prompt"
+              main_content << main_prompt.as(UI::View)
+              main_content << UI::Button.new("Banish draft forever", role: :destructive)
+              main_content << UI::Button.new("Archive to vault")
+              main_content << UI::Button.new("Conjure copy")
+              main_sheet = UI::Sheet.new(main_content.as(UI::View), surface_style: :grouped_card)
+              main_sheet.minimum_height = 220.0
+              main_sheet.maximum_height = 220.0
+              main_sheet.accessibility_label = "Action sheet: draft management"
+
+              # Detached Cancel capsule — 8pt gap below main card per HIG.
+              # HIG: "Provide a Cancel button. On iPhone, always add a Cancel
+              # button so people can abandon the action."
+              cancel_content = UI::VStack.new(spacing: 0.0)
+              cancel_btn = UI::Button.new("Never mind", role: :cancel)
+              cancel_content << cancel_btn.as(UI::View)
+              cancel_sheet = UI::Sheet.new(cancel_content.as(UI::View), surface_style: :grouped_card)
+              cancel_sheet.minimum_height = 60.0
+              cancel_sheet.maximum_height = 60.0
+              cancel_sheet.accessibility_label = "Cancel action sheet"
+
+              # Gallery: main card + 8pt spacer + cancel capsule.
+              # Total focal height: 220 + 8 + 60 = 288pt.
+              gallery = UI::VStack.new(spacing: 8.0)
+              gallery.alignment = UI::Alignment::Fill
+              gallery << main_sheet.as(UI::View)
+              gallery << cancel_sheet.as(UI::View)
+              gallery.as(UI::View)
             when "activity-views"
               # UI::ActivityView — four-zone share sheet.
               # HIG: "An activity view presents sharing activities like messaging

@@ -10,6 +10,7 @@ require "../views/hstack"
 require "../views/vstack"
 require "../views/zstack"
 require "../views/spacer"
+require "../views/glass_background"
 
 module UI
   module ValidationScenes
@@ -295,15 +296,17 @@ module UI
           ios_top_bar.maximum_height = 60.0
 
           # Dimmed backdrop: a fixed-height band between the top bar and the sheet.
-          # 30% black simulates HIG sheet dimming in light mode.
-          # Fixed height of 60pt to minimize space used before the sheet starts,
-          # leaving more room for the 520pt sheet glass to remain within the viewport.
-          # Total scene height: top_bar 50 + divider 1 + backdrop 60 + sheet 520 = 631pt,
-          # well within the safe content area of iPhone 15 (~796pt below status bar).
-          backdrop_area = Label.new("")
-          backdrop_area.background = Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.3)
-          backdrop_area.minimum_height = 60.0
-          backdrop_area.maximum_height = 60.0
+          # HIG: "the app appears dimmed behind the sheet."
+          # Use UIBlurEffectStyleSystemUltraThinMaterial (GlassBackground :ultra_thin)
+          # instead of a flat UIColor.black.withAlphaComponent(0.3) fill so the scrim
+          # has the soft HIG-standard blur-dim rather than a hard rectangular gray band.
+          # Fixed height of 80pt — enough vertical breathing room to show the blur
+          # compositing against the top-bar gradient backdrop.
+          # Total scene height: top_bar 60 + divider 1 + backdrop 80 + focal = well
+          # within the safe content area of iPhone 15 (~796pt below status bar).
+          backdrop_area = GlassBackground.new(material: :ultra_thin)
+          backdrop_area.minimum_height = 80.0
+          backdrop_area.maximum_height = 80.0
           backdrop_area.accessibility_label = "Dimmed backdrop"
 
           ios_scene = VStack.new(spacing: 0.0)
