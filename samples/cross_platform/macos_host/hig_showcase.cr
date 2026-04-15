@@ -1377,33 +1377,21 @@ def build_component(slug : String) : UI::View
     # HIG: "Use nouns or noun phrases for segment labels."
     # HIG: "Prefer using either text or images -- not a mix -- in a single control."
 
-    sc_title = UI::Label.new("View mode")
-    sc_title.font = UI::Font.new(size: 15.0, weight: :medium)
-    sc_title.accessibility_label = "Segmented Controls showcase title"
-
-    sc_text_caption = UI::Label.new("Text segments (Week selected, index 1)")
-    sc_text_caption.font = UI::Font.new(size: 11.0, weight: :regular)
-    sc_text_caption.accessibility_label = "Text segments caption"
-
-    # Text-only: 3 segments, index 1 (Week) selected -- HIG-aligned default
+    # Range: 3 segments, index 1 (Week) selected — HIG "Limit the number of
+    # segments" + "Use nouns for segment labels".
     sc_text = UI::SegmentedControl.new(["Day", "Week", "Month"], 1)
     sc_text.accessibility_label = "Day Week Month segmented control"
 
-    sc_icon_caption = UI::Label.new("Icon-label segments (4 segments, index 1 selected)")
-    sc_icon_caption.font = UI::Font.new(size: 11.0, weight: :regular)
-    sc_icon_caption.accessibility_label = "Icon segments caption"
-
-    # Icon variant: 4 segments using SF Symbol names as labels, index 1 selected
+    # Density: 4 segments with short noun labels. The underlying
+    # UI::SegmentedControl only accepts text labels; SF Symbol-only segment
+    # variants are exposed via a different control in future work.
     sc_icon = UI::SegmentedControl.new(
-      ["list.bullet", "grid.2x2", "grid.3x3", "square.3.stack.3d"], 1
+      ["List", "Grid", "Dense", "Stack"], 1
     )
-    sc_icon.accessibility_label = "Icon segmented control"
+    sc_icon.accessibility_label = "Density segmented control"
 
     sc_outer = UI::VStack.new(spacing: 10.0)
-    sc_outer << sc_title
-    sc_outer << sc_text_caption
     sc_outer << sc_text
-    sc_outer << sc_icon_caption
     sc_outer << sc_icon
     sc_outer
   when "progress-indicators"
