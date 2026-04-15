@@ -689,7 +689,7 @@ def build_component(slug : String) : UI::View
     file_content = UI::VStack.new(spacing: 4.0)
 
     # Section header label
-    file_header = UI::Label.new("File Menu (pull-down)")
+    file_header = UI::Label.new("File")
     file_header.font = UI::Font.new(size: 11.0, weight: :semibold)
     file_header.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
     file_content << file_header.as(UI::View)
@@ -764,7 +764,7 @@ def build_component(slug : String) : UI::View
     # --- Surface B: Sort By pop-up with checkmark ---
     sort_content = UI::VStack.new(spacing: 4.0)
 
-    sort_header = UI::Label.new("Sort By (pop-up, selected: Date)")
+    sort_header = UI::Label.new("Sort by")
     sort_header.font = UI::Font.new(size: 11.0, weight: :semibold)
     sort_header.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
     sort_content << sort_header.as(UI::View)
@@ -1227,14 +1227,14 @@ def build_component(slug : String) : UI::View
     sliders_stack = UI::VStack.new(spacing: 20.0)
 
     # --- Section title ---
-    title_lbl = UI::Label.new("Sliders -- NSSlider")
+    title_lbl = UI::Label.new("Amber sound mix")
     title_lbl.font = UI::Font.new(size: 15.0, weight: :semibold)
     title_lbl.text_color_role = UI::LabelRole::Primary
     title_lbl.accessibility_label = "Sliders showcase title"
     sliders_stack << title_lbl
 
     # --- Variant 1: Plain slider at 40% ---
-    v1_caption = UI::Label.new("Plain slider (40% value, default tint)")
+    v1_caption = UI::Label.new("Ambient volume")
     v1_caption.font = UI::Font.new(size: 11.0, weight: :regular)
     v1_caption.text_color_role = UI::LabelRole::Secondary
     v1_caption.accessibility_label = "Plain slider caption"
@@ -1274,7 +1274,7 @@ def build_component(slug : String) : UI::View
     sliders_stack << val_lbl
 
     # --- Variant 3: Volume-style slider with SF Symbol icons ---
-    v3_caption = UI::Label.new("Volume-style slider (SF Symbol leading/trailing icons)")
+    v3_caption = UI::Label.new("Playback volume")
     v3_caption.font = UI::Font.new(size: 11.0, weight: :regular)
     v3_caption.text_color_role = UI::LabelRole::Secondary
     v3_caption.accessibility_label = "Volume slider caption"
@@ -1295,7 +1295,7 @@ def build_component(slug : String) : UI::View
     sliders_stack << vol_row
 
     # --- Variant 4: Tinted slider (brand orange accent) ---
-    v4_caption = UI::Label.new("Tinted slider (brand accent override -- orange)")
+    v4_caption = UI::Label.new("Ritual intensity")
     v4_caption.font = UI::Font.new(size: 11.0, weight: :regular)
     v4_caption.text_color_role = UI::LabelRole::Secondary
     v4_caption.accessibility_label = "Tinted slider caption"
@@ -1316,7 +1316,7 @@ def build_component(slug : String) : UI::View
     # NSStepper automatically dims the minus segment when value == minimum,
     # and dims the plus segment when value == maximum -- this is native platform behaviour.
 
-    steppers_title = UI::Label.new("Steppers -- NSStepper")
+    steppers_title = UI::Label.new("Ritual quantity")
     steppers_title.font = UI::Font.new(size: 15.0, weight: :medium)
     steppers_title.accessibility_label = "Steppers showcase title"
 
@@ -1377,7 +1377,7 @@ def build_component(slug : String) : UI::View
     # HIG: "Use nouns or noun phrases for segment labels."
     # HIG: "Prefer using either text or images -- not a mix -- in a single control."
 
-    sc_title = UI::Label.new("Segmented Controls -- NSSegmentedControl")
+    sc_title = UI::Label.new("View mode")
     sc_title.font = UI::Font.new(size: 15.0, weight: :medium)
     sc_title.accessibility_label = "Segmented Controls showcase title"
 
@@ -1778,7 +1778,7 @@ def build_component(slug : String) : UI::View
     sf_title.accessibility_label = "Find memories title"
 
     # State 1: empty field — shows leading magnifying-glass + placeholder
-    sf_empty_label = UI::Label.new("Empty (placeholder visible)")
+    sf_empty_label = UI::Label.new("New query")
     sf_empty_label.font = UI::Font.new(size: 11.0, weight: :regular)
     sf_empty_label.accessibility_label = "Empty search field label"
 
@@ -1787,7 +1787,7 @@ def build_component(slug : String) : UI::View
     sf_empty.accessibility_label = "Empty search field"
 
     # State 2: filled — shows text in primary color + trailing clear button
-    sf_filled_label = UI::Label.new("Filled (clear button visible)")
+    sf_filled_label = UI::Label.new("Recent query")
     sf_filled_label.font = UI::Font.new(size: 11.0, weight: :regular)
     sf_filled_label.accessibility_label = "Filled search field label"
 
