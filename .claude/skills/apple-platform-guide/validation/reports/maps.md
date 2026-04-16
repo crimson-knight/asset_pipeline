@@ -1,8 +1,8 @@
 ---
 slug: maps
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T14:17:16Z
-iteration: 59
+validated_at: 2026-04-16T14:55:00Z
+iteration: 60
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -30,11 +30,12 @@ verdict_per_appearance:
 ## Verdict: PASS_WITH_NOTES
 
 `UI::MapView` now has real four-way validation evidence and reads like a
-deliberate component study rather than pseudo app chrome. The iOS captures are
-clean: the map stays primary, the study copy is restrained, and the annotations
-are sparse enough to preserve legibility. macOS is close, but the offscreen
-capture path still shows a right-edge dark tile strip in both appearances, so
-the row stays PASS_WITH_NOTES instead of graduating to a full PASS.
+deliberate component study rather than pseudo app chrome. The refreshed studies
+keep visible gutters around the card, restore the amber isolation backdrop, and
+let the native map surface stay visually primary. macOS is close, but the
+offscreen capture path still shows a right-edge dark tile strip in both
+appearances, so the row stays PASS_WITH_NOTES instead of graduating to a full
+PASS.
 
 ### Liquid Glass check
 - **Required for this slug:** No. Maps are content surfaces, not glass overlays.
@@ -46,16 +47,19 @@ the row stays PASS_WITH_NOTES instead of graduating to a full PASS.
 **iOS light / dark:**
 The capture shows a centered neighborhood study card with a native `MKMapView`
 surface. The map remains visually dominant, while the heading and supporting
-copy stay quiet and proportional. Annotation density is appropriate: one focal
-pin plus one secondary stop is enough to communicate the pattern without making
-the preview look like debug output.
+copy stay quiet and proportional. The reduced card width leaves believable
+outer gutter space so the warm backdrop reads as intentional context instead of
+dead margin. Annotation density is appropriate: one focal pin plus one
+secondary stop is enough to communicate the pattern without making the preview
+look like debug output.
 
 **macOS light / dark:**
 The native `MKMapView` path is rendering real cartography and annotations, not
-a surrogate. The composition is disciplined, but the right edge of the map
-still contains an unrendered dark strip in both appearances. This reads like a
-tile-settlement limitation in the offscreen host rather than a taste failure in
-the component itself.
+a surrogate. The composition is now centered correctly within the study card
+and the amber backdrop remains visible around the surface, but the right edge
+of the map still contains an unrendered dark strip in both appearances. This
+reads like a tile-settlement limitation in the offscreen host rather than a
+taste failure in the component itself.
 
 ### Deviations
 

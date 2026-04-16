@@ -1,8 +1,8 @@
 ---
 slug: playing-video
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T14:17:16Z
-iteration: 59
+validated_at: 2026-04-16T14:55:00Z
+iteration: 60
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -35,7 +35,9 @@ path intentionally uses a deterministic poster preview during validation so the
 screenshots communicate aspect ratio, hierarchy, and restraint instead of
 whatever arbitrary pixels a static capture happens to catch. That tradeoff is
 honest and useful, but it still counts as PASS_WITH_NOTES because the report is
-not showing live playback compositing.
+not showing live playback compositing. The refreshed framing now keeps visible
+gutters around the player card and preserves the amber isolation backdrop
+instead of letting the study drift toward one edge.
 
 ### Liquid Glass check
 - **Required for this slug:** No. Video is a content surface, not a glass
@@ -49,13 +51,18 @@ not showing live playback compositing.
 The study now reads clearly: concise copy above, strong media rectangle below,
 and a capture-only poster that preserves the expected AVKit silhouette. The
 default taste is disciplined and avoids turning the player into a decorative
-card-within-a-card exercise.
+card-within-a-card exercise. The card is centered cleanly enough now that the
+backdrop remains visible around it, which gives the desktop composition the
+breathing room it was missing before.
 
 **iOS light / dark:**
 The iOS validation path matches the macOS evidence closely, which is a win for
 consistency. The player stays the primary shape, the supporting copy no longer
 overruns the study width, and the screenshot is stable enough to critique
-layout instead of incidental video-frame content.
+layout instead of incidental video-frame content. The smaller card width also
+keeps a believable amount of backdrop visible on all sides, which makes the
+preview feel more like a default-taste component study and less like a full
+screen mock.
 
 ### Deviations
 

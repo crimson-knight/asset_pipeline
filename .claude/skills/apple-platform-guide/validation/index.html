@@ -43,7 +43,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 .summary .stat-num{font-size:28px;font-weight:700}
 .summary .stat-label{font-size:11px;color:#636366;text-transform:uppercase;letter-spacing:.04em}</style>
 <h1>Apple HIG validation &mdash; dashboard</h1>
-<p>Generated 2026-04-16T14:19:51Z. <strong>16/65</strong> auditable studies reached a terminal state (<strong>25%</strong>). 24 skipped, 0 needs-work, 25 pending, 24 with stale evidence.</p>
+<p>Generated 2026-04-16T14:55:27Z. <strong>16/65</strong> auditable studies reached a terminal state (<strong>25%</strong>). 24 skipped, 0 needs-work, 25 pending, 24 with stale evidence.</p>
 <div class='summary'>
 <div class='stat'><div class='stat-num' style='color:#34c759'>16</div><div class='stat-label'>Passing</div></div>
 <div class='stat'><div class='stat-num' style='color:#8e8e93'>24</div><div class='stat-label'>Skipped</div></div>
@@ -336,13 +336,13 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 </tr>
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>maps</span><br>
-<span class='v-pwn'>PASS_WITH_NOTES</span> · iter 59 <span class='evidence ev-valid'>evidence current</span><br>
+<span class='v-pwn'>PASS_WITH_NOTES</span> · iter 60 <span class='evidence ev-valid'>evidence current</span><br>
 <span class='ui-view'>UI::MapView</span> 
 <div class='sub-verdicts'><strong>macOS L</strong><span class='sv-pwn'>pass_with_notes</span><strong>macOS D</strong><span class='sv-pwn'>pass_with_notes</span><strong>iOS L</strong><span class='sv-pass'>pass</span><strong>iOS D</strong><span class='sv-pass'>pass</span></div>
 <span class='notes'>Iteration 59. Native MKMapView studies now exist on iOS and macOS with fresh four-way evidence. iOS captures are clean; macOS offscreen capture still shows a right-edge tile-settle strip, so the row stays PASS_WITH_NOTES until the host can warm MapKit tiles more deterministically.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/maps-macos-light.png'><img src='screenshots/maps-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/maps-macos-dark.png'><img src='screenshots/maps-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/maps-ios-light.png'><img src='screenshots/maps-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/maps-ios-dark.png'><img src='screenshots/maps-ios-dark.png'></a></div></div></td>
 <td><a href='../../apple-hig/images/technologies-maps-intro.png'><img class='small' src='../../apple-hig/images/technologies-maps-intro.png'></a></td>
-<td><span class='missing'>none</span></td>
+<td><div class='backdrop-cell'><a href='backdrops/sheet-backdrop-amber-gradient-light.png'><img class='backdrop-thumb' src='backdrops/sheet-backdrop-amber-gradient-light.png'></a><span class='backdrop-name'>sheet-backdrop-amber-gradient</span></div></td>
 <td><a href='reports/maps.md'>report</a> · <a href='../components/maps.md'>usage doc</a></td>
 </tr>
 <tr>
@@ -402,13 +402,13 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 </tr>
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>playing-video</span><br>
-<span class='v-pwn'>PASS_WITH_NOTES</span> · iter 59 <br>
+<span class='v-pwn'>PASS_WITH_NOTES</span> · iter 60 <span class='evidence ev-valid'>evidence current</span><br>
 <span class='ui-view'>UI::VideoPlayer</span> 
 <div class='sub-verdicts'><strong>macOS L</strong><span class='sv-pwn'>pass_with_notes</span><strong>macOS D</strong><span class='sv-pwn'>pass_with_notes</span><strong>iOS L</strong><span class='sv-pwn'>pass_with_notes</span><strong>iOS D</strong><span class='sv-pwn'>pass_with_notes</span></div>
 <span class='notes'>Iteration 59. Runtime uses native AVKit on iOS and macOS; the validation harness now opts into a deterministic poster study (macOS via HIG_SCREENSHOT_PATH, iOS via HIG_VALIDATION_CAPTURE) so screenshots stay stable and legible instead of blank or arbitrary playback frames.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/playing-video-macos-light.png'><img src='screenshots/playing-video-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/playing-video-macos-dark.png'><img src='screenshots/playing-video-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/playing-video-ios-light.png'><img src='screenshots/playing-video-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/playing-video-ios-dark.png'><img src='screenshots/playing-video-ios-dark.png'></a></div></div></td>
 <td><a href='../../apple-hig/images/patterns-playing-video-intro.png'><img class='small' src='../../apple-hig/images/patterns-playing-video-intro.png'></a></td>
-<td><span class='missing'>none</span></td>
+<td><div class='backdrop-cell'><a href='backdrops/sheet-backdrop-amber-gradient-light.png'><img class='backdrop-thumb' src='backdrops/sheet-backdrop-amber-gradient-light.png'></a><span class='backdrop-name'>sheet-backdrop-amber-gradient</span></div></td>
 <td><a href='reports/playing-video.md'>report</a> · <a href='../components/playing-video.md'>usage doc</a></td>
 </tr>
 <tr>

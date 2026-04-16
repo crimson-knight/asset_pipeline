@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T14:19:36.281522+00:00",
+  "generated_at": "2026-04-16T14:55:16.938446+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -1882,6 +1882,7 @@
         "ios_dark": "pass"
       },
       "notes": "Iteration 59. Native MKMapView studies now exist on iOS and macOS with fresh four-way evidence. iOS captures are clean; macOS offscreen capture still shows a right-edge tile-settle strip, so the row stays PASS_WITH_NOTES until the host can warm MapKit tiles more deterministically.",
+      "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "valid",
       "evidence_errors": []
     },
@@ -2375,7 +2376,10 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "notes": "Iteration 59. Runtime uses native AVKit on iOS and macOS; the validation harness now opts into a deterministic poster study (macOS via HIG_SCREENSHOT_PATH, iOS via HIG_VALIDATION_CAPTURE) so screenshots stay stable and legible instead of blank or arbitrary playback frames."
+      "notes": "Iteration 59. Runtime uses native AVKit on iOS and macOS; the validation harness now opts into a deterministic poster study (macOS via HIG_SCREENSHOT_PATH, iOS via HIG_VALIDATION_CAPTURE) so screenshots stay stable and legible instead of blank or arbitrary playback frames.",
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "pointing-devices",
@@ -3739,9 +3743,9 @@
     "skipped": 24
   },
   "evidence_counts": {
-    "valid": 16,
+    "valid": 17,
     "invalid": 24,
     "not_applicable": 24,
-    "unknown": 1
+    "unknown": 0
   }
 }

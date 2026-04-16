@@ -1,49 +1,49 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T14:19:36.280812+00:00",
+  "generated_at": "2026-04-16T14:55:09.259613+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T14:19:04.003455+00:00",
+    "mtime": "2026-04-16T14:54:45.013218+00:00",
     "path": "reports/maps.md",
-    "sha256": "ee7d0fa1ffea2bdd5ffec06847bbb1068fe16ce55b649418d9bfe1e477871b80",
-    "size_bytes": 3209
+    "sha256": "880fd181294fa3c51f81cf55765dd512b53a3d748b46383c1b89ca9be9753e19",
+    "size_bytes": 3443
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-16T14:08:30.708294+00:00",
+      "mtime": "2026-04-16T14:53:44.301203+00:00",
       "path": "screenshots/maps-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "d46bc41f5f5004b8fead09d9abc2fab0f7626303473bd575435d7567acd0ae5b",
-      "size_bytes": 1302505
+      "sha256": "4035107edd5e882023835359cd677fe358b466069e9bc1417762a465a9e62716",
+      "size_bytes": 867819
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-16T14:07:55.441896+00:00",
+      "mtime": "2026-04-16T14:53:09.262261+00:00",
       "path": "screenshots/maps-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "0ec349c4b4390596e4d16ea6c3b85fb7b65f477b8c6d5261646b9e77f28fe0bb",
-      "size_bytes": 1320926
+      "sha256": "8dde245a05bd9c53396c2ef5055ccaec227d14b4a06a760fe22afd84048ac5f1",
+      "size_bytes": 852005
     },
     "macos_dark": {
       "exists": true,
-      "mtime": "2026-04-16T14:05:58.628573+00:00",
+      "mtime": "2026-04-16T14:52:10.502810+00:00",
       "path": "screenshots/maps-macos-dark.png",
       "pixel_height": 1800,
       "pixel_width": 2400,
-      "sha256": "9eb130bf18eef7a532a37d42629204773d76fd3e2b5b1870f710212b8ccbd164",
-      "size_bytes": 672538
+      "sha256": "2b13cc3af3d6540fa2c9f9e36763599803218a3ef003d02b244f473429baa6ff",
+      "size_bytes": 1583804
     },
     "macos_light": {
       "exists": true,
-      "mtime": "2026-04-16T14:05:51.454709+00:00",
+      "mtime": "2026-04-16T14:52:05.372625+00:00",
       "path": "screenshots/maps-macos-light.png",
       "pixel_height": 1800,
       "pixel_width": 2400,
-      "sha256": "ccea043b707bb6c1438707c51da70bf494ff877ab53d61eda74ccd7b0c89db4f",
-      "size_bytes": 700772
+      "sha256": "2d05aab2f574addb750e8239eb5aa8d696455ec6d3c3d344d1387ee8b544dad4",
+      "size_bytes": 1387340
     }
   },
   "slug": "maps",

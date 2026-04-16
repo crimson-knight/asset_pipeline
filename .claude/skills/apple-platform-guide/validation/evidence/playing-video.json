@@ -1,49 +1,49 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T14:19:36.279617+00:00",
+  "generated_at": "2026-04-16T14:55:16.937523+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T14:19:04.003912+00:00",
+    "mtime": "2026-04-16T14:55:00.691925+00:00",
     "path": "reports/playing-video.md",
-    "sha256": "fa041fceb05455cadc519127ece5872cd6de35ed223799b42b248531e61be6f4",
-    "size_bytes": 3335
+    "sha256": "2b8c61964e2bb19144651cddffc021024b5825fbf43c1415db96936be6c0bdd8",
+    "size_bytes": 3857
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-16T14:16:33.972131+00:00",
+      "mtime": "2026-04-16T14:44:00.892579+00:00",
       "path": "screenshots/playing-video-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "188f1f30a494cab3266442a46183a403241630e84045e8e90652a37735bdf877",
-      "size_bytes": 1250773
+      "sha256": "fa3183f04d40869051fa66d6c84205afeb4ceb66a939b3b86d3c3fe17118a8f9",
+      "size_bytes": 923837
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-16T14:16:00.689437+00:00",
+      "mtime": "2026-04-16T14:43:26.937821+00:00",
       "path": "screenshots/playing-video-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "49eff0c3122bdbf95eee993612c739f27e94b1074ca5dccc940c77f8a87db26d",
-      "size_bytes": 1253083
+      "sha256": "f10fa9e75c1390059e932a5433cf2587531cde0a489d912f5991c6f9d13f6e5e",
+      "size_bytes": 854468
     },
     "macos_dark": {
       "exists": true,
-      "mtime": "2026-04-16T14:15:12.023460+00:00",
+      "mtime": "2026-04-16T14:52:06.846462+00:00",
       "path": "screenshots/playing-video-macos-dark.png",
       "pixel_height": 1800,
       "pixel_width": 2400,
-      "sha256": "b90db6bf9360bb61b43cca4a512c1656eaca247558f77bb6a87a43fd0d175047",
-      "size_bytes": 267532
+      "sha256": "cf8b00626d6279c10a7f3265c8f831b5985d002f0fab9afa1c0590657aa48117",
+      "size_bytes": 1255149
     },
     "macos_light": {
       "exists": true,
-      "mtime": "2026-04-16T14:15:00.482441+00:00",
+      "mtime": "2026-04-16T14:52:08.307194+00:00",
       "path": "screenshots/playing-video-macos-light.png",
       "pixel_height": 1800,
       "pixel_width": 2400,
-      "sha256": "e1b625ef1af35051ada7766af315dd395df97f5044a9693b908f136ffb7d06b4",
-      "size_bytes": 267315
+      "sha256": "988675e41fb0ae3154d83803c8f3d0e1a78b601392e68d2daebf6c73e2487fe1",
+      "size_bytes": 1031539
     }
   },
   "slug": "playing-video",
