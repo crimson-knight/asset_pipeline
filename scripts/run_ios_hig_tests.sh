@@ -87,7 +87,7 @@ ok "CrystalHIGHost.xcodeproj generated"
 if [[ -n "$ONLY_SLUG" ]]; then
     SLUGS="$ONLY_SLUG"
 else
-    SLUGS="$(jq -r '.pages[] | select(.role == "component") | .slug' "$WORKLIST")"
+    SLUGS="$(jq -r '.pages[] | select((.role == "component") or ((.status == "implemented") and (.ui_view != null) and (.validation_state != "skipped"))) | .slug' "$WORKLIST")"
 fi
 
 # ---------------------------------------------------------------------------

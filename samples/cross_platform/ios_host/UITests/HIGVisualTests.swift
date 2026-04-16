@@ -40,6 +40,7 @@ final class HIGVisualTests: XCTestCase {
         // The app reads these from its own ProcessInfo.environment in
         // HIGSceneDelegate and HIGBackdropController.
         app.launchEnvironment["HIG_APPEARANCE"]   = appearance
+        app.launchEnvironment["HIG_VALIDATION_CAPTURE"] = "1"
         if let backdropPath = env["HIG_BACKDROP_PATH"] {
             app.launchEnvironment["HIG_BACKDROP_PATH"] = backdropPath
         }

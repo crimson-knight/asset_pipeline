@@ -955,6 +955,13 @@ static NSString *ap_web_preview_html(NSString *title, NSString *url_string) {
         resolved_title, resolved_url];
 }
 
+static NSString *ap_video_preview_title(NSString *url_string) {
+    if (url_string && url_string.length) {
+        return @"Neighborhood walkthrough";
+    }
+    return @"Playback preview";
+}
+
 #if TARGET_OS_OSX
 static NSImageView *ap_make_web_capture_preview(NSString *title, NSString *url_string) {
     CGFloat width = 420.0;
@@ -1041,6 +1048,89 @@ static NSImageView *ap_make_web_capture_preview(NSString *title, NSString *url_s
     [image unlockFocus];
 
     NSImageView *image_view = [[NSImageView alloc] initWithFrame:NSMakeRect(0.0, 0.0, width, height)];
+    image_view.image = image;
+    image_view.imageScaling = NSImageScaleAxesIndependently;
+    [image release];
+    return image_view;
+}
+
+static NSImageView *ap_make_video_capture_preview(NSString *url_string, BOOL shows_controls) {
+    CGFloat width = 560.0;
+    CGFloat height = 315.0;
+    NSString *resolved_title = ap_video_preview_title(url_string);
+
+    NSImage *image = [[NSImage alloc] initWithSize:NSMakeSize(width, height)];
+    [image lockFocus];
+
+    NSRect bounds = NSMakeRect(0.0, 0.0, width, height);
+    NSBezierPath *outer_path = [NSBezierPath bezierPathWithRoundedRect:bounds xRadius:24.0 yRadius:24.0];
+    [outer_path addClip];
+
+    NSGradient *backdrop = [[NSGradient alloc] initWithColorsAndLocations:
+        [NSColor colorWithCalibratedRed:0.067 green:0.071 blue:0.090 alpha:1.0], 0.0,
+        [NSColor colorWithCalibratedRed:0.110 green:0.129 blue:0.176 alpha:1.0], 0.55,
+        [NSColor colorWithCalibratedRed:0.153 green:0.118 blue:0.094 alpha:1.0], 1.0,
+        nil];
+    [backdrop drawInBezierPath:outer_path angle:135.0];
+    [backdrop release];
+
+    NSBezierPath *glow = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect(width - 220.0, height - 210.0, 220.0, 220.0)];
+    [[NSColor colorWithCalibratedRed:1.0 green:0.706 blue:0.341 alpha:0.16] setFill];
+    [glow fill];
+
+    NSBezierPath *glass_band = [NSBezierPath bezierPathWithRoundedRect:NSMakeRect(24.0, height - 64.0, 126.0, 30.0) xRadius:15.0 yRadius:15.0];
+    [[NSColor colorWithCalibratedWhite:1.0 alpha:0.14] setFill];
+    [glass_band fill];
+
+    NSDictionary *badge_attrs = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:11.0 weight:NSFontWeightSemibold],
+        NSForegroundColorAttributeName : [NSColor colorWithCalibratedWhite:1.0 alpha:0.82]
+    };
+    NSDictionary *title_attrs = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:22.0 weight:NSFontWeightSemibold],
+        NSForegroundColorAttributeName : [NSColor colorWithCalibratedWhite:1.0 alpha:0.96]
+    };
+    NSDictionary *meta_attrs = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:12.0 weight:NSFontWeightMedium],
+        NSForegroundColorAttributeName : [NSColor colorWithCalibratedWhite:1.0 alpha:0.70]
+    };
+
+    [@"VALIDATION PREVIEW" drawInRect:NSMakeRect(42.0, height - 56.0, 120.0, 16.0) withAttributes:badge_attrs];
+    [resolved_title drawInRect:NSMakeRect(40.0, height - 106.0, width - 160.0, 28.0) withAttributes:title_attrs];
+    [@"Capture-only poster." drawInRect:NSMakeRect(40.0, height - 132.0, width - 120.0, 18.0) withAttributes:meta_attrs];
+
+    NSBezierPath *play_circle = [NSBezierPath bezierPathWithOvalInRect:NSMakeRect((width - 70.0) / 2.0, (height - 70.0) / 2.0 + 8.0, 70.0, 70.0)];
+    [[NSColor colorWithCalibratedWhite:1.0 alpha:0.18] setFill];
+    [play_circle fill];
+    [[NSColor colorWithCalibratedWhite:1.0 alpha:0.24] setStroke];
+    [play_circle setLineWidth:1.0];
+    [play_circle stroke];
+
+    NSBezierPath *play_triangle = [NSBezierPath bezierPath];
+    [play_triangle moveToPoint:NSMakePoint(width / 2.0 - 8.0, height / 2.0 + 34.0)];
+    [play_triangle lineToPoint:NSMakePoint(width / 2.0 - 8.0, height / 2.0 - 2.0)];
+    [play_triangle lineToPoint:NSMakePoint(width / 2.0 + 22.0, height / 2.0 + 16.0)];
+    [play_triangle closePath];
+    [[NSColor colorWithCalibratedWhite:1.0 alpha:0.94] setFill];
+    [play_triangle fill];
+
+    CGFloat scrubber_y = 36.0;
+    NSBezierPath *track = [NSBezierPath bezierPathWithRoundedRect:NSMakeRect(40.0, scrubber_y, width - 140.0, 4.0) xRadius:2.0 yRadius:2.0];
+    [[NSColor colorWithCalibratedWhite:1.0 alpha:0.18] setFill];
+    [track fill];
+
+    NSBezierPath *progress = [NSBezierPath bezierPathWithRoundedRect:NSMakeRect(40.0, scrubber_y, (width - 140.0) * 0.36, 4.0) xRadius:2.0 yRadius:2.0];
+    [[NSColor colorWithCalibratedRed:1.0 green:0.706 blue:0.341 alpha:0.95] setFill];
+    [progress fill];
+
+    if (shows_controls) {
+        [@"01:28" drawInRect:NSMakeRect(40.0, 16.0, 42.0, 16.0) withAttributes:meta_attrs];
+        [@"03:54" drawInRect:NSMakeRect(width - 82.0, 16.0, 42.0, 16.0) withAttributes:meta_attrs];
+    }
+
+    [image unlockFocus];
+
+    NSImageView *image_view = [[NSImageView alloc] initWithFrame:bounds];
     image_view.image = image;
     image_view.imageScaling = NSImageScaleAxesIndependently;
     [image release];
@@ -1350,6 +1440,97 @@ void *video_player_view_new(const char *url_cstr,
                             int muted,
                             int loop) {
     (void)loop;
+
+    NSString *url_string = ap_string_from_cstr(url_cstr);
+
+#if TARGET_OS_OSX
+    if (getenv("HIG_SCREENSHOT_PATH")) {
+        return (void *)ap_make_video_capture_preview(url_string, (BOOL)shows_controls);
+    }
+#else
+    if (getenv("HIG_SCREENSHOT_PATH") || getenv("HIG_VALIDATION_CAPTURE")) {
+        CGFloat width = 320.0;
+        CGFloat height = shows_controls ? 214.0 : 180.0;
+        NSString *resolved_title = ap_video_preview_title(url_string);
+
+        UIGraphicsBeginImageContextWithOptions(CGSizeMake(width, height), YES, 0.0);
+        CGContextRef context = UIGraphicsGetCurrentContext();
+
+        UIColor *top = [UIColor colorWithRed:0.067 green:0.071 blue:0.090 alpha:1.0];
+        UIColor *bottom = [UIColor colorWithRed:0.153 green:0.118 blue:0.094 alpha:1.0];
+        NSArray *colors = @[(__bridge id)top.CGColor, (__bridge id)bottom.CGColor];
+        CGFloat locations[] = {0.0, 1.0};
+        CGColorSpaceRef color_space = CGColorSpaceCreateDeviceRGB();
+        CGGradientRef gradient = CGGradientCreateWithColors(color_space, (__bridge CFArrayRef)colors, locations);
+        CGContextDrawLinearGradient(context, gradient, CGPointMake(0.0, 0.0), CGPointMake(width, height), 0);
+        CGGradientRelease(gradient);
+        CGColorSpaceRelease(color_space);
+
+        [[UIColor colorWithRed:1.0 green:0.706 blue:0.341 alpha:0.16] setFill];
+        UIBezierPath *glow = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(width - 120.0, 18.0, 120.0, 120.0)];
+        [glow fill];
+
+        [[UIColor colorWithWhite:1.0 alpha:0.14] setFill];
+        UIBezierPath *badge = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(18.0, 16.0, 104.0, 24.0) cornerRadius:12.0];
+        [badge fill];
+
+        NSDictionary *badge_attrs = @{
+            NSFontAttributeName : [UIFont systemFontOfSize:10.0 weight:UIFontWeightSemibold],
+            NSForegroundColorAttributeName : [UIColor colorWithWhite:1.0 alpha:0.82]
+        };
+        NSDictionary *title_attrs = @{
+            NSFontAttributeName : [UIFont systemFontOfSize:17.0 weight:UIFontWeightSemibold],
+            NSForegroundColorAttributeName : [UIColor colorWithWhite:1.0 alpha:0.96]
+        };
+        NSDictionary *meta_attrs = @{
+            NSFontAttributeName : [UIFont systemFontOfSize:11.0 weight:UIFontWeightMedium],
+            NSForegroundColorAttributeName : [UIColor colorWithWhite:1.0 alpha:0.72]
+        };
+
+        [@"VALIDATION" drawInRect:CGRectMake(30.0, 21.0, 80.0, 14.0) withAttributes:badge_attrs];
+        [resolved_title drawInRect:CGRectMake(18.0, 48.0, width - 80.0, 22.0) withAttributes:title_attrs];
+        [@"Capture-only poster." drawInRect:CGRectMake(18.0, 70.0, width - 44.0, 16.0) withAttributes:meta_attrs];
+
+        CGRect play_rect = CGRectMake((width - 56.0) / 2.0, (height - 56.0) / 2.0 - 6.0, 56.0, 56.0);
+        [[UIColor colorWithWhite:1.0 alpha:0.18] setFill];
+        UIBezierPath *play_circle = [UIBezierPath bezierPathWithOvalInRect:play_rect];
+        [play_circle fill];
+        [[UIColor colorWithWhite:1.0 alpha:0.24] setStroke];
+        play_circle.lineWidth = 1.0;
+        [play_circle stroke];
+
+        [[UIColor colorWithWhite:1.0 alpha:0.94] setFill];
+        UIBezierPath *triangle = [UIBezierPath bezierPath];
+        [triangle moveToPoint:CGPointMake(CGRectGetMidX(play_rect) - 6.0, CGRectGetMidY(play_rect) - 12.0)];
+        [triangle addLineToPoint:CGPointMake(CGRectGetMidX(play_rect) - 6.0, CGRectGetMidY(play_rect) + 12.0)];
+        [triangle addLineToPoint:CGPointMake(CGRectGetMidX(play_rect) + 14.0, CGRectGetMidY(play_rect))];
+        [triangle closePath];
+        [triangle fill];
+
+        CGFloat track_y = height - 30.0;
+        [[UIColor colorWithWhite:1.0 alpha:0.18] setFill];
+        UIBezierPath *track = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(18.0, track_y, width - 78.0, 4.0) cornerRadius:2.0];
+        [track fill];
+
+        [[UIColor colorWithRed:1.0 green:0.706 blue:0.341 alpha:0.95] setFill];
+        UIBezierPath *progress = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(18.0, track_y, (width - 78.0) * 0.34, 4.0) cornerRadius:2.0];
+        [progress fill];
+
+        if (shows_controls) {
+            [@"01:28" drawInRect:CGRectMake(18.0, height - 20.0, 40.0, 12.0) withAttributes:meta_attrs];
+            [@"03:54" drawInRect:CGRectMake(width - 54.0, height - 20.0, 36.0, 12.0) withAttributes:meta_attrs];
+        }
+
+        UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+
+        UIImageView *image_view = [[UIImageView alloc] initWithFrame:CGRectMake(0.0, 0.0, width, height)];
+        image_view.image = image;
+        image_view.contentMode = UIViewContentModeScaleToFill;
+        image_view.clipsToBounds = YES;
+        return (void *)image_view;
+    }
+#endif
 
     NSURL *url = ap_url_from_cstr(url_cstr);
     AVPlayer *player = url ? [AVPlayer playerWithURL:url] : nil;

@@ -121,7 +121,8 @@ module CrystalHIGHost::Bridge
 
   private def self.isolation_plate_slug?(slug : String) : Bool
     case slug
-    when "boxes", "collections", "context-menus", "progress-indicators", "text-fields", "path-controls"
+    when "boxes", "collections", "context-menus", "maps", "playing-video",
+         "progress-indicators", "text-fields", "path-controls"
       true
     else
       false
@@ -2346,6 +2347,92 @@ HTML
               ios_wv_outer << ios_wv_desc
               ios_wv_outer << ios_wv
               ios_wv_outer.as(UI::View)
+            when "maps"
+              ios_map_inner = UI::VStack.new(spacing: 12.0)
+
+              ios_map_label = UI::Label.new("Neighborhood overview")
+              ios_map_label.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_map_label.accessibility_label = "Maps heading"
+
+              ios_map_desc = UI::Label.new("Maps should stay interactive and legible, with companion chrome kept intentionally quiet.")
+              ios_map_desc.font = UI::Font.new(size: 13.0)
+              ios_map_desc.accessibility_label = "Maps description"
+
+              ios_map = UI::MapView.new
+              ios_map.latitude = 37.8024
+              ios_map.longitude = -122.4058
+              ios_map.zoom_level = 12.5
+              ios_map.map_type = :standard
+              ios_map.minimum_width = 320.0
+              ios_map.maximum_width = 320.0
+              ios_map.minimum_height = 248.0
+              ios_map.maximum_height = 248.0
+              ios_map.corner_radius = 22.0
+              ios_map.clip_to_bounds = true
+              ios_map.border_width = 1.0
+              ios_map.border_color = UI::Color.new(r: 0.78, g: 0.74, b: 0.68, a: 0.28)
+              ios_map.accessibility_label = "Map centered on Coit Tower"
+              ios_map.annotations << UI::MapAnnotation.new(
+                latitude: 37.8024,
+                longitude: -122.4058,
+                title: "Coit Tower",
+                subtitle: "Neighborhood walk"
+              )
+              ios_map.annotations << UI::MapAnnotation.new(
+                latitude: 37.7983,
+                longitude: -122.4078,
+                title: "Reading Room",
+                subtitle: "Quiet stop"
+              )
+
+              ios_map_inner << ios_map_label
+              ios_map_inner << ios_map_desc
+              ios_map_inner << ios_map
+
+              ios_map_card = UI::Card.new(ios_map_inner.as(UI::View))
+              ios_map_card.minimum_width = 352.0
+              ios_map_card.maximum_width = 352.0
+              ios_map_card.is_outlined = true
+              ios_map_card.material = :secondary
+              ios_map_card.accessibility_label = "Maps study card"
+              ios_map_card.as(UI::View)
+            when "playing-video"
+              ios_video_inner = UI::VStack.new(spacing: 12.0)
+
+              ios_video_label = UI::Label.new("Playback preview")
+              ios_video_label.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_video_label.accessibility_label = "Video heading"
+
+              ios_video_desc = UI::Label.new("Honor the system player shape. Keep copy secondary.")
+              ios_video_desc.font = UI::Font.new(size: 13.0)
+              ios_video_desc.accessibility_label = "Video description"
+
+              ios_video = UI::VideoPlayer.new("https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8")
+              ios_video.shows_controls = true
+              ios_video.auto_play = false
+              ios_video.muted = true
+              ios_video.minimum_width = 320.0
+              ios_video.maximum_width = 320.0
+              ios_video.minimum_height = 214.0
+              ios_video.maximum_height = 214.0
+              ios_video.corner_radius = 22.0
+              ios_video.clip_to_bounds = true
+              ios_video.background = UI::Color.new(r: 0.10, g: 0.10, b: 0.12, a: 1.0)
+              ios_video.border_width = 1.0
+              ios_video.border_color = UI::Color.new(r: 0.78, g: 0.74, b: 0.68, a: 0.28)
+              ios_video.accessibility_label = "Playback preview surface"
+
+              ios_video_inner << ios_video_label
+              ios_video_inner << ios_video_desc
+              ios_video_inner << ios_video
+
+              ios_video_card = UI::Card.new(ios_video_inner.as(UI::View))
+              ios_video_card.minimum_width = 352.0
+              ios_video_card.maximum_width = 352.0
+              ios_video_card.is_outlined = true
+              ios_video_card.material = :secondary
+              ios_video_card.accessibility_label = "Video study card"
+              ios_video_card.as(UI::View)
             when "page-controls"
               # HIG: "A page control displays a row of indicator images, each of
               # which represents a page in a flat list." — Page controls, abstract.

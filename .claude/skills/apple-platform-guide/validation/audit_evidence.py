@@ -71,10 +71,12 @@ def load_worklist() -> dict[str, Any]:
         return json.load(handle)
 
 
-def component_rows(worklist: dict[str, Any], slug: str | None = None) -> list[dict[str, Any]]:
+def auditable_rows(worklist: dict[str, Any], slug: str | None = None) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for row in worklist.get("pages", []):
-        if row.get("role") != "component":
+        is_component = row.get("role") == "component"
+        is_implemented_study = row.get("status") == "implemented" and bool(row.get("ui_view"))
+        if not (is_component or is_implemented_study):
             continue
         if slug and row.get("slug") != slug:
             continue
@@ -84,7 +86,7 @@ def component_rows(worklist: dict[str, Any], slug: str | None = None) -> list[di
 
 def iter_rows(worklist: dict[str, Any], slug: str | None, include_pending: bool) -> list[dict[str, Any]]:
     rows = []
-    for row in component_rows(worklist, slug):
+    for row in auditable_rows(worklist, slug):
         state = row.get("validation_state")
         if state in ("pass", "pass_with_notes"):
             rows.append(row)
@@ -255,12 +257,12 @@ def counts_from_worklist(worklist: dict[str, Any]) -> dict[str, int]:
 
 
 def validation_counts_from_worklist(worklist: dict[str, Any]) -> dict[str, int]:
-    counter = Counter((row.get("validation_state") or "pending") for row in component_rows(worklist))
+    counter = Counter((row.get("validation_state") or "pending") for row in auditable_rows(worklist))
     return {state: counter.get(state, 0) for state in VALIDATION_STATES}
 
 
 def evidence_counts_from_worklist(worklist: dict[str, Any]) -> dict[str, int]:
-    counter = Counter((row.get("evidence_state") or "unknown") for row in component_rows(worklist))
+    counter = Counter((row.get("evidence_state") or "unknown") for row in auditable_rows(worklist))
     return {state: counter.get(state, 0) for state in EVIDENCE_STATES}
 
 
@@ -272,7 +274,7 @@ def sync_worklist(
 ) -> None:
     results_by_slug = {result["slug"]: result for result in results}
 
-    for row in component_rows(worklist):
+    for row in auditable_rows(worklist):
         normalize_skip_reason(row)
 
         if row.get("validation_state") == "skipped":
@@ -330,29 +332,29 @@ def requeue_invalid_results(worklist: dict[str, Any], results: list[dict[str, An
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--slug", help="Audit a single slug")
-    parser.add_argument("--include-pending", action="store_true", help="Also audit pending/needs_work component rows")
+    parser.add_argument("--include-pending", action="store_true", help="Also audit pending/needs_work auditable rows")
     parser.add_argument("--write-manifest", action="store_true", help="Write validation/evidence/<slug>.json")
     parser.add_argument("--json", action="store_true", help="Print JSON results")
     parser.add_argument("--requeue-invalid", action="store_true", help="Set invalid pass/pass_with_notes rows back to pending")
     parser.add_argument(
         "--sync-worklist",
         action="store_true",
-        help="Normalize skip reasons, refresh counts, and write evidence_state/evidence_errors for all auditable component rows",
+        help="Normalize skip reasons, refresh counts, and write evidence_state/evidence_errors for all auditable rows",
     )
     args = parser.parse_args(argv)
 
     worklist = load_worklist()
-    component_matches = component_rows(worklist, args.slug)
-    if args.slug and not component_matches:
-        print(f"No component row found for slug: {args.slug}", file=sys.stderr)
+    auditable_matches = auditable_rows(worklist, args.slug)
+    if args.slug and not auditable_matches:
+        print(f"No auditable row found for slug: {args.slug}", file=sys.stderr)
         return 2
 
     if args.sync_worklist:
-        rows = [row for row in component_matches if row.get("validation_state") != "skipped"]
+        rows = [row for row in auditable_matches if row.get("validation_state") != "skipped"]
     else:
         rows = iter_rows(worklist, args.slug, args.include_pending)
-        if args.slug and not rows and component_matches:
-            print(f"No auditable component row found for slug: {args.slug}", file=sys.stderr)
+        if args.slug and not rows and auditable_matches:
+            print(f"No auditable row found for slug: {args.slug}", file=sys.stderr)
             return 2
 
     results = [audit_row(row) for row in rows]

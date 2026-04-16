@@ -85,6 +85,8 @@ SLUG_SCENES = {
   "search-fields"     => "ambient",
   "labels"            => "ambient",
   "boxes"             => "ambient",
+  "maps"              => "ambient",
+  "playing-video"     => "ambient",
 } of String => String
 
 def scene_for_slug(slug : String) : String?
@@ -2772,6 +2774,92 @@ HTML
     wv_outer << wv_desc
     wv_outer << wv
     wv_outer.as(UI::View)
+  when "maps"
+    map_inner = UI::VStack.new(spacing: 12.0)
+
+    map_label = UI::Label.new("Neighborhood overview")
+    map_label.font = UI::Font.new(size: 17.0, weight: :semibold)
+    map_label.accessibility_label = "Maps heading"
+
+    map_desc = UI::Label.new("Maps should stay interactive and legible, with companion chrome kept intentionally quiet.")
+    map_desc.font = UI::Font.new(size: 13.0)
+    map_desc.accessibility_label = "Maps description"
+
+    map_view = UI::MapView.new
+    map_view.latitude = 37.8024
+    map_view.longitude = -122.4058
+    map_view.zoom_level = 12.5
+    map_view.map_type = :standard
+    map_view.minimum_width = 560.0
+    map_view.maximum_width = 560.0
+    map_view.minimum_height = 360.0
+    map_view.maximum_height = 360.0
+    map_view.corner_radius = 24.0
+    map_view.clip_to_bounds = true
+    map_view.border_width = 1.0
+    map_view.border_color = UI::Color.new(r: 0.78, g: 0.74, b: 0.68, a: 0.28)
+    map_view.accessibility_label = "Map centered on Coit Tower"
+    map_view.annotations << UI::MapAnnotation.new(
+      latitude: 37.8024,
+      longitude: -122.4058,
+      title: "Coit Tower",
+      subtitle: "Neighborhood walk"
+    )
+    map_view.annotations << UI::MapAnnotation.new(
+      latitude: 37.7983,
+      longitude: -122.4078,
+      title: "Reading Room",
+      subtitle: "Quiet stop"
+    )
+
+    map_inner << map_label
+    map_inner << map_desc
+    map_inner << map_view
+
+    map_card = UI::Card.new(map_inner.as(UI::View))
+    map_card.minimum_width = 640.0
+    map_card.maximum_width = 640.0
+    map_card.is_outlined = true
+    map_card.material = :secondary
+    map_card.accessibility_label = "Maps study card"
+    map_card.as(UI::View)
+  when "playing-video"
+    video_inner = UI::VStack.new(spacing: 12.0)
+
+    video_label = UI::Label.new("Playback preview")
+    video_label.font = UI::Font.new(size: 17.0, weight: :semibold)
+    video_label.accessibility_label = "Video heading"
+
+    video_desc = UI::Label.new("Honor the system player shape. Keep copy secondary.")
+    video_desc.font = UI::Font.new(size: 13.0)
+    video_desc.accessibility_label = "Video description"
+
+    video_view = UI::VideoPlayer.new("https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8")
+    video_view.shows_controls = true
+    video_view.auto_play = false
+    video_view.muted = true
+    video_view.minimum_width = 560.0
+    video_view.maximum_width = 560.0
+    video_view.minimum_height = 315.0
+    video_view.maximum_height = 315.0
+    video_view.corner_radius = 24.0
+    video_view.clip_to_bounds = true
+    video_view.background = UI::Color.new(r: 0.10, g: 0.10, b: 0.12, a: 1.0)
+    video_view.border_width = 1.0
+    video_view.border_color = UI::Color.new(r: 0.78, g: 0.74, b: 0.68, a: 0.28)
+    video_view.accessibility_label = "Playback preview surface"
+
+    video_inner << video_label
+    video_inner << video_desc
+    video_inner << video_view
+
+    video_card = UI::Card.new(video_inner.as(UI::View))
+    video_card.minimum_width = 640.0
+    video_card.maximum_width = 640.0
+    video_card.is_outlined = true
+    video_card.material = :secondary
+    video_card.accessibility_label = "Video study card"
+    video_card.as(UI::View)
   when "page-controls"
     # HIG: "A page control displays a row of indicator images, each of which
     # represents a page in a flat list." — Page controls, abstract.
@@ -3118,6 +3206,8 @@ if screenshot_path && !screenshot_path.empty?
   elsif scene_name == "ambient" || SLUG == "collections"
     focal_max_w = case SLUG
                   when "text-views"          then 680.0
+                  when "maps"                then 640.0
+                  when "playing-video"       then 640.0
                   when "progress-indicators" then 500.0
                   when "collections"         then 500.0
                   when "boxes"               then 460.0
@@ -3148,7 +3238,11 @@ if screenshot_path && !screenshot_path.empty?
   gc_guard = {native, native_chrome, native_focal}
   GC.collect  # Force any pending GC now while guard tuple is in scope.
 
-  LibWindowHelper.objc_run_loop_for(0.6)
+  settle_seconds = case SLUG
+                   when "maps" then 1.4
+                   else             0.6
+                   end
+  LibWindowHelper.objc_run_loop_for(settle_seconds)
 
   # Capture path selection:
   # Surface-glass slugs (sheets, alerts, popovers, action-sheets, activity-views)

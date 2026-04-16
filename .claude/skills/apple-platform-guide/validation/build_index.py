@@ -281,18 +281,21 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 
 def build(output_label: str | None = None) -> tuple[Path, Path]:
     data = read_worklist()
-    comps = [r for r in data["pages"] if r.get("role") == "component"]
+    studies = [
+        r for r in data["pages"]
+        if r.get("role") == "component" or (r.get("status") == "implemented" and r.get("ui_view"))
+    ]
     by_state: dict[str, list[dict]] = {}
-    for r in comps:
+    for r in studies:
         s = (r.get("validation_state") or "pending").lower()
         by_state.setdefault(s, []).append(r)
 
-    total = len(comps)
+    total = len(studies)
     passed = len(by_state.get("pass", [])) + len(by_state.get("pass_with_notes", []))
     skipped = len(by_state.get("skipped", []))
     needs = len(by_state.get("needs_work", [])) + len(by_state.get("fail", []))
     pending = len(by_state.get("pending", []))
-    stale = sum(1 for r in comps if (r.get("evidence_state") or "").lower() == "invalid")
+    stale = sum(1 for r in studies if (r.get("evidence_state") or "").lower() == "invalid")
     pct = round(100 * passed / total) if total else 0
 
     sort_key = lambda r: (r.get("priority", "P9"), r.get("slug", ""))
@@ -312,7 +315,7 @@ def build(output_label: str | None = None) -> tuple[Path, Path]:
         "<title>Apple HIG validation dashboard</title>",
         f"<style>{CSS}</style>",
         "<h1>Apple HIG validation &mdash; dashboard</h1>",
-        f"<p>Generated {now}. <strong>{passed}/{total}</strong> components reached a terminal state "
+        f"<p>Generated {now}. <strong>{passed}/{total}</strong> auditable studies reached a terminal state "
         f"(<strong>{pct}%</strong>). {skipped} skipped, {needs} needs-work, {pending} pending, "
         f"{stale} with stale evidence.</p>",
         "<div class='summary'>",
@@ -321,11 +324,11 @@ def build(output_label: str | None = None) -> tuple[Path, Path]:
         f"<div class='stat'><div class='stat-num' style='color:#ff3b30'>{needs}</div><div class='stat-label'>Needs work</div></div>",
         f"<div class='stat'><div class='stat-num' style='color:#8e8e93'>{pending}</div><div class='stat-label'>Pending</div></div>",
         f"<div class='stat'><div class='stat-num' style='color:#d93025'>{stale}</div><div class='stat-label'>Stale evidence</div></div>",
-        f"<div class='stat'><div class='stat-num'>{total}</div><div class='stat-label'>Total components</div></div>",
+        f"<div class='stat'><div class='stat-num'>{total}</div><div class='stat-label'>Auditable studies</div></div>",
         "</div>",
         "<div class='bar'><h3>Progress</h3>",
         f"<div class='progress'><div class='progress-fill' style='width:{pct}%'></div></div>",
-        f"<p style='margin:0;font-size:13px;color:#636366'>{passed} of {total} components terminal · {pct}% complete</p>",
+        f"<p style='margin:0;font-size:13px;color:#636366'>{passed} of {total} auditable studies terminal · {pct}% complete</p>",
         "</div>",
         "<div class='bar'><h3>Acceptance bar</h3><ol>"
         "<li>Four fresh captures per slug: macOS light/dark + iOS light/dark.</li>"
