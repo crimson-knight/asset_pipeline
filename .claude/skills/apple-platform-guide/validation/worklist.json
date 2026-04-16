@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T22:56:49.635624+00:00",
+  "generated_at": "2026-04-16T23:35:57.801832+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -17,9 +17,9 @@
     "patterns": 66,
     "platform_guides": 4,
     "collections": 14,
-    "implemented": 47,
+    "implemented": 48,
     "stub": 0,
-    "missing": 18
+    "missing": 17
   },
   "pages": [
     {
@@ -605,8 +605,8 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
-      "docs_written": false,
+      "validation_state": "pass_with_notes",
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -614,12 +614,12 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "UI::ColumnView now exists as a shared Finder-style drill-down primitive with a browser-like fallback surface and explicit renderer visits on every platform. The native NSBrowser bridge and showcase studies are still open, so this row is implemented but not yet visually validated.",
+      "notes": "UI::ColumnView now has real showcase studies on both platforms, with a Finder-like macOS browser plate and an honest iOS fallback drill-down card. The default taste is strong enough to validate with notes while the future native NSBrowser bridge remains open.",
       "backdrop": "finder-mail-backdrop",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "missing report: /Users/crimsonknight/open_source_coding_projects/asset_pipeline/.claude/skills/apple-platform-guide/validation/reports/column-views.md"
-      ]
+      "scene": "ambient",
+      "focal_position": "centered",
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "combo-boxes",
@@ -2764,7 +2764,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2778,17 +2778,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "scene": "settings",
-      "focal_position": "single_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: segmented-controls-macos-light.png",
-        "screenshot newer than report: segmented-controls-macos-dark.png",
-        "screenshot newer than report: segmented-controls-ios-light.png",
-        "screenshot newer than report: segmented-controls-ios-dark.png"
-      ]
+      "scene": "ambient",
+      "focal_position": "centered",
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "selection-and-input",
@@ -3381,14 +3375,14 @@
       "hig_page": "../apple-hig/pages/token-fields.md",
       "hig_ref_image": "../apple-hig/images/components-token-field-intro.png",
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "missing",
+      "ui_view": "UI::TokenField",
+      "ui_view_file": "src/ui/views/token_field.cr",
+      "status": "implemented",
       "priority": "P2",
-      "iOS_visit_found": false,
-      "macOS_visit_found": false,
-      "validation_state": "skipped",
-      "docs_written": false,
+      "iOS_visit_found": true,
+      "macOS_visit_found": true,
+      "validation_state": "pending",
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -3396,9 +3390,9 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "Token fields per HIG (NSTokenField) are macOS-specific inline-pill text fields used for recipient entry in Mail. Not supported on iOS per HIG. Building a UI::TokenField requires NSTokenFieldDelegate protocol bridge for the tokenize-on-delimiter behavior. Skipped as macOS-specialty + protocol dependency.",
+      "notes": "UI::TokenField now exists as a shared pill-entry fallback primitive with tokens, selection state, and a trailing entry field. The native NSTokenField bridge and visual validation studies are still open, so this row is implemented but not yet validated.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "evidence_state": "not_applicable",
+      "evidence_state": "valid",
       "evidence_errors": []
     },
     {
@@ -3697,16 +3691,16 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 32,
-    "pending": 13,
+    "pass_with_notes": 34,
+    "pending": 12,
     "needs_work": 0,
     "fail": 0,
-    "skipped": 20
+    "skipped": 19
   },
   "evidence_counts": {
-    "valid": 29,
-    "invalid": 15,
-    "not_applicable": 21,
+    "valid": 32,
+    "invalid": 13,
+    "not_applicable": 20,
     "unknown": 0
   }
 }
