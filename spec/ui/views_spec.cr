@@ -98,6 +98,10 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "ListView(#{view.item_count})"
   end
 
+  def visit(view : UI::OutlineView)
+    @visited << "OutlineView(#{view.node_count})"
+  end
+
   def visit(view : UI::SecureField)
     @visited << "SecureField(#{view.placeholder})"
   end
@@ -2358,6 +2362,49 @@ describe UI::PathControl do
     control.add_component("Design", icon: "paintbrush")
     control.accept(v)
     v.visited.should eq(["PathControl(/Library/Design)"])
+  end
+end
+
+describe UI::OutlineView do
+  it "stores hierarchical nodes" do
+    inbox = UI::OutlineView::Node.new("Inbox")
+    inbox.add_child(UI::OutlineView::Node.new("Today"))
+    inbox.add_child(UI::OutlineView::Node.new("Scheduled"))
+
+    projects = UI::OutlineView::Node.new("Projects", expanded: true)
+    projects.add_child(UI::OutlineView::Node.new("Amber"))
+
+    outline = UI::OutlineView.new([inbox, projects])
+
+    outline.roots.size.should eq(2)
+    outline.node_count.should eq(5)
+    outline.roots[0].children.size.should eq(2)
+  end
+
+  it "builds a scrollable fallback tree" do
+    root = UI::OutlineView::Node.new("Library", icon: "folder", expanded: true)
+    root.add_child(UI::OutlineView::Node.new("Notes", icon: "note.text"))
+
+    outline = UI::OutlineView.new([root])
+    outline.minimum_width = 320.0
+    outline.viewport_height = 280.0
+
+    fallback = outline.fallback_view
+    fallback.should be_a(UI::ScrollView)
+
+    scroll = fallback.as(UI::ScrollView)
+    scroll.frame_width.should eq(320.0)
+    scroll.frame_height.should eq(280.0)
+    scroll.content.should be_a(UI::VStack)
+  end
+
+  it "accepts visitor" do
+    outline = UI::OutlineView.new
+    outline.add_root(UI::OutlineView::Node.new("Inbox"))
+
+    visitor = TestVisitor.new
+    outline.accept(visitor)
+    visitor.visited.should eq(["OutlineView(1)"])
   end
 end
 

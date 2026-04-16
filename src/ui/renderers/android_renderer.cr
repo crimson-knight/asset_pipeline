@@ -1038,6 +1038,10 @@ module UI::Android
       push_native(native, ll)
     end
 
+    def visit(view : UI::OutlineView)
+      view.fallback_view.accept(self)
+    end
+
     # -----------------------------------------------------------------
     # Visit: SecureField -> android.widget.EditText (password input type)
     # -----------------------------------------------------------------

@@ -723,6 +723,10 @@ module UI
         end
       end
 
+      def visit(view : UI::OutlineView)
+        view.fallback_view.accept(self)
+      end
+
       def visit(view : UI::SecureField)
         el = Components::Elements::Input.new
         el.set_attribute("type", "password")

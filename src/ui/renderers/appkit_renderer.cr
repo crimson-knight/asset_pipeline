@@ -1656,6 +1656,10 @@ module UI::AppKit
       push_native(native)
     end
 
+    def visit(view : UI::OutlineView)
+      view.fallback_view.accept(self)
+    end
+
     # -----------------------------------------------------------------
     # Visit: SecureField -> NSSecureTextField
     # -----------------------------------------------------------------
