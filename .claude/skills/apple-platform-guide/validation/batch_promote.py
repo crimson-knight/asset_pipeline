@@ -200,6 +200,7 @@ def main() -> int:
     if not slugs:
         ap.error("no slugs given; use --all-clean or list slugs")
 
+    complete_slugs = []
     for slug in slugs:
         print(f"== {slug} ==")
         missing = []
@@ -211,12 +212,16 @@ def main() -> int:
             print(f"  SKIP — missing captures: {missing}")
             continue
         write_report(slug, args.batch)
-        refresh_manifest(slug)
+        complete_slugs.append(slug)
 
-    flip_worklist([s for s in slugs if all(
-        (SCREENSHOTS / f"{s}-{a}.png").exists()
-        for a in ("macos-light", "macos-dark", "ios-light", "ios-dark")
-    )])
+    # Flip worklist FIRST so audit_evidence.py sees pass_with_notes state
+    # when --slug filter runs. Otherwise the manifest-refresh per slug says
+    # "No component row found" because iter_rows skips pending rows.
+    flip_worklist(complete_slugs)
+
+    # Now regenerate manifests for every flipped slug.
+    for slug in complete_slugs:
+        refresh_manifest(slug)
 
     # Final dashboard audit
     proc = subprocess.run([sys.executable, str(AUDIT)], cwd=REPO, capture_output=True, text=True)

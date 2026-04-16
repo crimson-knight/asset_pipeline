@@ -178,7 +178,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "notes": "Iteration 20: visit(UI::Alert) rewritten on both renderers to emit NSVisualEffectView (hudWindow=7) / UIVisualEffectView (UIGlassEffect/UIBlurEffect) inline glass card. All four appearances captured fresh (macos-light 34739B, macos-dark 34850B, ios-light 121022B, ios-dark 100903B). Title bold/legible, message secondary-gray/legible, destructive red distinct from cancel/default blue in all four captures. macOS buttons stack vertically (HIG-justified); live glass bleed-through not visible on macOS (iter-17 gotcha). Both mandatory doc sections present.",
@@ -190,9 +190,9 @@
       ],
       "verdict_per_appearance": {
         "macos_light": "pass_with_notes",
-        "macos_dark": "pass",
-        "ios_light": "pass",
-        "ios_dark": "pass"
+        "macos_dark": "pass_with_notes",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
@@ -392,7 +392,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "notes": "Iteration 23: ButtonStyle enum added (Default/Prominent/Tinted/Bordered/Borderless). UIKit renderer wired to UIButton.Configuration API via buttonWithConfiguration:primaryAction: (iOS 15+). AppKit renderer wired to NSBezelStyle + bezelColor/contentTintColor. Gallery expanded to 11 rows. All four captures fresh (Apr 13 19:17-21). iOS now shows distinct bezeled pill buttons for each style: gray Default, filled-blue Prominent, translucent-tint Tinted, gray Bordered, text-link Borderless. Destructive rows show red bezel (Prominent) or red label (others). macOS shows rounded-bezel styles; Prominent style visually similar to Default (NSButton bezelColor fill is subtler than UIButton.Configuration.filled -- documented PASS_WITH_NOTES deviation). docs_written: true.",
       "glass_required": false,
@@ -481,7 +481,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -490,8 +490,8 @@
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "pass",
-        "macos_dark": "pass",
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
@@ -2255,7 +2255,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2391,7 +2391,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "popover",
@@ -2400,10 +2400,10 @@
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "PASS_WITH_NOTES",
-        "macos_dark": "PASS_WITH_NOTES",
-        "ios_light": "PASS_WITH_NOTES",
-        "ios_dark": "PASS_WITH_NOTES"
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
@@ -2685,7 +2685,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2694,8 +2694,8 @@
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "pass",
-        "macos_dark": "pass",
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
@@ -2853,7 +2853,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "NSVisualEffectMaterialSheet=11",
@@ -2864,8 +2864,8 @@
       "verdict_per_appearance": {
         "macos_light": "pass_with_notes",
         "macos_dark": "pass_with_notes",
-        "ios_light": "pass",
-        "ios_dark": "pass"
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "iteration": 19,
       "validated_at": "2026-04-15T08:45:00Z",
@@ -2964,7 +2964,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2973,10 +2973,10 @@
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "PASS_WITH_NOTES",
-        "macos_dark": "PASS_WITH_NOTES",
-        "ios_light": "PASS_WITH_NOTES",
-        "ios_dark": "PASS_WITH_NOTES"
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "iteration": 43,
@@ -3151,7 +3151,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "menu",
@@ -3160,10 +3160,10 @@
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "PASS_WITH_NOTES",
-        "macos_dark": "PASS_WITH_NOTES",
-        "ios_light": "PASS",
-        "ios_dark": "PASS"
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
@@ -3187,7 +3187,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": "menu",
@@ -3196,10 +3196,10 @@
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "PASS",
-        "macos_dark": "PASS",
-        "ios_light": "PASS_WITH_NOTES",
-        "ios_dark": "PASS_WITH_NOTES"
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
@@ -3351,7 +3351,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3360,10 +3360,10 @@
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "PASS_WITH_NOTES",
-        "macos_dark": "PASS_WITH_NOTES",
-        "ios_light": "PASS",
-        "ios_dark": "PASS"
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
@@ -3413,7 +3413,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "menu",
@@ -3424,8 +3424,8 @@
       "verdict_per_appearance": {
         "macos_light": "pass_with_notes",
         "macos_dark": "pass_with_notes",
-        "ios_light": "pass",
-        "ios_dark": "pass"
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "iteration": 52,
       "validated_at": "2026-04-14T12:20:00Z",

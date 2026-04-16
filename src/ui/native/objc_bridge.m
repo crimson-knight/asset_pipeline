@@ -344,6 +344,44 @@ void objc_constrain_equal_width(void *child, void *parent) {
     wc.active = YES;
 }
 
+// Pin a child view to its parent's layout margins on iOS. The macOS branch
+// falls back to edge pinning; UIKit is the current caller.
+void objc_pin_child_to_layout_margins(void *parent, void *child) {
+    BridgeView *p = (BridgeView *)parent;
+    BridgeView *c = (BridgeView *)child;
+    c.translatesAutoresizingMaskIntoConstraints = NO;
+#if TARGET_OS_OSX
+    NSLayoutConstraint *leading = [c.leadingAnchor constraintEqualToAnchor:p.leadingAnchor];
+    NSLayoutConstraint *trailing = [c.trailingAnchor constraintEqualToAnchor:p.trailingAnchor];
+    NSLayoutConstraint *top = [c.topAnchor constraintEqualToAnchor:p.topAnchor];
+    NSLayoutConstraint *bottom = [c.bottomAnchor constraintEqualToAnchor:p.bottomAnchor];
+#else
+    UILayoutGuide *g = p.layoutMarginsGuide;
+    NSLayoutConstraint *leading = [c.leadingAnchor constraintEqualToAnchor:g.leadingAnchor];
+    NSLayoutConstraint *trailing = [c.trailingAnchor constraintEqualToAnchor:g.trailingAnchor];
+    NSLayoutConstraint *top = [c.topAnchor constraintEqualToAnchor:g.topAnchor];
+    NSLayoutConstraint *bottom = [c.bottomAnchor constraintEqualToAnchor:g.bottomAnchor];
+#endif
+    leading.active = YES;
+    trailing.active = YES;
+    top.active = YES;
+    bottom.active = YES;
+}
+
+// Exact-width arranged subviews should resist horizontal stretching in
+// UIStackView's Fill distribution. Width constraints remain the source of
+// truth; these priorities make the intent visible to stack fitting passes.
+void objc_set_horizontal_fixed_priority(void *view) {
+    BridgeView *v = (BridgeView *)view;
+#if TARGET_OS_OSX
+    [v setContentHuggingPriority:NSLayoutPriorityRequired forOrientation:NSLayoutConstraintOrientationHorizontal];
+    [v setContentCompressionResistancePriority:NSLayoutPriorityRequired forOrientation:NSLayoutConstraintOrientationHorizontal];
+#else
+    [v setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    [v setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+#endif
+}
+
 void objc_constrain_size(void *view, double w, double h) {
     BridgeView *v = (BridgeView *)view;
     v.translatesAutoresizingMaskIntoConstraints = NO;

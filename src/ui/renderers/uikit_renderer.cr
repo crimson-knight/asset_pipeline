@@ -71,6 +71,8 @@ module UI::UIKit
     fun objc_constrain_minimum_height(view : Void*, min_h : Float64) : Void
     fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
     fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
+    fun objc_pin_child_to_layout_margins(parent : Void*, child : Void*) : Void
+    fun objc_set_horizontal_fixed_priority(view : Void*) : Void
     fun uiscrollview_pin_content(scroll_view : Void*, content_view : Void*) : Void
     fun objc_screen_width : Float64
     fun uislider_build_synthetic_track(value_fraction : Float64, filled_color : Void*, unfilled_color : Void*, slider_ptr : Void*) : Void*
@@ -115,7 +117,7 @@ module UI::UIKit
   # label = UI::Label.new("Hello, iOS!")
   # renderer = UI::UIKit::Renderer.new
   # label.accept(renderer)
-  # native_view = renderer.result  # => NativeView wrapping a UILabel
+  # native_view = renderer.result # => NativeView wrapping a UILabel
   # ```
   #
   # ## Memory Management
@@ -239,7 +241,7 @@ module UI::UIKit
     # -----------------------------------------------------------------
     def visit(view : UI::Button)
       uibutton_cls = LibObjCBridge.objc_getClass("UIButton")
-      uicolor_cls  = LibObjCBridge.objc_getClass("UIColor")
+      uicolor_cls = LibObjCBridge.objc_getClass("UIColor")
 
       # Build UIButton.Configuration from style.
       # +[UIButton.Configuration gray] etc. are class methods on UIButtonConfiguration.
@@ -491,7 +493,7 @@ module UI::UIKit
                       when Alignment::Center   then 3_i64
                       when Alignment::Trailing then 4_i64
                       when Alignment::Fill     then 0_i64
-                      else                          0_i64  # Fill by default
+                      else                          0_i64 # Fill by default
                       end
       LibObjCBridge.objc_send_long(ptr, sel("setAlignment:"), alignment_val)
 
@@ -528,11 +530,11 @@ module UI::UIKit
       # UIStackViewAlignmentTop=1, UIStackViewAlignmentCenter=3,
       # UIStackViewAlignmentBottom=4, UIStackViewAlignmentFill=0
       alignment_val = case view.alignment
-                      when Alignment::Top      then 1_i64
-                      when Alignment::Center   then 3_i64
-                      when Alignment::Bottom   then 4_i64
-                      when Alignment::Fill     then 0_i64
-                      else                          3_i64
+                      when Alignment::Top    then 1_i64
+                      when Alignment::Center then 3_i64
+                      when Alignment::Bottom then 4_i64
+                      when Alignment::Fill   then 0_i64
+                      else                        3_i64
                       end
       LibObjCBridge.objc_send_long(ptr, sel("setAlignment:"), alignment_val)
 
@@ -1238,7 +1240,7 @@ module UI::UIKit
     # -----------------------------------------------------------------
     def visit(view : UI::TabView)
       uicolor_cls = LibObjCBridge.objc_getClass("UIColor")
-      uifont_cls  = LibObjCBridge.objc_getClass("UIFont")
+      uifont_cls = LibObjCBridge.objc_getClass("UIFont")
 
       # Build the glass effect. UIGlassEffect on iOS 26; fallback to
       # UIBlurEffectStyleSystemChromeMaterial = 11 on older SDKs.
@@ -1314,17 +1316,17 @@ module UI::UIKit
         is_selected = (idx == view.selected_index)
 
         selected_tint = if tc = view.selected_tint_color
-                           LibObjCBridge.nscolor_rgba(tc.r, tc.g, tc.b, tc.a)
-                         elsif !uicolor_cls.null?
-                           LibObjCBridge.objc_send(uicolor_cls, sel("systemBlueColor"))
-                         else
-                           LibObjCBridge.nscolor_rgba(0.0, 0.478, 1.0, 1.0)
-                         end
+                          LibObjCBridge.nscolor_rgba(tc.r, tc.g, tc.b, tc.a)
+                        elsif !uicolor_cls.null?
+                          LibObjCBridge.objc_send(uicolor_cls, sel("systemBlueColor"))
+                        else
+                          LibObjCBridge.nscolor_rgba(0.0, 0.478, 1.0, 1.0)
+                        end
         unselected_tint = if !uicolor_cls.null?
-                             LibObjCBridge.objc_send(uicolor_cls, sel("secondaryLabelColor"))
-                           else
-                             LibObjCBridge.nscolor_rgba(0.34, 0.34, 0.36, 1.0)
-                           end
+                            LibObjCBridge.objc_send(uicolor_cls, sel("secondaryLabelColor"))
+                          else
+                            LibObjCBridge.nscolor_rgba(0.34, 0.34, 0.36, 1.0)
+                          end
 
         # Cell: vertical UIStackView (icon above label)
         cell = alloc_init("UIStackView")
@@ -1378,7 +1380,7 @@ module UI::UIKit
 
       %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anchor_sel|
         outer_anchor = LibObjCBridge.objc_send(outer, sel(anchor_sel))
-        host_anchor  = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
+        host_anchor = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
         next if outer_anchor.null? || host_anchor.null?
         constraint = LibObjCBridge.objc_send_id(outer_anchor, sel("constraintEqualToAnchor:"), host_anchor)
         LibObjCBridge.objc_send_bool(constraint, sel("setActive:"), 1) unless constraint.null?
@@ -1513,7 +1515,7 @@ module UI::UIKit
       # Pin inner to anchor_host on all four edges.
       %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anchor_sel|
         inner_anchor = LibObjCBridge.objc_send(inner, sel(anchor_sel))
-        host_anchor  = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
+        host_anchor = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
         next if inner_anchor.null? || host_anchor.null?
         constraint = LibObjCBridge.objc_send_id(inner_anchor, sel("constraintEqualToAnchor:"), host_anchor)
         LibObjCBridge.objc_send_bool(constraint, sel("setActive:"), 1) unless constraint.null?
@@ -1641,13 +1643,13 @@ module UI::UIKit
     def visit(view : UI::Picker)
       uiimage_cls = LibObjCBridge.objc_getClass("UIImage")
       uicolor_cls = LibObjCBridge.objc_getClass("UIColor")
-      uifont_cls  = LibObjCBridge.objc_getClass("UIFont")
+      uifont_cls = LibObjCBridge.objc_getClass("UIFont")
 
       # --- Root vertical UIStackView (card container) ---
       card_ptr = alloc_init("UIStackView")
-      LibObjCBridge.objc_send_long(card_ptr, sel("setAxis:"), 1_i64)          # vertical
+      LibObjCBridge.objc_send_long(card_ptr, sel("setAxis:"), 1_i64) # vertical
       LibObjCBridge.objc_send_1d(card_ptr, sel("setSpacing:"), 0.0)
-      LibObjCBridge.objc_send_long(card_ptr, sel("setAlignment:"), 4_i64)     # UIStackViewAlignmentFill
+      LibObjCBridge.objc_send_long(card_ptr, sel("setAlignment:"), 4_i64) # UIStackViewAlignmentFill
 
       # secondarySystemGroupedBackground is a UIColor that adapts to light/dark
       sec_bg = LibObjCBridge.objc_send(uicolor_cls, sel("secondarySystemGroupedBackgroundColor"))
@@ -1665,9 +1667,9 @@ module UI::UIKit
       card_native = NativeView.new(card_handle)
 
       # Shared resources
-      system_blue   = LibObjCBridge.objc_send(uicolor_cls, sel("systemBlueColor"))
+      system_blue = LibObjCBridge.objc_send(uicolor_cls, sel("systemBlueColor"))
       sep_color_ptr = LibObjCBridge.objc_send(uicolor_cls, sel("separatorColor"))
-      body_font     = LibObjCBridge.objc_send_1d_ret_id(uifont_cls, sel("systemFontOfSize:"), 17.0)
+      body_font = LibObjCBridge.objc_send_1d_ret_id(uifont_cls, sel("systemFontOfSize:"), 17.0)
       primary_color = LibObjCBridge.nscolor_label_primary
 
       view.options.each_with_index do |option_text, index|
@@ -1675,9 +1677,9 @@ module UI::UIKit
 
         # --- Row: horizontal UIStackView ---
         row_ptr = alloc_init("UIStackView")
-        LibObjCBridge.objc_send_long(row_ptr, sel("setAxis:"), 0_i64)          # horizontal
+        LibObjCBridge.objc_send_long(row_ptr, sel("setAxis:"), 0_i64) # horizontal
         LibObjCBridge.objc_send_1d(row_ptr, sel("setSpacing:"), 8.0)
-        LibObjCBridge.objc_send_long(row_ptr, sel("setAlignment:"), 3_i64)     # UIStackViewAlignmentCenter
+        LibObjCBridge.objc_send_long(row_ptr, sel("setAlignment:"), 3_i64) # UIStackViewAlignmentCenter
         LibObjCBridge.objc_send_bool(row_ptr, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
 
         # Use layout margins for 16pt leading/trailing insets inside the row.
@@ -2418,7 +2420,7 @@ module UI::UIKit
           # Pin inner stack to all four edges of anchor_host.
           %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anchor_sel|
             inner_anchor = LibObjCBridge.objc_send(sidebar_inner, sel(anchor_sel))
-            host_anchor  = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
+            host_anchor = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
             next if inner_anchor.null? || host_anchor.null?
             constraint = LibObjCBridge.objc_send_id(inner_anchor, sel("constraintEqualToAnchor:"), host_anchor)
             LibObjCBridge.objc_send_bool(constraint, sel("setActive:"), 1) unless constraint.null?
@@ -2482,7 +2484,7 @@ module UI::UIKit
     # -----------------------------------------------------------------
     def visit(view : UI::Toolbar)
       uicolor_cls = LibObjCBridge.objc_getClass("UIColor")
-      uifont_cls  = LibObjCBridge.objc_getClass("UIFont")
+      uifont_cls = LibObjCBridge.objc_getClass("UIFont")
 
       # Build the glass effect. UIGlassEffect on iOS 26; fallback to
       # UIBlurEffectStyleSystemChromeMaterial = 11 on older SDKs.
@@ -2497,9 +2499,9 @@ module UI::UIKit
                       LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), 11_i64)
                     end
 
-      uveff_cls   = LibObjCBridge.objc_getClass("UIVisualEffectView")
+      uveff_cls = LibObjCBridge.objc_getClass("UIVisualEffectView")
       effect_alloc = LibObjCBridge.objc_send(uveff_cls, sel("alloc"))
-      glass_root  = LibObjCBridge.objc_send_id(effect_alloc, sel("initWithEffect:"), blur_effect)
+      glass_root = LibObjCBridge.objc_send_id(effect_alloc, sel("initWithEffect:"), blur_effect)
 
       if lbl = view.accessibility_label
         lbl_str = LibObjCBridge.nsstring_from_cstr(lbl.to_unsafe)
@@ -2578,8 +2580,8 @@ module UI::UIKit
       LibObjCBridge.objc_add_subview(anchor_host, item_row)
 
       %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anchor_sel|
-        row_anchor   = LibObjCBridge.objc_send(item_row,   sel(anchor_sel))
-        host_anchor  = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
+        row_anchor = LibObjCBridge.objc_send(item_row, sel(anchor_sel))
+        host_anchor = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
         next if row_anchor.null? || host_anchor.null?
         constraint = LibObjCBridge.objc_send_id(row_anchor, sel("constraintEqualToAnchor:"), host_anchor)
         LibObjCBridge.objc_send_bool(constraint, sel("setActive:"), 1) unless constraint.null?
@@ -2698,7 +2700,7 @@ module UI::UIKit
         # Pin inner to anchor_host on all four edges.
         %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anchor_sel|
           inner_anchor = LibObjCBridge.objc_send(inner, sel(anchor_sel))
-          host_anchor  = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
+          host_anchor = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
           next if inner_anchor.null? || host_anchor.null?
           constraint = LibObjCBridge.objc_send_id(inner_anchor, sel("constraintEqualToAnchor:"), host_anchor)
           LibObjCBridge.objc_send_bool(constraint, sel("setActive:"), 1) unless constraint.null?
@@ -2819,7 +2821,7 @@ module UI::UIKit
       # Pin inner to anchor_host on all four edges.
       %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anchor_sel|
         inner_anchor = LibObjCBridge.objc_send(inner, sel(anchor_sel))
-        host_anchor  = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
+        host_anchor = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
         next if inner_anchor.null? || host_anchor.null?
         constraint = LibObjCBridge.objc_send_id(inner_anchor, sel("constraintEqualToAnchor:"), host_anchor)
         LibObjCBridge.objc_send_bool(constraint, sel("setActive:"), 1) unless constraint.null?
@@ -2891,33 +2893,28 @@ module UI::UIKit
     end
 
     # -----------------------------------------------------------------
-    # Visit: Card -> UIStackView (grouped card container)
+    # Visit: Card -> UIView (grouped card container)
     #
     # HIG Boxes - Platform considerations, iOS/iPadOS: "iOS and iPadOS
-    # use the secondary and tertiary background colors in boxes." The
-    # previous implementation used a plain UIView with addSubview: and
-    # no constraints, so the content collapsed to zero frame when
-    # placed inside a parent UIStackView. Here we emit a UIStackView
-    # directly: UIStackView handles layout/sizing of its arranged
-    # subviews, supports backgroundColor (iOS 14+), and lets us prepend
-    # an optional title label cleanly. The outer parent UIStackView
-    # sizes this card from its intrinsicContentSize (sum of arranged
-    # subviews + spacing + layout margins).
+    # use the secondary and tertiary background colors in boxes." The card
+    # chrome is an outer UIView so its rounded background and exact width are
+    # not stretched by an ancestor UIStackView's Fill distribution. Content is
+    # arranged by an inner pinned UIStackView.
     # -----------------------------------------------------------------
     def visit(view : UI::Card)
-      ptr = alloc_init("UIStackView")
+      outer = alloc_init("UIView")
+      inner = alloc_init("UIStackView")
 
       # Vertical axis (UILayoutConstraintAxisVertical = 1).
-      LibObjCBridge.objc_send_long(ptr, sel("setAxis:"), 1_i64)
+      LibObjCBridge.objc_send_long(inner, sel("setAxis:"), 1_i64)
       # HIG-standard ~8pt inter-row spacing.
-      LibObjCBridge.objc_send_1d(ptr, sel("setSpacing:"), 8.0)
+      LibObjCBridge.objc_send_1d(inner, sel("setSpacing:"), 8.0)
       # Fill alignment (0) so children use the card's full width.
-      LibObjCBridge.objc_send_long(ptr, sel("setAlignment:"), 0_i64)
-      # Use layout-margin-relative arrangement so arranged subviews are
-      # inset from the card's edges. UI::Card#content_padding is the
-      # cross-platform contract for readable rounded containers; without
-      # it, title labels sit on the clipped corner and body copy reads as
-      # unfinished.
+      LibObjCBridge.objc_send_long(inner, sel("setAlignment:"), 0_i64)
+
+      # UI::Card#content_padding is the cross-platform contract for readable
+      # rounded containers. Install it on the outer chrome and pin the inner
+      # content stack to the layoutMarginsGuide.
       card_pad = view.content_padding
       card_insets = LibObjCBridge::CGRect.new(
         x: card_pad.top,
@@ -2925,8 +2922,7 @@ module UI::UIKit
         width: card_pad.bottom,
         height: card_pad.trailing
       )
-      LibObjCBridge.objc_send_rect_void(ptr, sel("setLayoutMargins:"), card_insets)
-      LibObjCBridge.objc_send_bool(ptr, sel("setLayoutMarginsRelativeArrangement:"), 1)
+      LibObjCBridge.objc_send_rect_void(outer, sel("setLayoutMargins:"), card_insets)
       label_preferred_width = exact_card_label_preferred_width(view)
 
       # Grouped-container background per HIG. UIColor class method
@@ -2940,24 +2936,31 @@ module UI::UIKit
       uicolor_cls = LibObjCBridge.objc_getClass("UIColor")
       bg_color = LibObjCBridge.objc_send(uicolor_cls, color_sel)
       unless bg_color.null?
-        LibObjCBridge.objc_send_id(ptr, sel("setBackgroundColor:"), bg_color)
+        LibObjCBridge.objc_send_id(outer, sel("setBackgroundColor:"), bg_color)
       end
 
       # ~10pt corner radius, HIG grouped-container default on iOS 26.
-      layer = LibObjCBridge.objc_send(ptr, sel("layer"))
+      layer = LibObjCBridge.objc_send(outer, sel("layer"))
       unless layer.null?
         LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), 10.0)
       end
-      LibObjCBridge.objc_send_bool(ptr, sel("setClipsToBounds:"), 1)
+      LibObjCBridge.objc_send_bool(outer, sel("setClipsToBounds:"), 1)
 
-      apply_common_properties(ptr, view)
+      apply_common_properties(outer, view)
+      LibObjCBridge.objc_send_bool(inner, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+      LibObjCBridge.objc_add_subview(outer, inner)
+      LibObjCBridge.objc_pin_child_to_layout_margins(outer, inner)
 
-      handle = ObjC.owned(ptr, label: "UIStackView[card]")
-      native = NativeView.new(handle)
+      outer_handle = ObjC.owned(outer, label: "UIView[card]")
+      native = NativeView.new(outer_handle)
+      inner_handle = ObjC.owned(inner, label: "UIStackView[card-content]")
+      inner_native = NativeView.new(inner_handle)
+      native.add_child(inner_native)
 
       # Prepend an optional headline title label inside the card stack.
       if title = view.title
         title_ptr = alloc_init("UILabel")
+        LibObjCBridge.objc_send_bool(title_ptr, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
         title_ns = LibObjCBridge.nsstring_from_cstr(title.to_unsafe)
         LibObjCBridge.objc_send_id(title_ptr, sel("setText:"), title_ns)
         # Headline weight (semibold 17pt) -- matches HIG for grouped
@@ -2969,10 +2972,10 @@ module UI::UIKit
           LibObjCBridge.objc_send_1d(title_ptr, sel("setPreferredMaxLayoutWidth:"), preferred_width)
         end
         # Add as first arranged subview.
-        LibObjCBridge.objc_send_void_id(ptr, sel("addArrangedSubview:"), title_ptr)
+        LibObjCBridge.objc_send_void_id(inner, sel("addArrangedSubview:"), title_ptr)
 
         title_handle = ObjC.owned(title_ptr, label: "UILabel[card-title]")
-        native.add_child(NativeView.new(title_handle))
+        inner_native.add_child(NativeView.new(title_handle))
       end
 
       if content = view.content
@@ -2980,12 +2983,12 @@ module UI::UIKit
         # via addArrangedSubview: and are laid out / sized by the stack.
         if preferred_width = label_preferred_width
           @label_preferred_max_layout_width_stack.push(preferred_width)
-          push_stack(native, is_uistack: true)
+          push_stack(inner_native, is_uistack: true)
           content.accept(self)
           pop_stack
           @label_preferred_max_layout_width_stack.pop
         else
-          push_stack(native, is_uistack: true)
+          push_stack(inner_native, is_uistack: true)
           content.accept(self)
           pop_stack
         end
@@ -3201,15 +3204,15 @@ module UI::UIKit
                  end
 
         ptr = if !config.null?
-                 LibObjCBridge.objc_send_id_id(
-                   uibutton_cls,
-                   sel("buttonWithConfiguration:primaryAction:"),
-                   config,
-                   Pointer(Void).null
-                 )
-               else
-                 LibObjCBridge.objc_send_long(uibutton_cls, sel("buttonWithType:"), 1_i64)
-               end
+                LibObjCBridge.objc_send_id_id(
+                  uibutton_cls,
+                  sel("buttonWithConfiguration:primaryAction:"),
+                  config,
+                  Pointer(Void).null
+                )
+              else
+                LibObjCBridge.objc_send_long(uibutton_cls, sel("buttonWithType:"), 1_i64)
+              end
 
         title_str = LibObjCBridge.nsstring_from_cstr(view.label.to_unsafe)
         LibObjCBridge.objc_send_id_long(ptr, sel("setTitle:forState:"), title_str, 0_i64)
@@ -3251,15 +3254,15 @@ module UI::UIKit
         config = config_cls.null? ? Pointer(Void).null : LibObjCBridge.objc_send(config_cls, sel("grayButtonConfiguration"))
 
         ptr = if !config.null?
-                 LibObjCBridge.objc_send_id_id(
-                   uibutton_cls,
-                   sel("buttonWithConfiguration:primaryAction:"),
-                   config,
-                   Pointer(Void).null
-                 )
-               else
-                 LibObjCBridge.objc_send_long(uibutton_cls, sel("buttonWithType:"), 1_i64)
-               end
+                LibObjCBridge.objc_send_id_id(
+                  uibutton_cls,
+                  sel("buttonWithConfiguration:primaryAction:"),
+                  config,
+                  Pointer(Void).null
+                )
+              else
+                LibObjCBridge.objc_send_long(uibutton_cls, sel("buttonWithType:"), 1_i64)
+              end
 
         # Set the current selection as the button title.
         title_str = LibObjCBridge.nsstring_from_cstr(current_label.to_unsafe)
@@ -3424,11 +3427,11 @@ module UI::UIKit
       # UIView CALayer accepts UIColor.CGColor and UITraitCollection tracks
       # appearance automatically for semantic colors.
 
-      chart_w     = 340.0
-      chart_h     = 220.0
-      plot_h      = 160.0
+      chart_w = 340.0
+      chart_h = 220.0
+      plot_h = 160.0
       bar_spacing = 8.0
-      label_h     = 24.0
+      label_h = 24.0
 
       # Use neutral values that work in both appearances.
       # Background: clear (transparent) lets the hosting VC background show.
@@ -3438,17 +3441,17 @@ module UI::UIKit
       # We bake a single set of values. The UIKit renderer applies
       # overrideUserInterfaceStyle on the host window level for dark-mode
       # captures, so system colors track appearance automatically.
-      bar_area_bg = 0.94   # ~systemGroupedBackground light equivalent
+      bar_area_bg = 0.94 # ~systemGroupedBackground light equivalent
 
       # System blue (light equivalent) -- UIView CALayer backgroundColor
       # does NOT track traitCollection, so we must bake a value. Use the
       # light-mode system blue; the dark capture uses the same value.
       # For the validation captures this gives blue bars in both captures,
       # which is legible. A production app would use UIColor dynamic provider.
-      bar_r  = 0.0
-      bar_g  = 0.478
-      bar_b  = 1.0
-      bar_a  = 1.0
+      bar_r = 0.0
+      bar_g = 0.478
+      bar_b = 1.0
+      bar_a = 1.0
 
       line_r = 1.0
       line_g = 0.58
@@ -3456,14 +3459,14 @@ module UI::UIKit
       line_a = 1.0
 
       grid_gray = 0.75
-      lbl_gray  = 0.15
+      lbl_gray = 0.15
 
       # Outer UIStackView (vertical). UIView is always layer-backed on iOS;
       # setWantsLayer: is AppKit-only and must NOT be called on UIView.
       outer = alloc_init("UIStackView")
-      LibObjCBridge.objc_send_long(outer, sel("setAxis:"), 1_i64)           # vertical
+      LibObjCBridge.objc_send_long(outer, sel("setAxis:"), 1_i64) # vertical
       LibObjCBridge.objc_send_1d(outer, sel("setSpacing:"), 6.0)
-      LibObjCBridge.objc_send_long(outer, sel("setAlignment:"), 3_i64)      # center
+      LibObjCBridge.objc_send_long(outer, sel("setAlignment:"), 3_i64) # center
 
       # TAMIC = NO is required before adding explicit Auto Layout constraints.
       # Without this, UIKit generates autoresizing mask constraints that conflict
@@ -3489,7 +3492,7 @@ module UI::UIKit
         # nscolor_label_primary is safe to call here (no Crystal ENV access).
         title_color = LibObjCBridge.nscolor_label_primary
         LibObjCBridge.objc_send_id(title_lbl, sel("setTextColor:"), title_color)
-        LibObjCBridge.objc_send_long(title_lbl, sel("setTextAlignment:"), 1_i64)  # center
+        LibObjCBridge.objc_send_long(title_lbl, sel("setTextAlignment:"), 1_i64) # center
         LibObjCBridge.objc_send_id(outer, sel("addArrangedSubview:"), title_lbl)
       end
 
@@ -3499,7 +3502,7 @@ module UI::UIKit
 
       if view.chart_type == :bar
         plot_stack = alloc_init("UIStackView")
-        LibObjCBridge.objc_send_long(plot_stack, sel("setAxis:"), 0_i64)      # horizontal
+        LibObjCBridge.objc_send_long(plot_stack, sel("setAxis:"), 0_i64) # horizontal
         LibObjCBridge.objc_send_1d(plot_stack, sel("setSpacing:"), bar_spacing)
         LibObjCBridge.objc_send_long(plot_stack, sel("setAlignment:"), 4_i64) # bottom
 
@@ -3522,9 +3525,9 @@ module UI::UIKit
           bar_h = (norm * (plot_h - 8.0)).clamp(2.0, plot_h - 8.0)
 
           col = alloc_init("UIStackView")
-          LibObjCBridge.objc_send_long(col, sel("setAxis:"), 1_i64)       # vertical
+          LibObjCBridge.objc_send_long(col, sel("setAxis:"), 1_i64) # vertical
           LibObjCBridge.objc_send_1d(col, sel("setSpacing:"), 2.0)
-          LibObjCBridge.objc_send_long(col, sel("setAlignment:"), 3_i64)  # center
+          LibObjCBridge.objc_send_long(col, sel("setAlignment:"), 3_i64) # center
           LibObjCBridge.objc_constrain_width(col, bar_w)
 
           spacer_v = alloc_init("UIView")
@@ -3556,7 +3559,7 @@ module UI::UIKit
           LibObjCBridge.objc_send_id(lbl, sel("setFont:"), lbl_font)
           lbl_color = LibObjCBridge.nscolor_label_secondary
           LibObjCBridge.objc_send_id(lbl, sel("setTextColor:"), lbl_color)
-          LibObjCBridge.objc_send_long(lbl, sel("setTextAlignment:"), 1_i64)  # center
+          LibObjCBridge.objc_send_long(lbl, sel("setTextAlignment:"), 1_i64) # center
           LibObjCBridge.objc_constrain_height(lbl, label_h)
           LibObjCBridge.objc_send_id(col, sel("addArrangedSubview:"), lbl)
 
@@ -3564,7 +3567,6 @@ module UI::UIKit
         end
 
         LibObjCBridge.objc_send_id(outer, sel("addArrangedSubview:"), plot_stack)
-
       elsif view.chart_type == :line
         plot_stack = alloc_init("UIStackView")
         LibObjCBridge.objc_send_long(plot_stack, sel("setAxis:"), 0_i64)
@@ -3644,7 +3646,6 @@ module UI::UIKit
         end
 
         LibObjCBridge.objc_send_id(outer, sel("addArrangedSubview:"), plot_stack)
-
       else
         # :pie placeholder
         pie_v = alloc_init("UIView")
@@ -3819,9 +3820,9 @@ module UI::UIKit
 
       # Outer vertical UIStackView hosts all four zones.
       outer_stack = alloc_init("UIStackView")
-      LibObjCBridge.objc_send_long(outer_stack, sel("setAxis:"), 1_i64)         # vertical
+      LibObjCBridge.objc_send_long(outer_stack, sel("setAxis:"), 1_i64) # vertical
       LibObjCBridge.objc_send_1d(outer_stack, sel("setSpacing:"), 12.0)
-      LibObjCBridge.objc_send_long(outer_stack, sel("setAlignment:"), 0_i64)    # fill
+      LibObjCBridge.objc_send_long(outer_stack, sel("setAlignment:"), 0_i64) # fill
       insets = LibObjCBridge::CGRect.new(x: 16.0, y: 16.0, width: 16.0, height: 16.0)
       LibObjCBridge.objc_send_rect_void(outer_stack, sel("setLayoutMargins:"), insets)
       LibObjCBridge.objc_send_bool(outer_stack, sel("setLayoutMarginsRelativeArrangement:"), 1)
@@ -3838,7 +3839,7 @@ module UI::UIKit
 
       # --- Zone 1: Header (thumbnail + VStack(title, subtitle)) ---
       header_stack = alloc_init("UIStackView")
-      LibObjCBridge.objc_send_long(header_stack, sel("setAxis:"), 0_i64)    # horizontal
+      LibObjCBridge.objc_send_long(header_stack, sel("setAxis:"), 0_i64) # horizontal
       LibObjCBridge.objc_send_1d(header_stack, sel("setSpacing:"), 12.0)
       LibObjCBridge.objc_send_long(header_stack, sel("setAlignment:"), 3_i64) # center
 
@@ -3853,7 +3854,7 @@ module UI::UIKit
       end
 
       text_stack = alloc_init("UIStackView")
-      LibObjCBridge.objc_send_long(text_stack, sel("setAxis:"), 1_i64)  # vertical
+      LibObjCBridge.objc_send_long(text_stack, sel("setAxis:"), 1_i64) # vertical
       LibObjCBridge.objc_send_1d(text_stack, sel("setSpacing:"), 2.0)
 
       title_lbl = alloc_init("UILabel")
@@ -3885,13 +3886,13 @@ module UI::UIKit
       # measure it. UIScrollView with un-constrained content collapses to zero
       # height in a UIStackView context, making zone 2 invisible.
       dest_row = alloc_init("UIStackView")
-      LibObjCBridge.objc_send_long(dest_row, sel("setAxis:"), 0_i64)    # horizontal
+      LibObjCBridge.objc_send_long(dest_row, sel("setAxis:"), 0_i64) # horizontal
       LibObjCBridge.objc_send_1d(dest_row, sel("setSpacing:"), 16.0)
       LibObjCBridge.objc_send_long(dest_row, sel("setAlignment:"), 1_i64) # top
 
       view.destinations.each do |dest|
         dest_vstack = alloc_init("UIStackView")
-        LibObjCBridge.objc_send_long(dest_vstack, sel("setAxis:"), 1_i64)  # vertical
+        LibObjCBridge.objc_send_long(dest_vstack, sel("setAxis:"), 1_i64) # vertical
         LibObjCBridge.objc_send_1d(dest_vstack, sel("setSpacing:"), 4.0)
         LibObjCBridge.objc_send_long(dest_vstack, sel("setAlignment:"), 3_i64) # center
 
@@ -3931,14 +3932,14 @@ module UI::UIKit
 
       # --- Zone 3: Action grid (2-col UIStackView pairs) ---
       grid_vstack = alloc_init("UIStackView")
-      LibObjCBridge.objc_send_long(grid_vstack, sel("setAxis:"), 1_i64)  # vertical
+      LibObjCBridge.objc_send_long(grid_vstack, sel("setAxis:"), 1_i64) # vertical
       LibObjCBridge.objc_send_1d(grid_vstack, sel("setSpacing:"), 8.0)
 
       actions = view.actions
       row_idx = 0
       while row_idx < actions.size
         pair_row = alloc_init("UIStackView")
-        LibObjCBridge.objc_send_long(pair_row, sel("setAxis:"), 0_i64)  # horizontal
+        LibObjCBridge.objc_send_long(pair_row, sel("setAxis:"), 0_i64) # horizontal
         LibObjCBridge.objc_send_1d(pair_row, sel("setSpacing:"), 8.0)
         LibObjCBridge.objc_send_long(pair_row, sel("setDistribution:"), 3_i64) # fillEqually
 
@@ -3946,7 +3947,7 @@ module UI::UIKit
           next unless act
 
           tile = alloc_init("UIStackView")
-          LibObjCBridge.objc_send_long(tile, sel("setAxis:"), 0_i64)      # horizontal
+          LibObjCBridge.objc_send_long(tile, sel("setAxis:"), 0_i64) # horizontal
           LibObjCBridge.objc_send_1d(tile, sel("setSpacing:"), 8.0)
           LibObjCBridge.objc_send_long(tile, sel("setAlignment:"), 3_i64) # center
           LibObjCBridge.objc_send_bool(tile, sel("setClipsToBounds:"), 1)
@@ -4087,13 +4088,13 @@ module UI::UIKit
     def visit(view : UI::DisclosureGroup)
       # Outer vertical UIStackView: header row + optional content
       outer = alloc_init("UIStackView")
-      LibObjCBridge.objc_send_long(outer, sel("setAxis:"), 1_i64)        # vertical
+      LibObjCBridge.objc_send_long(outer, sel("setAxis:"), 1_i64) # vertical
       LibObjCBridge.objc_send_1d(outer, sel("setSpacing:"), 0.0)
-      LibObjCBridge.objc_send_long(outer, sel("setAlignment:"), 1_i64)   # leading
+      LibObjCBridge.objc_send_long(outer, sel("setAlignment:"), 1_i64) # leading
 
       # --- Header row (horizontal UIStackView) ---
       header_row = alloc_init("UIStackView")
-      LibObjCBridge.objc_send_long(header_row, sel("setAxis:"), 0_i64)    # horizontal
+      LibObjCBridge.objc_send_long(header_row, sel("setAxis:"), 0_i64) # horizontal
       LibObjCBridge.objc_send_1d(header_row, sel("setSpacing:"), 6.0)
       LibObjCBridge.objc_send_long(header_row, sel("setAlignment:"), 3_i64) # center
 
@@ -4130,7 +4131,7 @@ module UI::UIKit
       # --- Content block (shown only when expanded) ---
       if view.expanded && !view.content.empty?
         content_stack = alloc_init("UIStackView")
-        LibObjCBridge.objc_send_long(content_stack, sel("setAxis:"), 1_i64)  # vertical
+        LibObjCBridge.objc_send_long(content_stack, sel("setAxis:"), 1_i64) # vertical
         LibObjCBridge.objc_send_1d(content_stack, sel("setSpacing:"), 4.0)
         LibObjCBridge.objc_send_long(content_stack, sel("setAlignment:"), 1_i64) # leading
 
@@ -4211,7 +4212,7 @@ module UI::UIKit
       bg_style_val = case view.background_style
                      when :prominent then 1_i64
                      when :minimal   then 2_i64
-                     else                 0_i64  # :automatic
+                     else                 0_i64 # :automatic
                      end
       LibObjCBridge.objc_send_long(ptr, sel("setBackgroundStyle:"), bg_style_val)
 
@@ -4255,7 +4256,7 @@ module UI::UIKit
       # We override with a 44pt height constraint to meet the HIG minimum touch
       # target requirement (HIG Buttons -> Best practices: 44x44 pt minimum).
       tf = alloc_init("UITextField")
-      LibObjCBridge.objc_send_long(tf, sel("setBorderStyle:"), 3_i64)  # RoundedRect
+      LibObjCBridge.objc_send_long(tf, sel("setBorderStyle:"), 3_i64) # RoundedRect
 
       # Set the current value
       unless view.value.empty?
@@ -4297,7 +4298,7 @@ module UI::UIKit
 
       # Set the chevron as the UITextField rightView (mode: always = 1)
       LibObjCBridge.objc_send_id(tf, sel("setRightView:"), chevron_btn)
-      LibObjCBridge.objc_send_long(tf, sel("setRightViewMode:"), 1_i64)  # always
+      LibObjCBridge.objc_send_long(tf, sel("setRightViewMode:"), 1_i64) # always
 
       # Height constraint: 44pt (HIG minimum interactive touch target)
       LibObjCBridge.objc_constrain_height(tf, 44.0)
@@ -4629,6 +4630,7 @@ module UI::UIKit
       max_w = view.maximum_width
       if !min_w.nil? && !max_w.nil? && min_w == max_w
         LibObjCBridge.objc_constrain_required_width(ptr, min_w.not_nil!)
+        LibObjCBridge.objc_set_horizontal_fixed_priority(ptr)
       else
         if mw = min_w
           LibObjCBridge.objc_constrain_minimum_width(ptr, mw)
