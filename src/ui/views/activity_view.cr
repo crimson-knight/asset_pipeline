@@ -43,14 +43,26 @@ module UI
   #
   # HIG Platform considerations: "Not supported in macOS, tvOS, or watchOS."
   # On macOS the renderer emits an NSVisualEffectView popover approximation
-  # with all four zones rendered inline (there is no native
-  # NSActivityViewController). On iOS the visitor renders inline for the
-  # validation capture path; production code should dispatch
-  # UIActivityViewController instead (see TODO in uikit_renderer.cr).
+  # with all four zones rendered inline for validation, while runtime sharing
+  # can present NSSharingServicePicker from the same view model. On iOS the
+  # visitor renders inline for the validation capture path and presents
+  # UIActivityViewController when `is_presented` is true and a share payload
+  # is present.
   #
   # Glass material: NSVisualEffectMaterialPopover (6) on macOS;
   # UIBlurEffect(systemChromeMaterial) / UIGlassEffect on iOS 26.
   class ActivityView < View
+    # Presentation state. When true and share payload is present, native
+    # renderers present the platform share UI in addition to the inline
+    # validation layout used for previews.
+    property is_presented : Bool = false
+
+    # Optional native share payload. These values power UIActivityViewController
+    # / NSSharingServicePicker for real app flows.
+    property share_text : String? = nil
+    property share_url : String? = nil
+    property share_subject : String? = nil
+
     # Zone 1 — Header
     property title : String
     property subtitle : String?
@@ -75,6 +87,25 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+  end
+
+  class ActivityViewPresenter
+    property activity_view : ActivityView
+    property is_presenting : Bool = false
+
+    def initialize(@activity_view : ActivityView)
+    end
+
+    def present
+      @is_presenting = true
+      @activity_view.is_presented = true
+    end
+
+    def dismiss
+      @is_presenting = false
+      @activity_view.is_presented = false
+      @activity_view.on_cancel.try(&.call)
     end
   end
 end

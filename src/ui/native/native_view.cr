@@ -128,6 +128,16 @@ module UI
       id
     end
 
+    # Track a callback ID that was registered directly against CallbackRegistry.
+    #
+    # This is useful for typed callback registries that return IDs but do not
+    # route through `register_callback`.
+    def track_callback_id(id : UInt64) : UInt64
+      check_not_torn_down!
+      @callback_ids << id
+      id
+    end
+
     # Register a callback block and track its ID for cleanup during `teardown!`.
     def register_callback(&block : -> Nil) : UInt64
       register_callback(block)

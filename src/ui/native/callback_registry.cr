@@ -4,6 +4,18 @@ fun crystal_ui_callback_dispatch(tag : UInt64) : Void
   UI::CallbackRegistry.call(tag)
 end
 
+fun crystal_ui_string_callback_dispatch(tag : UInt64, value : UInt8*) : Void
+  return if tag == 0_u64 || value.null?
+  UI::CallbackRegistry.call_string(tag, String.new(value))
+end
+
+fun crystal_ui_string_bool_callback_dispatch(tag : UInt64, value : UInt8*) : Int32
+  return 1 if tag == 0_u64
+
+  resolved = value.null? ? "" : String.new(value)
+  UI::CallbackRegistry.call_string_bool(tag, resolved) ? 1 : 0
+end
+
 module UI
   # Module-level registry that prevents Crystal `Proc` closures from being
   # garbage collected while native code holds references to them.
@@ -40,6 +52,9 @@ module UI
 
     # String callbacks (text field changes)
     @@string_callbacks = Hash(UInt64, Proc(String, Nil)).new
+
+    # String -> Bool callbacks (navigation policy decisions)
+    @@string_bool_callbacks = Hash(UInt64, Proc(String, Bool)).new
 
     # Bool callbacks (toggle changes)
     @@bool_callbacks = Hash(UInt64, Proc(Bool, Nil)).new
@@ -90,6 +105,21 @@ module UI
     # Invoke the String callback registered under the given ID.
     def self.call_string(id : UInt64, value : String) : Nil
       @@string_callbacks[id]?.try(&.call(value))
+    end
+
+    # Register a String -> Bool callback proc and return its unique ID.
+    def self.register_string_bool(callback : Proc(String, Bool)) : UInt64
+      id = @@next_id.add(1_u64)
+      @@string_bool_callbacks[id] = callback
+      id
+    end
+
+    # Invoke the String -> Bool callback registered under the given ID.
+    #
+    # Missing IDs default to `true` so native policy delegates stay permissive
+    # instead of failing closed when a view has already been torn down.
+    def self.call_string_bool(id : UInt64, value : String) : Bool
+      @@string_bool_callbacks[id]?.try(&.call(value)) || true
     end
 
     # Register a Bool callback proc and return its unique ID.
@@ -148,6 +178,7 @@ module UI
     def self.unregister(id : UInt64) : Nil
       @@callbacks.delete(id)
       @@string_callbacks.delete(id)
+      @@string_bool_callbacks.delete(id)
       @@bool_callbacks.delete(id)
       @@float_callbacks.delete(id)
       @@int_callbacks.delete(id)
@@ -163,7 +194,9 @@ module UI
 
     # Returns the number of currently registered callbacks across all typed hashes.
     def self.size : Int32
-      @@callbacks.size + @@string_callbacks.size + @@bool_callbacks.size + @@float_callbacks.size + @@int_callbacks.size + @@time_callbacks.size
+      @@callbacks.size + @@string_callbacks.size + @@string_bool_callbacks.size +
+        @@bool_callbacks.size + @@float_callbacks.size + @@int_callbacks.size +
+        @@time_callbacks.size
     end
 
     # Remove all registered callbacks from all typed hashes.
@@ -173,6 +206,7 @@ module UI
     def self.clear : Nil
       @@callbacks.clear
       @@string_callbacks.clear
+      @@string_bool_callbacks.clear
       @@bool_callbacks.clear
       @@float_callbacks.clear
       @@int_callbacks.clear

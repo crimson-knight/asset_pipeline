@@ -8,6 +8,9 @@ module UI
     property allows_navigation : Bool = true
     property allows_scripts : Bool = true
     property title : String? = nil
+    property on_navigation_request : Proc(String, Bool)? = nil
+    property on_navigation_start : Proc(String, Nil)? = nil
+    property on_navigation_finish : Proc(String, Nil)? = nil
 
     def initialize(@url : String = "")
     end

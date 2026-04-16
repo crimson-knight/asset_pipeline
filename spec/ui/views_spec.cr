@@ -2361,6 +2361,55 @@ describe UI::PathControl do
   end
 end
 
+describe UI::ActivityView do
+  it "creates with share defaults" do
+    view = UI::ActivityView.new("Shared note")
+    view.is_presented.should be_false
+    view.share_text.should be_nil
+    view.share_url.should be_nil
+    view.share_subject.should be_nil
+    view.destinations.should be_empty
+    view.actions.should be_empty
+  end
+
+  it "stores native share payload and callbacks" do
+    canceled = false
+
+    view = UI::ActivityView.new("Shared note", subtitle: "Draft")
+    view.share_text = "Look at this"
+    view.share_url = "https://amber.local/share/42"
+    view.share_subject = "Amber share"
+    view.on_cancel = -> { canceled = true }
+
+    view.share_text.should eq("Look at this")
+    view.share_url.should eq("https://amber.local/share/42")
+    view.share_subject.should eq("Amber share")
+
+    view.on_cancel.not_nil!.call
+    canceled.should be_true
+  end
+
+  it "tracks presentation state with a presenter" do
+    view = UI::ActivityView.new("Shared note")
+    presenter = UI::ActivityViewPresenter.new(view)
+
+    presenter.present
+    presenter.is_presenting.should be_true
+    view.is_presented.should be_true
+
+    presenter.dismiss
+    presenter.is_presenting.should be_false
+    view.is_presented.should be_false
+  end
+
+  it "accepts visitor" do
+    v = TestVisitor.new
+    view = UI::ActivityView.new("Shared note")
+    view.accept(v)
+    v.visited.should eq(["ActivityView"])
+  end
+end
+
 describe UI::MapView do
   it "creates with defaults" do
     m = UI::MapView.new
@@ -2466,6 +2515,9 @@ describe UI::WebViewComponent do
     w.allows_navigation.should be_true
     w.allows_scripts.should be_true
     w.title.should be_nil
+    w.on_navigation_request.should be_nil
+    w.on_navigation_start.should be_nil
+    w.on_navigation_finish.should be_nil
   end
 
   it "creates with url" do
@@ -2497,6 +2549,34 @@ describe UI::WebViewComponent do
     w.base_url = "https://example.com"
     w.html.should eq("<html><body>Hello</body></html>")
     w.base_url.should eq("https://example.com")
+  end
+
+  it "stores navigation callbacks" do
+    requested = [] of String
+    started = [] of String
+    finished = [] of String
+
+    w = UI::WebViewComponent.new
+    w.on_navigation_request = ->(url : String) do
+      requested << url
+      !url.includes?("blocked")
+    end
+    w.on_navigation_start = ->(url : String) do
+      started << url
+      nil
+    end
+    w.on_navigation_finish = ->(url : String) do
+      finished << url
+      nil
+    end
+
+    w.on_navigation_request.not_nil!.call("https://amber.local/review").should be_true
+    w.on_navigation_start.not_nil!.call("https://amber.local/review")
+    w.on_navigation_finish.not_nil!.call("https://amber.local/review")
+
+    requested.should eq(["https://amber.local/review"])
+    started.should eq(["https://amber.local/review"])
+    finished.should eq(["https://amber.local/review"])
   end
 
   it "accepts visitor" do

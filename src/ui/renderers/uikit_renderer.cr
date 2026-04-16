@@ -79,9 +79,11 @@ module UI::UIKit
     fun nsimageview_make_symbol(symbol_name : UInt8*, tint_color : Void*, size_pts : Float64) : Void*
     fun uiview_install_amber_gradient_layer(view : Void*) : Void
     fun wkwebview_new(url : UInt8*, html : UInt8*, base_url : UInt8*, title : UInt8*, allows_navigation : Int32, allows_scripts : Int32) : Void*
+    fun wkwebview_set_callback_tags(web_view : Void*, policy_tag : UInt64, start_tag : UInt64, finish_tag : UInt64, allows_navigation : Int32) : Void
     fun mkmapview_new(latitude : Float64, longitude : Float64, latitude_delta : Float64, longitude_delta : Float64, map_type : Int64, shows_user_location : Int32) : Void*
     fun mkmapview_add_annotation(map_view : Void*, latitude : Float64, longitude : Float64, title : UInt8*, subtitle : UInt8*) : Void
     fun video_player_view_new(url : UInt8*, shows_controls : Int32, auto_play : Int32, muted : Int32, loop : Int32) : Void*
+    fun uiactivityview_present(anchor_view : Void*, text : UInt8*, url : UInt8*, subject : UInt8*) : Void
 
     # --- ObjC runtime ---
     fun sel_registerName(name : UInt8*) : Void*
@@ -3969,7 +3971,34 @@ module UI::UIKit
       end
       apply_common_properties(ptr, view)
       apply_default_surface_size(ptr, view, 320.0, 280.0)
-      emit(ptr, "WKWebView")
+
+      handle = ObjC.owned(ptr, label: "WKWebView")
+      native = NativeView.new(handle)
+
+      policy_tag = 0_u64
+      if handler = view.on_navigation_request
+        policy_tag = native.track_callback_id(UI::CallbackRegistry.register_string_bool(handler))
+      end
+
+      start_tag = 0_u64
+      if handler = view.on_navigation_start
+        start_tag = native.track_callback_id(UI::CallbackRegistry.register_string(handler))
+      end
+
+      finish_tag = 0_u64
+      if handler = view.on_navigation_finish
+        finish_tag = native.track_callback_id(UI::CallbackRegistry.register_string(handler))
+      end
+
+      LibObjCBridge.wkwebview_set_callback_tags(
+        ptr,
+        policy_tag,
+        start_tag,
+        finish_tag,
+        view.allows_navigation ? 1 : 0
+      )
+
+      push_native(native)
     end
 
     def visit(view : UI::ColorPicker)
@@ -4052,11 +4081,10 @@ module UI::UIKit
     # -----------------------------------------------------------------
     # Visit: ActivityView -> UIVisualEffectView + four layout zones
     #
-    # Production note: on iOS a real share sheet would dispatch
-    # UIActivityViewController (system share sheet). The inline layout
-    # below renders all four HIG zones for the validation capture path
-    # only. TODO: add a UIActivityViewController dispatch path for
-    # production usage (is_presented == true).
+    # Production note: when `view.is_presented` is true and a share payload
+    # exists, the renderer presents a real UIActivityViewController. The inline
+    # layout below still renders all four HIG zones for validation and preview
+    # flows so the component remains inspectable in screenshots.
     #
     # Material: UIGlassEffect (iOS 26) or
     #           UIBlurEffect(systemChromeMaterial=11) fallback.
@@ -4362,6 +4390,39 @@ module UI::UIKit
       outer_native = NativeView.new(outer_handle)
 
       push_native(outer_native)
+
+      return unless view.is_presented && LibC.getenv("HIG_SCREENSHOT_PATH").null?
+
+      share_text = view.share_text
+      if share_text.nil? || share_text.try(&.empty?)
+        share_text = [view.title, view.subtitle].compact.join(" - ")
+      end
+      share_text_ptr = if share_text.nil? || share_text.try(&.empty?)
+                         Pointer(UInt8).null
+                       else
+                         share_text.not_nil!.to_unsafe
+                       end
+
+      share_url = view.share_url
+      share_url_ptr = if share_url.nil? || share_url.try(&.empty?)
+                        Pointer(UInt8).null
+                      else
+                        share_url.not_nil!.to_unsafe
+                      end
+
+      share_subject = view.share_subject || view.title
+      share_subject_ptr = if share_subject.empty?
+                            Pointer(UInt8).null
+                          else
+                            share_subject.to_unsafe
+                          end
+
+      LibObjCBridge.uiactivityview_present(
+        gradient_container,
+        share_text_ptr,
+        share_url_ptr,
+        share_subject_ptr
+      )
     end
 
     # -----------------------------------------------------------------

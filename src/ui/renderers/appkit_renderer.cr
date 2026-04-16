@@ -74,9 +74,11 @@ module UI::AppKit
     fun nsslider_set_track_fill_color(slider : Void*, color : Void*) : Void
     fun nsimageview_make_symbol(symbol_name : UInt8*, tint_color : Void*, size_pts : Float64) : Void*
     fun wkwebview_new(url : UInt8*, html : UInt8*, base_url : UInt8*, title : UInt8*, allows_navigation : Int32, allows_scripts : Int32) : Void*
+    fun wkwebview_set_callback_tags(web_view : Void*, policy_tag : UInt64, start_tag : UInt64, finish_tag : UInt64, allows_navigation : Int32) : Void
     fun mkmapview_new(latitude : Float64, longitude : Float64, latitude_delta : Float64, longitude_delta : Float64, map_type : Int64, shows_user_location : Int32) : Void*
     fun mkmapview_add_annotation(map_view : Void*, latitude : Float64, longitude : Float64, title : UInt8*, subtitle : UInt8*) : Void
     fun video_player_view_new(url : UInt8*, shows_controls : Int32, auto_play : Int32, muted : Int32, loop : Int32) : Void*
+    fun nssharingservicepicker_present(anchor_view : Void*, text : UInt8*, url : UInt8*) : Void
 
     # --- Section 5a: NSSwitch factory (macOS 10.15+) ---
     fun nsswitch_new(state_on : Int32, enabled : Int32) : Void*
@@ -3600,7 +3602,34 @@ module UI::AppKit
       end
       apply_common_properties(ptr, view)
       apply_default_surface_size(ptr, view, 420.0, 320.0)
-      emit(ptr, "WKWebView")
+
+      handle = ObjC.owned(ptr, label: "WKWebView")
+      native = NativeView.new(handle)
+
+      policy_tag = 0_u64
+      if handler = view.on_navigation_request
+        policy_tag = native.track_callback_id(UI::CallbackRegistry.register_string_bool(handler))
+      end
+
+      start_tag = 0_u64
+      if handler = view.on_navigation_start
+        start_tag = native.track_callback_id(UI::CallbackRegistry.register_string(handler))
+      end
+
+      finish_tag = 0_u64
+      if handler = view.on_navigation_finish
+        finish_tag = native.track_callback_id(UI::CallbackRegistry.register_string(handler))
+      end
+
+      LibObjCBridge.wkwebview_set_callback_tags(
+        ptr,
+        policy_tag,
+        start_tag,
+        finish_tag,
+        view.allows_navigation ? 1 : 0
+      )
+
+      push_native(native)
     end
 
     def visit(view : UI::ColorPicker)
@@ -3659,11 +3688,11 @@ module UI::AppKit
     # Visit: ActivityView -> NSVisualEffectView (sheet material) + four zones
     #
     # HIG Platform considerations: "Not supported in macOS, tvOS, or watchOS."
-    # macOS has no native NSActivityViewController. This renderer emits a
-    # HIG-honest sheet-material surface containing all four layout zones
-    # (header / destination row / action grid / cancel) so the validation
-    # capture reflects the correct component shape. A production macOS app
-    # would surface share-extension actions via NSMenu / NSSharingService
+    # This renderer emits a HIG-honest sheet-material surface containing all
+    # four layout zones (header / destination row / action grid / cancel) so
+    # the validation capture reflects the correct component shape. When
+    # `view.is_presented` is true and a share payload exists, the runtime path
+    # also presents NSSharingServicePicker for real macOS sharing flows.
     # instead.
     #
     # Material: NSVisualEffectMaterialSheet = 11 (tracks appearance). Although
@@ -3960,6 +3989,31 @@ module UI::AppKit
       outer_native = NativeView.new(outer_handle)
 
       push_native(outer_native)
+
+      return unless view.is_presented && LibC.getenv("HIG_SCREENSHOT_PATH").null?
+
+      share_text = view.share_text
+      if share_text.nil? || share_text.try(&.empty?)
+        share_text = [view.title, view.subtitle].compact.join(" - ")
+      end
+      share_text_ptr = if share_text.nil? || share_text.try(&.empty?)
+                         Pointer(UInt8).null
+                       else
+                         share_text.not_nil!.to_unsafe
+                       end
+
+      share_url = view.share_url
+      share_url_ptr = if share_url.nil? || share_url.try(&.empty?)
+                        Pointer(UInt8).null
+                      else
+                        share_url.not_nil!.to_unsafe
+                      end
+
+      LibObjCBridge.nssharingservicepicker_present(
+        effect,
+        share_text_ptr,
+        share_url_ptr
+      )
     end
 
     # -----------------------------------------------------------------

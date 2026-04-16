@@ -59,10 +59,10 @@ view = UI::ActivityView.new(
 Renders: on iOS 26, a `UIVisualEffectView` wrapping a `UIGlassEffect` (or
 `UIBlurEffect(systemChromeMaterial)` on earlier SDKs) with four arranged
 zones. On macOS, a `NSVisualEffectView(NSVisualEffectMaterialPopover)` with
-the same four zones inline (HIG note: iOS/iPadOS only; macOS has no native
-NSActivityViewController). For production iOS, dispatch
-`UIActivityViewController` directly for the full system share sheet with
-dynamic app-extension enumeration.
+the same four zones inline for validation. When `is_presented = true` and a
+share payload is present, native renderers present `UIActivityViewController`
+on iOS/iPadOS and `NSSharingServicePicker` on macOS so the same view model can
+drive a real share flow.
 
 ## Customization
 
@@ -70,6 +70,10 @@ dynamic app-extension enumeration.
 |------|------|---------|--------|
 | `title` | `String` | required | Primary header text (15pt semibold, primary label color) |
 | `subtitle` | `String?` | `nil` | Secondary header text (13pt regular, secondary label color) |
+| `is_presented` | `Bool` | `false` | When true, native renderers present the system share UI if a share payload is available. |
+| `share_text` | `String?` | `nil` | Optional share body text passed into `UIActivityViewController` / `NSSharingServicePicker`. |
+| `share_url` | `String?` | `nil` | Optional URL or file path included in the native share payload. |
+| `share_subject` | `String?` | `nil` | Optional share subject used by the iOS share controller. |
 | `thumbnail` | `View?` | `nil` | Optional preview view in the header (typically `UI::Image`) |
 | `destinations` | `Array(ActivityDestination)` | `[]` | Horizontal destination row — each item has `icon_symbol : String`, `label : String`, `on_select : Proc?` |
 | `actions` | `Array(ActivityAction)` | `[]` | 2-col action tile grid — each item has `icon_symbol : String`, `label : String`, `on_select : Proc?`, `role : Symbol?` |
@@ -184,10 +188,9 @@ Short examples that map design intent to code.
 **"I want a share sheet that appears after the user taps the Share button."**
 -> Create a `UI::ActivityView` with `destinations` populated from your app's
    supported share targets and `actions` listing your app-specific actions.
-   On iOS, for production (not capture-path), dispatch
-   `UIActivityViewController` from the Swift layer passing your
-   `UIActivityItemSource`. The Crystal `UI::ActivityView` provides the
-   correct type and data; the Swift host presents the system controller.
+   Set `share_text` and / or `share_url`, then flip `is_presented = true`.
+   Native renderers present the system share controller while the inline
+   activity-view layout remains available for previews and validation.
 
 **"I want a destructive action (e.g., Delete from Album) in the action grid."**
 -> Add `UI::ActivityAction.new(icon_symbol: "trash", label: "Delete from Album",
@@ -196,17 +199,16 @@ Short examples that map design intent to code.
 
 ## What happens on each platform
 - **iOS 26**: `UIVisualEffectView` with `UIGlassEffect` (runtime check) or
-  `UIBlurEffect(systemChromeMaterial=11)` fallback. For production, dispatch
-  `UIActivityViewController` (system share sheet) which enumerates installed
-  share extensions dynamically. The inline layout in the Crystal renderer is
-  for the validation capture path.
+  `UIBlurEffect(systemChromeMaterial=11)` fallback. When `is_presented = true`
+  and a share payload is present, the renderer presents
+  `UIActivityViewController` for the real system share sheet. The inline layout
+  remains the validation capture path.
 - **iPadOS 26**: Same as iOS. On iPad the system share sheet typically
   presents as a popover rather than a sheet.
 - **macOS 26**: `NSVisualEffectView(NSVisualEffectMaterialPopover)`. HIG
-  explicitly marks activity views as "Not supported in macOS." Production
-  macOS apps use `NSSharingService` to enumerate and invoke share items.
-  The Crystal renderer's four-zone inline layout is the best available
-  HIG-honest approximation for the macOS capture path.
+  explicitly marks activity views as "Not supported in macOS." For real app
+  flows the renderer presents `NSSharingServicePicker`, while the four-zone
+  inline layout remains the HIG-honest capture path for cross-platform review.
 
 ## HIG citations (validated)
 - Activity views -> Best practices: "Avoid creating duplicate versions of

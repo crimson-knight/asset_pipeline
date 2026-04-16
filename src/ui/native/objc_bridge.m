@@ -912,6 +912,9 @@ static NSString *ap_string_from_cstr(const char *value) {
     return [NSString stringWithUTF8String:value];
 }
 
+extern void crystal_ui_string_callback_dispatch(unsigned long long tag, const char *value);
+extern int crystal_ui_string_bool_callback_dispatch(unsigned long long tag, const char *value);
+
 static NSString *ap_web_preview_html(NSString *title, NSString *url_string) {
     NSString *resolved_title = (title && title.length) ? title : @"Amber Journal";
     NSString *resolved_url = (url_string && url_string.length) ? url_string : @"https://amber.local";
@@ -1107,6 +1110,187 @@ void *wkwebview_new(const char *url_cstr,
     return (void *)web_view;
 }
 
+static const char ap_web_delegate_association_key;
+
+static unsigned long long ap_web_delegate_read_u64(id self, const char *name) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), name);
+    if (!ivar) return 0ULL;
+    return *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar));
+}
+
+static void ap_web_delegate_write_u64(id self, const char *name, unsigned long long value) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), name);
+    if (!ivar) return;
+    *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar)) = value;
+}
+
+static long long ap_web_delegate_read_long(id self, const char *name) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), name);
+    if (!ivar) return 0LL;
+    return *(long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar));
+}
+
+static void ap_web_delegate_write_long(id self, const char *name, long long value) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), name);
+    if (!ivar) return;
+    *(long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar)) = value;
+}
+
+static void ap_web_delegate_set_policy_tag(id self, SEL _cmd, unsigned long long tag) {
+    ap_web_delegate_write_u64(self, "_policyTag", tag);
+}
+
+static void ap_web_delegate_set_start_tag(id self, SEL _cmd, unsigned long long tag) {
+    ap_web_delegate_write_u64(self, "_startTag", tag);
+}
+
+static void ap_web_delegate_set_finish_tag(id self, SEL _cmd, unsigned long long tag) {
+    ap_web_delegate_write_u64(self, "_finishTag", tag);
+}
+
+static void ap_web_delegate_set_allows_navigation(id self, SEL _cmd, long long value) {
+    ap_web_delegate_write_long(self, "_allowsNavigation", value);
+}
+
+static NSString *ap_web_navigation_url_string(WKWebView *web_view, WKNavigationAction *action) {
+    NSURL *url = nil;
+    if (action) {
+        NSURLRequest *request = [action request];
+        if ([request respondsToSelector:@selector(URL)]) {
+            url = [request URL];
+        }
+    }
+    if (!url && [web_view respondsToSelector:@selector(URL)]) {
+        url = [web_view URL];
+    }
+    NSString *absolute = [url absoluteString];
+    return (absolute && absolute.length) ? absolute : @"";
+}
+
+static void ap_web_delegate_dispatch_string(unsigned long long tag, NSString *value) {
+    if (!tag) return;
+    const char *utf8 = value ? [value UTF8String] : "";
+    crystal_ui_string_callback_dispatch(tag, utf8);
+}
+
+static BOOL ap_web_delegate_should_allow(id self, WKWebView *web_view, WKNavigationAction *action) {
+    unsigned long long policy_tag = ap_web_delegate_read_u64(self, "_policyTag");
+    NSString *url_string = ap_web_navigation_url_string(web_view, action);
+    if (policy_tag) {
+        const char *utf8 = [url_string UTF8String];
+        return crystal_ui_string_bool_callback_dispatch(policy_tag, utf8) != 0;
+    }
+
+    if (ap_web_delegate_read_long(self, "_allowsNavigation") != 0) {
+        return YES;
+    }
+
+    id target_frame = nil;
+    SEL target_frame_sel = sel_registerName("targetFrame");
+    if (action && [action respondsToSelector:target_frame_sel]) {
+        target_frame = ((id (*)(id, SEL))objc_msgSend)(action, target_frame_sel);
+    }
+
+    BOOL is_main_frame = YES;
+    SEL is_main_frame_sel = sel_registerName("isMainFrame");
+    if (target_frame && [target_frame respondsToSelector:is_main_frame_sel]) {
+        is_main_frame = ((BOOL (*)(id, SEL))objc_msgSend)(target_frame, is_main_frame_sel);
+    }
+
+    if (!is_main_frame) {
+        return YES;
+    }
+
+    if (ap_web_delegate_read_long(self, "_didAllowInitialNavigation") == 0) {
+        ap_web_delegate_write_long(self, "_didAllowInitialNavigation", 1);
+        return YES;
+    }
+
+    return NO;
+}
+
+static void ap_web_delegate_decide_policy(id self,
+                                          SEL _cmd,
+                                          WKWebView *web_view,
+                                          WKNavigationAction *action,
+                                          void (^decisionHandler)(WKNavigationActionPolicy)) {
+    BOOL allow = ap_web_delegate_should_allow(self, web_view, action);
+    if (decisionHandler) {
+        decisionHandler(allow ? WKNavigationActionPolicyAllow : WKNavigationActionPolicyCancel);
+    }
+}
+
+static void ap_web_delegate_did_start(id self, SEL _cmd, WKWebView *web_view, WKNavigation *navigation) {
+    (void)navigation;
+    ap_web_delegate_dispatch_string(
+        ap_web_delegate_read_u64(self, "_startTag"),
+        ap_web_navigation_url_string(web_view, nil)
+    );
+}
+
+static void ap_web_delegate_did_finish(id self, SEL _cmd, WKWebView *web_view, WKNavigation *navigation) {
+    (void)navigation;
+    ap_web_delegate_dispatch_string(
+        ap_web_delegate_read_u64(self, "_finishTag"),
+        ap_web_navigation_url_string(web_view, nil)
+    );
+}
+
+void register_ap_web_view_delegate(void) {
+    if (objc_getClass("APCrystalWebViewDelegate") != Nil) {
+        return;
+    }
+
+    Class cls = objc_allocateClassPair([NSObject class], "APCrystalWebViewDelegate", 0);
+    if (!cls) return;
+
+    class_addProtocol(cls, @protocol(WKNavigationDelegate));
+    class_addIvar(cls, "_policyTag", sizeof(unsigned long long), __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addIvar(cls, "_startTag", sizeof(unsigned long long), __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addIvar(cls, "_finishTag", sizeof(unsigned long long), __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addIvar(cls, "_allowsNavigation", sizeof(long long), __alignof__(long long), @encode(long long));
+    class_addIvar(cls, "_didAllowInitialNavigation", sizeof(long long), __alignof__(long long), @encode(long long));
+
+    class_addMethod(cls, sel_registerName("setPolicyTag:"), (IMP)ap_web_delegate_set_policy_tag, "v@:Q");
+    class_addMethod(cls, sel_registerName("setStartTag:"), (IMP)ap_web_delegate_set_start_tag, "v@:Q");
+    class_addMethod(cls, sel_registerName("setFinishTag:"), (IMP)ap_web_delegate_set_finish_tag, "v@:Q");
+    class_addMethod(cls, sel_registerName("setAllowsNavigation:"), (IMP)ap_web_delegate_set_allows_navigation, "v@:q");
+    class_addMethod(cls, sel_registerName("webView:decidePolicyForNavigationAction:decisionHandler:"), (IMP)ap_web_delegate_decide_policy, "v@:@@@");
+    class_addMethod(cls, sel_registerName("webView:didStartProvisionalNavigation:"), (IMP)ap_web_delegate_did_start, "v@:@@");
+    class_addMethod(cls, sel_registerName("webView:didFinishNavigation:"), (IMP)ap_web_delegate_did_finish, "v@:@@");
+
+    objc_registerClassPair(cls);
+}
+
+void wkwebview_set_callback_tags(void *web_view_ptr,
+                                 unsigned long long policy_tag,
+                                 unsigned long long start_tag,
+                                 unsigned long long finish_tag,
+                                 int allows_navigation) {
+    if (!web_view_ptr) return;
+
+    id raw_view = (id)web_view_ptr;
+    if (![raw_view isKindOfClass:[WKWebView class]]) return;
+    if (!policy_tag && !start_tag && !finish_tag && allows_navigation) return;
+
+    register_ap_web_view_delegate();
+
+    Class delegate_cls = objc_getClass("APCrystalWebViewDelegate");
+    if (!delegate_cls) return;
+
+    id delegate = [[delegate_cls alloc] init];
+    if (!delegate) return;
+
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(delegate, sel_registerName("setPolicyTag:"), policy_tag);
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(delegate, sel_registerName("setStartTag:"), start_tag);
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(delegate, sel_registerName("setFinishTag:"), finish_tag);
+    ((void (*)(id, SEL, long long))objc_msgSend)(delegate, sel_registerName("setAllowsNavigation:"), (long long)allows_navigation);
+
+    [(WKWebView *)raw_view setNavigationDelegate:delegate];
+    objc_setAssociatedObject(raw_view, &ap_web_delegate_association_key, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [delegate release];
+}
+
 void *mkmapview_new(double latitude,
                     double longitude,
                     double latitude_delta,
@@ -1157,6 +1341,8 @@ void mkmapview_add_annotation(void *map_ptr,
 
 static const char ap_player_association_key;
 static const char ap_player_controller_association_key;
+static const char ap_share_picker_association_key;
+static const char ap_share_controller_association_key;
 
 void *video_player_view_new(const char *url_cstr,
                             int shows_controls,
@@ -1203,6 +1389,142 @@ void *video_player_view_new(const char *url_cstr,
     return (void *)player_view;
 #endif
 }
+
+static NSMutableArray *ap_share_items_from_payload(NSString *text, NSString *url_string) {
+    NSMutableArray *items = [NSMutableArray array];
+    if (text && text.length) {
+        [items addObject:text];
+    }
+    if (url_string && url_string.length) {
+        NSURL *url = nil;
+        if ([url_string containsString:@"://"]) {
+            url = [NSURL URLWithString:url_string];
+        } else {
+            url = [NSURL fileURLWithPath:url_string];
+        }
+        if (url) {
+            [items addObject:url];
+        } else {
+            [items addObject:url_string];
+        }
+    }
+    return items;
+}
+
+#if TARGET_OS_OSX
+void nssharingservicepicker_present(void *anchor_view_ptr,
+                                    const char *text_cstr,
+                                    const char *url_cstr) {
+    NSView *anchor_view = (NSView *)anchor_view_ptr;
+    if (!anchor_view) return;
+
+    NSString *text = ap_string_from_cstr(text_cstr);
+    NSString *url_string = ap_string_from_cstr(url_cstr);
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (!anchor_view.window) return;
+
+        NSMutableArray *items = ap_share_items_from_payload(text, url_string);
+        if (!items.count) return;
+
+        NSSharingServicePicker *picker = [[NSSharingServicePicker alloc] initWithItems:items];
+        if (!picker) return;
+
+        NSRect rect = anchor_view.bounds;
+        if (rect.size.width <= 0.0 || rect.size.height <= 0.0) {
+            rect = NSMakeRect(0.0, 0.0, 1.0, 1.0);
+        }
+
+        objc_setAssociatedObject(anchor_view, &ap_share_picker_association_key, picker, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [picker showRelativeToRect:rect ofView:anchor_view preferredEdge:NSRectEdgeMinY];
+        [picker release];
+    });
+}
+#else
+static UIViewController *ap_top_presenting_view_controller(UIView *anchor_view) {
+    UIResponder *responder = anchor_view;
+    while (responder) {
+        if ([responder isKindOfClass:[UIViewController class]]) {
+            UIViewController *controller = (UIViewController *)responder;
+            while (controller.presentedViewController) {
+                controller = controller.presentedViewController;
+            }
+            return controller;
+        }
+        responder = [responder nextResponder];
+    }
+
+    UIWindow *window = anchor_view.window;
+    UIApplication *application = [UIApplication sharedApplication];
+    if (!window && [application respondsToSelector:@selector(connectedScenes)]) {
+        for (UIScene *scene in application.connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+            for (UIWindow *candidate in ((UIWindowScene *)scene).windows) {
+                if (candidate.isKeyWindow) {
+                    window = candidate;
+                    break;
+                }
+            }
+            if (window) break;
+        }
+    }
+    if (!window && [application respondsToSelector:@selector(keyWindow)]) {
+        window = application.keyWindow;
+    }
+    if (!window) return nil;
+
+    UIViewController *controller = window.rootViewController;
+    while (controller.presentedViewController) {
+        controller = controller.presentedViewController;
+    }
+    return controller;
+}
+
+void uiactivityview_present(void *anchor_view_ptr,
+                            const char *text_cstr,
+                            const char *url_cstr,
+                            const char *subject_cstr) {
+    UIView *anchor_view = (UIView *)anchor_view_ptr;
+    if (!anchor_view) return;
+
+    NSString *text = ap_string_from_cstr(text_cstr);
+    NSString *url_string = ap_string_from_cstr(url_cstr);
+    NSString *subject = ap_string_from_cstr(subject_cstr);
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *presenter = ap_top_presenting_view_controller(anchor_view);
+        if (!presenter || [presenter isKindOfClass:[UIActivityViewController class]]) return;
+
+        NSMutableArray *items = ap_share_items_from_payload(text, url_string);
+        if (!items.count) return;
+
+        UIActivityViewController *controller =
+            [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
+        if (!controller) return;
+
+        if (subject && subject.length) {
+            @try {
+                [controller setValue:subject forKey:@"subject"];
+            } @catch (__unused NSException *exception) {
+            }
+        }
+
+        UIPopoverPresentationController *popover = controller.popoverPresentationController;
+        if (popover) {
+            popover.sourceView = anchor_view;
+            CGRect rect = anchor_view.bounds;
+            if (rect.size.width <= 0.0 || rect.size.height <= 0.0) {
+                rect = CGRectMake(0.0, 0.0, 1.0, 1.0);
+            }
+            popover.sourceRect = rect;
+        }
+
+        objc_setAssociatedObject(anchor_view, &ap_share_controller_association_key, controller, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [presenter presentViewController:controller animated:NO completion:nil];
+        [controller release];
+    });
+}
+#endif
 
 // ============================================================
 // Section 5: CrystalActionDispatcher — dynamic ObjC class for
