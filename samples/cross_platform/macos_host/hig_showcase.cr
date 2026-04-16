@@ -84,14 +84,14 @@ SLUG_SCENES = {
   "rating-indicators" => "gallery",
   "page-controls"     => "gallery",
   # Iter B -- chart scene
-  "charts"            => "chart",
+  "charts"            => "ambient",
   "progress-indicators" => "ambient",
   # Iter B -- settings scene
   "buttons"           => "settings",
-  "toggles"           => "settings",
-  "sliders"           => "settings",
+  "toggles"           => "ambient",
+  "sliders"           => "ambient",
   "steppers"          => "settings",
-  "pickers"           => "settings",
+  "pickers"           => "ambient",
   "segmented-controls" => "settings",
   "pop-up-buttons"    => "settings",
   "pull-down-buttons" => "settings",
@@ -984,6 +984,14 @@ def build_component(slug : String) : UI::View
     # On macOS 26 (Darwin 25.x) this is always available.
     amber_gold_tgl = UI::Color.new(r: 1.0, g: 0.678, b: 0.2)
     tgl_stack = UI::VStack.new(spacing: 16.0)
+    tgl_stack.alignment = UI::Alignment::Leading
+    tgl_stack.minimum_width = 484.0
+    tgl_stack.maximum_width = 484.0
+
+    title_lbl = UI::Label.new("Switch states")
+    title_lbl.font = UI::Font.new(size: 15.0, weight: :semibold)
+    title_lbl.accessibility_label = "Toggle study title"
+    tgl_stack << title_lbl.as(UI::View)
 
     # Row 1: ON state -- Amber gold track, thumb right
     row1 = UI::HStack.new(spacing: 12.0)
@@ -1061,7 +1069,14 @@ def build_component(slug : String) : UI::View
     row6 << tgl_disabled_off2.as(UI::View)
     tgl_stack << row6.as(UI::View)
 
-    tgl_stack.as(UI::View)
+    tgl_card = UI::Card.new(tgl_stack.as(UI::View))
+    tgl_card.minimum_width = 520.0
+    tgl_card.maximum_width = 520.0
+    tgl_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    tgl_card.is_outlined = true
+    tgl_card.material = :secondary
+    tgl_card.accessibility_label = "Switch states study card"
+    tgl_card.as(UI::View)
   when "text-fields"
     # HIG text-fields: four labelled variants covering the canonical states.
     # HIG Best practices: "Show a hint in a text field to help communicate its
@@ -1291,7 +1306,10 @@ def build_component(slug : String) : UI::View
     #   3. Volume-style with speaker.slash / speaker.wave.3 SF Symbol icons as labels
     #   4. Tinted variant using system orange accent to show brand-override knob
 
-    sliders_stack = UI::VStack.new(spacing: 20.0)
+    sliders_stack = UI::VStack.new(spacing: 18.0)
+    sliders_stack.alignment = UI::Alignment::Leading
+    sliders_stack.minimum_width = 484.0
+    sliders_stack.maximum_width = 484.0
 
     # --- Section title ---
     title_lbl = UI::Label.new("Amber sound mix")
@@ -1308,6 +1326,8 @@ def build_component(slug : String) : UI::View
     sliders_stack << v1_caption
 
     plain_slider = UI::Slider.new(0.0, 100.0, 40.0)
+    plain_slider.minimum_width = 360.0
+    plain_slider.maximum_width = 360.0
     plain_slider.accessibility_label = "Plain slider at 40 percent"
     sliders_stack << plain_slider
 
@@ -1325,6 +1345,8 @@ def build_component(slug : String) : UI::View
     labeled_row << min_lbl
 
     labeled_slider = UI::Slider.new(0.0, 100.0, 65.0)
+    labeled_slider.minimum_width = 360.0
+    labeled_slider.maximum_width = 360.0
     labeled_slider.accessibility_label = "Brightness slider at 65 percent"
     labeled_row << labeled_slider
 
@@ -1353,6 +1375,8 @@ def build_component(slug : String) : UI::View
     vol_row << vol_min_icon
 
     vol_slider = UI::Slider.new(0.0, 1.0, 0.55)
+    vol_slider.minimum_width = 360.0
+    vol_slider.maximum_width = 360.0
     vol_slider.accessibility_label = "Volume slider at 55 percent"
     vol_row << vol_slider
 
@@ -1369,11 +1393,20 @@ def build_component(slug : String) : UI::View
     sliders_stack << v4_caption
 
     tinted_slider = UI::Slider.new(0.0, 100.0, 75.0)
+    tinted_slider.minimum_width = 360.0
+    tinted_slider.maximum_width = 360.0
     tinted_slider.tint_color = UI::Color.new(r: 1.0, g: 0.584, b: 0.0)
     tinted_slider.accessibility_label = "Tinted slider at 75 percent"
     sliders_stack << tinted_slider
 
-    sliders_stack.as(UI::View)
+    sliders_card = UI::Card.new(sliders_stack.as(UI::View))
+    sliders_card.minimum_width = 520.0
+    sliders_card.maximum_width = 520.0
+    sliders_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    sliders_card.is_outlined = true
+    sliders_card.material = :secondary
+    sliders_card.accessibility_label = "Sliders study card"
+    sliders_card.as(UI::View)
   when "steppers"
     # HIG: "A stepper is a two-segment control that people use to increase or decrease an
     # incremental value." NSStepper renders as a pill-shaped +/- control. The stepper
@@ -1629,10 +1662,25 @@ def build_component(slug : String) : UI::View
     pop_up.accessibility_label = "Country picker"
     pop_up.style = UI::PickerStyle::Menu
 
-    container = UI::VStack.new(spacing: 16.0)
-    container << UI::Label.new("Country")
-    container << pop_up
-    container
+    container = UI::VStack.new(spacing: 12.0)
+    container.alignment = UI::Alignment::Leading
+    container.minimum_width = 420.0
+    container.maximum_width = 420.0
+
+    picker_title = UI::Label.new("Select country")
+    picker_title.font = UI::Font.new(size: 15.0, weight: :semibold)
+    picker_title.accessibility_label = "Country picker title"
+    container << picker_title.as(UI::View)
+    container << pop_up.as(UI::View)
+
+    picker_card = UI::Card.new(container.as(UI::View))
+    picker_card.minimum_width = 456.0
+    picker_card.maximum_width = 456.0
+    picker_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    picker_card.is_outlined = true
+    picker_card.material = :secondary
+    picker_card.accessibility_label = "Country picker study card"
+    picker_card.as(UI::View)
   when "pop-up-buttons"
     # HIG: "Use a pop-up button to present a flat list of mutually exclusive
     # options or states."  NSPopUpButton on macOS shows the current selection
@@ -2762,8 +2810,20 @@ def build_component(slug : String) : UI::View
       UI::ChartDataPoint.new(label: "Sun", value: 63.0,  color: amber_plum_chart),
     ]
     chart.show_grid = true
+    chart.show_legend = false
+    chart.minimum_width = 360.0
+    chart.maximum_width = 360.0
+    chart.minimum_height = 220.0
+    chart.maximum_height = 220.0
     chart.accessibility_label = "Focus minutes this week bar chart, Mon through Sun"
-    chart.as(UI::View)
+    chart_card = UI::Card.new(chart.as(UI::View))
+    chart_card.minimum_width = 420.0
+    chart_card.maximum_width = 420.0
+    chart_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    chart_card.is_outlined = true
+    chart_card.material = :secondary
+    chart_card.accessibility_label = "Focus minutes study card"
+    chart_card.as(UI::View)
   when "color-wells"
     # HIG Color wells: a small swatch button showing the current color.
     # HIG Best practices: "Consider the system-provided color picker for a
@@ -3298,7 +3358,7 @@ if screenshot_path && !screenshot_path.empty?
         # overlay (0.35 alpha) gives the glass card sufficient compositional
         # weight against the amber gradient backdrop.
         focal_max_w = case SLUG
-                      when "alerts"          then 380.0
+                      when "alerts"          then 420.0
                       when "popovers"        then 320.0
                       when "activity-views"  then 540.0
                       else                        400.0
@@ -3317,6 +3377,10 @@ if screenshot_path && !screenshot_path.empty?
     end
   elsif scene_name == "ambient" || SLUG == "collections"
     focal_max_w = case SLUG
+                  when "charts"             then 420.0
+                  when "pickers"            then 456.0
+                  when "sliders"            then 520.0
+                  when "toggles"            then 520.0
                   when "search-fields"       then 456.0
                   when "toolbars"            then 556.0
                   when "tab-bars"            then 556.0

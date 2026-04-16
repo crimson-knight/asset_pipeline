@@ -1118,8 +1118,6 @@ module UI::UIKit
 
       LibObjCBridge.objc_send_id(ptr, sel("setMinimumTrackTintColor:"), filled_color) unless filled_color.null?
 
-      apply_common_properties(ptr, view)
-
       # Compute the value fraction in [0, 1] for thumb / fill positioning.
       range = view.maximum - view.minimum
       value_fraction = if range > 0.0
@@ -1140,6 +1138,8 @@ module UI::UIKit
       # Fall back to the plain UISlider if the C helper returned NULL
       # (should never happen on iOS, but defensive).
       root_ptr = container_ptr.null? ? ptr : container_ptr
+      apply_common_properties(ptr, view)
+      apply_common_properties(root_ptr, view) unless root_ptr == ptr
 
       handle = ObjC.owned(root_ptr, label: "UIView[slider-container]")
       native = NativeView.new(handle)

@@ -43,8 +43,6 @@ module CrystalHIGHost::Bridge
   private def self.scene_for_slug(slug : String) : String?
     case slug
     when "sheets"        then "dashboard"
-    when "alerts"        then "dashboard"
-    when "popovers"      then "dashboard"
     when "action-sheets"   then "dashboard"
     when "activity-views"  then "dashboard"
     when "edit-menus"      then "document"
@@ -85,7 +83,7 @@ module CrystalHIGHost::Bridge
         # iPhone display and pushes the focal off-screen.
         UI::ValidationScenes::DashboardScene.new(focal: focal, focal_position: :bottom_sheet).build
       else
-        # All other dashboard slugs (alerts, popovers) use :center_modal.
+        # Remaining dashboard-backed surfaces use :center_modal.
         UI::ValidationScenes::DashboardScene.new(focal: focal, focal_position: :center_modal).build
       end
     when "document"
@@ -107,15 +105,30 @@ module CrystalHIGHost::Bridge
   def self.build_component(slug : String) : UI::View
     # Build the focal component first.
     focal = build_focal(slug)
-    # If a scene is mapped for this slug, wrap it; otherwise return the plain focal.
-    # Use scene_for_slug (a case expression) rather than a Hash constant lookup
-    # to avoid the Crystal runtime crash documented in scene_for_slug above.
-    if scene_for_slug(slug)
-      wrap_in_scene(slug, focal)
-    elsif isolation_plate_slug?(slug)
-      centered_isolation_plate(focal)
+    # Keep the newer centered study treatment on the iOS slugs that need it,
+    # while leaving the scene-backed presentation surfaces alone.
+    case slug
+    when "alerts"
+      centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 10.0, trailing: 10.0, bottom: 10.0, leading: 10.0))
+    when "popovers"
+      centered_study_card(focal, card_width: 304.0, content_padding: UI::EdgeInsets.new(top: 10.0, trailing: 10.0, bottom: 10.0, leading: 10.0))
+    when "charts"
+      centered_study_card(focal, card_width: 356.0, content_padding: UI::EdgeInsets.new(top: 8.0, trailing: 8.0, bottom: 8.0, leading: 8.0))
+    when "pickers", "toggles"
+      centered_study_card(focal, card_width: 360.0, content_padding: UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0))
+    when "sliders"
+      centered_study_card(focal, card_width: 348.0, content_padding: UI::EdgeInsets.new(top: 12.0, trailing: 12.0, bottom: 12.0, leading: 12.0))
     else
-      focal
+      # If a scene is mapped for this slug, wrap it; otherwise return the plain focal.
+      # Use scene_for_slug (a case expression) rather than a Hash constant lookup
+      # to avoid the Crystal runtime crash documented in scene_for_slug above.
+      if scene_for_slug(slug)
+        wrap_in_scene(slug, focal)
+      elsif isolation_plate_slug?(slug)
+        centered_isolation_plate(focal)
+      else
+        focal
+      end
     end
   end
 
@@ -159,6 +172,59 @@ module CrystalHIGHost::Bridge
     plate.as(UI::View)
   end
 
+  private def self.centered_study_card(focal : UI::View, card_width : Float64, content_padding : UI::EdgeInsets) : UI::View
+    card = UI::Card.new(focal)
+    card.corner_radius = 10.0
+    card.minimum_width = card_width
+    card.maximum_width = card_width
+    card.content_padding = content_padding
+    card.is_outlined = true
+    card.material = :secondary
+    centered_isolation_plate(card.as(UI::View))
+  end
+
+  private def self.popover_option_row(label_text : String, selected : Bool) : UI::View
+    row = UI::HStack.new(spacing: 12.0)
+    row.minimum_width = 220.0
+    row.maximum_width = 220.0
+    row.padding = UI::EdgeInsets.new(top: 8.0, trailing: 0.0, bottom: 8.0, leading: 0.0)
+
+    label = UI::Label.new(label_text)
+    label.font = UI::Font.new(size: 15.0, weight: :regular)
+    row << label.as(UI::View)
+    row << UI::Spacer.new.as(UI::View)
+
+    if selected
+      check = UI::Image.new("checkmark")
+      check.tint_color = UI::Color.new(r: 0.0, g: 0.478, b: 1.0)
+      check.accessibility_label = "#{label_text} selected"
+      row << check.as(UI::View)
+    end
+
+    row.as(UI::View)
+  end
+
+  private def self.popover_option_group(title : String, options : Array(Tuple(String, Bool))) : UI::View
+    group = UI::VStack.new(spacing: 8.0)
+
+    section_label = UI::Label.new(title)
+    section_label.font = UI::Font.new(size: 12.0, weight: :semibold)
+    section_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+    group << section_label.as(UI::View)
+
+    list = UI::VStack.new(spacing: 0.0)
+    list.minimum_width = 220.0
+    list.maximum_width = 220.0
+
+    options.each_with_index do |(label_text, selected), index|
+      list << popover_option_row(label_text, selected)
+      list << UI::Divider.new(:horizontal).as(UI::View) unless index == options.size - 1
+    end
+
+    group << list.as(UI::View)
+    group.as(UI::View)
+  end
+
   # Build just the focal component (the raw view without scene chrome).
   # Split from build_component so tests can exercise the focal in isolation.
   # NOTE: The "HIG: <slug>" debug label was removed. Scene-label debug strings
@@ -176,9 +242,11 @@ module CrystalHIGHost::Bridge
               # a destructive action people didn't deliberately choose." — Alerts.
               # Inline glass-card via UIVisualEffectView (UIGlassEffect iOS 26 /
               # UIBlurEffectStyleSystemMaterial fallback). Not via is_presented.
-              ios_alert = UI::Alert.new("Reshape today's timeline?", "This will erase 3 hours of context. Amber cannot restore them.")
+              ios_alert = UI::Alert.new("Reshape today's timeline?", "This erases 3 hours of context. Amber cannot restore it.")
               ios_alert.add_button("Cancel", :cancel)
               ios_alert.add_button("Reshape", :destructive)
+              ios_alert.minimum_width = 284.0
+              ios_alert.maximum_width = 284.0
               ios_alert.as(UI::View)
             when "action-sheets"
               # HIG canonical action sheet layout (Mail cancel-draft pattern).
@@ -1049,40 +1117,47 @@ module CrystalHIGHost::Bridge
               # Best practices: "Use familiar slider directions" -- min leading, max trailing.
               # Showcase: four variants -- plain, labeled, volume-style SF Symbol, tinted.
 
-              ios_sliders_stack = UI::VStack.new(spacing: 20.0)
+              ios_sliders_stack = UI::VStack.new(spacing: 12.0)
+              ios_sliders_stack.minimum_width = 300.0
+              ios_sliders_stack.maximum_width = 300.0
 
               # Section title
-              ios_sl_title = UI::Label.new("Sliders -- UISlider")
+              ios_sl_title = UI::Label.new("Amber sound mix")
               ios_sl_title.font = UI::Font.new(size: 15.0, weight: :semibold)
               ios_sl_title.text_color_role = UI::LabelRole::Primary
               ios_sl_title.accessibility_label = "Sliders showcase title"
               ios_sliders_stack << ios_sl_title
 
               # Variant 1: Plain slider at 40%
-              ios_v1_cap = UI::Label.new("Plain slider (40% value, default tint)")
+              ios_v1_cap = UI::Label.new("Ambient volume")
               ios_v1_cap.font = UI::Font.new(size: 11.0, weight: :regular)
               ios_v1_cap.text_color_role = UI::LabelRole::Secondary
               ios_v1_cap.accessibility_label = "Plain slider caption"
               ios_sliders_stack << ios_v1_cap
 
               ios_plain = UI::Slider.new(0.0, 100.0, 40.0)
+              ios_plain.minimum_width = 228.0
+              ios_plain.maximum_width = 228.0
               ios_plain.accessibility_label = "Plain slider at 40 percent"
               ios_sliders_stack << ios_plain
 
               # Variant 2: Labeled slider with min/max text and current value
-              ios_v2_cap = UI::Label.new("Slider with min / max text labels")
+              ios_v2_cap = UI::Label.new("Min / max labels")
               ios_v2_cap.font = UI::Font.new(size: 11.0, weight: :regular)
               ios_v2_cap.text_color_role = UI::LabelRole::Secondary
               ios_v2_cap.accessibility_label = "Labeled slider caption"
               ios_sliders_stack << ios_v2_cap
 
               ios_labeled_row = UI::HStack.new(spacing: 8.0)
+              ios_labeled_row.alignment = UI::Alignment::Center
               ios_min_lbl = UI::Label.new("0")
               ios_min_lbl.font = UI::Font.new(size: 13.0, weight: :regular)
               ios_min_lbl.text_color_role = UI::LabelRole::Secondary
               ios_labeled_row << ios_min_lbl
 
               ios_labeled_sl = UI::Slider.new(0.0, 100.0, 65.0)
+              ios_labeled_sl.minimum_width = 180.0
+              ios_labeled_sl.maximum_width = 180.0
               ios_labeled_sl.accessibility_label = "Brightness slider at 65 percent"
               ios_labeled_row << ios_labeled_sl
 
@@ -1092,25 +1167,22 @@ module CrystalHIGHost::Bridge
               ios_labeled_row << ios_max_lbl
               ios_sliders_stack << ios_labeled_row
 
-              ios_val_lbl = UI::Label.new("Current value: 65")
-              ios_val_lbl.font = UI::Font.new(size: 11.0, weight: :regular)
-              ios_val_lbl.text_color_role = UI::LabelRole::Tertiary
-              ios_val_lbl.accessibility_label = "Current slider value label"
-              ios_sliders_stack << ios_val_lbl
-
               # Variant 3: Volume-style slider with SF Symbol icons
-              ios_v3_cap = UI::Label.new("Volume-style slider (SF Symbols)")
+              ios_v3_cap = UI::Label.new("Playback volume")
               ios_v3_cap.font = UI::Font.new(size: 11.0, weight: :regular)
               ios_v3_cap.text_color_role = UI::LabelRole::Secondary
               ios_v3_cap.accessibility_label = "Volume slider caption"
               ios_sliders_stack << ios_v3_cap
 
               ios_vol_row = UI::HStack.new(spacing: 8.0)
+              ios_vol_row.alignment = UI::Alignment::Center
               ios_vol_min = UI::Image.new("speaker.slash")
               ios_vol_min.accessibility_label = "Speaker off"
               ios_vol_row << ios_vol_min
 
               ios_vol_sl = UI::Slider.new(0.0, 1.0, 0.55)
+              ios_vol_sl.minimum_width = 176.0
+              ios_vol_sl.maximum_width = 176.0
               ios_vol_sl.accessibility_label = "Volume slider at 55 percent"
               ios_vol_row << ios_vol_sl
 
@@ -1120,13 +1192,15 @@ module CrystalHIGHost::Bridge
               ios_sliders_stack << ios_vol_row
 
               # Variant 4: Tinted slider (brand orange)
-              ios_v4_cap = UI::Label.new("Tinted slider (brand accent override -- orange)")
+              ios_v4_cap = UI::Label.new("Tinted track")
               ios_v4_cap.font = UI::Font.new(size: 11.0, weight: :regular)
               ios_v4_cap.text_color_role = UI::LabelRole::Secondary
               ios_v4_cap.accessibility_label = "Tinted slider caption"
               ios_sliders_stack << ios_v4_cap
 
               ios_tinted = UI::Slider.new(0.0, 100.0, 75.0)
+              ios_tinted.minimum_width = 228.0
+              ios_tinted.maximum_width = 228.0
               ios_tinted.tint_color = UI::Color.new(r: 1.0, g: 0.584, b: 0.0)
               ios_tinted.accessibility_label = "Tinted slider at 75 percent"
               ios_sliders_stack << ios_tinted
@@ -1335,6 +1409,8 @@ module CrystalHIGHost::Bridge
               # iOS 26: UIVisualEffectView(UIGlassEffect) or UIBlurEffect(style:11)
               # wrapping a UIStackView, corner radius ~10pt.
               ios_popover_content = UI::VStack.new(spacing: 12.0)
+              ios_popover_content.minimum_width = 252.0
+              ios_popover_content.maximum_width = 252.0
 
               ios_filter_title = UI::Label.new("Filter")
               ios_filter_title.font = UI::Font.new(size: 15.0, weight: :semibold)
@@ -1344,27 +1420,15 @@ module CrystalHIGHost::Bridge
               ios_pop_div = UI::Divider.new(:horizontal)
               ios_popover_content << ios_pop_div
 
-              ios_sort_label = UI::Label.new("Sort by")
-              ios_sort_label.font = UI::Font.new(size: 12.0, weight: :semibold)
-              ios_sort_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-              ios_sort_label.accessibility_label = "Sort by label"
-              ios_popover_content << ios_sort_label
+              ios_popover_content << popover_option_group("Sort by", [
+                {"Newest", true},
+                {"Oldest", false},
+              ])
 
-              ios_sort_picker = UI::Picker.new(["Newest first", "Oldest first"], 0)
-              ios_sort_picker.style = UI::PickerStyle::Segmented
-              ios_sort_picker.accessibility_label = "Sort order picker"
-              ios_popover_content << ios_sort_picker
-
-              ios_vault_label = UI::Label.new("Vault")
-              ios_vault_label.font = UI::Font.new(size: 12.0, weight: :semibold)
-              ios_vault_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-              ios_vault_label.accessibility_label = "Vault filter label"
-              ios_popover_content << ios_vault_label
-
-              ios_vault_picker = UI::Picker.new(["Morning Pages", "All vaults"], 1)
-              ios_vault_picker.style = UI::PickerStyle::Segmented
-              ios_vault_picker.accessibility_label = "Vault filter picker"
-              ios_popover_content << ios_vault_picker
+              ios_popover_content << popover_option_group("Vault", [
+                {"Morning Pages", false},
+                {"All vaults", true},
+              ])
 
               ios_pop_div2 = UI::Divider.new(:horizontal)
               ios_popover_content << ios_pop_div2
@@ -1373,7 +1437,10 @@ module CrystalHIGHost::Bridge
               ios_clear_btn.accessibility_label = "Clear filters"
               ios_popover_content << ios_clear_btn
 
-              UI::Popover.new(ios_popover_content.as(UI::View), :bottom).as(UI::View)
+              ios_popover = UI::Popover.new(ios_popover_content.as(UI::View), :bottom)
+              ios_popover.minimum_width = 272.0
+              ios_popover.maximum_width = 272.0
+              ios_popover.as(UI::View)
             when "pickers"
               # HIG: "For short lists, consider using a menu or segmented control
               # instead of a wheel picker." iOS renderer uses inline-list-with-
@@ -2282,10 +2349,9 @@ module CrystalHIGHost::Bridge
             when "charts"
               # Amber charts: "Focus minutes this week" bar chart, 7 days.
               # Bar fill: Amber plum (#5B3A94 -> r:0.357 g:0.227 b:0.58), NOT systemBlue.
-              # iOS clipping fix: chart is wrapped in a ScrollView so it gets an
-              # explicit intrinsicContentSize in compact width (UIKit requires this
-              # for Charts to not clip at zero-height in a UIStackView).
-              # HIG: "In a compact environment, maximize the width of the plot area."
+              # iOS: the native ChartView already carries a fixed 340x220 size.
+              # The tighter centered study card keeps the axis labels readable
+              # against the Amber backdrop without the old scroll-container shell.
               ios_plum = UI::Color.new(r: 0.357, g: 0.227, b: 0.58)
               ios_chart = UI::ChartView.new
               ios_chart.chart_type = :bar
@@ -2301,9 +2367,7 @@ module CrystalHIGHost::Bridge
               ]
               ios_chart.show_grid = true
               ios_chart.accessibility_label = "Focus minutes this week bar chart, Mon through Sun"
-              ios_chart_scroll = UI::ScrollView.new(ios_chart.as(UI::View))
-              ios_chart_scroll.accessibility_label = "Focus minutes chart scroll container"
-              ios_chart_scroll.as(UI::View)
+              ios_chart.as(UI::View)
             when "color-wells"
               # HIG Color wells: swatch button showing current color.
               # HIG Best practices: "Consider the system-provided color picker for a
