@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T20:42:00.400615+00:00",
+  "generated_at": "2026-04-16T20:46:36.280486+00:00",
   "report": {
     "exists": true,
     "mtime": "2026-04-16T20:41:51.743421+00:00",
@@ -48,6 +48,6 @@
   },
   "slug": "progress-indicators",
   "valid": true,
-  "validation_state": "pending",
+  "validation_state": "pass_with_notes",
   "warnings": []
 }

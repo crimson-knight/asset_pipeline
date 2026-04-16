@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T20:42:00.523588+00:00",
+  "generated_at": "2026-04-16T20:46:36.352429+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -17,9 +17,9 @@
     "patterns": 66,
     "platform_guides": 4,
     "collections": 14,
-    "implemented": 46,
+    "implemented": 45,
     "stub": 0,
-    "missing": 19
+    "missing": 20
   },
   "pages": [
     {
@@ -254,13 +254,13 @@
       "hig_page": "../apple-hig/pages/app-shortcuts.md",
       "hig_ref_image": "../apple-hig/images/components-app-shortcuts-intro.png",
       "role": "component",
-      "ui_view": "UI::OutlineView",
-      "ui_view_file": "src/ui/views/outline_view.cr",
-      "status": "implemented",
+      "ui_view": null,
+      "ui_view_file": null,
+      "status": "missing",
       "priority": "P2",
-      "iOS_visit_found": true,
-      "macOS_visit_found": true,
-      "validation_state": "pending",
+      "iOS_visit_found": false,
+      "macOS_visit_found": false,
+      "validation_state": "skipped",
       "docs_written": false,
       "glass_required": false,
       "glass_material_expected": null,
@@ -269,12 +269,10 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "App Shortcuts per HIG are metadata declarations (AppIntents) exposed to Spotlight/Siri/Shortcuts app \u2014 not an in-app rendered UI::View. No asset_pipeline surface to validate with a capture; the feature lives in Info.plist + AppIntents metadata. Skipped as not-applicable-to-capture.",
+      "notes": "App Shortcuts live in AppIntents/AppShortcuts metadata, not an in-app rendered UI::View. Keep this row missing for product planning, but skip it from screenshot validation until platform integration work is scoped separately.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "missing report: /Users/crimsonknight/open_source_coding_projects/asset_pipeline/.claude/skills/apple-platform-guide/validation/reports/app-shortcuts.md"
-      ]
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "apple-pay",
@@ -3726,15 +3724,15 @@
   "validation_counts": {
     "pass": 0,
     "pass_with_notes": 22,
-    "pending": 21,
+    "pending": 20,
     "needs_work": 1,
     "fail": 0,
-    "skipped": 21
+    "skipped": 22
   },
   "evidence_counts": {
     "valid": 23,
-    "invalid": 21,
-    "not_applicable": 21,
+    "invalid": 20,
+    "not_applicable": 22,
     "unknown": 0
   }
 }

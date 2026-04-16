@@ -43,13 +43,13 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 .summary .stat-num{font-size:28px;font-weight:700}
 .summary .stat-label{font-size:11px;color:#636366;text-transform:uppercase;letter-spacing:.04em}</style>
 <h1>Apple HIG validation &mdash; dashboard</h1>
-<p>Generated 2026-04-16T20:42:39Z. <strong>22/65</strong> auditable studies reached a terminal state (<strong>34%</strong>). 21 skipped, 1 needs-work, 21 pending, 21 with stale evidence.</p>
+<p>Generated 2026-04-16T20:46:41Z. <strong>22/65</strong> auditable studies reached a terminal state (<strong>34%</strong>). 22 skipped, 1 needs-work, 20 pending, 20 with stale evidence.</p>
 <div class='summary'>
 <div class='stat'><div class='stat-num' style='color:#34c759'>22</div><div class='stat-label'>Passing</div></div>
-<div class='stat'><div class='stat-num' style='color:#8e8e93'>21</div><div class='stat-label'>Skipped</div></div>
+<div class='stat'><div class='stat-num' style='color:#8e8e93'>22</div><div class='stat-label'>Skipped</div></div>
 <div class='stat'><div class='stat-num' style='color:#ff3b30'>1</div><div class='stat-label'>Needs work</div></div>
-<div class='stat'><div class='stat-num' style='color:#8e8e93'>21</div><div class='stat-label'>Pending</div></div>
-<div class='stat'><div class='stat-num' style='color:#d93025'>21</div><div class='stat-label'>Stale evidence</div></div>
+<div class='stat'><div class='stat-num' style='color:#8e8e93'>20</div><div class='stat-label'>Pending</div></div>
+<div class='stat'><div class='stat-num' style='color:#d93025'>20</div><div class='stat-label'>Stale evidence</div></div>
 <div class='stat'><div class='stat-num'>65</div><div class='stat-label'>Auditable studies</div></div>
 </div>
 <div class='bar'><h3>Progress</h3>
@@ -57,7 +57,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <p style='margin:0;font-size:13px;color:#636366'>22 of 65 auditable studies terminal · 34% complete</p>
 </div>
 <div class='bar'><h3>Acceptance bar</h3><ol><li>Four fresh captures per slug: macOS light/dark + iOS light/dark.</li><li>Surface components must show Liquid Glass in every capture.</li><li>Legibility verified in both appearances.</li><li>Component doc includes 'Light / dark appearance notes' + 'Customization / brand override'.</li></ol></div>
-<h2>Terminal (44)</h2>
+<h2>Terminal (45)</h2>
 <table><thead><tr><th>Slug / Verdict</th><th>Captures</th><th>HIG reference</th><th>Backdrop</th><th>Artifacts</th></tr></thead><tbody>
 <tr>
 <td><span class='pri'>P0</span> <span class='slug'>action-sheets</span><br>
@@ -289,6 +289,17 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <td><a href='../../apple-hig/images/components-activity-ring-intro.png'><img class='small' src='../../apple-hig/images/components-activity-ring-intro.png'></a></td>
 <td><div class='backdrop-cell'><a href='backdrops/sheet-backdrop-amber-gradient-light.png'><img class='backdrop-thumb' src='backdrops/sheet-backdrop-amber-gradient-light.png'></a><span class='backdrop-name'>sheet-backdrop-amber-gradient</span></div></td>
 <td><a href='reports/activity-rings.md'>report</a></td>
+</tr>
+<tr>
+<td><span class='pri'>P2</span> <span class='slug'>app-shortcuts</span><br>
+<span class='v-skip'>SKIPPED</span> <span class='evidence ev-na'>evidence n/a</span><br>
+<span class='ui-view'></span>
+
+<span class='notes'>App Shortcuts live in AppIntents/AppShortcuts metadata, not an in-app rendered UI::View. Keep this row missing for product planning, but skip it from screenshot validation until platform integration work is scoped separately.</span></td>
+<td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/app-shortcuts-macos-light.png'><img src='screenshots/app-shortcuts-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/app-shortcuts-macos-dark.png'><img src='screenshots/app-shortcuts-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/app-shortcuts-ios-light.png'><img src='screenshots/app-shortcuts-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/app-shortcuts-ios-dark.png'><img src='screenshots/app-shortcuts-ios-dark.png'></a></div></div></td>
+<td><a href='../../apple-hig/images/components-app-shortcuts-intro.png'><img class='small' src='../../apple-hig/images/components-app-shortcuts-intro.png'></a></td>
+<td><div class='backdrop-cell'><a href='backdrops/sheet-backdrop-amber-gradient-light.png'><img class='backdrop-thumb' src='backdrops/sheet-backdrop-amber-gradient-light.png'></a><span class='backdrop-name'>sheet-backdrop-amber-gradient</span></div></td>
+<td><span class='missing'>no docs</span></td>
 </tr>
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>charts</span><br>
@@ -544,7 +555,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <td><span class='missing'>no docs</span></td>
 </tr>
 </tbody></table>
-<h2>Pending (21)</h2>
+<h2>Pending (20)</h2>
 <ul class='pending-list'>
 <li><span class='pri'>P0</span> <span class='slug'>disclosure-controls</span> <span class='evidence ev-invalid'>evidence stale (4)</span></li>
 <li><span class='pri'>P0</span> <span class='slug'>dock-menus</span> <span class='evidence ev-invalid'>evidence stale (4)</span></li>
@@ -561,7 +572,6 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <li><span class='pri'>P0</span> <span class='slug'>split-views</span> <span class='evidence ev-invalid'>evidence stale (4)</span></li>
 <li><span class='pri'>P0</span> <span class='slug'>steppers</span> <span class='evidence ev-invalid'>evidence stale (4)</span></li>
 <li><span class='pri'>P0</span> <span class='slug'>text-views</span> <span class='evidence ev-invalid'>evidence stale (4)</span></li>
-<li><span class='pri'>P2</span> <span class='slug'>app-shortcuts</span> <span class='evidence ev-invalid'>evidence stale (1)</span></li>
 <li><span class='pri'>P2</span> <span class='slug'>color-wells</span> <span class='evidence ev-invalid'>evidence stale (4)</span></li>
 <li><span class='pri'>P2</span> <span class='slug'>combo-boxes</span> <span class='evidence ev-invalid'>evidence stale (4)</span></li>
 <li><span class='pri'>P2</span> <span class='slug'>outline-views</span> <span class='evidence ev-invalid'>evidence stale (1)</span></li>
