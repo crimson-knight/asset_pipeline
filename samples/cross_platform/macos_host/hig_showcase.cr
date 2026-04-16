@@ -1991,8 +1991,8 @@ require "../../../src/ui/validation_scenes"
 
       sidebar_stack = UI::VStack.new(spacing: 6.0)
       sidebar_stack.alignment = UI::Alignment::Leading
-      sidebar_stack.minimum_width = 220.0
-      sidebar_stack.maximum_width = 220.0
+      sidebar_stack.minimum_width = 188.0
+      sidebar_stack.maximum_width = 188.0
       sidebar_stack.minimum_height = 856.0
       sidebar_stack.maximum_height = 856.0
       sidebar_stack.padding = UI::EdgeInsets.new(top: 13.0, trailing: 13.0, bottom: 13.0, leading: 13.0)
@@ -2137,8 +2137,8 @@ require "../../../src/ui/validation_scenes"
       #   [unread dot 10pt] [avatar circle 32pt SF symbol] [VStack: sender/subject/preview] [Spacer] [timestamp + unread badge]
       msg_list = UI::VStack.new(spacing: 0.0)
       msg_list.alignment = UI::Alignment::Leading
-      msg_list.minimum_width = 280.0
-      msg_list.maximum_width = 280.0
+      msg_list.minimum_width = 252.0
+      msg_list.maximum_width = 252.0
       msg_list.minimum_height = 856.0
       msg_list.maximum_height = 856.0
 
@@ -2246,8 +2246,8 @@ require "../../../src/ui/validation_scenes"
       # pinned to 697pt so the Spacers have definite space to distribute.
       detail_center_h = UI::HStack.new(spacing: 0.0)
       detail_center_h.alignment = UI::Alignment::Fill
-      detail_center_h.minimum_width = 697.0
-      detail_center_h.maximum_width = 697.0
+      detail_center_h.minimum_width = 518.0
+      detail_center_h.maximum_width = 518.0
       detail_icon_hint = UI::VStack.new(spacing: 8.0)
       detail_icon_hint.alignment = UI::Alignment::Center
       detail_icon_hint << detail_icon.as(UI::View)
@@ -2261,8 +2261,8 @@ require "../../../src/ui/validation_scenes"
       detail_empty << detail_center_h.as(UI::View)
       detail_empty << UI::Spacer.new.as(UI::View)
       detail_empty.alignment = UI::Alignment::Fill
-      detail_empty.minimum_width = 697.0
-      detail_empty.maximum_width = 697.0
+      detail_empty.minimum_width = 518.0
+      detail_empty.maximum_width = 518.0
       detail_empty.minimum_height = 856.0
       detail_empty.maximum_height = 856.0
       detail_empty.accessibility_label = "Detail empty state"
@@ -2270,23 +2270,23 @@ require "../../../src/ui/validation_scenes"
       # --- Sidebar glass wrapper ---
       # Wrap sidebar_stack in GlassBackground with sidebar material so the column
       # renders NSVisualEffectView(material: .sidebar) per HIG. The glass view is
-      # given exact width (220pt) and the same minimum_height as the body_row.
+      # given exact width (188pt) and the same minimum_height as the body_row.
       # GlassBackground maps to NSVisualEffectView on macOS with the sidebar
       # material (NSVisualEffectMaterialSidebar = 7), tracking appearance.
       sidebar_glass = UI::GlassBackground.new(sidebar_stack.as(UI::View))
       sidebar_glass.material = :sidebar
-      sidebar_glass.minimum_width = 220.0
-      sidebar_glass.maximum_width = 220.0
+      sidebar_glass.minimum_width = 188.0
+      sidebar_glass.maximum_width = 188.0
       sidebar_glass.minimum_height = 856.0
       sidebar_glass.maximum_height = 856.0
       sidebar_glass.accessibility_label = "Amber sidebar glass column"
 
       # --- Option A: explicit 3-column HStack ---
-      # Column 1: sidebar glass (220pt, NSVisualEffectView sidebar material)
+      # Column 1: sidebar glass (188pt, NSVisualEffectView sidebar material)
       # Separator 1: 1pt vertical Divider
-      # Column 2: message list (280pt, fixed)
+      # Column 2: message list (252pt, fixed)
       # Separator 2: 1pt vertical Divider
-      # Column 3: detail pane (fills remainder of 900pt inner body height)
+      # Column 3: detail pane (fills the remainder of the study width)
       sep_a = UI::Divider.new(:vertical)
       sep_a.accessibility_label = "Sidebar / message-list separator"
       sep_b = UI::Divider.new(:vertical)
@@ -2294,8 +2294,8 @@ require "../../../src/ui/validation_scenes"
 
       three_col = UI::HStack.new(spacing: 0.0)
       three_col.alignment = UI::Alignment::Fill
-      three_col.minimum_width = 1200.0
-      three_col.maximum_width = 1200.0
+      three_col.minimum_width = 960.0
+      three_col.maximum_width = 960.0
       three_col.minimum_height = 856.0
       three_col.maximum_height = 856.0
       three_col << sidebar_glass.as(UI::View)
@@ -2329,7 +2329,7 @@ require "../../../src/ui/validation_scenes"
       # Explicit UI::Divider views between columns produce the 1pt separators
       # that make the split visually distinguishable from the sidebars render.
 
-      # --- Pane 1: Sidebar (left ~160pt) ---
+      # --- Pane 1: Sidebar (left ~186pt) ---
       sv_mailboxes_hdr = UI::Label.new("MAILBOXES")
       sv_mailboxes_hdr.font = UI::Font.new(size: 11.0, weight: :semibold)
       sv_mailboxes_hdr.text_color = UI::Color.new(r: 0.6, g: 0.6, b: 0.6)
@@ -2385,8 +2385,8 @@ require "../../../src/ui/validation_scenes"
 
       sv_sidebar_stack = UI::VStack.new(spacing: 6.0)
       sv_sidebar_stack.alignment = UI::Alignment::Leading
-      sv_sidebar_stack.minimum_width = 200.0
-      sv_sidebar_stack.maximum_width = 200.0
+      sv_sidebar_stack.minimum_width = 186.0
+      sv_sidebar_stack.maximum_width = 186.0
       sv_sidebar_stack.minimum_height = 856.0
       sv_sidebar_stack.maximum_height = 856.0
       sv_sidebar_stack.padding = UI::EdgeInsets.new(top: 13.0, trailing: 13.0, bottom: 13.0, leading: 13.0)
@@ -2398,24 +2398,24 @@ require "../../../src/ui/validation_scenes"
       sv_sidebar_stack << sv_work_row
       sv_sidebar_stack << UI::Spacer.new
 
-      # --- Pane 2: Message list (middle ~280pt) ---
+      # --- Pane 2: Message list (middle ~240pt) ---
       sv_list_hdr = UI::Label.new("Inbox")
       sv_list_hdr.font = UI::Font.new(size: 15.0, weight: :semibold)
       sv_list_hdr.accessibility_label = "Inbox list header"
 
       sv_list_content = UI::VStack.new(spacing: 6.0)
       sv_list_content.alignment = UI::Alignment::Leading
-      sv_list_content.minimum_width = 280.0
-      sv_list_content.maximum_width = 280.0
+      sv_list_content.minimum_width = 240.0
+      sv_list_content.maximum_width = 240.0
       sv_list_content.minimum_height = 856.0
       sv_list_content.maximum_height = 856.0
       sv_list_content.padding = UI::EdgeInsets.new(top: 13.0, trailing: 13.0, bottom: 13.0, leading: 13.0)
       sv_list_content << sv_list_hdr
       [
-        {"Alice Martin", "Quarterly report", "Hi, please find the Q1 numbers attached."},
-        {"Bob Chen", "Re: Meeting notes", "Thanks for sending those. I reviewed..."},
-        {"Carol Davis", "Weekend plans", "Are you free Saturday? We're thinking..."},
-        {"Dave Kim", "Invoice #4821", "Please find the attached invoice for March."},
+        {"Alice Martin", "Quarterly report", "Q1 numbers attached."},
+        {"Bob Chen", "Re: Meeting notes", "Reviewed; all clear."},
+        {"Carol Davis", "Weekend plans", "Saturday works?"},
+        {"Dave Kim", "Invoice #4821", "March invoice attached."},
       ].each_with_index do |(sender, subject, preview), idx|
         if idx > 0
           sv_list_content << UI::Divider.new
@@ -2450,17 +2450,17 @@ require "../../../src/ui/validation_scenes"
       sv_detail_sep = UI::Divider.new
       sv_detail_sep.accessibility_label = "Message header separator"
 
-      sv_detail_body = UI::Label.new("Hi,\n\nPlease find the Q1 numbers attached. The team performed well across all regions. Revenue was up 12% year-over-year and operating margin improved by 2.4 points.\n\nLet me know if you have questions.\n\n— Alice")
+      sv_detail_body = UI::Label.new("Hi,\n\nPlease find the Q1 numbers attached. Revenue was up 12% year-over-year and margin improved by 2.4 points.\n\nLet me know if you want the backup file.\n\n— Alice")
       sv_detail_body.font = UI::Font.new(size: 13.0, weight: :regular)
       sv_detail_body.accessibility_label = "Message body"
 
       sv_detail_pane = UI::VStack.new(spacing: 8.0)
       sv_detail_pane.alignment = UI::Alignment::Leading
-      sv_detail_pane.minimum_width = 718.0
-      sv_detail_pane.maximum_width = 718.0
+      sv_detail_pane.minimum_width = 540.0
+      sv_detail_pane.maximum_width = 540.0
       sv_detail_pane.minimum_height = 856.0
       sv_detail_pane.maximum_height = 856.0
-      sv_detail_pane.padding = UI::EdgeInsets.new(top: 21.0, trailing: 34.0, bottom: 21.0, leading: 34.0)
+      sv_detail_pane.padding = UI::EdgeInsets.new(top: 19.0, trailing: 24.0, bottom: 19.0, leading: 24.0)
       sv_detail_pane << sv_detail_from
       sv_detail_pane << sv_detail_subject
       sv_detail_pane << sv_detail_sep
@@ -2482,8 +2482,8 @@ require "../../../src/ui/validation_scenes"
 
       sv_outer = UI::HStack.new(spacing: 0.0)
       sv_outer.alignment = UI::Alignment::Fill
-      sv_outer.minimum_width = 1200.0
-      sv_outer.maximum_width = 1200.0
+      sv_outer.minimum_width = 968.0
+      sv_outer.maximum_width = 968.0
       sv_outer.minimum_height = 856.0
       sv_outer.maximum_height = 856.0
       sv_outer << sv_sidebar_stack
@@ -3051,30 +3051,51 @@ HTML
       # represents a page in a flat list." — Page controls, abstract.
       # HIG: "Center a page control at the bottom of the view or window."
       # macOS has no native NSPageControl; we synthesize from CALayer circles.
-      # 5 pages, current = 2 (zero-based, third dot filled). Below, a tinted
-      # variant demonstrates the tint_color override path.
-      outer = UI::VStack.new(spacing: 16.0)
+      # 5 pages, current = 2 (zero-based, third dot filled). The study stays
+      # compact so the indicator rhythm reads as the main point, not empty space.
+      outer_title = UI::Label.new("Page control")
+      outer_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      outer_title.accessibility_label = "Page control study title"
 
-      # Label: default system-tinted page control (5 pages, current = 2)
-      default_label = UI::Label.new("Default (system accent, page 3 of 5):")
+      outer_subtitle = UI::Label.new("A compact indicator row for flat content.")
+      outer_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      outer_subtitle.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+      outer_subtitle.accessibility_label = "Page control study subtitle"
+
+      default_label = UI::Label.new("System accent")
+      default_label.font = UI::Font.new(size: 11.0, weight: :semibold)
+      default_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
       default_label.accessibility_label = "Default page control label"
-      outer << default_label
 
       pc_default = UI::PageControl.new(total: 5, current: 2)
       pc_default.accessibility_label = "Page 3 of 5, default tint"
-      outer << pc_default
 
-      # Tinted variant: brand orange
-      tinted_label = UI::Label.new("Tinted (brand orange, page 1 of 5):")
+      tinted_label = UI::Label.new("Amber tint")
+      tinted_label.font = UI::Font.new(size: 11.0, weight: :semibold)
+      tinted_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
       tinted_label.accessibility_label = "Tinted page control label"
-      outer << tinted_label
 
       pc_tinted = UI::PageControl.new(total: 5, current: 0)
       pc_tinted.tint_color = UI::Color.new(r: 1.0, g: 0.58, b: 0.0)
-      pc_tinted.accessibility_label = "Page 1 of 5, orange tint"
-      outer << pc_tinted
+      pc_tinted.accessibility_label = "Page 1 of 5, amber tint"
 
-      outer.as(UI::View)
+      study = UI::VStack.new(spacing: 14.0)
+      study.alignment = UI::Alignment::Center
+      study << outer_title.as(UI::View)
+      study << outer_subtitle.as(UI::View)
+      study << default_label.as(UI::View)
+      study << pc_default.as(UI::View)
+      study << tinted_label.as(UI::View)
+      study << pc_tinted.as(UI::View)
+
+      study_card = UI::Card.new(study.as(UI::View))
+      study_card.minimum_width = 420.0
+      study_card.maximum_width = 420.0
+      study_card.content_padding = UI::EdgeInsets.new(top: 20.0, trailing: 22.0, bottom: 20.0, leading: 22.0)
+      study_card.is_outlined = true
+      study_card.material = :secondary
+      study_card.accessibility_label = "Page control study card"
+      study_card.as(UI::View)
     when "path-controls"
       # HIG path controls display a filesystem path as icon-and-name segments.
       # The shared screenshot renderer currently stacks PathControl segments

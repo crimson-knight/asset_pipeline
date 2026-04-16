@@ -114,6 +114,12 @@ module CrystalHIGHost::Bridge
       centered_study_card(focal, card_width: 304.0, content_padding: UI::EdgeInsets.new(top: 10.0, trailing: 10.0, bottom: 10.0, leading: 10.0))
     when "charts"
       centered_study_card(focal, card_width: 356.0, content_padding: UI::EdgeInsets.new(top: 8.0, trailing: 8.0, bottom: 8.0, leading: 8.0))
+    when "page-controls"
+      centered_study_card(focal, card_width: 300.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
+    when "sidebars"
+      centered_study_card(focal, card_width: 344.0, content_padding: UI::EdgeInsets.new(top: 12.0, trailing: 12.0, bottom: 12.0, leading: 12.0))
+    when "split-views"
+      centered_study_card(focal, card_width: 348.0, content_padding: UI::EdgeInsets.new(top: 12.0, trailing: 12.0, bottom: 12.0, leading: 12.0))
     when "pickers", "toggles"
       centered_study_card(focal, card_width: 360.0, content_padding: UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0))
     when "sliders"
@@ -1723,139 +1729,78 @@ module CrystalHIGHost::Bridge
               # iPhone: HIG Sidebars — Platform considerations: "Avoid using a
               # sidebar on iPhone." On iPhone, replace the sidebar with a bottom
               # tab bar (UITabBarController) per HIG guidance.
-              # Four destinations: Memories / Rituals / Vault / Profile.
-              # UITabBarController renders with Liquid Glass bottom bar per iOS 26
-              # HIG: "A tab bar floats above content at the bottom of the screen."
-              # Amber gold selected tint (UITabBar.tintColor = amberGold).
-              # Debug "HIG: <slug>" label removed per Issue B.
-              #
-              # Sizing: minimum_width=375, minimum_height=812 (standard iPhone
-              # viewport) forces the outer VStack in build_focal to expand to
-              # full-screen so the tab bar anchors to the bottom edge correctly.
-              # Without explicit minimum dimensions the UIStackView wrapper sizes
-              # to intrinsic content width, producing the "35% float" bug.
               ios_amber_gold = UI::Color.new(r: 1.0, g: 0.678, b: 0.2)
               ios_gray_sec   = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
 
-              # Memories tab: real Amber message rows (same 5 as macOS)
-              ios_memories_content = UI::VStack.new(spacing: 0.0)
-              ios_memories_content.alignment = UI::Alignment::Leading
+              sidebar_shell = UI::VStack.new(spacing: 10.0)
+              sidebar_shell.alignment = UI::Alignment::Leading
+              sidebar_shell.maximum_width = 292.0
 
-              ios_mem_nav_lbl = UI::Label.new("Memories")
-              ios_mem_nav_lbl.font = UI::Font.new(size: 17.0, weight: :semibold)
-              ios_mem_nav_lbl.accessibility_label = "Memories navigation title"
-              ios_mem_nav_lbl.padding = UI::EdgeInsets.new(top: 12.0, trailing: 16.0, bottom: 8.0, leading: 16.0)
-              ios_memories_content << ios_mem_nav_lbl.as(UI::View)
+              sidebar_title = UI::Label.new("Mail")
+              sidebar_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              sidebar_title.accessibility_label = "Sidebar title"
+              sidebar_shell << sidebar_title.as(UI::View)
 
+              sidebar_sub = UI::Label.new("Compact navigation")
+              sidebar_sub.font = UI::Font.new(size: 12.0, weight: :regular)
+              sidebar_sub.text_color = ios_gray_sec
+              sidebar_sub.accessibility_label = "Sidebar subtitle"
+              sidebar_shell << sidebar_sub.as(UI::View)
+
+              nav_stack = UI::VStack.new(spacing: 0.0)
+              nav_stack.padding = UI::EdgeInsets.new(top: 8.0, trailing: 10.0, bottom: 8.0, leading: 10.0)
+              nav_stack.background = UI::Color.new(r: 0.96, g: 0.92, b: 0.86, a: 0.72)
+              nav_stack.corner_radius = 10.0
               [
-                {true,  "Amber",     "Morning pages unlocked",         "Your 3-page ritual is complete. Amber noticed the shift.", "9:14"},
-                {true,  "Rituals",   "5 rituals due tomorrow",         "Morning pages, breathwork, evening review, and 2 more.",   "Tue"},
-                {false, "Vault",     "248 artifacts archived",         "Your vault is thriving. The rift is stable.",              "Sun"},
-                {false, "Deep Work", "2h 14m today \u00B7 new record", "You outran yesterday's session. Amber is holding the streak.", "Apr 13"},
-                {false, "Amber",     "Memory synced across rift",      "Your vault is up to date. Nothing was lost.",             "Apr 12"},
-              ].each_with_index do |(unread, sender, subject, preview, ts), idx|
+                {"Inbox", "12", true},
+                {"Rituals", nil, false},
+                {"Vault", nil, false},
+                {"Profile", nil, false},
+              ].each_with_index do |(label, badge, selected), idx|
                 if idx > 0
-                  ios_row_sep = UI::Divider.new(:horizontal)
-                  ios_row_sep.accessibility_label = "Message separator"
-                  ios_memories_content << ios_row_sep
+                  nav_stack << UI::Divider.new(:horizontal).as(UI::View)
                 end
 
-                ios_avatar = UI::Image.new("person.circle.fill")
-                ios_avatar.tint_color = ios_amber_gold
-                ios_avatar.minimum_width = 32.0
-                ios_avatar.minimum_height = 32.0
-                ios_avatar.content_mode = UI::ContentMode::Fit
-                ios_avatar.accessibility_label = "#{sender} avatar"
+                row = UI::HStack.new(spacing: 10.0)
+                row.padding = UI::EdgeInsets.new(top: 8.0, trailing: 4.0, bottom: 8.0, leading: 4.0)
+                row.background = UI::Color.new(r: 1.0, g: 0.678, b: 0.2, a: selected ? 0.16 : 0.0)
+                row.corner_radius = 8.0
 
-                ios_sender_lbl = UI::Label.new(sender)
-                ios_sender_lbl.font = UI::Font.new(size: 15.0, weight: unread ? :semibold : :regular)
-                ios_sender_lbl.accessibility_label = "From #{sender}"
+                icon = UI::Image.new(selected ? "tray.fill" : "square.grid.2x2")
+                icon.tint_color = selected ? ios_amber_gold : ios_gray_sec
+                icon.minimum_width = 16.0
+                icon.minimum_height = 16.0
+                row << icon.as(UI::View)
 
-                ios_subject_lbl = UI::Label.new(subject)
-                ios_subject_lbl.font = UI::Font.new(size: 13.0, weight: unread ? :semibold : :regular)
-                ios_subject_lbl.accessibility_label = "Subject: #{subject}"
+                name = UI::Label.new(label)
+                name.font = UI::Font.new(size: 15.0, weight: selected ? :semibold : :regular)
+                name.accessibility_label = "#{label} navigation item"
+                row << name.as(UI::View)
+                row << UI::Spacer.new.as(UI::View)
 
-                ios_preview_lbl = UI::Label.new(preview)
-                ios_preview_lbl.font = UI::Font.new(size: 12.0, weight: :regular)
-                ios_preview_lbl.text_color = ios_gray_sec
-                ios_preview_lbl.accessibility_label = "Preview"
+                if badge
+                  badge_lbl = UI::Label.new(badge)
+                  badge_lbl.font = UI::Font.new(size: 12.0, weight: :semibold)
+                  badge_lbl.text_color = ios_gray_sec
+                  row << badge_lbl.as(UI::View)
+                end
 
-                ios_text_col = UI::VStack.new(spacing: 1.0)
-                ios_text_col << ios_sender_lbl.as(UI::View)
-                ios_text_col << ios_subject_lbl.as(UI::View)
-                ios_text_col << ios_preview_lbl.as(UI::View)
-
-                ios_ts_lbl = UI::Label.new(ts)
-                ios_ts_lbl.font = UI::Font.new(size: 11.0, weight: :regular)
-                ios_ts_lbl.text_color = ios_gray_sec
-                ios_ts_lbl.accessibility_label = "Received #{ts}"
-
-                ios_msg_row = UI::HStack.new(spacing: 8.0)
-                ios_msg_row << ios_avatar.as(UI::View)
-                ios_msg_row << ios_text_col.as(UI::View)
-                ios_msg_row << UI::Spacer.new.as(UI::View)
-                ios_msg_row << ios_ts_lbl.as(UI::View)
-                ios_msg_row.minimum_height = 68.0
-                ios_msg_row.padding = UI::EdgeInsets.new(top: 10.0, trailing: 16.0, bottom: 10.0, leading: 16.0)
-                ios_msg_row.accessibility_label = "Message from #{sender}: #{subject}"
-                ios_memories_content << ios_msg_row
+                nav_stack << row.as(UI::View)
               end
+              sidebar_shell << nav_stack.as(UI::View)
 
-              ios_rituals_content = UI::VStack.new(spacing: 8.0)
-              ios_rit_lbl = UI::Label.new("Rituals")
-              ios_rit_lbl.font = UI::Font.new(size: 17.0, weight: :semibold)
-              ios_rit_lbl.accessibility_label = "Rituals tab content"
-              ios_rituals_content << ios_rit_lbl.as(UI::View)
+              preview_title = UI::Label.new("Inbox preview")
+              preview_title.font = UI::Font.new(size: 15.0, weight: :semibold)
+              preview_title.accessibility_label = "Sidebar preview title"
+              sidebar_shell << preview_title.as(UI::View)
 
-              ios_vault_content = UI::VStack.new(spacing: 8.0)
-              ios_vlt_lbl = UI::Label.new("Vault")
-              ios_vlt_lbl.font = UI::Font.new(size: 17.0, weight: :semibold)
-              ios_vlt_lbl.accessibility_label = "Vault tab content"
-              ios_vault_content << ios_vlt_lbl.as(UI::View)
+              preview_body = UI::Label.new("Selected destination. Calm rhythm.")
+              preview_body.font = UI::Font.new(size: 12.0, weight: :regular)
+              preview_body.text_color = ios_gray_sec
+              preview_body.accessibility_label = "Sidebar preview body"
+              sidebar_shell << preview_body.as(UI::View)
 
-              ios_profile_content = UI::VStack.new(spacing: 8.0)
-              ios_pro_lbl = UI::Label.new("Profile")
-              ios_pro_lbl.font = UI::Font.new(size: 17.0, weight: :semibold)
-              ios_pro_lbl.accessibility_label = "Profile tab content"
-              ios_profile_content << ios_pro_lbl.as(UI::View)
-
-              ios_tabview = UI::TabView.new(
-                tabs: [
-                  UI::TabView::Tab.new(label: "Memories", icon: "tray.fill",          content: ios_memories_content.as(UI::View)),
-                  UI::TabView::Tab.new(label: "Rituals",  icon: "sparkles",            content: ios_rituals_content.as(UI::View)),
-                  UI::TabView::Tab.new(label: "Vault",    icon: "shippingbox",         content: ios_vault_content.as(UI::View)),
-                  UI::TabView::Tab.new(label: "Profile",  icon: "person.crop.circle",  content: ios_profile_content.as(UI::View)),
-                ],
-                selected_index: 0
-              )
-              ios_tabview.selected_tint_color = ios_amber_gold
-              ios_tabview.glass_bar = true
-              ios_tabview.bar_position = :bottom
-              # Full-viewport sizing: forces the build_focal VStack wrapper to
-              # expand to screen dimensions so the tab bar anchors to the bottom.
-              # Without this, UIStackView sizes to intrinsic content width (~35%).
-              ios_tabview.minimum_width  = 375.0
-              ios_tabview.minimum_height = 812.0
-              ios_tabview.maximum_width  = 375.0
-              ios_tabview.maximum_height = 812.0
-              # Background: resolve dark vs light to eliminate the 20pt peach/amber
-              # band at viewport top + bottom (June R3). The band appears because the
-              # outer build_focal VStack has 16pt spacing which shows the window
-              # background. Setting the TabView background to match the system dark
-              # base surface covers the gap. Use a single solid background rather than
-              # the peach amber token that is visible behind the content area.
-              # Dark: #1C1C1E (UIColor.systemBackground in dark, near-black).
-              # Light: transparent (no override -- UITabBarController's default).
-              ios_tabs_raw = LibC.getenv("TEST_RUNNER_HIG_APPEARANCE")
-              ios_tabs_is_dark = !ios_tabs_raw.null? && String.new(ios_tabs_raw) == "dark"
-              if ios_tabs_is_dark
-                ios_tabview.background = UI::Color.new(r: 0.11, g: 0.11, b: 0.118, a: 1.0)
-              end
-              ios_tabview.accessibility_label = "Amber tab bar navigation"
-              ios_tabview.as(UI::View)
-
-              # iOS sidebars render as a tab bar (see above). The ios_tabview
-              # is the return value for this slug on iPhone.
+              sidebar_shell.as(UI::View)
 
             when "split-views"
               # HIG: "A split view manages the presentation of multiple adjacent
@@ -1864,136 +1809,109 @@ module CrystalHIGHost::Bridge
               #
               # On iPhone (compact width) a NavigationSplitView collapses to a
               # NavigationStack showing one pane at a time. The iOS capture shows
-              # the first pane (sidebar/navigation) with a "Compact width — single
-              # pane" annotation label at the top, then the message list below as
-              # the second pane content (simulated inline since iOS collapses to
-              # stack navigation in compact width). This is HIG-correct: "Prefer
-              # using a split view in a regular — not compact — environment."
-              #
-              # The three panes are rendered sequentially in a VStack (stacked
-              # vertically on iPhone, as iOS would show them one at a time in a
-              # real NavigationSplitView in compact). A visible Divider between
-              # panes stands in for the column-width transition.
+              # the first pane (sidebar/navigation) with a compact summary,
+              # then the list and detail below as a clear stacked adaptation
+              # of the divided layout. Keep the copy short so the columns stay
+              # inside the frame and read like a product sample.
 
-              # Compact annotation
-              ios_sv_annotation = UI::Label.new("Compact width -- single-pane collapse")
-              ios_sv_annotation.font = UI::Font.new(size: 12.0, weight: :regular)
-              ios_sv_annotation.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-              ios_sv_annotation.accessibility_label = "Compact width single pane collapse annotation"
+              ios_sv_outer = UI::VStack.new(spacing: 8.0)
+              ios_sv_outer.alignment = UI::Alignment::Leading
+              ios_sv_outer.maximum_width = 300.0
 
-              # Pane 1: Sidebar navigation list
-              ios_sv_mb_hdr = UI::Label.new("MAILBOXES")
-              ios_sv_mb_hdr.font = UI::Font.new(size: 11.0, weight: :semibold)
-              ios_sv_mb_hdr.text_color = UI::Color.new(r: 0.6, g: 0.6, b: 0.6)
-              ios_sv_mb_hdr.accessibility_label = "Mailboxes section header"
+              ios_sv_title = UI::Label.new("Split view")
+              ios_sv_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_sv_title.accessibility_label = "Split view title"
+              ios_sv_outer << ios_sv_title.as(UI::View)
 
-              ios_sv_inbox_row = UI::HStack.new(spacing: 8.0)
-              ios_sv_inbox_icon = UI::Image.new("envelope")
-              ios_sv_inbox_icon.tint_color = UI::Color.new(r: 0.0, g: 0.478, b: 1.0)
-              ios_sv_inbox_icon.accessibility_label = "Envelope icon"
-              ios_sv_inbox_lbl = UI::Label.new("Inbox")
-              ios_sv_inbox_lbl.font = UI::Font.new(size: 17.0, weight: :semibold)
-              ios_sv_inbox_lbl.accessibility_label = "Inbox, selected"
-              ios_sv_inbox_badge = UI::Label.new("12")
-              ios_sv_inbox_badge.font = UI::Font.new(size: 14.0, weight: :semibold)
-              ios_sv_inbox_badge.text_color = UI::Color.new(r: 0.6, g: 0.6, b: 0.6)
-              ios_sv_inbox_badge.accessibility_label = "12 unread"
-              ios_sv_inbox_sp = UI::Spacer.new
-              ios_sv_inbox_row << ios_sv_inbox_icon
-              ios_sv_inbox_row << ios_sv_inbox_lbl
-              ios_sv_inbox_row << ios_sv_inbox_sp
-              ios_sv_inbox_row << ios_sv_inbox_badge
-              ios_sv_inbox_row.accessibility_label = "Inbox navigation row"
+              ios_sv_sub = UI::Label.new("Compact flow")
+              ios_sv_sub.font = UI::Font.new(size: 11.0, weight: :regular)
+              ios_sv_sub.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+              ios_sv_sub.accessibility_label = "Split view subtitle"
+              ios_sv_outer << ios_sv_sub.as(UI::View)
 
-              ios_sv_flagged_row = UI::HStack.new(spacing: 8.0)
-              ios_sv_flag_icon = UI::Image.new("flag")
-              ios_sv_flag_icon.tint_color = UI::Color.new(r: 1.0, g: 0.584, b: 0.0)
-              ios_sv_flag_icon.accessibility_label = "Flag icon"
-              ios_sv_flagged_lbl = UI::Label.new("Flagged")
-              ios_sv_flagged_lbl.font = UI::Font.new(size: 17.0, weight: :regular)
-              ios_sv_flagged_lbl.accessibility_label = "Flagged"
-              ios_sv_flagged_row << ios_sv_flag_icon
-              ios_sv_flagged_row << ios_sv_flagged_lbl
-              ios_sv_flagged_row.accessibility_label = "Flagged navigation row"
-
-              ios_sv_sidebar_pane = UI::VStack.new(spacing: 0.0)
-              ios_sv_sidebar_pane << ios_sv_mb_hdr
-              ios_sv_sidebar_pane << ios_sv_inbox_row
-              ios_sv_sidebar_pane << ios_sv_flagged_row
-              ios_sv_sidebar_pane.accessibility_label = "Sidebar pane"
-
-              # Pane separator
-              ios_sv_sep_a = UI::Divider.new
-              ios_sv_sep_a.accessibility_label = "Pane separator: sidebar to list"
-
-              # Pane 2: Message list
-              ios_sv_list_hdr = UI::Label.new("Inbox")
-              ios_sv_list_hdr.font = UI::Font.new(size: 17.0, weight: :semibold)
-              ios_sv_list_hdr.accessibility_label = "Inbox list header"
-
-              ios_sv_list_pane = UI::VStack.new(spacing: 0.0)
-              ios_sv_list_pane << ios_sv_list_hdr
+              sidebar_stack = UI::VStack.new(spacing: 0.0)
+              sidebar_stack.padding = UI::EdgeInsets.new(top: 8.0, trailing: 10.0, bottom: 8.0, leading: 10.0)
+              sidebar_stack.background = UI::Color.new(r: 0.96, g: 0.92, b: 0.86, a: 0.72)
+              sidebar_stack.corner_radius = 10.0
               [
-                {"Alice Martin", "Quarterly report", "Hi, please find the Q1 numbers..."},
-                {"Bob Chen", "Re: Meeting notes", "Thanks for sending those. I reviewed..."},
-                {"Carol Davis", "Weekend plans", "Are you free Saturday? We're thinking..."},
+                {"Inbox", "12", true},
+                {"Rituals", nil, false},
+                {"Vault", nil, false},
+              ].each_with_index do |(label, badge, selected), idx|
+                if idx > 0
+                  sidebar_stack << UI::Divider.new(:horizontal).as(UI::View)
+                end
+
+                row = UI::HStack.new(spacing: 10.0)
+                row.padding = UI::EdgeInsets.new(top: 7.0, trailing: 4.0, bottom: 7.0, leading: 4.0)
+                row.background = UI::Color.new(r: 1.0, g: 0.678, b: 0.2, a: selected ? 0.16 : 0.0)
+                row.corner_radius = 8.0
+
+                dot = UI::Image.new(selected ? "circle.fill" : "circle")
+                dot.tint_color = selected ? UI::Color.new(r: 1.0, g: 0.678, b: 0.2) : UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+                dot.minimum_width = 12.0
+                dot.minimum_height = 12.0
+                row << dot.as(UI::View)
+
+                lbl = UI::Label.new(label)
+                lbl.font = UI::Font.new(size: 14.0, weight: selected ? :semibold : :regular)
+                row << lbl.as(UI::View)
+                row << UI::Spacer.new.as(UI::View)
+
+                if badge
+                  badge_lbl = UI::Label.new(badge)
+                  badge_lbl.font = UI::Font.new(size: 11.0, weight: :semibold)
+                  badge_lbl.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+                  row << badge_lbl.as(UI::View)
+                end
+
+                sidebar_stack << row.as(UI::View)
+              end
+              ios_sv_outer << sidebar_stack.as(UI::View)
+
+              list_stack = UI::VStack.new(spacing: 5.0)
+              list_stack.padding = UI::EdgeInsets.new(top: 7.0, trailing: 9.0, bottom: 7.0, leading: 9.0)
+              list_stack.background = UI::Color.new(r: 0.96, g: 0.92, b: 0.86, a: 0.68)
+              list_stack.corner_radius = 10.0
+              list_hdr = UI::Label.new("Inbox list")
+              list_hdr.font = UI::Font.new(size: 14.0, weight: :semibold)
+              list_stack << list_hdr.as(UI::View)
+              [
+                {"Alice Martin", "Quarterly report", "Q1 numbers ready."},
               ].each_with_index do |(sender, subject, preview), idx|
                 if idx > 0
-                  ios_sv_list_pane << UI::Divider.new
+                  list_stack << UI::Divider.new(:horizontal).as(UI::View)
                 end
-                ios_msg_row = UI::VStack.new(spacing: 2.0)
-                ios_msg_sender = UI::Label.new(sender)
-                ios_msg_sender.font = UI::Font.new(size: 15.0, weight: :semibold)
-                ios_msg_sender.accessibility_label = "Sender #{sender}"
-                ios_msg_subject = UI::Label.new(subject)
-                ios_msg_subject.font = UI::Font.new(size: 14.0, weight: :regular)
-                ios_msg_subject.accessibility_label = "Subject #{subject}"
-                ios_msg_preview = UI::Label.new(preview)
-                ios_msg_preview.font = UI::Font.new(size: 12.0, weight: :regular)
-                ios_msg_preview.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-                ios_msg_preview.accessibility_label = "Preview"
-                ios_msg_row << ios_msg_sender
-                ios_msg_row << ios_msg_subject
-                ios_msg_row << ios_msg_preview
-                ios_msg_row.accessibility_label = "Message from #{sender}"
-                ios_sv_list_pane << ios_msg_row
+                row = UI::VStack.new(spacing: 2.0)
+                sender_lbl = UI::Label.new(sender)
+                sender_lbl.font = UI::Font.new(size: 13.0, weight: :semibold)
+                subject_lbl = UI::Label.new(subject)
+                subject_lbl.font = UI::Font.new(size: 12.0, weight: :regular)
+                preview_lbl = UI::Label.new(preview)
+                preview_lbl.font = UI::Font.new(size: 11.0, weight: :regular)
+                preview_lbl.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+                row << sender_lbl.as(UI::View)
+                row << subject_lbl.as(UI::View)
+                row << preview_lbl.as(UI::View)
+                list_stack << row.as(UI::View)
               end
-              ios_sv_list_pane.accessibility_label = "Message list pane"
+              ios_sv_outer << list_stack.as(UI::View)
 
-              # Pane separator
-              ios_sv_sep_b = UI::Divider.new
-              ios_sv_sep_b.accessibility_label = "Pane separator: list to detail"
+              detail_stack = UI::VStack.new(spacing: 5.0)
+              detail_stack.padding = UI::EdgeInsets.new(top: 7.0, trailing: 9.0, bottom: 7.0, leading: 9.0)
+              detail_stack.background = UI::Color.new(r: 0.96, g: 0.92, b: 0.86, a: 0.68)
+              detail_stack.corner_radius = 10.0
+              detail_hdr = UI::Label.new("Message detail")
+              detail_hdr.font = UI::Font.new(size: 14.0, weight: :semibold)
+              detail_stack << detail_hdr.as(UI::View)
+              detail_from = UI::Label.new("From Alice Martin")
+              detail_from.font = UI::Font.new(size: 12.0, weight: :regular)
+              detail_subject = UI::Label.new("Quarterly report")
+              detail_subject.font = UI::Font.new(size: 12.0, weight: :semibold)
+              detail_stack << detail_from.as(UI::View)
+              detail_stack << detail_subject.as(UI::View)
+              ios_sv_outer << detail_stack.as(UI::View)
 
-              # Pane 3: Detail
-              ios_sv_detail_from = UI::Label.new("From: Alice Martin <alice@example.com>")
-              ios_sv_detail_from.font = UI::Font.new(size: 13.0, weight: :regular)
-              ios_sv_detail_from.accessibility_label = "From Alice Martin"
-              ios_sv_detail_subject = UI::Label.new("Subject: Quarterly report")
-              ios_sv_detail_subject.font = UI::Font.new(size: 13.0, weight: :semibold)
-              ios_sv_detail_subject.accessibility_label = "Subject Quarterly report"
-              ios_sv_detail_sep = UI::Divider.new
-              ios_sv_detail_sep.accessibility_label = "Message header separator"
-              ios_sv_detail_body = UI::Label.new("Hi, please find the Q1 numbers attached. Revenue was up 12% YoY and operating margin improved by 2.4 points.\n\n-- Alice")
-              ios_sv_detail_body.font = UI::Font.new(size: 14.0, weight: :regular)
-              ios_sv_detail_body.accessibility_label = "Message body"
-
-              ios_sv_detail_pane = UI::VStack.new(spacing: 8.0)
-              ios_sv_detail_pane << ios_sv_detail_from
-              ios_sv_detail_pane << ios_sv_detail_subject
-              ios_sv_detail_pane << ios_sv_detail_sep
-              ios_sv_detail_pane << ios_sv_detail_body
-              ios_sv_detail_pane.accessibility_label = "Message detail pane"
-
-              # Outer container: all three panes stacked vertically on iPhone
-              # (compact collapse). Each pane is separated by a Divider.
-              ios_sv_outer = UI::VStack.new(spacing: 0.0)
-              ios_sv_outer << ios_sv_annotation
-              ios_sv_outer << ios_sv_sidebar_pane
-              ios_sv_outer << ios_sv_sep_a
-              ios_sv_outer << ios_sv_list_pane
-              ios_sv_outer << ios_sv_sep_b
-              ios_sv_outer << ios_sv_detail_pane
-              ios_sv_outer.accessibility_label = "3-pane split view compact collapse"
               ios_sv_outer.as(UI::View)
 
             when "sheets"
@@ -2588,9 +2506,21 @@ HTML
               # HIG: "A page control displays a row of indicator images, each of
               # which represents a page in a flat list." — Page controls, abstract.
               # UIPageControl on iOS 26. 5 pages, current = 2 (third dot filled).
-              ios_pc_outer = UI::VStack.new(spacing: 16.0)
+              ios_pc_outer = UI::VStack.new(spacing: 10.0)
+              ios_pc_outer.alignment = UI::Alignment::Center
 
-              ios_pc_label1 = UI::Label.new("Default (system, page 3 of 5):")
+              ios_pc_title = UI::Label.new("Pages")
+              ios_pc_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_pc_title.accessibility_label = "Page control study title"
+              ios_pc_outer << ios_pc_title.as(UI::View)
+
+              ios_pc_sub = UI::Label.new("Amber marks the spot")
+              ios_pc_sub.font = UI::Font.new(size: 12.0, weight: :regular)
+              ios_pc_sub.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+              ios_pc_sub.accessibility_label = "Page control study subtitle"
+              ios_pc_outer << ios_pc_sub.as(UI::View)
+
+              ios_pc_label1 = UI::Label.new("Default")
               ios_pc_label1.accessibility_label = "Default page control label"
               ios_pc_outer << ios_pc_label1
 
@@ -2598,7 +2528,7 @@ HTML
               ios_pc.accessibility_label = "Page 3 of 5"
               ios_pc_outer << ios_pc
 
-              ios_pc_label2 = UI::Label.new("Tinted (brand orange, page 1 of 5):")
+              ios_pc_label2 = UI::Label.new("Amber")
               ios_pc_label2.accessibility_label = "Tinted page control label"
               ios_pc_outer << ios_pc_label2
 
