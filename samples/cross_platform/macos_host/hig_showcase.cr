@@ -107,6 +107,7 @@ require "../../../src/ui/validation_scenes"
     "search-fields" => "ambient",
     "labels"        => "ambient",
     "boxes"         => "ambient",
+    "outline-views" => "ambient",
     "path-controls" => "ambient",
     "maps"          => "ambient",
     "playing-video" => "ambient",
@@ -3076,42 +3077,174 @@ HTML
       outer.as(UI::View)
     when "path-controls"
       # HIG path controls display a filesystem path as icon-and-name segments.
-      # macOS supports both the standard breadcrumb style and the pop-up style.
+      # The shared screenshot renderer currently stacks PathControl segments
+      # vertically in validation mode, so the study composes the breadcrumb
+      # hierarchy directly to keep the macOS capture Finder-like and compact.
       outer = UI::VStack.new(spacing: 12.0)
       outer.alignment = UI::Alignment::Leading
-      outer.minimum_width = 420.0
-      outer.maximum_width = 420.0
+      outer.minimum_width = 404.0
+      outer.maximum_width = 404.0
 
-      repo_file = File.expand_path("../../../README.md", __DIR__)
-      repo_parts = repo_file.split('/').reject(&.empty?)
-      standard = UI::PathControl.new
-      standard.minimum_width = 384.0
-      standard.maximum_width = 384.0
-      standard.accessibility_label = "Current project file path"
-      repo_parts.each_with_index do |part, index|
-        icon = index == repo_parts.size - 1 ? "doc" : "folder"
-        standard.add_component(part, icon: icon)
-      end
-      outer << standard
+      build_breadcrumb = ->(title : String, parts : Array(String), selected_at : Int32, trailing_popup : Bool) do
+        row_stack = UI::VStack.new(spacing: 6.0)
+        row_stack.alignment = UI::Alignment::Leading
 
-      guide_path = File.expand_path("../../../.claude/skills/apple-platform-guide", __DIR__)
-      guide_parts = guide_path.split('/').reject(&.empty?)
-      popup = UI::PathControl.new(style: UI::PathControlStyle::PopUp)
-      popup.minimum_width = 384.0
-      popup.maximum_width = 384.0
-      popup.accessibility_label = "Project guide path menu"
-      guide_parts.each do |part|
-        popup.add_component(part, icon: "folder")
+        title_label = UI::Label.new(title)
+        title_label.font = UI::Font.new(size: 11.0, weight: :semibold)
+        title_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+        row_stack << title_label.as(UI::View)
+
+        breadcrumb_row = UI::HStack.new(spacing: 6.0)
+        breadcrumb_row.alignment = UI::Alignment::Center
+
+        parts.each_with_index do |part, index|
+          if index > 0
+            crumb_separator = UI::Image.new("chevron.right")
+            crumb_separator.minimum_width = 10.0
+            crumb_separator.maximum_width = 10.0
+            crumb_separator.minimum_height = 10.0
+            crumb_separator.maximum_height = 10.0
+            crumb_separator.tint_color = UI::Color.new(r: 0.60, g: 0.60, b: 0.60)
+            crumb_separator.accessibility_label = "Path separator"
+            breadcrumb_row << crumb_separator.as(UI::View)
+          end
+
+          crumb_segment = UI::HStack.new(spacing: 4.0)
+          crumb_segment.alignment = UI::Alignment::Center
+
+          crumb_icon = UI::Image.new(index == selected_at ? "doc" : "folder")
+          crumb_icon.minimum_width = 14.0
+          crumb_icon.maximum_width = 14.0
+          crumb_icon.minimum_height = 14.0
+          crumb_icon.maximum_height = 14.0
+          crumb_icon.tint_color = UI::Color.new(r: 0.45, g: 0.45, b: 0.45)
+          crumb_icon.accessibility_label = "#{part} icon"
+
+          crumb_label = UI::Label.new(part)
+          crumb_label.font = UI::Font.new(size: 13.0, weight: index == selected_at ? :semibold : :regular)
+          crumb_label.text_color_role = index == selected_at ? UI::LabelRole::Primary : UI::LabelRole::Secondary
+          crumb_label.accessibility_label = part
+
+          crumb_segment << crumb_icon.as(UI::View)
+          crumb_segment << crumb_label.as(UI::View)
+          breadcrumb_row << crumb_segment.as(UI::View)
+        end
+
+        if trailing_popup
+          popup_glyph = UI::Image.new("chevron.up.chevron.down")
+          popup_glyph.minimum_width = 11.0
+          popup_glyph.maximum_width = 11.0
+          popup_glyph.minimum_height = 11.0
+          popup_glyph.maximum_height = 11.0
+          popup_glyph.tint_color = UI::Color.new(r: 0.60, g: 0.60, b: 0.60)
+          popup_glyph.accessibility_label = "Path menu"
+          breadcrumb_row << popup_glyph.as(UI::View)
+        end
+
+        row_stack << breadcrumb_row.as(UI::View)
+        row_stack.as(UI::View)
       end
-      outer << popup
+
+      outer << build_breadcrumb.call("Current file", ["asset_pipeline", "macos_host", "hig_showcase.cr"], 2, false)
+      outer << build_breadcrumb.call("Guide path", [".claude", "skills", "apple-platform-guide"], 2, true)
+
       path_card = UI::Card.new(outer.as(UI::View))
-      path_card.minimum_width = 468.0
-      path_card.maximum_width = 468.0
+      path_card.title = "Project paths"
+      path_card.minimum_width = 476.0
+      path_card.maximum_width = 476.0
       path_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
       path_card.is_outlined = true
       path_card.material = :secondary
       path_card.accessibility_label = "Path controls study card"
       path_card.as(UI::View)
+    when "outline-views"
+      # HIG outline views: a calm hierarchical tree with real selection state.
+      # This uses the new fallback primitive and leans into Finder-like
+      # repository navigation rather than an empty scaffold.
+      outline = UI::OutlineView.new
+      outline.row_spacing = 4.0
+      outline.indent_width = 16.0
+      outline.row_padding = UI::EdgeInsets.new(top: 5.0, trailing: 10.0, bottom: 5.0, leading: 10.0)
+      outline.viewport_width = 384.0
+      outline.viewport_height = 304.0
+      outline.shows_disclosure_glyphs = true
+
+      outline.add_root(
+        UI::OutlineView::Node.new(
+          "asset_pipeline",
+          "folder",
+          nil,
+          true,
+          [
+            UI::OutlineView::Node.new(
+              "samples",
+              "folder",
+              nil,
+              true,
+              [
+                UI::OutlineView::Node.new(
+                  "cross_platform",
+                  "folder",
+                  nil,
+                  true,
+                  [
+                    UI::OutlineView::Node.new("macos_host", "folder", nil, true, [
+                      UI::OutlineView::Node.new("hig_showcase.cr", "doc", nil, false, [] of UI::OutlineView::Node, true),
+                    ] of UI::OutlineView::Node),
+                    UI::OutlineView::Node.new("ios_host", "folder"),
+                  ] of UI::OutlineView::Node
+                ),
+              ] of UI::OutlineView::Node
+            ),
+            UI::OutlineView::Node.new(
+              "src",
+              "folder",
+              nil,
+              true,
+              [
+                UI::OutlineView::Node.new(
+                  "ui",
+                  "folder",
+                  nil,
+                  true,
+                  [
+                    UI::OutlineView::Node.new("views", "folder"),
+                    UI::OutlineView::Node.new("renderers", "folder"),
+                    UI::OutlineView::Node.new("validation_scenes", "folder"),
+                  ] of UI::OutlineView::Node
+                ),
+              ] of UI::OutlineView::Node
+            ),
+            UI::OutlineView::Node.new(
+              ".claude",
+              "folder",
+              nil,
+              true,
+              [
+                UI::OutlineView::Node.new(
+                  "skills",
+                  "folder",
+                  nil,
+                  true,
+                  [
+                    UI::OutlineView::Node.new("apple-platform-guide", "folder"),
+                  ] of UI::OutlineView::Node
+                ),
+              ] of UI::OutlineView::Node
+            ),
+          ] of UI::OutlineView::Node
+        )
+      )
+
+      outline_card = UI::Card.new(outline.as(UI::View))
+      outline_card.title = "Repository outline"
+      outline_card.minimum_width = 492.0
+      outline_card.maximum_width = 492.0
+      outline_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+      outline_card.is_outlined = true
+      outline_card.material = :secondary
+      outline_card.accessibility_label = "Outline view study card"
+      outline_card.as(UI::View)
     when "combo-boxes"
       # HIG: "A combo box combines a text field with a pull-down button in a
       # single control." — Combo boxes, abstract.
@@ -3410,7 +3543,8 @@ HTML
                     when "playing-video"       then 556.0
                     when "collections"         then 500.0
                     when "boxes"               then 460.0
-                    when "path-controls"       then 468.0
+                    when "path-controls"       then 448.0
+                    when "outline-views"       then 492.0
                     else                            420.0
                     end
       LibWindowHelper.objc_install_content_view_centered(cap_window, native.handle.ptr!, focal_max_w, 0.0)

@@ -70,6 +70,9 @@ mkdir -p "$SCREENSHOT_DIR" "$XCRESULT_DIR"
 
 resolve_simulator_device() {
     local devices_json result query
+    if [[ -n "$SIM_UDID" ]]; then
+        return 0
+    fi
     devices_json="$(xcrun simctl list devices available --json 2>/dev/null)" || \
         fail "Unable to query available simulators via simctl"
 

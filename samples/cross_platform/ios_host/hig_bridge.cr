@@ -127,6 +127,8 @@ module CrystalHIGHost::Bridge
     when "text-fields"
       centered_study_card(focal, card_width: 364.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
     when "path-controls"
+      centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
+    when "outline-views"
       centered_study_card(focal, card_width: 344.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
     else
       # If a scene is mapped for this slug, wrap it; otherwise return the plain focal.
@@ -145,7 +147,7 @@ module CrystalHIGHost::Bridge
   private def self.isolation_plate_slug?(slug : String) : Bool
     case slug
     when "boxes", "collections", "context-menus", "maps", "playing-video",
-         "progress-indicators", "text-fields", "path-controls"
+         "progress-indicators", "text-fields", "path-controls", "outline-views"
       true
     else
       false
@@ -2611,12 +2613,23 @@ HTML
               # falls back to a breadcrumb-style row on iOS so the component
               # remains inspectable in previews without pretending UIKit has a
               # native equivalent.
-              ios_path_outer = UI::VStack.new(spacing: 12.0)
+              ios_path_outer = UI::VStack.new(spacing: 10.0)
               ios_path_outer.alignment = UI::Alignment::Leading
 
+              ios_path_hdr = UI::Label.new("Export path")
+              ios_path_hdr.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_path_hdr.accessibility_label = "Path controls heading"
+              ios_path_outer << ios_path_hdr.as(UI::View)
+
+              ios_path_sub = UI::Label.new("Current location")
+              ios_path_sub.font = UI::Font.new(size: 12.0, weight: :regular)
+              ios_path_sub.text_color_role = UI::LabelRole::Secondary
+              ios_path_sub.accessibility_label = "Current location label"
+              ios_path_outer << ios_path_sub.as(UI::View)
+
               ios_standard = UI::PathControl.new
-              ios_standard.minimum_width = 304.0
-              ios_standard.maximum_width = 304.0
+              ios_standard.minimum_width = 280.0
+              ios_standard.maximum_width = 280.0
               ios_standard.accessibility_label = "Current export destination path"
               ios_standard.add_component("Applications", icon: "folder")
               ios_standard.add_component("Amber", icon: "app")
@@ -2624,9 +2637,15 @@ HTML
               ios_standard.add_component("Autumn Ritual.pdf", icon: "doc")
               ios_path_outer << ios_standard
 
+              ios_path_hint = UI::Label.new("Recent locations")
+              ios_path_hint.font = UI::Font.new(size: 12.0, weight: :regular)
+              ios_path_hint.text_color_role = UI::LabelRole::Secondary
+              ios_path_hint.accessibility_label = "Recent locations label"
+              ios_path_outer << ios_path_hint.as(UI::View)
+
               ios_popup = UI::PathControl.new(style: UI::PathControlStyle::PopUp)
-              ios_popup.minimum_width = 284.0
-              ios_popup.maximum_width = 284.0
+              ios_popup.minimum_width = 256.0
+              ios_popup.maximum_width = 256.0
               ios_popup.accessibility_label = "Recent export locations path menu"
               ios_popup.add_component("Library", icon: "folder")
               ios_popup.add_component("Templates", icon: "folder")
@@ -2634,6 +2653,49 @@ HTML
               ios_path_outer << ios_popup
 
               ios_path_outer.as(UI::View)
+            when "outline-views"
+              # HIG outline views: a compact hierarchical browser that keeps
+              # the selected branch readable without turning into a blank demo
+              # canvas. Use the fallback primitive directly so the iOS study
+              # matches the same node model the shared renderer uses.
+              outline = UI::OutlineView.new
+              outline.viewport_width = 304.0
+              outline.viewport_height = 248.0
+              outline.row_spacing = 2.0
+              outline.indent_width = 14.0
+              outline.row_padding = UI::EdgeInsets.new(top: 5.0, trailing: 8.0, bottom: 5.0, leading: 8.0)
+              outline.shows_disclosure_glyphs = true
+              outline.accessibility_label = "Project outline"
+
+              inbox = UI::OutlineView::Node.new("Inbox", "tray", "12", true, [] of UI::OutlineView::Node, false)
+              drafts = UI::OutlineView::Node.new("Drafts", "doc.text", "3", true, [] of UI::OutlineView::Node, true)
+              drafts.add_child(UI::OutlineView::Node.new("Landing page", "square.and.pencil", nil, false, [] of UI::OutlineView::Node, false))
+              drafts.add_child(UI::OutlineView::Node.new("Release notes", "note.text", nil, false, [] of UI::OutlineView::Node, false))
+
+              archive = UI::OutlineView::Node.new("Archive", "archivebox", nil, true, [] of UI::OutlineView::Node, false)
+              archive.add_child(UI::OutlineView::Node.new("2025", "folder", nil, false, [] of UI::OutlineView::Node, false))
+              archive.add_child(UI::OutlineView::Node.new("Shared", "person.2", nil, false, [] of UI::OutlineView::Node, false))
+
+              outline.add_root(inbox)
+              outline.add_root(drafts)
+              outline.add_root(archive)
+
+              outline_outer = UI::VStack.new(spacing: 10.0)
+              outline_outer.alignment = UI::Alignment::Leading
+
+              outline_title = UI::Label.new("Project Amber")
+              outline_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              outline_title.accessibility_label = "Outline study title"
+              outline_outer << outline_title.as(UI::View)
+
+              outline_subtitle = UI::Label.new("Navigation sample")
+              outline_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+              outline_subtitle.text_color_role = UI::LabelRole::Secondary
+              outline_subtitle.accessibility_label = "Outline study subtitle"
+              outline_outer << outline_subtitle.as(UI::View)
+
+              outline_outer << outline.as(UI::View)
+              outline_outer.as(UI::View)
             when "combo-boxes"
               # HIG Platform considerations: "Not supported in iOS, iPadOS,
               # tvOS, visionOS, or watchOS."
