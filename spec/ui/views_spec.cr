@@ -192,6 +192,10 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "MenuButton(#{view.label})"
   end
 
+  def visit(view : UI::ContextMenu)
+    @visited << "ContextMenu(#{view.items.size})"
+  end
+
   def visit(view : UI::ToggleButton)
     @visited << "ToggleButton(#{view.label})"
   end
@@ -225,6 +229,10 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "PathView"
   end
 
+  def visit(view : UI::PathControl)
+    @visited << "PathControl(#{view.path_string})"
+  end
+
   def visit(view : UI::MapView)
     @visited << "MapView"
   end
@@ -247,6 +255,26 @@ class TestVisitor < UI::PlatformVisitor
 
   def visit(view : UI::Tooltip)
     @visited << "Tooltip"
+  end
+
+  def visit(view : UI::ActivityView)
+    @visited << "ActivityView"
+  end
+
+  def visit(view : UI::DisclosureGroup)
+    @visited << "DisclosureGroup(#{view.title})"
+  end
+
+  def visit(view : UI::PageControl)
+    @visited << "PageControl(#{view.current}/#{view.total})"
+  end
+
+  def visit(view : UI::ComboBox)
+    @visited << "ComboBox(#{view.value})"
+  end
+
+  def visit(view : UI::RatingIndicator)
+    @visited << "RatingIndicator(#{view.value})"
   end
 end
 
@@ -1927,6 +1955,32 @@ describe UI::MenuButton do
   end
 end
 
+describe UI::ContextMenu do
+  it "builds ordered menu items and separators" do
+    menu = UI::ContextMenu.new
+    menu.add_item("Duplicate", icon: "square.on.square")
+    menu.add_separator
+    menu.add_item("Delete", icon: "trash", is_destructive: true)
+
+    menu.items.size.should eq(3)
+    menu.items[0].should be_a(UI::ContextMenu::Item)
+    menu.items[1].should be_a(UI::ContextMenu::Separator)
+    destructive = menu.items[2].as(UI::ContextMenu::Item)
+    destructive.label.should eq("Delete")
+    destructive.is_destructive.should be_true
+  end
+
+  it "accepts visitor" do
+    v = TestVisitor.new
+    menu = UI::ContextMenu.new
+    menu.add_item("Share", icon: "square.and.arrow.up")
+    menu.add_separator
+    menu.add_item("Delete", icon: "trash", is_destructive: true)
+    menu.accept(v)
+    v.visited.should eq(["ContextMenu(3)"])
+  end
+end
+
 describe UI::ToggleButton do
   it "creates with defaults" do
     tb = UI::ToggleButton.new("Bold")
@@ -2276,6 +2330,34 @@ describe UI::PathView do
     p = UI::PathView.new
     p.accept(v)
     v.visited.should eq(["PathView"])
+  end
+end
+
+describe UI::PathControl do
+  it "builds a filesystem path string from components" do
+    control = UI::PathControl.new
+    control.add_component("Users", icon: "folder")
+    control.add_component("amber", icon: "person")
+    control.add_component("Drafts", icon: "doc")
+
+    control.path_string.should eq("/Users/amber/Drafts")
+    control.style.should eq(UI::PathControlStyle::Standard)
+    control.is_editable.should be_false
+  end
+
+  it "supports popup style" do
+    control = UI::PathControl.new(style: UI::PathControlStyle::PopUp)
+    control.add_component("Assets", icon: "folder")
+    control.style.should eq(UI::PathControlStyle::PopUp)
+  end
+
+  it "accepts visitor" do
+    v = TestVisitor.new
+    control = UI::PathControl.new
+    control.add_component("Library", icon: "folder")
+    control.add_component("Design", icon: "paintbrush")
+    control.accept(v)
+    v.visited.should eq(["PathControl(/Library/Design)"])
   end
 end
 

@@ -1407,6 +1407,46 @@ module UI
         end
       end
 
+      def visit(view : UI::ContextMenu)
+        el = Components::Elements::Div.new
+        el.set_attribute("role", "menu")
+        el.add_style("display: flex; flex-direction: column; min-width: 220px; padding: 8px; border: 1px solid rgba(60,60,67,0.18); border-radius: 12px; background: rgba(255,255,255,0.78); box-shadow: 0 12px 30px rgba(0,0,0,0.16)")
+
+        view.items.each do |entry|
+          case entry
+          when UI::ContextMenu::Separator
+            sep = Components::Elements::Div.new
+            sep.add_style("height: 1px; margin: 6px 0; background: rgba(60,60,67,0.18)")
+            el.add_child(sep)
+          when UI::ContextMenu::Item
+            row = Components::Elements::Div.new
+            row.set_attribute("role", "menuitem")
+            row.add_style("display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 10px; border-radius: 8px")
+            color = entry.is_destructive ? "#FF3B30" : "#111111"
+            color = "#8E8E93" if entry.is_disabled && !entry.is_destructive
+            row.add_style("color: #{color}")
+            if icon = entry.icon
+              icon_el = Components::Elements::Span.new
+              icon_el.set_attribute("aria-hidden", "true")
+              icon_el.add_style("display: inline-flex; width: 16px; justify-content: center; opacity: 0.78")
+              icon_el << icon
+              row.add_child(icon_el)
+            end
+            label_el = Components::Elements::Span.new
+            label_el << entry.label
+            row.add_child(label_el)
+            el.add_child(row)
+          end
+        end
+
+        apply_common_styles(el, view)
+        if parent = @element_stack.last?
+          parent.as(Components::Elements::ContainerElement).add_child(el)
+        else
+          @root = el
+        end
+      end
+
       def visit(view : UI::ToggleButton)
         el = Components::Elements::Button.new(type: "button")
         el.set_attribute("role", "switch")
@@ -1536,6 +1576,45 @@ module UI
         el.set_attribute("data-stroke", stroke_css)
         el.set_attribute("data-fill", fill_css)
         el.set_attribute("data-stroke-width", view.stroke_width.to_s)
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      def visit(view : UI::PathControl)
+        el = Components::Elements::Div.new
+        el.add_style("display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid rgba(60,60,67,0.18); border-radius: 10px; background: rgba(248,248,248,0.94)")
+
+        view.components.each_with_index do |component, index|
+          segment = Components::Elements::Span.new
+          segment.add_style("display: inline-flex; align-items: center; gap: 4px; color: #111111")
+          if icon = component.icon
+            icon_el = Components::Elements::Span.new
+            icon_el.set_attribute("aria-hidden", "true")
+            icon_el << icon
+            segment.add_child(icon_el)
+          end
+          name_el = Components::Elements::Span.new
+          name_el << component.name
+          segment.add_child(name_el)
+          el.add_child(segment)
+
+          next if index == view.components.size - 1
+
+          chevron = Components::Elements::Span.new
+          chevron.set_attribute("aria-hidden", "true")
+          chevron.add_style("color: rgba(60,60,67,0.6)")
+          chevron << ">"
+          el.add_child(chevron)
+        end
+
+        if view.style == UI::PathControlStyle::PopUp
+          popup = Components::Elements::Span.new
+          popup.set_attribute("aria-hidden", "true")
+          popup.add_style("margin-left: 2px; color: rgba(60,60,67,0.6)")
+          popup << "v"
+          el.add_child(popup)
+        end
+
         apply_common_styles(el, view)
         push_element(el)
       end

@@ -122,7 +122,7 @@ module CrystalHIGHost::Bridge
 
   private def self.isolation_plate_slug?(slug : String) : Bool
     case slug
-    when "boxes", "collections", "progress-indicators", "text-fields"
+    when "boxes", "collections", "progress-indicators", "text-fields", "path-controls"
       true
     else
       false
@@ -420,26 +420,22 @@ module CrystalHIGHost::Bridge
               ios_gallery.as(UI::View)
             when "context-menus"
               # HIG context menu content: task-specific commands revealed by
-              # long-press on iOS / iPadOS. HIG: "A context menu provides
-              # access to functionality that's directly related to an item,
-              # without cluttering the interface." Rendered inline as a
-              # VStack of the menu's items (NOT a dismissed MenuButton
-              # trigger) -- same pattern as alerts/action-sheets. Three
-              # groups separated by Dividers per HIG: "use separators to
-              # group items in a context menu and help people scan the menu
-              # more quickly." Delete is last per iOS destructive-item
-              # guidance: "list them at the end of the menu and identify
-              # them as destructive."
-              menu_content = UI::VStack.new(spacing: 4.0)
-              menu_content << UI::Button.new("Cut", symbol: "scissors")
-              menu_content << UI::Button.new("Copy", symbol: "doc.on.doc")
-              menu_content << UI::Button.new("Paste", symbol: "clipboard")
-              menu_content << UI::Divider.new(:horizontal)
-              menu_content << UI::Button.new("Share...", symbol: "square.and.arrow.up")
-              menu_content << UI::Button.new("Duplicate", symbol: "square.on.square")
-              menu_content << UI::Divider.new(:horizontal)
-              menu_content << UI::Button.new("Delete", role: :destructive, symbol: "trash")
-              UI::Sheet.new(menu_content.as(UI::View), surface_style: :grouped_card).as(UI::View)
+              # long-press on iOS / iPadOS. Use the dedicated UI::ContextMenu
+              # surface so the capture reflects full-width menu rows rather
+              # than a stack of separate buttons.
+              menu = UI::ContextMenu.new
+              menu.minimum_width = 260.0
+              menu.maximum_width = 260.0
+              menu.accessibility_label = "Selection context menu"
+              menu.add_item("Cut", icon: "scissors")
+              menu.add_item("Copy", icon: "doc.on.doc")
+              menu.add_item("Paste", icon: "clipboard")
+              menu.add_separator
+              menu.add_item("Share...", icon: "square.and.arrow.up")
+              menu.add_item("Duplicate", icon: "square.on.square")
+              menu.add_separator
+              menu.add_item("Delete", icon: "trash", is_destructive: true)
+              menu.as(UI::View)
             when "digit-entry-views"
               # HIG digit entry view: full-screen PIN / passcode entry.
               # HIG abstract: "A digit entry view fills the entire screen
@@ -2240,7 +2236,7 @@ module CrystalHIGHost::Bridge
               # HIG Color wells: swatch button showing current color.
               # HIG Best practices: "Consider the system-provided color picker for a
               # familiar experience."
-              # iOS renders UIView with background color (UIColorWell placeholder).
+              # iOS now renders a native UIColorWell.
               ios_outer = UI::VStack.new(spacing: 16.0)
 
               # Row 1: labeled red color well.
@@ -2324,6 +2320,33 @@ module CrystalHIGHost::Bridge
               ios_pc_outer << ios_pc_tinted
 
               ios_pc_outer.as(UI::View)
+            when "path-controls"
+              # HIG path controls are macOS-only. The shared UI::PathControl
+              # falls back to a breadcrumb-style row on iOS so the component
+              # remains inspectable in previews without pretending UIKit has a
+              # native equivalent.
+              ios_path_outer = UI::VStack.new(spacing: 14.0)
+
+              ios_standard = UI::PathControl.new
+              ios_standard.minimum_width = 320.0
+              ios_standard.maximum_width = 320.0
+              ios_standard.accessibility_label = "Current export destination path"
+              ios_standard.add_component("Applications", icon: "folder")
+              ios_standard.add_component("Amber", icon: "app")
+              ios_standard.add_component("Exports", icon: "folder")
+              ios_standard.add_component("Autumn Ritual.pdf", icon: "doc")
+              ios_path_outer << ios_standard
+
+              ios_popup = UI::PathControl.new(style: UI::PathControlStyle::PopUp)
+              ios_popup.minimum_width = 280.0
+              ios_popup.maximum_width = 280.0
+              ios_popup.accessibility_label = "Recent export locations path menu"
+              ios_popup.add_component("Library", icon: "folder")
+              ios_popup.add_component("Templates", icon: "folder")
+              ios_popup.add_component("Press Kits", icon: "doc.on.doc")
+              ios_path_outer << ios_popup
+
+              ios_path_outer.as(UI::View)
             when "combo-boxes"
               # HIG Platform considerations: "Not supported in iOS, iPadOS,
               # tvOS, visionOS, or watchOS."

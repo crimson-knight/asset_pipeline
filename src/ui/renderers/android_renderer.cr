@@ -1622,6 +1622,48 @@ module UI::Android
       emit(btn, "Button[menu]")
     end
 
+    def visit(view : UI::ContextMenu)
+      ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 1)
+      apply_common_properties(ll, view)
+
+      global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
+      handle = JNI.wrap_global(global_ll, label: "LinearLayout[context-menu]")
+      native = NativeView.new(handle)
+
+      view.items.each do |entry|
+        case entry
+        when UI::ContextMenu::Separator
+          sep = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+          LibAndroidBridge.android_view_set_background_color(@env, sep, 0x2E3C3C43)
+          sep_global = LibAndroidBridge.android_new_global_ref(@env, sep)
+          sep_handle = JNI.wrap_global(sep_global, label: "View[context-menu-separator]")
+          sep_native = NativeView.new(sep_handle)
+          native.add_child(sep_native)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, sep, -1, 1)
+        when UI::ContextMenu::Item
+          tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
+          LibAndroidBridge.android_textview_set_text(@env, tv, entry.label.to_unsafe, entry.label.bytesize)
+          color = if entry.is_destructive
+                    0xFFFF3B30_u32
+                  elsif entry.is_disabled
+                    0xFF8E8E93_u32
+                  else
+                    0xFF111111_u32
+                  end
+          LibAndroidBridge.android_textview_set_text_color(@env, tv, color.to_i32)
+          LibAndroidBridge.android_view_set_padding(@env, tv, 24, 18, 24, 18)
+          tv_global = LibAndroidBridge.android_new_global_ref(@env, tv)
+          tv_handle = JNI.wrap_global(tv_global, label: "TextView[context-menu-item]")
+          tv_native = NativeView.new(tv_handle)
+          native.add_child(tv_native)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, tv, -1, -2)
+        end
+      end
+
+      push_native(native, ll)
+    end
+
     def visit(view : UI::ToggleButton)
       btn = LibAndroidBridge.android_view_new(@env, "android/widget/ToggleButton", @context)
       LibAndroidBridge.android_textview_set_text(
@@ -1780,6 +1822,53 @@ module UI::Android
 
       apply_common_properties(v, view)
       emit(v, "View[path]")
+    end
+
+    def visit(view : UI::PathControl)
+      ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 0)
+      apply_common_properties(ll, view)
+
+      global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
+      handle = JNI.wrap_global(global_ll, label: "LinearLayout[path-control]")
+      native = NativeView.new(handle)
+
+      view.components.each_with_index do |component, index|
+        tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
+        LibAndroidBridge.android_textview_set_text(@env, tv, component.name.to_unsafe, component.name.bytesize)
+        LibAndroidBridge.android_textview_set_text_color(@env, tv, 0xFF111111_u32.to_i32)
+        tv_global = LibAndroidBridge.android_new_global_ref(@env, tv)
+        tv_handle = JNI.wrap_global(tv_global, label: "TextView[path-control-segment]")
+        tv_native = NativeView.new(tv_handle)
+        native.add_child(tv_native)
+        LibAndroidBridge.android_viewgroup_add_view(@env, ll, tv)
+
+        next if index == view.components.size - 1
+
+        chevron = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
+        glyph = ">"
+        LibAndroidBridge.android_textview_set_text(@env, chevron, glyph.to_unsafe, glyph.bytesize)
+        LibAndroidBridge.android_textview_set_text_color(@env, chevron, 0xFF8E8E93_u32.to_i32)
+        chevron_global = LibAndroidBridge.android_new_global_ref(@env, chevron)
+        chevron_handle = JNI.wrap_global(chevron_global, label: "TextView[path-control-chevron]")
+        chevron_native = NativeView.new(chevron_handle)
+        native.add_child(chevron_native)
+        LibAndroidBridge.android_viewgroup_add_view(@env, ll, chevron)
+      end
+
+      if view.style == UI::PathControlStyle::PopUp
+        popup = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
+        glyph = "v"
+        LibAndroidBridge.android_textview_set_text(@env, popup, glyph.to_unsafe, glyph.bytesize)
+        LibAndroidBridge.android_textview_set_text_color(@env, popup, 0xFF8E8E93_u32.to_i32)
+        popup_global = LibAndroidBridge.android_new_global_ref(@env, popup)
+        popup_handle = JNI.wrap_global(popup_global, label: "TextView[path-control-popup]")
+        popup_native = NativeView.new(popup_handle)
+        native.add_child(popup_native)
+        LibAndroidBridge.android_viewgroup_add_view(@env, ll, popup)
+      end
+
+      push_native(native, ll)
     end
 
     # MapView: android.view.View placeholder (com.google.android.gms.maps.MapView

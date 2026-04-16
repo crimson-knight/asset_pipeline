@@ -62,6 +62,7 @@ module UI
     abstract def visit(view : RichText)
     abstract def visit(view : LinkButton)
     abstract def visit(view : MenuButton)
+    abstract def visit(view : ContextMenu)
     abstract def visit(view : ToggleButton)
     abstract def visit(view : TextEditor)
     # P3 Stubs
@@ -71,6 +72,7 @@ module UI
     abstract def visit(view : Capsule)
     abstract def visit(view : Canvas)
     abstract def visit(view : PathView)
+    abstract def visit(view : PathControl)
     abstract def visit(view : MapView)
     abstract def visit(view : ChartView)
     abstract def visit(view : WebViewComponent)

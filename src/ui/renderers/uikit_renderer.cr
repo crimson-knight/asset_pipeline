@@ -3288,6 +3288,140 @@ module UI::UIKit
       end
     end
 
+    def visit(view : UI::ContextMenu)
+      glass_cls = LibObjCBridge.objc_getClass("UIGlassEffect")
+      blur_effect = if !glass_cls.null?
+                      LibObjCBridge.objc_send(
+                        LibObjCBridge.objc_send(glass_cls, sel("alloc")),
+                        sel("init"))
+                    else
+                      ublur_cls = LibObjCBridge.objc_getClass("UIBlurEffect")
+                      LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), 11_i64)
+                    end
+
+      uveff_cls = LibObjCBridge.objc_getClass("UIVisualEffectView")
+      effect_alloc = LibObjCBridge.objc_send(uveff_cls, sel("alloc"))
+      effect = LibObjCBridge.objc_send_id(effect_alloc, sel("initWithEffect:"), blur_effect)
+      LibObjCBridge.objc_send_bool(effect, sel("setClipsToBounds:"), 1)
+
+      effect_layer = LibObjCBridge.objc_send(effect, sel("layer"))
+      unless effect_layer.null?
+        LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), 14.0)
+        LibObjCBridge.objc_send_bool(effect_layer, sel("setMasksToBounds:"), 1)
+      end
+
+      inner = alloc_init("UIStackView")
+      LibObjCBridge.objc_send_long(inner, sel("setAxis:"), 1_i64)
+      LibObjCBridge.objc_send_1d(inner, sel("setSpacing:"), 0.0)
+      LibObjCBridge.objc_send_long(inner, sel("setAlignment:"), 0_i64)
+      insets = LibObjCBridge::CGRect.new(x: 8.0, y: 10.0, width: 8.0, height: 10.0)
+      LibObjCBridge.objc_send_rect_void(inner, sel("setLayoutMargins:"), insets)
+      LibObjCBridge.objc_send_bool(inner, sel("setLayoutMarginsRelativeArrangement:"), 1)
+      LibObjCBridge.objc_send_bool(inner, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+
+      content_view = LibObjCBridge.objc_send(effect, sel("contentView"))
+      anchor_host = if content_view.null?
+                      LibObjCBridge.objc_add_subview(effect, inner)
+                      effect
+                    else
+                      LibObjCBridge.objc_add_subview(content_view, inner)
+                      content_view
+                    end
+
+      %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anchor_sel|
+        inner_anchor = LibObjCBridge.objc_send(inner, sel(anchor_sel))
+        host_anchor = LibObjCBridge.objc_send(anchor_host, sel(anchor_sel))
+        next if inner_anchor.null? || host_anchor.null?
+        constraint = LibObjCBridge.objc_send_id(inner_anchor, sel("constraintEqualToAnchor:"), host_anchor)
+        LibObjCBridge.objc_send_bool(constraint, sel("setActive:"), 1) unless constraint.null?
+      end
+
+      inner_handle = ObjC.borrowed(inner, label: "UIStackView[context-menu-inner]")
+      inner_native = NativeView.new(inner_handle)
+
+      uicolor_cls = LibObjCBridge.objc_getClass("UIColor")
+      destructive_color = LibObjCBridge.objc_send(uicolor_cls, sel("systemRedColor"))
+      destructive_color = resolve_color(UI::Color.new(r: 1.0, g: 0.23, b: 0.19)) if destructive_color.null?
+
+      view.items.each do |entry|
+        case entry
+        when UI::ContextMenu::Separator
+          sep = alloc_init("UIView")
+          LibObjCBridge.objc_send_id(sep, sel("setBackgroundColor:"), LibObjCBridge.nscolor_label_quaternary)
+          LibObjCBridge.objc_constrain_height(sep, 1.0)
+          sep_handle = ObjC.owned(sep, label: "UIView[context-menu-separator]")
+          sep_native = NativeView.new(sep_handle)
+          inner_native.add_child(sep_native)
+          LibObjCBridge.objc_send_id(inner, sel("addArrangedSubview:"), sep)
+        when UI::ContextMenu::Item
+          row = alloc_init("UIStackView")
+          LibObjCBridge.objc_send_long(row, sel("setAxis:"), 0_i64)
+          LibObjCBridge.objc_send_1d(row, sel("setSpacing:"), 10.0)
+          LibObjCBridge.objc_send_long(row, sel("setAlignment:"), 3_i64)
+          row_insets = LibObjCBridge::CGRect.new(x: 8.0, y: 10.0, width: 8.0, height: 10.0)
+          LibObjCBridge.objc_send_rect_void(row, sel("setLayoutMargins:"), row_insets)
+          LibObjCBridge.objc_send_bool(row, sel("setLayoutMarginsRelativeArrangement:"), 1)
+          LibObjCBridge.objc_constrain_height(row, 36.0)
+
+          row_handle = ObjC.owned(row, label: "UIStackView[context-menu-row]")
+          row_native = NativeView.new(row_handle)
+          inner_native.add_child(row_native)
+
+          if icon = entry.icon
+            image_cls = LibObjCBridge.objc_getClass("UIImage")
+            icon_ns = LibObjCBridge.nsstring_from_cstr(icon.to_unsafe)
+            image = LibObjCBridge.objc_send_id(image_cls, sel("systemImageNamed:"), icon_ns)
+            unless image.null?
+              image_view = alloc_init("UIImageView")
+              LibObjCBridge.objc_send_id(image_view, sel("setImage:"), image)
+              tint = if entry.is_destructive
+                       destructive_color
+                     elsif entry.is_disabled
+                       LibObjCBridge.nscolor_label_tertiary
+                     else
+                       LibObjCBridge.nscolor_label_secondary
+                     end
+              LibObjCBridge.objc_send_id(image_view, sel("setTintColor:"), tint) unless tint.null?
+              LibObjCBridge.objc_constrain_size(image_view, 16.0, 16.0)
+              image_handle = ObjC.owned(image_view, label: "UIImageView[context-menu-icon]")
+              image_native = NativeView.new(image_handle)
+              row_native.add_child(image_native)
+              LibObjCBridge.objc_send_id(row, sel("addArrangedSubview:"), image_view)
+            end
+          end
+
+          label = alloc_init("UILabel")
+          label_str = LibObjCBridge.nsstring_from_cstr(entry.label.to_unsafe)
+          LibObjCBridge.objc_send_id(label, sel("setText:"), label_str)
+          LibObjCBridge.objc_send_id(label, sel("setFont:"), LibObjCBridge.nsfont_system(17.0))
+          text_color = if entry.is_destructive
+                         destructive_color
+                       elsif entry.is_disabled
+                         LibObjCBridge.nscolor_label_tertiary
+                       else
+                         LibObjCBridge.nscolor_label_primary
+                       end
+          LibObjCBridge.objc_send_id(label, sel("setTextColor:"), text_color) unless text_color.null?
+          label_handle = ObjC.owned(label, label: "UILabel[context-menu-label]")
+          label_native = NativeView.new(label_handle)
+          row_native.add_child(label_native)
+          LibObjCBridge.objc_send_id(row, sel("addArrangedSubview:"), label)
+
+          LibObjCBridge.objc_send_id(inner, sel("addArrangedSubview:"), row)
+        end
+      end
+
+      ax_text = view.accessibility_label || "Context menu"
+      ax_str = LibObjCBridge.nsstring_from_cstr(ax_text.to_unsafe)
+      LibObjCBridge.objc_send_id(effect, sel("setAccessibilityLabel:"), ax_str)
+
+      apply_common_properties(effect, view)
+      outer_handle = ObjC.owned(effect, label: "UIVisualEffectView[context-menu]")
+      outer_native = NativeView.new(outer_handle)
+      outer_native.add_child(inner_native)
+      push_native(outer_native)
+    end
+
     def visit(view : UI::ToggleButton)
       uibutton_cls = LibObjCBridge.objc_getClass("UIButton")
       ptr = LibObjCBridge.objc_send_long(uibutton_cls, sel("buttonWithType:"), 1_i64)
@@ -3400,6 +3534,94 @@ module UI::UIKit
       LibObjCBridge.objc_set_frame(ptr, rect)
       apply_common_properties(ptr, view)
       emit(ptr, "UIView[path]")
+    end
+
+    def visit(view : UI::PathControl)
+      stack = alloc_init("UIStackView")
+      LibObjCBridge.objc_send_long(stack, sel("setAxis:"), 0_i64)
+      LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 6.0)
+      LibObjCBridge.objc_send_long(stack, sel("setAlignment:"), 3_i64)
+
+      outer_handle = ObjC.owned(stack, label: "UIStackView[path-control]")
+      outer_native = NativeView.new(outer_handle)
+
+      image_cls = LibObjCBridge.objc_getClass("UIImage")
+      view.components.each_with_index do |component, index|
+        segment = alloc_init("UIStackView")
+        LibObjCBridge.objc_send_long(segment, sel("setAxis:"), 0_i64)
+        LibObjCBridge.objc_send_1d(segment, sel("setSpacing:"), 4.0)
+        LibObjCBridge.objc_send_long(segment, sel("setAlignment:"), 3_i64)
+
+        segment_handle = ObjC.owned(segment, label: "UIStackView[path-control-segment]")
+        segment_native = NativeView.new(segment_handle)
+        outer_native.add_child(segment_native)
+
+        if icon = component.icon
+          icon_ns = LibObjCBridge.nsstring_from_cstr(icon.to_unsafe)
+          image = LibObjCBridge.objc_send_id(image_cls, sel("systemImageNamed:"), icon_ns)
+          unless image.null?
+            icon_view = alloc_init("UIImageView")
+            LibObjCBridge.objc_send_id(icon_view, sel("setImage:"), image)
+            LibObjCBridge.objc_send_id(icon_view, sel("setTintColor:"), LibObjCBridge.nscolor_label_secondary)
+            LibObjCBridge.objc_constrain_size(icon_view, 16.0, 16.0)
+            icon_handle = ObjC.owned(icon_view, label: "UIImageView[path-control-icon]")
+            icon_native = NativeView.new(icon_handle)
+            segment_native.add_child(icon_native)
+            LibObjCBridge.objc_send_id(segment, sel("addArrangedSubview:"), icon_view)
+          end
+        end
+
+        label = alloc_init("UILabel")
+        label_str = LibObjCBridge.nsstring_from_cstr(component.name.to_unsafe)
+        LibObjCBridge.objc_send_id(label, sel("setText:"), label_str)
+        LibObjCBridge.objc_send_id(label, sel("setFont:"), LibObjCBridge.nsfont_system(15.0))
+        color = index == view.components.size - 1 ? LibObjCBridge.nscolor_label_primary : LibObjCBridge.nscolor_label_secondary
+        LibObjCBridge.objc_send_id(label, sel("setTextColor:"), color) unless color.null?
+        label_handle = ObjC.owned(label, label: "UILabel[path-control-label]")
+        label_native = NativeView.new(label_handle)
+        segment_native.add_child(label_native)
+        LibObjCBridge.objc_send_id(segment, sel("addArrangedSubview:"), label)
+
+        LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), segment)
+
+        next if index == view.components.size - 1
+
+        chevron_name = LibObjCBridge.nsstring_from_cstr("chevron.right".to_unsafe)
+        chevron_img = LibObjCBridge.objc_send_id(image_cls, sel("systemImageNamed:"), chevron_name)
+        unless chevron_img.null?
+          chevron_view = alloc_init("UIImageView")
+          LibObjCBridge.objc_send_id(chevron_view, sel("setImage:"), chevron_img)
+          LibObjCBridge.objc_send_id(chevron_view, sel("setTintColor:"), LibObjCBridge.nscolor_label_tertiary)
+          LibObjCBridge.objc_constrain_size(chevron_view, 10.0, 10.0)
+          chevron_handle = ObjC.owned(chevron_view, label: "UIImageView[path-control-chevron]")
+          chevron_native = NativeView.new(chevron_handle)
+          outer_native.add_child(chevron_native)
+          LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), chevron_view)
+        end
+      end
+
+      if view.style == UI::PathControlStyle::PopUp
+        popup_name = LibObjCBridge.nsstring_from_cstr("chevron.up.chevron.down".to_unsafe)
+        popup_img = LibObjCBridge.objc_send_id(image_cls, sel("systemImageNamed:"), popup_name)
+        unless popup_img.null?
+          popup_view = alloc_init("UIImageView")
+          LibObjCBridge.objc_send_id(popup_view, sel("setImage:"), popup_img)
+          LibObjCBridge.objc_send_id(popup_view, sel("setTintColor:"), LibObjCBridge.nscolor_label_tertiary)
+          LibObjCBridge.objc_constrain_size(popup_view, 12.0, 12.0)
+          popup_handle = ObjC.owned(popup_view, label: "UIImageView[path-control-popup]")
+          popup_native = NativeView.new(popup_handle)
+          outer_native.add_child(popup_native)
+          LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), popup_view)
+        end
+      end
+
+      unless view.accessibility_label
+        ax_str = LibObjCBridge.nsstring_from_cstr("Path: #{view.path_string}".to_unsafe)
+        LibObjCBridge.objc_send_id(stack, sel("setAccessibilityLabel:"), ax_str)
+      end
+
+      apply_common_properties(stack, view)
+      push_native(outer_native)
     end
 
     def visit(view : UI::MapView)
@@ -3696,34 +3918,38 @@ module UI::UIKit
     end
 
     def visit(view : UI::ColorPicker)
-      # UIColorWell (iOS 14+): use a sized, rounded UIView swatch placeholder.
-      # UIColorWell is available at runtime on iOS 14+ but requires importing
-      # UIKit privately; a UIView with explicit size constraints and the chosen
-      # background color is the correct visual proxy for the validation harness.
-      #
-      # Without explicit size constraints the UIView collapses to zero inside a
-      # UIStackView (UIView has no intrinsicContentSize), producing an invisible
-      # swatch. Pin width to 44pt and height to 28pt -- matching the HIG-
-      # recommended pill swatch geometry for a color well in a compact context.
-      # Apply corner_radius ~14pt (half of 28pt) for the pill shape.
-      ptr = alloc_init("UIView")
-      c = view.selected_color
-      bg_color = resolve_color(c)
-      LibObjCBridge.objc_send_id(ptr, sel("setBackgroundColor:"), bg_color)
-      # Pin 44x28pt so UIStackView has a non-zero intrinsicContentSize to use.
-      LibObjCBridge.objc_constrain_size(ptr, 44.0, 28.0)
-      # Pill-shaped corner radius.
-      layer = LibObjCBridge.objc_send_long(ptr, sel("layer"), 0_i64)
-      unless layer.null?
-        LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), 14.0)
-        LibObjCBridge.objc_send_bool(layer, sel("setMasksToBounds:"), 1)
+      cls = LibObjCBridge.objc_getClass("UIColorWell")
+
+      if cls.null?
+        ptr = alloc_init("UIView")
+        c = view.selected_color
+        bg_color = resolve_color(c)
+        LibObjCBridge.objc_send_id(ptr, sel("setBackgroundColor:"), bg_color)
+        LibObjCBridge.objc_constrain_size(ptr, 44.0, 28.0)
+        layer = LibObjCBridge.objc_send(ptr, sel("layer"))
+        unless layer.null?
+          LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), 14.0)
+          LibObjCBridge.objc_send_bool(layer, sel("setMasksToBounds:"), 1)
+        end
+        if (al = view.accessibility_label) && !al.empty?
+          lbl_str = LibObjCBridge.nsstring_from_cstr(al.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), lbl_str)
+        end
+        apply_common_properties(ptr, view)
+        emit(ptr, "UIView[color-picker]")
+      else
+        ptr = alloc_init("UIColorWell")
+        selected_color = resolve_color(view.selected_color)
+        LibObjCBridge.objc_send_id(ptr, sel("setSelectedColor:"), selected_color) unless selected_color.null?
+        LibObjCBridge.objc_send_bool(ptr, sel("setSupportsAlpha:"), view.supports_alpha ? 1 : 0)
+        LibObjCBridge.objc_constrain_size(ptr, 44.0, 28.0)
+        if (al = view.accessibility_label) && !al.empty?
+          lbl_str = LibObjCBridge.nsstring_from_cstr(al.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), lbl_str)
+        end
+        apply_common_properties(ptr, view)
+        emit(ptr, "UIColorWell[color-picker]")
       end
-      if (al = view.accessibility_label) && !al.empty?
-        lbl_str = LibObjCBridge.nsstring_from_cstr(al.to_unsafe)
-        LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), lbl_str)
-      end
-      apply_common_properties(ptr, view)
-      emit(ptr, "UIView[color-picker]")
     end
 
     def visit(view : UI::VideoPlayer)

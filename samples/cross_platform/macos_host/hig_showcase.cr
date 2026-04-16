@@ -85,6 +85,7 @@ SLUG_SCENES = {
   "search-fields"     => "ambient",
   "labels"            => "ambient",
   "boxes"             => "ambient",
+  "path-controls"     => "ambient",
 } of String => String
 
 def scene_for_slug(slug : String) : String?
@@ -435,29 +436,22 @@ def build_component(slug : String) : UI::View
     gallery.as(UI::View)
   when "context-menus"
     # HIG context menu content surface: a short list of task-specific commands
-    # revealed by secondary-click (macOS) / long-press (iOS). HIG: "A context
-    # menu provides access to functionality that's directly related to an item."
-    # Rendered inline as a VStack of the menu's items (NOT as the dismissed
-    # MenuButton trigger, which would show only a button) so the validation
-    # snapshot captures the list itself -- mirrors the action-sheets / alerts
-    # inline-VStack pattern documented in gaps.md. Three groups separated by
-    # Dividers per HIG: "you can use separators to group items in a context menu
-    # and help people scan the menu more quickly."
-    #   Group 1 (clipboard): Cut / Copy / Paste
-    #   Group 2 (object actions): Share / Duplicate
-    #   Group 3 (destructive): Delete -- listed last per HIG iOS guidance:
-    #     "warn people about context menu items that can destroy data...
-    #      list them at the end of the menu and identify them as destructive."
-    content = UI::VStack.new(spacing: 4.0)
-    content << UI::Button.new("Cut", symbol: "scissors")
-    content << UI::Button.new("Copy", symbol: "doc.on.doc")
-    content << UI::Button.new("Paste", symbol: "clipboard")
-    content << UI::Divider.new(:horizontal)
-    content << UI::Button.new("Share...", symbol: "square.and.arrow.up")
-    content << UI::Button.new("Duplicate", symbol: "square.on.square")
-    content << UI::Divider.new(:horizontal)
-    content << UI::Button.new("Delete", role: :destructive, symbol: "trash")
-    UI::Sheet.new(content.as(UI::View), surface_style: :grouped_card).as(UI::View)
+    # revealed by secondary-click. The showcase now uses the dedicated
+    # UI::ContextMenu surface so the screenshot exercises full-width menu rows
+    # instead of a stack of independent buttons.
+    menu = UI::ContextMenu.new
+    menu.minimum_width = 260.0
+    menu.maximum_width = 260.0
+    menu.accessibility_label = "Selection context menu"
+    menu.add_item("Cut", icon: "scissors")
+    menu.add_item("Copy", icon: "doc.on.doc")
+    menu.add_item("Paste", icon: "clipboard")
+    menu.add_separator
+    menu.add_item("Share...", icon: "square.and.arrow.up")
+    menu.add_item("Duplicate", icon: "square.on.square")
+    menu.add_separator
+    menu.add_item("Delete", icon: "trash", is_destructive: true)
+    menu.as(UI::View)
   when "digit-entry-views"
     # HIG digit entry view: a full-screen PIN / passcode entry surface.
     # HIG abstract: "A digit entry view fills the entire screen and prompts
@@ -2756,6 +2750,31 @@ def build_component(slug : String) : UI::View
     pc_tinted.tint_color = UI::Color.new(r: 1.0, g: 0.58, b: 0.0)
     pc_tinted.accessibility_label = "Page 1 of 5, orange tint"
     outer << pc_tinted
+
+    outer.as(UI::View)
+  when "path-controls"
+    # HIG path controls display a filesystem path as icon-and-name segments.
+    # macOS supports both the standard breadcrumb style and the pop-up style.
+    outer = UI::VStack.new(spacing: 14.0)
+
+    standard = UI::PathControl.new
+    standard.minimum_width = 360.0
+    standard.maximum_width = 360.0
+    standard.accessibility_label = "Current export destination path"
+    standard.add_component("Applications", icon: "folder")
+    standard.add_component("Amber", icon: "app")
+    standard.add_component("Exports", icon: "folder")
+    standard.add_component("Autumn Ritual.pdf", icon: "doc")
+    outer << standard
+
+    popup = UI::PathControl.new(style: UI::PathControlStyle::PopUp)
+    popup.minimum_width = 300.0
+    popup.maximum_width = 300.0
+    popup.accessibility_label = "Recent export locations path menu"
+    popup.add_component("Library", icon: "folder")
+    popup.add_component("Templates", icon: "folder")
+    popup.add_component("Press Kits", icon: "doc.on.doc")
+    outer << popup
 
     outer.as(UI::View)
   when "combo-boxes"

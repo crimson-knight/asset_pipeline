@@ -2886,6 +2886,119 @@ module UI::AppKit
       emit(ptr, "NSPopUpButton")
     end
 
+    def visit(view : UI::ContextMenu)
+      effect = alloc_init("NSVisualEffectView")
+      LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), 5_i64)     # NSVisualEffectMaterialMenu
+      LibObjCBridge.objc_send_long(effect, sel("setBlendingMode:"), 1_i64) # WithinWindow
+      LibObjCBridge.objc_send_long(effect, sel("setState:"), 1_i64)        # Active
+      LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
+
+      effect_layer = LibObjCBridge.objc_send(effect, sel("layer"))
+      unless effect_layer.null?
+        LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), 14.0)
+        LibObjCBridge.objc_send_bool(effect_layer, sel("setMasksToBounds:"), 1)
+        sep_color = LibObjCBridge.nscolor_separator
+        unless sep_color.null?
+          sep_cg = LibObjCBridge.objc_send(sep_color, sel("CGColor"))
+          LibObjCBridge.objc_send_void_id(effect_layer, sel("setBorderColor:"), sep_cg) unless sep_cg.null?
+        end
+        LibObjCBridge.objc_send_1d(effect_layer, sel("setBorderWidth:"), 1.0)
+      end
+
+      inner = alloc_init("NSStackView")
+      LibObjCBridge.objc_send_long(inner, sel("setOrientation:"), 1_i64)
+      LibObjCBridge.objc_send_1d(inner, sel("setSpacing:"), 0.0)
+      LibObjCBridge.objc_send_long(inner, sel("setAlignment:"), 5_i64)
+      insets = LibObjCBridge::CGRect.new(x: 8.0, y: 8.0, width: 8.0, height: 8.0)
+      LibObjCBridge.objc_send_rect_void(inner, sel("setEdgeInsets:"), insets)
+      LibObjCBridge.objc_send_bool(inner, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+      LibObjCBridge.objc_add_subview(effect, inner)
+
+      %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anchor_sel|
+        inner_anchor = LibObjCBridge.objc_send(inner, sel(anchor_sel))
+        effect_anchor = LibObjCBridge.objc_send(effect, sel(anchor_sel))
+        next if inner_anchor.null? || effect_anchor.null?
+        constraint = LibObjCBridge.objc_send_id(inner_anchor, sel("constraintEqualToAnchor:"), effect_anchor)
+        LibObjCBridge.objc_send_bool(constraint, sel("setActive:"), 1) unless constraint.null?
+      end
+
+      inner_handle = ObjC.borrowed(inner, label: "NSStackView[context-menu-inner]")
+      inner_native = NativeView.new(inner_handle)
+
+      red_cls = LibObjCBridge.objc_getClass("NSColor")
+      destructive_color = LibObjCBridge.objc_send(red_cls, sel("systemRedColor"))
+      destructive_color = LibObjCBridge.nscolor_rgba(1.0, 0.23, 0.19, 1.0) if destructive_color.null?
+
+      view.items.each do |entry|
+        case entry
+        when UI::ContextMenu::Separator
+          sep = alloc_init("NSBox")
+          LibObjCBridge.objc_send_long(sep, sel("setBoxType:"), 2_i64)
+          LibObjCBridge.objc_constrain_height(sep, 1.0)
+          sep_handle = ObjC.owned(sep, label: "NSBox[context-menu-separator]")
+          sep_native = NativeView.new(sep_handle)
+          inner_native.add_child(sep_native)
+          LibObjCBridge.objc_send_id(inner, sel("addArrangedSubview:"), sep)
+        when UI::ContextMenu::Item
+          row = alloc_init("NSStackView")
+          LibObjCBridge.objc_send_long(row, sel("setOrientation:"), 0_i64)
+          LibObjCBridge.objc_send_1d(row, sel("setSpacing:"), 10.0)
+          LibObjCBridge.objc_send_long(row, sel("setAlignment:"), 9_i64)
+          row_insets = LibObjCBridge::CGRect.new(x: 6.0, y: 10.0, width: 6.0, height: 10.0)
+          LibObjCBridge.objc_send_rect_void(row, sel("setEdgeInsets:"), row_insets)
+          LibObjCBridge.objc_constrain_height(row, 32.0)
+
+          row_handle = ObjC.owned(row, label: "NSStackView[context-menu-row]")
+          row_native = NativeView.new(row_handle)
+          inner_native.add_child(row_native)
+
+          if icon = entry.icon
+            icon_tint = entry.is_destructive ? destructive_color : LibObjCBridge.nscolor_label_secondary
+            icon_view = LibObjCBridge.nsimageview_make_symbol(icon.to_unsafe, icon_tint, 14.0)
+            unless icon_view.null?
+              icon_handle = ObjC.owned(icon_view, label: "NSImageView[context-menu-icon]")
+              icon_native = NativeView.new(icon_handle)
+              row_native.add_child(icon_native)
+              LibObjCBridge.objc_send_id(row, sel("addArrangedSubview:"), icon_view)
+            end
+          end
+
+          label = alloc_init("NSTextField")
+          label_str = LibObjCBridge.nsstring_from_cstr(entry.label.to_unsafe)
+          LibObjCBridge.objc_send_id(label, sel("setStringValue:"), label_str)
+          LibObjCBridge.objc_send_bool(label, sel("setEditable:"), 0)
+          LibObjCBridge.objc_send_bool(label, sel("setBezeled:"), 0)
+          LibObjCBridge.objc_send_bool(label, sel("setDrawsBackground:"), 0)
+          LibObjCBridge.objc_send_bool(label, sel("setSelectable:"), 0)
+          LibObjCBridge.objc_send_id(label, sel("setFont:"), LibObjCBridge.nsfont_system(13.0))
+          text_color = if entry.is_destructive
+                         destructive_color
+                       elsif entry.is_disabled
+                         LibObjCBridge.nscolor_label_tertiary
+                       else
+                         LibObjCBridge.nscolor_label_primary
+                       end
+          LibObjCBridge.objc_send_id(label, sel("setTextColor:"), text_color) unless text_color.null?
+          label_handle = ObjC.owned(label, label: "NSTextField[context-menu-label]")
+          label_native = NativeView.new(label_handle)
+          row_native.add_child(label_native)
+          LibObjCBridge.objc_send_id(row, sel("addArrangedSubview:"), label)
+
+          LibObjCBridge.objc_send_id(inner, sel("addArrangedSubview:"), row)
+        end
+      end
+
+      ax_text = view.accessibility_label || "Context menu"
+      ax_str = LibObjCBridge.nsstring_from_cstr(ax_text.to_unsafe)
+      LibObjCBridge.objc_send_id(effect, sel("setAccessibilityLabel:"), ax_str)
+
+      apply_common_properties(effect, view)
+      outer_handle = ObjC.owned(effect, label: "NSVisualEffectView[context-menu]")
+      outer_native = NativeView.new(outer_handle)
+      outer_native.add_child(inner_native)
+      push_native(outer_native)
+    end
+
     def visit(view : UI::ToggleButton)
       ptr = alloc_init("NSButton")
       title_str = LibObjCBridge.nsstring_from_cstr(view.label.to_unsafe)
@@ -3017,6 +3130,27 @@ module UI::AppKit
       LibObjCBridge.objc_set_frame(ptr, rect)
       apply_common_properties(ptr, view)
       emit(ptr, "NSView[path]")
+    end
+
+    def visit(view : UI::PathControl)
+      ptr = alloc_init_with_zero_frame("NSPathControl")
+      style_val = view.style == UI::PathControlStyle::PopUp ? 2_i64 : 0_i64
+      LibObjCBridge.objc_send_long(ptr, sel("setPathStyle:"), style_val)
+      LibObjCBridge.objc_send_bool(ptr, sel("setEditable:"), view.is_editable ? 1 : 0)
+
+      path = view.path_string
+      path_str = LibObjCBridge.nsstring_from_cstr(path.to_unsafe)
+      url_cls = LibObjCBridge.objc_getClass("NSURL")
+      url = LibObjCBridge.objc_send_id(url_cls, sel("fileURLWithPath:"), path_str)
+      LibObjCBridge.objc_send_id(ptr, sel("setURL:"), url) unless url.null?
+
+      unless view.accessibility_label
+        ax_str = LibObjCBridge.nsstring_from_cstr("Path: #{path}".to_unsafe)
+        LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), ax_str)
+      end
+
+      apply_common_properties(ptr, view)
+      emit(ptr, "NSPathControl")
     end
 
     def visit(view : UI::MapView)
