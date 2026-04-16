@@ -33,6 +33,13 @@ module UI
     # Maximum number of lines (0 means unlimited)
     property number_of_lines : Int32 = 0
 
+    # Preferred wrapping width for native multi-line layout engines.
+    #
+    # UIKit's UILabel uses this to compute a stable multi-line intrinsic
+    # content size when it is inside exact-width containers like UI::Card.
+    # Other renderers may ignore it.
+    property preferred_max_layout_width : Float64? = nil
+
     def initialize(@text : String)
     end
 

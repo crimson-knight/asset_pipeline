@@ -302,6 +302,7 @@ describe UI do
       label.text.should eq("Hello")
       label.font.family.should eq("system")
       label.number_of_lines.should eq(0)
+      label.preferred_max_layout_width.should be_nil
     end
 
     it "creates a Button" do

@@ -137,9 +137,15 @@ module UI::UIKit
     # UIView uses addSubview:.
     @stack_is_uistack : Array(Bool)
 
+    # Scoped preferred UILabel wrapping widths inherited from exact-width
+    # containers. This keeps multi-line labels from reporting their single-line
+    # intrinsic width during UIKit fitting passes.
+    @label_preferred_max_layout_width_stack : Array(Float64)
+
     def initialize
       @stack = [] of NativeView
       @stack_is_uistack = [] of Bool
+      @label_preferred_max_layout_width_stack = [] of Float64
     end
 
     # Returns the root NativeView produced by the last top-level visit.
@@ -199,6 +205,13 @@ module UI::UIKit
 
       # Number of lines: 0 = unlimited (UILabel default is 1, so set explicitly)
       LibObjCBridge.objc_send_long(ptr, sel("setNumberOfLines:"), view.number_of_lines.to_i64)
+
+      # preferredMaxLayoutWidth lets UILabel compute a wrapped intrinsic size
+      # during fitting. Without it, long labels can force exact-width cards to
+      # grow to their single-line width on iOS.
+      if preferred_width = view.preferred_max_layout_width || @label_preferred_max_layout_width_stack.last?
+        LibObjCBridge.objc_send_1d(ptr, sel("setPreferredMaxLayoutWidth:"), preferred_width)
+      end
 
       # Common properties (hidden, opacity, background, accessibility)
       apply_common_properties(ptr, view)
@@ -2914,6 +2927,7 @@ module UI::UIKit
       )
       LibObjCBridge.objc_send_rect_void(ptr, sel("setLayoutMargins:"), card_insets)
       LibObjCBridge.objc_send_bool(ptr, sel("setLayoutMarginsRelativeArrangement:"), 1)
+      label_preferred_width = exact_card_label_preferred_width(view)
 
       # Grouped-container background per HIG. UIColor class method
       # selection based on UI::Card#material -- default :secondary.
@@ -2950,6 +2964,10 @@ module UI::UIKit
         # card titles on iOS.
         headline_font = LibObjCBridge.nsfont_system_weight(17.0, 0.3)
         LibObjCBridge.objc_send_id(title_ptr, sel("setFont:"), headline_font)
+        if preferred_width = label_preferred_width
+          LibObjCBridge.objc_send_long(title_ptr, sel("setNumberOfLines:"), 0_i64)
+          LibObjCBridge.objc_send_1d(title_ptr, sel("setPreferredMaxLayoutWidth:"), preferred_width)
+        end
         # Add as first arranged subview.
         LibObjCBridge.objc_send_void_id(ptr, sel("addArrangedSubview:"), title_ptr)
 
@@ -2960,9 +2978,17 @@ module UI::UIKit
       if content = view.content
         # Push the card stack as a uistack parent so children flow in
         # via addArrangedSubview: and are laid out / sized by the stack.
-        push_stack(native, is_uistack: true)
-        content.accept(self)
-        pop_stack
+        if preferred_width = label_preferred_width
+          @label_preferred_max_layout_width_stack.push(preferred_width)
+          push_stack(native, is_uistack: true)
+          content.accept(self)
+          pop_stack
+          @label_preferred_max_layout_width_stack.pop
+        else
+          push_stack(native, is_uistack: true)
+          content.accept(self)
+          pop_stack
+        end
       end
 
       push_native(native)
@@ -4662,6 +4688,16 @@ module UI::UIKit
       insets = LibObjCBridge::CGRect.new(x: p.top, y: p.leading, width: p.bottom, height: p.trailing)
       LibObjCBridge.objc_send_rect_void(ptr, sel("setLayoutMargins:"), insets)
       LibObjCBridge.objc_send_bool(ptr, sel("setLayoutMarginsRelativeArrangement:"), 1)
+    end
+
+    private def exact_card_label_preferred_width(view : UI::Card) : Float64?
+      min_w = view.minimum_width
+      max_w = view.maximum_width
+      return nil unless min_w && max_w && min_w == max_w
+
+      p = view.content_padding
+      content_width = min_w - p.leading - p.trailing
+      content_width > 0.0 ? content_width : nil
     end
 
     # -----------------------------------------------------------------
