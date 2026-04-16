@@ -78,6 +78,10 @@ module UI::UIKit
     fun uislider_build_synthetic_track(value_fraction : Float64, filled_color : Void*, unfilled_color : Void*, slider_ptr : Void*) : Void*
     fun nsimageview_make_symbol(symbol_name : UInt8*, tint_color : Void*, size_pts : Float64) : Void*
     fun uiview_install_amber_gradient_layer(view : Void*) : Void
+    fun wkwebview_new(url : UInt8*, html : UInt8*, base_url : UInt8*, title : UInt8*, allows_navigation : Int32, allows_scripts : Int32) : Void*
+    fun mkmapview_new(latitude : Float64, longitude : Float64, latitude_delta : Float64, longitude_delta : Float64, map_type : Int64, shows_user_location : Int32) : Void*
+    fun mkmapview_add_annotation(map_view : Void*, latitude : Float64, longitude : Float64, title : UInt8*, subtitle : UInt8*) : Void
+    fun video_player_view_new(url : UInt8*, shows_controls : Int32, auto_play : Int32, muted : Int32, loop : Int32) : Void*
 
     # --- ObjC runtime ---
     fun sel_registerName(name : UInt8*) : Void*
@@ -3625,10 +3629,37 @@ module UI::UIKit
     end
 
     def visit(view : UI::MapView)
-      # MKMapView: use UIView placeholder (requires MapKit framework)
-      ptr = alloc_init("UIView")
+      span_delta = map_span_delta(view.zoom_level)
+      ptr = LibObjCBridge.mkmapview_new(
+        view.latitude,
+        view.longitude,
+        span_delta,
+        span_delta,
+        map_type_value(view.map_type),
+        view.shows_user_location ? 1 : 0
+      )
+      ptr = alloc_init("UIView") if ptr.null?
+
+      view.annotations.each do |map_annotation|
+        subtitle = map_annotation.subtitle
+        subtitle_ptr = subtitle ? subtitle.to_unsafe : Pointer(UInt8).null
+        LibObjCBridge.mkmapview_add_annotation(
+          ptr,
+          map_annotation.latitude,
+          map_annotation.longitude,
+          map_annotation.title.to_unsafe,
+          subtitle_ptr
+        )
+      end
+
+      if view.accessibility_label.nil?
+        ax_str = LibObjCBridge.nsstring_from_cstr("Map centered on #{view.latitude.round(4)}, #{view.longitude.round(4)}".to_unsafe)
+        LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), ax_str)
+      end
+
       apply_common_properties(ptr, view)
-      emit(ptr, "UIView[map]")
+      apply_default_surface_size(ptr, view, 320.0, 220.0)
+      emit(ptr, "MKMapView")
     end
 
     # -----------------------------------------------------------------
@@ -3907,14 +3938,38 @@ module UI::UIKit
     end
 
     def visit(view : UI::WebViewComponent)
-      # WKWebView: use UIView placeholder (requires WebKit framework)
-      ptr = alloc_init("UIView")
-      unless view.url.empty?
-        url_str = LibObjCBridge.nsstring_from_cstr(view.url.to_unsafe)
+      url_ptr = view.url.empty? ? Pointer(UInt8).null : view.url.to_unsafe
+      html = view.html
+      html_ptr = html ? html.to_unsafe : Pointer(UInt8).null
+      base_url = view.base_url
+      base_url_ptr = base_url ? base_url.to_unsafe : Pointer(UInt8).null
+      title = view.title
+      title_ptr = title ? title.to_unsafe : Pointer(UInt8).null
+
+      ptr = LibObjCBridge.wkwebview_new(
+        url_ptr,
+        html_ptr,
+        base_url_ptr,
+        title_ptr,
+        view.allows_navigation ? 1 : 0,
+        view.allows_scripts ? 1 : 0
+      )
+      ptr = alloc_init("UIView") if ptr.null?
+
+      if view.accessibility_label.nil?
+        label_text = if title = view.title
+                       title
+                     elsif !view.url.empty?
+                       view.url
+                     else
+                       "Embedded web content"
+                     end
+        url_str = LibObjCBridge.nsstring_from_cstr(label_text.to_unsafe)
         LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), url_str)
       end
       apply_common_properties(ptr, view)
-      emit(ptr, "UIView[webview]")
+      apply_default_surface_size(ptr, view, 320.0, 280.0)
+      emit(ptr, "WKWebView")
     end
 
     def visit(view : UI::ColorPicker)
@@ -3953,14 +4008,28 @@ module UI::UIKit
     end
 
     def visit(view : UI::VideoPlayer)
-      # AVPlayerViewController: use UIView placeholder (requires AVKit framework)
-      ptr = alloc_init("UIView")
-      unless view.url.empty?
-        url_str = LibObjCBridge.nsstring_from_cstr(view.url.to_unsafe)
+      url_ptr = view.url.empty? ? Pointer(UInt8).null : view.url.to_unsafe
+      ptr = LibObjCBridge.video_player_view_new(
+        url_ptr,
+        view.shows_controls ? 1 : 0,
+        view.auto_play ? 1 : 0,
+        view.muted ? 1 : 0,
+        view.loop ? 1 : 0
+      )
+      ptr = alloc_init("UIView") if ptr.null?
+
+      if view.accessibility_label.nil?
+        label_text = if !view.url.empty?
+                       "Video player: #{view.url}"
+                     else
+                       "Video player"
+                     end
+        url_str = LibObjCBridge.nsstring_from_cstr(label_text.to_unsafe)
         LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), url_str)
       end
       apply_common_properties(ptr, view)
-      emit(ptr, "UIView[video]")
+      apply_default_surface_size(ptr, view, 320.0, 180.0)
+      emit(ptr, "AVPlayerViewController")
     end
 
     def visit(view : UI::Tooltip)
@@ -4710,6 +4779,31 @@ module UI::UIKit
       end
     end
 
+    private def map_type_value(map_type : Symbol) : Int64
+      case map_type
+      when :satellite then 1_i64
+      when :hybrid    then 2_i64
+      else                 0_i64
+      end
+    end
+
+    private def map_span_delta(zoom_level : Float64) : Float64
+      zoom = zoom_level.clamp(1.0, 18.0)
+      (360.0 / (2.0 ** zoom)).clamp(0.005, 120.0)
+    end
+
+    private def apply_default_surface_size(ptr : Void*, view : UI::View, default_width : Float64, default_height : Float64) : Nil
+      return if ptr.null?
+
+      unless view.minimum_width || view.maximum_width
+        LibObjCBridge.objc_constrain_minimum_width(ptr, default_width)
+      end
+
+      unless view.minimum_height || view.maximum_height
+        LibObjCBridge.objc_constrain_height(ptr, default_height)
+      end
+    end
+
     # Resolve a UI::Color to a UIColor pointer via the bridge convenience.
     # Uses [UIColor colorWithRed:green:blue:alpha:] under the hood.
     private def resolve_color(color : UI::Color) : Void*
@@ -4926,49 +5020,6 @@ module UI::UIKit
       p = view.content_padding
       content_width = min_w - p.leading - p.trailing
       content_width > 0.0 ? content_width : nil
-    end
-
-    # -----------------------------------------------------------------
-    # Visit: WebViewComponent -> WKWebView placeholder (UIView)
-    #
-    # WKWebView requires the WebKit framework and live URL navigation,
-    # neither of which is available in the static validation capture path.
-    # The renderer emits a UIView placeholder with a 1pt gray border and
-    # stores the url/title as accessibilityLabel so it is inspectable via
-    # XCUITest.
-    #
-    # HIG: "A web view loads and displays rich web content, such as
-    # embedded HTML and websites, directly within your app."
-    # -----------------------------------------------------------------
-    def visit(view : UI::WebViewComponent)
-      ptr = alloc_init("UIView")
-      # 1pt border layer so the web-view frame is visually distinct.
-      LibObjCBridge.objc_send_bool(ptr, sel("setClipsToBounds:"), 1)
-      layer = LibObjCBridge.objc_send(ptr, sel("layer"))
-      unless layer.null?
-        # Fixed mid-gray border: 0.55 RGBA. Visible on white host (~4:1) and
-        # on black dark host (~3:1). Avoids ENV access (which crashes the
-        # Crystal runtime when called before fiber init in the simulator).
-        border_ns = LibObjCBridge.nscolor_rgba(0.55, 0.55, 0.55, 1.0)
-        unless border_ns.null?
-          cg_border = LibObjCBridge.objc_send(border_ns, sel("CGColor"))
-          LibObjCBridge.objc_send_void_id(layer, sel("setBorderColor:"), cg_border) unless cg_border.null?
-        end
-        LibObjCBridge.objc_send_1d(layer, sel("setBorderWidth:"), 1.0)
-        LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), 4.0)
-        LibObjCBridge.objc_send_bool(layer, sel("setMasksToBounds:"), 1)
-      end
-      label_text = if view.title
-                     view.title.not_nil!
-                   elsif !view.url.empty?
-                     view.url
-                   else
-                     "WKWebView content area"
-                   end
-      a11y_str = LibObjCBridge.nsstring_from_cstr(label_text.to_unsafe)
-      LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), a11y_str)
-      apply_common_properties(ptr, view)
-      emit(ptr, "UIView[web-view]")
     end
 
     # Wrap a raw pointer in NativeHandle + NativeView and register it

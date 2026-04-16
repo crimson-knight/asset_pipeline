@@ -2461,6 +2461,8 @@ describe UI::WebViewComponent do
   it "creates with defaults" do
     w = UI::WebViewComponent.new
     w.url.should eq("")
+    w.html.should be_nil
+    w.base_url.should be_nil
     w.allows_navigation.should be_true
     w.allows_scripts.should be_true
     w.title.should be_nil
@@ -2487,6 +2489,14 @@ describe UI::WebViewComponent do
     w = UI::WebViewComponent.new
     w.title = "My Web View"
     w.title.should eq("My Web View")
+  end
+
+  it "supports embedded html and a base url" do
+    w = UI::WebViewComponent.new
+    w.html = "<html><body>Hello</body></html>"
+    w.base_url = "https://example.com"
+    w.html.should eq("<html><body>Hello</body></html>")
+    w.base_url.should eq("https://example.com")
   end
 
   it "accepts visitor" do

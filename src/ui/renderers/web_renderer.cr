@@ -1647,14 +1647,22 @@ module UI
       end
 
       def visit(view : UI::WebViewComponent)
-        el = Components::Elements::Div.new
-        el.add_style("display: inline-block; position: relative; overflow: hidden")
-        el.set_attribute("data-component", "iframe")
-        el.set_attribute("data-src", view.url)
-        el.set_attribute("data-allows-navigation", view.allows_navigation.to_s)
-        el.set_attribute("data-allows-scripts", view.allows_scripts.to_s)
+        el = Components::Elements::Iframe.new
+        el.add_style("display: block; width: 100%; min-height: 280px; border: 0; border-radius: 18px; overflow: hidden; background: #fff")
+        el.set_attribute("loading", "lazy")
+        el.set_attribute("src", view.url) unless view.url.empty?
+        if html = view.html
+          el.set_attribute("srcdoc", html)
+        end
         if t = view.title
-          el.set_attribute("data-title", t)
+          el.set_attribute("title", t)
+        end
+        unless view.allows_navigation && view.allows_scripts
+          sandbox = [] of String
+          sandbox << "allow-forms" if view.allows_navigation
+          sandbox << "allow-same-origin"
+          sandbox << "allow-scripts" if view.allows_scripts
+          el.set_attribute("sandbox", sandbox.join(' '))
         end
         apply_common_styles(el, view)
         push_element(el)

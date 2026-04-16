@@ -30,6 +30,11 @@ targets:
         - -liconv
         - -framework UIKit
         - -framework Foundation
+        - -framework WebKit
+        - -framework MapKit
+        - -framework CoreLocation
+        - -framework AVKit
+        - -framework AVFoundation
         - -lobjc
     dependencies: []
   CrystalHIGHostUITests:

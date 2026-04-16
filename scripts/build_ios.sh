@@ -176,6 +176,11 @@ step "Output:  $DYLIB_FILE"
     -framework UIKit \
     -framework Foundation \
     -framework CoreFoundation \
+    -framework WebKit \
+    -framework MapKit \
+    -framework CoreLocation \
+    -framework AVKit \
+    -framework AVFoundation \
     ${EXTRA_LINK_FLAGS}
 
 step "Library produced:"

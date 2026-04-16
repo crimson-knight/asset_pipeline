@@ -30,6 +30,10 @@
 
 #if TARGET_OS_OSX
   #import <AppKit/AppKit.h>
+  #import <WebKit/WebKit.h>
+  #import <MapKit/MapKit.h>
+  #import <AVKit/AVKit.h>
+  #import <AVFoundation/AVFoundation.h>
   typedef NSView      BridgeView;
   typedef NSButton    BridgeButton;
   #define BRIDGE_RECT_MAKE(r) NSMakeRect((r).x, (r).y, (r).width, (r).height)
@@ -37,6 +41,10 @@
 #else
   #import <UIKit/UIKit.h>
   #import <QuartzCore/QuartzCore.h>
+  #import <WebKit/WebKit.h>
+  #import <MapKit/MapKit.h>
+  #import <AVKit/AVKit.h>
+  #import <AVFoundation/AVFoundation.h>
   typedef UIView      BridgeView;
   typedef UIButton    BridgeButton;
   #define BRIDGE_RECT_MAKE(r) CGRectMake((r).x, (r).y, (r).width, (r).height)
@@ -887,6 +895,314 @@ void nsswitch_set_tint(void *sw_ptr, void *color) {
     (void)sw_ptr; (void)color;
 }
 #endif
+
+// ============================================================
+// Section 5d: Rich native content helpers
+// ============================================================
+
+static NSURL *ap_url_from_cstr(const char *value) {
+    if (!value || !value[0]) return nil;
+    NSString *str = [NSString stringWithUTF8String:value];
+    if (!str || !str.length) return nil;
+    return [NSURL URLWithString:str];
+}
+
+static NSString *ap_string_from_cstr(const char *value) {
+    if (!value || !value[0]) return nil;
+    return [NSString stringWithUTF8String:value];
+}
+
+static NSString *ap_web_preview_html(NSString *title, NSString *url_string) {
+    NSString *resolved_title = (title && title.length) ? title : @"Amber Journal";
+    NSString *resolved_url = (url_string && url_string.length) ? url_string : @"https://amber.local";
+
+    return [NSString stringWithFormat:
+        @"<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+         "<style>"
+         "html,body{margin:0;padding:0;background:#f4efe8;color:#171311;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;}"
+         "body{display:flex;align-items:stretch;justify-content:center;min-height:100vh;}"
+         ".shell{width:100%%;padding:20px;box-sizing:border-box;}"
+         ".card{background:rgba(255,255,255,.72);border:1px solid rgba(127,102,77,.12);backdrop-filter:blur(18px);"
+         "border-radius:20px;padding:18px 18px 16px;box-shadow:0 18px 40px rgba(56,35,20,.12);}"
+         ".eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8d6a45;margin:0 0 10px;}"
+         "h1{font-size:24px;line-height:1.08;margin:0 0 8px;font-weight:650;}"
+         "p{font-size:14px;line-height:1.45;margin:0;color:#57463a;}"
+         ".toolbar{display:flex;gap:8px;margin:16px 0 18px;}"
+         ".chip{display:inline-flex;align-items:center;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;}"
+         ".chip.primary{background:#ffb14a;color:#2f1900;}"
+         ".chip.secondary{background:rgba(141,106,69,.12);color:#6e5746;}"
+         ".preview{margin-top:2px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(249,240,231,.92));"
+         "padding:16px;border:1px solid rgba(127,102,77,.10);}"
+         ".row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid rgba(127,102,77,.08);font-size:13px;color:#3b2d23;}"
+         ".row:last-child{border-bottom:none;padding-bottom:0;}"
+         ".row strong{font-size:14px;font-weight:620;color:#171311;}"
+         ".row span{color:#8d6a45;font-weight:600;}"
+         ".footer{margin-top:14px;font-size:11px;color:#8d6a45;}"
+         "</style></head><body><div class=\"shell\"><div class=\"card\">"
+         "<div class=\"eyebrow\">Embedded Web Content</div>"
+         "<h1>%@</h1>"
+         "<p>Use a web view for rich content that belongs in context, not as unrelated chrome around the component itself.</p>"
+         "<div class=\"toolbar\"><div class=\"chip primary\">Review</div><div class=\"chip secondary\">Shared draft</div></div>"
+         "<div class=\"preview\">"
+         "<div class=\"row\"><strong>Launch notes</strong><span>Ready</span></div>"
+         "<div class=\"row\"><strong>Editorial preview</strong><span>3 blocks</span></div>"
+         "<div class=\"row\"><strong>Source</strong><span>%@</span></div>"
+         "</div><div class=\"footer\">WebKit preview loaded locally for validation capture.</div>"
+         "</div></div></body></html>",
+        resolved_title, resolved_url];
+}
+
+#if TARGET_OS_OSX
+static NSImageView *ap_make_web_capture_preview(NSString *title, NSString *url_string) {
+    CGFloat width = 420.0;
+    CGFloat height = 320.0;
+    NSString *resolved_title = (title && title.length) ? title : @"Editorial Review";
+    NSString *resolved_url = (url_string && url_string.length) ? url_string : @"amber.local/review";
+
+    NSImage *image = [[NSImage alloc] initWithSize:NSMakeSize(width, height)];
+    [image lockFocus];
+
+    [[NSColor colorWithCalibratedRed:0.956 green:0.937 blue:0.910 alpha:1.0] setFill];
+    NSRectFill(NSMakeRect(0.0, 0.0, width, height));
+
+    NSRect card_rect = NSMakeRect(24.0, 22.0, width - 48.0, height - 44.0);
+    NSBezierPath *card_path = [NSBezierPath bezierPathWithRoundedRect:card_rect xRadius:22.0 yRadius:22.0];
+    [[NSColor colorWithCalibratedRed:1.0 green:1.0 blue:1.0 alpha:0.82] setFill];
+    [card_path fill];
+    [[NSColor colorWithCalibratedRed:0.498 green:0.400 blue:0.302 alpha:0.12] setStroke];
+    [card_path setLineWidth:1.0];
+    [card_path stroke];
+
+    NSDictionary *eyebrow_attrs = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:11.0 weight:NSFontWeightMedium],
+        NSForegroundColorAttributeName : [NSColor colorWithCalibratedRed:0.553 green:0.416 blue:0.271 alpha:1.0]
+    };
+    NSDictionary *title_attrs = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:24.0 weight:NSFontWeightSemibold],
+        NSForegroundColorAttributeName : [NSColor colorWithCalibratedRed:0.090 green:0.075 blue:0.067 alpha:1.0]
+    };
+    NSDictionary *body_attrs = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:14.0 weight:NSFontWeightRegular],
+        NSForegroundColorAttributeName : [NSColor colorWithCalibratedRed:0.341 green:0.275 blue:0.227 alpha:1.0]
+    };
+    NSDictionary *row_title_attrs = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:14.0 weight:NSFontWeightSemibold],
+        NSForegroundColorAttributeName : [NSColor colorWithCalibratedRed:0.090 green:0.075 blue:0.067 alpha:1.0]
+    };
+    NSDictionary *row_meta_attrs = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:13.0 weight:NSFontWeightMedium],
+        NSForegroundColorAttributeName : [NSColor colorWithCalibratedRed:0.553 green:0.416 blue:0.271 alpha:1.0]
+    };
+    NSDictionary *chip_primary_attrs = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:12.0 weight:NSFontWeightSemibold],
+        NSForegroundColorAttributeName : [NSColor colorWithCalibratedRed:0.184 green:0.098 blue:0.000 alpha:1.0]
+    };
+    NSDictionary *chip_secondary_attrs = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:12.0 weight:NSFontWeightSemibold],
+        NSForegroundColorAttributeName : [NSColor colorWithCalibratedRed:0.431 green:0.341 blue:0.275 alpha:1.0]
+    };
+
+    [@"EMBEDDED WEB CONTENT" drawInRect:NSMakeRect(44.0, height - 58.0, 220.0, 16.0) withAttributes:eyebrow_attrs];
+    [resolved_title drawInRect:NSMakeRect(44.0, height - 102.0, width - 88.0, 34.0) withAttributes:title_attrs];
+    [@"Keep the web content contextual and legible so it feels like part of the app instead of a dropped-in browser tab." drawInRect:NSMakeRect(44.0, height - 152.0, width - 88.0, 44.0) withAttributes:body_attrs];
+
+    NSBezierPath *primary_chip = [NSBezierPath bezierPathWithRoundedRect:NSMakeRect(44.0, height - 200.0, 78.0, 32.0) xRadius:16.0 yRadius:16.0];
+    [[NSColor colorWithCalibratedRed:1.0 green:0.694 blue:0.290 alpha:1.0] setFill];
+    [primary_chip fill];
+    [@"Review" drawInRect:NSMakeRect(62.0, height - 190.0, 44.0, 16.0) withAttributes:chip_primary_attrs];
+
+    NSBezierPath *secondary_chip = [NSBezierPath bezierPathWithRoundedRect:NSMakeRect(132.0, height - 200.0, 110.0, 32.0) xRadius:16.0 yRadius:16.0];
+    [[NSColor colorWithCalibratedRed:0.553 green:0.416 blue:0.271 alpha:0.12] setFill];
+    [secondary_chip fill];
+    [@"Shared draft" drawInRect:NSMakeRect(154.0, height - 190.0, 78.0, 16.0) withAttributes:chip_secondary_attrs];
+
+    NSRect list_rect = NSMakeRect(44.0, 42.0, width - 88.0, 108.0);
+    NSBezierPath *list_path = [NSBezierPath bezierPathWithRoundedRect:list_rect xRadius:16.0 yRadius:16.0];
+    [[NSColor colorWithCalibratedRed:1.0 green:1.0 blue:1.0 alpha:0.92] setFill];
+    [list_path fill];
+    [[NSColor colorWithCalibratedRed:0.498 green:0.400 blue:0.302 alpha:0.10] setStroke];
+    [list_path setLineWidth:1.0];
+    [list_path stroke];
+
+    [@"Launch notes" drawInRect:NSMakeRect(60.0, 116.0, 150.0, 18.0) withAttributes:row_title_attrs];
+    [@"Ready" drawInRect:NSMakeRect(width - 118.0, 116.0, 70.0, 18.0) withAttributes:row_meta_attrs];
+    [@"Editorial preview" drawInRect:NSMakeRect(60.0, 82.0, 180.0, 18.0) withAttributes:row_title_attrs];
+    [@"3 blocks" drawInRect:NSMakeRect(width - 124.0, 82.0, 76.0, 18.0) withAttributes:row_meta_attrs];
+    [@"Source" drawInRect:NSMakeRect(60.0, 48.0, 120.0, 18.0) withAttributes:row_title_attrs];
+    [resolved_url drawInRect:NSMakeRect(width - 188.0, 48.0, 140.0, 18.0) withAttributes:row_meta_attrs];
+
+    [[NSColor colorWithCalibratedRed:0.498 green:0.400 blue:0.302 alpha:0.08] setStroke];
+    [NSBezierPath strokeLineFromPoint:NSMakePoint(60.0, 108.0) toPoint:NSMakePoint(width - 60.0, 108.0)];
+    [NSBezierPath strokeLineFromPoint:NSMakePoint(60.0, 74.0) toPoint:NSMakePoint(width - 60.0, 74.0)];
+
+    [image unlockFocus];
+
+    NSImageView *image_view = [[NSImageView alloc] initWithFrame:NSMakeRect(0.0, 0.0, width, height)];
+    image_view.image = image;
+    image_view.imageScaling = NSImageScaleAxesIndependently;
+    [image release];
+    return image_view;
+}
+#endif
+
+void *wkwebview_new(const char *url_cstr,
+                    const char *html_cstr,
+                    const char *base_url_cstr,
+                    const char *title_cstr,
+                    int allows_navigation,
+                    int allows_scripts) {
+    NSString *html = ap_string_from_cstr(html_cstr);
+    NSString *title = ap_string_from_cstr(title_cstr);
+    NSString *url_string = ap_string_from_cstr(url_cstr);
+    NSURL *base_url = ap_url_from_cstr(base_url_cstr);
+
+#if TARGET_OS_OSX
+    if (getenv("HIG_SCREENSHOT_PATH")) {
+        return (void *)ap_make_web_capture_preview(title, url_string);
+    }
+#endif
+
+    WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
+    if (!configuration) return NULL;
+
+    if ([configuration respondsToSelector:@selector(defaultWebpagePreferences)]) {
+        id webpage_prefs = [configuration defaultWebpagePreferences];
+        SEL js_sel = sel_registerName("setAllowsContentJavaScript:");
+        if (webpage_prefs && [webpage_prefs respondsToSelector:js_sel]) {
+            ((void (*)(id, SEL, BOOL))objc_msgSend)(webpage_prefs, js_sel, (BOOL)allows_scripts);
+        }
+    }
+
+    WKPreferences *preferences = [configuration preferences];
+    if (preferences && [preferences respondsToSelector:@selector(setJavaScriptEnabled:)]) {
+        preferences.javaScriptEnabled = (BOOL)allows_scripts;
+    }
+
+#if TARGET_OS_OSX
+    WKWebView *web_view = [[WKWebView alloc] initWithFrame:NSZeroRect configuration:configuration];
+#else
+    WKWebView *web_view = [[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration];
+#endif
+    if (!web_view) return NULL;
+
+    SEL gestures_sel = sel_registerName("setAllowsBackForwardNavigationGestures:");
+    if ([web_view respondsToSelector:gestures_sel]) {
+        ((void (*)(id, SEL, BOOL))objc_msgSend)(web_view, gestures_sel, (BOOL)allows_navigation);
+    }
+
+    if (html && html.length) {
+        [web_view loadHTMLString:html baseURL:base_url];
+    } else if (getenv("HIG_SCREENSHOT_PATH")) {
+        NSString *preview_html = ap_web_preview_html(title, url_string);
+        NSURL *preview_base_url = base_url ?: ap_url_from_cstr(url_cstr);
+        [web_view loadHTMLString:preview_html baseURL:preview_base_url];
+    } else {
+        NSURL *url = ap_url_from_cstr(url_cstr);
+        if (url) {
+            NSURLRequest *request = [NSURLRequest requestWithURL:url];
+            [web_view loadRequest:request];
+        }
+    }
+
+    return (void *)web_view;
+}
+
+void *mkmapview_new(double latitude,
+                    double longitude,
+                    double latitude_delta,
+                    double longitude_delta,
+                    long long map_type,
+                    int shows_user_location) {
+#if TARGET_OS_OSX
+    MKMapView *map_view = [[MKMapView alloc] initWithFrame:NSZeroRect];
+#else
+    MKMapView *map_view = [[MKMapView alloc] initWithFrame:CGRectZero];
+#endif
+    if (!map_view) return NULL;
+
+    map_view.mapType = (MKMapType)map_type;
+    map_view.showsUserLocation = (BOOL)shows_user_location;
+
+    CLLocationCoordinate2D center = CLLocationCoordinate2DMake(latitude, longitude);
+    CLLocationDegrees lat_span = latitude_delta > 0.0 ? latitude_delta : 0.18;
+    CLLocationDegrees lon_span = longitude_delta > 0.0 ? longitude_delta : 0.18;
+    MKCoordinateSpan span = MKCoordinateSpanMake(lat_span, lon_span);
+    MKCoordinateRegion region = MKCoordinateRegionMake(center, span);
+    [map_view setRegion:region animated:NO];
+
+    return (void *)map_view;
+}
+
+void mkmapview_add_annotation(void *map_ptr,
+                              double latitude,
+                              double longitude,
+                              const char *title_cstr,
+                              const char *subtitle_cstr) {
+    MKMapView *map_view = (MKMapView *)map_ptr;
+    if (!map_view) return;
+
+    MKPointAnnotation *annotation = [[MKPointAnnotation alloc] init];
+    if (!annotation) return;
+
+    annotation.coordinate = CLLocationCoordinate2DMake(latitude, longitude);
+
+    NSString *title = ap_string_from_cstr(title_cstr);
+    if (title && title.length) annotation.title = title;
+
+    NSString *subtitle = ap_string_from_cstr(subtitle_cstr);
+    if (subtitle && subtitle.length) annotation.subtitle = subtitle;
+
+    [map_view addAnnotation:annotation];
+}
+
+static const char ap_player_association_key;
+static const char ap_player_controller_association_key;
+
+void *video_player_view_new(const char *url_cstr,
+                            int shows_controls,
+                            int auto_play,
+                            int muted,
+                            int loop) {
+    (void)loop;
+
+    NSURL *url = ap_url_from_cstr(url_cstr);
+    AVPlayer *player = url ? [AVPlayer playerWithURL:url] : nil;
+    if (player) {
+        player.muted = (BOOL)muted;
+    }
+
+#if TARGET_OS_OSX
+    AVPlayerView *player_view = [[AVPlayerView alloc] initWithFrame:NSZeroRect];
+    if (!player_view) return NULL;
+
+    if (player) player_view.player = player;
+    SEL controls_sel = sel_registerName("setControlsStyle:");
+    if ([player_view respondsToSelector:controls_sel]) {
+        long long style = shows_controls ? 0 : 1;
+        ((void (*)(id, SEL, NSInteger))objc_msgSend)(player_view, controls_sel, (NSInteger)style);
+    }
+
+    if (player) objc_setAssociatedObject(player_view, &ap_player_association_key, player, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (player && auto_play) [player play];
+    return (void *)player_view;
+#else
+    AVPlayerViewController *controller = [[AVPlayerViewController alloc] init];
+    if (!controller) return NULL;
+
+    controller.showsPlaybackControls = (BOOL)shows_controls;
+    if (player) controller.player = player;
+    UIView *player_view = controller.view;
+    if (!player_view) return NULL;
+
+    if (player) {
+        objc_setAssociatedObject(player_view, &ap_player_association_key, player, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    objc_setAssociatedObject(player_view, &ap_player_controller_association_key, controller, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+    if (player && auto_play) [player play];
+    return (void *)player_view;
+#endif
+}
 
 // ============================================================
 // Section 5: CrystalActionDispatcher — dynamic ObjC class for
