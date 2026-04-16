@@ -1,58 +1,53 @@
 {
-  "errors": [
-    "screenshot newer than report: sidebars-macos-light.png",
-    "screenshot newer than report: sidebars-macos-dark.png",
-    "screenshot newer than report: sidebars-ios-light.png",
-    "screenshot newer than report: sidebars-ios-dark.png"
-  ],
-  "generated_at": "2026-04-16T20:46:36.308827+00:00",
+  "errors": [],
+  "generated_at": "2026-04-16T22:21:16.168016+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-14T13:46:34.070551+00:00",
+    "mtime": "2026-04-16T22:20:57.594349+00:00",
     "path": "reports/sidebars.md",
-    "sha256": "ae4339acc7d435fca5e1c9f108d671c41dc5bcb39e65d15a000a09a50a173fc4",
-    "size_bytes": 10917
+    "sha256": "cac78824c1fafa742ef27d7236f0fafd1b154f1c906f39fddbda042ef163b4d6",
+    "size_bytes": 1801
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-15T21:18:29.509722+00:00",
+      "mtime": "2026-04-16T22:14:55.321762+00:00",
       "path": "screenshots/sidebars-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "bb8a35c93a28770de1cb1c83cc69c8573979a3306d20c253075e43c635b80121",
-      "size_bytes": 381354
+      "sha256": "92f4c6c1afa941abe97ea07827bf1e5fc2baffda188f4d9204861ccd43f5acbc",
+      "size_bytes": 124470
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-15T21:17:54.779708+00:00",
+      "mtime": "2026-04-16T22:14:17.374986+00:00",
       "path": "screenshots/sidebars-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "696424e61df5dbb8d3f17038fadf382b1e6ababa0de7613c85f7996de572bd29",
-      "size_bytes": 388743
+      "sha256": "cbc181a126808d813f4588efce7de22d5fee8c51c87e994571cb31a387d2c29e",
+      "size_bytes": 131609
     },
     "macos_dark": {
       "exists": true,
-      "mtime": "2026-04-15T20:25:59.066627+00:00",
+      "mtime": "2026-04-16T22:03:46.995989+00:00",
       "path": "screenshots/sidebars-macos-dark.png",
       "pixel_height": 1800,
       "pixel_width": 2400,
-      "sha256": "2e977fa6c56872218f6e49e38291a75f9e2c7f7a5b2012e36701582a880f3cb3",
-      "size_bytes": 269279
+      "sha256": "28f4edee8ceb9b0b4261de827f0f2b20102648320220b36176ccde0d5eb5f19c",
+      "size_bytes": 266774
     },
     "macos_light": {
       "exists": true,
-      "mtime": "2026-04-15T20:25:58.231248+00:00",
+      "mtime": "2026-04-16T22:03:46.163862+00:00",
       "path": "screenshots/sidebars-macos-light.png",
       "pixel_height": 1800,
       "pixel_width": 2400,
-      "sha256": "eaf6b9256eb7821cd89254c89d8132aec5a0bd086e0a0cbece7ff6bbd30100bc",
-      "size_bytes": 263765
+      "sha256": "3c4bf661bd2a4fa2e5a64606b1fd9292711014708fcd8c18e747d15d0797e574",
+      "size_bytes": 263216
     }
   },
   "slug": "sidebars",
-  "valid": false,
+  "valid": true,
   "validation_state": "pending",
   "warnings": []
 }

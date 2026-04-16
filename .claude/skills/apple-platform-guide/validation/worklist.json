@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T21:51:01.031418+00:00",
+  "generated_at": "2026-04-16T22:21:22.814169+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -2163,7 +2163,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2177,17 +2177,11 @@
         "ios_light": "pass",
         "ios_dark": "pass"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "gallery",
       "focal_position": "carousel",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: page-controls-macos-light.png",
-        "screenshot newer than report: page-controls-macos-dark.png",
-        "screenshot newer than report: page-controls-ios-light.png",
-        "screenshot newer than report: page-controls-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "panels",
@@ -2930,7 +2924,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "sidebar",
@@ -2944,19 +2938,13 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "iteration": 20,
       "validated_at": "2026-04-15T08:56:00Z",
       "backdrop": "sidebar-backdrop-amber-inbox",
       "scene": "inbox",
       "focal_position": "left_pane",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: sidebars-macos-light.png",
-        "screenshot newer than report: sidebars-macos-dark.png",
-        "screenshot newer than report: sidebars-ios-light.png",
-        "screenshot newer than report: sidebars-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "sign-in-with-apple",
@@ -3052,7 +3040,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3068,17 +3056,11 @@
       },
       "iteration": 44,
       "validated_at": "2026-04-14T10:25:00Z",
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sidebar-backdrop-amber-inbox",
       "scene": "inbox",
       "focal_position": "full_2pane",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: split-views-macos-light.png",
-        "screenshot newer than report: split-views-macos-dark.png",
-        "screenshot newer than report: split-views-ios-light.png",
-        "screenshot newer than report: split-views-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "status",
@@ -3729,15 +3711,15 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 24,
-    "pending": 19,
+    "pass_with_notes": 27,
+    "pending": 16,
     "needs_work": 0,
     "fail": 0,
     "skipped": 22
   },
   "evidence_counts": {
-    "valid": 23,
-    "invalid": 20,
+    "valid": 26,
+    "invalid": 17,
     "not_applicable": 22,
     "unknown": 0
   }
