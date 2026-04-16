@@ -1175,36 +1175,68 @@ require "../../../src/ui/validation_scenes"
       #   2. Editable (empty placeholder via label) -- demonstrates bordered editable area.
       #   3. Attributed-style multi-span -- demonstrates bold + italic co-present.
 
-      tv_stack = UI::VStack.new(spacing: 16.0)
-      tv_stack << UI::Label.new("Morning pages draft").tap { |l| l.font = UI::Font.new(size: 15.0, weight: :semibold); l.accessibility_label = "Morning pages heading" }
+      tv_outer = UI::VStack.new(spacing: 12.0)
+      tv_outer.alignment = UI::Alignment::Leading
+      tv_outer.minimum_width = 488.0
+      tv_outer.maximum_width = 488.0
+
+      tv_title = UI::Label.new("Text view")
+      tv_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      tv_title.accessibility_label = "Text views study title"
+      tv_outer << tv_title
+
+      tv_subtitle = UI::Label.new("A polished editing surface with calm gutters.")
+      tv_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      tv_subtitle.text_color_role = UI::LabelRole::Secondary
+      tv_subtitle.accessibility_label = "Text views study subtitle"
+      tv_outer << tv_subtitle
+
+      tv_stack = UI::VStack.new(spacing: 14.0)
 
       # Row 1: Read-only paragraph (3-4 lines at typical window width)
-      row1_lbl = UI::Label.new("Read-only paragraph:")
+      row1_lbl = UI::Label.new("Read only")
       row1_lbl.font = UI::Font.new(size: 13.0, weight: :regular)
       row1_lbl.accessibility_label = "Read-only paragraph label"
       tv_stack << row1_lbl.as(UI::View)
 
-      tv1 = UI::RichText.new
-      tv1.add_span("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.")
+      tv1 = UI::TextArea.new
+      tv1.text = "Morning pages begin with a few quiet lines. The surface should feel ready, legible, and unhurried."
+      tv1.is_editable = false
+      tv1.is_scrollable = false
+      tv1.minimum_width = 488.0
+      tv1.maximum_width = 488.0
+      tv1.minimum_height = 92.0
+      tv1.maximum_height = 92.0
       tv1.accessibility_label = "Read-only text view"
       tv_stack << tv1.as(UI::View)
 
       # Row 2: Label indicating editable text area (UI::TextArea for editable; RichText for validation)
-      row2_lbl = UI::Label.new("Attributed text (bold + italic):")
+      row2_lbl = UI::Label.new("Attributed text")
       row2_lbl.font = UI::Font.new(size: 13.0, weight: :regular)
       row2_lbl.accessibility_label = "Attributed text label"
       tv_stack << row2_lbl.as(UI::View)
 
-      tv2 = UI::RichText.new
-      tv2.add_span("The quick brown fox ", bold: false, italic: false)
-      tv2.add_span("jumps over", bold: true, italic: false)
-      tv2.add_span(" the lazy dog. ", bold: false, italic: false)
-      tv2.add_span("Styled text", bold: false, italic: true)
-      tv2.add_span(" mixed with plain content wraps across multiple lines.", bold: false, italic: false)
+      tv2 = UI::TextArea.new
+      tv2.text = "Primary text holds the room while secondary emphasis stays restrained."
+      tv2.is_editable = true
+      tv2.is_scrollable = false
+      tv2.minimum_width = 488.0
+      tv2.maximum_width = 488.0
+      tv2.minimum_height = 88.0
+      tv2.maximum_height = 88.0
       tv2.accessibility_label = "Attributed text view"
       tv_stack << tv2.as(UI::View)
 
-      tv_stack.as(UI::View)
+      tv_outer << tv_stack.as(UI::View)
+
+      tv_card = UI::Card.new(tv_outer.as(UI::View))
+      tv_card.minimum_width = 540.0
+      tv_card.maximum_width = 540.0
+      tv_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+      tv_card.is_outlined = true
+      tv_card.material = :secondary
+      tv_card.accessibility_label = "Text view study card"
+      tv_card.as(UI::View)
     when "labels"
       # HIG Labels: 8-row typographic gallery exercising all four LabelRole
       # semantic color tokens (iteration-18 contract) plus the full HIG
@@ -1223,7 +1255,19 @@ require "../../../src/ui/validation_scenes"
       # Type mapping -- see gaps.md). Sizes approximate the HIG ladder:
       # Large Title=34, Headline=17 semibold, Body=17, Callout=16,
       # Subheadline=15 semibold, Footnote=13, Caption=12.
-      content = UI::VStack.new(spacing: 10.0)
+      content = UI::VStack.new(spacing: 9.0)
+      content.alignment = UI::Alignment::Leading
+
+      title = UI::Label.new("Label styles")
+      title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      title.accessibility_label = "Labels study title"
+      content << title
+
+      subtitle = UI::Label.new("Typography and semantic color in one quiet set.")
+      subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      subtitle.text_color_role = UI::LabelRole::Secondary
+      subtitle.accessibility_label = "Labels study subtitle"
+      content << subtitle
 
       # Row 1: Large Title -- Primary, 34pt Bold
       row1_label = UI::Label.new("Row 1 (Large Title)")
@@ -1306,7 +1350,14 @@ require "../../../src/ui/validation_scenes"
       multiline.number_of_lines = 0
       content << multiline
 
-      content.as(UI::View)
+      label_card = UI::Card.new(content.as(UI::View))
+      label_card.minimum_width = 460.0
+      label_card.maximum_width = 460.0
+      label_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+      label_card.is_outlined = true
+      label_card.material = :secondary
+      label_card.accessibility_label = "Labels study card"
+      label_card.as(UI::View)
     when "sliders"
       # HIG Sliders: horizontal track with thumb; leading portion filled in tint color.
       # Best practices: "Customize a slider's appearance if it adds value."
@@ -2597,78 +2648,79 @@ require "../../../src/ui/validation_scenes"
       #
       # clip_shape is not yet a property on UI::AsyncImage; circular avatar uses
       # UI::Circle directly. See validation/gaps.md (iteration 29 entry).
-      gallery = UI::VStack.new(spacing: 16.0)
+      gallery = UI::VStack.new(spacing: 14.0)
+      gallery.alignment = UI::Alignment::Center
 
-      # --- 1. SF Symbol image: star.fill, 60pt, tinted system blue ---
-      sym_label = UI::Label.new("1. SF Symbol — star.fill (60pt, system blue tint)")
-      sym_label.font = UI::Font.new(size: 12.0, weight: :regular)
-      sym_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-      gallery << sym_label
+      image_title = UI::Label.new("Image view")
+      image_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      image_title.accessibility_label = "Image views study title"
+      gallery << image_title
+
+      image_subtitle = UI::Label.new("One visual at a time, with room around it.")
+      image_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      image_subtitle.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+      image_subtitle.accessibility_label = "Image views study subtitle"
+      gallery << image_subtitle
+
+      hero_label = UI::Label.new("Symbol image")
+      hero_label.font = UI::Font.new(size: 12.0, weight: :regular)
+      hero_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+      gallery << hero_label
       sym_img = UI::Image.new("star.fill")
-      sym_img.tint_color = UI::Color.new(r: 0.0, g: 0.478, b: 1.0)
+      sym_img.tint_color = UI::Color.new(r: 1.0, g: 0.58, b: 0.0)
       gallery << sym_img
 
-      # --- 2. Square photo thumbnail: 120x120 bordered gray placeholder ---
-      thumb_label = UI::Label.new("2. Square thumbnail (120x120, bordered)")
+      thumb_label = UI::Label.new("Thumbnail and avatar")
       thumb_label.font = UI::Font.new(size: 12.0, weight: :regular)
       thumb_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
       gallery << thumb_label
-      thumb = UI::Rectangle.new(width: 120.0, height: 120.0)
-      thumb.fill_color = UI::Color.new(r: 0.82, g: 0.82, b: 0.84)
-      thumb.stroke_color = UI::Color.new(r: 0.6, g: 0.6, b: 0.62)
+
+      thumb_row = UI::HStack.new(spacing: 18.0)
+      thumb_row.alignment = UI::Alignment::Center
+      thumb = UI::Rectangle.new(width: 124.0, height: 124.0)
+      thumb.fill_color = UI::Color.new(r: 0.84, g: 0.81, b: 0.77)
+      thumb.stroke_color = UI::Color.new(r: 0.65, g: 0.58, b: 0.52)
       thumb.stroke_width = 1.0
-      gallery << thumb
-
-      # --- 3. Circular avatar: 64pt, clipped circle ---
-      avatar_label = UI::Label.new("3. Circular avatar (64pt diameter, clipped)")
-      avatar_label.font = UI::Font.new(size: 12.0, weight: :regular)
-      avatar_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-      gallery << avatar_label
-      avatar = UI::Circle.new(64.0)
+      thumb_row << thumb
+      avatar = UI::Circle.new(72.0)
       avatar.fill_color = UI::Color.new(r: 0.69, g: 0.56, b: 0.49)
-      avatar.stroke_color = UI::Color.new(r: 1.0, g: 1.0, b: 1.0)
+      avatar.stroke_color = UI::Color.new(r: 1.0, g: 0.95, b: 0.88)
       avatar.stroke_width = 2.0
-      gallery << avatar
+      thumb_row << avatar
+      gallery << thumb_row
 
-      # --- 4. Rounded-corner card: 12pt radius, 120x120, slate-blue fill ---
-      card_label = UI::Label.new("4. Rounded card (12pt radius, 120x120)")
-      card_label.font = UI::Font.new(size: 12.0, weight: :regular)
-      card_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-      gallery << card_label
-      card = UI::RoundedRectangle.new(12.0, 120.0, 120.0)
-      card.fill_color = UI::Color.new(r: 0.27, g: 0.40, b: 0.60)
-      gallery << card
+      placeholder_label = UI::Label.new("Placeholder state")
+      placeholder_label.font = UI::Font.new(size: 12.0, weight: :regular)
+      placeholder_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
+      gallery << placeholder_label
 
-      # --- 5. Loading state: AsyncImage with is_loading=true + spinner ---
-      loading_label = UI::Label.new("5. Loading state (AsyncImage spinner)")
-      loading_label.font = UI::Font.new(size: 12.0, weight: :regular)
-      loading_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-      gallery << loading_label
-      spinner_row = UI::HStack.new(spacing: 8.0)
-      spinner = UI::ActivityIndicator.new(true, :medium)
-      spinner_row << spinner
-      spinner_row << UI::Label.new("Loading image...")
-      gallery << spinner_row
-
-      # --- 6. Error/placeholder state: broken-image indicator ---
-      err_label = UI::Label.new("6. Error / placeholder state")
-      err_label.font = UI::Font.new(size: 12.0, weight: :regular)
-      err_label.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-      gallery << err_label
-      err_bg = UI::Rectangle.new(width: 120.0, height: 80.0)
+      placeholder_row = UI::HStack.new(spacing: 10.0)
+      placeholder_row.alignment = UI::Alignment::Center
+      err_bg = UI::Rectangle.new(width: 160.0, height: 96.0)
       err_bg.fill_color = UI::Color.new(r: 0.90, g: 0.90, b: 0.92)
       err_bg.stroke_color = UI::Color.new(r: 0.75, g: 0.75, b: 0.77)
       err_bg.stroke_width = 1.0
-      gallery << err_bg
+      placeholder_row << err_bg
+      placeholder_msg = UI::VStack.new(spacing: 2.0)
+      placeholder_msg.alignment = UI::Alignment::Leading
       err_sym = UI::Image.new("photo")
       err_sym.tint_color = UI::Color.new(r: 0.70, g: 0.70, b: 0.72)
-      gallery << err_sym
+      placeholder_msg << err_sym
       err_msg = UI::Label.new("Failed to load image")
       err_msg.font = UI::Font.new(size: 12.0, weight: :regular)
       err_msg.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-      gallery << err_msg
+      placeholder_msg << err_msg
+      placeholder_row << placeholder_msg
+      gallery << placeholder_row
 
-      gallery.as(UI::View)
+      image_card = UI::Card.new(gallery.as(UI::View))
+      image_card.minimum_width = 520.0
+      image_card.maximum_width = 520.0
+      image_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+      image_card.is_outlined = true
+      image_card.material = :secondary
+      image_card.accessibility_label = "Image views study card"
+      image_card.as(UI::View)
     when "tab-bars"
       # HIG: "A tab bar lets people navigate between top-level sections of your app."
       # HIG tab-bars (iOS): "A tab bar floats above content at the bottom of the screen.

@@ -102,6 +102,10 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "OutlineView(#{view.node_count})"
   end
 
+  def visit(view : UI::ColumnView)
+    @visited << "ColumnView(#{view.column_count})"
+  end
+
   def visit(view : UI::SecureField)
     @visited << "SecureField(#{view.placeholder})"
   end
@@ -2405,6 +2409,59 @@ describe UI::OutlineView do
     visitor = TestVisitor.new
     outline.accept(visitor)
     visitor.visited.should eq(["OutlineView(1)"])
+  end
+end
+
+describe UI::ColumnView do
+  it "stores nested drill-down items and widths" do
+    library = UI::ColumnView::Item.new("Library")
+    docs = UI::ColumnView::Item.new("Documents")
+    docs.add_child(UI::ColumnView::Item.new("Design"))
+    docs.add_child(UI::ColumnView::Item.new("Specs"))
+
+    projects = UI::ColumnView::Item.new("Projects")
+    projects.add_child(UI::ColumnView::Item.new("Amber"))
+
+    view = UI::ColumnView.new([library, docs, projects])
+    view.selected_indexes = [1, 0]
+    view.column_widths = [240.0, 268.0]
+
+    view.item_count.should eq(6)
+    view.column_count.should eq(2)
+    view.selected_path.should eq([1, 0])
+    view.items[1].branch?.should be_true
+  end
+
+  it "builds a scrollable browser-like fallback surface" do
+    root = UI::ColumnView::Item.new("Library", "folder")
+    root.add_child(UI::ColumnView::Item.new("Design", "folder"))
+
+    view = UI::ColumnView.new([root])
+    view.selected_indexes = [0]
+    view.minimum_width = 320.0
+    view.viewport_height = 260.0
+
+    fallback = view.fallback_view
+    fallback.should be_a(UI::ScrollView)
+
+    scroll = fallback.as(UI::ScrollView)
+    scroll.scroll_horizontal.should be_true
+    scroll.scroll_vertical.should be_false
+    scroll.frame_width.should eq(320.0)
+    scroll.frame_height.should eq(260.0)
+    scroll.content.should be_a(UI::HStack)
+
+    stack = scroll.content.as(UI::HStack)
+    stack.children.size.should eq(2)
+    stack.children.first.should be_a(UI::VStack)
+  end
+
+  it "accepts visitor" do
+    view = UI::ColumnView.new([UI::ColumnView::Item.new("Library")])
+
+    visitor = TestVisitor.new
+    view.accept(visitor)
+    visitor.visited.should eq(["ColumnView(1)"])
   end
 end
 

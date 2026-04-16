@@ -39,6 +39,9 @@ module UI
     abstract def visit(view : IconButton)
     abstract def visit(view : ListView)
     abstract def visit(view : OutlineView)
+    def visit(view : ColumnView)
+      view.fallback_view.accept(self)
+    end
     abstract def visit(view : SecureField)
     abstract def visit(view : Stepper)
     abstract def visit(view : SegmentedControl)

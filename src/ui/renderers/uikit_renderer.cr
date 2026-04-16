@@ -2036,6 +2036,10 @@ module UI::UIKit
       view.fallback_view.accept(self)
     end
 
+    def visit(view : UI::ColumnView)
+      view.fallback_view.accept(self)
+    end
+
     # -----------------------------------------------------------------
     # Visit: SecureField -> UITextField with secureTextEntry = true
     # -----------------------------------------------------------------

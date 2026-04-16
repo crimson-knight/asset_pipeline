@@ -132,6 +132,12 @@ module CrystalHIGHost::Bridge
       centered_study_card(focal, card_width: 364.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
     when "text-fields"
       centered_study_card(focal, card_width: 364.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
+    when "labels"
+      centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
+    when "text-views"
+      centered_study_card(focal, card_width: 336.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
+    when "image-views"
+      centered_study_card(focal, card_width: 324.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "path-controls"
       centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "outline-views"
@@ -1004,35 +1010,41 @@ module CrystalHIGHost::Bridge
               # text that's long, editable, or in a special format."
               # iOS / iPadOS: UITextView -- non-editable by default for read-only.
 
-              ios_tv_stack = UI::VStack.new(spacing: 16.0)
-              ios_tv_stack << UI::Label.new("HIG: text-views").tap { |l|
-                l.font = UI::Font.new(size: 15.0, weight: :semibold)
-                l.accessibility_label = "HIG text-views heading"
-              }
+              ios_tv_stack = UI::VStack.new(spacing: 12.0)
+              ios_tv_stack.minimum_width = 304.0
+              ios_tv_stack.maximum_width = 304.0
 
-              # Row 1: Read-only paragraph with line wrapping.
-              ios_row1_lbl = UI::Label.new("Read-only paragraph:")
-              ios_row1_lbl.font = UI::Font.new(size: 13.0, weight: :regular)
+              ios_tv_title = UI::Label.new("Reading surface")
+              ios_tv_title.font = UI::Font.new(size: 16.0, weight: :semibold)
+              ios_tv_title.accessibility_label = "Text views showcase title"
+              ios_tv_stack << ios_tv_title
+
+              ios_tv_desc = UI::Label.new("Short notes stay calm, legible, and easy to scan.")
+              ios_tv_desc.font = UI::Font.new(size: 13.0, weight: :regular)
+              ios_tv_desc.text_color_role = UI::LabelRole::Secondary
+              ios_tv_desc.accessibility_label = "Text views description"
+              ios_tv_stack << ios_tv_desc
+
+              ios_row1_lbl = UI::Label.new("Read-only")
+              ios_row1_lbl.font = UI::Font.new(size: 13.0, weight: :semibold)
+              ios_row1_lbl.text_color_role = UI::LabelRole::Secondary
               ios_row1_lbl.accessibility_label = "Read-only paragraph label"
               ios_tv_stack << ios_row1_lbl.as(UI::View)
 
               ios_tv1 = UI::RichText.new
-              ios_tv1.add_span("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.")
+              ios_tv1.add_span("Amber notes stay readable when the copy is short, wrapped, and left aligned.")
               ios_tv1.accessibility_label = "Read-only text view"
               ios_tv_stack << ios_tv1.as(UI::View)
 
-              # Row 2: Attributed text (bold + italic spans).
-              ios_row2_lbl = UI::Label.new("Attributed text (bold + italic):")
-              ios_row2_lbl.font = UI::Font.new(size: 13.0, weight: :regular)
+              ios_row2_lbl = UI::Label.new("Editable")
+              ios_row2_lbl.font = UI::Font.new(size: 13.0, weight: :semibold)
+              ios_row2_lbl.text_color_role = UI::LabelRole::Secondary
               ios_row2_lbl.accessibility_label = "Attributed text label"
               ios_tv_stack << ios_row2_lbl.as(UI::View)
 
               ios_tv2 = UI::RichText.new
-              ios_tv2.add_span("The quick brown fox ", bold: false, italic: false)
-              ios_tv2.add_span("jumps over", bold: true, italic: false)
-              ios_tv2.add_span(" the lazy dog. ", bold: false, italic: false)
-              ios_tv2.add_span("Styled text", bold: false, italic: true)
-              ios_tv2.add_span(" mixed with plain content wraps across multiple lines.", bold: false, italic: false)
+              ios_tv2.add_span("Quick draft: ", bold: true, italic: false)
+              ios_tv2.add_span("shape the copy, trim the noise, and keep the rhythm calm.", bold: false, italic: false)
               ios_tv2.accessibility_label = "Attributed text view"
               ios_tv_stack << ios_tv2.as(UI::View)
 
@@ -1044,88 +1056,122 @@ module CrystalHIGHost::Bridge
               # LabelRole tokens resolve to UIColor.labelColor /
               # secondaryLabelColor / tertiaryLabelColor / quaternaryLabelColor
               # at render time, tracking light/dark automatically.
-              labels_stack = UI::VStack.new(spacing: 10.0)
+              labels_stack = UI::VStack.new(spacing: 9.0)
+              labels_stack.minimum_width = 288.0
+              labels_stack.maximum_width = 288.0
 
-              # Row 1: Large Title -- Primary, 34pt Bold
-              r1_hdr = UI::Label.new("Row 1 (Large Title)")
-              r1_hdr.font = UI::Font.new(size: 12.0, weight: :regular)
-              r1_hdr.text_color_role = UI::LabelRole::Secondary
-              labels_stack << r1_hdr
-              r1 = UI::Label.new("The quick brown fox")
-              r1.font = UI::Font.new(size: 34.0, weight: :bold)
-              r1.text_color_role = UI::LabelRole::Primary
-              labels_stack << r1
+              labels_title = UI::Label.new("Typography scale")
+              labels_title.font = UI::Font.new(size: 16.0, weight: :semibold)
+              labels_title.accessibility_label = "Labels showcase title"
+              labels_stack << labels_title
 
-              # Row 2: Headline -- Primary, 17pt Semibold
-              r2_hdr = UI::Label.new("Row 2 (Headline)")
-              r2_hdr.font = UI::Font.new(size: 12.0, weight: :regular)
-              r2_hdr.text_color_role = UI::LabelRole::Secondary
-              labels_stack << r2_hdr
-              r2 = UI::Label.new("The quick brown fox")
-              r2.font = UI::Font.new(size: 17.0, weight: :semibold)
-              r2.text_color_role = UI::LabelRole::Primary
-              labels_stack << r2
+              labels_desc = UI::Label.new("Amber text stays crisp at every weight.")
+              labels_desc.font = UI::Font.new(size: 13.0, weight: :regular)
+              labels_desc.text_color_role = UI::LabelRole::Secondary
+              labels_desc.accessibility_label = "Labels description"
+              labels_stack << labels_desc
 
-              # Row 3: Body -- Primary, 17pt Regular
-              r3_hdr = UI::Label.new("Row 3 (Body)")
-              r3_hdr.font = UI::Font.new(size: 12.0, weight: :regular)
-              r3_hdr.text_color_role = UI::LabelRole::Secondary
-              labels_stack << r3_hdr
-              r3 = UI::Label.new("The quick brown fox")
-              r3.font = UI::Font.new(size: 17.0, weight: :regular)
-              r3.text_color_role = UI::LabelRole::Primary
-              labels_stack << r3
+              labels_row1 = UI::HStack.new(spacing: 10.0)
+              labels_row1.alignment = UI::Alignment::Center
+              labels_row1.minimum_width = 288.0
+              labels_row1.maximum_width = 288.0
+              labels_row1_style = UI::Label.new("Large title")
+              labels_row1_style.font = UI::Font.new(size: 11.0, weight: :regular)
+              labels_row1_style.text_color_role = UI::LabelRole::Secondary
+              labels_row1_style.minimum_width = 78.0
+              labels_row1_style.maximum_width = 78.0
+              labels_row1 << labels_row1_style.as(UI::View)
+              labels_row1_sample = UI::Label.new("Notes")
+              labels_row1_sample.font = UI::Font.new(size: 28.0, weight: :bold)
+              labels_row1_sample.text_color_role = UI::LabelRole::Primary
+              labels_row1_sample.number_of_lines = 0
+              labels_row1 << labels_row1_sample.as(UI::View)
+              labels_stack << labels_row1.as(UI::View)
 
-              # Row 4: Callout -- Primary, 16pt Regular
-              r4_hdr = UI::Label.new("Row 4 (Callout)")
-              r4_hdr.font = UI::Font.new(size: 12.0, weight: :regular)
-              r4_hdr.text_color_role = UI::LabelRole::Secondary
-              labels_stack << r4_hdr
-              r4 = UI::Label.new("The quick brown fox")
-              r4.font = UI::Font.new(size: 16.0, weight: :regular)
-              r4.text_color_role = UI::LabelRole::Primary
-              labels_stack << r4
+              labels_row2 = UI::HStack.new(spacing: 10.0)
+              labels_row2.alignment = UI::Alignment::Center
+              labels_row2.minimum_width = 288.0
+              labels_row2.maximum_width = 288.0
+              labels_row2_style = UI::Label.new("Headline")
+              labels_row2_style.font = UI::Font.new(size: 11.0, weight: :regular)
+              labels_row2_style.text_color_role = UI::LabelRole::Secondary
+              labels_row2_style.minimum_width = 78.0
+              labels_row2_style.maximum_width = 78.0
+              labels_row2 << labels_row2_style.as(UI::View)
+              labels_row2_sample = UI::Label.new("Today")
+              labels_row2_sample.font = UI::Font.new(size: 18.0, weight: :semibold)
+              labels_row2_sample.text_color_role = UI::LabelRole::Primary
+              labels_row2_sample.number_of_lines = 0
+              labels_row2 << labels_row2_sample.as(UI::View)
+              labels_stack << labels_row2.as(UI::View)
 
-              # Row 5: Subheadline -- Secondary, 15pt Semibold
-              r5_hdr = UI::Label.new("Row 5 (Subheadline, Secondary color)")
-              r5_hdr.font = UI::Font.new(size: 12.0, weight: :regular)
-              r5_hdr.text_color_role = UI::LabelRole::Secondary
-              labels_stack << r5_hdr
-              r5 = UI::Label.new("The quick brown fox")
-              r5.font = UI::Font.new(size: 15.0, weight: :semibold)
-              r5.text_color_role = UI::LabelRole::Secondary
-              labels_stack << r5
+              labels_row3 = UI::HStack.new(spacing: 10.0)
+              labels_row3.alignment = UI::Alignment::Center
+              labels_row3.minimum_width = 288.0
+              labels_row3.maximum_width = 288.0
+              labels_row3_style = UI::Label.new("Body")
+              labels_row3_style.font = UI::Font.new(size: 11.0, weight: :regular)
+              labels_row3_style.text_color_role = UI::LabelRole::Secondary
+              labels_row3_style.minimum_width = 78.0
+              labels_row3_style.maximum_width = 78.0
+              labels_row3 << labels_row3_style.as(UI::View)
+              labels_row3_sample = UI::Label.new("Pinned")
+              labels_row3_sample.font = UI::Font.new(size: 17.0, weight: :regular)
+              labels_row3_sample.text_color_role = UI::LabelRole::Primary
+              labels_row3_sample.number_of_lines = 0
+              labels_row3 << labels_row3_sample.as(UI::View)
+              labels_stack << labels_row3.as(UI::View)
 
-              # Row 6: Footnote -- Tertiary, 13pt Regular
-              r6_hdr = UI::Label.new("Row 6 (Footnote, Tertiary color)")
-              r6_hdr.font = UI::Font.new(size: 12.0, weight: :regular)
-              r6_hdr.text_color_role = UI::LabelRole::Secondary
-              labels_stack << r6_hdr
-              r6 = UI::Label.new("The quick brown fox")
-              r6.font = UI::Font.new(size: 13.0, weight: :regular)
-              r6.text_color_role = UI::LabelRole::Tertiary
-              labels_stack << r6
+              labels_row4 = UI::HStack.new(spacing: 10.0)
+              labels_row4.alignment = UI::Alignment::Center
+              labels_row4.minimum_width = 288.0
+              labels_row4.maximum_width = 288.0
+              labels_row4_style = UI::Label.new("Secondary")
+              labels_row4_style.font = UI::Font.new(size: 11.0, weight: :regular)
+              labels_row4_style.text_color_role = UI::LabelRole::Secondary
+              labels_row4_style.minimum_width = 78.0
+              labels_row4_style.maximum_width = 78.0
+              labels_row4 << labels_row4_style.as(UI::View)
+              labels_row4_sample = UI::Label.new("Synced 2m ago")
+              labels_row4_sample.font = UI::Font.new(size: 15.0, weight: :regular)
+              labels_row4_sample.text_color_role = UI::LabelRole::Secondary
+              labels_row4_sample.number_of_lines = 0
+              labels_row4 << labels_row4_sample.as(UI::View)
+              labels_stack << labels_row4.as(UI::View)
 
-              # Row 7: Caption -- Quaternary, 12pt Regular
-              r7_hdr = UI::Label.new("Row 7 (Caption, Quaternary color)")
-              r7_hdr.font = UI::Font.new(size: 12.0, weight: :regular)
-              r7_hdr.text_color_role = UI::LabelRole::Secondary
-              labels_stack << r7_hdr
-              r7 = UI::Label.new("THE QUICK BROWN FOX")
-              r7.font = UI::Font.new(size: 12.0, weight: :regular)
-              r7.text_color_role = UI::LabelRole::Quaternary
-              labels_stack << r7
+              labels_row5 = UI::HStack.new(spacing: 10.0)
+              labels_row5.alignment = UI::Alignment::Center
+              labels_row5.minimum_width = 288.0
+              labels_row5.maximum_width = 288.0
+              labels_row5_style = UI::Label.new("Caption")
+              labels_row5_style.font = UI::Font.new(size: 11.0, weight: :regular)
+              labels_row5_style.text_color_role = UI::LabelRole::Secondary
+              labels_row5_style.minimum_width = 78.0
+              labels_row5_style.maximum_width = 78.0
+              labels_row5 << labels_row5_style.as(UI::View)
+              labels_row5_sample = UI::Label.new("Meta")
+              labels_row5_sample.font = UI::Font.new(size: 12.0, weight: :regular)
+              labels_row5_sample.text_color_role = UI::LabelRole::Quaternary
+              labels_row5_sample.number_of_lines = 0
+              labels_row5 << labels_row5_sample.as(UI::View)
+              labels_stack << labels_row5.as(UI::View)
 
-              # Row 8: Multi-line wrapping Body -- Primary, 17pt Regular
-              r8_hdr = UI::Label.new("Row 8 (Multi-line Body, Primary color)")
-              r8_hdr.font = UI::Font.new(size: 12.0, weight: :regular)
-              r8_hdr.text_color_role = UI::LabelRole::Secondary
-              labels_stack << r8_hdr
-              r8 = UI::Label.new("The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump!")
-              r8.font = UI::Font.new(size: 17.0, weight: :regular)
-              r8.text_color_role = UI::LabelRole::Primary
-              r8.number_of_lines = 0
-              labels_stack << r8
+              labels_row6 = UI::HStack.new(spacing: 10.0)
+              labels_row6.alignment = UI::Alignment::Center
+              labels_row6.minimum_width = 288.0
+              labels_row6.maximum_width = 288.0
+              labels_row6_style = UI::Label.new("Wrap")
+              labels_row6_style.font = UI::Font.new(size: 11.0, weight: :regular)
+              labels_row6_style.text_color_role = UI::LabelRole::Secondary
+              labels_row6_style.minimum_width = 78.0
+              labels_row6_style.maximum_width = 78.0
+              labels_row6 << labels_row6_style.as(UI::View)
+              labels_row6_sample = UI::Label.new("Wrap stays neat in a narrow column.")
+              labels_row6_sample.font = UI::Font.new(size: 15.0, weight: :regular)
+              labels_row6_sample.text_color_role = UI::LabelRole::Tertiary
+              labels_row6_sample.number_of_lines = 0
+              labels_row6 << labels_row6_sample.as(UI::View)
+              labels_stack << labels_row6.as(UI::View)
 
               labels_stack.as(UI::View)
             when "sliders"
@@ -2061,50 +2107,55 @@ module CrystalHIGHost::Bridge
               ios_sh.as(UI::View)
             when "image-views"
               # HIG: "An image view displays a single image on a transparent or
-              # opaque background." Six-variant gallery for iOS.
-              #
-              # UIStackView collapses UIView subclasses (Circle, Rectangle,
-              # RoundedRectangle) that have no intrinsicContentSize. On iOS the
-              # shape variants use UI::Label with background + corner_radius
-              # (wired via apply_common_properties) to produce visible filled
-              # regions whose height is driven by text intrinsic size.
-              # The macOS arm uses native NSView shape classes; both arms
-              # exercise the same HIG use-cases. See gaps.md iteration 29.
+              # opaque background." Compact study for iOS that keeps the image
+              # surface centered and the supporting copy quiet.
               gallery = UI::VStack.new(spacing: 12.0)
+              gallery.minimum_width = 288.0
+              gallery.maximum_width = 288.0
 
-              # 1. SF Symbol: star.fill via UIImageView with tint
-              # UIImage imageNamed: returns nil without asset catalog;
-              # a blue-tinted label stands in for the symbol surface.
-              sym_hdr = UI::Label.new("1. SF Symbol (star.fill, system blue tint)")
-              sym_hdr.font = UI::Font.new(size: 13.0, weight: :semibold)
+              img_title = UI::Label.new("Image surfaces")
+              img_title.font = UI::Font.new(size: 16.0, weight: :semibold)
+              img_title.accessibility_label = "Image views showcase title"
+              gallery << img_title
+
+              img_desc = UI::Label.new("Single-image placements stay focused against the amber frame.")
+              img_desc.font = UI::Font.new(size: 13.0, weight: :regular)
+              img_desc.text_color_role = UI::LabelRole::Secondary
+              img_desc.accessibility_label = "Image views description"
+              gallery << img_desc
+
+              sym_hdr = UI::Label.new("Symbol")
+              sym_hdr.font = UI::Font.new(size: 12.0, weight: :semibold)
+              sym_hdr.text_color_role = UI::LabelRole::Secondary
               gallery << sym_hdr
-              sym_tile = UI::Label.new("\nstar.fill  60pt  tint: system blue\n")
-              sym_tile.font = UI::Font.new(size: 14.0, weight: :regular)
+              sym_tile = UI::Label.new("\nstar.fill\n")
+              sym_tile.font = UI::Font.new(size: 14.0, weight: :semibold)
               sym_tile.text_color_role = nil
               sym_tile.text_color = UI::Color.new(r: 1.0, g: 1.0, b: 1.0)
-              sym_tile.background = UI::Color.new(r: 0.0, g: 0.478, b: 1.0)
-              sym_tile.corner_radius = 8.0
+              sym_tile.background = UI::Color.new(r: 0.84, g: 0.49, b: 0.12)
+              sym_tile.corner_radius = 10.0
               gallery << sym_tile
 
-              # 2. Square photo thumbnail: gray fill + border
-              thumb_hdr = UI::Label.new("2. Square thumbnail (gray, bordered)")
-              thumb_hdr.font = UI::Font.new(size: 13.0, weight: :semibold)
+              thumb_hdr = UI::Label.new("Thumbnail")
+              thumb_hdr.font = UI::Font.new(size: 12.0, weight: :semibold)
+              thumb_hdr.text_color_role = UI::LabelRole::Secondary
               gallery << thumb_hdr
-              thumb_tile = UI::Label.new("\n\n\nPhoto placeholder  120x120\n\n\n")
+              thumb_tile = UI::Label.new("\nPhoto placeholder\n")
               thumb_tile.font = UI::Font.new(size: 13.0, weight: :regular)
               thumb_tile.text_color_role = nil
-              thumb_tile.text_color = UI::Color.new(r: 0.3, g: 0.3, b: 0.3)
-              thumb_tile.background = UI::Color.new(r: 0.82, g: 0.82, b: 0.84)
+              thumb_tile.text_color = UI::Color.new(r: 0.32, g: 0.28, b: 0.24)
+              thumb_tile.background = UI::Color.new(r: 0.88, g: 0.83, b: 0.76)
               thumb_tile.border_width = 1.0
-              thumb_tile.border_color = UI::Color.new(r: 0.6, g: 0.6, b: 0.62)
+              thumb_tile.border_color = UI::Color.new(r: 0.72, g: 0.66, b: 0.60)
+              thumb_tile.corner_radius = 10.0
               gallery << thumb_tile
 
-              # 3. Circular avatar: tan fill, white border, corner_radius simulates clip
-              avatar_hdr = UI::Label.new("3. Circular avatar (tan fill, clipped)")
-              avatar_hdr.font = UI::Font.new(size: 13.0, weight: :semibold)
+              avatar_hdr = UI::Label.new("Avatar")
+              avatar_hdr.font = UI::Font.new(size: 12.0, weight: :semibold)
+              avatar_hdr.text_color_role = UI::LabelRole::Secondary
               gallery << avatar_hdr
-              avatar_tile = UI::Label.new("\n  Avatar (64pt diameter)  \n")
-              avatar_tile.font = UI::Font.new(size: 14.0, weight: :regular)
+              avatar_tile = UI::Label.new("\nAvatar\n")
+              avatar_tile.font = UI::Font.new(size: 13.0, weight: :regular)
               avatar_tile.text_color_role = nil
               avatar_tile.text_color = UI::Color.new(r: 1.0, g: 1.0, b: 1.0)
               avatar_tile.background = UI::Color.new(r: 0.69, g: 0.56, b: 0.49)
@@ -2114,42 +2165,16 @@ module CrystalHIGHost::Bridge
               avatar_tile.clip_to_bounds = true
               gallery << avatar_tile
 
-              # 4. Rounded card: slate blue, 12pt radius
-              card_hdr = UI::Label.new("4. Rounded card (12pt radius)")
-              card_hdr.font = UI::Font.new(size: 13.0, weight: :semibold)
-              gallery << card_hdr
-              card_tile = UI::Label.new("\n\nThumbnail  120x120  12pt radius\n\n")
-              card_tile.font = UI::Font.new(size: 14.0, weight: :regular)
-              card_tile.text_color_role = nil
-              card_tile.text_color = UI::Color.new(r: 1.0, g: 1.0, b: 1.0)
-              card_tile.background = UI::Color.new(r: 0.27, g: 0.40, b: 0.60)
-              card_tile.corner_radius = 12.0
-              card_tile.clip_to_bounds = true
-              gallery << card_tile
-
-              # 5. Loading state: UIActivityIndicatorView + label
-              loading_hdr = UI::Label.new("5. Loading state")
-              loading_hdr.font = UI::Font.new(size: 13.0, weight: :semibold)
-              gallery << loading_hdr
+              state_hdr = UI::Label.new("Loading")
+              state_hdr.font = UI::Font.new(size: 12.0, weight: :semibold)
+              state_hdr.text_color_role = UI::LabelRole::Secondary
+              gallery << state_hdr
               spinner_row = UI::HStack.new(spacing: 8.0)
+              spinner_row.alignment = UI::Alignment::Center
               spinner = UI::ActivityIndicator.new(true, :medium)
               spinner_row << spinner
-              spinner_row << UI::Label.new("Loading image...")
+              spinner_row << UI::Label.new("Waiting for image")
               gallery << spinner_row
-
-              # 6. Error/placeholder state: broken-image pattern
-              err_hdr = UI::Label.new("6. Error / placeholder state")
-              err_hdr.font = UI::Font.new(size: 13.0, weight: :semibold)
-              gallery << err_hdr
-              err_tile = UI::Label.new("\n  [broken image]  Failed to load\n")
-              err_tile.font = UI::Font.new(size: 13.0, weight: :regular)
-              err_tile.text_color_role = nil
-              err_tile.text_color = UI::Color.new(r: 0.4, g: 0.4, b: 0.4)
-              err_tile.background = UI::Color.new(r: 0.90, g: 0.90, b: 0.92)
-              err_tile.border_width = 1.0
-              err_tile.border_color = UI::Color.new(r: 0.75, g: 0.75, b: 0.77)
-              err_tile.corner_radius = 8.0
-              gallery << err_tile
 
               gallery.as(UI::View)
             when "tab-bars"

@@ -1660,6 +1660,10 @@ module UI::AppKit
       view.fallback_view.accept(self)
     end
 
+    def visit(view : UI::ColumnView)
+      view.fallback_view.accept(self)
+    end
+
     # -----------------------------------------------------------------
     # Visit: SecureField -> NSSecureTextField
     # -----------------------------------------------------------------
