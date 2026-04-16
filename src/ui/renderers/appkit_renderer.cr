@@ -2579,8 +2579,11 @@ module UI::AppKit
       LibObjCBridge.objc_send_1d(ptr, sel("setSpacing:"), 8.0)
       # Leading alignment (NSLayoutAttributeLeading = 5).
       LibObjCBridge.objc_send_long(ptr, sel("setAlignment:"), 5_i64)
-      # Layout-margin-relative arrangement: 12pt inset on all sides.
-      LibObjCBridge.objc_send_bool(ptr, sel("setEdgeInsets:"), 0) # reset first
+      # Honor the card's authored content padding so preview studies and
+      # runtime cards both keep content off the corners by default.
+      p = view.content_padding
+      insets = LibObjCBridge::CGRect.new(x: p.top, y: p.leading, width: p.bottom, height: p.trailing)
+      LibObjCBridge.objc_send_rect_void(ptr, sel("setEdgeInsets:"), insets)
 
       # Enable layer-backed rendering so we can set fill + rounded border.
       LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)

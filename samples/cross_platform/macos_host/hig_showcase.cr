@@ -15,12 +15,38 @@
 #
 # Build: see samples/cross_platform/macos_host/Makefile.
 
+require "json"
 require "../../../src/ui"
 require "../../../src/ui/validation_scenes"
 
 {% if flag?(:macos) %}
 
 SLUG = ENV["HIG_SLUG"]? || ARGV[0]? || "buttons"
+WORKLIST_PATH = File.expand_path("../../../.claude/skills/apple-platform-guide/validation/worklist.json", __DIR__)
+BACKDROPS_DIR = File.expand_path("../../../.claude/skills/apple-platform-guide/validation/backdrops", __DIR__)
+
+def resolved_backdrop_path(slug : String, appearance : String) : String?
+  return nil unless File.exists?(WORKLIST_PATH)
+
+  pages = JSON.parse(File.read(WORKLIST_PATH))["pages"].as_a?
+  return nil unless pages
+
+  page = pages.find do |page_json|
+    page_json["slug"]?.try(&.as_s?) == slug
+  end
+  return nil unless page
+
+  stem = page["backdrop"]?.try(&.as_s?)
+  return nil unless stem
+
+  macos_candidate = File.join(BACKDROPS_DIR, "#{stem}-macos-#{appearance}.png")
+  return macos_candidate if File.exists?(macos_candidate)
+
+  shared_candidate = File.join(BACKDROPS_DIR, "#{stem}-#{appearance}.png")
+  return shared_candidate if File.exists?(shared_candidate)
+
+  nil
+end
 
 # ---------------------------------------------------------------------------
 # Scene dispatch
@@ -2776,6 +2802,8 @@ HTML
     wv_outer.as(UI::View)
   when "maps"
     map_inner = UI::VStack.new(spacing: 12.0)
+    map_inner.minimum_width = 520.0
+    map_inner.maximum_width = 520.0
 
     map_label = UI::Label.new("Neighborhood overview")
     map_label.font = UI::Font.new(size: 17.0, weight: :semibold)
@@ -2790,10 +2818,10 @@ HTML
     map_view.longitude = -122.4058
     map_view.zoom_level = 12.5
     map_view.map_type = :standard
-    map_view.minimum_width = 560.0
-    map_view.maximum_width = 560.0
-    map_view.minimum_height = 360.0
-    map_view.maximum_height = 360.0
+    map_view.minimum_width = 520.0
+    map_view.maximum_width = 520.0
+    map_view.minimum_height = 320.0
+    map_view.maximum_height = 320.0
     map_view.corner_radius = 24.0
     map_view.clip_to_bounds = true
     map_view.border_width = 1.0
@@ -2817,14 +2845,17 @@ HTML
     map_inner << map_view
 
     map_card = UI::Card.new(map_inner.as(UI::View))
-    map_card.minimum_width = 640.0
-    map_card.maximum_width = 640.0
+    map_card.minimum_width = 556.0
+    map_card.maximum_width = 556.0
+    map_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
     map_card.is_outlined = true
     map_card.material = :secondary
     map_card.accessibility_label = "Maps study card"
     map_card.as(UI::View)
   when "playing-video"
     video_inner = UI::VStack.new(spacing: 12.0)
+    video_inner.minimum_width = 520.0
+    video_inner.maximum_width = 520.0
 
     video_label = UI::Label.new("Playback preview")
     video_label.font = UI::Font.new(size: 17.0, weight: :semibold)
@@ -2838,10 +2869,10 @@ HTML
     video_view.shows_controls = true
     video_view.auto_play = false
     video_view.muted = true
-    video_view.minimum_width = 560.0
-    video_view.maximum_width = 560.0
-    video_view.minimum_height = 315.0
-    video_view.maximum_height = 315.0
+    video_view.minimum_width = 520.0
+    video_view.maximum_width = 520.0
+    video_view.minimum_height = 293.0
+    video_view.maximum_height = 293.0
     video_view.corner_radius = 24.0
     video_view.clip_to_bounds = true
     video_view.background = UI::Color.new(r: 0.10, g: 0.10, b: 0.12, a: 1.0)
@@ -2854,8 +2885,9 @@ HTML
     video_inner << video_view
 
     video_card = UI::Card.new(video_inner.as(UI::View))
-    video_card.minimum_width = 640.0
-    video_card.maximum_width = 640.0
+    video_card.minimum_width = 556.0
+    video_card.maximum_width = 556.0
+    video_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
     video_card.is_outlined = true
     video_card.material = :secondary
     video_card.accessibility_label = "Video study card"
@@ -3125,7 +3157,9 @@ else
 end
 
 screenshot_path = ENV["HIG_SCREENSHOT_PATH"]?
-backdrop_path   = ENV["HIG_BACKDROP_PATH"]?
+appearance = ENV["HIG_APPEARANCE"]? || "light"
+backdrop_path = ENV["HIG_BACKDROP_PATH"]?
+backdrop_path = resolved_backdrop_path(SLUG, appearance) if (backdrop_path.nil? || backdrop_path.empty?) && screenshot_path && !screenshot_path.empty?
 
 if screenshot_path && !screenshot_path.empty?
   # ---------------------------------------------------------------------------
@@ -3134,8 +3168,6 @@ if screenshot_path && !screenshot_path.empty?
   # add the rendered view, let CoreAnimation settle (0.6s), capture via
   # CGWindowListCreateImage, then close.
   # ---------------------------------------------------------------------------
-  appearance = ENV["HIG_APPEARANCE"]? || "light"
-
   cap_window = LibWindowHelper.objc_create_capture_window(
     1200.0, 900.0, appearance.to_unsafe
   )
@@ -3206,8 +3238,8 @@ if screenshot_path && !screenshot_path.empty?
   elsif scene_name == "ambient" || SLUG == "collections"
     focal_max_w = case SLUG
                   when "text-views"          then 680.0
-                  when "maps"                then 640.0
-                  when "playing-video"       then 640.0
+                  when "maps"                then 556.0
+                  when "playing-video"       then 556.0
                   when "progress-indicators" then 500.0
                   when "collections"         then 500.0
                   when "boxes"               then 460.0

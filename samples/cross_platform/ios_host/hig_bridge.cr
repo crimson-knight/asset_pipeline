@@ -2363,10 +2363,10 @@ HTML
               ios_map.longitude = -122.4058
               ios_map.zoom_level = 12.5
               ios_map.map_type = :standard
-              ios_map.minimum_width = 320.0
-              ios_map.maximum_width = 320.0
-              ios_map.minimum_height = 248.0
-              ios_map.maximum_height = 248.0
+              ios_map.minimum_width = 296.0
+              ios_map.maximum_width = 296.0
+              ios_map.minimum_height = 220.0
+              ios_map.maximum_height = 220.0
               ios_map.corner_radius = 22.0
               ios_map.clip_to_bounds = true
               ios_map.border_width = 1.0
@@ -2390,8 +2390,9 @@ HTML
               ios_map_inner << ios_map
 
               ios_map_card = UI::Card.new(ios_map_inner.as(UI::View))
-              ios_map_card.minimum_width = 352.0
-              ios_map_card.maximum_width = 352.0
+              ios_map_card.minimum_width = 332.0
+              ios_map_card.maximum_width = 332.0
+              ios_map_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
               ios_map_card.is_outlined = true
               ios_map_card.material = :secondary
               ios_map_card.accessibility_label = "Maps study card"
@@ -2411,10 +2412,10 @@ HTML
               ios_video.shows_controls = true
               ios_video.auto_play = false
               ios_video.muted = true
-              ios_video.minimum_width = 320.0
-              ios_video.maximum_width = 320.0
-              ios_video.minimum_height = 214.0
-              ios_video.maximum_height = 214.0
+              ios_video.minimum_width = 296.0
+              ios_video.maximum_width = 296.0
+              ios_video.minimum_height = 167.0
+              ios_video.maximum_height = 167.0
               ios_video.corner_radius = 22.0
               ios_video.clip_to_bounds = true
               ios_video.background = UI::Color.new(r: 0.10, g: 0.10, b: 0.12, a: 1.0)
@@ -2427,8 +2428,9 @@ HTML
               ios_video_inner << ios_video
 
               ios_video_card = UI::Card.new(ios_video_inner.as(UI::View))
-              ios_video_card.minimum_width = 352.0
-              ios_video_card.maximum_width = 352.0
+              ios_video_card.minimum_width = 332.0
+              ios_video_card.maximum_width = 332.0
+              ios_video_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
               ios_video_card.is_outlined = true
               ios_video_card.material = :secondary
               ios_video_card.accessibility_label = "Video study card"
