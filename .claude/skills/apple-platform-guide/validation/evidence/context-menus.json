@@ -1,0 +1,58 @@
+{
+  "errors": [
+    "screenshot newer than report: context-menus-macos-light.png",
+    "screenshot newer than report: context-menus-macos-dark.png",
+    "screenshot newer than report: context-menus-ios-light.png",
+    "screenshot newer than report: context-menus-ios-dark.png"
+  ],
+  "generated_at": "2026-04-16T09:13:48.548261+00:00",
+  "report": {
+    "exists": true,
+    "mtime": "2026-04-13T23:51:00.668545+00:00",
+    "path": "reports/context-menus.md",
+    "sha256": "8e8c938d686f2edac6235dcce25199265456eb457ac0014fce1301de45cb989e",
+    "size_bytes": 7921
+  },
+  "screenshots": {
+    "ios_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T20:44:24.324310+00:00",
+      "path": "screenshots/context-menus-ios-dark.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "3476faf6ace701299d9db1bc9497cb8ea793143a2f5c6820841c80ddd2a34eee",
+      "size_bytes": 82002
+    },
+    "ios_light": {
+      "exists": true,
+      "mtime": "2026-04-15T20:43:54.094647+00:00",
+      "path": "screenshots/context-menus-ios-light.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "2a07326b45032a184642f9b3bb2c78b5f9bb186a62c28851d6a86c9333a1d0e3",
+      "size_bytes": 83037
+    },
+    "macos_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T20:25:05.100598+00:00",
+      "path": "screenshots/context-menus-macos-dark.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "a6ade25dd70d185b348a3fecc9a62be4e1da7f2c7983f4701236c663dfdf3ea1",
+      "size_bytes": 230231
+    },
+    "macos_light": {
+      "exists": true,
+      "mtime": "2026-04-15T20:25:04.212645+00:00",
+      "path": "screenshots/context-menus-macos-light.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "8e8f5af046a8f9a6eb8f263883c2cd23a3282fc548ee6f7bc735825e1e31eec6",
+      "size_bytes": 227398
+    }
+  },
+  "slug": "context-menus",
+  "valid": false,
+  "validation_state": "pending",
+  "warnings": []
+}

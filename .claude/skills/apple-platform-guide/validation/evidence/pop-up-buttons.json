@@ -1,0 +1,58 @@
+{
+  "errors": [
+    "screenshot newer than report: pop-up-buttons-macos-light.png",
+    "screenshot newer than report: pop-up-buttons-macos-dark.png",
+    "screenshot newer than report: pop-up-buttons-ios-light.png",
+    "screenshot newer than report: pop-up-buttons-ios-dark.png"
+  ],
+  "generated_at": "2026-04-16T09:13:48.601018+00:00",
+  "report": {
+    "exists": true,
+    "mtime": "2026-04-14T11:26:12.833702+00:00",
+    "path": "reports/pop-up-buttons.md",
+    "sha256": "36a3d2f4e0f18b8b4a3fd483e6b456d2cef2f962fb7b82dd03843c381933dfb6",
+    "size_bytes": 7981
+  },
+  "screenshots": {
+    "ios_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T21:08:15.537200+00:00",
+      "path": "screenshots/pop-up-buttons-ios-dark.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "f8e75571895d8b015128c260708e8777bc94ce60362a9783866afa99f119176a",
+      "size_bytes": 95437
+    },
+    "ios_light": {
+      "exists": true,
+      "mtime": "2026-04-15T21:07:41.095943+00:00",
+      "path": "screenshots/pop-up-buttons-ios-light.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "e7a0fb6cd3092d3d4b52c9edf79098cf496c4bcf9be2b045794b6a4ce64ee335",
+      "size_bytes": 94746
+    },
+    "macos_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T20:25:43.389629+00:00",
+      "path": "screenshots/pop-up-buttons-macos-dark.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "e39294c492ebc3078c92ee5a9a43340b55c8a97fb6fd4c356254aedccf3bb6b4",
+      "size_bytes": 168384
+    },
+    "macos_light": {
+      "exists": true,
+      "mtime": "2026-04-15T20:25:42.510000+00:00",
+      "path": "screenshots/pop-up-buttons-macos-light.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "549c62abe561d3c917b8cdf85e7cb7a073140ac5dbb08a36e4ea934a86930340",
+      "size_bytes": 166179
+    }
+  },
+  "slug": "pop-up-buttons",
+  "valid": false,
+  "validation_state": "pending",
+  "warnings": []
+}

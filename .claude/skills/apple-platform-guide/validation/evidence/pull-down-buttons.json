@@ -1,0 +1,58 @@
+{
+  "errors": [
+    "screenshot newer than report: pull-down-buttons-macos-light.png",
+    "screenshot newer than report: pull-down-buttons-macos-dark.png",
+    "screenshot newer than report: pull-down-buttons-ios-light.png",
+    "screenshot newer than report: pull-down-buttons-ios-dark.png"
+  ],
+  "generated_at": "2026-04-16T09:13:48.626398+00:00",
+  "report": {
+    "exists": true,
+    "mtime": "2026-04-14T12:17:03.684016+00:00",
+    "path": "reports/pull-down-buttons.md",
+    "sha256": "c0e9cb200a9c57d1aa75b79741fa7255df21b57ee10dc5ab6527ce11443633a6",
+    "size_bytes": 10617
+  },
+  "screenshots": {
+    "ios_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T21:11:51.524380+00:00",
+      "path": "screenshots/pull-down-buttons-ios-dark.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "5001642a128d008709591ced102d62217943b6012f8628c0fa961fb3fd0148ab",
+      "size_bytes": 106105
+    },
+    "ios_light": {
+      "exists": true,
+      "mtime": "2026-04-15T21:11:17.156261+00:00",
+      "path": "screenshots/pull-down-buttons-ios-light.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "aad26b95131e162f4f540dc4661ba6c949b199f9c96c892c8d5902f4a0e92d48",
+      "size_bytes": 106209
+    },
+    "macos_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T20:25:48.572716+00:00",
+      "path": "screenshots/pull-down-buttons-macos-dark.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "bbbd01438e93cbfcd69853b28f93eb71b126c84d24b547601eb89b6b45168491",
+      "size_bytes": 167270
+    },
+    "macos_light": {
+      "exists": true,
+      "mtime": "2026-04-15T20:25:47.737571+00:00",
+      "path": "screenshots/pull-down-buttons-macos-light.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "aef4568ce5728a3b0e36a595e211307ecc9a4c29739fb5a56e70f29a5f0bfa96",
+      "size_bytes": 165577
+    }
+  },
+  "slug": "pull-down-buttons",
+  "valid": false,
+  "validation_state": "pending",
+  "warnings": []
+}

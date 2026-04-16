@@ -1,0 +1,58 @@
+{
+  "errors": [
+    "screenshot newer than report: steppers-macos-light.png",
+    "screenshot newer than report: steppers-macos-dark.png",
+    "screenshot newer than report: steppers-ios-light.png",
+    "screenshot newer than report: steppers-ios-dark.png"
+  ],
+  "generated_at": "2026-04-16T09:13:48.665309+00:00",
+  "report": {
+    "exists": true,
+    "mtime": "2026-04-14T14:34:11.551380+00:00",
+    "path": "reports/steppers.md",
+    "sha256": "e5171d1c1ae4ba4090ad4a4d91422ec7300f7fe842087e7d21257a11cb7c3610",
+    "size_bytes": 9675
+  },
+  "screenshots": {
+    "ios_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T21:22:51.307163+00:00",
+      "path": "screenshots/steppers-ios-dark.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "b5babec8556f530f28493ef999c8b30009f42855f9518d09226bc119d53f54d4",
+      "size_bytes": 778076
+    },
+    "ios_light": {
+      "exists": true,
+      "mtime": "2026-04-15T21:22:19.437134+00:00",
+      "path": "screenshots/steppers-ios-light.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "c48f63521103938522e124e81a974684f24aae6aa4cfd68d1cf32fd4d983ce83",
+      "size_bytes": 515460
+    },
+    "macos_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T20:26:06.556459+00:00",
+      "path": "screenshots/steppers-macos-dark.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "4733cd7bc57693a33f1b3405d0c0a01c0a82d364d9e7076a818135397fc10071",
+      "size_bytes": 368887
+    },
+    "macos_light": {
+      "exists": true,
+      "mtime": "2026-04-15T20:26:05.566860+00:00",
+      "path": "screenshots/steppers-macos-light.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "cad814f08e7e828fee48c687d7f7db0358769fef7c2546d6eee9c48aef8a933b",
+      "size_bytes": 331956
+    }
+  },
+  "slug": "steppers",
+  "valid": false,
+  "validation_state": "pending",
+  "warnings": []
+}

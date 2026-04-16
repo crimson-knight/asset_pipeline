@@ -1,0 +1,58 @@
+{
+  "errors": [
+    "screenshot newer than report: rating-indicators-macos-light.png",
+    "screenshot newer than report: rating-indicators-macos-dark.png",
+    "screenshot newer than report: rating-indicators-ios-light.png",
+    "screenshot newer than report: rating-indicators-ios-dark.png"
+  ],
+  "generated_at": "2026-04-16T09:13:48.632948+00:00",
+  "report": {
+    "exists": true,
+    "mtime": "2026-04-14T18:31:04.816041+00:00",
+    "path": "reports/rating-indicators.md",
+    "sha256": "093e86d573532ae9fbd4ac26b4929eb8d59bb6f17fd631947ae30d6ae6b0abb7",
+    "size_bytes": 7068
+  },
+  "screenshots": {
+    "ios_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T21:12:57.080906+00:00",
+      "path": "screenshots/rating-indicators-ios-dark.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "a86cbb7781bcc5a4e69314e158c1a9f52681640816ccf9e450249247ceadf8a9",
+      "size_bytes": 863986
+    },
+    "ios_light": {
+      "exists": true,
+      "mtime": "2026-04-15T21:12:24.992870+00:00",
+      "path": "screenshots/rating-indicators-ios-light.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "4df16a9b3a663af32639217ab175d032b0a30793413aad013a32d3686f6b9c01",
+      "size_bytes": 608459
+    },
+    "macos_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T20:25:50.303188+00:00",
+      "path": "screenshots/rating-indicators-macos-dark.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "b6f4efed35dcaa0ffcb362cce55ea6b7a8762f2a00fa11f4742d3e571bec3c86",
+      "size_bytes": 1405124
+    },
+    "macos_light": {
+      "exists": true,
+      "mtime": "2026-04-15T20:25:49.427590+00:00",
+      "path": "screenshots/rating-indicators-macos-light.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "1033d7a4d15ae2da8875ee034cd66766589b5481d45fda951287d5bc03aa4ce8",
+      "size_bytes": 1005552
+    }
+  },
+  "slug": "rating-indicators",
+  "valid": false,
+  "validation_state": "pending",
+  "warnings": []
+}

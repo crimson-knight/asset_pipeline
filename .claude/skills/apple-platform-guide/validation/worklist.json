@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-12T22:15:18+00:00",
+  "generated_at": "2026-04-16T09:13:48.700913+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -17,9 +17,9 @@
     "patterns": 66,
     "platform_guides": 4,
     "collections": 14,
-    "implemented": 39,
+    "implemented": 41,
     "stub": 0,
-    "missing": 24
+    "missing": 22
   },
   "pages": [
     {
@@ -114,7 +114,9 @@
       },
       "remediation_hint": "Iteration 53 Path-B. No UI::ActivityRings view exists. Two blockers: (1) objc_bridge.m has no CGMutablePath/CGPathAddArc/CAShapeLayer helper for arc drawing -- add activity_rings_view_new() C factory; (2) HKActivityRingView requires HealthKitUI linkage that is absent from the iOS host build. Implement via CAShapeLayer arcs instead. macOS HIG explicitly unsupported -- emit a labeled NSView placeholder. See validation/reports/activity-rings.md Step 1-7 remediation plan.",
       "notes": "Requires HealthKitUI.framework linkage (HKActivityRingView) OR new CAShapeLayer arc-path infrastructure in objc_bridge.m (see gaps.md iter-53). Skipped to preserve loop velocity on implemented components; re-queue by setting validation_state=pending when the drawing infrastructure lands.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "activity-views",
@@ -180,7 +182,6 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "notes": "Iteration 20: visit(UI::Alert) rewritten on both renderers to emit NSVisualEffectView (hudWindow=7) / UIVisualEffectView (UIGlassEffect/UIBlurEffect) inline glass card. All four appearances captured fresh (macos-light 34739B, macos-dark 34850B, ios-light 121022B, ios-dark 100903B). Title bold/legible, message secondary-gray/legible, destructive red distinct from cancel/default blue in all four captures. macOS buttons stack vertically (HIG-justified); live glass bleed-through not visible on macOS (iter-17 gotcha). Both mandatory doc sections present.",
       "glass_required": true,
       "glass_material_expected": "hudWindow",
@@ -196,13 +197,8 @@
       },
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: alerts-macos-light.png",
-        "screenshot newer than report: alerts-macos-dark.png",
-        "screenshot newer than report: alerts-ios-light.png",
-        "screenshot newer than report: alerts-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "always-on",
@@ -274,7 +270,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "App Shortcuts per HIG are metadata declarations (AppIntents) exposed to Spotlight/Siri/Shortcuts app \u2014 not an in-app rendered UI::View. No asset_pipeline surface to validate with a capture; the feature lives in Info.plist + AppIntents metadata. Skipped as not-applicable-to-capture.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "apple-pay",
@@ -409,17 +407,11 @@
       },
       "validated_at": "2026-04-13T19:22:00Z",
       "iteration": 23,
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
       "focal_position": "multi_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: buttons-macos-light.png",
-        "screenshot newer than report: buttons-macos-dark.png",
-        "screenshot newer than report: buttons-ios-light.png",
-        "screenshot newer than report: buttons-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "camera-control",
@@ -495,19 +487,13 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "validated_at": "2026-04-14T12:50:00Z",
       "iteration": 53,
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "chart",
       "focal_position": "card_focal",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: charts-macos-light.png",
-        "screenshot newer than report: charts-macos-dark.png",
-        "screenshot newer than report: charts-ios-light.png",
-        "screenshot newer than report: charts-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "collaboration-and-sharing",
@@ -558,7 +544,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: collections-macos-light.png",
-        "screenshot newer than report: collections-macos-dark.png"
+        "screenshot newer than report: collections-macos-dark.png",
+        "screenshot newer than report: collections-ios-light.png",
+        "screenshot newer than report: collections-ios-dark.png"
       ]
     },
     {
@@ -610,7 +598,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: color-wells-macos-light.png",
-        "screenshot newer than report: color-wells-macos-dark.png"
+        "screenshot newer than report: color-wells-macos-dark.png",
+        "screenshot newer than report: color-wells-ios-light.png",
+        "screenshot newer than report: color-wells-ios-dark.png"
       ]
     },
     {
@@ -635,7 +625,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "Column views per HIG map to NSBrowser \u2014 a macOS-specialty Finder-style multi-column file browser. Not supported on iOS/iPadOS/tvOS/watchOS/visionOS per HIG Platform Considerations. Building a UI::ColumnView wrapping NSBrowser would require a data-source protocol bridge (similar to UIPickerView/UITableView) and is disproportionate for a rarely-used macOS-only control. Skipped with remediation: full plan in gaps.md (re-queue by rebuilding as a UI::NavigationSplitView variant with inline column drill-down if the breadcrumb metaphor fits the app).",
-      "backdrop": "finder-mail-backdrop"
+      "backdrop": "finder-mail-backdrop",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "combo-boxes",
@@ -670,7 +662,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: combo-boxes-macos-light.png",
-        "screenshot newer than report: combo-boxes-macos-dark.png"
+        "screenshot newer than report: combo-boxes-macos-dark.png",
+        "screenshot newer than report: combo-boxes-ios-light.png",
+        "screenshot newer than report: combo-boxes-ios-dark.png"
       ],
       "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
     },
@@ -696,7 +690,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "watchOS-only component (CLKComplication). asset_pipeline does not target watchOS; no in-app surface to validate. Skipped as platform-inapplicable.",
-      "backdrop": "lock-screen-amber"
+      "backdrop": "lock-screen-amber",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "components",
@@ -789,7 +785,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "HIG \"Controls\" is a taxonomy overview page, not a specific component. No single UI::View maps to it \u2014 covered by buttons, toggles, steppers, sliders, etc. which are separate slugs. Skipped as not-a-component.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "dark-mode",
@@ -885,7 +883,6 @@
       "macOS_visit_found": true,
       "validation_state": "skipped",
       "docs_written": true,
-      "skipped_reason": "HIG Platform Considerations explicitly disclaims iOS/iPadOS/macOS/visionOS/watchOS \u2014 this is a tvOS-only component (TVDigitEntryViewController). Our renderers have no true native parity target. Surrogate docs at components/digit-entry-views.md remain for reference.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -893,7 +890,10 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "skip_reason": "HIG Platform Considerations explicitly disclaims iOS/iPadOS/macOS/visionOS/watchOS \u2014 this is a tvOS-only component (TVDigitEntryViewController). Our renderers have no true native parity target. Surrogate docs at components/digit-entry-views.md remain for reference.",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "digital-crown",
@@ -945,7 +945,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: disclosure-controls-macos-light.png",
-        "screenshot newer than report: disclosure-controls-macos-dark.png"
+        "screenshot newer than report: disclosure-controls-macos-dark.png",
+        "screenshot newer than report: disclosure-controls-ios-light.png",
+        "screenshot newer than report: disclosure-controls-ios-dark.png"
       ]
     },
     {
@@ -1189,7 +1191,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "Gauges per HIG are drawing-heavy circular/arc progress indicators (SwiftUI Gauge / NSLevelIndicator). Like activity-rings, requires CAShapeLayer arc-path infrastructure (see gaps.md iter-53) + mark-style rendering. Disproportionate for a rarely-used control. Skipped with remediation: build once arc-path infra exists, wrap NSLevelIndicator on macOS and draw manually on iOS.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "generative-ai",
@@ -1309,7 +1313,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "iOS Info.plist UIApplicationShortcutItems declarations exposed to Home Screen long-press menu. No in-app surface to validate. Skipped as not-applicable-to-capture.",
-      "backdrop": "home-screen-amber-wallpaper"
+      "backdrop": "home-screen-amber-wallpaper",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "homekit",
@@ -1438,7 +1444,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "Image wells per HIG (NSImageWell) are macOS-specific drag-and-drop image drop targets. Not supported on iOS/iPadOS/tvOS/visionOS/watchOS. Building a UI::ImageWell requires NSImageWell wrapping + NSDraggingDestination protocol bridge for drop handling. Skipped as macOS-specialty + drag-protocol dependency.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "images",
@@ -1678,7 +1686,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: lists-and-tables-macos-light.png",
-        "screenshot newer than report: lists-and-tables-macos-dark.png"
+        "screenshot newer than report: lists-and-tables-macos-dark.png",
+        "screenshot newer than report: lists-and-tables-ios-light.png",
+        "screenshot newer than report: lists-and-tables-ios-dark.png"
       ]
     },
     {
@@ -1703,7 +1713,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "iOS ActivityKit runtime feature (Dynamic Island/Lock Screen). Requires WidgetKit extension + ActivityKit framework; rendered by system, not in-app. Skipped as not-applicable-to-capture.",
-      "backdrop": "lock-screen-amber"
+      "backdrop": "lock-screen-amber",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "live-photos",
@@ -1774,8 +1786,10 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "skipped_reason": "HIG Platform Considerations explicitly disclaims iOS/iPadOS/macOS/visionOS/watchOS \u2014 tvOS-only component. No target platform in asset_pipeline.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "skip_reason": "HIG Platform Considerations explicitly disclaims iOS/iPadOS/macOS/visionOS/watchOS \u2014 tvOS-only component. No target platform in asset_pipeline.",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "mac-catalyst",
@@ -1906,7 +1920,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: menus-macos-light.png",
-        "screenshot newer than report: menus-macos-dark.png"
+        "screenshot newer than report: menus-macos-dark.png",
+        "screenshot newer than report: menus-ios-light.png",
+        "screenshot newer than report: menus-ios-dark.png"
       ],
       "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
     },
@@ -2044,7 +2060,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "UserNotifications framework + extension. Notification UI is system-rendered in Notification Center / banners. Skipped as not-applicable-to-capture.",
-      "backdrop": "lock-screen-amber"
+      "backdrop": "lock-screen-amber",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "offering-help",
@@ -2100,7 +2118,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "visionOS-only component for floating UI chrome around windows. asset_pipeline does not target visionOS. Skipped as platform-inapplicable.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "outline-views",
@@ -2124,7 +2144,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "Outline views per HIG map to NSOutlineView \u2014 an expandable tree list with disclosure triangles. Disproportionate: requires NSOutlineViewDataSource/Delegate protocol bridges (similar to NSTableView). UI::ListView + UI::DisclosureGroup cover the common use case on iOS. Skipped with remediation: build UI::OutlineView when a consumer needs the NSOutlineView-specific idiom.",
-      "backdrop": "finder-mail-backdrop"
+      "backdrop": "finder-mail-backdrop",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "page-controls",
@@ -2159,7 +2181,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: page-controls-macos-light.png",
-        "screenshot newer than report: page-controls-macos-dark.png"
+        "screenshot newer than report: page-controls-macos-dark.png",
+        "screenshot newer than report: page-controls-ios-light.png",
+        "screenshot newer than report: page-controls-ios-dark.png"
       ]
     },
     {
@@ -2184,7 +2208,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "Panels per HIG are macOS-specific auxiliary windows (NSPanel \u2014 inspectors, color pickers, find/replace floaters). Not an in-app view \u2014 panel chrome is managed by NSPanel at the window level, outside UI::View tree. Skipped as window-chrome-not-view.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "path-controls",
@@ -2209,7 +2235,9 @@
       "verdict_per_appearance": null,
       "skip_reason": "UI::PathView is a vector drawing / Bezier-path shape view (MoveTo/LineTo/CurveTo/Close), not a breadcrumb file-path control. The HIG path-controls slug maps to NSPathControl (macOS-only; explicitly not supported on iOS per HIG). No UI::PathControl or equivalent breadcrumb view exists in the library. The prior worklist mapping was incorrect. A UI::PathControl implementing NSPathControl would need to be designed from scratch. See validation/reports/path-controls.md and gaps.md.",
       "remediation_hint": "Implement UI::PathControl as a new macOS-only view backed by NSPathControl (standard and popup styles). For iOS, the HIG specifies no equivalent; a custom HStack of Label+chevron pairs is the documented fallback. See gaps.md entry PATH-CONTROLS-MAPPING-MISMATCH.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "patterns",
@@ -2269,15 +2297,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
       "focal_position": "single_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: pickers-macos-light.png",
-        "screenshot newer than report: pickers-macos-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "playing-audio",
@@ -2376,7 +2400,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: pop-up-buttons-macos-light.png",
-        "screenshot newer than report: pop-up-buttons-macos-dark.png"
+        "screenshot newer than report: pop-up-buttons-macos-dark.png",
+        "screenshot newer than report: pop-up-buttons-ios-light.png",
+        "screenshot newer than report: pop-up-buttons-ios-dark.png"
       ]
     },
     {
@@ -2405,16 +2431,10 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: popovers-macos-light.png",
-        "screenshot newer than report: popovers-macos-dark.png",
-        "screenshot newer than report: popovers-ios-light.png",
-        "screenshot newer than report: popovers-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "presentation",
@@ -2497,7 +2517,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: progress-indicators-macos-light.png",
-        "screenshot newer than report: progress-indicators-macos-dark.png"
+        "screenshot newer than report: progress-indicators-macos-dark.png",
+        "screenshot newer than report: progress-indicators-ios-light.png",
+        "screenshot newer than report: progress-indicators-ios-dark.png"
       ]
     },
     {
@@ -2534,7 +2556,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: pull-down-buttons-macos-light.png",
-        "screenshot newer than report: pull-down-buttons-macos-dark.png"
+        "screenshot newer than report: pull-down-buttons-macos-dark.png",
+        "screenshot newer than report: pull-down-buttons-ios-light.png",
+        "screenshot newer than report: pull-down-buttons-ios-dark.png"
       ]
     },
     {
@@ -2670,7 +2694,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: scroll-views-macos-light.png",
-        "screenshot newer than report: scroll-views-macos-dark.png"
+        "screenshot newer than report: scroll-views-macos-dark.png",
+        "screenshot newer than report: scroll-views-ios-light.png",
+        "screenshot newer than report: scroll-views-ios-dark.png"
       ]
     },
     {
@@ -2699,15 +2725,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
       "focal_position": "centered",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: search-fields-macos-light.png",
-        "screenshot newer than report: search-fields-macos-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "searching",
@@ -2758,7 +2780,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: segmented-controls-macos-light.png",
-        "screenshot newer than report: segmented-controls-macos-dark.png"
+        "screenshot newer than report: segmented-controls-macos-dark.png",
+        "screenshot newer than report: segmented-controls-ios-light.png",
+        "screenshot newer than report: segmented-controls-ios-dark.png"
       ]
     },
     {
@@ -2871,14 +2895,8 @@
       "validated_at": "2026-04-15T08:45:00Z",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "direct-glass",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: sheets-macos-light.png",
-        "screenshot newer than report: sheets-macos-dark.png",
-        "screenshot newer than report: sheets-ios-light.png",
-        "screenshot newer than report: sheets-ios-dark.png"
-      ],
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "sidebars",
@@ -2978,18 +2996,12 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "iteration": 43,
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
       "focal_position": "multi_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: sliders-macos-light.png",
-        "screenshot newer than report: sliders-macos-dark.png",
-        "screenshot newer than report: sliders-ios-light.png",
-        "screenshot newer than report: sliders-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "spatial-layout",
@@ -3085,7 +3097,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "iOS status bar is system-controlled (UIStatusBar). Apps configure style only via UIStatusBarStyle; no custom in-app render. Skipped as platform-inapplicable.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "steppers",
@@ -3120,7 +3134,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: steppers-macos-light.png",
-        "screenshot newer than report: steppers-macos-dark.png"
+        "screenshot newer than report: steppers-macos-dark.png",
+        "screenshot newer than report: steppers-ios-light.png",
+        "screenshot newer than report: steppers-ios-dark.png"
       ]
     },
     {
@@ -3165,15 +3181,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
       "focal_position": "toolbar_trailing",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: tab-bars-macos-light.png",
-        "screenshot newer than report: tab-bars-macos-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "tab-views",
@@ -3201,15 +3213,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
       "focal_position": "toolbar_trailing",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: tab-views-macos-light.png",
-        "screenshot newer than report: tab-views-macos-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "tap-to-pay-on-iphone",
@@ -3276,7 +3284,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: text-fields-macos-light.png",
-        "screenshot newer than report: text-fields-macos-dark.png"
+        "screenshot newer than report: text-fields-macos-dark.png",
+        "screenshot newer than report: text-fields-ios-light.png",
+        "screenshot newer than report: text-fields-ios-dark.png"
       ]
     },
     {
@@ -3312,7 +3322,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: text-views-macos-light.png",
-        "screenshot newer than report: text-views-macos-dark.png"
+        "screenshot newer than report: text-views-macos-dark.png",
+        "screenshot newer than report: text-views-ios-light.png",
+        "screenshot newer than report: text-views-ios-dark.png"
       ]
     },
     {
@@ -3337,7 +3349,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "macOS system menu bar (NSMenu on NSApplication). Lives at the OS level, not inside asset_pipeline UI tree. Skipped as platform-inapplicable.",
-      "backdrop": "menu-backdrop-amber-document"
+      "backdrop": "menu-backdrop-amber-document",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "toggles",
@@ -3365,17 +3379,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
       "focal_position": "multi_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: toggles-macos-light.png",
-        "screenshot newer than report: toggles-macos-dark.png",
-        "screenshot newer than report: toggles-ios-light.png",
-        "screenshot newer than report: toggles-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "token-fields",
@@ -3399,7 +3407,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "Token fields per HIG (NSTokenField) are macOS-specific inline-pill text fields used for recipient entry in Mail. Not supported on iOS per HIG. Building a UI::TokenField requires NSTokenFieldDelegate protocol bridge for the tokenize-on-delimiter behavior. Skipped as macOS-specialty + protocol dependency.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "toolbars",
@@ -3429,15 +3439,11 @@
       },
       "iteration": 52,
       "validated_at": "2026-04-14T12:20:00Z",
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
       "focal_position": "toolbar_trailing",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: toolbars-macos-light.png",
-        "screenshot newer than report: toolbars-macos-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "top-shelf",
@@ -3460,8 +3466,10 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "skipped_reason": "HIG Platform Considerations explicitly disclaims iOS/iPadOS/macOS/visionOS/watchOS \u2014 tvOS-only component (tvOS top shelf extensions). No target platform in asset_pipeline.",
-      "backdrop": "home-screen-amber-wallpaper"
+      "backdrop": "home-screen-amber-wallpaper",
+      "skip_reason": "HIG Platform Considerations explicitly disclaims iOS/iPadOS/macOS/visionOS/watchOS \u2014 tvOS-only component (tvOS top shelf extensions). No target platform in asset_pipeline.",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "typography",
@@ -3517,7 +3525,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "iOS system keyboard (UIKeyboard). Apps configure UITextInputTraits only; keyboard itself is system-rendered. Skipped as platform-inapplicable.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "voiceover",
@@ -3573,7 +3583,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "watchOS-only (Watch face design doc). Not an app-developer API \u2014 Apple reserves watch face creation. Skipped as platform-inapplicable.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "web-views",
@@ -3606,7 +3618,9 @@
       "evidence_state": "invalid",
       "evidence_errors": [
         "screenshot newer than report: web-views-macos-light.png",
-        "screenshot newer than report: web-views-macos-dark.png"
+        "screenshot newer than report: web-views-macos-dark.png",
+        "screenshot newer than report: web-views-ios-light.png",
+        "screenshot newer than report: web-views-ios-dark.png"
       ],
       "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
     },
@@ -3632,7 +3646,9 @@
       ],
       "verdict_per_appearance": null,
       "notes": "WidgetKit extension only \u2014 widgets are separate targets rendered by the Home Screen. Not an in-app UI::View. Skipped as platform-inapplicable.",
-      "backdrop": "home-screen-amber-wallpaper"
+      "backdrop": "home-screen-amber-wallpaper",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "windows",
@@ -3656,7 +3672,10 @@
       ],
       "verdict_per_appearance": null,
       "notes": "Windows per HIG are the top-level window chrome (NSWindow title bar, traffic lights, window controls). Managed by NSWindow / UIWindow at the OS level, not an in-app UI::View. The window contents are already validated across all other slugs. Skipped as window-chrome-not-view.",
-      "backdrop": "sheet-backdrop-amber-gradient"
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "skip_reason": "window-chrome-not-view",
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "workouts",
@@ -3690,5 +3709,19 @@
       "skip_reason": "foundation",
       "docs_written": false
     }
-  ]
+  ],
+  "validation_counts": {
+    "pass": 0,
+    "pass_with_notes": 14,
+    "pending": 25,
+    "needs_work": 0,
+    "fail": 0,
+    "skipped": 24
+  },
+  "evidence_counts": {
+    "valid": 14,
+    "invalid": 25,
+    "not_applicable": 24,
+    "unknown": 0
+  }
 }

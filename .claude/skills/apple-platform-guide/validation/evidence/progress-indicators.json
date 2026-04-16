@@ -1,0 +1,58 @@
+{
+  "errors": [
+    "screenshot newer than report: progress-indicators-macos-light.png",
+    "screenshot newer than report: progress-indicators-macos-dark.png",
+    "screenshot newer than report: progress-indicators-ios-light.png",
+    "screenshot newer than report: progress-indicators-ios-dark.png"
+  ],
+  "generated_at": "2026-04-16T09:13:48.621867+00:00",
+  "report": {
+    "exists": true,
+    "mtime": "2026-04-14T12:01:32.427024+00:00",
+    "path": "reports/progress-indicators.md",
+    "sha256": "c0fb09ebf56bfe087532282281f814ae264e4a74f729831177acba8fb3bdefa0",
+    "size_bytes": 12269
+  },
+  "screenshots": {
+    "ios_dark": {
+      "exists": true,
+      "mtime": "2026-04-16T00:01:30.983921+00:00",
+      "path": "screenshots/progress-indicators-ios-dark.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "e1acb471880bd01ad12b768285eb281e538b84ec8c61990a27d7dce6a0324cb1",
+      "size_bytes": 877744
+    },
+    "ios_light": {
+      "exists": true,
+      "mtime": "2026-04-16T00:00:59.994754+00:00",
+      "path": "screenshots/progress-indicators-ios-light.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "19cf9b8da70a9ef8124cef9e711d1dd4f377a75033de95fbdac73650a8fdc68c",
+      "size_bytes": 617587
+    },
+    "macos_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T21:13:06.644816+00:00",
+      "path": "screenshots/progress-indicators-macos-dark.png",
+      "pixel_height": 900,
+      "pixel_width": 1200,
+      "sha256": "13f4bb4964596646a501f85b46de688d1ca0a4c048c8e17a93624ed0535a4621",
+      "size_bytes": 466891
+    },
+    "macos_light": {
+      "exists": true,
+      "mtime": "2026-04-15T21:11:55.110788+00:00",
+      "path": "screenshots/progress-indicators-macos-light.png",
+      "pixel_height": 900,
+      "pixel_width": 1200,
+      "sha256": "93a27059e9ffc018443b8637757383926692c6e7c3d09374f8b0c97646e64e3c",
+      "size_bytes": 408132
+    }
+  },
+  "slug": "progress-indicators",
+  "valid": false,
+  "validation_state": "pending",
+  "warnings": []
+}

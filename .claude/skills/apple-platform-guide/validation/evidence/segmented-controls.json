@@ -1,0 +1,58 @@
+{
+  "errors": [
+    "screenshot newer than report: segmented-controls-macos-light.png",
+    "screenshot newer than report: segmented-controls-macos-dark.png",
+    "screenshot newer than report: segmented-controls-ios-light.png",
+    "screenshot newer than report: segmented-controls-ios-dark.png"
+  ],
+  "generated_at": "2026-04-16T09:13:48.648409+00:00",
+  "report": {
+    "exists": true,
+    "mtime": "2026-04-14T13:00:11.178174+00:00",
+    "path": "reports/segmented-controls.md",
+    "sha256": "2169a6f64abf777b62b528c5676074ff73e263fa43dbe77e725431b57f3b3425",
+    "size_bytes": 9865
+  },
+  "screenshots": {
+    "ios_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T21:16:15.580741+00:00",
+      "path": "screenshots/segmented-controls-ios-dark.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "06f683256be6a187667a138ce9e7927f5c0bccfc4bcc1e4eb450145eb2f6ab51",
+      "size_bytes": 809770
+    },
+    "ios_light": {
+      "exists": true,
+      "mtime": "2026-04-15T21:15:43.048233+00:00",
+      "path": "screenshots/segmented-controls-ios-light.png",
+      "pixel_height": 1808,
+      "pixel_width": 1206,
+      "sha256": "599eafb12aee7e14e2b143893b5595cfb43673c85facccdd2b33ead084236fbe",
+      "size_bytes": 550851
+    },
+    "macos_dark": {
+      "exists": true,
+      "mtime": "2026-04-15T20:33:43.693150+00:00",
+      "path": "screenshots/segmented-controls-macos-dark.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "93484785fe8f665a20c16c1e0ff6a12f235c3152a904d9ec54b66109b221f503",
+      "size_bytes": 375519
+    },
+    "macos_light": {
+      "exists": true,
+      "mtime": "2026-04-15T20:33:42.848718+00:00",
+      "path": "screenshots/segmented-controls-macos-light.png",
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "e53fa9ac13c90b6e9e0505feb3d38bcde5f51b0b71d0b80a147890350ecd7676",
+      "size_bytes": 338678
+    }
+  },
+  "slug": "segmented-controls",
+  "valid": false,
+  "validation_state": "pending",
+  "warnings": []
+}
