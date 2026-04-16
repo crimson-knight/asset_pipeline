@@ -130,6 +130,8 @@ module CrystalHIGHost::Bridge
       centered_study_card(focal, card_width: 284.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "progress-indicators"
       centered_study_card(focal, card_width: 364.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
+    when "segmented-controls"
+      centered_study_card(focal, card_width: 332.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "text-fields"
       centered_study_card(focal, card_width: 364.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
     when "labels"
@@ -138,6 +140,8 @@ module CrystalHIGHost::Bridge
       centered_study_card(focal, card_width: 336.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
     when "image-views"
       centered_study_card(focal, card_width: 324.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
+    when "column-views"
+      centered_study_card(focal, card_width: 360.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "path-controls"
       centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "outline-views"
@@ -1334,37 +1338,45 @@ module CrystalHIGHost::Bridge
               # a pill-shaped grouped control; the selected segment has a filled
               # backing (system-tinted on iOS 26) in both light and dark appearances.
               # Showcase: text-only (Day/Week/Month, Week selected at index 1) plus
-              # an icon-label variant (4 segments, index 1 selected).
+              # a compact layout-choice variant (4 segments, index 1 selected).
               # HIG: "Limit the number of segments in a control." -- 3 and 4 here.
               # HIG: "Use nouns or noun phrases for segment labels."
 
-              ios_sc_title = UI::Label.new("Segmented Controls -- UISegmentedControl")
-              ios_sc_title.font = UI::Font.new(size: 15.0, weight: :medium)
+              ios_sc_outer = UI::VStack.new(spacing: 10.0)
+              ios_sc_outer.minimum_width = 296.0
+              ios_sc_outer.maximum_width = 296.0
+
+              ios_sc_title = UI::Label.new("Selection style")
+              ios_sc_title.font = UI::Font.new(size: 16.0, weight: :semibold)
               ios_sc_title.accessibility_label = "Segmented Controls showcase title"
+              ios_sc_outer << ios_sc_title
+
+              ios_sc_desc = UI::Label.new("Short nouns keep the control calm and readable.")
+              ios_sc_desc.font = UI::Font.new(size: 13.0, weight: :regular)
+              ios_sc_desc.text_color_role = UI::LabelRole::Secondary
+              ios_sc_desc.accessibility_label = "Segmented controls description"
+              ios_sc_outer << ios_sc_desc
 
               ios_sc_text_caption = UI::Label.new("Text segments (Week selected, index 1)")
               ios_sc_text_caption.font = UI::Font.new(size: 11.0, weight: :regular)
               ios_sc_text_caption.accessibility_label = "Text segments caption"
+              ios_sc_outer << ios_sc_text_caption
 
               # Text-only: 3 segments, index 1 (Week) selected -- HIG-aligned default
               ios_sc_text = UI::SegmentedControl.new(["Day", "Week", "Month"], 1)
               ios_sc_text.accessibility_label = "Day Week Month segmented control"
+              ios_sc_outer << ios_sc_text
 
-              ios_sc_icon_caption = UI::Label.new("Icon-label segments (4 segments, index 1 selected)")
+              ios_sc_icon_caption = UI::Label.new("Layout segments (4 segments, index 1 selected)")
               ios_sc_icon_caption.font = UI::Font.new(size: 11.0, weight: :regular)
               ios_sc_icon_caption.accessibility_label = "Icon segments caption"
+              ios_sc_outer << ios_sc_icon_caption
 
-              # Icon variant: 4 segments using SF Symbol names as labels, index 1 selected
+              # Variant: 4 short labels, index 1 selected.
               ios_sc_icon = UI::SegmentedControl.new(
-                ["list.bullet", "grid.2x2", "grid.3x3", "square.3.stack.3d"], 1
+                ["List", "Grid", "Cards", "Stack"], 1
               )
               ios_sc_icon.accessibility_label = "Icon segmented control"
-
-              ios_sc_outer = UI::VStack.new(spacing: 10.0)
-              ios_sc_outer << ios_sc_title
-              ios_sc_outer << ios_sc_text_caption
-              ios_sc_outer << ios_sc_text
-              ios_sc_outer << ios_sc_icon_caption
               ios_sc_outer << ios_sc_icon
               ios_sc_outer.as(UI::View)
             when "progress-indicators"
@@ -2651,6 +2663,56 @@ HTML
 
               outline_outer << outline.as(UI::View)
               outline_outer.as(UI::View)
+            when "column-views"
+              # HIG column views: a compact Finder-style drill-down browser.
+              # Keep the hierarchy short so the study reads as a calm, centered
+              # navigation sample with honest gutters around the columns.
+              column_view = UI::ColumnView.new
+              column_view.default_column_width = 146.0
+              column_view.column_widths = [146.0, 156.0]
+              column_view.column_spacing = 10.0
+              column_view.row_spacing = 4.0
+              column_view.row_padding = UI::EdgeInsets.new(top: 6.0, trailing: 8.0, bottom: 6.0, leading: 8.0)
+              column_view.viewport_width = 306.0
+              column_view.viewport_height = 232.0
+              column_view.shows_disclosure_glyphs = true
+              column_view.selected_indexes = [0, 1]
+
+              inbox = UI::ColumnView::Item.new("Inbox", "tray", "12", [
+                UI::ColumnView::Item.new("Today", "sun.max", "5"),
+                UI::ColumnView::Item.new("Drafts", "doc.text", "3"),
+                UI::ColumnView::Item.new("Archive", "archivebox", "24"),
+              ])
+              projects = UI::ColumnView::Item.new("Projects", "folder", "4", [
+                UI::ColumnView::Item.new("Mobile", "iphone", "2"),
+                UI::ColumnView::Item.new("Desktop", "macwindow", "1"),
+                UI::ColumnView::Item.new("Brand", "paintbrush", "1"),
+              ])
+              shared = UI::ColumnView::Item.new("Shared", "person.2", nil, [
+                UI::ColumnView::Item.new("Reviews", "checkmark.seal", "8"),
+                UI::ColumnView::Item.new("Assets", "photo.on.rectangle", "16"),
+              ])
+              column_view.add_item(inbox)
+              column_view.add_item(projects)
+              column_view.add_item(shared)
+
+              column_outer = UI::VStack.new(spacing: 10.0)
+              column_outer.minimum_width = 306.0
+              column_outer.maximum_width = 306.0
+
+              column_title = UI::Label.new("Project browser")
+              column_title.font = UI::Font.new(size: 16.0, weight: :semibold)
+              column_title.accessibility_label = "Column views showcase title"
+              column_outer << column_title
+
+              column_desc = UI::Label.new("Drill down one branch at a time.")
+              column_desc.font = UI::Font.new(size: 13.0, weight: :regular)
+              column_desc.text_color_role = UI::LabelRole::Secondary
+              column_desc.accessibility_label = "Column views description"
+              column_outer << column_desc
+
+              column_outer << column_view.as(UI::View)
+              column_outer.as(UI::View)
             when "combo-boxes"
               # HIG Platform considerations: "Not supported in iOS, iPadOS,
               # tvOS, visionOS, or watchOS."

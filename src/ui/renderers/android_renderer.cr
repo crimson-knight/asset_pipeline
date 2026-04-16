@@ -1046,6 +1046,10 @@ module UI::Android
       view.fallback_view.accept(self)
     end
 
+    def visit(view : UI::TokenField)
+      view.fallback_view.accept(self)
+    end
+
     # -----------------------------------------------------------------
     # Visit: SecureField -> android.widget.EditText (password input type)
     # -----------------------------------------------------------------

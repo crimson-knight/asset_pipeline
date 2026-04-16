@@ -91,7 +91,7 @@ require "../../../src/ui/validation_scenes"
     "sliders"             => "ambient",
     "steppers"            => "settings",
     "pickers"             => "ambient",
-    "segmented-controls"  => "settings",
+    "segmented-controls"  => "ambient",
     "pop-up-buttons"      => "settings",
     "pull-down-buttons"   => "settings",
     "disclosure-controls" => "settings",
@@ -106,6 +106,7 @@ require "../../../src/ui/validation_scenes"
     "text-views"    => "ambient",
     "search-fields" => "ambient",
     "labels"        => "ambient",
+    "column-views"  => "ambient",
     "boxes"         => "ambient",
     "outline-views" => "ambient",
     "path-controls" => "ambient",
@@ -1541,21 +1542,92 @@ require "../../../src/ui/validation_scenes"
 
       # Range: 3 segments, index 1 (Week) selected — HIG "Limit the number of
       # segments" + "Use nouns for segment labels".
+      sc_title = UI::Label.new("Segmented controls")
+      sc_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      sc_title.accessibility_label = "Segmented controls study title"
+
+      sc_subtitle = UI::Label.new("Balanced defaults for view switching.")
+      sc_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      sc_subtitle.text_color_role = UI::LabelRole::Secondary
+      sc_subtitle.accessibility_label = "Segmented controls study subtitle"
+
       sc_text = UI::SegmentedControl.new(["Day", "Week", "Month"], 1)
       sc_text.accessibility_label = "Day Week Month segmented control"
 
       # Density: 4 segments with short noun labels. The underlying
       # UI::SegmentedControl only accepts text labels; SF Symbol-only segment
       # variants are exposed via a different control in future work.
-      sc_icon = UI::SegmentedControl.new(
-        ["List", "Grid", "Dense", "Stack"], 1
-      )
+      sc_icon = UI::SegmentedControl.new(["List", "Grid", "Dense", "Stack"], 1)
       sc_icon.accessibility_label = "Density segmented control"
 
-      sc_outer = UI::VStack.new(spacing: 10.0)
+      sc_outer = UI::VStack.new(spacing: 14.0)
+      sc_outer.alignment = UI::Alignment::Center
+      sc_outer << sc_title
+      sc_outer << sc_subtitle
       sc_outer << sc_text
       sc_outer << sc_icon
-      sc_outer
+
+      sc_card = UI::Card.new(sc_outer.as(UI::View))
+      sc_card.minimum_width = 468.0
+      sc_card.maximum_width = 468.0
+      sc_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 20.0, bottom: 18.0, leading: 20.0)
+      sc_card.is_outlined = true
+      sc_card.material = :secondary
+      sc_card.accessibility_label = "Segmented controls study card"
+      sc_card.as(UI::View)
+    when "column-views"
+      # Finder-like column browser rendered through the shared UI::ColumnView
+      # fallback. The composition stays compact so the selected path and column
+      # rhythm read clearly against the amber backdrop.
+      projects = UI::ColumnView::Item.new("Projects", "folder.fill", "12")
+      amber_branch = UI::ColumnView::Item.new("Amber", "folder.fill", "Brand")
+      amber_branch.add_child(UI::ColumnView::Item.new("Brand", "doc.text.fill", "Notes"))
+      amber_branch.add_child(UI::ColumnView::Item.new("Scenes", "square.grid.2x2.fill", "Layouts"))
+      amber_branch.add_child(UI::ColumnView::Item.new("Validation", "checkmark.seal.fill", "Captures"))
+      projects.add_child(amber_branch)
+
+      libraries = UI::ColumnView::Item.new("Library", "books.vertical.fill", "6")
+      libraries.add_child(UI::ColumnView::Item.new("Writing", "doc.text.fill", "Pages"))
+      libraries.add_child(UI::ColumnView::Item.new("Sketches", "scribble.variable", "UI"))
+      libraries.add_child(UI::ColumnView::Item.new("Archive", "tray.full.fill", "Older"))
+
+      inbox = UI::ColumnView::Item.new("Inbox", "tray.full.fill", "24")
+      inbox.add_child(UI::ColumnView::Item.new("Today", "clock.fill", "4"))
+      inbox.add_child(UI::ColumnView::Item.new("This Week", "calendar", "8"))
+      inbox.add_child(UI::ColumnView::Item.new("All Notes", "tray.full", "Full"))
+
+      column_view = UI::ColumnView.new([libraries, projects, inbox])
+      column_view.selected_indexes = [1, 0, 1]
+      column_view.column_widths = [196.0, 200.0, 196.0]
+      column_view.default_column_width = 196.0
+      column_view.viewport_width = 640.0
+      column_view.viewport_height = 320.0
+      column_view.shows_disclosure_glyphs = true
+      column_view.accessibility_label = "Finder style column browser"
+
+      cv_title = UI::Label.new("Column view")
+      cv_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      cv_title.accessibility_label = "Column views study title"
+
+      cv_subtitle = UI::Label.new("A compact Finder-style browser with visible depth.")
+      cv_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      cv_subtitle.text_color_role = UI::LabelRole::Secondary
+      cv_subtitle.accessibility_label = "Column views study subtitle"
+
+      cv_stack = UI::VStack.new(spacing: 12.0)
+      cv_stack.alignment = UI::Alignment::Center
+      cv_stack << cv_title
+      cv_stack << cv_subtitle
+      cv_stack << column_view.as(UI::View)
+
+      cv_card = UI::Card.new(cv_stack.as(UI::View))
+      cv_card.minimum_width = 700.0
+      cv_card.maximum_width = 700.0
+      cv_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+      cv_card.is_outlined = true
+      cv_card.material = :secondary
+      cv_card.accessibility_label = "Column views study card"
+      cv_card.as(UI::View)
     when "progress-indicators"
       # HIG: "Progress indicators let people know that your app isn't stalled
       # while it loads content or performs lengthy operations."

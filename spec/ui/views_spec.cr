@@ -106,6 +106,10 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "ColumnView(#{view.column_count})"
   end
 
+  def visit(view : UI::TokenField)
+    @visited << "TokenField(#{view.token_count})"
+  end
+
   def visit(view : UI::SecureField)
     @visited << "SecureField(#{view.placeholder})"
   end
@@ -2462,6 +2466,61 @@ describe UI::ColumnView do
     visitor = TestVisitor.new
     view.accept(visitor)
     visitor.visited.should eq(["ColumnView(1)"])
+  end
+end
+
+describe UI::TokenField do
+  it "stores tokens, placeholder, and selection state" do
+    ada = UI::TokenField::Token.new("Ada", "person", "Lead")
+    grace = UI::TokenField::Token.new("Grace", "person")
+
+    view = UI::TokenField.new([ada, grace], "Add recipient", "Recipients", "Type a name or email")
+    view.selected_indexes = [1]
+
+    view.token_count.should eq(2)
+    view.placeholder.should eq("Add recipient")
+    view.label.should eq("Recipients")
+    view.prompt.should eq("Type a name or email")
+    view.selected_tokens.map(&.title).should eq(["Grace"])
+    view.tokens[0].branch?.should be_false
+  end
+
+  it "builds a pill-entry fallback surface" do
+    view = UI::TokenField.new(
+      [UI::TokenField::Token.new("Ada", "person"), UI::TokenField::Token.new("Grace")],
+      "Add person",
+      "Recipients",
+      "Type to search by name or email"
+    )
+    view.selected_indexes = [0]
+    view.minimum_width = 360.0
+
+    fallback = view.fallback_view
+    fallback.should be_a(UI::Card)
+
+    card = fallback.as(UI::Card)
+    body = card.content.as(UI::VStack)
+    body.children.size.should eq(3)
+    body.children[0].should be_a(UI::Label)
+    body.children[1].should be_a(UI::Label)
+
+    scroll = body.children[2].as(UI::ScrollView)
+    scroll.scroll_horizontal.should be_true
+    scroll.scroll_vertical.should be_false
+    scroll.content.should be_a(UI::HStack)
+
+    tray = scroll.content.as(UI::HStack)
+    tray.children.size.should eq(3)
+    tray.children[0].should be_a(UI::Surface)
+    tray.children[2].should be_a(UI::TextField)
+  end
+
+  it "accepts visitor" do
+    view = UI::TokenField.new([UI::TokenField::Token.new("Ada")])
+
+    visitor = TestVisitor.new
+    view.accept(visitor)
+    visitor.visited.should eq(["TokenField(1)"])
   end
 end
 
