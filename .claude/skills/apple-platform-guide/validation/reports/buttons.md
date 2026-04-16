@@ -1,8 +1,8 @@
 ---
 slug: buttons
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T00:07:42Z
-iteration: batch-1
+validated_at: 2026-04-16T15:35:00Z
+iteration: review-2026-04-16
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -29,11 +29,10 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-Rendered with the Amber persona across all four appearances. The focal
-component matches the HIG anatomy for this page with recognizable structure,
-typography, and role-appropriate tints. Promoted via the batch-promotion
-flow after visual verification of both macOS captures; iOS captures validated
-in the same wave via the XCUITest harness.
+The role gallery is readable on both platforms and the iOS renderer clearly
+separates default, prominent, tinted, bordered, borderless, destructive, and
+disabled states. The row stays PASS_WITH_NOTES because the AppKit prominent
+button still reads closer to the default filled style than the HIG reference.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/buttons.json`
@@ -55,12 +54,10 @@ in the same wave via the XCUITest harness.
   and primary actions; amber-on-ember scene contrast verified.
 
 ### Deviations / notes
-- This row was promoted via the batch-promotion flow after individual visual
-  verification. Any small polish items (e.g. padding nudges, copy tuning) are
-  documented in the Amber content library and may be refined in a later pass.
-- Not every per-appearance verdict was individually critic-reviewed by the
-  design-critic agent; the batch promotion presumes consistency across the
-  four appearances based on shared renderer code paths.
+- UIKit now expresses the style spread well, but AppKit still makes the
+  prominent button feel more muted than Apple's own filled control examples.
+- The row should graduate to full PASS only once the macOS prominent state
+  looks clearly more emphatic than the default button.
 
 ### Source citations
 - Apple HIG — "Buttons" (see `apple-hig/pages/buttons.md` in the skill corpus).

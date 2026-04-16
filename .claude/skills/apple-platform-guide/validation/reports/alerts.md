@@ -1,13 +1,13 @@
 ---
 slug: alerts
-verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T00:07:42Z
-iteration: batch-1
+verdict: NEEDS_WORK
+validated_at: 2026-04-16T15:35:00Z
+iteration: review-2026-04-16
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
-  ios_light:   PASS_WITH_NOTES
-  ios_dark:    PASS_WITH_NOTES
+  ios_light:   NEEDS_WORK
+  ios_dark:    NEEDS_WORK
 ---
 
 # Alerts — Visual validation
@@ -27,13 +27,12 @@ verdict_per_appearance:
 ## Rendered — iOS (dark)
 ![iOS dark](../screenshots/alerts-ios-dark.png)
 
-## Verdict: PASS_WITH_NOTES
+## Verdict: NEEDS_WORK
 
-Rendered with the Amber persona across all four appearances. The focal
-component matches the HIG anatomy for this page with recognizable structure,
-typography, and role-appropriate tints. Promoted via the batch-promotion
-flow after visual verification of both macOS captures; iOS captures validated
-in the same wave via the XCUITest harness.
+macOS still shows a readable alert card with the right hierarchy, but the
+current iOS captures no longer show the alert surface at all. This row is back
+to NEEDS_WORK until the UIKit host actually frames the alert instead of only
+the surrounding ambient scene.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/alerts.json`
@@ -42,28 +41,26 @@ in the same wave via the XCUITest harness.
   linked above.
 
 ### Light appearance observations
-- macOS: focal component sits inside the Amber scene chrome with the shipped
-  palette (gold primary, plum destructive). Type hierarchy reads in a single
-  glance.
-- iOS: component is rendered under the UIKit renderer with HIG-appropriate
-  controls and SF Symbol iconography.
+- macOS: the inline alert remains readable, with a clear title/message split
+  and distinct action styling.
+- iOS: the exported PNG shows only the ambient Amber scene; the alert itself
+  is not present in the capture.
 
 ### Dark appearance observations
-- macOS: dark chrome maintains adequate contrast between the focal component
-  and the surrounding Amber surface tokens.
-- iOS: dark-mode rendering preserves role distinguishability for destructive
-  and primary actions; amber-on-ember scene contrast verified.
+- macOS: the dark study still reads as an alert, though the live-glass
+  treatment is subtler than the HIG reference.
+- iOS: the dark capture repeats the same miss as light and fails to show the
+  focal alert surface.
 
 ### Deviations / notes
-- This row was promoted via the batch-promotion flow after individual visual
-  verification. Any small polish items (e.g. padding nudges, copy tuning) are
-  documented in the Amber content library and may be refined in a later pass.
-- Not every per-appearance verdict was individually critic-reviewed by the
-  design-critic agent; the batch promotion presumes consistency across the
-  four appearances based on shared renderer code paths.
+- The iOS validation host is currently capturing the ambient scene instead of
+  the presented alert, so the evidence cannot support a promoted state.
+- macOS still uses the inline glass-card approximation noted in earlier rounds;
+  that is acceptable once the iOS evidence path is fixed.
 
 ### Source citations
 - Apple HIG — "Alerts" (see `apple-hig/pages/alerts.md` in the skill corpus).
 
 ### Remediation (if NEEDS_WORK)
-N/A — notes only.
+- Rework the UIKit alert showcase so the presented alert remains inside the
+  captured frame in both appearances.

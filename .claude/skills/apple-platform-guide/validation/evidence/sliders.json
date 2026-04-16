@@ -1,12 +1,12 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T09:13:48.660036+00:00",
+  "generated_at": "2026-04-16T15:39:23.107265+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T00:07:43.169801+00:00",
+    "mtime": "2026-04-16T15:36:35.734141+00:00",
     "path": "reports/sliders.md",
-    "sha256": "6e30957830d0caaa6340ecccf3936956b53b071921f441f276a7f5656eea1762",
-    "size_bytes": 2523
+    "sha256": "d0331d111d35d0170cb98f47515e43bc9fe3d7694290a10c9f9a26ac50115203",
+    "size_bytes": 2225
   },
   "screenshots": {
     "ios_dark": {

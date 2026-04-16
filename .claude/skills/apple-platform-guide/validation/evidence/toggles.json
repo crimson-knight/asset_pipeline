@@ -1,12 +1,12 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T09:13:48.684846+00:00",
+  "generated_at": "2026-04-16T15:39:23.342335+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T00:07:43.325839+00:00",
+    "mtime": "2026-04-16T15:36:35.735267+00:00",
     "path": "reports/toggles.md",
-    "sha256": "e313260b08606db1732d93ae4a983dad46e00cbfdf2f8af0a3c099b72d040dad",
-    "size_bytes": 2523
+    "sha256": "b7b286e335f69b3214c37281fd1e14f640ac0366a037924089c491bfe19c858e",
+    "size_bytes": 2154
   },
   "screenshots": {
     "ios_dark": {

@@ -1,8 +1,8 @@
 ---
 slug: tab-views
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T00:07:43Z
-iteration: batch-1
+validated_at: 2026-04-16T15:35:00Z
+iteration: review-2026-04-16
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -29,11 +29,10 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-Rendered with the Amber persona across all four appearances. The focal
-component matches the HIG anatomy for this page with recognizable structure,
-typography, and role-appropriate tints. Promoted via the batch-promotion
-flow after visual verification of both macOS captures; iOS captures validated
-in the same wave via the XCUITest harness.
+macOS now presents the tabbed settings study as a centered card with visible
+gutters and calmer supporting copy. The row stays PASS_WITH_NOTES because the
+iOS fallback is still a segmented-control approximation that lands too close to
+the host edges and reads as an implementation note as much as a preview.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/tab-views.json`
@@ -42,25 +41,20 @@ in the same wave via the XCUITest harness.
   linked above.
 
 ### Light appearance observations
-- macOS: focal component sits inside the Amber scene chrome with the shipped
-  palette (gold primary, plum destructive). Type hierarchy reads in a single
-  glance.
-- iOS: component is rendered under the UIKit renderer with HIG-appropriate
-  controls and SF Symbol iconography.
+- macOS: the card framing makes the tab strip and pane relationship easy to
+  judge without extra dashboard furniture competing for attention.
+- iOS: the fallback stays understandable, but it is still more like a host
+  explainer than a confident component preview.
 
 ### Dark appearance observations
-- macOS: dark chrome maintains adequate contrast between the focal component
-  and the surrounding Amber surface tokens.
-- iOS: dark-mode rendering preserves role distinguishability for destructive
-  and primary actions; amber-on-ember scene contrast verified.
+- macOS: the dark study keeps the same centered proportions and reads cleanly.
+- iOS: dark mode is legible, but the edge-hugging layout still weakens the
+  overall taste signal.
 
 ### Deviations / notes
-- This row was promoted via the batch-promotion flow after individual visual
-  verification. Any small polish items (e.g. padding nudges, copy tuning) are
-  documented in the Amber content library and may be refined in a later pass.
-- Not every per-appearance verdict was individually critic-reviewed by the
-  design-critic agent; the batch promotion presumes consistency across the
-  four appearances based on shared renderer code paths.
+- macOS framing is now in good shape.
+- The remaining note belongs to the iOS fallback, which still needs a more
+  deliberate study plate and less self-referential explanatory text.
 
 ### Source citations
 - Apple HIG — "Tab views" (see `apple-hig/pages/tab-views.md` in the skill corpus).

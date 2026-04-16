@@ -1,8 +1,8 @@
 ---
 slug: toolbars
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T00:07:43Z
-iteration: batch-1
+validated_at: 2026-04-16T15:35:00Z
+iteration: review-2026-04-16
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -29,11 +29,10 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-Rendered with the Amber persona across all four appearances. The focal
-component matches the HIG anatomy for this page with recognizable structure,
-typography, and role-appropriate tints. Promoted via the batch-promotion
-flow after visual verification of both macOS captures; iOS captures validated
-in the same wave via the XCUITest harness.
+The toolbar study is now centered and easier to judge on macOS, with the
+command row presented as a single focal element. The row stays PASS_WITH_NOTES
+because the iOS capture is still pinned high and left inside the host instead
+of floating in a balanced plate.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/toolbars.json`
@@ -42,25 +41,20 @@ in the same wave via the XCUITest harness.
   linked above.
 
 ### Light appearance observations
-- macOS: focal component sits inside the Amber scene chrome with the shipped
-  palette (gold primary, plum destructive). Type hierarchy reads in a single
-  glance.
-- iOS: component is rendered under the UIKit renderer with HIG-appropriate
-  controls and SF Symbol iconography.
+- macOS: the updated card framing finally lets the toolbar read as the thing
+  under review instead of a tiny ornament inside another toolbar.
+- iOS: symbol spacing is readable, but the host still crowds the study against
+  the top-left edge.
 
 ### Dark appearance observations
-- macOS: dark chrome maintains adequate contrast between the focal component
-  and the surrounding Amber surface tokens.
-- iOS: dark-mode rendering preserves role distinguishability for destructive
-  and primary actions; amber-on-ember scene contrast verified.
+- macOS: the dark study keeps the same centered, legible composition.
+- iOS: the dark toolbar remains serviceable, but the framing still feels like
+  a host capture rather than a composed preview.
 
 ### Deviations / notes
-- This row was promoted via the batch-promotion flow after individual visual
-  verification. Any small polish items (e.g. padding nudges, copy tuning) are
-  documented in the Amber content library and may be refined in a later pass.
-- Not every per-appearance verdict was individually critic-reviewed by the
-  design-critic agent; the batch promotion presumes consistency across the
-  four appearances based on shared renderer code paths.
+- macOS framing is now healthy.
+- The remaining note is the iOS host composition, which still needs the same
+  centered-gutter treatment used by the best recent studies.
 
 ### Source citations
 - Apple HIG — "Toolbars" (see `apple-hig/pages/toolbars.md` in the skill corpus).

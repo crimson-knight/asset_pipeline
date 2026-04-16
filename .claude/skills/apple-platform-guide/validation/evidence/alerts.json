@@ -1,12 +1,12 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T09:13:48.523043+00:00",
+  "generated_at": "2026-04-16T15:39:22.546587+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T00:07:42.845379+00:00",
+    "mtime": "2026-04-16T15:36:35.731051+00:00",
     "path": "reports/alerts.md",
-    "sha256": "dbc6987e48819ce0ee227393ddf8954a3e7cadb2702f8bca10d8c39f9f928f88",
-    "size_bytes": 2513
+    "sha256": "4b23a536c8e254fb7140b18b55d7d8a3fb8f8daf63dd9f6bc2bd432bc7d530ff",
+    "size_bytes": 2263
   },
   "screenshots": {
     "ios_dark": {
@@ -48,6 +48,6 @@
   },
   "slug": "alerts",
   "valid": true,
-  "validation_state": "pass_with_notes",
+  "validation_state": "needs_work",
   "warnings": []
 }

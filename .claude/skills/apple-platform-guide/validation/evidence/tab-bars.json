@@ -1,49 +1,49 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T09:13:48.669776+00:00",
+  "generated_at": "2026-04-16T15:39:23.185266+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T00:07:43.220134+00:00",
+    "mtime": "2026-04-16T15:36:35.734703+00:00",
     "path": "reports/tab-bars.md",
-    "sha256": "cf0676270c49f2c3ebfee42c4900128dc32e810f02ae6f55c087d7f71e7fe6c5",
-    "size_bytes": 2532
+    "sha256": "691cebccb066b54dc88d9b082389eaf6d8a60c2873ebf5696d9e6359441be772",
+    "size_bytes": 2159
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-15T21:23:57.306628+00:00",
+      "mtime": "2026-04-16T15:27:02.910703+00:00",
       "path": "screenshots/tab-bars-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "eb9dd72bedf614bfaccc013e0354abf045f261731988cef24f91a3478d4247a0",
-      "size_bytes": 708955
+      "sha256": "b1d82d212607d54b83b253d415ac71953c353eff6de29e42c4a46262d10c2215",
+      "size_bytes": 414662
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-15T21:23:25.318827+00:00",
+      "mtime": "2026-04-16T15:26:28.625994+00:00",
       "path": "screenshots/tab-bars-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "0b05c0f58459f779fde37a7195cfc1af5bc286157f620691194777e2e71fa6aa",
-      "size_bytes": 481689
+      "sha256": "6c095a6dad96b8a693154837c3a2a99aa538f20377de534c3d26d30d57ddf1c6",
+      "size_bytes": 376059
     },
     "macos_dark": {
       "exists": true,
-      "mtime": "2026-04-15T20:26:08.348531+00:00",
+      "mtime": "2026-04-16T15:21:20.811460+00:00",
       "path": "screenshots/tab-bars-macos-dark.png",
       "pixel_height": 1800,
       "pixel_width": 2400,
-      "sha256": "04143d8e9695a01b32c4709bc5c4cacf220d6e840b513141d689d66f4b24e825",
-      "size_bytes": 1357276
+      "sha256": "98165f74b69663b353ca204b3cc3a55497e132a19bd327e9259debc7fefbe88f",
+      "size_bytes": 1233566
     },
     "macos_light": {
       "exists": true,
-      "mtime": "2026-04-15T20:26:07.512928+00:00",
+      "mtime": "2026-04-16T15:21:19.951545+00:00",
       "path": "screenshots/tab-bars-macos-light.png",
       "pixel_height": 1800,
       "pixel_width": 2400,
-      "sha256": "ef07a55bd8efa009e4e0a96c22fb90f10274a8ed7a5dfd062b7cee08ffad3f2a",
-      "size_bytes": 1013329
+      "sha256": "83683233c655f84a4301d2d2982464efaa0a6af97631ffbe9981df374f451906",
+      "size_bytes": 949019
     }
   },
   "slug": "tab-bars",

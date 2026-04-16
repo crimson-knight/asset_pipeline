@@ -1,8 +1,8 @@
 ---
 slug: sliders
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T00:07:43Z
-iteration: batch-1
+validated_at: 2026-04-16T15:35:00Z
+iteration: review-2026-04-16
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -29,11 +29,9 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-Rendered with the Amber persona across all four appearances. The focal
-component matches the HIG anatomy for this page with recognizable structure,
-typography, and role-appropriate tints. Promoted via the batch-promotion
-flow after visual verification of both macOS captures; iOS captures validated
-in the same wave via the XCUITest harness.
+The slider family is implemented and readable on both platforms. The row stays
+PASS_WITH_NOTES because the iOS study is still full-bleed and the macOS
+settings shell contributes more chrome than the controls themselves need.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/sliders.json`
@@ -55,12 +53,10 @@ in the same wave via the XCUITest harness.
   and primary actions; amber-on-ember scene contrast verified.
 
 ### Deviations / notes
-- This row was promoted via the batch-promotion flow after individual visual
-  verification. Any small polish items (e.g. padding nudges, copy tuning) are
-  documented in the Amber content library and may be refined in a later pass.
-- Not every per-appearance verdict was individually critic-reviewed by the
-  design-critic agent; the batch promotion presumes consistency across the
-  four appearances based on shared renderer code paths.
+- The control anatomy is solid, but the composition still feels like a host
+  dump instead of a balanced study.
+- This should move to full PASS after the sliders are staged in the same kind
+  of centered plate used by the stronger recent previews.
 
 ### Source citations
 - Apple HIG — "Sliders" (see `apple-hig/pages/sliders.md` in the skill corpus).

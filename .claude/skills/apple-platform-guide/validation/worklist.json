@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T14:55:16.938446+00:00",
+  "generated_at": "2026-04-16T15:39:23.421884+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -180,9 +180,9 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "needs_work",
       "docs_written": true,
-      "notes": "Iteration 20: visit(UI::Alert) rewritten on both renderers to emit NSVisualEffectView (hudWindow=7) / UIVisualEffectView (UIGlassEffect/UIBlurEffect) inline glass card. All four appearances captured fresh (macos-light 34739B, macos-dark 34850B, ios-light 121022B, ios-dark 100903B). Title bold/legible, message secondary-gray/legible, destructive red distinct from cancel/default blue in all four captures. macOS buttons stack vertically (HIG-justified); live glass bleed-through not visible on macOS (iter-17 gotcha). Both mandatory doc sections present.",
+      "notes": "macOS still shows a readable inline alert, but the current iOS captures miss the alert entirely and only export the ambient Amber scene. This row is back to needs_work until the UIKit showcase keeps the presented alert in frame.",
       "glass_required": true,
       "glass_material_expected": "hudWindow",
       "appearances_required": [
@@ -192,8 +192,8 @@
       "verdict_per_appearance": {
         "macos_light": "pass_with_notes",
         "macos_dark": "pass_with_notes",
-        "ios_light": "pass_with_notes",
-        "ios_dark": "pass_with_notes"
+        "ios_light": "needs_work",
+        "ios_dark": "needs_work"
       },
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
@@ -473,8 +473,9 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "needs_work",
       "docs_written": true,
+      "notes": "Both iOS captures are currently backdrop-only and do not show the chart at all, while the macOS study leaves the chart too small relative to the surrounding shell. This row needs a capture fix on iOS and a tighter focal composition on macOS.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -484,8 +485,8 @@
       "verdict_per_appearance": {
         "macos_light": "pass_with_notes",
         "macos_dark": "pass_with_notes",
-        "ios_light": "pass_with_notes",
-        "ios_dark": "pass_with_notes"
+        "ios_light": "needs_work",
+        "ios_dark": "needs_work"
       },
       "validated_at": "2026-04-14T12:50:00Z",
       "iteration": 53,
@@ -1869,6 +1870,7 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
+      "notes": "Iteration 59. Native MKMapView studies now exist on iOS and macOS with fresh four-way evidence. iOS captures are clean; macOS offscreen capture still shows a right-edge tile-settle strip, so the row stays PASS_WITH_NOTES until the host can warm MapKit tiles more deterministically.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -1881,7 +1883,6 @@
         "ios_light": "pass",
         "ios_dark": "pass"
       },
-      "notes": "Iteration 59. Native MKMapView studies now exist on iOS and macOS with fresh four-way evidence. iOS captures are clean; macOS offscreen capture still shows a right-edge tile-settle strip, so the row stays PASS_WITH_NOTES until the host can warm MapKit tiles more deterministically.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "valid",
       "evidence_errors": []
@@ -2447,8 +2448,9 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "needs_work",
       "docs_written": true,
+      "notes": "The macOS popover study is still readable, but both iOS captures miss the presented popover and only show the ambient shell. This row is back to needs_work until the iOS host captures the actual surface under review.",
       "glass_required": true,
       "glass_material_expected": "popover",
       "appearances_required": [
@@ -2458,8 +2460,8 @@
       "verdict_per_appearance": {
         "macos_light": "pass_with_notes",
         "macos_dark": "pass_with_notes",
-        "ios_light": "pass_with_notes",
-        "ios_dark": "pass_with_notes"
+        "ios_light": "needs_work",
+        "ios_dark": "needs_work"
       },
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
@@ -2743,6 +2745,7 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
+      "notes": "macOS framing is now corrected with a centered study card and visible gutters. The remaining note is on iOS, where the search-field study is still pinned to the leading edge instead of floating in a balanced plate.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -2909,6 +2912,7 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
+      "notes": "The sheet anatomy is readable across the four captures, but the study still leans on surrounding app chrome instead of a calmer isolated stage. Keep this at pass_with_notes until the framing is more disciplined.",
       "glass_required": true,
       "glass_material_expected": "NSVisualEffectMaterialSheet=11",
       "appearances_required": [
@@ -3014,6 +3018,7 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
+      "notes": "Slider anatomy is implemented and readable, but the iOS study is still full-bleed and the macOS settings shell contributes more chrome than the controls themselves need. This remains pass_with_notes until the composition is quieter.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -3199,6 +3204,7 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
+      "notes": "macOS framing is now corrected with a centered study card and visible gutters. The remaining note is on the iOS host composition, which still edge-hugs the preview and lets the supporting copy compete with the tab bar.",
       "glass_required": true,
       "glass_material_expected": "menu",
       "appearances_required": [
@@ -3212,8 +3218,8 @@
         "ios_dark": "pass_with_notes"
       },
       "backdrop": "sheet-backdrop-amber-gradient",
-      "scene": "dashboard",
-      "focal_position": "toolbar_trailing",
+      "scene": "ambient",
+      "focal_position": "centered",
       "evidence_state": "valid",
       "evidence_errors": []
     },
@@ -3231,6 +3237,7 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
+      "notes": "macOS framing is now corrected with a centered card. The remaining note belongs to the iOS fallback, which is still a segmented-control approximation staged too close to the host edges to read as a polished default preview.",
       "glass_required": false,
       "glass_material_expected": "menu",
       "appearances_required": [
@@ -3244,8 +3251,8 @@
         "ios_dark": "pass_with_notes"
       },
       "backdrop": "sheet-backdrop-amber-gradient",
-      "scene": "dashboard",
-      "focal_position": "toolbar_trailing",
+      "scene": "ambient",
+      "focal_position": "centered",
       "evidence_state": "valid",
       "evidence_errors": []
     },
@@ -3397,6 +3404,7 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
+      "notes": "Toggle anatomy is correct, but the iOS study is still full-bleed and the macOS settings shell contributes more chrome than necessary. This remains pass_with_notes until the composition is calmer.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -3455,6 +3463,7 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
+      "notes": "macOS framing is now corrected with a centered study card and clear gutters. The remaining note is on iOS, where the toolbar preview is still pinned high and left instead of floating in a balanced plate.",
       "glass_required": true,
       "glass_material_expected": "menu",
       "appearances_required": [
@@ -3470,8 +3479,8 @@
       "iteration": 52,
       "validated_at": "2026-04-14T12:20:00Z",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "scene": "dashboard",
-      "focal_position": "toolbar_trailing",
+      "scene": "ambient",
+      "focal_position": "centered",
       "evidence_state": "valid",
       "evidence_errors": []
     },
@@ -3736,9 +3745,9 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 16,
+    "pass_with_notes": 13,
     "pending": 25,
-    "needs_work": 0,
+    "needs_work": 3,
     "fail": 0,
     "skipped": 24
   },

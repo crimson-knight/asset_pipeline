@@ -1,13 +1,13 @@
 ---
 slug: popovers
-verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T00:07:43Z
-iteration: batch-1
+verdict: NEEDS_WORK
+validated_at: 2026-04-16T15:35:00Z
+iteration: review-2026-04-16
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
-  ios_light:   PASS_WITH_NOTES
-  ios_dark:    PASS_WITH_NOTES
+  ios_light:   NEEDS_WORK
+  ios_dark:    NEEDS_WORK
 ---
 
 # Popovers — Visual validation
@@ -27,13 +27,11 @@ verdict_per_appearance:
 ## Rendered — iOS (dark)
 ![iOS dark](../screenshots/popovers-ios-dark.png)
 
-## Verdict: PASS_WITH_NOTES
+## Verdict: NEEDS_WORK
 
-Rendered with the Amber persona across all four appearances. The focal
-component matches the HIG anatomy for this page with recognizable structure,
-typography, and role-appropriate tints. Promoted via the batch-promotion
-flow after visual verification of both macOS captures; iOS captures validated
-in the same wave via the XCUITest harness.
+The macOS popover study is still readable, but both iOS captures miss the
+focal popover entirely. This row is back to NEEDS_WORK until the iOS host
+captures the presented surface instead of only the ambient backdrop.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/popovers.json`
@@ -42,28 +40,24 @@ in the same wave via the XCUITest harness.
   linked above.
 
 ### Light appearance observations
-- macOS: focal component sits inside the Amber scene chrome with the shipped
-  palette (gold primary, plum destructive). Type hierarchy reads in a single
-  glance.
-- iOS: component is rendered under the UIKit renderer with HIG-appropriate
-  controls and SF Symbol iconography.
+- macOS: the light popover remains identifiable and readable.
+- iOS: the light capture shows only the surrounding Amber shell and does not
+  include the popover itself.
 
 ### Dark appearance observations
-- macOS: dark chrome maintains adequate contrast between the focal component
-  and the surrounding Amber surface tokens.
-- iOS: dark-mode rendering preserves role distinguishability for destructive
-  and primary actions; amber-on-ember scene contrast verified.
+- macOS: the dark study still reads as a popover and carries the warm palette
+  cleanly.
+- iOS: the dark capture repeats the same miss and fails to show the presented
+  popover.
 
 ### Deviations / notes
-- This row was promoted via the batch-promotion flow after individual visual
-  verification. Any small polish items (e.g. padding nudges, copy tuning) are
-  documented in the Amber content library and may be refined in a later pass.
-- Not every per-appearance verdict was individually critic-reviewed by the
-  design-critic agent; the batch promotion presumes consistency across the
-  four appearances based on shared renderer code paths.
+- The iOS evidence path is currently not proving popover presentation, so the
+  screenshots cannot support a promoted state.
+- macOS can remain the baseline reference once the iOS capture path is fixed.
 
 ### Source citations
 - Apple HIG — "Popovers" (see `apple-hig/pages/popovers.md` in the skill corpus).
 
 ### Remediation (if NEEDS_WORK)
-N/A — notes only.
+- Rework the iOS popover showcase so the presented surface is still in-frame
+  when the screenshot is taken.

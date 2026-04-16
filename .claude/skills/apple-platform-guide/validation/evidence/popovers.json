@@ -1,12 +1,12 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T09:13:48.606010+00:00",
+  "generated_at": "2026-04-16T15:39:22.867731+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T00:07:43.062072+00:00",
+    "mtime": "2026-04-16T15:36:35.732698+00:00",
     "path": "reports/popovers.md",
-    "sha256": "023ddf6486ad2e0252dac80bf4fa7985e38bf90287fbe93ec39e7418f3e54bea",
-    "size_bytes": 2533
+    "sha256": "1243faa76f84f284c0e2048a2cdd7466f743bf33ec0ee1a2a5450b99463df183",
+    "size_bytes": 2060
   },
   "screenshots": {
     "ios_dark": {
@@ -48,6 +48,6 @@
   },
   "slug": "popovers",
   "valid": true,
-  "validation_state": "pass_with_notes",
+  "validation_state": "needs_work",
   "warnings": []
 }

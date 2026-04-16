@@ -1,13 +1,13 @@
 ---
 slug: charts
-verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T00:07:42Z
-iteration: batch-1
+verdict: NEEDS_WORK
+validated_at: 2026-04-16T15:35:00Z
+iteration: review-2026-04-16
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
-  ios_light:   PASS_WITH_NOTES
-  ios_dark:    PASS_WITH_NOTES
+  ios_light:   NEEDS_WORK
+  ios_dark:    NEEDS_WORK
 ---
 
 # Charts — Visual validation
@@ -27,13 +27,11 @@ verdict_per_appearance:
 ## Rendered — iOS (dark)
 ![iOS dark](../screenshots/charts-ios-dark.png)
 
-## Verdict: PASS_WITH_NOTES
+## Verdict: NEEDS_WORK
 
-Rendered with the Amber persona across all four appearances. The focal
-component matches the HIG anatomy for this page with recognizable structure,
-typography, and role-appropriate tints. Promoted via the batch-promotion
-flow after visual verification of both macOS captures; iOS captures validated
-in the same wave via the XCUITest harness.
+The current screenshots are not trustworthy enough for promotion. macOS shows
+the chart as a small insert inside a much larger shell, and both iOS captures
+render as backdrop-only frames with no visible chart at all.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/charts.json`
@@ -42,28 +40,25 @@ in the same wave via the XCUITest harness.
   linked above.
 
 ### Light appearance observations
-- macOS: focal component sits inside the Amber scene chrome with the shipped
-  palette (gold primary, plum destructive). Type hierarchy reads in a single
-  glance.
-- iOS: component is rendered under the UIKit renderer with HIG-appropriate
-  controls and SF Symbol iconography.
+- macOS: the chart exists, but it is under-scaled relative to the amount of
+  surrounding chrome, so the study does not read as a confident focal preview.
+- iOS: the exported PNG is effectively blank aside from the backdrop.
 
 ### Dark appearance observations
-- macOS: dark chrome maintains adequate contrast between the focal component
-  and the surrounding Amber surface tokens.
-- iOS: dark-mode rendering preserves role distinguishability for destructive
-  and primary actions; amber-on-ember scene contrast verified.
+- macOS: the dark chart remains visible, but it is still framed as a small
+  insert rather than the primary object under review.
+- iOS: the dark capture is also backdrop-only and does not prove chart output.
 
 ### Deviations / notes
-- This row was promoted via the batch-promotion flow after individual visual
-  verification. Any small polish items (e.g. padding nudges, copy tuning) are
-  documented in the Amber content library and may be refined in a later pass.
-- Not every per-appearance verdict was individually critic-reviewed by the
-  design-critic agent; the batch promotion presumes consistency across the
-  four appearances based on shared renderer code paths.
+- The iOS evidence path is currently broken for charts and fails to capture the
+  component in either appearance.
+- The macOS study also needs a more disciplined focal scale so the chart
+  occupies the visual center instead of a small corner of a larger shell.
 
 ### Source citations
 - Apple HIG — "Charts" (see `apple-hig/pages/charts.md` in the skill corpus).
 
 ### Remediation (if NEEDS_WORK)
-N/A — notes only.
+- Fix the iOS chart showcase so the chart is visible in the exported PNGs.
+- Reframe the macOS chart study so the chart itself, not the surrounding shell,
+  is the thing being judged.

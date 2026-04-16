@@ -1,12 +1,12 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T09:13:48.531203+00:00",
+  "generated_at": "2026-04-16T15:39:22.630015+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T00:07:42.904858+00:00",
+    "mtime": "2026-04-16T15:36:35.731631+00:00",
     "path": "reports/buttons.md",
-    "sha256": "8e950569a66fbb5bb95ca5a3f00ab5308fe66611d29411821dab6dbb40273cc0",
-    "size_bytes": 2523
+    "sha256": "97f77b9acad96cef2474af2cd68d8a62ab60133bcceadf04eb506ff1d945b258",
+    "size_bytes": 2338
   },
   "screenshots": {
     "ios_dark": {

@@ -1,8 +1,8 @@
 ---
 slug: sheets
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T00:07:43Z
-iteration: batch-1
+validated_at: 2026-04-16T15:35:00Z
+iteration: review-2026-04-16
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -29,11 +29,9 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-Rendered with the Amber persona across all four appearances. The focal
-component matches the HIG anatomy for this page with recognizable structure,
-typography, and role-appropriate tints. Promoted via the batch-promotion
-flow after visual verification of both macOS captures; iOS captures validated
-in the same wave via the XCUITest harness.
+The sheet anatomy and action hierarchy are readable across the four captures.
+The row stays PASS_WITH_NOTES because the study still leans on surrounding app
+chrome instead of a cleaner, more isolated presentation.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/sheets.json`
@@ -55,12 +53,10 @@ in the same wave via the XCUITest harness.
   and primary actions; amber-on-ember scene contrast verified.
 
 ### Deviations / notes
-- This row was promoted via the batch-promotion flow after individual visual
-  verification. Any small polish items (e.g. padding nudges, copy tuning) are
-  documented in the Amber content library and may be refined in a later pass.
-- Not every per-appearance verdict was individually critic-reviewed by the
-  design-critic agent; the batch promotion presumes consistency across the
-  four appearances based on shared renderer code paths.
+- The component is implemented and legible, but the surrounding scene still
+  competes with the sheet instead of acting as quiet support.
+- A calmer study stage would make it easier to judge the default taste of the
+  sheet itself.
 
 ### Source citations
 - Apple HIG — "Sheets" (see `apple-hig/pages/sheets.md` in the skill corpus).

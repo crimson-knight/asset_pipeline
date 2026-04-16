@@ -1,8 +1,8 @@
 ---
 slug: tab-bars
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T00:07:43Z
-iteration: batch-1
+validated_at: 2026-04-16T15:35:00Z
+iteration: review-2026-04-16
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -29,11 +29,10 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-Rendered with the Amber persona across all four appearances. The focal
-component matches the HIG anatomy for this page with recognizable structure,
-typography, and role-appropriate tints. Promoted via the batch-promotion
-flow after visual verification of both macOS captures; iOS captures validated
-in the same wave via the XCUITest harness.
+macOS now presents the tab bar inside a centered study card, which makes the
+surface easier to evaluate as a default component. The row stays
+PASS_WITH_NOTES because the iOS fallback still edge-hugs the host and the
+supporting note competes with the actual bar.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/tab-bars.json`
@@ -42,25 +41,21 @@ in the same wave via the XCUITest harness.
   linked above.
 
 ### Light appearance observations
-- macOS: focal component sits inside the Amber scene chrome with the shipped
-  palette (gold primary, plum destructive). Type hierarchy reads in a single
-  glance.
-- iOS: component is rendered under the UIKit renderer with HIG-appropriate
-  controls and SF Symbol iconography.
+- macOS: the card framing now gives the bar consistent gutters and a quieter
+  stage than the old toolbar-slot composition.
+- iOS: the selected-state anatomy is readable, but the whole study still sits
+  too close to the leading edge.
 
 ### Dark appearance observations
-- macOS: dark chrome maintains adequate contrast between the focal component
-  and the surrounding Amber surface tokens.
-- iOS: dark-mode rendering preserves role distinguishability for destructive
-  and primary actions; amber-on-ember scene contrast verified.
+- macOS: the dark study keeps the same centered composition and reads much more
+  intentionally than the previous dashboard embedding.
+- iOS: the bar remains legible in dark mode, but the host still makes the
+  preview feel pinned rather than composed.
 
 ### Deviations / notes
-- This row was promoted via the batch-promotion flow after individual visual
-  verification. Any small polish items (e.g. padding nudges, copy tuning) are
-  documented in the Amber content library and may be refined in a later pass.
-- Not every per-appearance verdict was individually critic-reviewed by the
-  design-critic agent; the batch promotion presumes consistency across the
-  four appearances based on shared renderer code paths.
+- macOS framing is now good enough to keep the row promoted.
+- The remaining note is on the iOS host composition, which still needs a more
+  centered plate and quieter explanatory copy.
 
 ### Source citations
 - Apple HIG — "Tab bars" (see `apple-hig/pages/tab-bars.md` in the skill corpus).

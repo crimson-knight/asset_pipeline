@@ -1,12 +1,12 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T09:13:48.599019+00:00",
+  "generated_at": "2026-04-16T15:39:22.788526+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T00:07:43.009510+00:00",
+    "mtime": "2026-04-16T15:37:06.823302+00:00",
     "path": "reports/pickers.md",
-    "sha256": "75e8bc867f91197f9b921606c04dde6b19e1783a5cd8c429c6123db6302470e0",
-    "size_bytes": 2523
+    "sha256": "d57f70d73aacb4dbb8b5d2a915030fb795245ef3ac22b0e3f15125e7c996ca36",
+    "size_bytes": 2271
   },
   "screenshots": {
     "ios_dark": {
