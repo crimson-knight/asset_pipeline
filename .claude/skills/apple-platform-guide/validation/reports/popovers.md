@@ -1,13 +1,13 @@
 ---
 slug: popovers
-verdict: NEEDS_WORK
-validated_at: 2026-04-16T15:35:00Z
-iteration: review-2026-04-16
+verdict: PASS_WITH_NOTES
+validated_at: 2026-04-16T17:18:24Z
+iteration: review-2026-04-16c
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
-  ios_light:   NEEDS_WORK
-  ios_dark:    NEEDS_WORK
+  ios_light:   PASS_WITH_NOTES
+  ios_dark:    PASS_WITH_NOTES
 ---
 
 # Popovers — Visual validation
@@ -27,11 +27,14 @@ verdict_per_appearance:
 ## Rendered — iOS (dark)
 ![iOS dark](../screenshots/popovers-ios-dark.png)
 
-## Verdict: NEEDS_WORK
+## Verdict: PASS_WITH_NOTES
 
-The macOS popover study is still readable, but both iOS captures miss the
-focal popover entirely. This row is back to NEEDS_WORK until the iOS host
-captures the presented surface instead of only the ambient backdrop.
+This row is back in a usable state. The iOS host now captures a centered,
+fully in-frame popover instead of losing the surface off the leading edge, and
+the simplified option rows read much more cleanly than the earlier segmented
+control experiment. It remains PASS_WITH_NOTES because both platforms are
+still showing a study-card interpretation of a popover rather than a more
+anchored, truly transient presentation.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/popovers.json`
@@ -40,24 +43,24 @@ captures the presented surface instead of only the ambient backdrop.
   linked above.
 
 ### Light appearance observations
-- macOS: the light popover remains identifiable and readable.
-- iOS: the light capture shows only the surrounding Amber shell and does not
-  include the popover itself.
+- macOS: the popover remains readable and on-brand inside the Amber scene.
+- iOS: the popover now sits cleanly within the frame with stable hierarchy and
+  enough gutter to judge the content.
 
 ### Dark appearance observations
-- macOS: the dark study still reads as a popover and carries the warm palette
-  cleanly.
-- iOS: the dark capture repeats the same miss and fails to show the presented
-  popover.
+- macOS: the dark popover keeps the warm palette and readable contrast.
+- iOS: the dark study is now centered and calm, with the selected rows and
+  clear-filters action reading cleanly against the darker glass surface.
 
 ### Deviations / notes
-- The iOS evidence path is currently not proving popover presentation, so the
-  screenshots cannot support a promoted state.
-- macOS can remain the baseline reference once the iOS capture path is fixed.
+- The iOS preview uses simplified static option rows to avoid segmented-control
+  layout artifacts in compact width; this is visually better, but still more of
+  a study composition than a fully anchored system popover.
+- The row is trustworthy again for backlog purposes, but there is still room
+  for a richer anchored-presentation pass later.
 
 ### Source citations
 - Apple HIG — "Popovers" (see `apple-hig/pages/popovers.md` in the skill corpus).
 
 ### Remediation (if NEEDS_WORK)
-- Rework the iOS popover showcase so the presented surface is still in-frame
-  when the screenshot is taken.
+N/A — notes only.

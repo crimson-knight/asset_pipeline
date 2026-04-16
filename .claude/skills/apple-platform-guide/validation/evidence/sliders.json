@@ -1,49 +1,49 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T15:39:23.107265+00:00",
+  "generated_at": "2026-04-16T17:26:01.759667+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T15:36:35.734141+00:00",
+    "mtime": "2026-04-16T17:22:04.000589+00:00",
     "path": "reports/sliders.md",
-    "sha256": "d0331d111d35d0170cb98f47515e43bc9fe3d7694290a10c9f9a26ac50115203",
-    "size_bytes": 2225
+    "sha256": "641800653dee4d44f22a513d0016bb51e41ccde062cb434ddc681a2ced3255d6",
+    "size_bytes": 2330
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-15T21:19:36.885556+00:00",
+      "mtime": "2026-04-16T17:16:04.417832+00:00",
       "path": "screenshots/sliders-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "d500f16014f7776f0590671d28412246f5ce1534474c7a293fcc728dcec4f7cc",
-      "size_bytes": 850918
+      "sha256": "46d1af96930db7d391b3acf8c8bc4ce0a67421f7c7f29bcaf696fef458bc80ad",
+      "size_bytes": 260612
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-15T21:19:04.119754+00:00",
+      "mtime": "2026-04-16T17:15:02.542413+00:00",
       "path": "screenshots/sliders-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "c344ea1b8e74e126a90188b0b2f465eff39389d909508a57df436a932dd44f3c",
-      "size_bytes": 592259
+      "sha256": "0458fae018d75e3a2bd86f68a28a767fc2aceb72f050f8fad26a0847a535dad6",
+      "size_bytes": 240107
     },
     "macos_dark": {
       "exists": true,
-      "mtime": "2026-04-15T20:26:01.069709+00:00",
+      "mtime": "2026-04-16T16:04:45.585393+00:00",
       "path": "screenshots/sliders-macos-dark.png",
-      "pixel_height": 1800,
-      "pixel_width": 2400,
-      "sha256": "40f6813e717a37f55c94af00367561e838eaaec950b6299f924a1c3d4b9a682c",
-      "size_bytes": 383630
+      "pixel_height": 900,
+      "pixel_width": 1200,
+      "sha256": "13bae33d8d3dc6460b744c83b783813a830a0c0c58699a156f8edb75ddd4b229",
+      "size_bytes": 459293
     },
     "macos_light": {
       "exists": true,
-      "mtime": "2026-04-15T20:26:00.167634+00:00",
+      "mtime": "2026-04-16T16:04:44.703630+00:00",
       "path": "screenshots/sliders-macos-light.png",
-      "pixel_height": 1800,
-      "pixel_width": 2400,
-      "sha256": "31db896c1f4125df34582e5d738894c871a2f1ba07a83937cedafc88b4c17506",
-      "size_bytes": 345690
+      "pixel_height": 900,
+      "pixel_width": 1200,
+      "sha256": "f5c1f67f9822fab31bc8ad07bd07d4570bc0833165dbdc8e60155cc42f343761",
+      "size_bytes": 398788
     }
   },
   "slug": "sliders",

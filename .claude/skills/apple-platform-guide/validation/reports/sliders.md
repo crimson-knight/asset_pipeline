@@ -1,8 +1,8 @@
 ---
 slug: sliders
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T15:35:00Z
-iteration: review-2026-04-16
+validated_at: 2026-04-16T17:18:24Z
+iteration: review-2026-04-16c
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -29,9 +29,11 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-The slider family is implemented and readable on both platforms. The row stays
-PASS_WITH_NOTES because the iOS study is still full-bleed and the macOS
-settings shell contributes more chrome than the controls themselves need.
+The slider row is materially better now. The UIKit renderer fix means the
+captured surface finally respects the slider view’s width constraints, so the
+tracks no longer spill off the right edge of the frame. The row stays at
+PASS_WITH_NOTES because the iPhone study is still a dense four-variant plate,
+which makes the typography quieter than ideal in order to fit everything in.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/sliders.json`
@@ -40,23 +42,22 @@ settings shell contributes more chrome than the controls themselves need.
   linked above.
 
 ### Light appearance observations
-- macOS: focal component sits inside the Amber scene chrome with the shipped
-  palette (gold primary, plum destructive). Type hierarchy reads in a single
-  glance.
-- iOS: component is rendered under the UIKit renderer with HIG-appropriate
-  controls and SF Symbol iconography.
+- macOS: the slider family remains readable inside the centered Amber study
+  plate with adequate breathing room.
+- iOS: all four variants now stay in frame horizontally, with min/max labels
+  and SF Symbol endpoints reading cleanly.
 
 ### Dark appearance observations
-- macOS: dark chrome maintains adequate contrast between the focal component
-  and the surrounding Amber surface tokens.
-- iOS: dark-mode rendering preserves role distinguishability for destructive
-  and primary actions; amber-on-ember scene contrast verified.
+- macOS: the dark study preserves contrast and the focused plate keeps the
+  control family easy to scan.
+- iOS: dark mode now shows the full slider anatomy without the earlier
+  right-edge clipping, including the tinted final track.
 
 ### Deviations / notes
-- The control anatomy is solid, but the composition still feels like a host
-  dump instead of a balanced study.
-- This should move to full PASS after the sliders are staged in the same kind
-  of centered plate used by the stronger recent previews.
+- The iPhone preview still packs four variants into one card, so copy and
+  spacing are more compressed than the stronger recent one-component studies.
+- The renderer fix solved the structural sizing bug; remaining polish is
+  compositional rather than functional.
 
 ### Source citations
 - Apple HIG — "Sliders" (see `apple-hig/pages/sliders.md` in the skill corpus).

@@ -1,13 +1,13 @@
 ---
 slug: alerts
-verdict: NEEDS_WORK
-validated_at: 2026-04-16T15:35:00Z
-iteration: review-2026-04-16
+verdict: PASS_WITH_NOTES
+validated_at: 2026-04-16T17:18:24Z
+iteration: review-2026-04-16c
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
-  ios_light:   NEEDS_WORK
-  ios_dark:    NEEDS_WORK
+  ios_light:   PASS_WITH_NOTES
+  ios_dark:    PASS_WITH_NOTES
 ---
 
 # Alerts — Visual validation
@@ -27,12 +27,14 @@ verdict_per_appearance:
 ## Rendered — iOS (dark)
 ![iOS dark](../screenshots/alerts-ios-dark.png)
 
-## Verdict: NEEDS_WORK
+## Verdict: PASS_WITH_NOTES
 
-macOS still shows a readable alert card with the right hierarchy, but the
-current iOS captures no longer show the alert surface at all. This row is back
-to NEEDS_WORK until the UIKit host actually frames the alert instead of only
-the surrounding ambient scene.
+The alert row is usable again. iOS now captures the actual alert surface in
+both appearances, with readable hierarchy, destructive emphasis, and enough
+gutter around the card to judge it honestly. The row stays at
+PASS_WITH_NOTES because macOS still falls back to the offscreen path, so the
+desktop evidence shows the right structure but not a trustworthy live-glass
+composite.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/alerts.json`
@@ -41,26 +43,26 @@ the surrounding ambient scene.
   linked above.
 
 ### Light appearance observations
-- macOS: the inline alert remains readable, with a clear title/message split
-  and distinct action styling.
-- iOS: the exported PNG shows only the ambient Amber scene; the alert itself
-  is not present in the capture.
+- macOS: the inline alert remains readable, but it is still staged inside the
+  larger Amber dashboard shell instead of as a cleaner isolated study.
+- iOS: the alert is centered, fully in frame, and the shorter message copy no
+  longer clips at the card edge.
 
 ### Dark appearance observations
-- macOS: the dark study still reads as an alert, though the live-glass
-  treatment is subtler than the HIG reference.
-- iOS: the dark capture repeats the same miss as light and fails to show the
-  focal alert surface.
+- macOS: the offscreen fallback keeps the alert visible, though the surface
+  reads more like a solid filled card than a real liquid-glass composite.
+- iOS: dark mode preserves the title/message split and destructive button role
+  without edge clipping.
 
 ### Deviations / notes
-- The iOS validation host is currently capturing the ambient scene instead of
-  the presented alert, so the evidence cannot support a promoted state.
-- macOS still uses the inline glass-card approximation noted in earlier rounds;
-  that is acceptable once the iOS evidence path is fixed.
+- macOS live-window capture still fell back to the offscreen renderer in this
+  batch, so desktop glass fidelity remains a capture-pipeline caveat.
+- The iOS study is now strong enough to trust structurally; the remaining
+  reason this row is not full PASS is the desktop capture path, not the alert
+  anatomy itself.
 
 ### Source citations
 - Apple HIG — "Alerts" (see `apple-hig/pages/alerts.md` in the skill corpus).
 
 ### Remediation (if NEEDS_WORK)
-- Rework the UIKit alert showcase so the presented alert remains inside the
-  captured frame in both appearances.
+N/A — notes only.

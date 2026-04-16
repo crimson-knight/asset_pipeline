@@ -1,31 +1,31 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T15:39:22.867731+00:00",
+  "generated_at": "2026-04-16T17:26:01.744198+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T15:36:35.732698+00:00",
+    "mtime": "2026-04-16T17:22:03.999024+00:00",
     "path": "reports/popovers.md",
-    "sha256": "1243faa76f84f284c0e2048a2cdd7466f743bf33ec0ee1a2a5450b99463df183",
-    "size_bytes": 2060
+    "sha256": "03ec68ab8597458460ede13f3dd0f9348e8a96b93e0a6c646cfbfca457182690",
+    "size_bytes": 2401
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-15T21:09:33.549875+00:00",
+      "mtime": "2026-04-16T17:07:24.557250+00:00",
       "path": "screenshots/popovers-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "e654d1cf6b60f0a1df823ddb90c0c0fcbcc2f48266bb1d75336d347ec28839e3",
-      "size_bytes": 824810
+      "sha256": "c6217ddf5d562db01d25be8a58d8cae1af10d7510ac31c4a494a6510111efea1",
+      "size_bytes": 353960
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-15T21:08:53.804308+00:00",
+      "mtime": "2026-04-16T17:06:22.303877+00:00",
       "path": "screenshots/popovers-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "992fb4593bb6fd22d384086b2c0d85d9bfdb2f68fabe3631b4a53a302a966e4b",
-      "size_bytes": 561462
+      "sha256": "a38d80ed3130eecd3d42079b012ababdbbaec1d91ee5b68c8636c3caaf2a4a36",
+      "size_bytes": 320576
     },
     "macos_dark": {
       "exists": true,
@@ -48,6 +48,6 @@
   },
   "slug": "popovers",
   "valid": true,
-  "validation_state": "needs_work",
+  "validation_state": "pass_with_notes",
   "warnings": []
 }

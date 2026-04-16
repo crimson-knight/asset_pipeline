@@ -5,7 +5,7 @@
     "screenshot newer than report: color-wells-ios-light.png",
     "screenshot newer than report: color-wells-ios-dark.png"
   ],
-  "generated_at": "2026-04-16T09:13:48.542989+00:00",
+  "generated_at": "2026-04-16T17:26:01.718868+00:00",
   "report": {
     "exists": true,
     "mtime": "2026-04-14T17:02:42.661754+00:00",
@@ -16,21 +16,21 @@
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-15T20:40:20.214068+00:00",
+      "mtime": "2026-04-16T09:48:15.390347+00:00",
       "path": "screenshots/color-wells-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "1c723c3e808c265e6ef51475c2768600420d15690ee4e04fbb0b2ab85aff7e17",
-      "size_bytes": 747364
+      "sha256": "7717cb1683a9e4ca6755f33ecdfbd61ecfee68a2215cccad3c164d834aeb9228",
+      "size_bytes": 785657
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-15T20:39:50.287109+00:00",
+      "mtime": "2026-04-16T09:47:39.501253+00:00",
       "path": "screenshots/color-wells-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "07aa7434d649cb2ed0d18dfca6e89c9cb4698a2e3d4dab903da36f5d058076f6",
-      "size_bytes": 492468
+      "sha256": "e6d400c8ecd85b7b7230fd3689e4fad9842bf47f6af272b0bbe0125c73bc81da",
+      "size_bytes": 529066
     },
     "macos_dark": {
       "exists": true,

@@ -1,13 +1,13 @@
 ---
 slug: charts
-verdict: NEEDS_WORK
-validated_at: 2026-04-16T15:35:00Z
-iteration: review-2026-04-16
+verdict: PASS_WITH_NOTES
+validated_at: 2026-04-16T17:18:24Z
+iteration: review-2026-04-16c
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
-  ios_light:   NEEDS_WORK
-  ios_dark:    NEEDS_WORK
+  ios_light:   PASS_WITH_NOTES
+  ios_dark:    PASS_WITH_NOTES
 ---
 
 # Charts — Visual validation
@@ -27,11 +27,13 @@ verdict_per_appearance:
 ## Rendered — iOS (dark)
 ![iOS dark](../screenshots/charts-ios-dark.png)
 
-## Verdict: NEEDS_WORK
+## Verdict: PASS_WITH_NOTES
 
-The current screenshots are not trustworthy enough for promotion. macOS shows
-the chart as a small insert inside a much larger shell, and both iOS captures
-render as backdrop-only frames with no visible chart at all.
+The chart row is no longer broken. Both platforms now show a real focal chart
+instead of backdrop-only frames, and the macOS study plate has been reduced to
+something proportionate enough to read at a glance. It stays
+PASS_WITH_NOTES because the iOS chart still presses the right edge a bit and
+the dark-mode weekday labels remain softer than they should be.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/charts.json`
@@ -40,25 +42,25 @@ render as backdrop-only frames with no visible chart at all.
   linked above.
 
 ### Light appearance observations
-- macOS: the chart exists, but it is under-scaled relative to the amount of
-  surrounding chrome, so the study does not read as a confident focal preview.
-- iOS: the exported PNG is effectively blank aside from the backdrop.
+- macOS: the bar chart now sits in a centered, disciplined plate instead of a
+  tiny insert inside a much larger shell.
+- iOS: the chart is visible and legible, with the title and overall bar
+  anatomy reading correctly in the compact card.
 
 ### Dark appearance observations
-- macOS: the dark chart remains visible, but it is still framed as a small
-  insert rather than the primary object under review.
-- iOS: the dark capture is also backdrop-only and does not prove chart output.
+- macOS: the dark chart is now centered tightly enough that the study reads as
+  a deliberate preview rather than leftover chrome.
+- iOS: the bars and title remain readable, but the rightmost edge still feels
+  tight and the x-axis labels are lower-contrast than ideal.
 
 ### Deviations / notes
-- The iOS evidence path is currently broken for charts and fails to capture the
-  component in either appearance.
-- The macOS study also needs a more disciplined focal scale so the chart
-  occupies the visual center instead of a small corner of a larger shell.
+- The iOS chart renderer still uses a fixed-width composition that leaves the
+  final weekday label close to the frame edge.
+- This row is promotion-worthy again, but there is still room for a renderer
+  pass focused on axis-label contrast and compact-width balance.
 
 ### Source citations
 - Apple HIG — "Charts" (see `apple-hig/pages/charts.md` in the skill corpus).
 
 ### Remediation (if NEEDS_WORK)
-- Fix the iOS chart showcase so the chart is visible in the exported PNGs.
-- Reframe the macOS chart study so the chart itself, not the surrounding shell,
-  is the thing being judged.
+N/A — notes only.

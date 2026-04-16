@@ -1,8 +1,8 @@
 ---
 slug: pickers
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T15:35:00Z
-iteration: review-2026-04-16
+validated_at: 2026-04-16T17:18:24Z
+iteration: review-2026-04-16c
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -29,10 +29,11 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-The picker anatomy is present on both platforms, but the studies are still
-more host-driven than component-driven. This row stays PASS_WITH_NOTES while
-the macOS settings shell and the iOS leading-edge menu placement are cleaned
-up into a calmer, more centered presentation.
+The picker row is still a good baseline study. Both platforms now show the
+component in a calmer centered plate instead of the earlier edge-hugging
+composition, and the anatomy reads clearly in both appearances. It remains
+PASS_WITH_NOTES because the preview is still more of a stable study card than
+the richer contextual surfaces Apple often shows around pickers.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/pickers.json`
@@ -41,23 +42,22 @@ up into a calmer, more centered presentation.
   linked above.
 
 ### Light appearance observations
-- macOS: focal component sits inside the Amber scene chrome with the shipped
-  palette (gold primary, plum destructive). Type hierarchy reads in a single
-  glance.
-- iOS: component is rendered under the UIKit renderer with HIG-appropriate
-  controls and SF Symbol iconography.
+- macOS: the menu-style picker now sits in a smaller, more disciplined study
+  card with visible ambient gutters.
+- iOS: the picker list is centered cleanly and no longer feels shoved against
+  the leading edge of the phone frame.
 
 ### Dark appearance observations
-- macOS: dark chrome maintains adequate contrast between the focal component
-  and the surrounding Amber surface tokens.
-- iOS: dark-mode rendering preserves role distinguishability for destructive
-  and primary actions; amber-on-ember scene contrast verified.
+- macOS: the dark study keeps enough contrast between the control and the warm
+  Amber backdrop.
+- iOS: the selected-row treatment and checkmark anatomy remain readable with
+  the darker card treatment.
 
 ### Deviations / notes
-- The macOS study still borrows a full settings-window shell instead of
-  letting the picker stand on its own.
-- The iOS pull-down menu lands hard against the leading edge instead of sitting
-  inside a centered study card with visible gutters.
+- The previews are clean and trustworthy now, but they are still isolated
+  studies rather than embedded workflow examples.
+- This row is ready to stay in PASS_WITH_NOTES until a later pass decides
+  whether to broaden it into a more contextual picker showcase.
 
 ### Source citations
 - Apple HIG — "Pickers" (see `apple-hig/pages/pickers.md` in the skill corpus).

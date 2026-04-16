@@ -5,7 +5,7 @@
     "screenshot newer than report: context-menus-ios-light.png",
     "screenshot newer than report: context-menus-ios-dark.png"
   ],
-  "generated_at": "2026-04-16T09:13:48.548261+00:00",
+  "generated_at": "2026-04-16T17:26:01.721203+00:00",
   "report": {
     "exists": true,
     "mtime": "2026-04-13T23:51:00.668545+00:00",
@@ -16,21 +16,21 @@
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-15T20:44:24.324310+00:00",
+      "mtime": "2026-04-16T09:46:40.661127+00:00",
       "path": "screenshots/context-menus-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "3476faf6ace701299d9db1bc9497cb8ea793143a2f5c6820841c80ddd2a34eee",
-      "size_bytes": 82002
+      "sha256": "1f3abd0514c894f87b24af068bc85fd51548bdf6c78a5096ee6296c6a51c31c9",
+      "size_bytes": 150505
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-15T20:43:54.094647+00:00",
+      "mtime": "2026-04-16T09:46:05.694834+00:00",
       "path": "screenshots/context-menus-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "2a07326b45032a184642f9b3bb2c78b5f9bb186a62c28851d6a86c9333a1d0e3",
-      "size_bytes": 83037
+      "sha256": "e871a1c6cfd5c596292eaeab618ae3fd9d29a618f64b12846d9a039c57c78af4",
+      "size_bytes": 156683
     },
     "macos_dark": {
       "exists": true,

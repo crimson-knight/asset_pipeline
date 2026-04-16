@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T15:39:23.421884+00:00",
+  "generated_at": "2026-04-16T17:26:01.783367+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -180,7 +180,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "needs_work",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "notes": "macOS still shows a readable inline alert, but the current iOS captures miss the alert entirely and only export the ambient Amber scene. This row is back to needs_work until the UIKit showcase keeps the presented alert in frame.",
       "glass_required": true,
@@ -192,8 +192,8 @@
       "verdict_per_appearance": {
         "macos_light": "pass_with_notes",
         "macos_dark": "pass_with_notes",
-        "ios_light": "needs_work",
-        "ios_dark": "needs_work"
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
@@ -473,7 +473,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "needs_work",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "notes": "Both iOS captures are currently backdrop-only and do not show the chart at all, while the macOS study leaves the chart too small relative to the surrounding shell. This row needs a capture fix on iOS and a tighter focal composition on macOS.",
       "glass_required": false,
@@ -485,8 +485,8 @@
       "verdict_per_appearance": {
         "macos_light": "pass_with_notes",
         "macos_dark": "pass_with_notes",
-        "ios_light": "needs_work",
-        "ios_dark": "needs_work"
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "validated_at": "2026-04-14T12:50:00Z",
       "iteration": 53,
@@ -2299,7 +2299,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2448,7 +2448,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "needs_work",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "notes": "The macOS popover study is still readable, but both iOS captures miss the presented popover and only show the ambient shell. This row is back to needs_work until the iOS host captures the actual surface under review.",
       "glass_required": true,
@@ -2460,8 +2460,8 @@
       "verdict_per_appearance": {
         "macos_light": "pass_with_notes",
         "macos_dark": "pass_with_notes",
-        "ios_light": "needs_work",
-        "ios_dark": "needs_work"
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
       },
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "dashboard",
@@ -3402,7 +3402,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pass_with_notes",
+      "validation_state": "pending",
       "docs_written": true,
       "notes": "Toggle anatomy is correct, but the iOS study is still full-bleed and the macOS settings shell contributes more chrome than necessary. This remains pass_with_notes until the composition is calmer.",
       "glass_required": false,
@@ -3745,9 +3745,9 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 13,
-    "pending": 25,
-    "needs_work": 3,
+    "pass_with_notes": 14,
+    "pending": 27,
+    "needs_work": 0,
     "fail": 0,
     "skipped": 24
   },

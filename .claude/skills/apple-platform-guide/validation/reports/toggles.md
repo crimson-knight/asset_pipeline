@@ -1,8 +1,8 @@
 ---
 slug: toggles
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T15:35:00Z
-iteration: review-2026-04-16
+validated_at: 2026-04-16T17:18:24Z
+iteration: review-2026-04-16c
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
   macos_dark:  PASS_WITH_NOTES
@@ -29,10 +29,11 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-The toggle anatomy is correct and the role states read clearly on both
-platforms. The row stays PASS_WITH_NOTES because the iOS study is still
-full-bleed and the macOS settings shell contributes more chrome than the
-control family needs.
+The toggle row now reads as a stable component study instead of a full-bleed
+dump. The role states are clear on both platforms, the study card framing is
+calm, and the warm Amber palette stays out of the way of the switch anatomy.
+It remains PASS_WITH_NOTES because this is still a compact family plate rather
+than a more contextual settings-flow example.
 
 ### Evidence manifest
 - **Manifest:** `../evidence/toggles.json`
@@ -41,22 +42,22 @@ control family needs.
   linked above.
 
 ### Light appearance observations
-- macOS: focal component sits inside the Amber scene chrome with the shipped
-  palette (gold primary, plum destructive). Type hierarchy reads in a single
-  glance.
-- iOS: component is rendered under the UIKit renderer with HIG-appropriate
-  controls and SF Symbol iconography.
+- macOS: the centered study card gives the switch family enough breathing room
+  to compare states quickly.
+- iOS: the toggle labels and on/off states are fully visible within the card,
+  with no edge pressure from the phone frame.
 
 ### Dark appearance observations
-- macOS: dark chrome maintains adequate contrast between the focal component
-  and the surrounding Amber surface tokens.
-- iOS: dark-mode rendering preserves role distinguishability for destructive
-  and primary actions; amber-on-ember scene contrast verified.
+- macOS: the dark study preserves contrast and keeps the toggle states easy to
+  scan.
+- iOS: the darker card maintains clean switch silhouettes and readable label
+  hierarchy.
 
 ### Deviations / notes
-- The control work is fine; the remaining issue is compositional.
-- This should move to full PASS after the previews are staged in a calmer,
-  more centered frame.
+- The control work itself is solid; the remaining gap is contextual richness,
+  not anatomy.
+- This is a trustworthy PASS_WITH_NOTES row and no longer needs to be treated
+  as stale evidence.
 
 ### Source citations
 - Apple HIG — "Toggles" (see `apple-hig/pages/toggles.md` in the skill corpus).
