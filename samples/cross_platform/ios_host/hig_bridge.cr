@@ -48,7 +48,6 @@ module CrystalHIGHost::Bridge
     when "action-sheets"   then "dashboard"
     when "activity-views"  then "dashboard"
     when "edit-menus"      then "document"
-    when "context-menus" then "document"
     when "dock-menus"    then "dock"
     else                      nil
     end
@@ -122,7 +121,7 @@ module CrystalHIGHost::Bridge
 
   private def self.isolation_plate_slug?(slug : String) : Bool
     case slug
-    when "boxes", "collections", "progress-indicators", "text-fields", "path-controls"
+    when "boxes", "collections", "context-menus", "progress-indicators", "text-fields", "path-controls"
       true
     else
       false
@@ -2326,6 +2325,10 @@ module CrystalHIGHost::Bridge
               # remains inspectable in previews without pretending UIKit has a
               # native equivalent.
               ios_path_outer = UI::VStack.new(spacing: 14.0)
+              ios_path_outer.padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+              ios_path_outer.background = UI::Color.new(r: 0.96, g: 0.97, b: 0.98, a: 1.0)
+              ios_path_outer.corner_radius = 16.0
+              ios_path_outer.clip_to_bounds = true
 
               ios_standard = UI::PathControl.new
               ios_standard.minimum_width = 320.0

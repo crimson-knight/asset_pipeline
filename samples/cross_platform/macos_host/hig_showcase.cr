@@ -46,7 +46,7 @@ SLUG_SCENES = {
   "popovers"          => "dashboard",
   "action-sheets"     => "dashboard",
   "edit-menus"        => "document",
-  "context-menus"     => "document",
+  "context-menus"     => "ambient",
   "dock-menus"        => "dock",
   # Iter B -- inbox scene
   "sidebars"          => "inbox",
@@ -85,7 +85,6 @@ SLUG_SCENES = {
   "search-fields"     => "ambient",
   "labels"            => "ambient",
   "boxes"             => "ambient",
-  "path-controls"     => "ambient",
 } of String => String
 
 def scene_for_slug(slug : String) : String?
@@ -2756,24 +2755,32 @@ def build_component(slug : String) : UI::View
     # HIG path controls display a filesystem path as icon-and-name segments.
     # macOS supports both the standard breadcrumb style and the pop-up style.
     outer = UI::VStack.new(spacing: 14.0)
+    outer.padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    outer.background = UI::Color.new(r: 0.96, g: 0.97, b: 0.98, a: 1.0)
+    outer.corner_radius = 16.0
+    outer.clip_to_bounds = true
 
+    repo_file = File.expand_path("../../../README.md", __DIR__)
+    repo_parts = repo_file.split('/').reject(&.empty?)
     standard = UI::PathControl.new
-    standard.minimum_width = 360.0
-    standard.maximum_width = 360.0
-    standard.accessibility_label = "Current export destination path"
-    standard.add_component("Applications", icon: "folder")
-    standard.add_component("Amber", icon: "app")
-    standard.add_component("Exports", icon: "folder")
-    standard.add_component("Autumn Ritual.pdf", icon: "doc")
+    standard.minimum_width = 620.0
+    standard.maximum_width = 620.0
+    standard.accessibility_label = "Current project file path"
+    repo_parts.each_with_index do |part, index|
+      icon = index == repo_parts.size - 1 ? "doc" : "folder"
+      standard.add_component(part, icon: icon)
+    end
     outer << standard
 
+    guide_path = File.expand_path("../../../.claude/skills/apple-platform-guide", __DIR__)
+    guide_parts = guide_path.split('/').reject(&.empty?)
     popup = UI::PathControl.new(style: UI::PathControlStyle::PopUp)
-    popup.minimum_width = 300.0
-    popup.maximum_width = 300.0
-    popup.accessibility_label = "Recent export locations path menu"
-    popup.add_component("Library", icon: "folder")
-    popup.add_component("Templates", icon: "folder")
-    popup.add_component("Press Kits", icon: "doc.on.doc")
+    popup.minimum_width = 620.0
+    popup.maximum_width = 620.0
+    popup.accessibility_label = "Project guide path menu"
+    guide_parts.each do |part|
+      popup.add_component(part, icon: "folder")
+    end
     outer << popup
 
     outer.as(UI::View)
