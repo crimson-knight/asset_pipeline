@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T22:21:22.814169+00:00",
+  "generated_at": "2026-04-16T22:56:49.635624+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -17,9 +17,9 @@
     "patterns": 66,
     "platform_guides": 4,
     "collections": 14,
-    "implemented": 45,
+    "implemented": 47,
     "stub": 0,
-    "missing": 20
+    "missing": 18
   },
   "pages": [
     {
@@ -254,13 +254,13 @@
       "hig_page": "../apple-hig/pages/app-shortcuts.md",
       "hig_ref_image": "../apple-hig/images/components-app-shortcuts-intro.png",
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "missing",
+      "ui_view": "UI::ColumnView",
+      "ui_view_file": "src/ui/views/column_view.cr",
+      "status": "implemented",
       "priority": "P2",
-      "iOS_visit_found": false,
-      "macOS_visit_found": false,
-      "validation_state": "skipped",
+      "iOS_visit_found": true,
+      "macOS_visit_found": true,
+      "validation_state": "pending",
       "docs_written": false,
       "glass_required": false,
       "glass_material_expected": null,
@@ -336,6 +336,7 @@
       "macOS_visit_found": true,
       "validation_state": "pass_with_notes",
       "docs_written": true,
+      "notes": "The text-view studies now read as calm, native editing surfaces on both platforms, with visible content and honest gutters. This remains notes-only because the capture focuses on the default surface and legibility rather than a richer document-editing workflow.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -598,13 +599,13 @@
       "hig_page": "../apple-hig/pages/column-views.md",
       "hig_ref_image": "../apple-hig/images/components-column-view-intro.png",
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "missing",
+      "ui_view": "UI::ColumnView",
+      "ui_view_file": "src/ui/views/column_view.cr",
+      "status": "implemented",
       "priority": "P2",
-      "iOS_visit_found": false,
-      "macOS_visit_found": false,
-      "validation_state": "skipped",
+      "iOS_visit_found": true,
+      "macOS_visit_found": true,
+      "validation_state": "pending",
       "docs_written": false,
       "glass_required": false,
       "glass_material_expected": null,
@@ -613,10 +614,12 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "Column views per HIG map to NSBrowser \u2014 a macOS-specialty Finder-style multi-column file browser. Not supported on iOS/iPadOS/tvOS/watchOS/visionOS per HIG Platform Considerations. Building a UI::ColumnView wrapping NSBrowser would require a data-source protocol bridge (similar to UIPickerView/UITableView) and is disproportionate for a rarely-used macOS-only control. Skipped with remediation: full plan in gaps.md (re-queue by rebuilding as a UI::NavigationSplitView variant with inline column drill-down if the breadcrumb metaphor fits the app).",
+      "notes": "UI::ColumnView now exists as a shared Finder-style drill-down primitive with a browser-like fallback surface and explicit renderer visits on every platform. The native NSBrowser bridge and showcase studies are still open, so this row is implemented but not yet visually validated.",
       "backdrop": "finder-mail-backdrop",
-      "evidence_state": "not_applicable",
-      "evidence_errors": []
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "missing report: /Users/crimsonknight/open_source_coding_projects/asset_pipeline/.claude/skills/apple-platform-guide/validation/reports/column-views.md"
+      ]
     },
     {
       "slug": "combo-boxes",
@@ -630,7 +633,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -1376,7 +1379,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "validated_at": "2026-04-13T21:28:00Z",
       "iteration": 29,
@@ -1392,18 +1395,12 @@
         "ios_light": "PASS_WITH_NOTES",
         "ios_dark": "PASS_WITH_NOTES"
       },
-      "notes": "Iteration 29: six-variant gallery (SF Symbol, square thumbnail, circular avatar, rounded card, loading spinner, error placeholder). macOS arm uses NSView shapes sized via objc_constrain_size (TAMIC:NO + priority-999 NSLayoutConstraints). iOS arm uses UILabel placeholders with background/corner_radius (UIView shapes collapse in UIStackView without intrinsicContentSize). SF Symbol NSImageView collapses (imageNamed: does not resolve SF Symbol names; planned: symbol_name -> systemSymbolName:). iOS viewport clips rows 3-6 (same gap as iter-28 edit-menus). Both mandatory doc sections present: Light/dark appearance notes + Customization/brand override.",
+      "notes": "The image-view studies are now centered, smaller, and much easier to review on both platforms. They still carry notes because the media states are synthetic placeholders rather than real image assets, and the iOS symbol tile remains a styled stand-in rather than a true symbol-backed image surface.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "gallery",
       "focal_position": "grid_full",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: image-views-macos-light.png",
-        "screenshot newer than report: image-views-macos-dark.png",
-        "screenshot newer than report: image-views-ios-light.png",
-        "screenshot newer than report: image-views-ios-dark.png"
-      ],
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "image-wells",
@@ -1555,9 +1552,9 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
-      "notes": "Iteration-19 (2026-04-14): 8-row gallery with all four LabelRole semantic color tokens verified. macOS light+dark PASS -- all four LabelRole values visibly distinct in both appearances (Primary near-black/white, Secondary medium gray, Tertiary light gray, Quaternary very faint gray). iOS light+dark PASS_WITH_NOTES -- rows 1-3 visible and LabelRole distinction confirmed; rows 4-8 clip below viewport (pre-existing iOS host scrollview gap, gaps.md iter 28/29). Dynamic Type not wired (font_style gap, iter-12 open). selectable not wired (iter-12 open).",
+      "notes": "The label studies are now compact and centered on both platforms, with the type hierarchy and semantic color ladder readable at a glance. This still carries notes because the macOS sample copy remains generic and the final wrapped iOS line still truncates in the narrow study.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -1570,17 +1567,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
       "focal_position": "centered",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: labels-macos-light.png",
-        "screenshot newer than report: labels-macos-dark.png",
-        "screenshot newer than report: labels-ios-light.png",
-        "screenshot newer than report: labels-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "launching",
@@ -1642,8 +1633,9 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
+      "notes": "The text-view studies now read as calm, native editing surfaces on both platforms, with visible content and honest gutters. This remains notes-only because the capture focuses on the default surface and legibility rather than a richer document-editing workflow.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -3304,7 +3296,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3318,17 +3310,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
       "focal_position": "centered",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: text-views-macos-light.png",
-        "screenshot newer than report: text-views-macos-dark.png",
-        "screenshot newer than report: text-views-ios-light.png",
-        "screenshot newer than report: text-views-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "the-menu-bar",
@@ -3711,16 +3697,16 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 27,
-    "pending": 16,
+    "pass_with_notes": 32,
+    "pending": 13,
     "needs_work": 0,
     "fail": 0,
-    "skipped": 22
+    "skipped": 20
   },
   "evidence_counts": {
-    "valid": 26,
-    "invalid": 17,
-    "not_applicable": 22,
+    "valid": 29,
+    "invalid": 15,
+    "not_applicable": 21,
     "unknown": 0
   }
 }
