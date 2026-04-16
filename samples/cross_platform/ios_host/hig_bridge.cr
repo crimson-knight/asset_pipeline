@@ -118,6 +118,16 @@ module CrystalHIGHost::Bridge
       centered_study_card(focal, card_width: 360.0, content_padding: UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0))
     when "sliders"
       centered_study_card(focal, card_width: 348.0, content_padding: UI::EdgeInsets.new(top: 12.0, trailing: 12.0, bottom: 12.0, leading: 12.0))
+    when "collections"
+      centered_study_card(focal, card_width: 304.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
+    when "context-menus"
+      centered_study_card(focal, card_width: 284.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
+    when "progress-indicators"
+      centered_study_card(focal, card_width: 364.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
+    when "text-fields"
+      centered_study_card(focal, card_width: 364.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
+    when "path-controls"
+      centered_study_card(focal, card_width: 344.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
     else
       # If a scene is mapped for this slug, wrap it; otherwise return the plain focal.
       # Use scene_for_slug (a case expression) rather than a Hash constant lookup
@@ -362,10 +372,10 @@ module CrystalHIGHost::Bridge
               box_body << box_row2
               box_card = UI::Card.new(box_body.as(UI::View))
               box_card.title = "Shipping details"
-              box_card.content_padding = UI::EdgeInsets.new(top: 16.0, trailing: 18.0, bottom: 16.0, leading: 18.0)
+              box_card.content_padding = UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0)
               box_card.is_outlined = true
-              box_card.minimum_width = 300.0
-              box_card.maximum_width = 300.0
+              box_card.minimum_width = 284.0
+              box_card.maximum_width = 284.0
               box_card.as(UI::View)
             when "collections"
               # HIG Collections: "A collection manages an ordered set of
@@ -383,8 +393,8 @@ module CrystalHIGHost::Bridge
                 tile.maximum_width = 96.0
                 tile.minimum_height = 96.0
                 tile.padding = UI::EdgeInsets.new(top: 10.0, trailing: 8.0, bottom: 8.0, leading: 8.0)
-                tile.corner_radius = 10.0
-                tile.background = UI::Color.new(r: 0.96, g: 0.92, b: 0.86, a: 0.78)
+                tile.corner_radius = 12.0
+                tile.background = UI::Color.new(r: 0.96, g: 0.92, b: 0.86, a: 0.70)
                 thumb = UI::Image.new(symbol)
                 thumb.minimum_width = 34.0
                 thumb.minimum_height = 34.0
@@ -410,9 +420,9 @@ module CrystalHIGHost::Bridge
                 make_tile.call("building.2", "City"),
               ]
               coll_stack = UI::VStack.new(spacing: 14.0)
-              coll_stack.alignment = UI::Alignment::Leading
-              coll_stack.minimum_width = 228.0
-              coll_stack.maximum_width = 228.0
+              coll_stack.alignment = UI::Alignment::Center
+              coll_stack.minimum_width = 240.0
+              coll_stack.maximum_width = 240.0
               coll_stack << UI::Label.new("Photos").tap { |l| l.font = UI::Font.new(size: 17.0, weight: :semibold) }.as(UI::View)
               coll_tiles.first(6).each_slice(2) do |pair|
                 row = UI::HStack.new(spacing: 12.0)
@@ -492,9 +502,9 @@ module CrystalHIGHost::Bridge
               # surface so the capture reflects full-width menu rows rather
               # than a stack of separate buttons.
               menu = UI::ContextMenu.new
-              menu.minimum_width = 260.0
-              menu.maximum_width = 260.0
-              menu.accessibility_label = "Selection context menu"
+              menu.minimum_width = 240.0
+              menu.maximum_width = 240.0
+              menu.accessibility_label = "Selection commands"
               menu.add_item("Cut", icon: "scissors")
               menu.add_item("Copy", icon: "doc.on.doc")
               menu.add_item("Paste", icon: "clipboard")
@@ -915,15 +925,15 @@ module CrystalHIGHost::Bridge
               # its purpose." -- placeholder for empty, filled value where appropriate.
               # iOS: "Display a Clear button in the trailing end."
 
-              ios_tf_stack = UI::VStack.new(spacing: 14.0)
+              ios_tf_stack = UI::VStack.new(spacing: 12.0)
               ios_tf_stack.alignment = UI::Alignment::Leading
-              ios_tf_stack.minimum_width = 320.0
-              ios_tf_stack.maximum_width = 320.0
-              ios_tf_stack.padding = UI::EdgeInsets.new(top: 18.0, trailing: 20.0, bottom: 18.0, leading: 20.0)
-              ios_tf_stack << UI::Label.new("Account details").tap { |l| l.font = UI::Font.new(size: 17.0, weight: :semibold) }
+              ios_tf_stack.minimum_width = 312.0
+              ios_tf_stack.maximum_width = 312.0
+              ios_tf_stack.padding = UI::EdgeInsets.new(top: 14.0, trailing: 16.0, bottom: 14.0, leading: 16.0)
+              ios_tf_stack << UI::Label.new("Profile details").tap { |l| l.font = UI::Font.new(size: 17.0, weight: :semibold) }
 
               # Row 1: Name (empty, placeholder)
-              ios_row1 = UI::VStack.new(spacing: 4.0)
+              ios_row1 = UI::VStack.new(spacing: 3.0)
               ios_row1.alignment = UI::Alignment::Leading
               ios_lbl1 = UI::Label.new("Name:")
               ios_lbl1.font = UI::Font.new(size: 13.0, weight: :regular)
@@ -936,7 +946,7 @@ module CrystalHIGHost::Bridge
               ios_tf_stack << ios_row1.as(UI::View)
 
               # Row 2: Email (filled)
-              ios_row2 = UI::VStack.new(spacing: 4.0)
+              ios_row2 = UI::VStack.new(spacing: 3.0)
               ios_row2.alignment = UI::Alignment::Leading
               ios_lbl2 = UI::Label.new("Email:")
               ios_lbl2.font = UI::Font.new(size: 13.0, weight: :regular)
@@ -951,7 +961,7 @@ module CrystalHIGHost::Bridge
               ios_tf_stack << ios_row2.as(UI::View)
 
               # Row 3: Password (secure entry)
-              ios_row3 = UI::VStack.new(spacing: 4.0)
+              ios_row3 = UI::VStack.new(spacing: 3.0)
               ios_row3.alignment = UI::Alignment::Leading
               ios_lbl3 = UI::Label.new("Password:")
               ios_lbl3.font = UI::Font.new(size: 13.0, weight: :regular)
@@ -966,7 +976,7 @@ module CrystalHIGHost::Bridge
               ios_tf_stack << ios_row3.as(UI::View)
 
               # Row 4: Numeric (number pad keyboard)
-              ios_row4 = UI::VStack.new(spacing: 4.0)
+              ios_row4 = UI::VStack.new(spacing: 3.0)
               ios_row4.alignment = UI::Alignment::Leading
               ios_lbl4 = UI::Label.new("Amount:")
               ios_lbl4.font = UI::Font.new(size: 13.0, weight: :regular)
@@ -1314,17 +1324,18 @@ module CrystalHIGHost::Bridge
               # additional context for the task."
               ios_gallery = UI::VStack.new(spacing: 16.0)
               ios_gallery.alignment = UI::Alignment::Leading
-              ios_gallery.minimum_width = 330.0
-              ios_gallery.maximum_width = 330.0
-              ios_gallery.padding = UI::EdgeInsets.new(top: 12.0, trailing: 20.0, bottom: 12.0, leading: 20.0)
+              ios_gallery.minimum_width = 318.0
+              ios_gallery.maximum_width = 318.0
+              ios_gallery.padding = UI::EdgeInsets.new(top: 10.0, trailing: 16.0, bottom: 10.0, leading: 16.0)
 
               # --- Section: Spinners ---
-              ios_spinner_hdr = UI::Label.new("Spinners (indeterminate)")
+              ios_spinner_hdr = UI::Label.new("Loading")
               ios_spinner_hdr.font = UI::Font.new(size: 15.0, weight: :semibold)
               ios_spinner_hdr.accessibility_label = "Spinners section header"
               ios_gallery << ios_spinner_hdr
 
-              ios_spinner_row = UI::HStack.new(spacing: 32.0)
+              ios_spinner_row = UI::HStack.new(spacing: 28.0)
+              ios_spinner_row.alignment = UI::Alignment::Center
 
               # Medium spinner (UIActivityIndicatorViewStyle.medium = 100)
               ios_med = UI::ActivityIndicator.new(true, :medium)
@@ -1340,7 +1351,7 @@ module CrystalHIGHost::Bridge
               ios_gallery << ios_spinner_row
 
               # --- Section: Linear determinate at 60% ---
-              ios_bar_hdr = UI::Label.new("Linear progress (determinate)")
+              ios_bar_hdr = UI::Label.new("Transfer")
               ios_bar_hdr.font = UI::Font.new(size: 15.0, weight: :semibold)
               ios_bar_hdr.accessibility_label = "Linear progress section header"
               ios_gallery << ios_bar_hdr
@@ -1357,7 +1368,7 @@ module CrystalHIGHost::Bridge
               ios_gallery << ios_det_lbl
 
               # --- Section: Linear indeterminate ---
-              ios_indet_hdr = UI::Label.new("Linear progress (indeterminate)")
+              ios_indet_hdr = UI::Label.new("Syncing")
               ios_indet_hdr.font = UI::Font.new(size: 15.0, weight: :semibold)
               ios_indet_hdr.accessibility_label = "Indeterminate progress section header"
               ios_gallery << ios_indet_hdr
@@ -1374,14 +1385,14 @@ module CrystalHIGHost::Bridge
               ios_gallery << ios_indet_lbl
 
               # --- Section: Labeled upload row with cancel ---
-              ios_upload_hdr = UI::Label.new("Determinate with cancel")
+              ios_upload_hdr = UI::Label.new("Upload")
               ios_upload_hdr.font = UI::Font.new(size: 15.0, weight: :semibold)
               ios_upload_hdr.accessibility_label = "Upload with cancel section header"
               ios_gallery << ios_upload_hdr
 
               ios_upload_row = UI::HStack.new(spacing: 12.0)
               ios_upload_row.alignment = UI::Alignment::Center
-              ios_upload_lbl = UI::Label.new("Uploading file.zip")
+              ios_upload_lbl = UI::Label.new("Uploading archive.zip")
               ios_upload_lbl.font = UI::Font.new(size: 15.0, weight: :regular)
               ios_upload_lbl.accessibility_label = "Upload filename"
               ios_upload_row << ios_upload_lbl
@@ -2600,15 +2611,12 @@ HTML
               # falls back to a breadcrumb-style row on iOS so the component
               # remains inspectable in previews without pretending UIKit has a
               # native equivalent.
-              ios_path_outer = UI::VStack.new(spacing: 14.0)
-              ios_path_outer.padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
-              ios_path_outer.background = UI::Color.new(r: 0.96, g: 0.97, b: 0.98, a: 1.0)
-              ios_path_outer.corner_radius = 16.0
-              ios_path_outer.clip_to_bounds = true
+              ios_path_outer = UI::VStack.new(spacing: 12.0)
+              ios_path_outer.alignment = UI::Alignment::Leading
 
               ios_standard = UI::PathControl.new
-              ios_standard.minimum_width = 320.0
-              ios_standard.maximum_width = 320.0
+              ios_standard.minimum_width = 304.0
+              ios_standard.maximum_width = 304.0
               ios_standard.accessibility_label = "Current export destination path"
               ios_standard.add_component("Applications", icon: "folder")
               ios_standard.add_component("Amber", icon: "app")
@@ -2617,8 +2625,8 @@ HTML
               ios_path_outer << ios_standard
 
               ios_popup = UI::PathControl.new(style: UI::PathControlStyle::PopUp)
-              ios_popup.minimum_width = 280.0
-              ios_popup.maximum_width = 280.0
+              ios_popup.minimum_width = 284.0
+              ios_popup.maximum_width = 284.0
               ios_popup.accessibility_label = "Recent export locations path menu"
               ios_popup.add_component("Library", icon: "folder")
               ios_popup.add_component("Templates", icon: "folder")

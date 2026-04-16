@@ -1,13 +1,13 @@
 ---
 slug: context-menus
-verdict: PENDING
-validated_at: 2026-04-16T00:00:00Z
-iteration: review-2026-04-16d
+verdict: PASS_WITH_NOTES
+validated_at: 2026-04-16T20:45:00Z
+iteration: 25
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
-  macos_dark:  PASS_WITH_NOTES
-  ios_light:   PASS_WITH_NOTES
-  ios_dark:    PASS_WITH_NOTES
+  macos_dark: PASS_WITH_NOTES
+  ios_light: PASS_WITH_NOTES
+  ios_dark: PASS_WITH_NOTES
 ---
 
 # Context menus -- Visual validation
@@ -27,45 +27,23 @@ verdict_per_appearance:
 ## Rendered -- iOS (dark)
 ![iOS dark](../screenshots/context-menus-ios-dark.png)
 
-## Verdict: PENDING
+## Verdict: PASS_WITH_NOTES
 
-`UI::ContextMenu` now exists and both native renderers visit it directly, so the
-backlog should no longer pretend this slug is still a `UI::MenuButton` mapping
-problem. The current captures are structurally recognizable, but the studies are
-still too loose and over-contextualized to call finished. This row stays
-`PENDING` until the next cleanup wave rebuilds the composition around a calmer,
-more isolated menu surface.
+The new captures finally read like a menu study instead of a broken mockup. The menu
+surface is centered, the action hierarchy is legible, and the destructive action now
+lands with the right visual weight.
 
-### Evidence manifest
-- **Manifest:** `../evidence/context-menus.json`
-- **Required captures:** PASS -- all four files present and linked above.
-- **Report links:** PASS -- all four appearance-specific screenshot filenames
-  linked above.
+### What improved
+- The menu width is restrained enough to feel intentional on both platforms.
+- The amber-themed environment is present but no longer overwhelms the menu itself.
+- Destructive treatment, separators, and action spacing are clear and readable.
 
-### Light appearance observations
-- macOS: the menu structure and destructive row read correctly, but the study is
-  still embedded in too much document chrome and the surrounding layout steals
-  attention from the menu surface itself.
-- iOS: the menu card is readable and the red destructive action separates well,
-  but the preview still feels pinned to the page instead of presented as a more
-  deliberate focal study.
+### Why this is still notes-only
+- The study still shows a staged menu surface rather than a true invoked context-menu
+  interaction anchored to content.
+- The macOS preview keeps a little more supporting chrome than the HIG example needs,
+  so it still reads slightly like a demo scene.
 
-### Dark appearance observations
-- macOS: the dark menu remains legible, though the oversized host scene and
-  leftover supporting content make the capture feel more like a screenshot of an
-  app than a study of the menu component.
-- iOS: the dark surface keeps the warm Amber palette, but the framing still
-  wants more breathing room around the menu card.
-
-### Deviations / notes
-- The implementation is now based on `UI::ContextMenu`, not `UI::MenuButton`.
-- The next pass should tighten the backdrop, reduce unrelated host content, and
-  decide whether the menu should be centered as a study plate or anchored from a
-  simpler trigger target.
-
-### Source citations
-- Apple HIG -- "Context menus" (see `apple-hig/pages/context-menus.md` in the
-  skill corpus).
-
-### Remediation (if NEEDS_WORK)
-N/A -- pending cleanup.
+### Result
+This is strong enough to count as `PASS_WITH_NOTES`. The remaining gap is more about
+interaction realism than basic layout taste.

@@ -1,19 +1,19 @@
 ---
 slug: path-controls
-verdict: PENDING
-validated_at: 2026-04-16T00:00:00Z
-iteration: review-2026-04-16d
+verdict: NEEDS_WORK
+validated_at: 2026-04-16T20:45:00Z
+iteration: 25
 verdict_per_appearance:
   macos_light: NEEDS_WORK
-  macos_dark:  NEEDS_WORK
-  ios_light:   PASS_WITH_NOTES
-  ios_dark:    PASS_WITH_NOTES
+  macos_dark: NEEDS_WORK
+  ios_light: NEEDS_WORK
+  ios_dark: NEEDS_WORK
 ---
 
 # Path controls -- Visual validation
 
 ## HIG reference
-![HIG ref](../../../apple-hig/images/components-path-control-intro.png)
+![HIG ref](../../../apple-hig/images/components-path-controls-intro.png)
 
 ## Rendered -- macOS (light)
 ![macOS light](../screenshots/path-controls-macos-light.png)
@@ -27,45 +27,23 @@ verdict_per_appearance:
 ## Rendered -- iOS (dark)
 ![iOS dark](../screenshots/path-controls-ios-dark.png)
 
-## Verdict: PENDING
+## Verdict: NEEDS_WORK
 
-This slug is no longer truly missing: `UI::PathControl` exists in the library
-and both native renderers implement it. The backlog needed to catch up to that
-reality. The row remains `PENDING` because the current validation studies are
-not trustworthy yet. macOS is still falling through to an unknown-slug frame in
-the host capture path, and the iOS fallback preview needs a more disciplined
-composition before we should grade it seriously.
+The capture path is working now, which is useful, but the visual result is still not
+close enough to Apple’s path-control taste to pass.
 
-### Evidence manifest
-- **Manifest:** `../evidence/path-controls.json`
-- **Required captures:** PASS -- all four files present and linked above.
-- **Report links:** PASS -- all four appearance-specific screenshot filenames
-  linked above.
+### What improved
+- We now have real evidence on both platforms instead of a missing or broken capture.
+- The breadcrumb data itself is visible and the iOS capture no longer disappears.
 
-### Light appearance observations
-- macOS: the current screenshot is not a valid component study; it falls back to
-  an unknown-slug frame instead of showing the `NSPathControl` surface.
-- iOS: the breadcrumb fallback exists and is readable, but it is brighter and
-  flatter than the calmer, more deliberate studies we want from the default
-  library taste.
+### Why it still fails
+- The macOS study reads like a tall stack of breadcrumb rows rather than a restrained
+  path control embedded in context.
+- The iOS preview is still an oversized horizontal strip pinned near the top of the
+  card, with too much dead space underneath.
+- Neither platform yet captures the compact Finder-style hierarchy rhythm that makes
+  the HIG example feel effortless.
 
-### Dark appearance observations
-- macOS: same host-routing failure as light appearance; the capture is not yet
-  grading the actual control.
-- iOS: the fallback remains recognizable, but the framing and contrast need a
-  cleaner pass before the row should be promoted.
-
-### Deviations / notes
-- Apple HIG marks path controls unsupported on iOS, so the UIKit rendering here
-- is best understood as a documented fallback rather than a claim of native HIG
-  parity.
-- The immediate fix is to reconnect the macOS showcase slug to the real
-  `UI::PathControl` study and then decide whether the iOS fallback should remain
-  in the validation grid or be clearly labeled as platform-specific guidance.
-
-### Source citations
-- Apple HIG -- "Path controls" (see `apple-hig/pages/path-controls.md` in the
-  skill corpus).
-
-### Remediation (if NEEDS_WORK)
-N/A -- pending host cleanup.
+### Result
+Keep this row in `NEEDS_WORK`. The primitive exists, but the default composition and
+presentation still need a dedicated taste pass before this should be promoted.

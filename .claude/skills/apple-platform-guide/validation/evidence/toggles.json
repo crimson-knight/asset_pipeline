@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T19:35:14.609614+00:00",
+  "generated_at": "2026-04-16T20:42:00.496281+00:00",
   "report": {
     "exists": true,
     "mtime": "2026-04-16T17:25:47.343877+00:00",
@@ -48,6 +48,6 @@
   },
   "slug": "toggles",
   "valid": true,
-  "validation_state": "pending",
+  "validation_state": "pass_with_notes",
   "warnings": []
 }

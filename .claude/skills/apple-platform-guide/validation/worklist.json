@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T19:35:14.623908+00:00",
+  "generated_at": "2026-04-16T20:42:00.523588+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -17,9 +17,9 @@
     "patterns": 66,
     "platform_guides": 4,
     "collections": 14,
-    "implemented": 44,
+    "implemented": 46,
     "stub": 0,
-    "missing": 21
+    "missing": 19
   },
   "pages": [
     {
@@ -254,13 +254,13 @@
       "hig_page": "../apple-hig/pages/app-shortcuts.md",
       "hig_ref_image": "../apple-hig/images/components-app-shortcuts-intro.png",
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "missing",
+      "ui_view": "UI::OutlineView",
+      "ui_view_file": "src/ui/views/outline_view.cr",
+      "status": "implemented",
       "priority": "P2",
-      "iOS_visit_found": false,
-      "macOS_visit_found": false,
-      "validation_state": "skipped",
+      "iOS_visit_found": true,
+      "macOS_visit_found": true,
+      "validation_state": "pending",
       "docs_written": false,
       "glass_required": false,
       "glass_material_expected": null,
@@ -271,8 +271,10 @@
       "verdict_per_appearance": null,
       "notes": "App Shortcuts per HIG are metadata declarations (AppIntents) exposed to Spotlight/Siri/Shortcuts app \u2014 not an in-app rendered UI::View. No asset_pipeline surface to validate with a capture; the feature lives in Info.plist + AppIntents metadata. Skipped as not-applicable-to-capture.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "evidence_state": "not_applicable",
-      "evidence_errors": []
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "missing report: /Users/crimsonknight/open_source_coding_projects/asset_pipeline/.claude/skills/apple-platform-guide/validation/reports/app-shortcuts.md"
+      ]
     },
     {
       "slug": "apple-pay",
@@ -334,7 +336,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -350,17 +352,11 @@
       },
       "validated_at": "2026-04-13T18:57:00Z",
       "iteration": 21,
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
       "focal_position": "centered",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: boxes-macos-light.png",
-        "screenshot newer than report: boxes-macos-dark.png",
-        "screenshot newer than report: boxes-ios-light.png",
-        "screenshot newer than report: boxes-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "branding",
@@ -524,9 +520,8 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -542,13 +537,8 @@
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "gallery",
       "focal_position": "grid_full",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: collections-macos-light.png",
-        "screenshot newer than report: collections-macos-dark.png",
-        "screenshot newer than report: collections-ios-light.png",
-        "screenshot newer than report: collections-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "color",
@@ -739,7 +729,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "menu",
@@ -2138,13 +2128,13 @@
       "hig_page": "../apple-hig/pages/outline-views.md",
       "hig_ref_image": null,
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "missing",
+      "ui_view": "UI::OutlineView",
+      "ui_view_file": "src/ui/views/outline_view.cr",
+      "status": "implemented",
       "priority": "P2",
-      "iOS_visit_found": false,
-      "macOS_visit_found": false,
-      "validation_state": "skipped",
+      "iOS_visit_found": true,
+      "macOS_visit_found": true,
+      "validation_state": "pending",
       "docs_written": false,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2153,10 +2143,13 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "Outline views per HIG map to NSOutlineView \u2014 an expandable tree list with disclosure triangles. Disproportionate: requires NSOutlineViewDataSource/Delegate protocol bridges (similar to NSTableView). UI::ListView + UI::DisclosureGroup cover the common use case on iOS. Skipped with remediation: build UI::OutlineView when a consumer needs the NSOutlineView-specific idiom.",
+      "notes": "UI::OutlineView now exists with a composed cross-platform fallback, giving the shard a real hierarchical tree primitive while the future NSOutlineView bridge remains open. The validation row stays pending until showcase studies and reports are added.",
       "backdrop": "finder-mail-backdrop",
-      "evidence_state": "not_applicable",
-      "evidence_errors": []
+      "remediation_hint": "Add outline-view showcase studies, reports, and evidence. macOS can later graduate to a true NSOutlineView bridge; iOS will likely stay on the composed hierarchical fallback.",
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "missing report: /Users/crimsonknight/open_source_coding_projects/asset_pipeline/.claude/skills/apple-platform-guide/validation/reports/outline-views.md"
+      ]
     },
     {
       "slug": "page-controls",
@@ -2234,7 +2227,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "needs_work",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2527,7 +2520,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2541,17 +2534,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "chart",
       "focal_position": "inline_rows",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: progress-indicators-macos-light.png",
-        "screenshot newer than report: progress-indicators-macos-dark.png",
-        "screenshot newer than report: progress-indicators-ios-light.png",
-        "screenshot newer than report: progress-indicators-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "pull-down-buttons",
@@ -3299,7 +3286,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3313,17 +3300,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
       "focal_position": "centered",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: text-fields-macos-light.png",
-        "screenshot newer than report: text-fields-macos-dark.png",
-        "screenshot newer than report: text-fields-ios-light.png",
-        "screenshot newer than report: text-fields-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "text-views",
@@ -3744,16 +3725,16 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 17,
-    "pending": 25,
-    "needs_work": 0,
+    "pass_with_notes": 22,
+    "pending": 21,
+    "needs_work": 1,
     "fail": 0,
-    "skipped": 23
+    "skipped": 21
   },
   "evidence_counts": {
-    "valid": 19,
-    "invalid": 23,
-    "not_applicable": 23,
+    "valid": 23,
+    "invalid": 21,
+    "not_applicable": 21,
     "unknown": 0
   }
 }

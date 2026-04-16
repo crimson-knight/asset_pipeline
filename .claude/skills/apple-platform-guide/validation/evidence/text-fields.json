@@ -1,58 +1,53 @@
 {
-  "errors": [
-    "screenshot newer than report: text-fields-macos-light.png",
-    "screenshot newer than report: text-fields-macos-dark.png",
-    "screenshot newer than report: text-fields-ios-light.png",
-    "screenshot newer than report: text-fields-ios-dark.png"
-  ],
-  "generated_at": "2026-04-16T19:35:14.602324+00:00",
+  "errors": [],
+  "generated_at": "2026-04-16T20:42:00.482598+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-14T15:40:43.646054+00:00",
+    "mtime": "2026-04-16T20:41:51.744732+00:00",
     "path": "reports/text-fields.md",
-    "sha256": "1cbfaa5009e748e488d14cadf4786205d65ee6c3a61922903b383d7d5d35fad0",
-    "size_bytes": 10296
+    "sha256": "60cb2793c89c004ce4d2d36fb8e5703092fc8da2c0298836ac95a8fe85a92f2a",
+    "size_bytes": 1698
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-16T00:00:23.905223+00:00",
+      "mtime": "2026-04-16T20:38:55.217001+00:00",
       "path": "screenshots/text-fields-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "c0062ee167b334d2aeebd23f107c95cec61c7026f0a1ece6607584e0208e0b03",
-      "size_bytes": 671272
+      "sha256": "d09b6b5fe8bc2428d4eabe6bee5b5d26b240f76ec0b25763050c24e305194039",
+      "size_bytes": 293063
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-15T23:59:53.852549+00:00",
+      "mtime": "2026-04-16T20:38:21.544704+00:00",
       "path": "screenshots/text-fields-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "59285decc236e95fe689a179cee0a89767a6a2c11d2b83993cdc7e44a56e247e",
-      "size_bytes": 468186
+      "sha256": "739eb6fc74fbdc3ada546c296b57f0c926d0eaa3826847ef6c7ea2c5e72ad09e",
+      "size_bytes": 252431
     },
     "macos_dark": {
       "exists": true,
-      "mtime": "2026-04-15T21:12:54.194476+00:00",
+      "mtime": "2026-04-16T19:46:22.900949+00:00",
       "path": "screenshots/text-fields-macos-dark.png",
       "pixel_height": 900,
       "pixel_width": 1200,
-      "sha256": "396032bb07f2bfb41b26a617fc8d5d6ad412baee783d4c0b998511d3f54dd8fc",
-      "size_bytes": 447654
+      "sha256": "8575b4653b5258c9b7356aa3adf1298bac121cc9e857eca4036cff88bd65f0c2",
+      "size_bytes": 447266
     },
     "macos_light": {
       "exists": true,
-      "mtime": "2026-04-15T21:11:47.421240+00:00",
+      "mtime": "2026-04-16T19:46:22.038860+00:00",
       "path": "screenshots/text-fields-macos-light.png",
       "pixel_height": 900,
       "pixel_width": 1200,
-      "sha256": "983339c6f18f65e6a55664b867bf31ab68d6ba3ab8597d664ac59f01faeb0945",
-      "size_bytes": 392630
+      "sha256": "c6989c89eed454be487f7049aa00105823b661718f3369b65032239f50eb174f",
+      "size_bytes": 392635
     }
   },
   "slug": "text-fields",
-  "valid": false,
+  "valid": true,
   "validation_state": "pending",
   "warnings": []
 }
