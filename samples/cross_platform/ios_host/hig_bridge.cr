@@ -2277,19 +2277,70 @@ module CrystalHIGHost::Bridge
               ios_outer.as(UI::View)
             when "web-views"
               # HIG Web views: embeds rich HTML/URL content inside an app.
-              # iOS: WKWebView (WebKit); placeholder UIView with border for capture.
+              # Use a deterministic local HTML preview so the component taste is
+              # judged on layout and polish rather than remote page variance.
+              preview_html = <<-HTML
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      html, body { margin: 0; padding: 0; background: #f4efe8; color: #171311; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; }
+      body { padding: 18px; }
+      .shell { background: rgba(255,255,255,0.78); border: 1px solid rgba(127,102,77,0.12); border-radius: 22px; padding: 16px; box-shadow: 0 16px 36px rgba(56,35,20,0.10); }
+      .eyebrow { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8d6a45; margin-bottom: 10px; }
+      h1 { margin: 0 0 8px; font-size: 22px; line-height: 1.08; font-weight: 650; }
+      p { margin: 0; font-size: 14px; line-height: 1.46; color: #57463a; }
+      .chips { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+      .chip { border-radius: 999px; padding: 7px 12px; font-size: 12px; font-weight: 600; }
+      .chip.primary { background: #ffb14a; color: #2f1900; }
+      .chip.secondary { background: rgba(141,106,69,0.12); color: #6e5746; }
+      .list { border-radius: 16px; background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(249,240,231,0.92)); padding: 14px; border: 1px solid rgba(127,102,77,0.10); }
+      .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(127,102,77,0.08); font-size: 13px; color: #3b2d23; }
+      .row:last-child { border-bottom: none; padding-bottom: 0; }
+      .row strong { font-size: 14px; font-weight: 620; color: #171311; }
+      .row span { color: #8d6a45; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="eyebrow">Embedded Web Content</div>
+      <h1>Editorial Review</h1>
+      <p>Keep the web content contextual and legible so it feels like part of the app instead of a dropped-in browser tab.</p>
+      <div class="chips">
+        <div class="chip primary">Review</div>
+        <div class="chip secondary">Shared draft</div>
+      </div>
+      <div class="list">
+        <div class="row"><strong>Launch notes</strong><span>Ready</span></div>
+        <div class="row"><strong>Editorial preview</strong><span>3 blocks</span></div>
+        <div class="row"><strong>Source</strong><span>amber.local/review</span></div>
+      </div>
+    </div>
+  </body>
+</html>
+HTML
+
               ios_wv_outer = UI::VStack.new(spacing: 12.0)
 
               ios_wv_label = UI::Label.new("Embedded web content")
               ios_wv_label.accessibility_label = "Embedded web content heading"
 
-              ios_wv_desc = UI::Label.new("example.com — WebKit renders HTML inside your app.")
+              ios_wv_desc = UI::Label.new("A web view should feel intentional, readable, and native to the surrounding surface.")
               ios_wv_desc.accessibility_label = "Web view description"
 
-              ios_wv = UI::WebViewComponent.new(url: "https://example.com")
-              ios_wv.title = "example.com"
+              ios_wv = UI::WebViewComponent.new(url: "https://amber.local/review")
+              ios_wv.title = "Editorial Review"
+              ios_wv.html = preview_html
+              ios_wv.base_url = "https://amber.local"
               ios_wv.allows_navigation = true
-              ios_wv.accessibility_label = "Web view: example.com"
+              ios_wv.minimum_width = 320.0
+              ios_wv.maximum_width = 320.0
+              ios_wv.minimum_height = 296.0
+              ios_wv.maximum_height = 296.0
+              ios_wv.corner_radius = 22.0
+              ios_wv.clip_to_bounds = true
+              ios_wv.accessibility_label = "Web view: Editorial Review"
 
               ios_wv_outer << ios_wv_label
               ios_wv_outer << ios_wv_desc

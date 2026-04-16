@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T09:13:48.700913+00:00",
+  "generated_at": "2026-04-16T11:39:50.693777+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -3615,14 +3615,8 @@
       },
       "notes": "Iteration 57. NSView/UIView placeholder instead of live WKWebView (static capture limitation). Container visible in all four captures. Both mandatory doc sections present.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: web-views-macos-light.png",
-        "screenshot newer than report: web-views-macos-dark.png",
-        "screenshot newer than report: web-views-ios-light.png",
-        "screenshot newer than report: web-views-ios-dark.png"
-      ],
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "widgets",
@@ -3719,8 +3713,8 @@
     "skipped": 24
   },
   "evidence_counts": {
-    "valid": 14,
-    "invalid": 25,
+    "valid": 15,
+    "invalid": 24,
     "not_applicable": 24,
     "unknown": 0
   }
