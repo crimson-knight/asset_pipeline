@@ -3613,7 +3613,7 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "notes": "Iteration 57. NSView/UIView placeholder instead of live WKWebView (static capture limitation). Container visible in all four captures. Both mandatory doc sections present.",
+      "notes": "Iteration 58. Runtime renderers now allocate live WKWebView on iOS and macOS, with deterministic local HTML content for preview. macOS validation still uses a capture-only preview surrogate because offscreen CGWindowListCreateImage blanks live WebKit contents; evidence and report are current.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "valid",
       "evidence_errors": []
