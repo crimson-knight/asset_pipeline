@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T20:46:36.352429+00:00",
+  "generated_at": "2026-04-16T21:51:01.031418+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -2132,22 +2132,24 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
-      "docs_written": false,
+      "validation_state": "pass_with_notes",
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
         "light",
         "dark"
       ],
-      "verdict_per_appearance": null,
-      "notes": "UI::OutlineView now exists with a composed cross-platform fallback, giving the shard a real hierarchical tree primitive while the future NSOutlineView bridge remains open. The validation row stays pending until showcase studies and reports are added.",
-      "backdrop": "finder-mail-backdrop",
-      "remediation_hint": "Add outline-view showcase studies, reports, and evidence. macOS can later graduate to a true NSOutlineView bridge; iOS will likely stay on the composed hierarchical fallback.",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "missing report: /Users/crimsonknight/open_source_coding_projects/asset_pipeline/.claude/skills/apple-platform-guide/validation/reports/outline-views.md"
-      ]
+      "verdict_per_appearance": {
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
+      },
+      "notes": "UI::OutlineView now has real showcase studies on both platforms and a validation report. The primitive still uses the composed fallback tree today, but the hierarchy, disclosure rhythm, and selection state are now strong enough to count as the default taste baseline while a future native NSOutlineView bridge remains open.",
+      "backdrop": "sheet-backdrop-amber-gradient",
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "page-controls",
@@ -2225,7 +2227,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "needs_work",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2234,13 +2236,13 @@
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "needs_work",
-        "macos_dark": "needs_work",
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "notes": "UI::PathControl now exists in the library and both native renderers visit it, but the current macOS study still falls through to an unknown-slug frame and the iOS breadcrumb fallback needs a calmer capture treatment before this row can be promoted.",
-      "remediation_hint": "Rebuild the path-controls study around UI::PathControl, regenerate all four captures, and replace the stale skipped report with a current validation note. macOS should validate the real NSPathControl surface; iOS can remain a documented fallback because HIG marks the control unsupported there.",
+      "notes": "UI::PathControl now has a compact macOS breadcrumb study and a calmer iOS fallback presentation. The row still carries notes because iOS has no native platform equivalent and the validation study isolates the control rather than placing it inside a richer document window, but the default taste is now strong enough to count as done.",
+      "remediation_hint": "Future work can validate a richer document-window composition around the raw native NSPathControl and keep the iOS fallback visually aligned with that macOS baseline.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "valid",
       "evidence_errors": []
@@ -3301,8 +3303,12 @@
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
       "focal_position": "centered",
-      "evidence_state": "valid",
-      "evidence_errors": []
+      "evidence_state": "invalid",
+      "evidence_errors": [
+        "screenshot newer than report: text-fields-ios-light.png",
+        "screenshot newer than report: text-fields-ios-dark.png"
+      ],
+      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
     },
     {
       "slug": "text-views",
@@ -3723,9 +3729,9 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 22,
-    "pending": 20,
-    "needs_work": 1,
+    "pass_with_notes": 24,
+    "pending": 19,
+    "needs_work": 0,
     "fail": 0,
     "skipped": 22
   },

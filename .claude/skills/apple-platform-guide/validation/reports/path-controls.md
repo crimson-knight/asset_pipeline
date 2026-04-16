@@ -1,19 +1,19 @@
 ---
 slug: path-controls
-verdict: NEEDS_WORK
-validated_at: 2026-04-16T20:45:00Z
-iteration: 25
+verdict: PASS_WITH_NOTES
+validated_at: 2026-04-16T21:50:00Z
+iteration: 26
 verdict_per_appearance:
-  macos_light: NEEDS_WORK
-  macos_dark: NEEDS_WORK
-  ios_light: NEEDS_WORK
-  ios_dark: NEEDS_WORK
+  macos_light: PASS_WITH_NOTES
+  macos_dark: PASS_WITH_NOTES
+  ios_light: PASS_WITH_NOTES
+  ios_dark: PASS_WITH_NOTES
 ---
 
 # Path controls -- Visual validation
 
 ## HIG reference
-![HIG ref](../../../apple-hig/images/components-path-controls-intro.png)
+![HIG ref](../../../apple-hig/images/components-path-control-intro.png)
 
 ## Rendered -- macOS (light)
 ![macOS light](../screenshots/path-controls-macos-light.png)
@@ -27,23 +27,29 @@ verdict_per_appearance:
 ## Rendered -- iOS (dark)
 ![iOS dark](../screenshots/path-controls-ios-dark.png)
 
-## Verdict: NEEDS_WORK
+## Verdict: PASS_WITH_NOTES
 
-The capture path is working now, which is useful, but the visual result is still not
-close enough to Apple’s path-control taste to pass.
+This now reads like a real path-control study instead of a broken or oversized
+placeholder. The macOS composition is compact and Finder-like, while the iOS
+fallback is at least calm enough to communicate the anatomy without pretending
+the platform has a native equivalent.
 
 ### What improved
-- We now have real evidence on both platforms instead of a missing or broken capture.
-- The breadcrumb data itself is visible and the iOS capture no longer disappears.
+- macOS now presents the path as a restrained breadcrumb card with clear icon,
+  chevron, and terminal-segment rhythm.
+- Both platforms keep enough surrounding gutter for the amber backdrop to stay
+  visible and support the component instead of fighting it.
+- The popup-style variant is readable now; it no longer feels like a second
+  arbitrary row of text.
 
-### Why it still fails
-- The macOS study reads like a tall stack of breadcrumb rows rather than a restrained
-  path control embedded in context.
-- The iOS preview is still an oversized horizontal strip pinned near the top of the
-  card, with too much dead space underneath.
-- Neither platform yet captures the compact Finder-style hierarchy rhythm that makes
-  the HIG example feel effortless.
+### Why this is still notes-only
+- Apple explicitly does not support path controls on iOS, so the iOS study is a
+  documented fallback rather than a native control.
+- The macOS study is visually right, but validation still relies on a composed
+  showcase treatment rather than proving the raw native control inside a richer
+  product scene.
 
 ### Result
-Keep this row in `NEEDS_WORK`. The primitive exists, but the default composition and
-presentation still need a dedicated taste pass before this should be promoted.
+Promote this row to `PASS_WITH_NOTES`. The default taste is now disciplined
+enough to count as a clean baseline, with the iOS fallback caveat recorded
+honestly.

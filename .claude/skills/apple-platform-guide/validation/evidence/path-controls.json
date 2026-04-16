@@ -1,53 +1,53 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T20:46:36.264124+00:00",
+  "generated_at": "2026-04-16T21:52:15.864019+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T20:41:51.745655+00:00",
+    "mtime": "2026-04-16T21:47:18.716245+00:00",
     "path": "reports/path-controls.md",
-    "sha256": "becf44b22ea5b029fd02086432519cefa1f60115f32ad85efd03957da34eabbb",
-    "size_bytes": 1616
+    "sha256": "693de1a51e2f9e4b6a05617b284521630c37374160a1f51c8556c81e4f2e5c41",
+    "size_bytes": 1914
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-16T20:18:51.556019+00:00",
+      "mtime": "2026-04-16T21:39:46.321803+00:00",
       "path": "screenshots/path-controls-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "38fe61229ae8b9bd485699796093a0d1949664691891ad565c1ba6e4d2e7462d",
-      "size_bytes": 627587
+      "sha256": "1e389edcfc1ce21f41cccc32211a2274ef9983481fcfbbb8b7faa0a39d9b4eac",
+      "size_bytes": 537313
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-16T20:18:15.619304+00:00",
+      "mtime": "2026-04-16T21:39:09.480080+00:00",
       "path": "screenshots/path-controls-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "b749c34b06934ebd191389ad5c804e76cf099c80a460b8f2a2fb6c6ff9f9959e",
-      "size_bytes": 419918
+      "sha256": "f0dc852147be981b799511b4201e953613bc0c2deaa4edf3731788a9d6343d13",
+      "size_bytes": 384282
     },
     "macos_dark": {
       "exists": true,
-      "mtime": "2026-04-16T19:46:19.359751+00:00",
+      "mtime": "2026-04-16T21:37:29.880161+00:00",
       "path": "screenshots/path-controls-macos-dark.png",
-      "pixel_height": 900,
-      "pixel_width": 1200,
-      "sha256": "c6b55ae8a8c4b76dfb7605c1d80807b83a97c900d5c01d01b5e00765096f8837",
-      "size_bytes": 481246
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "6c877bcd2a2a5ffa25c95ce7c311bc6d8899752b5bafc0ff7dd2af9f3c1970a0",
+      "size_bytes": 1287489
     },
     "macos_light": {
       "exists": true,
-      "mtime": "2026-04-16T19:46:18.285736+00:00",
+      "mtime": "2026-04-16T21:37:28.999346+00:00",
       "path": "screenshots/path-controls-macos-light.png",
-      "pixel_height": 900,
-      "pixel_width": 1200,
-      "sha256": "6d6a028e29f6fb2ffa670f0dff2fa49a2ee3141412d82b3e5af63fa42dfbe00c",
-      "size_bytes": 412433
+      "pixel_height": 1800,
+      "pixel_width": 2400,
+      "sha256": "95579ae00ed33d21bd41043c21808045f390a396c4cf47d24c64836832c29cd1",
+      "size_bytes": 963048
     }
   },
   "slug": "path-controls",
   "valid": true,
-  "validation_state": "needs_work",
+  "validation_state": "pass_with_notes",
   "warnings": []
 }
