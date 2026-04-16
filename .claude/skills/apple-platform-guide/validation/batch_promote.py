@@ -5,10 +5,10 @@ For each slug given, this script:
   1. Writes a minimal report at reports/<slug>.md that links the 4 captures,
      records a PASS_WITH_NOTES verdict with per-appearance sub-verdicts, and
      cites the HIG reference page.
-  2. Runs audit_evidence.py --slug <slug> --write-manifest to regenerate
-     evidence/<slug>.json with fresh hashes / mtimes.
-  3. Flips validation_state in worklist.json to pass_with_notes and sets all
+  2. Flips validation_state in worklist.json to pass_with_notes and sets all
      four verdict_per_appearance entries to pass_with_notes.
+  3. Runs audit_evidence.py --sync-worklist --write-manifest so the backlog,
+     evidence manifests, and stale-terminal requeueing all stay in sync.
 
 Usage:
   python3 batch_promote.py <slug1> [slug2] [slug3] ...
@@ -157,20 +157,6 @@ def write_report(slug: str, batch_id: str) -> None:
     print(f"  [report] wrote reports/{slug}.md")
 
 
-def refresh_manifest(slug: str) -> bool:
-    proc = subprocess.run(
-        [sys.executable, str(AUDIT), "--slug", slug, "--write-manifest"],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode not in (0, 1):
-        print(f"  [manifest] FAILED: {proc.stderr.strip()}")
-        return False
-    print(f"  [manifest] wrote evidence/{slug}.json")
-    return True
-
-
 def flip_worklist(slugs: list[str]) -> None:
     data = json.loads(WORKLIST.read_text())
     flipped = 0
@@ -183,6 +169,7 @@ def flip_worklist(slugs: list[str]) -> None:
                 "ios_light": "pass_with_notes",
                 "ios_dark": "pass_with_notes",
             }
+            row["docs_written"] = True
             flipped += 1
     WORKLIST.write_text(json.dumps(data, indent=2) + "\n")
     print(f"[worklist] flipped {flipped} rows -> pass_with_notes")
@@ -214,18 +201,21 @@ def main() -> int:
         write_report(slug, args.batch)
         complete_slugs.append(slug)
 
-    # Flip worklist FIRST so audit_evidence.py sees pass_with_notes state
-    # when --slug filter runs. Otherwise the manifest-refresh per slug says
-    # "No component row found" because iter_rows skips pending rows.
     flip_worklist(complete_slugs)
 
-    # Now regenerate manifests for every flipped slug.
-    for slug in complete_slugs:
-        refresh_manifest(slug)
+    proc = subprocess.run(
+        [sys.executable, str(AUDIT), "--sync-worklist", "--write-manifest", "--requeue-invalid"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    )
+    if proc.stdout.strip():
+        print(f"[audit] {proc.stdout.strip()}")
+    if proc.returncode not in (0, 1):
+        if proc.stderr.strip():
+            print(f"[audit] FAILED: {proc.stderr.strip()}")
+        return proc.returncode
 
-    # Final dashboard audit
-    proc = subprocess.run([sys.executable, str(AUDIT)], cwd=REPO, capture_output=True, text=True)
-    print(f"[audit] {proc.stdout.strip()}")
     return 0
 
 

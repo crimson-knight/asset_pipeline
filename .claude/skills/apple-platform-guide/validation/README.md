@@ -82,6 +82,23 @@ The script exits nonzero when any pass/pass_with_notes component row is invalid.
 Use `--requeue-invalid` only when intentionally resetting those rows to
 `pending`; it writes `worklist.json`.
 
+To make the backlog trustworthy after a capture batch or report-writing pass,
+run the sync mode:
+
+```bash
+python3 .claude/skills/apple-platform-guide/validation/audit_evidence.py \
+  --sync-worklist --write-manifest --requeue-invalid
+```
+
+That command does four things in one pass:
+1. audits every auditable component row (`pending`, `needs_work`, `fail`,
+   `pass`, `pass_with_notes`);
+2. regenerates `evidence/<slug>.json` for each audited row;
+3. normalizes `worklist.json` bookkeeping (`generated_at`, counts,
+   `skip_reason`, `evidence_state`, `evidence_errors`);
+4. conservatively re-queues any stale terminal row back to `pending` instead of
+   silently treating newer screenshots as already-reviewed evidence.
+
 ## External Codex review
 
 Run this after screenshots, report, and evidence manifest are current, before
@@ -188,8 +205,9 @@ grounded in HIG-citable attributes — not "looks fine."
 
 ## Regenerating the worklist
 
-The worklist is generated, not hand-edited. To regenerate (e.g. after adding
-HIG pages or new `UI::View` files):
+The page inventory and initial view mapping are generated, but the validation
+metadata is synchronized in place by `audit_evidence.py`. To regenerate the
+inventory layer (for example after adding HIG pages or new `UI::View` files):
 
 ```bash
 python3 ../../apple-hig/_build/triage.py
@@ -200,3 +218,6 @@ The script walks `../../apple-hig/pages/*.md`, classifies each as
 `src/ui/views/*.cr`, and emits one row per component with priority and mapping
 metadata. Non-component pages don't go in the worklist — they stay in the HIG
 corpus only.
+
+After regenerating the inventory, immediately run the sync command above so the
+counts, skip reasons, and evidence bookkeeping reflect the current repo state.

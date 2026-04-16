@@ -2,9 +2,9 @@
 """Audit HIG validation screenshot evidence.
 
 The validation loop is only trustworthy when a report evaluates the exact PNGs
-currently linked from it. This script checks that relationship and can write a
-small evidence manifest containing screenshot hashes, mtimes, sizes, and pixel
-dimensions.
+currently linked from it. This script checks that relationship and can also
+sync the machine-readable backlog in ``worklist.json`` so stale evidence stops
+masquerading as current validation.
 """
 
 from __future__ import annotations
@@ -12,8 +12,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import struct
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -28,6 +30,16 @@ REQUIRED_PLATFORMS = ("macos", "ios")
 REQUIRED_APPEARANCES = ("light", "dark")
 MIN_SCREENSHOT_BYTES = 10 * 1024
 MTIME_TOLERANCE_SECONDS = 1.0
+DEFAULT_REMEDIATION_HINT = (
+    "Evidence audit failed; regenerate all four screenshots, report, and "
+    "evidence manifest before design-critic review."
+)
+LEGACY_SKIP_REASON_KEYS = ("skipped_reason",)
+SKIP_REASON_FALLBACKS = {
+    "windows": "window-chrome-not-view",
+}
+VALIDATION_STATES = ("pass", "pass_with_notes", "pending", "needs_work", "fail", "skipped")
+EVIDENCE_STATES = ("valid", "invalid", "not_applicable", "unknown")
 
 
 def iso_from_mtime(path: Path) -> str:
@@ -59,17 +71,46 @@ def load_worklist() -> dict[str, Any]:
         return json.load(handle)
 
 
-def iter_rows(worklist: dict[str, Any], slug: str | None, include_pending: bool) -> list[dict[str, Any]]:
-    rows = []
+def component_rows(worklist: dict[str, Any], slug: str | None = None) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     for row in worklist.get("pages", []):
         if row.get("role") != "component":
             continue
         if slug and row.get("slug") != slug:
             continue
-        if not include_pending and row.get("validation_state") not in ("pass", "pass_with_notes"):
-            continue
         rows.append(row)
     return rows
+
+
+def iter_rows(worklist: dict[str, Any], slug: str | None, include_pending: bool) -> list[dict[str, Any]]:
+    rows = []
+    for row in component_rows(worklist, slug):
+        state = row.get("validation_state")
+        if state in ("pass", "pass_with_notes"):
+            rows.append(row)
+            continue
+        if include_pending and state in ("pending", "needs_work", "fail"):
+            rows.append(row)
+    return rows
+
+
+def report_frontmatter(slug: str) -> dict[str, str]:
+    path = REPORTS_DIR / f"{slug}.md"
+    if not path.exists():
+        return {}
+
+    text = path.read_text(encoding="utf-8")
+    match = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+    if not match:
+        return {}
+
+    frontmatter: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        if ":" not in line or line.startswith(" "):
+            continue
+        key, value = line.split(":", 1)
+        frontmatter[key.strip()] = value.strip()
+    return frontmatter
 
 
 def audit_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -158,7 +199,116 @@ def write_manifest(result: dict[str, Any]) -> None:
     path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def requeue_invalid(worklist: dict[str, Any], results: list[dict[str, Any]]) -> None:
+def normalize_skip_reason(row: dict[str, Any]) -> None:
+    for legacy_key in LEGACY_SKIP_REASON_KEYS:
+        legacy_value = row.pop(legacy_key, None)
+        if legacy_value and not row.get("skip_reason"):
+            row["skip_reason"] = legacy_value
+
+    if row.get("validation_state") != "skipped":
+        row.pop("skip_reason", None)
+        return
+
+    if row.get("skip_reason"):
+        return
+
+    skip_reason = report_frontmatter(row["slug"]).get("skip_reason")
+    if skip_reason:
+        row["skip_reason"] = skip_reason
+        return
+
+    fallback = SKIP_REASON_FALLBACKS.get(row["slug"])
+    if fallback:
+        row["skip_reason"] = fallback
+
+
+def counts_from_worklist(worklist: dict[str, Any]) -> dict[str, int]:
+    role_keys = {
+        "component": "components",
+        "foundation": "foundations",
+        "pattern": "patterns",
+        "platform-guide": "platform_guides",
+        "collection": "collections",
+    }
+    counts = {
+        "total_hig_pages": 0,
+        "components": 0,
+        "foundations": 0,
+        "patterns": 0,
+        "platform_guides": 0,
+        "collections": 0,
+        "implemented": 0,
+        "stub": 0,
+        "missing": 0,
+    }
+
+    pages = worklist.get("pages", [])
+    counts["total_hig_pages"] = len(pages)
+    for row in pages:
+        role_key = role_keys.get(row.get("role"))
+        if role_key:
+            counts[role_key] += 1
+        status = row.get("status")
+        if status in ("implemented", "stub", "missing"):
+            counts[status] += 1
+    return counts
+
+
+def validation_counts_from_worklist(worklist: dict[str, Any]) -> dict[str, int]:
+    counter = Counter((row.get("validation_state") or "pending") for row in component_rows(worklist))
+    return {state: counter.get(state, 0) for state in VALIDATION_STATES}
+
+
+def evidence_counts_from_worklist(worklist: dict[str, Any]) -> dict[str, int]:
+    counter = Counter((row.get("evidence_state") or "unknown") for row in component_rows(worklist))
+    return {state: counter.get(state, 0) for state in EVIDENCE_STATES}
+
+
+def sync_worklist(
+    worklist: dict[str, Any],
+    results: list[dict[str, Any]],
+    *,
+    requeue_invalid: bool,
+) -> None:
+    results_by_slug = {result["slug"]: result for result in results}
+
+    for row in component_rows(worklist):
+        normalize_skip_reason(row)
+
+        if row.get("validation_state") == "skipped":
+            row["evidence_state"] = "not_applicable"
+            row["evidence_errors"] = []
+            if row.get("remediation_hint") == DEFAULT_REMEDIATION_HINT:
+                row.pop("remediation_hint", None)
+            continue
+
+        result = results_by_slug.get(row["slug"])
+        if result is None:
+            continue
+
+        was_terminal = row.get("validation_state") in ("pass", "pass_with_notes")
+        if result["valid"]:
+            row["evidence_state"] = "valid"
+            row["evidence_errors"] = []
+            if row.get("remediation_hint") == DEFAULT_REMEDIATION_HINT:
+                row.pop("remediation_hint", None)
+            continue
+
+        row["evidence_state"] = "invalid"
+        row["evidence_errors"] = result["errors"]
+        if was_terminal:
+            row["remediation_hint"] = DEFAULT_REMEDIATION_HINT
+            if requeue_invalid:
+                row["validation_state"] = "pending"
+
+    worklist["generated_at"] = datetime.now(timezone.utc).isoformat()
+    worklist["counts"] = counts_from_worklist(worklist)
+    worklist["validation_counts"] = validation_counts_from_worklist(worklist)
+    worklist["evidence_counts"] = evidence_counts_from_worklist(worklist)
+    WORKLIST_PATH.write_text(json.dumps(worklist, indent=2) + "\n", encoding="utf-8")
+
+
+def requeue_invalid_results(worklist: dict[str, Any], results: list[dict[str, Any]]) -> None:
     invalid_by_slug = {result["slug"]: result for result in results if not result["valid"]}
     if not invalid_by_slug:
         return
@@ -172,7 +322,7 @@ def requeue_invalid(worklist: dict[str, Any], results: list[dict[str, Any]]) -> 
         row["validation_state"] = "pending"
         row["evidence_state"] = "invalid"
         row["evidence_errors"] = result["errors"]
-        row["remediation_hint"] = "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
+        row["remediation_hint"] = DEFAULT_REMEDIATION_HINT
 
     WORKLIST_PATH.write_text(json.dumps(worklist, indent=2) + "\n", encoding="utf-8")
 
@@ -180,24 +330,39 @@ def requeue_invalid(worklist: dict[str, Any], results: list[dict[str, Any]]) -> 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--slug", help="Audit a single slug")
-    parser.add_argument("--include-pending", action="store_true", help="Also audit pending/skipped component rows")
+    parser.add_argument("--include-pending", action="store_true", help="Also audit pending/needs_work component rows")
     parser.add_argument("--write-manifest", action="store_true", help="Write validation/evidence/<slug>.json")
     parser.add_argument("--json", action="store_true", help="Print JSON results")
     parser.add_argument("--requeue-invalid", action="store_true", help="Set invalid pass/pass_with_notes rows back to pending")
+    parser.add_argument(
+        "--sync-worklist",
+        action="store_true",
+        help="Normalize skip reasons, refresh counts, and write evidence_state/evidence_errors for all auditable component rows",
+    )
     args = parser.parse_args(argv)
 
     worklist = load_worklist()
-    rows = iter_rows(worklist, args.slug, args.include_pending)
-    if args.slug and not rows:
+    component_matches = component_rows(worklist, args.slug)
+    if args.slug and not component_matches:
         print(f"No component row found for slug: {args.slug}", file=sys.stderr)
         return 2
+
+    if args.sync_worklist:
+        rows = [row for row in component_matches if row.get("validation_state") != "skipped"]
+    else:
+        rows = iter_rows(worklist, args.slug, args.include_pending)
+        if args.slug and not rows and component_matches:
+            print(f"No auditable component row found for slug: {args.slug}", file=sys.stderr)
+            return 2
 
     results = [audit_row(row) for row in rows]
     if args.write_manifest:
         for result in results:
             write_manifest(result)
-    if args.requeue_invalid:
-        requeue_invalid(worklist, results)
+    if args.sync_worklist:
+        sync_worklist(worklist, results, requeue_invalid=args.requeue_invalid)
+    elif args.requeue_invalid:
+        requeue_invalid_results(worklist, results)
 
     invalid = [result for result in results if not result["valid"]]
 

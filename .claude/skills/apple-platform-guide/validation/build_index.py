@@ -183,6 +183,26 @@ def render_backdrop_cell(row) -> str:
     return f"<span class='backdrop-name missing'>{label}</span>"
 
 
+def render_evidence_badge(row) -> str:
+    state = str(row.get("evidence_state") or "").lower()
+    if not state:
+        return ""
+
+    cls = {
+        "valid": "ev-valid",
+        "invalid": "ev-invalid",
+        "not_applicable": "ev-na",
+    }.get(state, "ev-na")
+    label = {
+        "valid": "evidence current",
+        "invalid": "evidence stale",
+        "not_applicable": "evidence n/a",
+    }.get(state, state.replace("_", " "))
+    errors = row.get("evidence_errors") or []
+    suffix = f" ({len(errors)})" if state == "invalid" and errors else ""
+    return f"<span class='evidence {cls}'>{escape(label + suffix)}</span>"
+
+
 def render_row(row) -> str:
     slug = row["slug"]
     state = (row.get("validation_state") or "pending").lower()
@@ -191,7 +211,7 @@ def render_row(row) -> str:
     fm = report_frontmatter(slug)
     iteration = fm.get("iteration", "")
     sub = render_sub_verdicts(row.get("verdict_per_appearance"))
-    notes = row.get("notes") or row.get("remediation_hint") or ""
+    notes = row.get("notes") or row.get("remediation_hint") or row.get("skip_reason") or ""
     ui_view = row.get("ui_view") or ""
     priority = row.get("priority") or ""
     glass_required = row.get("glass_required")
@@ -204,7 +224,7 @@ def render_row(row) -> str:
 
     return f"""<tr>
 <td><span class='pri'>{priority}</span> <span class='slug'>{escape(slug)}</span><br>
-<span class='{st_cls}'>{st_lbl}</span>{f" · iter {escape(iteration)}" if iteration else ""}<br>
+<span class='{st_cls}'>{st_lbl}</span>{f" · iter {escape(iteration)}" if iteration else ""} {render_evidence_badge(row)}<br>
 <span class='ui-view'>{escape(ui_view)}</span> {glass_note}
 {sub}
 {f"<span class='notes'>{escape(notes)}</span>" if notes else ""}</td>
@@ -232,6 +252,10 @@ img.small{max-width:200px;max-height:200px}
 .v-skip{color:#8e8e93;font-weight:600}
 .v-needs{color:#ff3b30;font-weight:600}
 .v-pending{color:#8e8e93;font-weight:600}
+.evidence{display:inline-block;margin-left:6px;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle}
+.ev-valid{background:#e8fff0;color:#1f8f4d}
+.ev-invalid{background:#fff1ef;color:#d93025}
+.ev-na{background:#f1f1f5;color:#636366}
 .sub-verdicts{margin-top:8px;font-size:11px;color:#636366;display:grid;grid-template-columns:auto auto;gap:2px 12px;max-width:260px}
 .sub-verdicts strong{font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#636366;margin-right:6px}
 .sv-pass{color:#34c759}.sv-pwn{color:#ff9500}.sv-needs{color:#ff3b30}.sv-skip{color:#8e8e93}
@@ -268,6 +292,7 @@ def build(output_label: str | None = None) -> tuple[Path, Path]:
     skipped = len(by_state.get("skipped", []))
     needs = len(by_state.get("needs_work", [])) + len(by_state.get("fail", []))
     pending = len(by_state.get("pending", []))
+    stale = sum(1 for r in comps if (r.get("evidence_state") or "").lower() == "invalid")
     pct = round(100 * passed / total) if total else 0
 
     sort_key = lambda r: (r.get("priority", "P9"), r.get("slug", ""))
@@ -288,12 +313,14 @@ def build(output_label: str | None = None) -> tuple[Path, Path]:
         f"<style>{CSS}</style>",
         "<h1>Apple HIG validation &mdash; dashboard</h1>",
         f"<p>Generated {now}. <strong>{passed}/{total}</strong> components reached a terminal state "
-        f"(<strong>{pct}%</strong>). {skipped} skipped, {needs} needs-work, {pending} pending.</p>",
+        f"(<strong>{pct}%</strong>). {skipped} skipped, {needs} needs-work, {pending} pending, "
+        f"{stale} with stale evidence.</p>",
         "<div class='summary'>",
         f"<div class='stat'><div class='stat-num' style='color:#34c759'>{passed}</div><div class='stat-label'>Passing</div></div>",
         f"<div class='stat'><div class='stat-num' style='color:#8e8e93'>{skipped}</div><div class='stat-label'>Skipped</div></div>",
         f"<div class='stat'><div class='stat-num' style='color:#ff3b30'>{needs}</div><div class='stat-label'>Needs work</div></div>",
         f"<div class='stat'><div class='stat-num' style='color:#8e8e93'>{pending}</div><div class='stat-label'>Pending</div></div>",
+        f"<div class='stat'><div class='stat-num' style='color:#d93025'>{stale}</div><div class='stat-label'>Stale evidence</div></div>",
         f"<div class='stat'><div class='stat-num'>{total}</div><div class='stat-label'>Total components</div></div>",
         "</div>",
         "<div class='bar'><h3>Progress</h3>",
@@ -319,7 +346,7 @@ def build(output_label: str | None = None) -> tuple[Path, Path]:
         html.append("<ul class='pending-list'>")
         for r in pending_rows:
             html.append(f"<li><span class='pri'>{r.get('priority','')}</span> "
-                        f"<span class='slug'>{escape(r['slug'])}</span></li>")
+                        f"<span class='slug'>{escape(r['slug'])}</span> {render_evidence_badge(r)}</li>")
         html.append("</ul>")
     else:
         html.append("<p><em>None — all components terminal.</em></p>")
