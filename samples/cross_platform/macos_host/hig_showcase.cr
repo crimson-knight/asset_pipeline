@@ -101,9 +101,6 @@ SLUG_SCENES = {
   # Iter B -- document scene additions
   "menus"             => "document",
   # Iter B -- dashboard scene additions
-  "toolbars"          => "dashboard",
-  "tab-bars"          => "dashboard",
-  "tab-views"         => "dashboard",
   "activity-views"    => "dashboard",
   # Iter B -- ambient scene
   "text-fields"       => "ambient",
@@ -113,6 +110,9 @@ SLUG_SCENES = {
   "boxes"             => "ambient",
   "maps"              => "ambient",
   "playing-video"     => "ambient",
+  "toolbars"          => "ambient",
+  "tab-bars"          => "ambient",
+  "tab-views"         => "ambient",
 } of String => String
 
 def scene_for_slug(slug : String) : String?
@@ -1822,17 +1822,32 @@ def build_component(slug : String) : UI::View
     tb.add_item("share",   "Share",   "square.and.arrow.up")
     tb.add_item("search",  "Search",  "magnifyingglass")
     tb.add_item("more",    "More",    "ellipsis.circle")
+    tb.minimum_width = 520.0
+    tb.maximum_width = 520.0
 
-    # Wrap in VStack with context label so validation host can screenshot
-    # both the toolbar and its glass surface against white content below.
-    tb_heading = UI::Label.new("Document")
-    tb_heading.font = UI::Font.new(size: 13.0, weight: :semibold)
-    tb_heading.accessibility_label = "Document heading"
+    tb_heading = UI::Label.new("Document actions")
+    tb_heading.font = UI::Font.new(size: 17.0, weight: :semibold)
+    tb_heading.accessibility_label = "Document actions heading"
+
+    tb_desc = UI::Label.new("Keep the toolbar compact, with only the commands that earn top-level reach.")
+    tb_desc.font = UI::Font.new(size: 13.0)
+    tb_desc.accessibility_label = "Document actions description"
 
     tb_outer = UI::VStack.new(spacing: 12.0)
+    tb_outer.minimum_width = 520.0
+    tb_outer.maximum_width = 520.0
     tb_outer << tb_heading
+    tb_outer << tb_desc
     tb_outer << tb
-    tb_outer
+
+    tb_card = UI::Card.new(tb_outer.as(UI::View))
+    tb_card.minimum_width = 556.0
+    tb_card.maximum_width = 556.0
+    tb_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    tb_card.is_outlined = true
+    tb_card.material = :secondary
+    tb_card.accessibility_label = "Toolbar study card"
+    tb_card.as(UI::View)
   when "search-fields"
     # HIG: "A search field lets people search a collection of content for
     # specific terms they enter." NSSearchField provides the magnifying-glass
@@ -1851,6 +1866,8 @@ def build_component(slug : String) : UI::View
 
     sf_empty = UI::SearchField.new("Shows, Movies, and More")
     sf_empty.text = ""
+    sf_empty.minimum_width = 420.0
+    sf_empty.maximum_width = 420.0
     sf_empty.accessibility_label = "Empty search field"
 
     # State 2: filled — shows text in primary color + trailing clear button
@@ -1860,15 +1877,26 @@ def build_component(slug : String) : UI::View
 
     sf_filled = UI::SearchField.new("Shows, Movies, and More")
     sf_filled.text = "Apple HIG"
+    sf_filled.minimum_width = 420.0
+    sf_filled.maximum_width = 420.0
     sf_filled.accessibility_label = "Filled search field with Apple HIG query"
 
     sf_outer = UI::VStack.new(spacing: 10.0)
+    sf_outer.minimum_width = 420.0
+    sf_outer.maximum_width = 420.0
     sf_outer << sf_title
     sf_outer << sf_empty_label
     sf_outer << sf_empty
     sf_outer << sf_filled_label
     sf_outer << sf_filled
-    sf_outer
+    sf_card = UI::Card.new(sf_outer.as(UI::View))
+    sf_card.minimum_width = 456.0
+    sf_card.maximum_width = 456.0
+    sf_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    sf_card.is_outlined = true
+    sf_card.material = :secondary
+    sf_card.accessibility_label = "Search field study card"
+    sf_card.as(UI::View)
   when "sidebars"
     # Amber sidebar: MEMORIES section (Inbox 12 · Dreamed · Noted · Archived)
     # + VAULTS section (Morning Pages · Sketches · Rituals · Code Spells).
@@ -2617,9 +2645,35 @@ def build_component(slug : String) : UI::View
 
     tab_view = UI::TabView.new(tabs, 1)
     tab_view.glass_bar = true
+    tab_view.minimum_width = 520.0
+    tab_view.maximum_width = 520.0
+    tab_view.minimum_height = 196.0
+    tab_view.maximum_height = 196.0
     tab_view.accessibility_label = "Tab bar navigation"
 
-    tab_view.as(UI::View)
+    tab_bar_heading = UI::Label.new("Top-level navigation")
+    tab_bar_heading.font = UI::Font.new(size: 17.0, weight: :semibold)
+    tab_bar_heading.accessibility_label = "Top-level navigation heading"
+
+    tab_bar_desc = UI::Label.new("Let the bar stay visually light so the selected destination is obvious without overwhelming the scene.")
+    tab_bar_desc.font = UI::Font.new(size: 13.0)
+    tab_bar_desc.accessibility_label = "Top-level navigation description"
+
+    tab_bar_outer = UI::VStack.new(spacing: 12.0)
+    tab_bar_outer.minimum_width = 520.0
+    tab_bar_outer.maximum_width = 520.0
+    tab_bar_outer << tab_bar_heading
+    tab_bar_outer << tab_bar_desc
+    tab_bar_outer << tab_view.as(UI::View)
+
+    tab_bar_card = UI::Card.new(tab_bar_outer.as(UI::View))
+    tab_bar_card.minimum_width = 556.0
+    tab_bar_card.maximum_width = 556.0
+    tab_bar_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    tab_bar_card.is_outlined = true
+    tab_bar_card.material = :secondary
+    tab_bar_card.accessibility_label = "Tab bar study card"
+    tab_bar_card.as(UI::View)
   when "tab-views"
     # HIG tab-views: "A tab view presents multiple mutually exclusive panes of
     # content in the same area, which people can switch between using a tabbed control."
@@ -2657,9 +2711,35 @@ def build_component(slug : String) : UI::View
     tv = UI::TabView.new(tv_tabs, 0)
     tv.bar_position = :top
     tv.glass_bar = true
+    tv.minimum_width = 520.0
+    tv.maximum_width = 520.0
+    tv.minimum_height = 220.0
+    tv.maximum_height = 220.0
     tv.accessibility_label = "Tab view navigation"
 
-    tv.as(UI::View)
+    tab_view_heading = UI::Label.new("Tabbed preferences")
+    tab_view_heading.font = UI::Font.new(size: 17.0, weight: :semibold)
+    tab_view_heading.accessibility_label = "Tabbed preferences heading"
+
+    tab_view_desc = UI::Label.new("Keep tab labels terse and let the pane content carry the detail.")
+    tab_view_desc.font = UI::Font.new(size: 13.0)
+    tab_view_desc.accessibility_label = "Tabbed preferences description"
+
+    tab_view_outer = UI::VStack.new(spacing: 12.0)
+    tab_view_outer.minimum_width = 520.0
+    tab_view_outer.maximum_width = 520.0
+    tab_view_outer << tab_view_heading
+    tab_view_outer << tab_view_desc
+    tab_view_outer << tv.as(UI::View)
+
+    tab_view_card = UI::Card.new(tab_view_outer.as(UI::View))
+    tab_view_card.minimum_width = 556.0
+    tab_view_card.maximum_width = 556.0
+    tab_view_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    tab_view_card.is_outlined = true
+    tab_view_card.material = :secondary
+    tab_view_card.accessibility_label = "Tab view study card"
+    tab_view_card.as(UI::View)
   when "charts"
     # Amber charts: "Focus minutes this week" bar chart, 7 days Mon-Sun.
     # Bar fill uses Amber plum (#5B3A94 -> r:0.357 g:0.227 b:0.58) per Amber
@@ -3237,6 +3317,10 @@ if screenshot_path && !screenshot_path.empty?
     end
   elsif scene_name == "ambient" || SLUG == "collections"
     focal_max_w = case SLUG
+                  when "search-fields"       then 456.0
+                  when "toolbars"            then 556.0
+                  when "tab-bars"            then 556.0
+                  when "tab-views"           then 556.0
                   when "text-views"          then 680.0
                   when "maps"                then 556.0
                   when "playing-video"       then 556.0

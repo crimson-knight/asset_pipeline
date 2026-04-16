@@ -1553,6 +1553,8 @@ module CrystalHIGHost::Bridge
               #    the main toolbar area." (iOS)
 
               ios_tb = UI::Toolbar.new
+              ios_tb.minimum_width = 296.0
+              ios_tb.maximum_width = 296.0
               ios_tb.accessibility_label = "Mail action toolbar"
 
               ios_tb.add_item("compose",  "Compose",  "square.and.pencil")
@@ -1562,19 +1564,27 @@ module CrystalHIGHost::Bridge
               ios_tb.add_item("trash",    "Delete",   "trash")
               ios_tb.add_item("reply",    "Reply",    "arrowshape.turn.up.left")
 
-              ios_tb_heading = UI::Label.new("HIG: toolbars (iOS UIToolbar)")
-              ios_tb_heading.font = UI::Font.new(size: 15.0, weight: :semibold)
+              ios_tb_outer = UI::VStack.new(spacing: 12.0)
+              ios_tb_outer.minimum_width = 296.0
+              ios_tb_outer.maximum_width = 296.0
+              ios_tb_heading = UI::Label.new("Document actions")
+              ios_tb_heading.font = UI::Font.new(size: 17.0, weight: :semibold)
               ios_tb_heading.accessibility_label = "Toolbars showcase heading"
-
-              ios_tb_desc = UI::Label.new("Liquid Glass toolbar — icon items, 44pt hit targets")
+              ios_tb_desc = UI::Label.new("Keep the toolbar compact so the symbols stay easy to scan.")
               ios_tb_desc.font = UI::Font.new(size: 13.0, weight: :regular)
               ios_tb_desc.accessibility_label = "Toolbars showcase description"
-
-              ios_tb_outer = UI::VStack.new(spacing: 12.0)
               ios_tb_outer << ios_tb_heading
               ios_tb_outer << ios_tb
               ios_tb_outer << ios_tb_desc
-              ios_tb_outer.as(UI::View)
+
+              ios_tb_card = UI::Card.new(ios_tb_outer.as(UI::View))
+              ios_tb_card.minimum_width = 332.0
+              ios_tb_card.maximum_width = 332.0
+              ios_tb_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+              ios_tb_card.is_outlined = true
+              ios_tb_card.material = :secondary
+              ios_tb_card.accessibility_label = "Toolbar study card"
+              ios_tb_card.as(UI::View)
             when "search-fields"
               # HIG: "A search field lets people search a collection of content
               # for specific terms they enter." UISearchBar provides the
@@ -1596,6 +1606,8 @@ module CrystalHIGHost::Bridge
               ios_sf_empty = UI::SearchField.new("Shows, Movies, and More")
               ios_sf_empty.text = ""
               ios_sf_empty.shows_cancel_button = false
+              ios_sf_empty.minimum_width = 296.0
+              ios_sf_empty.maximum_width = 296.0
               ios_sf_empty.accessibility_label = "Empty search field"
 
               # State 2: filled — text in primary color, trailing clear button
@@ -1606,15 +1618,27 @@ module CrystalHIGHost::Bridge
               ios_sf_filled = UI::SearchField.new("Shows, Movies, and More")
               ios_sf_filled.text = "Apple HIG"
               ios_sf_filled.shows_cancel_button = true
+              ios_sf_filled.minimum_width = 296.0
+              ios_sf_filled.maximum_width = 296.0
               ios_sf_filled.accessibility_label = "Filled search field with Apple HIG query"
 
               ios_sf_outer = UI::VStack.new(spacing: 10.0)
+              ios_sf_outer.minimum_width = 296.0
+              ios_sf_outer.maximum_width = 296.0
               ios_sf_outer << ios_sf_title
               ios_sf_outer << ios_sf_empty_label
               ios_sf_outer << ios_sf_empty
               ios_sf_outer << ios_sf_filled_label
               ios_sf_outer << ios_sf_filled
-              ios_sf_outer.as(UI::View)
+
+              ios_sf_card = UI::Card.new(ios_sf_outer.as(UI::View))
+              ios_sf_card.minimum_width = 332.0
+              ios_sf_card.maximum_width = 332.0
+              ios_sf_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+              ios_sf_card.is_outlined = true
+              ios_sf_card.material = :secondary
+              ios_sf_card.accessibility_label = "Search field study card"
+              ios_sf_card.as(UI::View)
             when "sidebars"
               # iPhone: HIG Sidebars — Platform considerations: "Avoid using a
               # sidebar on iPhone." On iPhone, replace the sidebar with a bottom
@@ -2169,9 +2193,33 @@ module CrystalHIGHost::Bridge
 
               ios_tab_view = UI::TabView.new(ios_tabs, 1)
               ios_tab_view.glass_bar = true
+              ios_tab_view.minimum_width = 296.0
+              ios_tab_view.maximum_width = 296.0
+              ios_tab_view.minimum_height = 208.0
+              ios_tab_view.maximum_height = 208.0
               ios_tab_view.accessibility_label = "Tab bar navigation"
 
-              ios_tab_view.as(UI::View)
+              ios_tab_bar_outer = UI::VStack.new(spacing: 12.0)
+              ios_tab_bar_outer.minimum_width = 296.0
+              ios_tab_bar_outer.maximum_width = 296.0
+              ios_tab_bar_heading = UI::Label.new("Top-level navigation")
+              ios_tab_bar_heading.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_tab_bar_heading.accessibility_label = "Tab bar heading"
+              ios_tab_bar_desc = UI::Label.new("Keep the bar light enough that the selected destination reads at a glance.")
+              ios_tab_bar_desc.font = UI::Font.new(size: 13.0, weight: :regular)
+              ios_tab_bar_desc.accessibility_label = "Tab bar description"
+              ios_tab_bar_outer << ios_tab_bar_heading
+              ios_tab_bar_outer << ios_tab_bar_desc
+              ios_tab_bar_outer << ios_tab_view.as(UI::View)
+
+              ios_tab_bar_card = UI::Card.new(ios_tab_bar_outer.as(UI::View))
+              ios_tab_bar_card.minimum_width = 332.0
+              ios_tab_bar_card.maximum_width = 332.0
+              ios_tab_bar_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+              ios_tab_bar_card.is_outlined = true
+              ios_tab_bar_card.material = :secondary
+              ios_tab_bar_card.accessibility_label = "Tab bar study card"
+              ios_tab_bar_card.as(UI::View)
             when "tab-views"
               # HIG tab-views: macOS-primary pattern (NSTabView). On iOS the HIG
               # explicitly states "Not supported in iOS, iPadOS" -- the platform
@@ -2204,9 +2252,33 @@ module CrystalHIGHost::Bridge
               ios_tv = UI::TabView.new(ios_tv_tabs, 0)
               ios_tv.bar_position = :bottom
               ios_tv.glass_bar = true
+              ios_tv.minimum_width = 296.0
+              ios_tv.maximum_width = 296.0
+              ios_tv.minimum_height = 220.0
+              ios_tv.maximum_height = 220.0
               ios_tv.accessibility_label = "Tab view navigation (iOS fallback)"
 
-              ios_tv.as(UI::View)
+              ios_tab_view_outer = UI::VStack.new(spacing: 12.0)
+              ios_tab_view_outer.minimum_width = 296.0
+              ios_tab_view_outer.maximum_width = 296.0
+              ios_tab_view_heading = UI::Label.new("Tabbed sections")
+              ios_tab_view_heading.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_tab_view_heading.accessibility_label = "Tab view heading"
+              ios_tab_view_desc = UI::Label.new("On iPhone, keep the fallback disciplined enough that the platform note doesn't overpower the component.")
+              ios_tab_view_desc.font = UI::Font.new(size: 13.0, weight: :regular)
+              ios_tab_view_desc.accessibility_label = "Tab view description"
+              ios_tab_view_outer << ios_tab_view_heading
+              ios_tab_view_outer << ios_tab_view_desc
+              ios_tab_view_outer << ios_tv.as(UI::View)
+
+              ios_tab_view_card = UI::Card.new(ios_tab_view_outer.as(UI::View))
+              ios_tab_view_card.minimum_width = 332.0
+              ios_tab_view_card.maximum_width = 332.0
+              ios_tab_view_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+              ios_tab_view_card.is_outlined = true
+              ios_tab_view_card.material = :secondary
+              ios_tab_view_card.accessibility_label = "Tab view study card"
+              ios_tab_view_card.as(UI::View)
             when "charts"
               # Amber charts: "Focus minutes this week" bar chart, 7 days.
               # Bar fill: Amber plum (#5B3A94 -> r:0.357 g:0.227 b:0.58), NOT systemBlue.
