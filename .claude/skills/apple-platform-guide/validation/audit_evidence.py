@@ -115,6 +115,13 @@ def report_frontmatter(slug: str) -> dict[str, str]:
     return frontmatter
 
 
+def normalize_validation_state(value: str | None) -> str | None:
+    if not value:
+        return None
+    state = value.strip().lower()
+    return state if state in VALIDATION_STATES else None
+
+
 def audit_row(row: dict[str, Any]) -> dict[str, Any]:
     slug = row["slug"]
     errors: list[str] = []
@@ -292,6 +299,9 @@ def sync_worklist(
         if result["valid"]:
             row["evidence_state"] = "valid"
             row["evidence_errors"] = []
+            report_state = normalize_validation_state(report_frontmatter(row["slug"]).get("verdict"))
+            if report_state and row.get("validation_state") != "skipped":
+                row["validation_state"] = report_state
             if row.get("remediation_hint") == DEFAULT_REMEDIATION_HINT:
                 row.pop("remediation_hint", None)
             continue

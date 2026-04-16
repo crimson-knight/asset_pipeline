@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T17:26:01.783367+00:00",
+  "generated_at": "2026-04-16T19:35:14.623908+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -17,9 +17,9 @@
     "patterns": 66,
     "platform_guides": 4,
     "collections": 14,
-    "implemented": 43,
+    "implemented": 44,
     "stub": 0,
-    "missing": 22
+    "missing": 21
   },
   "pages": [
     {
@@ -733,15 +733,14 @@
       "hig_page": "../apple-hig/pages/context-menus.md",
       "hig_ref_image": "../apple-hig/images/components-context-menu-intro.png",
       "role": "component",
-      "ui_view": "UI::MenuButton",
-      "ui_view_file": "src/ui/views/menu_button.cr",
+      "ui_view": "UI::ContextMenu",
+      "ui_view_file": "src/ui/views/context_menu.cr",
       "status": "implemented",
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
       "validation_state": "pending",
       "docs_written": true,
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "glass_required": true,
       "glass_material_expected": "menu",
       "appearances_required": [
@@ -756,13 +755,8 @@
       },
       "backdrop": "menu-backdrop-amber-document",
       "scene": "document",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: context-menus-macos-light.png",
-        "screenshot newer than report: context-menus-macos-dark.png",
-        "screenshot newer than report: context-menus-ios-light.png",
-        "screenshot newer than report: context-menus-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "controls",
@@ -2234,13 +2228,13 @@
       "hig_page": "../apple-hig/pages/path-controls.md",
       "hig_ref_image": "../apple-hig/images/components-path-control-intro.png",
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "missing",
+      "ui_view": "UI::PathControl",
+      "ui_view_file": "src/ui/views/path_control.cr",
+      "status": "implemented",
       "priority": "P2",
-      "iOS_visit_found": false,
-      "macOS_visit_found": false,
-      "validation_state": "skipped",
+      "iOS_visit_found": true,
+      "macOS_visit_found": true,
+      "validation_state": "pending",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2248,11 +2242,16 @@
         "light",
         "dark"
       ],
-      "verdict_per_appearance": null,
-      "skip_reason": "UI::PathView is a vector drawing / Bezier-path shape view (MoveTo/LineTo/CurveTo/Close), not a breadcrumb file-path control. The HIG path-controls slug maps to NSPathControl (macOS-only; explicitly not supported on iOS per HIG). No UI::PathControl or equivalent breadcrumb view exists in the library. The prior worklist mapping was incorrect. A UI::PathControl implementing NSPathControl would need to be designed from scratch. See validation/reports/path-controls.md and gaps.md.",
-      "remediation_hint": "Implement UI::PathControl as a new macOS-only view backed by NSPathControl (standard and popup styles). For iOS, the HIG specifies no equivalent; a custom HStack of Label+chevron pairs is the documented fallback. See gaps.md entry PATH-CONTROLS-MAPPING-MISMATCH.",
+      "verdict_per_appearance": {
+        "macos_light": "needs_work",
+        "macos_dark": "needs_work",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
+      },
+      "notes": "UI::PathControl now exists in the library and both native renderers visit it, but the current macOS study still falls through to an unknown-slug frame and the iOS breadcrumb fallback needs a calmer capture treatment before this row can be promoted.",
+      "remediation_hint": "Rebuild the path-controls study around UI::PathControl, regenerate all four captures, and replace the stale skipped report with a current validation note. macOS should validate the real NSPathControl surface; iOS can remain a documented fallback because HIG marks the control unsupported there.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "evidence_state": "not_applicable",
+      "evidence_state": "valid",
       "evidence_errors": []
     },
     {
@@ -2299,7 +2298,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3402,7 +3401,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "notes": "Toggle anatomy is correct, but the iOS study is still full-bleed and the macOS settings shell contributes more chrome than necessary. This remains pass_with_notes until the composition is calmer.",
       "glass_required": false,
@@ -3638,7 +3637,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3745,16 +3744,16 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 14,
-    "pending": 27,
+    "pass_with_notes": 17,
+    "pending": 25,
     "needs_work": 0,
     "fail": 0,
-    "skipped": 24
+    "skipped": 23
   },
   "evidence_counts": {
-    "valid": 17,
-    "invalid": 24,
-    "not_applicable": 24,
+    "valid": 19,
+    "invalid": 23,
+    "not_applicable": 23,
     "unknown": 0
   }
 }

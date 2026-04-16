@@ -1,17 +1,12 @@
 {
-  "errors": [
-    "screenshot newer than report: context-menus-macos-light.png",
-    "screenshot newer than report: context-menus-macos-dark.png",
-    "screenshot newer than report: context-menus-ios-light.png",
-    "screenshot newer than report: context-menus-ios-dark.png"
-  ],
-  "generated_at": "2026-04-16T17:26:01.721203+00:00",
+  "errors": [],
+  "generated_at": "2026-04-16T19:35:14.499739+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-13T23:51:00.668545+00:00",
+    "mtime": "2026-04-16T19:34:39.599540+00:00",
     "path": "reports/context-menus.md",
-    "sha256": "8e8c938d686f2edac6235dcce25199265456eb457ac0014fce1301de45cb989e",
-    "size_bytes": 7921
+    "sha256": "5b2765cd5658627eacdf1560628659182040255ab4bfbb942ce0afe26b2b58fe",
+    "size_bytes": 2661
   },
   "screenshots": {
     "ios_dark": {
@@ -52,7 +47,7 @@
     }
   },
   "slug": "context-menus",
-  "valid": false,
+  "valid": true,
   "validation_state": "pending",
   "warnings": []
 }
