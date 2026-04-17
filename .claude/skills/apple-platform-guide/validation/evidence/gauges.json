@@ -1,53 +1,53 @@
 {
   "errors": [],
-  "generated_at": "2026-04-17T09:22:42.095468+00:00",
+  "generated_at": "2026-04-17T11:47:57.446141+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-17T01:28:05.031811+00:00",
+    "mtime": "2026-04-17T11:47:24.439807+00:00",
     "path": "reports/gauges.md",
-    "sha256": "be3d550a77d13b1755baf27322ee86238a524601ba7f1be17ae2927b30aa26c4",
-    "size_bytes": 1022
+    "sha256": "9c45668b76e86bac94826a1b27260cf18d01c1f6d3b2d53bd1b6505ecf5ffe22",
+    "size_bytes": 1971
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-15T20:50:51.556909+00:00",
+      "mtime": "2026-04-17T09:43:50.781764+00:00",
       "path": "screenshots/gauges-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "0d6f094813725aff078bfc27f39a8afcc3308ba1e0076185af33de9c8ade2bdc",
-      "size_bytes": 744747
+      "sha256": "629c6a1988c870a095b9739f733865194ce082ef2aeb6947885554fbaeb5dd77",
+      "size_bytes": 604729
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-15T20:50:18.781466+00:00",
+      "mtime": "2026-04-17T09:43:15.061655+00:00",
       "path": "screenshots/gauges-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "9ba0472b0fc87e0d3ae638118fbe3ea57d9f975d72976171ed456febab207464",
-      "size_bytes": 478832
+      "sha256": "0cde42ba177c8d40a6e93bee9667b77f69f367881357f882546fa1d8ae28a2dc",
+      "size_bytes": 427208
     },
     "macos_dark": {
       "exists": true,
-      "mtime": "2026-04-15T20:25:15.519677+00:00",
+      "mtime": "2026-04-17T11:45:56.618842+00:00",
       "path": "screenshots/gauges-macos-dark.png",
       "pixel_height": 1800,
       "pixel_width": 2400,
-      "sha256": "43cca056b4f650bbab3523fda99d30becf99da15d1625117f6b2547d122d93ee",
-      "size_bytes": 125280
+      "sha256": "9d1a923e751097e2f5d6ff3263ec758489eda2437e749af6aed4a53a3335f895",
+      "size_bytes": 1288261
     },
     "macos_light": {
       "exists": true,
-      "mtime": "2026-04-15T20:25:14.656091+00:00",
+      "mtime": "2026-04-17T11:45:55.667996+00:00",
       "path": "screenshots/gauges-macos-light.png",
       "pixel_height": 1800,
       "pixel_width": 2400,
-      "sha256": "78770b13fd458081869afa15e3467e26e2cd144dc8a4c20a8030dee2fa5f6c07",
-      "size_bytes": 120053
+      "sha256": "b4d7d61b4e4543b85791198c1943af99e4c1ef43a5e03d945268fd1c90dd65c0",
+      "size_bytes": 968357
     }
   },
   "slug": "gauges",
   "valid": true,
-  "validation_state": "pending",
+  "validation_state": "pass_with_notes",
   "warnings": []
 }

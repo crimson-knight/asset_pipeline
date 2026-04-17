@@ -222,10 +222,15 @@ def render_row(row) -> str:
 
     backdrop_cell = render_backdrop_cell(row)
 
+    meta_bits = [f"<span class='ui-view'>{escape(ui_view)}</span>"]
+    if glass_note:
+        meta_bits.append(glass_note)
+    meta_line = " ".join(meta_bits)
+
     return f"""<tr>
 <td><span class='pri'>{priority}</span> <span class='slug'>{escape(slug)}</span><br>
 <span class='{st_cls}'>{st_lbl}</span>{f" · iter {escape(iteration)}" if iteration else ""} {render_evidence_badge(row)}<br>
-<span class='ui-view'>{escape(ui_view)}</span> {glass_note}
+{meta_line}
 {sub}
 {f"<span class='notes'>{escape(notes)}</span>" if notes else ""}</td>
 <td>{render_4grid(slug)}</td>

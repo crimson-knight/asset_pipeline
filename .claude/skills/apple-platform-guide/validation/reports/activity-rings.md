@@ -30,10 +30,13 @@ No screenshot captured. Same reason.
 
 ## Verdict: NEEDS_WORK
 
-No screenshots were captured. `UI::ActivityRings` is not implemented. The slug is `status:
-missing` in the worklist and there is no `src/ui/views/activity_rings.cr` file, no visit
-method in either renderer, and no host-factory arm. Row-level verdict is NEEDS_WORK across
-all four per-appearance sub-verdicts.
+No current screenshots were captured for a real three-ring study. The row is still
+`status: missing` because the full `UI::ActivityRings` composite does not exist yet and the
+slug still lacks host-factory arms. Honest progress has happened, though: a lower-level
+`UI::ActivityRing` primitive now exists as a single-ring building block, and the native
+host bridge can now render arc-based rings instead of falling back to an empty Canvas
+placeholder. Row-level verdict remains NEEDS_WORK until the full three-ring surface is
+implemented and recaptured.
 
 ### Liquid Glass check
 - **Required for this slug:** No. HIG classifies Activity Rings under "Health and fitness"
@@ -58,10 +61,10 @@ Not applicable. No captures exist. Same reasoning as light observations above.
 
 ### Deviations
 
-1. **`UI::ActivityRings` does not exist. NEEDS_WORK.**
-   `src/ui/views/activity_rings.cr` is absent. No entry in `platform_visitor.cr`. No
-   visit methods in `appkit_renderer.cr` or `uikit_renderer.cr`. No host-factory arm in
-   `hig_bridge.cr` or `hig_showcase.cr`.
+1. **The full `UI::ActivityRings` composite still does not exist. NEEDS_WORK.**
+   The repo now has a lower-level `UI::ActivityRing` building block, but it still lacks
+   `src/ui/views/activity_rings.cr`, a three-ring composite API, and host-factory arms in
+   `hig_bridge.cr` / `hig_showcase.cr` for the HIG slug itself.
 
 2. **macOS is explicitly out-of-scope per HIG. PASS_WITH_NOTES (once iOS is resolved).**
    HIG Platform considerations: "Not supported in macOS, tvOS, or visionOS." The macOS
@@ -69,12 +72,10 @@ Not applicable. No captures exist. Same reasoning as light observations above.
    that Activity Rings are an iOS-only element. macOS captures will show a labeled gray
    placeholder -- this is HIG-correct behavior, not a defect.
 
-3. **CAShapeLayer arc-path infrastructure is absent from `objc_bridge.m`. NEEDS_WORK.**
-   The ObjC bridge has no `CGMutablePath` factory, no `CGPathAddArc` wrapper, and no
-   `CAShapeLayer` setup helper. Drawing three concentric arcs with rounded lineCap requires
-   these helpers. The existing `objc_send_4d_ret_id` and `objc_send_1d` wrappers are not
-   sufficient alone -- `CGPathAddArc` takes six doubles plus a bool, which exceeds the
-   available wrappers and requires a new dedicated C function.
+3. **Three-ring composition is still absent even though single-ring arc rendering now exists. NEEDS_WORK.**
+   `objc_bridge.m` can now paint one native ring arc for Gauge / ActivityRing surfaces, but
+   there is still no dedicated `UI::ActivityRings` composition that stages the three HIG
+   rings together on the required black field.
 
 4. **`HKActivityRingView` (iOS HealthKit) cannot be used without authorization. NEEDS_WORK.**
    `HKActivityRingView` requires linking `HealthKitUI.framework` and the caller must have

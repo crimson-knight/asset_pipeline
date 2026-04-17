@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-17T09:22:42.096996+00:00",
+  "generated_at": "2026-04-17T11:47:57.446798+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -112,8 +112,8 @@
         "ios_light": "NEEDS_WORK",
         "ios_dark": "NEEDS_WORK"
       },
-      "remediation_hint": "Iteration 53 Path-B. No UI::ActivityRings view exists. Two blockers: (1) objc_bridge.m has no CGMutablePath/CGPathAddArc/CAShapeLayer helper for arc drawing -- add activity_rings_view_new() C factory; (2) HKActivityRingView requires HealthKitUI linkage that is absent from the iOS host build. Implement via CAShapeLayer arcs instead. macOS HIG explicitly unsupported -- emit a labeled NSView placeholder. See validation/reports/activity-rings.md Step 1-7 remediation plan.",
-      "notes": "Requires HealthKitUI.framework linkage (HKActivityRingView) OR new CAShapeLayer arc-path infrastructure in objc_bridge.m (see gaps.md iter-53). Skipped to preserve loop velocity on implemented components; re-queue by setting validation_state=pending when the drawing infrastructure lands.",
+      "remediation_hint": "Groundwork now exists via UI::ActivityRing and native ring-arc rendering in the host bridge, but the HIG row is still missing its full UI::ActivityRings composite plus dedicated host studies. Next step: build a three-ring composite view on a black field, wire the slug in both hosts, and re-run the iOS/macOS validation captures with honest notes that macOS is fallback-only.",
+      "notes": "A low-level UI::ActivityRing primitive now exists and the native bridge can render single-ring arcs, but the full HIG activity-rings surface is still missing: no UI::ActivityRings composite view, no dedicated host studies, and no current validation pass for the three-ring presentation Apple documents.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "not_applicable",
       "evidence_errors": []
@@ -1167,7 +1167,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -1175,10 +1175,15 @@
         "light",
         "dark"
       ],
-      "verdict_per_appearance": null,
-      "notes": "UI::Gauge now exists as a shared Canvas-backed fallback primitive with a circular track, progress arc, and centered value label. Host studies and native renderer polish are still open, so this row is implemented but not yet visually validated.",
+      "verdict_per_appearance": {
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
+      },
+      "notes": "The gauge studies now render a real native arc on both platforms instead of falling back to an empty Canvas placeholder. They stay notes-only because the ring rendering currently comes from a narrow arc-detection path, the iOS card still sits a little high and left in frame, and this batch validates a single quiet dial rather than a fuller family of gauge styles.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "evidence_state": "invalid",
+      "evidence_state": "valid",
       "evidence_errors": []
     },
     {
@@ -3701,15 +3706,15 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 36,
-    "pending": 12,
+    "pass_with_notes": 37,
+    "pending": 11,
     "needs_work": 0,
     "fail": 0,
     "skipped": 17
   },
   "evidence_counts": {
-    "valid": 33,
-    "invalid": 14,
+    "valid": 34,
+    "invalid": 13,
     "not_applicable": 18,
     "unknown": 0
   }
