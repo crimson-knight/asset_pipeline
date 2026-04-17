@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2026-04-17T13:39:40.865441+00:00",
+  "generated_at": "2026-04-17T15:26:53.801715+00:00",
   "report": {
     "exists": true,
     "mtime": "2026-04-17T13:38:08.975580+00:00",
@@ -48,6 +48,6 @@
   },
   "slug": "menus",
   "valid": true,
-  "validation_state": "pending",
+  "validation_state": "pass_with_notes",
   "warnings": []
 }
