@@ -43,7 +43,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 .summary .stat-num{font-size:28px;font-weight:700}
 .summary .stat-label{font-size:11px;color:#636366;text-transform:uppercase;letter-spacing:.04em}</style>
 <h1>Apple HIG validation &mdash; dashboard</h1>
-<p>Generated 2026-04-17T16:17:47Z. <strong>49/65</strong> auditable studies reached a terminal state (<strong>75%</strong>). 16 skipped, 0 needs-work, 0 pending, 0 with stale evidence.</p>
+<p>Generated 2026-04-17T16:23:21Z. <strong>49/65</strong> auditable studies reached a terminal state (<strong>75%</strong>). 16 skipped, 0 needs-work, 0 pending, 0 with stale evidence.</p>
 <div class='summary'>
 <div class='stat'><div class='stat-num' style='color:#34c759'>49</div><div class='stat-label'>Passing</div></div>
 <div class='stat'><div class='stat-num' style='color:#8e8e93'>16</div><div class='stat-label'>Skipped</div></div>
@@ -567,14 +567,14 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 </tr>
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>live-activities</span><br>
-<span class='v-skip'>SKIPPED</span> <span class='evidence ev-na'>evidence n/a</span><br>
-<span class='ui-view'></span>
+<span class='v-skip'>SKIPPED</span> · iter 1 <span class='evidence ev-na'>evidence n/a</span><br>
+<span class='ui-view'>UI::LiveActivities</span>
 
-<span class='notes'>iOS ActivityKit runtime feature (Dynamic Island/Lock Screen). Requires WidgetKit extension + ActivityKit framework; rendered by system, not in-app. Skipped as not-applicable-to-capture.</span></td>
+<span class='notes'>Implemented as an export-oriented ActivityKit metadata surface. The Lock Screen and Dynamic Island remain system-owned, so screenshot validation stays skipped while the shard models attributes, content state, and update intent payloads.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/live-activities-macos-light.png'><img src='screenshots/live-activities-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/live-activities-macos-dark.png'><img src='screenshots/live-activities-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/live-activities-ios-light.png'><img src='screenshots/live-activities-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/live-activities-ios-dark.png'><img src='screenshots/live-activities-ios-dark.png'></a></div></div></td>
 <td><a href='../../apple-hig/images/components-live-activities-intro.png'><img class='small' src='../../apple-hig/images/components-live-activities-intro.png'></a></td>
 <td><div class='backdrop-cell'><a href='backdrops/lock-screen-amber-dark.png'><img class='backdrop-thumb' src='backdrops/lock-screen-amber-dark.png'></a><span class='backdrop-name'>lock-screen-amber</span></div></td>
-<td><a href='../components/live-activities.md'>usage doc</a></td>
+<td><a href='reports/live-activities.md'>report</a> · <a href='../components/live-activities.md'>usage doc</a></td>
 </tr>
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>maps</span><br>
@@ -754,14 +754,14 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 </tr>
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>widgets</span><br>
-<span class='v-skip'>SKIPPED</span> <span class='evidence ev-na'>evidence n/a</span><br>
-<span class='ui-view'></span>
+<span class='v-skip'>SKIPPED</span> · iter 1 <span class='evidence ev-na'>evidence n/a</span><br>
+<span class='ui-view'>UI::Widgets</span>
 
-<span class='notes'>WidgetKit extension only — widgets are separate targets rendered by the Home Screen. Not an in-app UI::View. Skipped as platform-inapplicable.</span></td>
+<span class='notes'>Implemented as an export-oriented WidgetKit metadata surface. Widgets remain system-owned Home Screen or desktop extensions, so screenshot validation stays skipped while the shard models widget declarations and placement intent.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/widgets-macos-light.png'><img src='screenshots/widgets-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/widgets-macos-dark.png'><img src='screenshots/widgets-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/widgets-ios-light.png'><img src='screenshots/widgets-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/widgets-ios-dark.png'><img src='screenshots/widgets-ios-dark.png'></a></div></div></td>
 <td><a href='../../apple-hig/images/components-widgets-intro.png'><img class='small' src='../../apple-hig/images/components-widgets-intro.png'></a></td>
 <td><div class='backdrop-cell'><a href='backdrops/home-screen-amber-wallpaper-light.png'><img class='backdrop-thumb' src='backdrops/home-screen-amber-wallpaper-light.png'></a><span class='backdrop-name'>home-screen-amber-wallpaper</span></div></td>
-<td><a href='../components/widgets.md'>usage doc</a></td>
+<td><a href='reports/widgets.md'>report</a> · <a href='../components/widgets.md'>usage doc</a></td>
 </tr>
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>windows</span><br>

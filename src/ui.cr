@@ -1,5 +1,7 @@
 require "./ui/view"
 require "./ui/app_shortcuts"
+require "./ui/live_activities"
+require "./ui/widgets"
 require "./ui/windows"
 require "./ui/quick_actions"
 require "./ui/views/*"

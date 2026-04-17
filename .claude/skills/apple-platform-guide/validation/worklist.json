@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-17T16:17:47.545605+00:00",
+  "generated_at": "2026-04-17T16:23:21.671484+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -17,7 +17,7 @@
     "patterns": 66,
     "platform_guides": 4,
     "collections": 14,
-    "implemented": 59,
+    "implemented": 61,
     "stub": 0,
     "missing": 0
   },
@@ -36,7 +36,9 @@
       "macOS_visit_found": false,
       "validation_state": "skipped",
       "skip_reason": "foundation",
-      "docs_written": false
+      "docs_written": false,
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "action-button",
@@ -1650,9 +1652,9 @@
       "hig_page": "../apple-hig/pages/live-activities.md",
       "hig_ref_image": "../apple-hig/images/components-live-activities-intro.png",
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "n/a",
+      "ui_view": "UI::LiveActivities",
+      "ui_view_file": "src/ui/live_activities.cr",
+      "status": "implemented",
       "priority": "P2",
       "iOS_visit_found": false,
       "macOS_visit_found": false,
@@ -1665,7 +1667,8 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "iOS ActivityKit runtime feature (Dynamic Island/Lock Screen). Requires WidgetKit extension + ActivityKit framework; rendered by system, not in-app. Skipped as not-applicable-to-capture.",
+      "notes": "Implemented as an export-oriented ActivityKit metadata surface. The Lock Screen and Dynamic Island remain system-owned, so screenshot validation stays skipped while the shard models attributes, content state, and update intent payloads.",
+      "skip_reason": "activitykit-metadata-not-view",
       "backdrop": "lock-screen-amber",
       "evidence_state": "not_applicable",
       "evidence_errors": []
@@ -1684,7 +1687,9 @@
       "macOS_visit_found": false,
       "validation_state": "skipped",
       "skip_reason": "pattern",
-      "docs_written": false
+      "docs_written": false,
+      "evidence_state": "not_applicable",
+      "evidence_errors": []
     },
     {
       "slug": "live-viewing-apps",
@@ -3566,9 +3571,9 @@
       "hig_page": "../apple-hig/pages/widgets.md",
       "hig_ref_image": "../apple-hig/images/components-widgets-intro.png",
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "n/a",
+      "ui_view": "UI::Widgets",
+      "ui_view_file": "src/ui/widgets.cr",
+      "status": "implemented",
       "priority": "P2",
       "iOS_visit_found": false,
       "macOS_visit_found": false,
@@ -3581,7 +3586,8 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "WidgetKit extension only \u2014 widgets are separate targets rendered by the Home Screen. Not an in-app UI::View. Skipped as platform-inapplicable.",
+      "notes": "Implemented as an export-oriented WidgetKit metadata surface. Widgets remain system-owned Home Screen or desktop extensions, so screenshot validation stays skipped while the shard models widget declarations and placement intent.",
+      "skip_reason": "widgetkit-metadata-not-view",
       "backdrop": "home-screen-amber-wallpaper",
       "evidence_state": "not_applicable",
       "evidence_errors": []
