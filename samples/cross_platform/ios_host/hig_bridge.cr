@@ -146,6 +146,8 @@ module CrystalHIGHost::Bridge
       centered_isolation_plate(focal)
     when "image-wells"
       centered_isolation_plate(focal)
+    when "gauges"
+      centered_isolation_plate(focal)
     when "path-controls"
       centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "outline-views"
@@ -1631,6 +1633,29 @@ module CrystalHIGHost::Bridge
               ios_image_well.viewport_height = 0.0
               ios_image_well.accessibility_label = "Profile photo image well"
               ios_image_well.as(UI::View)
+            when "gauges"
+              # HIG gauges: a compact circular instrument that communicates a
+              # single status metric at a glance without turning into a dense
+              # dashboard.
+              ios_gauge = UI::Gauge.new(
+                72.0,
+                0.0,
+                100.0,
+                "Battery reserve",
+                "Quiet status at a glance",
+                "Updated 2m ago",
+                nil
+              )
+              ios_gauge.units = "%"
+              ios_gauge.value_precision = 0
+              ios_gauge.diameter = 156.0
+              ios_gauge.ring_thickness = 12.0
+              ios_gauge.track_color = UI::Color.new(r: 0.88, g: 0.83, b: 0.76)
+              ios_gauge.progress_color = UI::Color.new(r: 0.84, g: 0.49, b: 0.12)
+              ios_gauge.viewport_width = 280.0
+              ios_gauge.viewport_height = 0.0
+              ios_gauge.accessibility_label = "Battery reserve gauge"
+              ios_gauge.as(UI::View)
             when "pull-down-buttons"
               # HIG: "A pull-down button displays a menu of items or actions
               # that directly relate to the button's purpose."  On iOS, renders

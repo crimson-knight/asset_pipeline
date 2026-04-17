@@ -109,6 +109,7 @@ require "../../../src/ui/validation_scenes"
     "column-views"  => "ambient",
     "token-fields"  => "ambient",
     "image-wells"   => "ambient",
+    "gauges"        => "ambient",
     "boxes"         => "ambient",
     "outline-views" => "ambient",
     "path-controls" => "ambient",
@@ -1206,6 +1207,29 @@ require "../../../src/ui/validation_scenes"
       image_well.viewport_height = 0.0
       image_well.accessibility_label = "Image well study"
       image_well.as(UI::View)
+    when "gauges"
+      # Instrument-like gauge study: compact, centered, and quietly technical.
+      # The fallback gauge already provides the circular stage, so this case
+      # keeps the framing restrained and lets the ring read like a real tool.
+      gauge = UI::Gauge.new(
+        68.0,
+        0.0,
+        100.0,
+        "System load",
+        "Current thermal headroom",
+        "Amber monitoring dial",
+        "A single, readable meter with enough gutter to feel intentional."
+      )
+      gauge.units = "%"
+      gauge.value_precision = 0
+      gauge.diameter = 176.0
+      gauge.ring_thickness = 12.0
+      gauge.track_color = UI::Color.new(r: 0.82, g: 0.78, b: 0.72)
+      gauge.progress_color = UI::Color.new(r: 1.0, g: 0.58, b: 0.0)
+      gauge.viewport_width = 452.0
+      gauge.viewport_height = 0.0
+      gauge.accessibility_label = "Gauge study"
+      gauge.as(UI::View)
     when "text-views"
       # HIG text-views: multi-line, scrollable text editing area.
       # HIG abstract: "A text view displays multiline, styled text content,

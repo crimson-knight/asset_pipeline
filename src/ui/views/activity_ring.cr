@@ -1,14 +1,13 @@
 require "../view"
 
 module UI
-  # A circular gauge rendered as a shared fallback surface.
+  # A circular activity ring rendered as a shared fallback surface.
   #
-  # The primitive intentionally stays conservative: a determinate value range,
-  # an optional label/prompt/caption/help block, and a composed preview surface
-  # built from Canvas plus existing text and container views. Native renderers
-  # can later map this to a platform gauge or chart control without changing
-  # the shared API.
-  class Gauge < View
+  # The primitive stays intentionally modest: a determinate value range,
+  # optional supporting copy, and a composed ring stage built from Canvas
+  # arc operations plus existing stack/label views. Native bridges can come
+  # later without changing the public shared API.
+  class ActivityRing < View
     property value : Float64 = 0.0
     property minimum_value : Float64 = 0.0
     property maximum_value : Float64 = 100.0
@@ -19,12 +18,12 @@ module UI
     property caption : String? = nil
     property help_text : String? = nil
     property show_value : Bool = true
-    property diameter : Float64 = 180.0
-    property ring_thickness : Float64 = 12.0
-    property start_angle : Float64 = -2.356194490192345
-    property end_angle : Float64 = 2.356194490192345
-    property track_color : Color = Color.new(r: 0.82, g: 0.83, b: 0.86)
-    property progress_color : Color = Color.new(r: 0.28, g: 0.46, b: 0.84)
+    property diameter : Float64 = 176.0
+    property ring_thickness : Float64 = 14.0
+    property start_angle : Float64 = -1.5707963267948966
+    property end_angle : Float64 = 4.71238898038469
+    property track_color : Color = Color.new(r: 0.84, g: 0.85, b: 0.88)
+    property progress_color : Color = Color.new(r: 0.31, g: 0.58, b: 0.96)
     property viewport_width : Float64 = 0.0
     property viewport_height : Float64 = 0.0
 

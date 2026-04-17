@@ -78,6 +78,7 @@ module UI::AppKit
     fun mkmapview_new(latitude : Float64, longitude : Float64, latitude_delta : Float64, longitude_delta : Float64, map_type : Int64, shows_user_location : Int32) : Void*
     fun mkmapview_add_annotation(map_view : Void*, latitude : Float64, longitude : Float64, title : UInt8*, subtitle : UInt8*) : Void
     fun video_player_view_new(url : UInt8*, shows_controls : Int32, auto_play : Int32, muted : Int32, loop : Int32) : Void*
+    fun ap_ring_view_new(width : Float64, height : Float64, center_x : Float64, center_y : Float64, radius : Float64, track_start_angle : Float64, track_end_angle : Float64, progress_start_angle : Float64, progress_end_angle : Float64, line_width : Float64, track_r : Float64, track_g : Float64, track_b : Float64, track_a : Float64, progress_r : Float64, progress_g : Float64, progress_b : Float64, progress_a : Float64) : Void*
     fun nssharingservicepicker_present(anchor_view : Void*, text : UInt8*, url : UInt8*) : Void
 
     # --- Section 5a: NSSwitch factory (macOS 10.15+) ---
@@ -3131,12 +3132,61 @@ module UI::AppKit
     end
 
     def visit(view : UI::Canvas)
-      ptr = alloc_init("NSView")
-      LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)
-      rect = LibObjCBridge::CGRect.new(x: 0.0, y: 0.0, width: view.width, height: view.height)
-      LibObjCBridge.objc_set_frame(ptr, rect)
+      ptr = native_ring_canvas_view(view)
+      if ptr.null?
+        ptr = alloc_init("NSView")
+        LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)
+        rect = LibObjCBridge::CGRect.new(x: 0.0, y: 0.0, width: view.width, height: view.height)
+        LibObjCBridge.objc_set_frame(ptr, rect)
+      end
       apply_common_properties(ptr, view)
       emit(ptr, "NSView[canvas]")
+    end
+
+    private def native_ring_canvas_view(view : UI::Canvas) : Void*
+      ops = view.operations
+      return Pointer(Void).null unless ops.size == 10
+
+      expected = [
+        UI::DrawCommand::BeginPath,
+        UI::DrawCommand::Arc,
+        UI::DrawCommand::SetStrokeColor,
+        UI::DrawCommand::SetLineWidth,
+        UI::DrawCommand::Stroke,
+        UI::DrawCommand::BeginPath,
+        UI::DrawCommand::Arc,
+        UI::DrawCommand::SetStrokeColor,
+        UI::DrawCommand::SetLineWidth,
+        UI::DrawCommand::Stroke,
+      ]
+      return Pointer(Void).null unless ops.map(&.command) == expected
+
+      track_arc = ops[1]
+      progress_arc = ops[6]
+      track_color = ops[2].color
+      progress_color = ops[7].color
+      line_width = ops[8].x > 0.0 ? ops[8].x : ops[3].x
+
+      LibObjCBridge.ap_ring_view_new(
+        view.width,
+        view.height,
+        track_arc.x,
+        track_arc.y,
+        track_arc.radius,
+        track_arc.start_angle,
+        track_arc.end_angle,
+        progress_arc.start_angle,
+        progress_arc.end_angle,
+        line_width,
+        track_color.r,
+        track_color.g,
+        track_color.b,
+        track_color.a,
+        progress_color.r,
+        progress_color.g,
+        progress_color.b,
+        progress_color.a
+      )
     end
 
     def visit(view : UI::PathView)

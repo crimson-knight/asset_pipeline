@@ -118,6 +118,10 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "Gauge(#{view.value})"
   end
 
+  def visit(view : UI::ActivityRing)
+    @visited << "ActivityRing(#{view.value})"
+  end
+
   def visit(view : UI::SecureField)
     @visited << "SecureField(#{view.placeholder})"
   end
@@ -2635,6 +2639,60 @@ describe UI::Gauge do
     visitor = TestVisitor.new
     gauge.accept(visitor)
     visitor.visited.should eq(["Gauge(55.0)"])
+  end
+end
+
+describe UI::ActivityRing do
+  it "stores range and label metadata" do
+    ring = UI::ActivityRing.new(54.0, 0.0, 100.0, "Move", "Today", "Close the ring", "Progress ring")
+    ring.units.should eq("%")
+    ring.value_precision.should eq(0)
+    ring.label.should eq("Move")
+    ring.prompt.should eq("Today")
+    ring.caption.should eq("Close the ring")
+    ring.help_text.should eq("Progress ring")
+    ring.normalized_value.should eq(54.0)
+    ring.progress_fraction.should eq(0.54)
+    ring.display_value.should eq("54%")
+  end
+
+  it "builds a canvas-driven fallback surface" do
+    ring = UI::ActivityRing.new(88.0, 0.0, 100.0, "Activity", "Daily goal", "A friendly ring readout", "Finish the day strong")
+    ring.diameter = 184.0
+    ring.ring_thickness = 16.0
+
+    fallback = ring.fallback_view
+    fallback.should be_a(UI::Card)
+
+    card = fallback.as(UI::Card)
+    body = card.content.as(UI::VStack)
+    body.children.size.should eq(5)
+    body.children[0].should be_a(UI::Label)
+    body.children[1].should be_a(UI::Label)
+    body.children[2].should be_a(UI::ZStack)
+    body.children[3].should be_a(UI::Label)
+    body.children[4].should be_a(UI::Label)
+
+    stage = body.children[2].as(UI::ZStack)
+    stage.children.size.should eq(2)
+
+    canvas = stage.children[0].as(UI::Canvas)
+    canvas.width.should eq(184.0)
+    canvas.height.should eq(184.0)
+    canvas.operations.map(&.command).should contain(UI::DrawCommand::Arc)
+    canvas.operations.map(&.command).should contain(UI::DrawCommand::Stroke)
+
+    overlay = stage.children[1].as(UI::VStack)
+    overlay.children.size.should eq(1)
+    overlay.children[0].as(UI::Label).text.should eq("88%")
+  end
+
+  it "accepts visitor" do
+    ring = UI::ActivityRing.new(42.0)
+
+    visitor = TestVisitor.new
+    ring.accept(visitor)
+    visitor.visited.should eq(["ActivityRing(42.0)"])
   end
 end
 

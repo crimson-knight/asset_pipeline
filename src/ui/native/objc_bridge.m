@@ -30,6 +30,7 @@
 
 #if TARGET_OS_OSX
   #import <AppKit/AppKit.h>
+  #import <QuartzCore/QuartzCore.h>
   #import <WebKit/WebKit.h>
   #import <MapKit/MapKit.h>
   #import <AVKit/AVKit.h>
@@ -1569,6 +1570,86 @@ void *video_player_view_new(const char *url_cstr,
     if (player && auto_play) [player play];
     return (void *)player_view;
 #endif
+}
+
+void *ap_ring_view_new(double width,
+                       double height,
+                       double center_x,
+                       double center_y,
+                       double radius,
+                       double track_start_angle,
+                       double track_end_angle,
+                       double progress_start_angle,
+                       double progress_end_angle,
+                       double line_width,
+                       double track_r,
+                       double track_g,
+                       double track_b,
+                       double track_a,
+                       double progress_r,
+                       double progress_g,
+                       double progress_b,
+                       double progress_a) {
+#if TARGET_OS_OSX
+    NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0.0, 0.0, width, height)];
+    if (!view) return NULL;
+    [view setWantsLayer:YES];
+    if (!view.layer) {
+        view.layer = [CALayer layer];
+    }
+    view.layer.backgroundColor = NSColor.clearColor.CGColor;
+#else
+    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0.0, 0.0, width, height)];
+    if (!view) return NULL;
+    view.backgroundColor = UIColor.clearColor;
+#endif
+
+    CGMutablePathRef track_path = CGPathCreateMutable();
+    CGPathAddArc(track_path,
+                 NULL,
+                 (CGFloat)center_x,
+                 (CGFloat)center_y,
+                 (CGFloat)radius,
+                 (CGFloat)track_start_angle,
+                 (CGFloat)track_end_angle,
+                 false);
+
+    CGMutablePathRef progress_path = CGPathCreateMutable();
+    CGPathAddArc(progress_path,
+                 NULL,
+                 (CGFloat)center_x,
+                 (CGFloat)center_y,
+                 (CGFloat)radius,
+                 (CGFloat)progress_start_angle,
+                 (CGFloat)progress_end_angle,
+                 false);
+
+    id track_color = nscolor_rgba(track_r, track_g, track_b, track_a);
+    id progress_color = nscolor_rgba(progress_r, progress_g, progress_b, progress_a);
+
+    CAShapeLayer *track_layer = [CAShapeLayer layer];
+    track_layer.frame = CGRectMake(0.0, 0.0, width, height);
+    track_layer.path = track_path;
+    track_layer.fillColor = NULL;
+    track_layer.strokeColor = track_color ? [track_color CGColor] : NULL;
+    track_layer.lineWidth = (CGFloat)line_width;
+    track_layer.lineCap = kCALineCapRound;
+
+    CAShapeLayer *progress_layer = [CAShapeLayer layer];
+    progress_layer.frame = CGRectMake(0.0, 0.0, width, height);
+    progress_layer.path = progress_path;
+    progress_layer.fillColor = NULL;
+    progress_layer.strokeColor = progress_color ? [progress_color CGColor] : NULL;
+    progress_layer.lineWidth = (CGFloat)line_width;
+    progress_layer.lineCap = kCALineCapRound;
+
+    [view.layer addSublayer:track_layer];
+    [view.layer addSublayer:progress_layer];
+
+    CGPathRelease(track_path);
+    CGPathRelease(progress_path);
+
+    return (void *)view;
 }
 
 static NSMutableArray *ap_share_items_from_payload(NSString *text, NSString *url_string) {
