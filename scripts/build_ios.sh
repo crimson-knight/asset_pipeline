@@ -176,6 +176,7 @@ step "Output:  $DYLIB_FILE"
     -framework UIKit \
     -framework Foundation \
     -framework CoreFoundation \
+    -framework UserNotifications \
     -framework WebKit \
     -framework MapKit \
     -framework CoreLocation \

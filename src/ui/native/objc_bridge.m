@@ -31,6 +31,7 @@
 #if TARGET_OS_OSX
   #import <AppKit/AppKit.h>
   #import <QuartzCore/QuartzCore.h>
+  #import <UserNotifications/UserNotifications.h>
   #import <WebKit/WebKit.h>
   #import <MapKit/MapKit.h>
   #import <AVKit/AVKit.h>
@@ -42,6 +43,7 @@
 #else
   #import <UIKit/UIKit.h>
   #import <QuartzCore/QuartzCore.h>
+  #import <UserNotifications/UserNotifications.h>
   #import <WebKit/WebKit.h>
   #import <MapKit/MapKit.h>
   #import <AVKit/AVKit.h>
@@ -1909,6 +1911,129 @@ void uiactivityview_present(void *anchor_view_ptr,
     });
 }
 #endif
+
+static UNUserNotificationCenter *ap_notifications_center(void) {
+    Class center_class = NSClassFromString(@"UNUserNotificationCenter");
+    if (!center_class) return nil;
+    return [UNUserNotificationCenter currentNotificationCenter];
+}
+
+long long ap_notifications_authorization_status(void) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return 5;
+
+    __block long long status = 5;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings) {
+        if (settings) {
+            status = (long long)settings.authorizationStatus;
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC));
+    dispatch_semaphore_wait(sema, timeout);
+    return status;
+}
+
+int ap_notifications_request_authorization(int alert, int sound, int badge) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return 0;
+
+    UNAuthorizationOptions options = 0;
+    if (alert) options |= UNAuthorizationOptionAlert;
+    if (sound) options |= UNAuthorizationOptionSound;
+    if (badge) options |= UNAuthorizationOptionBadge;
+
+    __block BOOL granted = NO;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    [center requestAuthorizationWithOptions:options completionHandler:^(BOOL ok, NSError *error) {
+        granted = (ok && error == nil);
+        dispatch_semaphore_signal(sema);
+    }];
+
+    dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC));
+    dispatch_semaphore_wait(sema, timeout);
+    return granted ? 1 : 0;
+}
+
+int ap_notifications_schedule_local(const char *identifier_cstr,
+                                    const char *title_cstr,
+                                    const char *subtitle_cstr,
+                                    const char *body_cstr,
+                                    double delay_seconds,
+                                    int badge,
+                                    int play_sound,
+                                    int repeats,
+                                    const char *thread_id_cstr) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return 0;
+
+    NSString *title = ap_string_from_cstr(title_cstr);
+    NSString *body = ap_string_from_cstr(body_cstr);
+    if (!title || !body || !title.length || !body.length) return 0;
+
+    NSString *identifier = ap_string_from_cstr(identifier_cstr);
+    if (!identifier || !identifier.length) {
+        identifier = [NSString stringWithFormat:@"ui-notification-%f", CFAbsoluteTimeGetCurrent()];
+    }
+
+    NSString *subtitle = ap_string_from_cstr(subtitle_cstr);
+    NSString *thread_id = ap_string_from_cstr(thread_id_cstr);
+
+    UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+    content.title = title;
+    content.body = body;
+    if (subtitle && subtitle.length) {
+        content.subtitle = subtitle;
+    }
+    if (thread_id && thread_id.length) {
+        content.threadIdentifier = thread_id;
+    }
+    if (badge >= 0) {
+        content.badge = [NSNumber numberWithInt:badge];
+    }
+    if (play_sound) {
+        content.sound = UNNotificationSound.defaultSound;
+    }
+
+    NSTimeInterval interval = delay_seconds > 0.0 ? delay_seconds : 0.25;
+    if (repeats && interval < 60.0) {
+        interval = 60.0;
+    }
+
+    UNTimeIntervalNotificationTrigger *trigger =
+        [UNTimeIntervalNotificationTrigger triggerWithTimeInterval:interval repeats:(BOOL)repeats];
+    UNNotificationRequest *request =
+        [UNNotificationRequest requestWithIdentifier:identifier content:content trigger:trigger];
+
+    __block BOOL scheduled = NO;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    [center addNotificationRequest:request withCompletionHandler:^(NSError *error) {
+        scheduled = (error == nil);
+        dispatch_semaphore_signal(sema);
+    }];
+
+    dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC));
+    dispatch_semaphore_wait(sema, timeout);
+    [content release];
+    return scheduled ? 1 : 0;
+}
+
+void ap_notifications_remove_pending(const char *identifier_cstr) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return;
+
+    NSString *identifier = ap_string_from_cstr(identifier_cstr);
+    if (!identifier || !identifier.length) return;
+    [center removePendingNotificationRequestsWithIdentifiers:@[identifier]];
+}
+
+void ap_notifications_remove_all_pending(void) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return;
+    [center removeAllPendingNotificationRequests];
+}
 
 // ============================================================
 // Section 5: CrystalActionDispatcher — dynamic ObjC class for

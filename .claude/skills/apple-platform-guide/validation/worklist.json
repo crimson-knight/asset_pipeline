@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-17T15:10:05.983335+00:00",
+  "generated_at": "2026-04-17T15:17:32.834672+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -17,9 +17,9 @@
     "patterns": 66,
     "platform_guides": 4,
     "collections": 14,
-    "implemented": 51,
+    "implemented": 52,
     "stub": 0,
-    "missing": 14
+    "missing": 13
   },
   "pages": [
     {
@@ -2034,14 +2034,14 @@
       "hig_page": "../apple-hig/pages/notifications.md",
       "hig_ref_image": "../apple-hig/images/components-notification-intro.png",
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "missing",
+      "ui_view": "UI::Notifications",
+      "ui_view_file": "src/ui/notifications.cr",
+      "status": "implemented",
       "priority": "P2",
       "iOS_visit_found": false,
       "macOS_visit_found": false,
       "validation_state": "skipped",
-      "docs_written": false,
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -2049,7 +2049,7 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "UserNotifications framework + extension. Notification UI is system-rendered in Notification Center / banners. Skipped as not-applicable-to-capture.",
+      "notes": "Implemented on 2026-04-17 as a native UserNotifications bridge for local notifications. This row stays skipped for screenshot validation because banners and Notification Center presentation are system-rendered rather than part of the shard's in-app view tree.",
       "backdrop": "lock-screen-amber",
       "evidence_state": "not_applicable",
       "evidence_errors": []

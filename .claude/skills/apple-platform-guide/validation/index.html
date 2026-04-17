@@ -43,7 +43,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 .summary .stat-num{font-size:28px;font-weight:700}
 .summary .stat-label{font-size:11px;color:#636366;text-transform:uppercase;letter-spacing:.04em}</style>
 <h1>Apple HIG validation &mdash; dashboard</h1>
-<p>Generated 2026-04-17T15:10:06Z. <strong>49/65</strong> auditable studies reached a terminal state (<strong>75%</strong>). 16 skipped, 0 needs-work, 0 pending, 6 with stale evidence.</p>
+<p>Generated 2026-04-17T15:17:32Z. <strong>49/65</strong> auditable studies reached a terminal state (<strong>75%</strong>). 16 skipped, 0 needs-work, 0 pending, 6 with stale evidence.</p>
 <div class='summary'>
 <div class='stat'><div class='stat-num' style='color:#34c759'>49</div><div class='stat-label'>Passing</div></div>
 <div class='stat'><div class='stat-num' style='color:#8e8e93'>16</div><div class='stat-label'>Skipped</div></div>
@@ -590,13 +590,13 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>notifications</span><br>
 <span class='v-skip'>SKIPPED</span> <span class='evidence ev-na'>evidence n/a</span><br>
-<span class='ui-view'></span>
+<span class='ui-view'>UI::Notifications</span>
 
-<span class='notes'>UserNotifications framework + extension. Notification UI is system-rendered in Notification Center / banners. Skipped as not-applicable-to-capture.</span></td>
+<span class='notes'>Implemented on 2026-04-17 as a native UserNotifications bridge for local notifications. This row stays skipped for screenshot validation because banners and Notification Center presentation are system-rendered rather than part of the shard&#x27;s in-app view tree.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/notifications-macos-light.png'><img src='screenshots/notifications-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/notifications-macos-dark.png'><img src='screenshots/notifications-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/notifications-ios-light.png'><img src='screenshots/notifications-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/notifications-ios-dark.png'><img src='screenshots/notifications-ios-dark.png'></a></div></div></td>
 <td><a href='../../apple-hig/images/components-notification-intro.png'><img class='small' src='../../apple-hig/images/components-notification-intro.png'></a></td>
 <td><div class='backdrop-cell'><a href='backdrops/lock-screen-amber-dark.png'><img class='backdrop-thumb' src='backdrops/lock-screen-amber-dark.png'></a><span class='backdrop-name'>lock-screen-amber</span></div></td>
-<td><span class='missing'>no docs</span></td>
+<td><a href='../components/notifications.md'>usage doc</a></td>
 </tr>
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>ornaments</span><br>

@@ -30,6 +30,7 @@ targets:
         - -liconv
         - -framework UIKit
         - -framework Foundation
+        - -framework UserNotifications
         - -framework WebKit
         - -framework MapKit
         - -framework CoreLocation

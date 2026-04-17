@@ -2,6 +2,7 @@ require "./ui/view"
 require "./ui/views/*"
 require "./ui/platform_visitor"
 require "./ui/theme"
+require "./ui/notifications"
 require "./ui/renderers/web_renderer"
 
 # Reactive state and component bridge

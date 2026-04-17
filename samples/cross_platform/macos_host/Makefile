@@ -40,6 +40,7 @@ WIN_HELPER_SRC := $(PROJECT_DIR)/window_helper.m
 MACOS_FRAMEWORKS := -framework AppKit -framework Foundation \
 	-framework ApplicationServices -framework CoreFoundation \
 	-framework CoreGraphics -framework ImageIO -framework QuartzCore \
+	-framework UserNotifications \
 	-framework WebKit -framework MapKit -framework CoreLocation -framework AVKit -framework AVFoundation \
 	-lobjc
 
