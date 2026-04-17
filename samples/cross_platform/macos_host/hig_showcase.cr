@@ -89,16 +89,16 @@ require "../../../src/ui/validation_scenes"
     "buttons"             => "settings",
     "toggles"             => "ambient",
     "sliders"             => "ambient",
-    "steppers"            => "settings",
+    "steppers"            => "ambient",
     "pickers"             => "ambient",
     "segmented-controls"  => "ambient",
-    "pop-up-buttons"      => "settings",
-    "pull-down-buttons"   => "settings",
+    "pop-up-buttons"      => "ambient",
+    "pull-down-buttons"   => "ambient",
     "disclosure-controls" => "settings",
     "color-wells"         => "settings",
     "combo-boxes"         => "settings",
-    # Iter B -- document scene additions
-    "menus" => "document",
+    # Iter B -- ambient scene additions
+    "menus" => "ambient",
     # Iter B -- dashboard scene additions
     "activity-views" => "dashboard",
     # Iter B -- ambient scene
@@ -720,9 +720,10 @@ require "../../../src/ui/validation_scenes"
       # This slug is the generic Menus page (distinct from context-menus /
       # edit-menus / dock-menus which cover specific use cases).
       #
-      # We render TWO inline menu surfaces stacked in a VStack, each wrapped
-      # in a UI::Sheet (grouped_card glass surface) -- same inline-capture
-      # pattern used by context-menus, dock-menus, and edit-menus.
+      # We render TWO inline menu surfaces stacked in a VStack. Routing this
+      # slug through the ambient scene keeps the study centered and lets the
+      # menu surfaces read as deliberate product samples instead of a raw demo
+      # page.
       #
       # Surface A: "File" pull-down menu (macOS menu-bar style).
       #   Canonical macOS File menu item set (NSMenu "File" convention):
@@ -744,7 +745,19 @@ require "../../../src/ui/validation_scenes"
       #
       # No destructive items in File or Sort menus (correct -- data operations
       # require confirmation dialogs, not plain menu items per HIG Alerts).
-      outer = UI::VStack.new(spacing: 16.0)
+      outer = UI::VStack.new(spacing: 14.0)
+      outer.alignment = UI::Alignment::Center
+
+      menus_title = UI::Label.new("Menus")
+      menus_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      menus_title.accessibility_label = "Menus study title"
+      outer << menus_title.as(UI::View)
+
+      menus_subtitle = UI::Label.new("Flat menu surfaces with quieter spacing.")
+      menus_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      menus_subtitle.text_color_role = UI::LabelRole::Secondary
+      menus_subtitle.accessibility_label = "Menus study subtitle"
+      outer << menus_subtitle.as(UI::View)
 
       # --- Surface A: File pull-down ---
       file_content = UI::VStack.new(spacing: 4.0)
@@ -1579,13 +1592,19 @@ require "../../../src/ui/validation_scenes"
       # NSStepper automatically dims the minus segment when value == minimum,
       # and dims the plus segment when value == maximum -- this is native platform behaviour.
 
-      steppers_title = UI::Label.new("Ritual quantity")
-      steppers_title.font = UI::Font.new(size: 15.0, weight: :medium)
-      steppers_title.accessibility_label = "Steppers showcase title"
+      steppers_title = UI::Label.new("Steppers")
+      steppers_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      steppers_title.accessibility_label = "Steppers study title"
+      steppers_subtitle = UI::Label.new("Small increments should read at a glance.")
+      steppers_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      steppers_subtitle.text_color_role = UI::LabelRole::Secondary
+      steppers_subtitle.accessibility_label = "Steppers study subtitle"
 
       # Row 1: normal state, value 3, range 0-10
       row1_label = UI::Label.new("Quantity: 3")
       row1_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      row1_label.text_color_role = UI::LabelRole::Secondary
+      row1_label.minimum_width = 148.0
       row1_label.accessibility_label = "Quantity label, value 3"
 
       row1_stepper = UI::Stepper.new(0.0, 10.0, 3.0)
@@ -1593,12 +1612,15 @@ require "../../../src/ui/validation_scenes"
       row1_stepper.accessibility_label = "Quantity stepper, value 3, minimum 0, maximum 10"
 
       row1 = UI::HStack.new(spacing: 8.0)
+      row1.alignment = UI::Alignment::Center
       row1 << row1_label
       row1 << row1_stepper
 
       # Row 2: at minimum -- minus segment auto-dimmed by NSStepper
       row2_label = UI::Label.new("At minimum: 0")
       row2_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      row2_label.text_color_role = UI::LabelRole::Secondary
+      row2_label.minimum_width = 148.0
       row2_label.accessibility_label = "At minimum label, value 0"
 
       row2_stepper = UI::Stepper.new(0.0, 10.0, 0.0)
@@ -1606,12 +1628,15 @@ require "../../../src/ui/validation_scenes"
       row2_stepper.accessibility_label = "Stepper at minimum, value 0, minus disabled"
 
       row2 = UI::HStack.new(spacing: 8.0)
+      row2.alignment = UI::Alignment::Center
       row2 << row2_label
       row2 << row2_stepper
 
       # Row 3: at maximum -- plus segment auto-dimmed by NSStepper
       row3_label = UI::Label.new("At maximum: 10")
       row3_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      row3_label.text_color_role = UI::LabelRole::Secondary
+      row3_label.minimum_width = 148.0
       row3_label.accessibility_label = "At maximum label, value 10"
 
       row3_stepper = UI::Stepper.new(0.0, 10.0, 10.0)
@@ -1619,16 +1644,26 @@ require "../../../src/ui/validation_scenes"
       row3_stepper.accessibility_label = "Stepper at maximum, value 10, plus disabled"
 
       row3 = UI::HStack.new(spacing: 8.0)
+      row3.alignment = UI::Alignment::Center
       row3 << row3_label
       row3 << row3_stepper
 
-      steppers_stack = UI::VStack.new(spacing: 16.0)
+      steppers_stack = UI::VStack.new(spacing: 12.0)
+      steppers_stack.alignment = UI::Alignment::Center
       steppers_stack << steppers_title
+      steppers_stack << steppers_subtitle
       steppers_stack << row1
       steppers_stack << row2
       steppers_stack << row3
 
-      steppers_stack.as(UI::View)
+      steppers_card = UI::Card.new(steppers_stack.as(UI::View))
+      steppers_card.minimum_width = 396.0
+      steppers_card.maximum_width = 396.0
+      steppers_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 20.0, bottom: 18.0, leading: 20.0)
+      steppers_card.is_outlined = true
+      steppers_card.material = :secondary
+      steppers_card.accessibility_label = "Steppers study card"
+      steppers_card.as(UI::View)
     when "segmented-controls"
       # HIG: "A segmented control is a linear set of two or more segments, each of
       # which functions as a button." NSSegmentedControl renders as a pill-shaped
@@ -1927,11 +1962,28 @@ require "../../../src/ui/validation_scenes"
       # examples demonstrate the HIG-recommended pattern: a labelled context
       # label + button pair, multiple buttons showing different selections, and
       # a third showing a longer option list.
-      container = UI::VStack.new(spacing: 20.0)
+      container = UI::VStack.new(spacing: 14.0)
+      container.alignment = UI::Alignment::Center
+
+      popup_title = UI::Label.new("Pop-up buttons")
+      popup_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      popup_title.accessibility_label = "Pop-up buttons study title"
+      container << popup_title.as(UI::View)
+
+      popup_subtitle = UI::Label.new("One current choice, shown compactly.")
+      popup_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      popup_subtitle.text_color_role = UI::LabelRole::Secondary
+      popup_subtitle.accessibility_label = "Pop-up buttons study subtitle"
+      container << popup_subtitle.as(UI::View)
+
+      popup_rows = UI::VStack.new(spacing: 12.0)
+      popup_rows.alignment = UI::Alignment::Leading
 
       # Row 1: Alignment pop-up
-      row1_label = UI::Label.new("Alignment:")
+      row1_label = UI::Label.new("Alignment")
       row1_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      row1_label.text_color_role = UI::LabelRole::Secondary
+      row1_label.minimum_width = 126.0
       row1_btn = UI::MenuButton.new("Alignment")
       row1_btn.add_item("Left")
       row1_btn.add_item("Center")
@@ -1942,11 +1994,13 @@ require "../../../src/ui/validation_scenes"
       row1 = UI::HStack.new(spacing: 8.0)
       row1 << row1_label
       row1 << row1_btn
-      container << row1
+      popup_rows << row1
 
       # Row 2: Font size pop-up (showing a mid-list selection)
-      row2_label = UI::Label.new("Font size:")
+      row2_label = UI::Label.new("Size")
       row2_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      row2_label.text_color_role = UI::LabelRole::Secondary
+      row2_label.minimum_width = 126.0
       row2_btn = UI::MenuButton.new("Font size")
       row2_btn.add_item("9pt")
       row2_btn.add_item("10pt")
@@ -1960,11 +2014,13 @@ require "../../../src/ui/validation_scenes"
       row2 = UI::HStack.new(spacing: 8.0)
       row2 << row2_label
       row2 << row2_btn
-      container << row2
+      popup_rows << row2
 
       # Row 3: Theme pop-up (showing "Auto" with system follow)
-      row3_label = UI::Label.new("Theme:")
+      row3_label = UI::Label.new("Theme")
       row3_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      row3_label.text_color_role = UI::LabelRole::Secondary
+      row3_label.minimum_width = 126.0
       row3_btn = UI::MenuButton.new("Theme")
       row3_btn.add_item("Auto")
       row3_btn.add_item("Light")
@@ -1974,9 +2030,18 @@ require "../../../src/ui/validation_scenes"
       row3 = UI::HStack.new(spacing: 8.0)
       row3 << row3_label
       row3 << row3_btn
-      container << row3
+      popup_rows << row3
 
-      container
+      container << popup_rows
+
+      popup_card = UI::Card.new(container.as(UI::View))
+      popup_card.minimum_width = 436.0
+      popup_card.maximum_width = 436.0
+      popup_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 20.0, bottom: 18.0, leading: 20.0)
+      popup_card.is_outlined = true
+      popup_card.material = :secondary
+      popup_card.accessibility_label = "Pop-up buttons study card"
+      popup_card.as(UI::View)
     when "pull-down-buttons"
       # HIG: "A pull-down button displays a menu of items or actions that
       # directly relate to the button's purpose."  NSPopUpButton with
@@ -1989,11 +2054,28 @@ require "../../../src/ui/validation_scenes"
       #      Move / Delete -- destructive).
       #   3. "Export" (prominent style) -- toolbar-style pull-down showing
       #      export format choices (PDF / CSV / HTML / Markdown).
-      pd_container = UI::VStack.new(spacing: 20.0)
+      pd_container = UI::VStack.new(spacing: 14.0)
+      pd_container.alignment = UI::Alignment::Center
+
+      pd_title = UI::Label.new("Pull-down buttons")
+      pd_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      pd_title.accessibility_label = "Pull-down buttons study title"
+      pd_container << pd_title.as(UI::View)
+
+      pd_subtitle = UI::Label.new("Verb-led menus for closely related actions.")
+      pd_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      pd_subtitle.text_color_role = UI::LabelRole::Secondary
+      pd_subtitle.accessibility_label = "Pull-down buttons study subtitle"
+      pd_container << pd_subtitle.as(UI::View)
+
+      pd_rows = UI::VStack.new(spacing: 12.0)
+      pd_rows.alignment = UI::Alignment::Leading
 
       # --- 1. Add pull-down ---
-      pd_ctx1 = UI::Label.new("Content actions:")
+      pd_ctx1 = UI::Label.new("Create")
       pd_ctx1.font = UI::Font.new(size: 13.0, weight: :regular)
+      pd_ctx1.text_color_role = UI::LabelRole::Secondary
+      pd_ctx1.minimum_width = 126.0
       add_btn = UI::MenuButton.new("Add")
       add_btn.is_pull_down = true
       add_btn.add_item("New Folder")
@@ -2004,11 +2086,13 @@ require "../../../src/ui/validation_scenes"
       pd_row1 = UI::HStack.new(spacing: 8.0)
       pd_row1 << pd_ctx1
       pd_row1 << add_btn
-      pd_container << pd_row1
+      pd_rows << pd_row1
 
       # --- 2. Ellipsis more-actions pull-down ---
-      pd_ctx2 = UI::Label.new("Item actions:")
+      pd_ctx2 = UI::Label.new("More actions")
       pd_ctx2.font = UI::Font.new(size: 13.0, weight: :regular)
+      pd_ctx2.text_color_role = UI::LabelRole::Secondary
+      pd_ctx2.minimum_width = 126.0
       more_btn = UI::MenuButton.new("\u2026")
       more_btn.is_pull_down = true
       more_btn.add_item("Duplicate")
@@ -2019,11 +2103,13 @@ require "../../../src/ui/validation_scenes"
       pd_row2 = UI::HStack.new(spacing: 8.0)
       pd_row2 << pd_ctx2
       pd_row2 << more_btn
-      pd_container << pd_row2
+      pd_rows << pd_row2
 
       # --- 3. Export pull-down (prominent toolbar style) ---
-      pd_ctx3 = UI::Label.new("Toolbar export:")
+      pd_ctx3 = UI::Label.new("Export format")
       pd_ctx3.font = UI::Font.new(size: 13.0, weight: :regular)
+      pd_ctx3.text_color_role = UI::LabelRole::Secondary
+      pd_ctx3.minimum_width = 126.0
       export_btn = UI::MenuButton.new("Export")
       export_btn.is_pull_down = true
       export_btn.button_style = :prominent
@@ -2035,9 +2121,18 @@ require "../../../src/ui/validation_scenes"
       pd_row3 = UI::HStack.new(spacing: 8.0)
       pd_row3 << pd_ctx3
       pd_row3 << export_btn
-      pd_container << pd_row3
+      pd_rows << pd_row3
 
-      pd_container
+      pd_container << pd_rows
+
+      pd_card = UI::Card.new(pd_container.as(UI::View))
+      pd_card.minimum_width = 436.0
+      pd_card.maximum_width = 436.0
+      pd_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 20.0, bottom: 18.0, leading: 20.0)
+      pd_card.is_outlined = true
+      pd_card.material = :secondary
+      pd_card.accessibility_label = "Pull-down buttons study card"
+      pd_card.as(UI::View)
     when "scroll-views"
       # HIG: "A scroll view lets people view content that's larger than the
       # view's boundaries by moving the content vertically or horizontally."
@@ -3775,6 +3870,10 @@ HTML
       focal_max_w = case SLUG
                     when "charts"              then 420.0
                     when "progress-indicators" then 428.0
+                    when "menus"               then 460.0
+                    when "pop-up-buttons"      then 436.0
+                    when "pull-down-buttons"   then 436.0
+                    when "steppers"            then 396.0
                     when "pickers"             then 456.0
                     when "sliders"             then 520.0
                     when "toggles"             then 520.0
