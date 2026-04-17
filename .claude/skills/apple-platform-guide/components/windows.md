@@ -10,8 +10,9 @@ validation_report: ../validation/reports/windows.md
 # UI::Windows
 
 > A practical top-level window configuration service for host apps. It keeps
-> the title, subtitle, sizing, and titlebar style intent in one place without
-> pretending that the shard owns the OS window itself.
+> the title, subtitle, sizing, and titlebar style intent in one place and can
+> now apply that configuration to the current host window on Apple platforms
+> without pretending that the shard owns the OS shell itself.
 
 ## Feel of the flow
 
@@ -29,8 +30,9 @@ lets macOS and iOS host code express window intent consistently:
 - which titlebar presentation it expects on macOS
 
 The service is intentionally small and honest. It does not try to fake the
-window chrome as an in-app card. It just keeps the window intent close to the
-scene or document code that owns it.
+window chrome as an in-app card. It keeps the window intent close to the
+scene or document code that owns it and applies that intent through the native
+bridge where the host can support it.
 
 ## Quickstart
 
@@ -49,6 +51,7 @@ window = UI::Windows.configure(
 window.display_title      # "Asset Pipeline — Preview shell"
 window.size_summary       # "1280.0 x 860.0"
 window.titlebar_style     # UI::WindowTitlebarStyle::UnifiedCompact
+window.apply              # true on supported Apple hosts
 ```
 
 ## Customization / brand override
@@ -75,13 +78,12 @@ does not balloon into something that feels accidental.
 
 ## What happens on each platform
 
-- **macOS 26**: This service is directly useful for future `NSWindow`
-  integration. The enum gives host code a narrow vocabulary for titlebar
-  presentation while the sizing helpers keep document and utility windows
-  readable.
-- **iPadOS 26 / iOS 26**: There is no direct floating window chrome to render.
-  The same configuration object still helps host code keep scene and document
-  intent consistent, especially for app-window equivalents and preview hosts.
+- **macOS 26**: The bridge applies title, subtitle, size constraints,
+  title-visibility hints, and toolbar/full-screen behavior to the current
+  `NSWindow`.
+- **iPadOS 26 / iOS 26**: The bridge can still apply top-level title intent
+  and preferred content size to the active controller scene, even though the
+  visible shell remains system-owned.
 
 ## HIG citations (validated)
 

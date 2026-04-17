@@ -18,9 +18,10 @@ verdict_per_appearance:
 ## Verdict: SKIPPED
 
 `UI::Windows` is a configuration service for top-level shell intent, not a
-drawable in-app component. The HIG windows family is window chrome managed by
-`NSWindow` / `UIWindow`, so screenshot validation is not the right proof shape
-for this row.
+drawable in-app component. The bridge can now apply that intent to the current
+host window or controller scene, but the HIG windows family is still OS-owned
+window chrome, so screenshot validation is not the right proof shape for this
+row.
 
 ### What is implemented
 
@@ -32,7 +33,6 @@ for this row.
 
 ### Why validation stays skipped
 
-The shard does not own the actual OS window chrome yet, and it should not fake
-that ownership with a pretend card. The correct bridge work still belongs in
-the host layer, so this row stays `window-chrome-not-view` until the native
-shell integration lands.
+The shard now applies practical window intent to the active host window, but it
+still does not own the actual OS chrome and should not fake that ownership
+with a pretend card. This row stays `window-chrome-not-view`.

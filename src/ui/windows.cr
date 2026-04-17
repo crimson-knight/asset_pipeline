@@ -24,12 +24,6 @@ module UI
     end
   end
 
-  # Practical top-level window intent for host apps.
-  #
-  # This is a shared configuration object, not a drawable window surface.
-  # It keeps title, subtitle, sizing, and titlebar style concerns in one place
-  # so macOS and iOS host apps can share the same window intent even before
-  # the native bridge grows full shell integration.
   class WindowConfiguration
     property title : String
     property subtitle : String? = nil
@@ -79,10 +73,20 @@ module UI
       return nil unless size
       "#{size.width.round(1)} x #{size.height.round(1)}"
     end
+
+    def apply : Bool
+      UI::Windows.apply(self)
+    end
   end
 
   module Windows
     extend self
+
+    {% if flag?(:darwin) %}
+      lib LibObjCBridge
+        fun ap_window_apply_configuration(title : UInt8*, subtitle : UInt8*, width : Float64, height : Float64, min_width : Float64, min_height : Float64, max_width : Float64, max_height : Float64, titlebar_style : Int64, shows_titlebar : Int32, shows_toolbar : Int32, allows_full_screen : Int32, resizable : Int32) : Int32
+      end
+    {% end %}
 
     def configure(
       title : String,
@@ -111,6 +115,33 @@ module UI
         allows_full_screen: allows_full_screen,
         resizable: resizable
       )
+    end
+
+    def apply(configuration : WindowConfiguration) : Bool
+      {% if flag?(:darwin) %}
+        subtitle_ptr = configuration.subtitle ? configuration.subtitle.not_nil!.to_unsafe : Pointer(UInt8).null
+        preferred = configuration.normalized_preferred_size
+        minimum = configuration.minimum_size
+        maximum = configuration.maximum_size
+
+        LibObjCBridge.ap_window_apply_configuration(
+          configuration.title.to_unsafe,
+          subtitle_ptr,
+          preferred ? preferred.not_nil!.width : 0.0,
+          preferred ? preferred.not_nil!.height : 0.0,
+          minimum ? minimum.not_nil!.width : 0.0,
+          minimum ? minimum.not_nil!.height : 0.0,
+          maximum ? maximum.not_nil!.width : 0.0,
+          maximum ? maximum.not_nil!.height : 0.0,
+          configuration.titlebar_style.value,
+          configuration.shows_titlebar ? 1 : 0,
+          configuration.shows_toolbar ? 1 : 0,
+          configuration.allows_full_screen ? 1 : 0,
+          configuration.resizable ? 1 : 0
+        ) == 1
+      {% else %}
+        false
+      {% end %}
     end
 
     private def build_size(width : Float64?, height : Float64?) : WindowSize?

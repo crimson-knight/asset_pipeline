@@ -43,7 +43,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 .summary .stat-num{font-size:28px;font-weight:700}
 .summary .stat-label{font-size:11px;color:#636366;text-transform:uppercase;letter-spacing:.04em}</style>
 <h1>Apple HIG validation &mdash; dashboard</h1>
-<p>Generated 2026-04-17T15:27:38Z. <strong>43/65</strong> auditable studies reached a terminal state (<strong>66%</strong>). 16 skipped, 0 needs-work, 6 pending, 6 with stale evidence.</p>
+<p>Generated 2026-04-17T15:39:39Z. <strong>43/65</strong> auditable studies reached a terminal state (<strong>66%</strong>). 16 skipped, 0 needs-work, 6 pending, 6 with stale evidence.</p>
 <div class='summary'>
 <div class='stat'><div class='stat-num' style='color:#34c759'>43</div><div class='stat-label'>Passing</div></div>
 <div class='stat'><div class='stat-num' style='color:#8e8e93'>16</div><div class='stat-label'>Skipped</div></div>
@@ -612,9 +612,9 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>status-bars</span><br>
 <span class='v-skip'>SKIPPED</span> <span class='evidence ev-na'>evidence n/a</span><br>
-<span class='ui-view'>UI::StatusBar</span>
+<span class='ui-view'>UI::StatusBars</span>
 
-<span class='notes'>Implemented as a small macOS status-item model with optional menu, tooltip, and template icon state. The iPhone/iPad status bar remains system-controlled, and the native NSStatusItem bridge will land later, so screenshot validation stays skipped.</span></td>
+<span class='notes'>Implemented as system-owned status-bar policy on iOS/iPadOS via UI::StatusBars, with a companion macOS UI::StatusBar helper for shell status items. The visible chrome remains OS-owned, so screenshot validation stays skipped.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/status-bars-macos-light.png'><img src='screenshots/status-bars-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/status-bars-macos-dark.png'><img src='screenshots/status-bars-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/status-bars-ios-light.png'><img src='screenshots/status-bars-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/status-bars-ios-dark.png'><img src='screenshots/status-bars-ios-dark.png'></a></div></div></td>
 <td><a href='../../apple-hig/images/components-status-bar-intro.png'><img class='small' src='../../apple-hig/images/components-status-bar-intro.png'></a></td>
 <td><div class='backdrop-cell'><a href='backdrops/sheet-backdrop-amber-gradient-light.png'><img class='backdrop-thumb' src='backdrops/sheet-backdrop-amber-gradient-light.png'></a><span class='backdrop-name'>sheet-backdrop-amber-gradient</span></div></td>
@@ -625,7 +625,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <span class='v-skip'>SKIPPED</span> <span class='evidence ev-na'>evidence n/a</span><br>
 <span class='ui-view'>UI::MenuBar</span>
 
-<span class='notes'>Implemented as a lightweight app-shell model for top-level menus. The app can now describe its menu bar structure in Crystal, but the actual AppKit menu bar chrome remains system-owned, so screenshot validation stays skipped.</span></td>
+<span class='notes'>Implemented as a declarative app-shell menu model that installs into the host application&#x27;s main menu on macOS. The visible chrome remains system-owned, so screenshot validation stays skipped.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/the-menu-bar-macos-light.png'><img src='screenshots/the-menu-bar-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/the-menu-bar-macos-dark.png'><img src='screenshots/the-menu-bar-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/the-menu-bar-ios-light.png'><img src='screenshots/the-menu-bar-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/the-menu-bar-ios-dark.png'><img src='screenshots/the-menu-bar-ios-dark.png'></a></div></div></td>
 <td><a href='../../apple-hig/images/components-the-menu-bar-intro.png'><img class='small' src='../../apple-hig/images/components-the-menu-bar-intro.png'></a></td>
 <td><div class='backdrop-cell'><a href='backdrops/menu-backdrop-amber-document-light.png'><img class='backdrop-thumb' src='backdrops/menu-backdrop-amber-document-light.png'></a><span class='backdrop-name'>menu-backdrop-amber-document</span></div></td>
@@ -702,7 +702,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <span class='v-skip'>SKIPPED</span> · iter 1 <span class='evidence ev-na'>evidence n/a</span><br>
 <span class='ui-view'>UI::Windows</span>
 
-<span class='notes'>Implemented as a practical UI::Windows configuration service for top-level window title, subtitle, sizing, and titlebar style intent. The HIG window chrome itself remains OS-managed (NSWindow / UIWindow), so screenshot validation stays skipped as window-chrome-not-view.</span></td>
+<span class='notes'>Implemented as a host-level UI::Windows configuration service that applies title, size, and titlebar intent to the active host window or scene. The visible window chrome remains OS-owned rather than an in-app UI::View, so screenshot validation stays skipped.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/windows-macos-light.png'><img src='screenshots/windows-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/windows-macos-dark.png'><img src='screenshots/windows-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/windows-ios-light.png'><img src='screenshots/windows-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/windows-ios-dark.png'><img src='screenshots/windows-ios-dark.png'></a></div></div></td>
 <td><a href='../../apple-hig/images/components-window-intro.png'><img class='small' src='../../apple-hig/images/components-window-intro.png'></a></td>
 <td><div class='backdrop-cell'><a href='backdrops/sheet-backdrop-amber-gradient-light.png'><img class='backdrop-thumb' src='backdrops/sheet-backdrop-amber-gradient-light.png'></a><span class='backdrop-name'>sheet-backdrop-amber-gradient</span></div></td>

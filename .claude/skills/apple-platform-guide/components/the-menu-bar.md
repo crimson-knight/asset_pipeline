@@ -9,9 +9,10 @@ validation_report: ../validation/reports/the-menu-bar.md
 
 # UI::MenuBar
 
-> A small app-shell model for the top-level menu structure your macOS app
-> wants to install. The actual menu bar chrome still belongs to AppKit; this
-> type keeps the command model in Crystal until the native bridge lands.
+> A shell-level description of the top-level menu structure your macOS app
+> wants to install. The visible chrome still belongs to AppKit, but
+> `UI::MenuBar` now installs that structure into the host application's main
+> menu instead of stopping at a passive model.
 
 ## Feel of the flow
 
@@ -50,12 +51,12 @@ menu_bar.install
 | `menus` | `Array(Menu)` | `[]` | Ordered top-level menus. |
 | `Menu#title` | `String` | required | Top-level title such as `File` or `View`. |
 | `Menu#menu` | `UI::ContextMenu` | required | Command list displayed for that title. |
-| `is_installed` | `Bool` | `false` | Local state flag for whether the model has been installed. |
+| `is_installed` | `Bool` | `false` | Tracks whether the current definition has been installed into the host menu bar. |
 
 ## What happens on each platform
 
-- **macOS**: This is the app-shell model for the application's top-level menu
-  structure. The native bridge will later turn it into AppKit menu bar wiring.
+- **macOS**: `install` now turns the Crystal model into a real `NSMenu`
+  hierarchy on the application's main menu.
 - **iOS**: No in-app menu bar chrome; this stays macOS-focused.
 - **Validation**: Skipped for screenshots because the menu bar is system
   chrome, not a content-view component.
@@ -64,4 +65,3 @@ menu_bar.install
 
 - The menu bar organizes app-wide commands.
 - Keep top-level menu structure shallow and easy to scan.
-

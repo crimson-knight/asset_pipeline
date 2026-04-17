@@ -27,6 +27,8 @@
 #include <objc/runtime.h>
 #include <objc/message.h>
 #include <TargetConditionals.h>
+#include <stdlib.h>
+#include <string.h>
 
 #if TARGET_OS_OSX
   #import <AppKit/AppKit.h>
@@ -913,6 +915,15 @@ static NSURL *ap_url_from_cstr(const char *value) {
 static NSString *ap_string_from_cstr(const char *value) {
     if (!value || !value[0]) return nil;
     return [NSString stringWithUTF8String:value];
+}
+
+static void ap_run_on_main_thread_sync(dispatch_block_t block) {
+    if (!block) return;
+    if ([NSThread isMainThread]) {
+        block();
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), block);
+    }
 }
 
 extern void crystal_ui_string_callback_dispatch(unsigned long long tag, const char *value);
@@ -2033,6 +2044,480 @@ void ap_notifications_remove_all_pending(void) {
     UNUserNotificationCenter *center = ap_notifications_center();
     if (!center) return;
     [center removeAllPendingNotificationRequests];
+}
+
+void ap_free_c_string(char *payload) {
+    if (payload) free(payload);
+}
+
+#if TARGET_OS_OSX
+static NSString *g_last_menu_bar_identifier = nil;
+static NSString *g_last_status_item_identifier = nil;
+static NSMutableDictionary *g_status_items = nil;
+
+static void ap_store_triggered_identifier(NSString **slot, NSString *identifier) {
+    if (*slot) {
+        [*slot release];
+        *slot = nil;
+    }
+    if (identifier && identifier.length) {
+        *slot = [identifier copy];
+    }
+}
+
+@interface APShellCommandTarget : NSObject
+@end
+
+@implementation APShellCommandTarget
+- (void)dispatchMenuBarItem:(id)sender {
+    NSString *identifier = [sender representedObject];
+    if (![identifier isKindOfClass:[NSString class]] || !identifier.length) {
+        identifier = [sender title];
+    }
+    ap_store_triggered_identifier(&g_last_menu_bar_identifier, identifier);
+}
+
+- (void)dispatchStatusItem:(id)sender {
+    NSString *identifier = [sender representedObject];
+    if (![identifier isKindOfClass:[NSString class]] || !identifier.length) {
+        identifier = [sender title];
+    }
+    ap_store_triggered_identifier(&g_last_status_item_identifier, identifier);
+}
+@end
+
+static APShellCommandTarget *ap_shell_command_target(void) {
+    static APShellCommandTarget *target = nil;
+    if (!target) {
+        target = [[APShellCommandTarget alloc] init];
+    }
+    return target;
+}
+
+static NSDictionary *ap_json_dictionary_from_cstr(const char *payload_cstr) {
+    NSString *payload = ap_string_from_cstr(payload_cstr);
+    if (!payload || !payload.length) return nil;
+
+    NSData *data = [payload dataUsingEncoding:NSUTF8StringEncoding];
+    if (!data) return nil;
+
+    NSError *error = nil;
+    id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+    if (error || ![object isKindOfClass:[NSDictionary class]]) return nil;
+    return (NSDictionary *)object;
+}
+
+static NSImage *ap_menu_symbol_image(NSString *symbol_name, BOOL template_icon) {
+    if (!symbol_name || !symbol_name.length) return nil;
+    if (![NSImage respondsToSelector:@selector(imageWithSystemSymbolName:accessibilityDescription:)]) {
+        return nil;
+    }
+
+    NSImage *image = [NSImage imageWithSystemSymbolName:symbol_name accessibilityDescription:nil];
+    if (image) {
+        [image setTemplate:template_icon];
+    }
+    return image;
+}
+
+static void ap_populate_menu_items(NSMenu *menu, NSArray *items, SEL action_selector) {
+    if (!menu || ![items isKindOfClass:[NSArray class]]) return;
+    [menu setAutoenablesItems:NO];
+
+    for (id raw_item in items) {
+        if (![raw_item isKindOfClass:[NSDictionary class]]) continue;
+        NSDictionary *item_dict = (NSDictionary *)raw_item;
+        NSString *type = item_dict[@"type"];
+        if ([type isEqualToString:@"separator"]) {
+            [menu addItem:[NSMenuItem separatorItem]];
+            continue;
+        }
+
+        NSString *label = item_dict[@"label"];
+        if (![label isKindOfClass:[NSString class]] || !label.length) continue;
+
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:label action:action_selector keyEquivalent:@""];
+        item.target = ap_shell_command_target();
+        item.enabled = ![item_dict[@"is_disabled"] boolValue];
+
+        NSString *identifier = item_dict[@"identifier"];
+        if ([identifier isKindOfClass:[NSString class]] && identifier.length) {
+            [item setRepresentedObject:identifier];
+        }
+
+        NSString *symbol_name = item_dict[@"icon"];
+        NSImage *image = ap_menu_symbol_image(symbol_name, YES);
+        if (image) {
+            [item setImage:image];
+        }
+
+        if ([item_dict[@"is_destructive"] boolValue]) {
+            NSColor *destructive = [NSColor systemRedColor];
+            NSDictionary *attributes = @{NSForegroundColorAttributeName: destructive};
+            NSAttributedString *title = [[NSAttributedString alloc] initWithString:label attributes:attributes];
+            [item setAttributedTitle:title];
+            [title release];
+        }
+
+        [menu addItem:item];
+        [item release];
+    }
+}
+#endif
+
+int ap_menu_bar_install(const char *payload_cstr) {
+#if !TARGET_OS_OSX
+    return 0;
+#else
+    NSDictionary *payload = ap_json_dictionary_from_cstr(payload_cstr);
+    NSArray *menus = payload[@"menus"];
+    if (![menus isKindOfClass:[NSArray class]]) return 0;
+
+    __block BOOL installed = NO;
+    ap_run_on_main_thread_sync(^{
+        NSApplication *application = NSApp ?: [NSApplication sharedApplication];
+        if (!application) return;
+
+        NSMenu *main_menu = [[NSMenu alloc] initWithTitle:@"MainMenu"];
+        for (id raw_menu in menus) {
+            if (![raw_menu isKindOfClass:[NSDictionary class]]) continue;
+            NSDictionary *menu_dict = (NSDictionary *)raw_menu;
+            NSString *title = menu_dict[@"title"];
+            NSArray *items = menu_dict[@"items"];
+            if (![title isKindOfClass:[NSString class]] || !title.length) continue;
+
+            NSMenuItem *root_item = [[NSMenuItem alloc] initWithTitle:title action:nil keyEquivalent:@""];
+            NSMenu *submenu = [[NSMenu alloc] initWithTitle:title];
+            ap_populate_menu_items(submenu, items, @selector(dispatchMenuBarItem:));
+            [root_item setSubmenu:submenu];
+            [main_menu addItem:root_item];
+            [submenu release];
+            [root_item release];
+        }
+
+        [application setMainMenu:main_menu];
+        [main_menu release];
+        installed = YES;
+    });
+
+    return installed ? 1 : 0;
+#endif
+}
+
+void ap_menu_bar_clear(void) {
+#if TARGET_OS_OSX
+    ap_run_on_main_thread_sync(^{
+        NSApplication *application = NSApp ?: [NSApplication sharedApplication];
+        if (!application) return;
+        NSMenu *main_menu = [[NSMenu alloc] initWithTitle:@"MainMenu"];
+        [application setMainMenu:main_menu];
+        [main_menu release];
+    });
+#endif
+}
+
+char *ap_menu_bar_take_triggered_identifier(void) {
+#if !TARGET_OS_OSX
+    return NULL;
+#else
+    if (!g_last_menu_bar_identifier) return NULL;
+    const char *utf8 = [g_last_menu_bar_identifier UTF8String];
+    char *copy = utf8 ? strdup(utf8) : NULL;
+    [g_last_menu_bar_identifier release];
+    g_last_menu_bar_identifier = nil;
+    return copy;
+#endif
+}
+
+int ap_status_item_install(const char *identifier_cstr,
+                           const char *title_cstr,
+                           const char *icon_cstr,
+                           const char *tooltip_cstr,
+                           int template_icon,
+                           int visible,
+                           const char *menu_payload_cstr) {
+#if !TARGET_OS_OSX
+    return 0;
+#else
+    NSString *identifier = ap_string_from_cstr(identifier_cstr);
+    if (!identifier || !identifier.length) return 0;
+
+    NSString *title = ap_string_from_cstr(title_cstr);
+    NSString *icon = ap_string_from_cstr(icon_cstr);
+    NSString *tooltip = ap_string_from_cstr(tooltip_cstr);
+    NSDictionary *menu_payload = ap_json_dictionary_from_cstr(menu_payload_cstr);
+    NSArray *items = menu_payload[@"items"];
+
+    __block BOOL installed = NO;
+    ap_run_on_main_thread_sync(^{
+        if (!g_status_items) {
+            g_status_items = [[NSMutableDictionary alloc] init];
+        }
+
+        NSStatusBar *system_bar = [NSStatusBar systemStatusBar];
+        NSStatusItem *status_item = [g_status_items objectForKey:identifier];
+        if (!status_item) {
+            status_item = [system_bar statusItemWithLength:NSVariableStatusItemLength];
+            if (!status_item) return;
+            [g_status_items setObject:status_item forKey:identifier];
+        }
+
+        if ([status_item respondsToSelector:@selector(setVisible:)]) {
+            [status_item setVisible:(BOOL)visible];
+        }
+
+        NSStatusBarButton *button = [status_item button];
+        if (button) {
+            button.title = (title && title.length) ? title : @"";
+            button.image = ap_menu_symbol_image(icon, (BOOL)template_icon);
+            button.toolTip = tooltip;
+        }
+
+        status_item.menu = nil;
+        if ([items isKindOfClass:[NSArray class]] && items.count > 0) {
+            NSMenu *menu = [[NSMenu alloc] initWithTitle:(title && title.length) ? title : identifier];
+            ap_populate_menu_items(menu, items, @selector(dispatchStatusItem:));
+            status_item.menu = menu;
+            [menu release];
+        }
+
+        installed = YES;
+    });
+
+    return installed ? 1 : 0;
+#endif
+}
+
+void ap_status_item_uninstall(const char *identifier_cstr) {
+#if TARGET_OS_OSX
+    NSString *identifier = ap_string_from_cstr(identifier_cstr);
+    if (!identifier || !identifier.length) return;
+
+    ap_run_on_main_thread_sync(^{
+        NSStatusItem *status_item = [g_status_items objectForKey:identifier];
+        if (!status_item) return;
+        [[NSStatusBar systemStatusBar] removeStatusItem:status_item];
+        [g_status_items removeObjectForKey:identifier];
+    });
+#endif
+}
+
+char *ap_status_item_take_triggered_identifier(void) {
+#if !TARGET_OS_OSX
+    return NULL;
+#else
+    if (!g_last_status_item_identifier) return NULL;
+    const char *utf8 = [g_last_status_item_identifier UTF8String];
+    char *copy = utf8 ? strdup(utf8) : NULL;
+    [g_last_status_item_identifier release];
+    g_last_status_item_identifier = nil;
+    return copy;
+#endif
+}
+
+#if TARGET_OS_OSX
+static NSWindow *ap_target_window(void) {
+    NSApplication *application = NSApp ?: [NSApplication sharedApplication];
+    if (!application) return nil;
+    if (application.keyWindow) return application.keyWindow;
+    if (application.mainWindow) return application.mainWindow;
+    return application.windows.firstObject;
+}
+#else
+static UIWindow *ap_target_window(void) {
+    UIApplication *application = [UIApplication sharedApplication];
+    if ([application respondsToSelector:@selector(connectedScenes)]) {
+        for (UIScene *scene in application.connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+            for (UIWindow *candidate in ((UIWindowScene *)scene).windows) {
+                if (candidate.isKeyWindow) return candidate;
+            }
+        }
+    }
+    if ([application respondsToSelector:@selector(keyWindow)]) {
+        return application.keyWindow;
+    }
+    return nil;
+}
+
+static long long g_status_bar_style = 0;
+static BOOL g_status_bar_hidden = NO;
+
+static UIStatusBarStyle ap_status_bar_preferred_style(id self, SEL _cmd) {
+    switch (g_status_bar_style) {
+        case 1: return UIStatusBarStyleLightContent;
+        case 2:
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000
+            return UIStatusBarStyleDarkContent;
+#else
+            return UIStatusBarStyleDefault;
+#endif
+        default: return UIStatusBarStyleDefault;
+    }
+}
+
+static BOOL ap_status_bar_prefers_hidden(id self, SEL _cmd) {
+    return g_status_bar_hidden;
+}
+
+static void ap_install_status_bar_hooks(Class controller_class) {
+    if (!controller_class) return;
+
+    Method style_method = class_getInstanceMethod(controller_class, @selector(preferredStatusBarStyle));
+    const char *style_types = style_method ? method_getTypeEncoding(style_method) : "q@:";
+    class_replaceMethod(controller_class, @selector(preferredStatusBarStyle), (IMP)ap_status_bar_preferred_style, style_types);
+
+    Method hidden_method = class_getInstanceMethod(controller_class, @selector(prefersStatusBarHidden));
+    const char *hidden_types = hidden_method ? method_getTypeEncoding(hidden_method) : "B@:";
+    class_replaceMethod(controller_class, @selector(prefersStatusBarHidden), (IMP)ap_status_bar_prefers_hidden, hidden_types);
+}
+
+static UIViewController *ap_status_bar_target_controller(void) {
+    UIWindow *window = ap_target_window();
+    if (!window) return nil;
+
+    UIViewController *controller = window.rootViewController;
+    while (controller.presentedViewController) {
+        controller = controller.presentedViewController;
+    }
+
+    if ([controller isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *navigation = (UINavigationController *)controller;
+        controller = navigation.topViewController ?: controller;
+    }
+    return controller;
+}
+#endif
+
+int ap_status_bar_apply(long long style, int hidden, int animated) {
+#if TARGET_OS_OSX
+    (void)style;
+    (void)hidden;
+    (void)animated;
+    return 0;
+#else
+    __block BOOL applied = NO;
+    ap_run_on_main_thread_sync(^{
+        g_status_bar_style = style;
+        g_status_bar_hidden = (BOOL)hidden;
+
+        UIViewController *controller = ap_status_bar_target_controller();
+        if (!controller) return;
+
+        ap_install_status_bar_hooks([controller class]);
+        [controller setNeedsStatusBarAppearanceUpdate];
+        if (animated && controller.view) {
+            [UIView animateWithDuration:0.2 animations:^{
+                [controller.view layoutIfNeeded];
+            }];
+        }
+        applied = YES;
+    });
+
+    return applied ? 1 : 0;
+#endif
+}
+
+int ap_window_apply_configuration(const char *title_cstr,
+                                  const char *subtitle_cstr,
+                                  double width,
+                                  double height,
+                                  double min_width,
+                                  double min_height,
+                                  double max_width,
+                                  double max_height,
+                                  long long titlebar_style,
+                                  int shows_titlebar,
+                                  int shows_toolbar,
+                                  int allows_full_screen,
+                                  int resizable) {
+    __block BOOL applied = NO;
+    ap_run_on_main_thread_sync(^{
+#if TARGET_OS_OSX
+        NSWindow *window = ap_target_window();
+        if (!window) return;
+
+        NSString *title = ap_string_from_cstr(title_cstr);
+        NSString *subtitle = ap_string_from_cstr(subtitle_cstr);
+        if (title && title.length) {
+            [window setTitle:title];
+        }
+        if ([window respondsToSelector:@selector(setSubtitle:)]) {
+            [window setSubtitle:(subtitle && subtitle.length) ? subtitle : @""];
+        }
+
+        if (width > 0.0 && height > 0.0) {
+            [window setContentSize:NSMakeSize((CGFloat)width, (CGFloat)height)];
+            [window center];
+        }
+        if (min_width > 0.0 && min_height > 0.0) {
+            [window setMinSize:NSMakeSize((CGFloat)min_width, (CGFloat)min_height)];
+        }
+        if (max_width > 0.0 && max_height > 0.0) {
+            [window setMaxSize:NSMakeSize((CGFloat)max_width, (CGFloat)max_height)];
+        }
+
+        NSUInteger style_mask = window.styleMask;
+        if (resizable) {
+            style_mask |= NSWindowStyleMaskResizable;
+        } else {
+            style_mask &= ~NSWindowStyleMaskResizable;
+        }
+
+        BOOL hidden_title = (!shows_titlebar || titlebar_style == 4);
+        if (hidden_title) {
+            style_mask |= NSWindowStyleMaskFullSizeContentView;
+        }
+        [window setStyleMask:style_mask];
+        [window setTitleVisibility:hidden_title ? NSWindowTitleHidden : NSWindowTitleVisible];
+        [window setTitlebarAppearsTransparent:hidden_title ? YES : NO];
+
+        if ([window respondsToSelector:@selector(setToolbarStyle:)]) {
+            NSWindowToolbarStyle toolbar_style = NSWindowToolbarStyleAutomatic;
+            switch (titlebar_style) {
+                case 2: toolbar_style = NSWindowToolbarStyleUnified; break;
+                case 3: toolbar_style = NSWindowToolbarStyleUnifiedCompact; break;
+                case 1: toolbar_style = NSWindowToolbarStyleExpanded; break;
+                default: toolbar_style = NSWindowToolbarStyleAutomatic; break;
+            }
+            [window setToolbarStyle:toolbar_style];
+        }
+
+        if (window.toolbar) {
+            [window.toolbar setVisible:(BOOL)shows_toolbar];
+        }
+
+        NSWindowCollectionBehavior behavior = window.collectionBehavior;
+        if (allows_full_screen) {
+            behavior |= NSWindowCollectionBehaviorFullScreenPrimary;
+        } else {
+            behavior &= ~NSWindowCollectionBehaviorFullScreenPrimary;
+        }
+        [window setCollectionBehavior:behavior];
+#else
+        UIWindow *window = ap_target_window();
+        if (!window) return;
+
+        UIViewController *controller = window.rootViewController;
+        while (controller.presentedViewController) {
+            controller = controller.presentedViewController;
+        }
+
+        NSString *title = ap_string_from_cstr(title_cstr);
+        NSString *subtitle = ap_string_from_cstr(subtitle_cstr);
+        if (title && title.length) {
+            controller.title = title;
+        } else if (subtitle && subtitle.length) {
+            controller.title = subtitle;
+        }
+        if (width > 0.0 && height > 0.0 && [controller respondsToSelector:@selector(setPreferredContentSize:)]) {
+            controller.preferredContentSize = CGSizeMake((CGFloat)width, (CGFloat)height);
+        }
+#endif
+        applied = YES;
+    });
+
+    return applied ? 1 : 0;
 }
 
 // ============================================================

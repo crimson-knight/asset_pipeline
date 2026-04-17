@@ -1,8 +1,31 @@
+require "json"
+
 module UI
-  # A small app-shell model for a macOS status item and its attached menu.
+  enum StatusBarContentStyle
+    Default
+    LightContent
+    DarkContent
+  end
+
+  # iOS status-bar appearance policy.
   #
-  # The actual `NSStatusItem` chrome remains system-owned; this type simply
-  # captures the item's intent until the native bridge exists.
+  # The visible top bar remains system-owned; this configuration only expresses
+  # whether the app wants light/dark content and whether the bar should be
+  # hidden.
+  class StatusBarAppearance
+    property style : StatusBarContentStyle = StatusBarContentStyle::Default
+    property hidden : Bool = false
+    property animated : Bool = true
+
+    def initialize(
+      @style : StatusBarContentStyle = StatusBarContentStyle::Default,
+      @hidden : Bool = false,
+      @animated : Bool = true
+    )
+    end
+  end
+
+  # A small app-shell model for a macOS status item and its attached menu.
   class StatusBar
     property identifier : String
     property title : String?
@@ -32,16 +55,121 @@ module UI
     end
 
     def install : Bool
+      @is_installed = StatusBars.install_item(self)
+    end
+
+    def uninstall : Nil
+      StatusBars.uninstall_item(@identifier)
+      @is_installed = false
+    end
+
+    def to_payload : String?
+      menu = @menu
+      return nil unless menu
+
+      JSON.build do |json|
+        json.object do
+          json.field "items" do
+            json.array do
+              menu.items.each do |entry|
+                case entry
+                when UI::ContextMenu::Separator
+                  json.object do
+                    json.field "type", "separator"
+                  end
+                when UI::ContextMenu::Item
+                  json.object do
+                    json.field "type", "item"
+                    json.field "label", entry.label
+                    json.field "identifier", menu_identifier(entry.label)
+                    json.field "icon", entry.icon
+                    json.field "is_destructive", entry.is_destructive
+                    json.field "is_disabled", entry.is_disabled
+                  end
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    private def menu_identifier(label : String) : String
+      "#{slugify(@identifier)}.#{slugify(label)}"
+    end
+
+    private def slugify(value : String) : String
+      normalized = value.downcase.gsub(/[^a-z0-9]+/, "-").gsub(/^-+|-+$/, "")
+      normalized.empty? ? "item" : normalized
+    end
+  end
+
+  module StatusBars
+    extend self
+
+    {% if flag?(:darwin) %}
+      lib LibObjCBridge
+        fun ap_status_bar_apply(style : Int64, hidden : Int32, animated : Int32) : Int32
+        fun ap_status_item_install(identifier : UInt8*, title : UInt8*, icon : UInt8*, tooltip : UInt8*, template_icon : Int32, visible : Int32, menu_payload : UInt8*) : Int32
+        fun ap_status_item_uninstall(identifier : UInt8*) : Void
+        fun ap_status_item_take_triggered_identifier : UInt8*
+        fun ap_free_c_string(payload : UInt8*) : Void
+      end
+    {% end %}
+
+    def apply(appearance : StatusBarAppearance) : Bool
       {% if flag?(:darwin) %}
-        @is_installed = true
-        true
+        LibObjCBridge.ap_status_bar_apply(
+          appearance.style.value,
+          appearance.hidden ? 1 : 0,
+          appearance.animated ? 1 : 0
+        ) == 1
       {% else %}
         false
       {% end %}
     end
 
-    def uninstall : Nil
-      @is_installed = false
+    def install_item(item : UI::StatusBar) : Bool
+      {% if flag?(:darwin) %}
+        title_ptr = item.title ? item.title.not_nil!.to_unsafe : Pointer(UInt8).null
+        icon_ptr = item.icon ? item.icon.not_nil!.to_unsafe : Pointer(UInt8).null
+        tooltip_ptr = item.tooltip ? item.tooltip.not_nil!.to_unsafe : Pointer(UInt8).null
+        payload = item.to_payload
+        payload_ptr = payload ? payload.not_nil!.to_unsafe : Pointer(UInt8).null
+
+        LibObjCBridge.ap_status_item_install(
+          item.identifier.to_unsafe,
+          title_ptr,
+          icon_ptr,
+          tooltip_ptr,
+          item.is_template_icon ? 1 : 0,
+          item.is_visible ? 1 : 0,
+          payload_ptr
+        ) == 1
+      {% else %}
+        false
+      {% end %}
+    end
+
+    def uninstall_item(identifier : String) : Nil
+      {% if flag?(:darwin) %}
+        LibObjCBridge.ap_status_item_uninstall(identifier.to_unsafe)
+      {% end %}
+    end
+
+    def take_triggered_identifier : String?
+      {% if flag?(:darwin) %}
+        ptr = LibObjCBridge.ap_status_item_take_triggered_identifier
+        return nil if ptr.null?
+
+        begin
+          String.new(ptr)
+        ensure
+          LibObjCBridge.ap_free_c_string(ptr)
+        end
+      {% else %}
+        nil
+      {% end %}
     end
   end
 end

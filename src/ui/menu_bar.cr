@@ -1,8 +1,11 @@
+require "json"
+
 module UI
-  # A small app-shell model for building top-level menus.
+  # Declarative top-level menu structure for app-shell command chrome.
   #
-  # The native menu bar chrome still belongs to AppKit/UIKit. This object keeps
-  # the menu structure and intent in Crystal until the bridge lands.
+  # `UI::MenuBar` is intentionally not a `UI::View`: the visible menu bar
+  # belongs to AppKit. This object keeps the menu intent in Crystal and can
+  # install it into the host application's main menu on macOS.
   class MenuBar
     record Menu,
       title : String,
@@ -33,19 +36,109 @@ module UI
 
     def clear : Nil
       @menus.clear
+      MenuBars.clear if @is_installed
+      @is_installed = false
     end
 
     def install : Bool
+      @is_installed = MenuBars.install(self)
+    end
+
+    def uninstall : Nil
+      MenuBars.clear
+      @is_installed = false
+    end
+
+    def to_payload : String
+      JSON.build do |json|
+        json.object do
+          json.field "menus" do
+            json.array do
+              @menus.each do |entry|
+                json.object do
+                  json.field "title", entry.title
+                  json.field "items" do
+                    serialize_context_menu(json, entry.menu, entry.title)
+                  end
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    private def serialize_context_menu(json : JSON::Builder, menu : ContextMenu, menu_title : String) : Nil
+      json.array do
+        menu.items.each do |entry|
+          case entry
+          when UI::ContextMenu::Separator
+            json.object do
+              json.field "type", "separator"
+            end
+          when UI::ContextMenu::Item
+            json.object do
+              json.field "type", "item"
+              json.field "label", entry.label
+              json.field "identifier", menu_identifier(menu_title, entry.label)
+              json.field "icon", entry.icon
+              json.field "is_destructive", entry.is_destructive
+              json.field "is_disabled", entry.is_disabled
+            end
+          end
+        end
+      end
+    end
+
+    private def menu_identifier(menu_title : String, label : String) : String
+      "#{slugify(menu_title)}.#{slugify(label)}"
+    end
+
+    private def slugify(value : String) : String
+      normalized = value.downcase.gsub(/[^a-z0-9]+/, "-").gsub(/^-+|-+$/, "")
+      normalized.empty? ? "item" : normalized
+    end
+  end
+
+  module MenuBars
+    extend self
+
+    {% if flag?(:darwin) %}
+      lib LibObjCBridge
+        fun ap_menu_bar_install(payload : UInt8*) : Int32
+        fun ap_menu_bar_clear : Void
+        fun ap_menu_bar_take_triggered_identifier : UInt8*
+        fun ap_free_c_string(payload : UInt8*) : Void
+      end
+    {% end %}
+
+    def install(menu_bar : UI::MenuBar) : Bool
       {% if flag?(:darwin) %}
-        @is_installed = true
-        true
+        LibObjCBridge.ap_menu_bar_install(menu_bar.to_payload.to_unsafe) == 1
       {% else %}
         false
       {% end %}
     end
 
-    def uninstall : Nil
-      @is_installed = false
+    def clear : Nil
+      {% if flag?(:darwin) %}
+        LibObjCBridge.ap_menu_bar_clear
+      {% end %}
+    end
+
+    def take_triggered_identifier : String?
+      {% if flag?(:darwin) %}
+        ptr = LibObjCBridge.ap_menu_bar_take_triggered_identifier
+        return nil if ptr.null?
+
+        begin
+          String.new(ptr)
+        ensure
+          LibObjCBridge.ap_free_c_string(ptr)
+        end
+      {% else %}
+        nil
+      {% end %}
     end
   end
 end

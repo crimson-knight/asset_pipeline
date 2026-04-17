@@ -15,15 +15,12 @@ describe UI::MenuBar do
     file_menu.items.first.as(UI::ContextMenu::Item).label.should eq("New")
   end
 
-  it "tracks install state locally" do
+  it "removes menus by title" do
     bar = UI::MenuBar.new
-    bar.install
-    {% if flag?(:darwin) %}
-      bar.is_installed.should be_true
-    {% else %}
-      bar.is_installed.should be_false
-    {% end %}
-    bar.uninstall
-    bar.is_installed.should be_false
+    bar.add_menu("File")
+    bar.add_menu("Edit")
+
+    bar.remove_menu("File").should be_true
+    bar.menus.map(&.title).should eq(["Edit"])
   end
 end

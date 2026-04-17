@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-17T15:26:53.859596+00:00",
+  "generated_at": "2026-04-17T15:39:26.642656+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -3057,7 +3057,7 @@
       "hig_page": "../apple-hig/pages/status-bars.md",
       "hig_ref_image": "../apple-hig/images/components-status-bar-intro.png",
       "role": "component",
-      "ui_view": "UI::StatusBar",
+      "ui_view": "UI::StatusBars",
       "ui_view_file": "src/ui/status_bar.cr",
       "status": "implemented",
       "priority": "P2",
@@ -3072,7 +3072,7 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "Implemented as a small macOS status-item model with optional menu, tooltip, and template icon state. The iPhone/iPad status bar remains system-controlled, and the native NSStatusItem bridge will land later, so screenshot validation stays skipped.",
+      "notes": "Implemented as system-owned status-bar policy on iOS/iPadOS via UI::StatusBars, with a companion macOS UI::StatusBar helper for shell status items. The visible chrome remains OS-owned, so screenshot validation stays skipped.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "not_applicable",
       "evidence_errors": []
@@ -3312,7 +3312,7 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "Implemented as a lightweight app-shell model for top-level menus. The app can now describe its menu bar structure in Crystal, but the actual AppKit menu bar chrome remains system-owned, so screenshot validation stays skipped.",
+      "notes": "Implemented as a declarative app-shell menu model that installs into the host application's main menu on macOS. The visible chrome remains system-owned, so screenshot validation stays skipped.",
       "backdrop": "menu-backdrop-amber-document",
       "evidence_state": "not_applicable",
       "evidence_errors": []
@@ -3636,7 +3636,7 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "Implemented as a practical UI::Windows configuration service for top-level window title, subtitle, sizing, and titlebar style intent. The HIG window chrome itself remains OS-managed (NSWindow / UIWindow), so screenshot validation stays skipped as window-chrome-not-view.",
+      "notes": "Implemented as a host-level UI::Windows configuration service that applies title, size, and titlebar intent to the active host window or scene. The visible window chrome remains OS-owned rather than an in-app UI::View, so screenshot validation stays skipped.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "skip_reason": "window-chrome-not-view",
       "evidence_state": "not_applicable",
