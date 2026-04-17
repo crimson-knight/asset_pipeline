@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-17T15:44:53.725095+00:00",
+  "generated_at": "2026-04-17T16:17:47.545605+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -17,9 +17,9 @@
     "patterns": 66,
     "platform_guides": 4,
     "collections": 14,
-    "implemented": 58,
+    "implemented": 59,
     "stub": 0,
-    "missing": 7
+    "missing": 0
   },
   "pages": [
     {
@@ -568,7 +568,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -582,17 +582,11 @@
         "ios_light": "pass_with_notes",
         "ios_dark": "pass_with_notes"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
       "focal_position": "multi_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: color-wells-macos-light.png",
-        "screenshot newer than report: color-wells-macos-dark.png",
-        "screenshot newer than report: color-wells-ios-light.png",
-        "screenshot newer than report: color-wells-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "column-views",
@@ -634,7 +628,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -652,14 +646,8 @@
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
       "focal_position": "single_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: combo-boxes-macos-light.png",
-        "screenshot newer than report: combo-boxes-macos-dark.png",
-        "screenshot newer than report: combo-boxes-ios-light.png",
-        "screenshot newer than report: combo-boxes-ios-dark.png"
-      ],
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "complications",
@@ -910,7 +898,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "mapping_note": "Implemented UI::DisclosureGroup in iteration 26 (Path B). Replaces UI::Toggle surrogate. macOS: NSButton bezelStyle=disclosure (5) + NSTextField in NSStackView. iOS: UIButton chevron SF Symbol + UILabel in UIStackView. Both shapes (disclosure triangle + push-disclosure button) rendered; push-disclosure uses bezelStyle=5 (deviation) rather than 23.",
       "glass_required": false,
@@ -925,17 +913,11 @@
         "ios_light": "pass",
         "ios_dark": "pass"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "settings",
       "focal_position": "multi_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: disclosure-controls-macos-light.png",
-        "screenshot newer than report: disclosure-controls-macos-dark.png",
-        "screenshot newer than report: disclosure-controls-ios-light.png",
-        "screenshot newer than report: disclosure-controls-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "dock-menus",
@@ -949,7 +931,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "notes": "Iteration 27: four fresh captures (macos-light 86550b, macos-dark 87422b, ios-light 291378b, ios-dark 262660b), all dated 2026-04-13 20:06-20:08. macOS: UI::Sheet grouped_card with NSVisualEffectMaterial.menu (10), multi-group surface (New Window / Open Recent / separator / Recent docs / separator / Options subgroup / system items). Glass visible in both macOS appearances. iOS: explicit N/A placeholder card legible in both appearances. Two non-legibility-impairing deviations: (1) blue labels vs labelColor (systemic, gaps.md iter-12); (2) submenu chevron via text character not NSMenuItem.submenu (systemic, gaps.md iter-25). Both mandatory sections (Light/dark appearance notes + Customization/brand override) present in components/dock-menus.md.",
       "glass_required": true,
@@ -964,16 +946,10 @@
         "ios_light": "n/a (platform)",
         "ios_dark": "n/a (platform)"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "menu-backdrop-amber-document",
       "scene": "dock",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: dock-menus-macos-light.png",
-        "screenshot newer than report: dock-menus-macos-dark.png",
-        "screenshot newer than report: dock-menus-ios-light.png",
-        "screenshot newer than report: dock-menus-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "drag-and-drop",
@@ -1641,7 +1617,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "notes": "The text-view studies now read as calm, native editing surfaces on both platforms, with visible content and honest gutters. This remains notes-only because the capture focuses on the default surface and legibility rather than a richer document-editing workflow.",
       "glass_required": false,
@@ -1656,7 +1632,6 @@
         "ios_light": "PASS_WITH_NOTES",
         "ios_dark": "PASS_WITH_NOTES"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "pass_with_notes_reasons": [
         "Sounds & Haptics label wraps to two lines on iOS (cosmetic, not a legibility failure)",
         "Row Accessories section falls below iOS simulator viewport due to gallery VStack height exceeding UIViewRepresentable frame (harness constraint, not component defect)",
@@ -1666,13 +1641,8 @@
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "inbox",
       "focal_position": "right_pane",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: lists-and-tables-macos-light.png",
-        "screenshot newer than report: lists-and-tables-macos-dark.png",
-        "screenshot newer than report: lists-and-tables-ios-light.png",
-        "screenshot newer than report: lists-and-tables-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "live-activities",
@@ -1682,12 +1652,12 @@
       "role": "component",
       "ui_view": null,
       "ui_view_file": null,
-      "status": "missing",
+      "status": "n/a",
       "priority": "P2",
       "iOS_visit_found": false,
       "macOS_visit_found": false,
       "validation_state": "skipped",
-      "docs_written": false,
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -2096,12 +2066,12 @@
       "role": "component",
       "ui_view": null,
       "ui_view_file": null,
-      "status": "missing",
+      "status": "n/a",
       "priority": "P2",
       "iOS_visit_found": false,
       "macOS_visit_found": false,
       "validation_state": "skipped",
-      "docs_written": false,
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -2109,7 +2079,8 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "visionOS-only component for floating UI chrome around windows. asset_pipeline does not target visionOS. Skipped as platform-inapplicable.",
+      "notes": "visionOS-only component for floating UI chrome around windows. asset_pipeline does not target visionOS, so ornaments are documented as out-of-scope for the current macOS/iOS UI surface.",
+      "skip_reason": "visionos-only-platform-surface",
       "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "not_applicable",
       "evidence_errors": []
@@ -3237,7 +3208,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3254,12 +3225,8 @@
       "backdrop": "sheet-backdrop-amber-gradient",
       "scene": "ambient",
       "focal_position": "centered",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: text-fields-ios-light.png",
-        "screenshot newer than report: text-fields-ios-dark.png"
-      ],
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "text-views",
@@ -3426,7 +3393,7 @@
       "role": "component",
       "ui_view": null,
       "ui_view_file": null,
-      "status": "missing",
+      "status": "n/a",
       "priority": "P2",
       "iOS_visit_found": false,
       "macOS_visit_found": false,
@@ -3484,12 +3451,12 @@
       "role": "component",
       "ui_view": null,
       "ui_view_file": null,
-      "status": "missing",
+      "status": "n/a",
       "priority": "P2",
       "iOS_visit_found": false,
       "macOS_visit_found": false,
       "validation_state": "skipped",
-      "docs_written": false,
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -3497,7 +3464,8 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "iOS system keyboard (UIKeyboard). Apps configure UITextInputTraits only; keyboard itself is system-rendered. Skipped as platform-inapplicable.",
+      "notes": "iOS system keyboard (UIKeyboard). Apps configure text input traits, but the keyboard itself is system-rendered and not an in-app primitive for asset_pipeline.",
+      "skip_reason": "system-keyboard-not-view",
       "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "not_applicable",
       "evidence_errors": []
@@ -3542,12 +3510,12 @@
       "role": "component",
       "ui_view": null,
       "ui_view_file": null,
-      "status": "missing",
+      "status": "n/a",
       "priority": "P2",
       "iOS_visit_found": false,
       "macOS_visit_found": false,
       "validation_state": "skipped",
-      "docs_written": false,
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -3555,7 +3523,8 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "watchOS-only (Watch face design doc). Not an app-developer API \u2014 Apple reserves watch face creation. Skipped as platform-inapplicable.",
+      "notes": "watchOS-only design surface. Apple does not expose watch face creation as an app-level primitive, so this stays outside the shard's current macOS/iOS scope.",
+      "skip_reason": "watchos-only-system-surface",
       "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "not_applicable",
       "evidence_errors": []
@@ -3599,12 +3568,12 @@
       "role": "component",
       "ui_view": null,
       "ui_view_file": null,
-      "status": "missing",
+      "status": "n/a",
       "priority": "P2",
       "iOS_visit_found": false,
       "macOS_visit_found": false,
       "validation_state": "skipped",
-      "docs_written": false,
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -3679,15 +3648,15 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 43,
-    "pending": 6,
+    "pass_with_notes": 49,
+    "pending": 0,
     "needs_work": 0,
     "fail": 0,
     "skipped": 16
   },
   "evidence_counts": {
-    "valid": 43,
-    "invalid": 6,
+    "valid": 49,
+    "invalid": 0,
     "not_applicable": 16,
     "unknown": 0
   }

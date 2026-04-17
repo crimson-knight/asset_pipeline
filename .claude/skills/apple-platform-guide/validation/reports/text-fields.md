@@ -1,7 +1,7 @@
 ---
 slug: text-fields
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-16T20:45:00Z
+validated_at: 2026-04-17T15:26:53Z
 iteration: 25
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
@@ -29,22 +29,21 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-This is in a much better place. The fields are now presented as a clean, compact form
-study instead of a loose stack pressed against the frame.
+The form study is clean and current. It now has the right amount of surrounding gutter,
+the fields line up well, and the layout reads like a deliberate default rather than a
+rushed demo.
 
 ### What improved
-- Both platforms now keep enough surrounding gutter that the form reads as a focused
-  component sample.
-- Input widths are consistent and the labels align cleanly with the fields beneath.
-- Dark-mode rendering is readable on both platforms; filled values and placeholders
-  are easy to distinguish.
+- Both platforms keep enough gutter for the form to breathe.
+- Labels and field widths are aligned in a way that feels intentional.
+- Light and dark appearances are both easy to scan.
 
 ### Why this is still notes-only
-- The iOS secure field still appears visually empty in the static screenshot. That is
-  expected from `secureTextEntry`, but it remains a screenshot-specific limitation.
-- The form is clean, though still a little more showcase-like than a truly native
-  settings or account screen.
+- The iOS secure field still reads as empty in the static screenshot, which is a
+  capture limitation rather than a layout problem.
+- The study is good, but it still sits a touch closer to a curated sample than a full
+  production form surface.
 
 ### Result
-This is a solid default taste baseline now. Leave it at `PASS_WITH_NOTES` until the
-host can present secure-field state and surrounding form chrome a little more naturally.
+This is a solid baseline and should remain `PASS_WITH_NOTES` until the host can present
+secure-field state and surrounding form chrome more naturally in capture.

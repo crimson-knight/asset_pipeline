@@ -1,17 +1,12 @@
 {
-  "errors": [
-    "screenshot newer than report: dock-menus-macos-light.png",
-    "screenshot newer than report: dock-menus-macos-dark.png",
-    "screenshot newer than report: dock-menus-ios-light.png",
-    "screenshot newer than report: dock-menus-ios-dark.png"
-  ],
-  "generated_at": "2026-04-17T15:26:53.784950+00:00",
+  "errors": [],
+  "generated_at": "2026-04-17T16:17:47.280691+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-14T00:10:30.380999+00:00",
+    "mtime": "2026-04-17T16:13:35.421418+00:00",
     "path": "reports/dock-menus.md",
-    "sha256": "2fe813844c7a41553b677872c1f27523b8587b51074e5e93db4c971a3b0312e0",
-    "size_bytes": 9911
+    "sha256": "d08eda89d242fe4d6a827cecfae3777829b6545e4a96ccefe350bbc5bfbd5a8b",
+    "size_bytes": 3310
   },
   "screenshots": {
     "ios_dark": {
@@ -52,7 +47,7 @@
     }
   },
   "slug": "dock-menus",
-  "valid": false,
+  "valid": true,
   "validation_state": "pass_with_notes",
   "warnings": []
 }

@@ -1,17 +1,12 @@
 {
-  "errors": [
-    "screenshot newer than report: lists-and-tables-macos-light.png",
-    "screenshot newer than report: lists-and-tables-macos-dark.png",
-    "screenshot newer than report: lists-and-tables-ios-light.png",
-    "screenshot newer than report: lists-and-tables-ios-dark.png"
-  ],
-  "generated_at": "2026-04-17T15:26:53.797364+00:00",
+  "errors": [],
+  "generated_at": "2026-04-17T16:17:47.325785+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-14T10:41:56.539201+00:00",
+    "mtime": "2026-04-17T16:13:35.426361+00:00",
     "path": "reports/lists-and-tables.md",
-    "sha256": "a57089b744d6233799ef291e9942f7b1f7936479b25cdd5369c27befd58da9a0",
-    "size_bytes": 12627
+    "sha256": "3123034aef0a8c18960d95000aba043e3b558bf66b6f1b05977d0041e13c0ece",
+    "size_bytes": 3048
   },
   "screenshots": {
     "ios_dark": {
@@ -52,7 +47,7 @@
     }
   },
   "slug": "lists-and-tables",
-  "valid": false,
+  "valid": true,
   "validation_state": "pass_with_notes",
   "warnings": []
 }

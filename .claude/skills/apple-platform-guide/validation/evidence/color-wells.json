@@ -1,17 +1,12 @@
 {
-  "errors": [
-    "screenshot newer than report: color-wells-macos-light.png",
-    "screenshot newer than report: color-wells-macos-dark.png",
-    "screenshot newer than report: color-wells-ios-light.png",
-    "screenshot newer than report: color-wells-ios-dark.png"
-  ],
-  "generated_at": "2026-04-17T15:26:53.778911+00:00",
+  "errors": [],
+  "generated_at": "2026-04-17T16:17:47.257575+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-14T17:02:42.661754+00:00",
+    "mtime": "2026-04-17T16:14:15.221722+00:00",
     "path": "reports/color-wells.md",
-    "sha256": "6d8f9289bcfe664a98d3b5892b700fd809a41abf032dc95dd1e6d3fce6b25dcd",
-    "size_bytes": 7069
+    "sha256": "1c57c01d9871434e78b479c393207386da938da5df8e4e60c37069df7eee75e8",
+    "size_bytes": 3301
   },
   "screenshots": {
     "ios_dark": {
@@ -52,7 +47,7 @@
     }
   },
   "slug": "color-wells",
-  "valid": false,
+  "valid": true,
   "validation_state": "pass_with_notes",
   "warnings": []
 }

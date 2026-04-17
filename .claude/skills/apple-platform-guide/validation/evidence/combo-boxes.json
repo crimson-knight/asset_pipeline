@@ -1,17 +1,12 @@
 {
-  "errors": [
-    "screenshot newer than report: combo-boxes-macos-light.png",
-    "screenshot newer than report: combo-boxes-macos-dark.png",
-    "screenshot newer than report: combo-boxes-ios-light.png",
-    "screenshot newer than report: combo-boxes-ios-dark.png"
-  ],
-  "generated_at": "2026-04-17T15:26:53.781211+00:00",
+  "errors": [],
+  "generated_at": "2026-04-17T16:17:47.268649+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-14T18:17:48.199905+00:00",
+    "mtime": "2026-04-17T16:13:35.417827+00:00",
     "path": "reports/combo-boxes.md",
-    "sha256": "6697666810809cd9e17c3f227d8c6514ac605315f791de3cbce67f2d58bde8b5",
-    "size_bytes": 8078
+    "sha256": "495d5ad2c348b79d6032eb3d8b5808e98cfa8afeb6659a9f01ff860f24db180f",
+    "size_bytes": 3368
   },
   "screenshots": {
     "ios_dark": {
@@ -52,7 +47,7 @@
     }
   },
   "slug": "combo-boxes",
-  "valid": false,
+  "valid": true,
   "validation_state": "pass_with_notes",
   "warnings": []
 }

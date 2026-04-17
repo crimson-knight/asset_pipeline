@@ -1,15 +1,12 @@
 {
-  "errors": [
-    "screenshot newer than report: text-fields-ios-light.png",
-    "screenshot newer than report: text-fields-ios-dark.png"
-  ],
-  "generated_at": "2026-04-17T15:26:53.839163+00:00",
+  "errors": [],
+  "generated_at": "2026-04-17T16:17:47.492170+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-16T20:41:51.744732+00:00",
+    "mtime": "2026-04-17T16:14:15.225582+00:00",
     "path": "reports/text-fields.md",
-    "sha256": "60cb2793c89c004ce4d2d36fb8e5703092fc8da2c0298836ac95a8fe85a92f2a",
-    "size_bytes": 1698
+    "sha256": "8160d253b2c6f4868009b5ab09ac42d0a05308eeda753bbf36437150dc50794e",
+    "size_bytes": 1577
   },
   "screenshots": {
     "ios_dark": {
@@ -50,7 +47,7 @@
     }
   },
   "slug": "text-fields",
-  "valid": false,
+  "valid": true,
   "validation_state": "pass_with_notes",
   "warnings": []
 }

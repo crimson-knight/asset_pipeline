@@ -1,17 +1,12 @@
 {
-  "errors": [
-    "screenshot newer than report: disclosure-controls-macos-light.png",
-    "screenshot newer than report: disclosure-controls-macos-dark.png",
-    "screenshot newer than report: disclosure-controls-ios-light.png",
-    "screenshot newer than report: disclosure-controls-ios-dark.png"
-  ],
-  "generated_at": "2026-04-17T15:26:53.783615+00:00",
+  "errors": [],
+  "generated_at": "2026-04-17T16:17:47.277582+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-14T00:02:06.517697+00:00",
+    "mtime": "2026-04-17T16:14:15.224367+00:00",
     "path": "reports/disclosure-controls.md",
-    "sha256": "c217ad88f4def6c036f6c594bd2e0088e77c1ca83e774251b0d2b1f2df75b703",
-    "size_bytes": 8043
+    "sha256": "db0d0e8aeac7b4a1870164ded38d6b8a7a0e72372099286e62a897e214a2b809",
+    "size_bytes": 3097
   },
   "screenshots": {
     "ios_dark": {
@@ -52,7 +47,7 @@
     }
   },
   "slug": "disclosure-controls",
-  "valid": false,
+  "valid": true,
   "validation_state": "pass_with_notes",
   "warnings": []
 }
