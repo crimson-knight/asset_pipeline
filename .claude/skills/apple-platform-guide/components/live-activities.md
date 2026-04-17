@@ -27,6 +27,12 @@ the metadata and update contract, not fake the system card inside an app scene.
 - **Validation**: Skipped for local screenshots because the system owns the
   rendered surface.
 
+## What the shard exports today
+
+- `UI::LiveActivities#to_payload` for structured metadata export.
+- `UI::LiveActivities#export_activitykit_scaffold` for a deterministic Swift
+  scaffold a build step can hand off to ActivityKit / WidgetKit extension work.
+
 ## HIG citations (validated)
 
 - Live Activities are system-presented, glanceable status surfaces.

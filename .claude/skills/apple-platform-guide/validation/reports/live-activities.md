@@ -28,6 +28,7 @@ surfaces remain system-owned.
 - attribute payload export
 - content-state payload export
 - optional update-intent metadata
+- deterministic ActivityKit scaffold export
 
 ### Why validation stays skipped
 

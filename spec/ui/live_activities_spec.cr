@@ -53,4 +53,43 @@ describe UI::LiveActivities do
     live_activities.clear
     live_activities.activities.should be_empty
   end
+
+  it "exports a deterministic ActivityKit scaffold" do
+    live_activities = UI::LiveActivities.new(
+      "Asset Pipeline",
+      bundle_identifier: "com.example.asset-pipeline"
+    )
+
+    live_activities.add_activity("RideStatusAttributes", identifier: "ride-1") do |entry|
+      entry.add_attribute("phase", "enroute")
+      entry.add_attribute("driver_name", "Avery")
+      entry.add_content_state_field("progress", "0.64")
+      entry.add_content_state_field("eta_minutes", "12")
+      entry.build_update_intent(
+        "open-ride",
+        title: "Open Ride",
+        subtitle: "Bring the app to the foreground",
+        system_image: "car",
+        user_info: {"ride_id" => "ride-42", "zone" => "north"}
+      )
+    end
+
+    scaffold = live_activities.export_activitykit_scaffold
+    scaffold.should contain("import ActivityKit")
+    scaffold.should contain("import WidgetKit")
+    scaffold.should contain("public enum AssetPipelineLiveActivities")
+    scaffold.should contain("public struct RideStatusAttributes: ActivityAttributes")
+    scaffold.should contain("public var eta_minutes: String")
+    scaffold.should contain("public var progress: String")
+    scaffold.should contain("public static let identifier = \"ride-1\"")
+    scaffold.should contain("public static let attributesType = \"RideStatusAttributes\"")
+    scaffold.should contain("public static let updateIntentIdentifier = \"open-ride\"")
+    scaffold.should contain("\"ride_id\": \"ride-42\"")
+    scaffold.should contain("\"zone\": \"north\"")
+    scaffold.should contain("public static let contentStateKeys = [")
+    scaffold.should contain("\"eta_minutes\"")
+    scaffold.should contain("\"progress\"")
+
+    scaffold.should eq(live_activities.export_activitykit_scaffold)
+  end
 end

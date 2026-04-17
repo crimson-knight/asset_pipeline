@@ -120,6 +120,82 @@ module UI
       end
     end
 
+    # Export a deterministic Swift/ActivityKit scaffold for this activity.
+    #
+    # The scaffold stays conservative: it mirrors the exported keys as typed
+    # string properties and records the update intent metadata as static
+    # constants so a later build step can fill in the real ActivityKit surface.
+    def to_activitykit_scaffold(indent : Int32 = 4) : String
+      indent_str = " " * indent
+      child_indent = indent_str + "    "
+      struct_name = swift_type_name(@attributes_type, "LiveActivity")
+
+      String.build do |output|
+      output << indent_str << "public struct " << struct_name << ": ActivityAttributes {\n"
+        output << child_indent << "public struct ContentState: Codable, Hashable {\n"
+
+        if @content_state.empty?
+          output << child_indent << "    // No content-state fields were exported.\n"
+        else
+          sorted_content_state_keys.each do |key|
+            output << child_indent << "    public var " << swift_identifier(key) << ": String\n"
+          end
+        end
+
+        output << child_indent << "}\n\n"
+        output << child_indent << "public static let identifier = " << swift_string_literal(@identifier) << "\n"
+        output << child_indent << "public static let attributesType = " << swift_string_literal(@attributes_type) << "\n"
+        output << child_indent << "public static let isActive = " << @is_active << "\n"
+        output << child_indent << "public static let attributeKeys = [\n"
+        sorted_attribute_keys.each do |key|
+          output << child_indent << "    " << swift_string_literal(key) << ",\n"
+        end
+        output << child_indent << "]\n"
+        output << child_indent << "public static let contentStateKeys = [\n"
+        sorted_content_state_keys.each do |key|
+          output << child_indent << "    " << swift_string_literal(key) << ",\n"
+        end
+        output << child_indent << "]\n"
+
+        if intent = @update_intent
+          output << child_indent << "public static let updateIntentIdentifier = " << swift_string_literal(intent.identifier) << "\n"
+          if title = intent.title
+            output << child_indent << "public static let updateIntentTitle = " << swift_string_literal(title) << "\n"
+          else
+            output << child_indent << "public static let updateIntentTitle: String? = nil\n"
+          end
+          if subtitle = intent.subtitle
+            output << child_indent << "public static let updateIntentSubtitle = " << swift_string_literal(subtitle) << "\n"
+          else
+            output << child_indent << "public static let updateIntentSubtitle: String? = nil\n"
+          end
+          if system_image = intent.system_image
+            output << child_indent << "public static let updateIntentSystemImage = " << swift_string_literal(system_image) << "\n"
+          else
+            output << child_indent << "public static let updateIntentSystemImage: String? = nil\n"
+          end
+          if intent.user_info.empty?
+            output << child_indent << "public static let updateIntentUserInfo: [String: String] = [:]\n"
+          else
+            output << child_indent << "public static let updateIntentUserInfo: [String: String] = [\n"
+            intent.user_info.keys.sort.each do |key|
+              value = intent.user_info[key]
+              output << child_indent << "    " << swift_string_literal(key) << ": " << swift_string_literal(value) << ",\n"
+            end
+            output << child_indent << "]\n"
+          end
+        else
+          output << child_indent << "public static let updateIntentIdentifier: String? = nil\n"
+          output << child_indent << "public static let updateIntentTitle: String? = nil\n"
+          output << child_indent << "public static let updateIntentSubtitle: String? = nil\n"
+          output << child_indent << "public static let updateIntentSystemImage: String? = nil\n"
+          output << child_indent << "public static let updateIntentUserInfo: [String: String] = [:]\n"
+        end
+
+        output << indent_str << "}\n"
+      end
+    end
+
     private def slugify(value : String) : String
       normalized = value
         .gsub(/([a-z\d])([A-Z])/, "\\1-\\2")
@@ -128,6 +204,125 @@ module UI
         .gsub(/[^a-z0-9]+/, "-")
         .gsub(/^-+|-+$/, "")
       normalized.empty? ? "live-activity" : normalized
+    end
+
+    private def sorted_attribute_keys : Array(String)
+      @attributes.keys.sort
+    end
+
+    private def sorted_content_state_keys : Array(String)
+      @content_state.keys.sort
+    end
+
+    private def swift_identifier(value : String, fallback : String = "value") : String
+      normalized = value
+        .strip
+        .downcase
+        .gsub(/[^a-z0-9]+/, "_")
+        .gsub(/^_+|_+$/, "")
+
+      normalized = fallback if normalized.empty?
+      normalized = "#{fallback}_#{normalized}" if normalized.match(/^\d/)
+      normalized = "_#{normalized}" if swift_keyword?(normalized)
+      normalized
+    end
+
+    private def swift_type_name(value : String, fallback : String) : String
+      trimmed = value.strip
+      return fallback if trimmed.empty?
+      return trimmed if trimmed.match(/\A[A-Z][A-Za-z0-9]*\z/)
+
+      normalized = trimmed
+        .gsub(/([a-z\d])([A-Z])/, "\\1 \\2")
+        .gsub(/[^A-Za-z0-9]+/, " ")
+        .split(/\s+/)
+        .map { |part| part.empty? ? "" : part[0].upcase + part[1..].downcase }
+        .join
+
+      normalized = fallback if normalized.empty?
+      normalized = "#{fallback}#{normalized}" if normalized.match(/^\d/)
+      normalized
+    end
+
+    private def swift_string_literal(value : String) : String
+      String.build do |output|
+        output << '"'
+        value.each_char do |char|
+          case char
+          when '\\'
+            output << "\\\\"
+          when '"'
+            output << "\\\""
+          when '\n'
+            output << "\\n"
+          when '\r'
+            output << "\\r"
+          when '\t'
+            output << "\\t"
+          else
+            output << char
+          end
+        end
+        output << '"'
+      end
+    end
+
+    private def swift_keyword?(value : String) : Bool
+      %w(
+        associatedtype
+        class
+        deinit
+        enum
+        extension
+        fileprivate
+        func
+        import
+        init
+        inout
+        internal
+        let
+        operator
+        private
+        protocol
+        public
+        static
+        struct
+        subscript
+        typealias
+        var
+        break
+        case
+        continue
+        default
+        defer
+        do
+        else
+        fallthrough
+        for
+        guard
+        if
+        in
+        repeat
+        return
+        switch
+        where
+        while
+        as
+        any
+        catch
+        false
+        is
+        nil
+        rethrows
+        super
+        self
+        Self
+        throw
+        throws
+        true
+        try
+        await
+      ).includes?(value)
     end
   end
 
@@ -217,6 +412,52 @@ module UI
           end
         end
       end
+    end
+
+    # Export a conservative Swift/ActivityKit scaffold for the full collection.
+    #
+    # The scaffold is deterministic and extension-oriented: it uses stable
+    # ordering, typed string placeholders, and static metadata constants so a
+    # later build step can map the export into ActivityKit or WidgetKit code.
+    def export_activitykit_scaffold : String
+      String.build do |output|
+        output << "import ActivityKit\n"
+        output << "import WidgetKit\n\n"
+        output << "// Generated by asset_pipeline.\n"
+        output << "// Application: " << @application_name << "\n"
+        output << "// Bundle Identifier: " << @bundle_identifier << "\n" if @bundle_identifier
+        output << "\n"
+        output << "public enum " << swift_module_name << " {\n"
+
+        if @activities.empty?
+          output << "    // No live activities were exported.\n"
+        else
+          sorted_activities.each do |activity|
+            output << "\n"
+            output << activity.to_activitykit_scaffold
+          end
+        end
+
+        output << "}\n"
+      end
+    end
+
+    private def sorted_activities : Array(LiveActivity)
+      @activities.sort_by(&.identifier)
+    end
+
+    private def swift_module_name : String
+      base = @application_name.strip
+      base = "AssetPipeline" if base.empty?
+      normalized = base
+        .gsub(/([a-z\d])([A-Z])/, "\\1 \\2")
+        .gsub(/[^A-Za-z0-9]+/, " ")
+        .split(/\s+/)
+        .map { |part| part.empty? ? "" : part[0].upcase + part[1..].downcase }
+        .join
+      normalized = "AssetPipeline" if normalized.empty?
+      normalized = "AssetPipeline#{normalized}" if normalized.match(/^\d/)
+      "#{normalized}LiveActivities"
     end
   end
 end

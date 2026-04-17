@@ -26,6 +26,12 @@ rendering a fake widget card inside a normal app window.
 - **Validation**: Skipped for local screenshots because the system owns widget
   presentation and placement.
 
+## What the shard exports today
+
+- `UI::Widgets#to_payload` for structured widget metadata.
+- `UI::Widgets#export_widgetkit_scaffold` for a deterministic Swift/WidgetKit
+  scaffold a host build step can turn into a real extension target.
+
 ## HIG citations (validated)
 
 - Widgets are concise, glanceable extensions rather than in-app screens.

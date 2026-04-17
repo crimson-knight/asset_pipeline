@@ -27,6 +27,7 @@ placement intent, but widget rendering and placement remain system-owned.
 - per-widget summary and identity
 - placement and family declarations
 - timeline intent and refresh policy metadata
+- deterministic WidgetKit scaffold export
 
 ### Why validation stays skipped
 
