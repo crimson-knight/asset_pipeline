@@ -1,5 +1,7 @@
 require "./ui/view"
+require "./ui/app_shortcuts"
 require "./ui/windows"
+require "./ui/quick_actions"
 require "./ui/views/*"
 require "./ui/menu_bar"
 require "./ui/status_bar"

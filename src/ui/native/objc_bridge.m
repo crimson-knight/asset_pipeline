@@ -2050,6 +2050,19 @@ void ap_free_c_string(char *payload) {
     if (payload) free(payload);
 }
 
+static NSDictionary *ap_json_dictionary_from_cstr(const char *payload_cstr) {
+    NSString *payload = ap_string_from_cstr(payload_cstr);
+    if (!payload || !payload.length) return nil;
+
+    NSData *data = [payload dataUsingEncoding:NSUTF8StringEncoding];
+    if (!data) return nil;
+
+    NSError *error = nil;
+    id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+    if (error || ![object isKindOfClass:[NSDictionary class]]) return nil;
+    return (NSDictionary *)object;
+}
+
 #if TARGET_OS_OSX
 static NSString *g_last_menu_bar_identifier = nil;
 static NSString *g_last_status_item_identifier = nil;
@@ -2092,19 +2105,6 @@ static APShellCommandTarget *ap_shell_command_target(void) {
         target = [[APShellCommandTarget alloc] init];
     }
     return target;
-}
-
-static NSDictionary *ap_json_dictionary_from_cstr(const char *payload_cstr) {
-    NSString *payload = ap_string_from_cstr(payload_cstr);
-    if (!payload || !payload.length) return nil;
-
-    NSData *data = [payload dataUsingEncoding:NSUTF8StringEncoding];
-    if (!data) return nil;
-
-    NSError *error = nil;
-    id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
-    if (error || ![object isKindOfClass:[NSDictionary class]]) return nil;
-    return (NSDictionary *)object;
 }
 
 static NSImage *ap_menu_symbol_image(NSString *symbol_name, BOOL template_icon) {
@@ -2164,6 +2164,77 @@ static void ap_populate_menu_items(NSMenu *menu, NSArray *items, SEL action_sele
     }
 }
 #endif
+
+#if !TARGET_OS_OSX
+static UIApplicationShortcutIcon *ap_home_screen_quick_action_icon(NSString *symbol_name) {
+    if (!symbol_name || !symbol_name.length) return nil;
+    if (![UIApplicationShortcutIcon respondsToSelector:@selector(iconWithTemplateImageName:)]) {
+        return nil;
+    }
+
+    return [UIApplicationShortcutIcon iconWithTemplateImageName:symbol_name];
+}
+#endif
+
+int ap_home_screen_quick_actions_apply(const char *payload_cstr) {
+#if TARGET_OS_OSX
+    (void)payload_cstr;
+    return 0;
+#else
+    NSDictionary *payload = ap_json_dictionary_from_cstr(payload_cstr);
+    NSArray *actions = payload[@"actions"];
+    if (![actions isKindOfClass:[NSArray class]]) return 0;
+
+    __block BOOL applied = NO;
+    ap_run_on_main_thread_sync(^{
+        UIApplication *application = [UIApplication sharedApplication];
+        if (!application) return;
+
+        NSMutableArray *shortcut_items = [[NSMutableArray alloc] init];
+        for (id raw_action in actions) {
+            if (![raw_action isKindOfClass:[NSDictionary class]]) continue;
+            NSDictionary *action_dict = (NSDictionary *)raw_action;
+
+            NSString *type = action_dict[@"type"];
+            NSString *title = action_dict[@"title"];
+            if (![type isKindOfClass:[NSString class]] || !type.length) continue;
+            if (![title isKindOfClass:[NSString class]] || !title.length) continue;
+
+            NSString *subtitle = action_dict[@"subtitle"];
+            NSString *system_image = action_dict[@"system_image"];
+            NSDictionary *user_info = action_dict[@"user_info"];
+            UIApplicationShortcutIcon *icon = ap_home_screen_quick_action_icon(system_image);
+
+            UIApplicationShortcutItem *item = [[UIApplicationShortcutItem alloc]
+                initWithType:type
+              localizedTitle:title
+           localizedSubtitle:([subtitle isKindOfClass:[NSString class]] && subtitle.length) ? subtitle : nil
+                        icon:icon
+                    userInfo:[user_info isKindOfClass:[NSDictionary class]] ? user_info : nil];
+            [shortcut_items addObject:item];
+            [item release];
+        }
+
+        application.shortcutItems = shortcut_items;
+        [shortcut_items release];
+        applied = YES;
+    });
+
+    return applied ? 1 : 0;
+#endif
+}
+
+void ap_home_screen_quick_actions_clear(void) {
+#if TARGET_OS_OSX
+    return;
+#else
+    ap_run_on_main_thread_sync(^{
+        UIApplication *application = [UIApplication sharedApplication];
+        if (!application) return;
+        application.shortcutItems = @[];
+    });
+#endif
+}
 
 int ap_menu_bar_install(const char *payload_cstr) {
 #if !TARGET_OS_OSX

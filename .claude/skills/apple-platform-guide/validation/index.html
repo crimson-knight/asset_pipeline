@@ -43,7 +43,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 .summary .stat-num{font-size:28px;font-weight:700}
 .summary .stat-label{font-size:11px;color:#636366;text-transform:uppercase;letter-spacing:.04em}</style>
 <h1>Apple HIG validation &mdash; dashboard</h1>
-<p>Generated 2026-04-17T15:39:39Z. <strong>43/65</strong> auditable studies reached a terminal state (<strong>66%</strong>). 16 skipped, 0 needs-work, 6 pending, 6 with stale evidence.</p>
+<p>Generated 2026-04-17T15:45:31Z. <strong>43/65</strong> auditable studies reached a terminal state (<strong>66%</strong>). 16 skipped, 0 needs-work, 6 pending, 6 with stale evidence.</p>
 <div class='summary'>
 <div class='stat'><div class='stat-num' style='color:#34c759'>43</div><div class='stat-label'>Passing</div></div>
 <div class='stat'><div class='stat-num' style='color:#8e8e93'>16</div><div class='stat-label'>Skipped</div></div>
@@ -414,13 +414,13 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>app-shortcuts</span><br>
 <span class='v-skip'>SKIPPED</span> <span class='evidence ev-na'>evidence n/a</span><br>
-<span class='ui-view'></span>
+<span class='ui-view'>UI::AppShortcuts</span>
 
-<span class='notes'>App Shortcuts live in AppIntents/AppShortcuts metadata, not an in-app rendered UI::View. Keep this row missing for product planning, but skip it from screenshot validation until platform integration work is scoped separately.</span></td>
+<span class='notes'>Implemented as a metadata/export boundary for App Shortcut declarations. The feature remains system-owned rather than an in-app rendered UI::View, so screenshot validation stays skipped.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/app-shortcuts-macos-light.png'><img src='screenshots/app-shortcuts-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/app-shortcuts-macos-dark.png'><img src='screenshots/app-shortcuts-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/app-shortcuts-ios-light.png'><img src='screenshots/app-shortcuts-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/app-shortcuts-ios-dark.png'><img src='screenshots/app-shortcuts-ios-dark.png'></a></div></div></td>
 <td><a href='../../apple-hig/images/components-app-shortcuts-intro.png'><img class='small' src='../../apple-hig/images/components-app-shortcuts-intro.png'></a></td>
 <td><div class='backdrop-cell'><a href='backdrops/sheet-backdrop-amber-gradient-light.png'><img class='backdrop-thumb' src='backdrops/sheet-backdrop-amber-gradient-light.png'></a><span class='backdrop-name'>sheet-backdrop-amber-gradient</span></div></td>
-<td><span class='missing'>no docs</span></td>
+<td><a href='reports/app-shortcuts.md'>report</a> · <a href='../components/app-shortcuts.md'>usage doc</a></td>
 </tr>
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>charts</span><br>
@@ -447,7 +447,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>complications</span><br>
 <span class='v-skip'>SKIPPED</span> <span class='evidence ev-na'>evidence n/a</span><br>
-<span class='ui-view'></span>
+<span class='ui-view'>UI::HomeScreenQuickActions</span>
 
 <span class='notes'>watchOS-only component (CLKComplication). asset_pipeline does not target watchOS; no in-app surface to validate. Skipped as platform-inapplicable.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/complications-macos-light.png'><img src='screenshots/complications-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/complications-macos-dark.png'><img src='screenshots/complications-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/complications-ios-light.png'><img src='screenshots/complications-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/complications-ios-dark.png'><img src='screenshots/complications-ios-dark.png'></a></div></div></td>
@@ -458,7 +458,7 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>controls</span><br>
 <span class='v-skip'>SKIPPED</span> <span class='evidence ev-na'>evidence n/a</span><br>
-<span class='ui-view'></span>
+<span class='ui-view'>UI::HomeScreenQuickActions</span>
 
 <span class='notes'>HIG &quot;Controls&quot; is a taxonomy overview page, not a specific component. No single UI::View maps to it — covered by buttons, toggles, steppers, sliders, etc. which are separate slugs. Skipped as not-a-component.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/controls-macos-light.png'><img src='screenshots/controls-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/controls-macos-dark.png'><img src='screenshots/controls-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/controls-ios-light.png'><img src='screenshots/controls-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/controls-ios-dark.png'><img src='screenshots/controls-ios-dark.png'></a></div></div></td>
@@ -480,13 +480,13 @@ img.backdrop-thumb{max-width:120px;max-height:90px;border-radius:6px;box-shadow:
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>home-screen-quick-actions</span><br>
 <span class='v-skip'>SKIPPED</span> <span class='evidence ev-na'>evidence n/a</span><br>
-<span class='ui-view'></span> <span class='ui-view'>glass: </span>
+<span class='ui-view'>UI::HomeScreenQuickActions</span> <span class='ui-view'>glass: </span>
 
-<span class='notes'>iOS Info.plist UIApplicationShortcutItems declarations exposed to Home Screen long-press menu. No in-app surface to validate. Skipped as not-applicable-to-capture.</span></td>
+<span class='notes'>Implemented as a quick-actions catalog plus manifest and UIApplicationShortcutItems plist export helpers. The Home Screen long-press menu remains system-owned, so screenshot validation stays skipped.</span></td>
 <td><div class='grid4'><div class='cap'><span class='cap-label'>macOS light</span><a href='screenshots/home-screen-quick-actions-macos-light.png'><img src='screenshots/home-screen-quick-actions-macos-light.png'></a></div><div class='cap'><span class='cap-label'>macOS dark</span><a href='screenshots/home-screen-quick-actions-macos-dark.png'><img src='screenshots/home-screen-quick-actions-macos-dark.png'></a></div><div class='cap'><span class='cap-label'>iOS light</span><a href='screenshots/home-screen-quick-actions-ios-light.png'><img src='screenshots/home-screen-quick-actions-ios-light.png'></a></div><div class='cap'><span class='cap-label'>iOS dark</span><a href='screenshots/home-screen-quick-actions-ios-dark.png'><img src='screenshots/home-screen-quick-actions-ios-dark.png'></a></div></div></td>
 <td><a href='../../apple-hig/images/components-home-screen-quick-actions-intro.png'><img class='small' src='../../apple-hig/images/components-home-screen-quick-actions-intro.png'></a></td>
 <td><div class='backdrop-cell'><a href='backdrops/home-screen-amber-wallpaper-light.png'><img class='backdrop-thumb' src='backdrops/home-screen-amber-wallpaper-light.png'></a><span class='backdrop-name'>home-screen-amber-wallpaper</span></div></td>
-<td><span class='missing'>no docs</span></td>
+<td><a href='reports/home-screen-quick-actions.md'>report</a> · <a href='../components/home-screen-quick-actions.md'>usage doc</a></td>
 </tr>
 <tr>
 <td><span class='pri'>P2</span> <span class='slug'>image-wells</span><br>
