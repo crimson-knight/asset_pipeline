@@ -1,7 +1,7 @@
 ---
 slug: pop-up-buttons
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-14T07:25:00Z
+validated_at: 2026-04-17T13:40:00Z
 iteration: 1
 verdict_per_appearance:
   macos_light: PASS
@@ -29,9 +29,11 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-The row-level verdict is the worst of the four per-appearance verdicts. macOS light
-and dark are PASS. iOS light and dark are PASS_WITH_NOTES due to one minor
-layout deviation (chevron placement) documented below.
+The row-level verdict is the worst of the four per-appearance verdicts. This
+refresh moves the controls into smaller centered studies with better gutters and
+shorter surrounding labels, without changing the underlying pop-up-button
+behavior. macOS light and dark are PASS. iOS light and dark are PASS_WITH_NOTES
+due to one minor layout deviation (chevron placement) documented below.
 
 Three scenarios are showcased: "Alignment: Left", "Font size: 12pt", and
 "Theme: Auto". Each demonstrates the HIG core requirement -- a button whose

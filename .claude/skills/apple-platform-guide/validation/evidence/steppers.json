@@ -1,58 +1,53 @@
 {
-  "errors": [
-    "screenshot newer than report: steppers-macos-light.png",
-    "screenshot newer than report: steppers-macos-dark.png",
-    "screenshot newer than report: steppers-ios-light.png",
-    "screenshot newer than report: steppers-ios-dark.png"
-  ],
-  "generated_at": "2026-04-16T20:46:36.317287+00:00",
+  "errors": [],
+  "generated_at": "2026-04-17T13:39:40.950658+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-14T14:34:11.551380+00:00",
+    "mtime": "2026-04-17T13:38:08.978123+00:00",
     "path": "reports/steppers.md",
-    "sha256": "e5171d1c1ae4ba4090ad4a4d91422ec7300f7fe842087e7d21257a11cb7c3610",
-    "size_bytes": 9675
+    "sha256": "c1c75ff6b91551974a69a6d580676158e50138060cf0bb2bd90fe29fad7fa66c",
+    "size_bytes": 9549
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-15T21:22:51.307163+00:00",
+      "mtime": "2026-04-17T13:13:10.977641+00:00",
       "path": "screenshots/steppers-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "b5babec8556f530f28493ef999c8b30009f42855f9518d09226bc119d53f54d4",
-      "size_bytes": 778076
+      "sha256": "ee202b4b3dd911b6df3cee2f0b2300259239c9cb3682e7f5680460157061c087",
+      "size_bytes": 484329
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-15T21:22:19.437134+00:00",
+      "mtime": "2026-04-17T13:12:43.752970+00:00",
       "path": "screenshots/steppers-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "c48f63521103938522e124e81a974684f24aae6aa4cfd68d1cf32fd4d983ce83",
-      "size_bytes": 515460
+      "sha256": "f4198f837f7fa36cfb0ba48be709ec8036b98edd249f7747444bf850b72cce1d",
+      "size_bytes": 359530
     },
     "macos_dark": {
       "exists": true,
-      "mtime": "2026-04-15T20:26:06.556459+00:00",
+      "mtime": "2026-04-17T12:34:25.724019+00:00",
       "path": "screenshots/steppers-macos-dark.png",
-      "pixel_height": 1800,
-      "pixel_width": 2400,
-      "sha256": "4733cd7bc57693a33f1b3405d0c0a01c0a82d364d9e7076a818135397fc10071",
-      "size_bytes": 368887
+      "pixel_height": 900,
+      "pixel_width": 1200,
+      "sha256": "94e7519bfe04abdf825885d2197e4c799e621ceecdc3a1f24b9d2918cee4df07",
+      "size_bytes": 452687
     },
     "macos_light": {
       "exists": true,
-      "mtime": "2026-04-15T20:26:05.566860+00:00",
+      "mtime": "2026-04-17T12:34:24.867833+00:00",
       "path": "screenshots/steppers-macos-light.png",
-      "pixel_height": 1800,
-      "pixel_width": 2400,
-      "sha256": "cad814f08e7e828fee48c687d7f7db0358769fef7c2546d6eee9c48aef8a933b",
-      "size_bytes": 331956
+      "pixel_height": 900,
+      "pixel_width": 1200,
+      "sha256": "54477e67c61438acb15e1c079fb34223cbc8e1e0aee4f0d92485902bace2e4c3",
+      "size_bytes": 393992
     }
   },
   "slug": "steppers",
-  "valid": false,
+  "valid": true,
   "validation_state": "pending",
   "warnings": []
 }

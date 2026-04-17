@@ -760,9 +760,6 @@ module CrystalHIGHost::Bridge
               ios_file_content << UI::Button.new("Open\u2026", symbol: "folder.open")
               ios_file_content << UI::Button.new("Close", symbol: "xmark")
               ios_file_content << UI::Divider.new(:horizontal)
-              ios_file_content << UI::Button.new("Save", symbol: "arrow.down.doc")
-              ios_file_content << UI::Button.new("Revert", symbol: "arrow.counterclockwise")
-              ios_file_content << UI::Divider.new(:horizontal)
 
               ios_export_row = UI::HStack.new(spacing: 8.0)
               ios_export_row << UI::Button.new("Export", symbol: "square.and.arrow.up")
@@ -772,7 +769,6 @@ module CrystalHIGHost::Bridge
               ios_chevron.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
               ios_export_row << ios_chevron.as(UI::View)
               ios_file_content << ios_export_row.as(UI::View)
-              ios_file_content << UI::Button.new("Print\u2026", symbol: "printer")
               ios_menus_body << ios_file_content.as(UI::View)
               ios_menus_body << UI::Divider.new(:horizontal)
 

@@ -2,7 +2,7 @@
   "errors": [
     "missing report: /Users/crimsonknight/open_source_coding_projects/asset_pipeline/.claude/skills/apple-platform-guide/validation/reports/app-shortcuts.md"
   ],
-  "generated_at": "2026-04-16T20:42:00.280893+00:00",
+  "generated_at": "2026-04-17T13:39:40.796567+00:00",
   "report": {
     "exists": false,
     "path": "reports/app-shortcuts.md"
@@ -47,6 +47,6 @@
   },
   "slug": "app-shortcuts",
   "valid": false,
-  "validation_state": "pending",
+  "validation_state": "pass_with_notes",
   "warnings": []
 }

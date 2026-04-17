@@ -1,7 +1,7 @@
 ---
 slug: steppers
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-14T10:33:00Z
+validated_at: 2026-04-17T13:40:00Z
 iteration: 45
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
@@ -29,16 +29,15 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-Row-level verdict is PASS_WITH_NOTES, the worst of the four per-appearance verdicts.
-iOS light and iOS dark are both PASS: UIStepper renders the horizontal +/- pill with a
-vertical divider between segments, value labels are adjacent and legible in both
-appearances, and disabled segment dimming is visible and correct (minus dimmed at
-minimum, plus dimmed at maximum). macOS light and macOS dark are PASS_WITH_NOTES:
-NSStepper renders the correct vertical up/down chevron pill, all labels are legible
-in both appearances, but NSStepper does not apply static opacity dimming to individual
-segments when value == minimum or value == maximum -- dimming only occurs during
-mouse-down interaction, which cannot be captured in a static screenshot. This is
-platform-correct AppKit behavior, not a renderer defect.
+Row-level verdict is PASS_WITH_NOTES, the worst of the four per-appearance
+verdicts. This refresh keeps the same control behavior but reframes the study
+into a smaller centered card with cleaner value labeling and more visible
+backdrop around it. iOS light and iOS dark are both PASS: UIStepper renders the
+horizontal +/- pill with a vertical divider between segments, value labels are
+adjacent and legible in both appearances, and disabled segment dimming is
+visible and correct. macOS light and macOS dark are PASS_WITH_NOTES because
+NSStepper still does not apply static per-segment dimming in resting-state
+captures; that remains native AppKit behavior, not a renderer defect.
 
 ### Liquid Glass check
 - **Required for this slug:** No. Steppers are a two-segment control component, not a

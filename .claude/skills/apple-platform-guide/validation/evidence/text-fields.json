@@ -1,6 +1,9 @@
 {
-  "errors": [],
-  "generated_at": "2026-04-16T20:46:36.327031+00:00",
+  "errors": [
+    "screenshot newer than report: text-fields-ios-light.png",
+    "screenshot newer than report: text-fields-ios-dark.png"
+  ],
+  "generated_at": "2026-04-17T13:39:40.966748+00:00",
   "report": {
     "exists": true,
     "mtime": "2026-04-16T20:41:51.744732+00:00",
@@ -11,7 +14,7 @@
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-16T20:38:55.217001+00:00",
+      "mtime": "2026-04-16T21:18:29.746559+00:00",
       "path": "screenshots/text-fields-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
@@ -20,7 +23,7 @@
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-16T20:38:21.544704+00:00",
+      "mtime": "2026-04-16T21:17:51.265294+00:00",
       "path": "screenshots/text-fields-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
@@ -47,7 +50,7 @@
     }
   },
   "slug": "text-fields",
-  "valid": true,
+  "valid": false,
   "validation_state": "pass_with_notes",
   "warnings": []
 }

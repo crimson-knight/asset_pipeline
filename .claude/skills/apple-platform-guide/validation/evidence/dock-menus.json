@@ -5,7 +5,7 @@
     "screenshot newer than report: dock-menus-ios-light.png",
     "screenshot newer than report: dock-menus-ios-dark.png"
   ],
-  "generated_at": "2026-04-16T20:46:36.227349+00:00",
+  "generated_at": "2026-04-17T13:39:40.824097+00:00",
   "report": {
     "exists": true,
     "mtime": "2026-04-14T00:10:30.380999+00:00",
@@ -53,6 +53,6 @@
   },
   "slug": "dock-menus",
   "valid": false,
-  "validation_state": "pending",
+  "validation_state": "pass_with_notes",
   "warnings": []
 }

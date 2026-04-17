@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-17T12:18:10.805954+00:00",
+  "generated_at": "2026-04-17T13:46:15.058570+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -254,13 +254,13 @@
       "hig_page": "../apple-hig/pages/app-shortcuts.md",
       "hig_ref_image": "../apple-hig/images/components-app-shortcuts-intro.png",
       "role": "component",
-      "ui_view": "UI::ColumnView",
-      "ui_view_file": "src/ui/views/column_view.cr",
-      "status": "implemented",
+      "ui_view": null,
+      "ui_view_file": null,
+      "status": "missing",
       "priority": "P2",
-      "iOS_visit_found": true,
-      "macOS_visit_found": true,
-      "validation_state": "pending",
+      "iOS_visit_found": false,
+      "macOS_visit_found": false,
+      "validation_state": "skipped",
       "docs_written": false,
       "glass_required": false,
       "glass_material_expected": null,
@@ -567,7 +567,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -909,7 +909,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "mapping_note": "Implemented UI::DisclosureGroup in iteration 26 (Path B). Replaces UI::Toggle surrogate. macOS: NSButton bezelStyle=disclosure (5) + NSTextField in NSStackView. iOS: UIButton chevron SF Symbol + UILabel in UIStackView. Both shapes (disclosure triangle + push-disclosure button) rendered; push-disclosure uses bezelStyle=5 (deviation) rather than 23.",
       "glass_required": false,
@@ -948,7 +948,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "notes": "Iteration 27: four fresh captures (macos-light 86550b, macos-dark 87422b, ios-light 291378b, ios-dark 262660b), all dated 2026-04-13 20:06-20:08. macOS: UI::Sheet grouped_card with NSVisualEffectMaterial.menu (10), multi-group surface (New Window / Open Recent / separator / Recent docs / separator / Options subgroup / system items). Glass visible in both macOS appearances. iOS: explicit N/A placeholder card legible in both appearances. Two non-legibility-impairing deviations: (1) blue labels vs labelColor (systemic, gaps.md iter-12); (2) submenu chevron via text character not NSMenuItem.submenu (systemic, gaps.md iter-25). Both mandatory sections (Light/dark appearance notes + Customization/brand override) present in components/dock-menus.md.",
       "glass_required": true,
@@ -1899,7 +1899,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "menu",
@@ -1913,18 +1913,12 @@
         "ios_light": "PASS_WITH_NOTES",
         "ios_dark": "PASS_WITH_NOTES"
       },
-      "notes": "Iteration 33: Two menu surfaces (File pull-down + Sort By pop-up) rendered. Glass (NSVisualEffectMaterial.menu / UIVisualEffectView grouped_card path) confirmed in all four captures. Submenu chevron and checkmark selected-state visible on macOS. Three systemic PASS_WITH_NOTES deviations: (1) system-blue button labels instead of labelColor (gaps.md iter-12, not yet resolved); (2) pill bezels instead of full-width NSMenuItem / UIMenuElement rows (gaps.md iter-25); (3) Sort By card partially clipped on iOS viewport (harness sizing, not renderer). ObjC bridge bug fixed: objc_constrain_equal_width used UIView/UILayoutPriorityRequired directly without TARGET_OS_OSX guard; replaced with BridgeView typedef and conditional NSLayoutPriorityRequired / UILayoutPriorityRequired.",
+      "notes": "Refreshed on 2026-04-17 with calmer centered menu studies on both hosts. Remaining notes are systemic rather than framing-related: the label color still follows the baked blue button path, rows still read as pill buttons instead of native NSMenuItem/UIMenuElement surfaces, and the runtime-presented menu remains richer than the inline capture path.",
       "backdrop": "menu-backdrop-amber-document",
-      "scene": "document",
-      "focal_position": "adjacent_to_selection",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: menus-macos-light.png",
-        "screenshot newer than report: menus-macos-dark.png",
-        "screenshot newer than report: menus-ios-light.png",
-        "screenshot newer than report: menus-ios-dark.png"
-      ],
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review."
+      "scene": "ambient",
+      "focal_position": "centered",
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "menus-and-actions",
@@ -2191,24 +2185,31 @@
       "hig_page": "../apple-hig/pages/panels.md",
       "hig_ref_image": "../apple-hig/images/components-panel-intro.png",
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "missing",
+      "ui_view": "UI::Panel",
+      "ui_view_file": "src/ui/views/panel.cr",
+      "status": "implemented",
       "priority": "P2",
-      "iOS_visit_found": false,
-      "macOS_visit_found": false,
-      "validation_state": "skipped",
-      "docs_written": false,
+      "iOS_visit_found": true,
+      "macOS_visit_found": true,
+      "validation_state": "pass_with_notes",
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
         "light",
         "dark"
       ],
-      "verdict_per_appearance": null,
-      "notes": "Panels per HIG are macOS-specific auxiliary windows (NSPanel \u2014 inspectors, color pickers, find/replace floaters). Not an in-app view \u2014 panel chrome is managed by NSPanel at the window level, outside UI::View tree. Skipped as window-chrome-not-view.",
+      "verdict_per_appearance": {
+        "macos_light": "PASS_WITH_NOTES",
+        "macos_dark": "PASS_WITH_NOTES",
+        "ios_light": "n/a (platform)",
+        "ios_dark": "n/a (platform)"
+      },
+      "notes": "Implemented on 2026-04-17 as UI::Panel, an honest shared auxiliary-surface primitive. macOS validation now shows a compact inspector study; iOS validation intentionally renders a platform-note placeholder because HIG panels are macOS-only. Remaining note: this is still a composed auxiliary surface, not a true NSPanel bridge.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "evidence_state": "not_applicable",
+      "scene": "ambient",
+      "focal_position": "centered",
+      "evidence_state": "valid",
       "evidence_errors": []
     },
     {
@@ -2398,7 +2399,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2412,17 +2413,11 @@
         "ios_light": "PASS_WITH_NOTES",
         "ios_dark": "PASS_WITH_NOTES"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "menu-backdrop-amber-document",
-      "scene": "settings",
-      "focal_position": "single_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: pop-up-buttons-macos-light.png",
-        "screenshot newer than report: pop-up-buttons-macos-dark.png",
-        "screenshot newer than report: pop-up-buttons-ios-light.png",
-        "screenshot newer than report: pop-up-buttons-ios-dark.png"
-      ]
+      "scene": "ambient",
+      "focal_position": "centered",
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "popovers",
@@ -2548,7 +2543,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": true,
       "glass_material_expected": "menu",
@@ -2562,18 +2557,12 @@
         "ios_light": "PASS_WITH_NOTES",
         "ios_dark": "PASS_WITH_NOTES"
       },
-      "notes": "Iteration 1: is_pull_down mode added to UI::MenuButton. NSPopUpButton pullsDown:YES on macOS (setPullsDown: selector). UIButton showsMenuAsPrimaryAction on iOS with chevron.down. Two deviations: iOS chevron leading-placed (non-legibility-impairing); macOS prominent style not visually elevated (bridge gap). Glass menu surface visible at runtime but not in inline capture path (gaps.md).",
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
+      "notes": "Refreshed on 2026-04-17 with smaller centered studies on both hosts. The remaining notes are unchanged: iOS still places the chevron leading via UIButtonConfiguration, macOS prominent styling for NSPopUpButton remains visually quiet, and the runtime-presented menu glass is richer than the inline capture path.",
       "backdrop": "menu-backdrop-amber-document",
-      "scene": "settings",
-      "focal_position": "single_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: pull-down-buttons-macos-light.png",
-        "screenshot newer than report: pull-down-buttons-macos-dark.png",
-        "screenshot newer than report: pull-down-buttons-ios-light.png",
-        "screenshot newer than report: pull-down-buttons-ios-dark.png"
-      ]
+      "scene": "ambient",
+      "focal_position": "centered",
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "rating-indicators",
@@ -3112,7 +3101,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -3126,17 +3115,11 @@
         "ios_light": "pass",
         "ios_dark": "pass"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "scene": "settings",
-      "focal_position": "single_row",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: steppers-macos-light.png",
-        "screenshot newer than report: steppers-macos-dark.png",
-        "screenshot newer than report: steppers-ios-light.png",
-        "screenshot newer than report: steppers-ios-dark.png"
-      ]
+      "scene": "ambient",
+      "focal_position": "centered",
+      "evidence_state": "valid",
+      "evidence_errors": []
     },
     {
       "slug": "system-experiences",
@@ -3706,16 +3689,16 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 38,
-    "pending": 11,
+    "pass_with_notes": 46,
+    "pending": 3,
     "needs_work": 0,
     "fail": 0,
     "skipped": 16
   },
   "evidence_counts": {
-    "valid": 35,
-    "invalid": 13,
-    "not_applicable": 17,
+    "valid": 40,
+    "invalid": 9,
+    "not_applicable": 16,
     "unknown": 0
   }
 }

@@ -1,7 +1,7 @@
 ---
 slug: pull-down-buttons
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-14T08:15:00Z
+validated_at: 2026-04-17T13:40:00Z
 iteration: 1
 verdict_per_appearance:
   macos_light: PASS
@@ -29,10 +29,12 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-The row-level verdict is the worst of the four per-appearance verdicts. macOS light
-and dark are both PASS. iOS light and dark are PASS_WITH_NOTES due to two minor
-documented deviations (chevron image placement and open-menu glass surface not
-visible in inline capture path).
+The row-level verdict is the worst of the four per-appearance verdicts. This
+refresh tightens the study framing so the action buttons read as a single,
+centered unit rather than a loose settings row. macOS light and dark are both
+PASS. iOS light and dark are PASS_WITH_NOTES due to two minor documented
+deviations (chevron image placement and open-menu glass surface not visible in
+inline capture path).
 
 Three scenarios are showcased, each exercising the HIG-recommended pull-down
 patterns:

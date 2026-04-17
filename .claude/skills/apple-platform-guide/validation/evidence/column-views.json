@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2026-04-16T23:34:57.758325+00:00",
+  "generated_at": "2026-04-17T13:39:40.812043+00:00",
   "report": {
     "exists": true,
     "mtime": "2026-04-16T23:34:53.075879+00:00",
@@ -48,6 +48,6 @@
   },
   "slug": "column-views",
   "valid": true,
-  "validation_state": "pending",
+  "validation_state": "pass_with_notes",
   "warnings": []
 }

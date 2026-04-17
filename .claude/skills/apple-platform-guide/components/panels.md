@@ -70,11 +70,14 @@ while the footer stays orderly rather than button-heavy.
 
 ## What happens on each platform
 
-- **macOS 26**: Today this is a composed in-app panel surface, not a true
-  floating `NSPanel` bridge yet.
-- **iPadOS 26 / iOS 26**: Rendered as the same shared auxiliary surface, which
-  is useful for inspectors and focused side controls even where the platform
-  does not expose a direct panel peer.
+- **macOS 26**: Today this is a composed auxiliary surface, not a true
+  floating `NSPanel` bridge yet. It is the shard's native panel-shaped
+  building block while real window-level panel semantics remain future work.
+- **iPadOS 26 / iOS 26**: Apple's HIG does not define panels as a supported
+  platform component here. Use the same information architecture through a
+  sheet, popover, split view, or inspector pane instead. The HIG validation
+  captures therefore treat iOS as a platform-note placeholder rather than
+  pretending floating panel chrome exists on the phone.
 
 ## HIG citations (validated)
 

@@ -1,7 +1,7 @@
 ---
 slug: menus
 verdict: PASS_WITH_NOTES
-validated_at: 2026-04-14T06:48:00Z
+validated_at: 2026-04-17T13:40:00Z
 iteration: 33
 verdict_per_appearance:
   macos_light: PASS_WITH_NOTES
@@ -29,11 +29,11 @@ verdict_per_appearance:
 
 ## Verdict: PASS_WITH_NOTES
 
-The row-level verdict is the worst of the four per-appearance verdicts. All four
-per-appearance sub-verdicts are PASS_WITH_NOTES on the same three
-non-legibility-impairing, non-glass-omitting deviations documented below -- all
-three are systemic carry-overs from earlier menu-surface iterations (edit-menus
-iter-28, context-menus iter-25, buttons iter-12).
+The row-level verdict is the worst of the four per-appearance verdicts. This
+refresh keeps the same menu anatomy and glass behavior, but reframes the study
+into a calmer centered composition with visible amber gutters on both hosts. All
+four per-appearance sub-verdicts remain PASS_WITH_NOTES on the same systemic,
+non-legibility-impairing deviations documented below.
 
 ### Liquid Glass check
 - **Required for this slug:** Yes. Menus are classified under "Menus and actions"
