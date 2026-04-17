@@ -113,6 +113,7 @@ require "../../../src/ui/validation_scenes"
     "activity-rings" => "ambient",
     "boxes"         => "ambient",
     "outline-views" => "ambient",
+    "panels"        => "ambient",
     "path-controls" => "ambient",
     "maps"          => "ambient",
     "playing-video" => "ambient",
@@ -3415,6 +3416,75 @@ HTML
       study_card.material = :secondary
       study_card.accessibility_label = "Page control study card"
       study_card.as(UI::View)
+    when "panels"
+      # HIG panels: a macOS-only floating auxiliary window for quick controls
+      # related to the current selection. The study keeps the panel concise
+      # and inspector-like instead of turning it into a mini document window.
+      panel_controls = UI::VStack.new(spacing: 12.0)
+      panel_controls.alignment = UI::Alignment::Fill
+
+      show_shadow = UI::Toggle.new("Show shadow", true)
+      show_shadow.accessibility_label = "Show shadow toggle"
+      panel_controls << show_shadow.as(UI::View)
+
+      opacity_stack = UI::VStack.new(spacing: 6.0)
+      opacity_stack.alignment = UI::Alignment::Leading
+      opacity_label = UI::Label.new("Opacity")
+      opacity_label.font = UI::Font.new(size: 11.0, weight: :semibold)
+      opacity_label.text_color_role = UI::LabelRole::Secondary
+      opacity_slider = UI::Slider.new(0.68, 0.0, 1.0)
+      opacity_slider.minimum_width = 228.0
+      opacity_slider.maximum_width = 228.0
+      opacity_slider.accessibility_label = "Opacity slider"
+      opacity_stack << opacity_label.as(UI::View)
+      opacity_stack << opacity_slider.as(UI::View)
+      panel_controls << opacity_stack.as(UI::View)
+
+      radius_row = UI::HStack.new(spacing: 10.0)
+      radius_row.alignment = UI::Alignment::Center
+      radius_label = UI::Label.new("Radius")
+      radius_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      radius_row << radius_label.as(UI::View)
+      radius_row << UI::Spacer.new.as(UI::View)
+      radius_value = UI::Label.new("12")
+      radius_value.font = UI::Font.new(size: 12.0, weight: :medium)
+      radius_value.text_color_role = UI::LabelRole::Secondary
+      radius_row << radius_value.as(UI::View)
+      radius_stepper = UI::Stepper.new(0.0, 24.0, 12.0)
+      radius_stepper.step_value = 1.0
+      radius_stepper.accessibility_label = "Corner radius stepper"
+      radius_row << radius_stepper.as(UI::View)
+      panel_controls << radius_row.as(UI::View)
+
+      mode_stack = UI::VStack.new(spacing: 6.0)
+      mode_stack.alignment = UI::Alignment::Leading
+      mode_label = UI::Label.new("Material")
+      mode_label.font = UI::Font.new(size: 11.0, weight: :semibold)
+      mode_label.text_color_role = UI::LabelRole::Secondary
+      mode_picker = UI::SegmentedControl.new(["Fill", "Glass", "Outline"], 1)
+      mode_picker.accessibility_label = "Material segmented control"
+      mode_stack << mode_label.as(UI::View)
+      mode_stack << mode_picker.as(UI::View)
+      panel_controls << mode_stack.as(UI::View)
+
+      panel_footer = UI::Label.new("Changes follow the selected card and stay available while the app is active.")
+      panel_footer.font = UI::Font.new(size: 11.0, weight: :regular)
+      panel_footer.text_color_role = UI::LabelRole::Secondary
+      panel_footer.number_of_lines = 0
+
+      panel = UI::Panel.new(
+        "Inspector",
+        panel_controls.as(UI::View),
+        "Card styling",
+        "Quick adjustments for the current selection.",
+        panel_footer.as(UI::View),
+        UI::PanelStyle::Inspector
+      )
+      panel.preferred_width = 304.0
+      panel.accessibility_label = "Inspector panel study"
+      panel.add_action(UI::Button.new("Reset"))
+      panel.add_action(UI::Button.new("Close", role: :cancel))
+      panel.as(UI::View)
     when "path-controls"
       # HIG path controls display a filesystem path as icon-and-name segments.
       # The shared screenshot renderer currently stacks PathControl segments
@@ -3888,6 +3958,7 @@ HTML
                     when "collections"         then 500.0
                     when "activity-rings"      then 488.0
                     when "boxes"               then 460.0
+                    when "panels"              then 360.0
                     when "path-controls"       then 448.0
                     when "outline-views"       then 492.0
                     else                            420.0

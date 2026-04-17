@@ -48,6 +48,9 @@ module UI
     def visit(view : ImageWell)
       view.fallback_view.accept(self)
     end
+    def visit(view : Panel)
+      view.fallback_view.accept(self)
+    end
     def visit(view : Gauge)
       view.fallback_view.accept(self)
     end

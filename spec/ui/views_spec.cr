@@ -114,6 +114,10 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "ImageWell(#{view.has_image?})"
   end
 
+  def visit(view : UI::Panel)
+    @visited << "Panel(#{view.title}/#{view.action_count})"
+  end
+
   def visit(view : UI::Gauge)
     @visited << "Gauge(#{view.value})"
   end
@@ -2589,6 +2593,83 @@ describe UI::ImageWell do
     visitor = TestVisitor.new
     well.accept(visitor)
     visitor.visited.should eq(["ImageWell(true)"])
+  end
+end
+
+describe UI::Panel do
+  it "stores title, supporting copy, and footer actions" do
+    body = UI::VStack.new
+    body << UI::Toggle.new("Show line numbers", true).as(UI::View)
+
+    footer = UI::Label.new("Panels should stay concise and task-focused.")
+    panel = UI::Panel.new(
+      "Inspector",
+      body.as(UI::View),
+      "Editing Markdown",
+      "Changes apply to the selected document.",
+      footer.as(UI::View),
+      UI::PanelStyle::Inspector
+    )
+    panel.preferred_width = 304.0
+    panel.add_action(UI::Button.new("Cancel", role: :cancel))
+    panel.add_action(UI::Button.new("Apply", style: UI::ButtonStyle::Prominent))
+
+    panel.title.should eq("Inspector")
+    panel.subtitle.should eq("Editing Markdown")
+    panel.auxiliary_text.should eq("Changes apply to the selected document.")
+    panel.footer.should eq(footer)
+    panel.action_count.should eq(2)
+    panel.style.should eq(UI::PanelStyle::Inspector)
+  end
+
+  it "builds a composed fallback surface" do
+    content = UI::VStack.new(spacing: 10.0, alignment: UI::Alignment::Fill)
+    content << UI::TextField.new("Search tools").as(UI::View)
+
+    footer = UI::Label.new("Shown while a selection is active.")
+    panel = UI::Panel.new(
+      "Selection",
+      content.as(UI::View),
+      "Quick actions",
+      "A compact auxiliary surface.",
+      footer.as(UI::View),
+      UI::PanelStyle::Compact
+    )
+    panel.add_action(UI::Button.new("Done", style: UI::ButtonStyle::Prominent))
+    panel.preferred_width = 280.0
+
+    fallback = panel.fallback_view
+    fallback.should be_a(UI::Card)
+
+    card = fallback.as(UI::Card)
+    card.minimum_width.should eq(280.0)
+    card.maximum_width.should eq(280.0)
+
+    body = card.content.as(UI::VStack)
+    body.children.size.should eq(5)
+    body.children[0].should be_a(UI::VStack)
+    body.children[1].should be_a(UI::Divider)
+    body.children[2].should eq(content)
+    body.children[3].should be_a(UI::Divider)
+    body.children[4].should be_a(UI::VStack)
+
+    header = body.children[0].as(UI::VStack)
+    header.children.size.should eq(3)
+    header.children[0].as(UI::Label).text.should eq("Selection")
+
+    footer_area = body.children[4].as(UI::VStack)
+    footer_area.children.size.should eq(2)
+    footer_area.children[0].should eq(footer)
+    footer_area.children[1].should be_a(UI::HStack)
+  end
+
+  it "accepts visitor" do
+    panel = UI::Panel.new("Inspector")
+    panel.add_action(UI::Button.new("Done"))
+
+    visitor = TestVisitor.new
+    panel.accept(visitor)
+    visitor.visited.should eq(["Panel(Inspector/1)"])
   end
 end
 

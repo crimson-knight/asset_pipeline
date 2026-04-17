@@ -150,6 +150,8 @@ module CrystalHIGHost::Bridge
       centered_isolation_plate(focal)
     when "activity-rings"
       centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 18.0, bottom: 16.0, leading: 18.0))
+    when "panels"
+      centered_study_card(focal, card_width: 336.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
     when "path-controls"
       centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "outline-views"
@@ -643,6 +645,38 @@ module CrystalHIGHost::Bridge
               dock_na_content << na_alt_body.as(UI::View)
 
               UI::Sheet.new(dock_na_content.as(UI::View), surface_style: :grouped_card).as(UI::View)
+            when "panels"
+              # HIG panels are macOS-only auxiliary windows. Keep the iOS
+              # preview explicit and useful rather than faking floating window
+              # chrome on a platform that does not support it.
+              panel_na_content = UI::VStack.new(spacing: 12.0)
+              panel_na_content.alignment = UI::Alignment::Leading
+              panel_na_content.minimum_width = 272.0
+              panel_na_content.maximum_width = 272.0
+
+              panel_na_title = UI::Label.new("Panels are macOS only")
+              panel_na_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              panel_na_content << panel_na_title.as(UI::View)
+
+              panel_na_body = UI::Label.new("Use sheets or split views on iPhone and iPad for supplementary controls tied to the current task.")
+              panel_na_body.font = UI::Font.new(size: 15.0, weight: :regular)
+              panel_na_body.number_of_lines = 0
+              panel_na_content << panel_na_body.as(UI::View)
+
+              panel_na_content << UI::Divider.new(:horizontal)
+
+              panel_na_alt_title = UI::Label.new("Closest iOS fit")
+              panel_na_alt_title.font = UI::Font.new(size: 13.0, weight: :semibold)
+              panel_na_alt_title.text_color_role = UI::LabelRole::Secondary
+              panel_na_content << panel_na_alt_title.as(UI::View)
+
+              panel_na_alt_body = UI::Label.new("A sheet, popover, or inspector pane can present the same controls without floating window chrome.")
+              panel_na_alt_body.font = UI::Font.new(size: 13.0, weight: :regular)
+              panel_na_alt_body.number_of_lines = 0
+              panel_na_alt_body.text_color_role = UI::LabelRole::Secondary
+              panel_na_content << panel_na_alt_body.as(UI::View)
+
+              panel_na_content.as(UI::View)
             when "edit-menus"
               # HIG edit menu: the contextual text-editing surface revealed by
               # touch-and-hold / double-tap on a text selection (iOS / iPadOS).
@@ -696,72 +730,69 @@ module CrystalHIGHost::Bridge
 
               UI::Sheet.new(edit_content.as(UI::View), surface_style: :grouped_card).as(UI::View)
             when "menus"
-              # HIG menus content surface: the general menu surface shape
-              # covering pull-down and pop-up menus on iOS / iPadOS. HIG
-              # abstract: "A menu reveals its options when people interact
-              # with it, making it a space-efficient way to present commands."
-              # iOS-specific: "In iOS and iPadOS, a menu can display items
-              # in small / medium / large layouts." No keyboard shortcut
-              # labels on touch platforms (correct per HIG).
-              #
-              # Two inline menu surfaces:
-              # Surface A: File pull-down (no Cmd shortcuts on iOS).
-              # Surface B: Sort By pop-up with checkmark on Date.
-              # Same inline-VStack-in-Sheet pattern as edit-menus / context-menus.
-              ios_menus_outer = UI::VStack.new(spacing: 16.0)
+              # Keep the menu study compact and centered so the two menu types
+              # read as one calm card instead of separate demo dumps.
+              ios_menus_body = UI::VStack.new(spacing: 12.0)
+              ios_menus_body.alignment = UI::Alignment::Leading
+              ios_menus_body.minimum_width = 292.0
+              ios_menus_body.maximum_width = 292.0
 
-              # --- Surface A: File pull-down (iOS) ---
-              ios_file_content = UI::VStack.new(spacing: 4.0)
+              ios_menus_title = UI::Label.new("Menus")
+              ios_menus_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_menus_title.accessibility_label = "Menus showcase title"
+              ios_menus_body << ios_menus_title
 
-              ios_file_hdr = UI::Label.new("File Menu (pull-down)")
-              ios_file_hdr.font = UI::Font.new(size: 11.0, weight: :semibold)
-              ios_file_hdr.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-              ios_file_content << ios_file_hdr.as(UI::View)
+              ios_menus_desc = UI::Label.new("Pull-down and pop-up menus in a compact study.")
+              ios_menus_desc.font = UI::Font.new(size: 12.0, weight: :regular)
+              ios_menus_desc.text_color_role = UI::LabelRole::Secondary
+              ios_menus_desc.number_of_lines = 0
+              ios_menus_desc.accessibility_label = "Menus showcase description"
+              ios_menus_body << ios_menus_desc
 
-              # Group 1: New / Open / Close (no shortcuts on iOS)
+              ios_file_hdr = UI::Label.new("File")
+              ios_file_hdr.font = UI::Font.new(size: 12.0, weight: :semibold)
+              ios_file_hdr.text_color_role = UI::LabelRole::Secondary
+              ios_file_hdr.accessibility_label = "File menu section header"
+              ios_menus_body << ios_file_hdr
+
+              ios_file_content = UI::VStack.new(spacing: 0.0)
               ios_file_content << UI::Button.new("New", symbol: "doc")
               ios_file_content << UI::Button.new("Open\u2026", symbol: "folder.open")
               ios_file_content << UI::Button.new("Close", symbol: "xmark")
-
               ios_file_content << UI::Divider.new(:horizontal)
-
-              # Group 2: Save / Revert
               ios_file_content << UI::Button.new("Save", symbol: "arrow.down.doc")
               ios_file_content << UI::Button.new("Revert", symbol: "arrow.counterclockwise")
-
               ios_file_content << UI::Divider.new(:horizontal)
 
-              # Group 3: Export (submenu indicator via chevron) / Print
               ios_export_row = UI::HStack.new(spacing: 8.0)
               ios_export_row << UI::Button.new("Export", symbol: "square.and.arrow.up")
-              ios_export_row << UI::Spacer.new
+              ios_export_row << UI::Spacer.new.as(UI::View)
               ios_chevron = UI::Label.new("\u203a")
               ios_chevron.font = UI::Font.new(size: 15.0, weight: :regular)
               ios_chevron.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
               ios_export_row << ios_chevron.as(UI::View)
               ios_file_content << ios_export_row.as(UI::View)
-
               ios_file_content << UI::Button.new("Print\u2026", symbol: "printer")
+              ios_menus_body << ios_file_content.as(UI::View)
+              ios_menus_body << UI::Divider.new(:horizontal)
 
-              ios_file_surface = UI::Sheet.new(ios_file_content.as(UI::View), surface_style: :grouped_card)
-              ios_menus_outer << ios_file_surface.as(UI::View)
+              ios_sort_hdr = UI::Label.new("Sort")
+              ios_sort_hdr.font = UI::Font.new(size: 12.0, weight: :semibold)
+              ios_sort_hdr.text_color_role = UI::LabelRole::Secondary
+              ios_sort_hdr.accessibility_label = "Sort pop-up section header"
+              ios_menus_body << ios_sort_hdr
 
-              # --- Surface B: Sort By pop-up with checkmark ---
-              ios_sort_content = UI::VStack.new(spacing: 4.0)
-
-              ios_sort_hdr = UI::Label.new("Sort By (pop-up, selected: Date)")
-              ios_sort_hdr.font = UI::Font.new(size: 11.0, weight: :semibold)
-              ios_sort_hdr.text_color = UI::Color.new(r: 0.55, g: 0.55, b: 0.55)
-              ios_sort_content << ios_sort_hdr.as(UI::View)
+              ios_sort_content = UI::VStack.new(spacing: 0.0)
 
               ios_name_row = UI::HStack.new(spacing: 8.0)
-              ios_name_spacer = UI::Label.new("  ")
-              ios_name_spacer.font = UI::Font.new(size: 13.0, weight: :regular)
-              ios_name_row << ios_name_spacer.as(UI::View)
+              ios_name_row << UI::Label.new("Sort by name").as(UI::View)
+              ios_name_row << UI::Spacer.new.as(UI::View)
               ios_name_row << UI::Button.new("Name", symbol: "character")
               ios_sort_content << ios_name_row.as(UI::View)
 
               ios_date_row = UI::HStack.new(spacing: 8.0)
+              ios_date_row << UI::Label.new("Sort by date").as(UI::View)
+              ios_date_row << UI::Spacer.new.as(UI::View)
               ios_checkmark = UI::Label.new("\u2713")
               ios_checkmark.font = UI::Font.new(size: 13.0, weight: :semibold)
               ios_date_row << ios_checkmark.as(UI::View)
@@ -769,16 +800,13 @@ module CrystalHIGHost::Bridge
               ios_sort_content << ios_date_row.as(UI::View)
 
               ios_size_row = UI::HStack.new(spacing: 8.0)
-              ios_size_spacer = UI::Label.new("  ")
-              ios_size_spacer.font = UI::Font.new(size: 13.0, weight: :regular)
-              ios_size_row << ios_size_spacer.as(UI::View)
+              ios_size_row << UI::Label.new("Sort by size").as(UI::View)
+              ios_size_row << UI::Spacer.new.as(UI::View)
               ios_size_row << UI::Button.new("Size", symbol: "arrow.up.arrow.down")
               ios_sort_content << ios_size_row.as(UI::View)
+              ios_menus_body << ios_sort_content.as(UI::View)
 
-              ios_sort_surface = UI::Sheet.new(ios_sort_content.as(UI::View), surface_style: :grouped_card)
-              ios_menus_outer << ios_sort_surface.as(UI::View)
-
-              ios_menus_outer.as(UI::View)
+              centered_study_card(ios_menus_body.as(UI::View), card_width: 340.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
             when "buttons"
               # HIG button gallery matching the macOS hig_showcase arm.
               # Eleven-row set covering all ButtonStyle variants, roles, and states.
@@ -1283,19 +1311,27 @@ module CrystalHIGHost::Bridge
 
               ios_sliders_stack.as(UI::View)
             when "steppers"
-              # HIG: "A stepper is a two-segment control that people use to increase or
-              # decrease an incremental value." UIStepper renders as a pill-shaped +/-
-              # control. Pair with a Label -- the control never displays its own value.
-              # HIG: "Make the value that a stepper affects obvious."
-              # UIStepper automatically disables (dims) the minus segment when value == minimum
-              # and the plus segment when value == maximum -- native UIKit behaviour.
+              # Keep the value-and-stepper pairs compact and centered so the
+              # control reads as a small study rather than a form dump.
+              ios_steppers_body = UI::VStack.new(spacing: 12.0)
+              ios_steppers_body.alignment = UI::Alignment::Leading
+              ios_steppers_body.minimum_width = 272.0
+              ios_steppers_body.maximum_width = 272.0
 
-              ios_steppers_title = UI::Label.new("Steppers -- UIStepper")
-              ios_steppers_title.font = UI::Font.new(size: 15.0, weight: :medium)
+              ios_steppers_title = UI::Label.new("Steppers")
+              ios_steppers_title.font = UI::Font.new(size: 17.0, weight: :semibold)
               ios_steppers_title.accessibility_label = "Steppers showcase title"
+              ios_steppers_body << ios_steppers_title
+
+              ios_steppers_desc = UI::Label.new("Pair the control with a value label.")
+              ios_steppers_desc.font = UI::Font.new(size: 12.0, weight: :regular)
+              ios_steppers_desc.text_color_role = UI::LabelRole::Secondary
+              ios_steppers_desc.number_of_lines = 0
+              ios_steppers_desc.accessibility_label = "Steppers showcase description"
+              ios_steppers_body << ios_steppers_desc
 
               # Row 1: normal state, value 3, range 0-10
-              ios_row1_label = UI::Label.new("Quantity: 3")
+              ios_row1_label = UI::Label.new("Quantity 3")
               ios_row1_label.font = UI::Font.new(size: 13.0, weight: :regular)
               ios_row1_label.accessibility_label = "Quantity label, value 3"
 
@@ -1305,10 +1341,12 @@ module CrystalHIGHost::Bridge
 
               ios_row1 = UI::HStack.new(spacing: 8.0)
               ios_row1 << ios_row1_label
+              ios_row1 << UI::Spacer.new.as(UI::View)
               ios_row1 << ios_row1_stepper
+              ios_steppers_body << ios_row1.as(UI::View)
 
               # Row 2: at minimum -- minus segment auto-dimmed by UIStepper
-              ios_row2_label = UI::Label.new("At minimum: 0")
+              ios_row2_label = UI::Label.new("Minimum 0")
               ios_row2_label.font = UI::Font.new(size: 13.0, weight: :regular)
               ios_row2_label.accessibility_label = "At minimum label, value 0"
 
@@ -1318,10 +1356,12 @@ module CrystalHIGHost::Bridge
 
               ios_row2 = UI::HStack.new(spacing: 8.0)
               ios_row2 << ios_row2_label
+              ios_row2 << UI::Spacer.new.as(UI::View)
               ios_row2 << ios_row2_stepper
+              ios_steppers_body << ios_row2.as(UI::View)
 
               # Row 3: at maximum -- plus segment auto-dimmed by UIStepper
-              ios_row3_label = UI::Label.new("At maximum: 10")
+              ios_row3_label = UI::Label.new("Maximum 10")
               ios_row3_label.font = UI::Font.new(size: 13.0, weight: :regular)
               ios_row3_label.accessibility_label = "At maximum label, value 10"
 
@@ -1331,15 +1371,11 @@ module CrystalHIGHost::Bridge
 
               ios_row3 = UI::HStack.new(spacing: 8.0)
               ios_row3 << ios_row3_label
+              ios_row3 << UI::Spacer.new.as(UI::View)
               ios_row3 << ios_row3_stepper
+              ios_steppers_body << ios_row3.as(UI::View)
 
-              ios_steppers_stack = UI::VStack.new(spacing: 16.0)
-              ios_steppers_stack << ios_steppers_title
-              ios_steppers_stack << ios_row1
-              ios_steppers_stack << ios_row2
-              ios_steppers_stack << ios_row3
-
-              ios_steppers_stack.as(UI::View)
+              centered_study_card(ios_steppers_body.as(UI::View), card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
             when "segmented-controls"
               # HIG: "A segmented control is a linear set of two or more segments,
               # each of which functions as a button." UISegmentedControl renders as
@@ -1542,14 +1578,28 @@ module CrystalHIGHost::Bridge
               container << picker
               container.as(UI::View)
             when "pop-up-buttons"
-              # HIG: "Use a pop-up button to present a flat list of mutually
-              # exclusive options or states."  iOS renders a UIButton capsule
-              # with current selection label + trailing chevron.up.chevron.down.
-              ios_container = UI::VStack.new(spacing: 20.0)
+              # Keep the pop-up button examples compact and grouped so the
+              # buttons stay centered with more of the amber backdrop visible.
+              ios_popup_body = UI::VStack.new(spacing: 12.0)
+              ios_popup_body.alignment = UI::Alignment::Leading
+              ios_popup_body.minimum_width = 280.0
+              ios_popup_body.maximum_width = 280.0
+
+              ios_popup_title = UI::Label.new("Pop-up buttons")
+              ios_popup_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_popup_title.accessibility_label = "Pop-up buttons showcase title"
+              ios_popup_body << ios_popup_title
+
+              ios_popup_desc = UI::Label.new("Choose from a short, flat list.")
+              ios_popup_desc.font = UI::Font.new(size: 12.0, weight: :regular)
+              ios_popup_desc.text_color_role = UI::LabelRole::Secondary
+              ios_popup_desc.number_of_lines = 0
+              ios_popup_desc.accessibility_label = "Pop-up buttons showcase description"
+              ios_popup_body << ios_popup_desc
 
               # Row 1: Alignment pop-up
-              ios_row1_label = UI::Label.new("Alignment:")
-              ios_row1_label.font = UI::Font.new(size: 15.0, weight: :regular)
+              ios_row1_label = UI::Label.new("Alignment")
+              ios_row1_label.font = UI::Font.new(size: 14.0, weight: :regular)
               ios_row1_btn = UI::MenuButton.new("Alignment")
               ios_row1_btn.add_item("Left")
               ios_row1_btn.add_item("Center")
@@ -1559,12 +1609,13 @@ module CrystalHIGHost::Bridge
               ios_row1_btn.accessibility_label = "Alignment, pop-up button"
               ios_row1 = UI::HStack.new(spacing: 8.0)
               ios_row1 << ios_row1_label
+              ios_row1 << UI::Spacer.new.as(UI::View)
               ios_row1 << ios_row1_btn
-              ios_container << ios_row1
+              ios_popup_body << ios_row1.as(UI::View)
 
               # Row 2: Font size pop-up (12pt selected)
-              ios_row2_label = UI::Label.new("Font size:")
-              ios_row2_label.font = UI::Font.new(size: 15.0, weight: :regular)
+              ios_row2_label = UI::Label.new("Font size")
+              ios_row2_label.font = UI::Font.new(size: 14.0, weight: :regular)
               ios_row2_btn = UI::MenuButton.new("Font size")
               ios_row2_btn.add_item("9pt")
               ios_row2_btn.add_item("10pt")
@@ -1576,12 +1627,13 @@ module CrystalHIGHost::Bridge
               ios_row2_btn.accessibility_label = "Font size, pop-up button"
               ios_row2 = UI::HStack.new(spacing: 8.0)
               ios_row2 << ios_row2_label
+              ios_row2 << UI::Spacer.new.as(UI::View)
               ios_row2 << ios_row2_btn
-              ios_container << ios_row2
+              ios_popup_body << ios_row2.as(UI::View)
 
               # Row 3: Theme pop-up (Auto selected)
-              ios_row3_label = UI::Label.new("Theme:")
-              ios_row3_label.font = UI::Font.new(size: 15.0, weight: :regular)
+              ios_row3_label = UI::Label.new("Theme")
+              ios_row3_label.font = UI::Font.new(size: 14.0, weight: :regular)
               ios_row3_btn = UI::MenuButton.new("Theme")
               ios_row3_btn.add_item("Auto")
               ios_row3_btn.add_item("Light")
@@ -1590,10 +1642,11 @@ module CrystalHIGHost::Bridge
               ios_row3_btn.accessibility_label = "Theme, pop-up button"
               ios_row3 = UI::HStack.new(spacing: 8.0)
               ios_row3 << ios_row3_label
+              ios_row3 << UI::Spacer.new.as(UI::View)
               ios_row3 << ios_row3_btn
-              ios_container << ios_row3
+              ios_popup_body << ios_row3.as(UI::View)
 
-              ios_container.as(UI::View)
+              centered_study_card(ios_popup_body.as(UI::View), card_width: 332.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
             when "token-fields"
               # HIG token fields: a compact recipient-entry surface with chips,
               # a clear insertion point, and a short prompt.
@@ -1683,20 +1736,25 @@ module CrystalHIGHost::Bridge
               ios_rings_body << ios_rings.as(UI::View)
               ios_rings_body.as(UI::View)
             when "pull-down-buttons"
-              # HIG: "A pull-down button displays a menu of items or actions
-              # that directly relate to the button's purpose."  On iOS, renders
-              # as a UIButton with showsMenuAsPrimaryAction + chevron.down.
-              # No selected-state label; no chevron.up component.
-              # Three patterns:
-              #   1. "Add" -- content-creation actions.
-              #   2. Ellipsis "..." -- more-actions for the current item.
-              #   3. "Export" (prominent / filledButtonConfiguration) --
-              #      toolbar export format chooser.
-              ios_pd_container = UI::VStack.new(spacing: 20.0)
+              # Keep the pull-down buttons grouped into one calmer study card.
+              ios_pd_body = UI::VStack.new(spacing: 12.0)
+              ios_pd_body.alignment = UI::Alignment::Leading
+              ios_pd_body.minimum_width = 280.0
+              ios_pd_body.maximum_width = 280.0
+
+              ios_pd_title = UI::Label.new("Pull-down buttons")
+              ios_pd_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_pd_title.accessibility_label = "Pull-down buttons showcase title"
+              ios_pd_body << ios_pd_title
+
+              ios_pd_desc = UI::Label.new("Primary actions with attached menus.")
+              ios_pd_desc.font = UI::Font.new(size: 12.0, weight: :regular)
+              ios_pd_desc.text_color_role = UI::LabelRole::Secondary
+              ios_pd_desc.number_of_lines = 0
+              ios_pd_desc.accessibility_label = "Pull-down buttons showcase description"
+              ios_pd_body << ios_pd_desc
 
               # --- 1. Add pull-down ---
-              ios_pd_ctx1 = UI::Label.new("Content actions:")
-              ios_pd_ctx1.font = UI::Font.new(size: 15.0, weight: :regular)
               ios_add_btn = UI::MenuButton.new("Add")
               ios_add_btn.is_pull_down = true
               ios_add_btn.add_item("New Folder")
@@ -1705,13 +1763,12 @@ module CrystalHIGHost::Bridge
               ios_add_btn.add_item("Import\u2026")
               ios_add_btn.accessibility_label = "Add, pull-down button"
               ios_pd_row1 = UI::HStack.new(spacing: 8.0)
-              ios_pd_row1 << ios_pd_ctx1
+              ios_pd_row1 << UI::Label.new("Create").as(UI::View)
+              ios_pd_row1 << UI::Spacer.new.as(UI::View)
               ios_pd_row1 << ios_add_btn
-              ios_pd_container << ios_pd_row1
+              ios_pd_body << ios_pd_row1.as(UI::View)
 
               # --- 2. Ellipsis more-actions ---
-              ios_pd_ctx2 = UI::Label.new("Item actions:")
-              ios_pd_ctx2.font = UI::Font.new(size: 15.0, weight: :regular)
               ios_more_btn = UI::MenuButton.new("\u2026")
               ios_more_btn.is_pull_down = true
               ios_more_btn.add_item("Duplicate")
@@ -1720,13 +1777,12 @@ module CrystalHIGHost::Bridge
               ios_more_btn.add_item("Delete", is_destructive: true)
               ios_more_btn.accessibility_label = "More actions, pull-down button"
               ios_pd_row2 = UI::HStack.new(spacing: 8.0)
-              ios_pd_row2 << ios_pd_ctx2
+              ios_pd_row2 << UI::Label.new("Item").as(UI::View)
+              ios_pd_row2 << UI::Spacer.new.as(UI::View)
               ios_pd_row2 << ios_more_btn
-              ios_pd_container << ios_pd_row2
+              ios_pd_body << ios_pd_row2.as(UI::View)
 
               # --- 3. Export pull-down (prominent) ---
-              ios_pd_ctx3 = UI::Label.new("Toolbar export:")
-              ios_pd_ctx3.font = UI::Font.new(size: 15.0, weight: :regular)
               ios_export_btn = UI::MenuButton.new("Export")
               ios_export_btn.is_pull_down = true
               ios_export_btn.button_style = :prominent
@@ -1736,11 +1792,12 @@ module CrystalHIGHost::Bridge
               ios_export_btn.add_item("Markdown")
               ios_export_btn.accessibility_label = "Export, pull-down button"
               ios_pd_row3 = UI::HStack.new(spacing: 8.0)
-              ios_pd_row3 << ios_pd_ctx3
+              ios_pd_row3 << UI::Label.new("Export").as(UI::View)
+              ios_pd_row3 << UI::Spacer.new.as(UI::View)
               ios_pd_row3 << ios_export_btn
-              ios_pd_container << ios_pd_row3
+              ios_pd_body << ios_pd_row3.as(UI::View)
 
-              ios_pd_container.as(UI::View)
+              centered_study_card(ios_pd_body.as(UI::View), card_width: 332.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
             when "scroll-views"
               # HIG: "A scroll view lets people view content that's larger than
               # the view's boundaries by moving the content vertically or
