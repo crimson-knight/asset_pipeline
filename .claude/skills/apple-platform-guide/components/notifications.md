@@ -4,7 +4,7 @@ ui_view: UI::Notifications
 priority: P1
 platforms: [macOS, iOS, iPadOS]
 hig_page: ../../../apple-hig/pages/notifications.md
-validation_report: null
+validation_report: ../validation/reports/notifications.md
 ---
 
 # UI::Notifications
@@ -26,8 +26,9 @@ That means the shard should be opinionated about two things:
 
 `UI::Notifications` is therefore deliberately not a `UI::View`. It is a small
 native service layer that requests authorization, schedules local
-notifications, and clears pending requests while leaving banner and
-Notification Center presentation to Apple's system UI.
+notifications, exports categories and actions, and clears pending requests
+while leaving banner and Notification Center presentation to Apple's system
+UI.
 
 ## Quickstart
 
@@ -45,6 +46,14 @@ if granted
 
   UI::Notifications.schedule(request)
 end
+
+catalog = UI::NotificationsCatalog.new("Asset Pipeline")
+catalog.add_category("exports") do |category|
+  category.add_action("open", "Open Export", options: ["foreground"])
+end
+
+catalog.export_manifest
+catalog.export_swift_scaffold
 ```
 
 ## Customization
@@ -60,6 +69,15 @@ end
 | `sound` | `Bool` | `true` | Whether the system default notification sound should play. |
 | `badge` | `Int32?` | `nil` | Optional badge count. |
 | `thread_id` | `String?` | `nil` | Optional grouping thread identifier. |
+
+## What the shard exports today
+
+- Runtime authorization and local-notification scheduling through
+  `UI::Notifications`.
+- Declarative categories and actions through `UI::NotificationsCatalog`.
+- `export_manifest` for machine-readable notification registration metadata.
+- `export_swift_scaffold` for deterministic Swift/UserNotifications starter
+  code that a host app can adapt into real category registration.
 
 ## Light / dark appearance notes
 

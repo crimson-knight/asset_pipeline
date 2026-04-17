@@ -39,6 +39,44 @@ describe UI::AppShortcuts do
     exported["parameters"].as_a.first["name"].as_s.should eq("format")
   end
 
+  it "exports an AppIntents scaffold with deterministic naming" do
+    shortcuts = UI::AppShortcuts.new(
+      "Asset Pipeline",
+      bundle_identifier: "com.example.asset-pipeline"
+    )
+
+    shortcuts.add_shortcut(
+      "Export Preview",
+      subtitle: "Render the current design",
+      summary: "Exports the selected preview as PNG",
+      icon: "square.and.arrow.down",
+      phrases: ["Export preview", "Save current preview"]
+    ) do |entry|
+      entry.add_parameter(
+        "format",
+        prompt: "Choose an export format",
+        type: "string",
+        default_value: "png"
+      )
+    end
+
+    scaffold = shortcuts.export_app_intents_scaffold
+    scaffold.should contain("import AppIntents")
+    scaffold.should contain("enum AssetPipelineAppIntentsScaffold")
+    scaffold.should contain("static let applicationName = \"Asset Pipeline\"")
+    scaffold.should contain("static let bundleIdentifier = \"com.example.asset-pipeline\"")
+    scaffold.should contain("static let shortcuts: [AppShortcutSpec] = [")
+    scaffold.should contain("AppShortcutSpec(")
+    scaffold.should contain("AppShortcutParameterSpec(")
+    scaffold.should contain("specTypeName: \"ExportPreviewShortcutSpec\"")
+    scaffold.should contain("intentTypeName: \"ExportPreviewIntent\"")
+    scaffold.should contain("struct ExportPreviewIntent: AppIntent")
+    scaffold.should contain("static var title: LocalizedStringResource { \"Export Preview\" }")
+    scaffold.should contain("static var description = IntentDescription(\"Exports the selected preview as PNG\")")
+    scaffold.should contain("Summary(\"Export Preview\")")
+    scaffold.should contain("isEnabled: true")
+  end
+
   it "removes and clears shortcuts by identifier" do
     shortcuts = UI::AppShortcuts.new("Asset Pipeline")
     shortcuts.add_shortcut("Open Preview", identifier: "open-preview")

@@ -38,6 +38,7 @@ shortcuts.add_shortcut("Open Inbox") do |shortcut|
 end
 
 shortcuts.to_payload
+shortcuts.export_app_intents_scaffold
 ```
 
 ## Customization
@@ -59,10 +60,17 @@ shortcuts.to_payload
 | `AppShortcutParameter#default_value` | `String?` | `nil` | Optional default value. |
 | `AppShortcutParameter#is_required` | `Bool` | `true` | Whether the parameter must be filled in. |
 
+## What the shard exports today
+
+- `to_payload` for a structured manifest-style JSON catalog.
+- `export_app_intents_scaffold` for deterministic Swift/AppIntents starter
+  code that host apps can adapt into a real `AppShortcutsProvider`.
+
 ## What happens on each platform
 
 - **iOS / iPadOS / macOS**: The catalog exports machine-readable manifest data
-  for a host build step or future AppIntents bridge.
+  plus deterministic AppIntents scaffold code for a host build step or native
+  shortcut extension target.
 - **Validation**: Skipped for screenshots because App Shortcuts live in system
   surfaces like Siri, Spotlight, and Shortcuts rather than in the in-app view
   tree.

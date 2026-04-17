@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-17T19:13:50.568482+00:00",
+  "generated_at": "2026-04-17T19:19:00.243568+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -271,7 +271,7 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "Implemented as a metadata/export boundary for App Shortcut declarations. The feature remains system-owned rather than an in-app rendered UI::View, so screenshot validation stays skipped.",
+      "notes": "Implemented as a metadata/export boundary for App Shortcut declarations, including deterministic AppIntents scaffold export. The feature remains system-owned rather than an in-app rendered UI::View, so screenshot validation stays skipped.",
       "skip_reason": "appintents-metadata-not-view",
       "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "not_applicable",
@@ -2026,7 +2026,8 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "Implemented on 2026-04-17 as a native UserNotifications bridge for local notifications. This row stays skipped for screenshot validation because banners and Notification Center presentation are system-rendered rather than part of the shard's in-app view tree.",
+      "notes": "Implemented on 2026-04-17 as a native UserNotifications bridge for local notifications plus deterministic category/action manifest and Swift scaffold export. This row stays skipped for screenshot validation because banners and Notification Center presentation are system-rendered rather than part of the shard's in-app view tree.",
+      "skip_reason": "usernotifications-system-chrome",
       "backdrop": "lock-screen-amber",
       "evidence_state": "not_applicable",
       "evidence_errors": []
