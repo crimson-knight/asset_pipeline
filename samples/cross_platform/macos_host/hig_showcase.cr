@@ -70,7 +70,7 @@ require "../../../src/ui/validation_scenes"
     "alerts"        => "dashboard",
     "popovers"      => "dashboard",
     "action-sheets" => "dashboard",
-    "edit-menus"    => "document",
+    "edit-menus"    => "ambient",
     "context-menus" => "ambient",
     "dock-menus"    => "dock",
     # Iter B -- inbox scene
@@ -80,7 +80,7 @@ require "../../../src/ui/validation_scenes"
     # Iter B -- gallery scene
     "collections"       => "ambient",
     "image-views"       => "gallery",
-    "rating-indicators" => "gallery",
+    "rating-indicators" => "ambient",
     "page-controls"     => "gallery",
     # Iter B -- chart scene
     "charts"              => "ambient",
@@ -117,6 +117,7 @@ require "../../../src/ui/validation_scenes"
     "path-controls" => "ambient",
     "maps"          => "ambient",
     "playing-video" => "ambient",
+    "scroll-views"  => "ambient",
     "toolbars"      => "ambient",
     "tab-bars"      => "ambient",
     "tab-views"     => "ambient",
@@ -625,31 +626,24 @@ require "../../../src/ui/validation_scenes"
 
       UI::Sheet.new(content.as(UI::View), surface_style: :grouped_card).as(UI::View)
     when "edit-menus"
-      # HIG edit menu content surface (macOS): the contextual text-editing menu
-      # revealed by secondary click during an editing task, plus the app's
-      # Edit menu in the menu bar. HIG abstract: "An edit menu lets people make
-      # changes to selected content in the current view, in addition to offering
-      # related commands like Copy, Select, Translate, and Look Up." We mirror
-      # the inline-VStack-in-Sheet pattern (same as context-menus / dock-menus)
-      # so the screenshot captures the glass menu surface and all command groups.
-      # Canonical macOS Edit menu item set (AppKit NSMenu "Edit" convention):
-      #   Group 1 (clipboard): Cut (scissors / Cmd-X) / Copy (doc.on.doc / Cmd-C)
-      #                        / Paste (doc.on.clipboard / Cmd-V)
-      #   Separator
-      #   Group 2 (selection): Select All (selection.pin.in.out / Cmd-A)
-      #   Separator
-      #   Group 3 (find / utilities): Find... (magnifyingglass / Cmd-F)
-      #                               / Look Up (book) / Translate (character.bubble)
-      #   Separator
-      #   Group 4 (share): Share (square.and.arrow.up)
-      # Keyboard shortcuts (Cmd-X, Cmd-C, Cmd-V, Cmd-A, Cmd-F) shown as
-      # right-aligned secondary labels inside each row HStack. Shortcut labels
-      # are rendered as UI::Label with secondary gray color. HIG: "In macOS,
-      # people can access editing commands through the app's Edit menu in the
-      # menu bar." No destructive items -- standard edit menu actions are
-      # clipboard operations, not data-destroying; per HIG: "Differentiate
-      # different types of deletion commands when necessary."
-      content = UI::VStack.new(spacing: 4.0)
+      # HIG edit menu content surface: a compact macOS Edit menu presented as
+      # a deliberate showcase plate. The title stays short, the menu groups stay
+      # tight, and the sheet remains centered with generous amber gutters.
+      outer = UI::VStack.new(spacing: 12.0)
+      outer.alignment = UI::Alignment::Center
+
+      edit_title = UI::Label.new("Edit")
+      edit_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      edit_title.accessibility_label = "Edit menu study title"
+      outer << edit_title.as(UI::View)
+
+      edit_subtitle = UI::Label.new("Clipboard, selection, find.")
+      edit_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      edit_subtitle.text_color_role = UI::LabelRole::Secondary
+      edit_subtitle.accessibility_label = "Edit menu study subtitle"
+      outer << edit_subtitle.as(UI::View)
+
+      content = UI::VStack.new(spacing: 6.0)
 
       # --- Group 1: Clipboard ---
       cut_row = UI::HStack.new(spacing: 8.0)
@@ -706,12 +700,10 @@ require "../../../src/ui/validation_scenes"
       content << UI::Button.new("Look Up", symbol: "book")
       content << UI::Button.new("Translate", symbol: "character.bubble")
 
-      content << UI::Divider.new(:horizontal)
-
-      # --- Group 4: Share ---
-      content << UI::Button.new("Share", symbol: "square.and.arrow.up")
-
-      UI::Sheet.new(content.as(UI::View), surface_style: :grouped_card).as(UI::View)
+      menu_sheet = UI::Sheet.new(content.as(UI::View), surface_style: :grouped_card)
+      menu_sheet.accessibility_label = "Edit menu study"
+      outer << menu_sheet.as(UI::View)
+      outer.as(UI::View)
     when "menus"
       # HIG menus content surface: the general menu surface shape covering
       # menu-bar pull-down menus (macOS File / Edit / View / ...) and
@@ -2135,20 +2127,22 @@ require "../../../src/ui/validation_scenes"
       pd_card.accessibility_label = "Pull-down buttons study card"
       pd_card.as(UI::View)
     when "scroll-views"
-      # HIG: "A scroll view lets people view content that's larger than the
-      # view's boundaries by moving the content vertically or horizontally."
-      # Showcase: a vertical NSScrollView containing a VStack of 15 numbered
-      # rows. The content height (~15 * 32pt row height = ~480pt) intentionally
-      # exceeds the clipping frame (~200pt) so the scroll boundary is visible
-      # and content clearly continues past the clip edge.
-      sv_title = UI::Label.new("Morning pages archive")
-      sv_title.font = UI::Font.new(size: 20.0, weight: :medium)
-      sv_title.accessibility_label = "Morning pages archive title"
+      # HIG scroll views: a centered archive plate with a short header and a
+      # bounded vertical scroll area. The rows stay plain so the scroll boundary
+      # and the amber gutters are the interesting parts of the capture.
+      sv_title = UI::Label.new("Archive")
+      sv_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      sv_title.accessibility_label = "Scroll view study title"
 
-      # Build a VStack of 15 labeled rows as the scrollable content
+      sv_subtitle = UI::Label.new("Scrollable rows")
+      sv_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      sv_subtitle.text_color_role = UI::LabelRole::Secondary
+      sv_subtitle.accessibility_label = "Scroll view study subtitle"
+
+      # Build a VStack of 15 labeled rows as the scrollable content.
       sv_content = UI::VStack.new(spacing: 0.0)
       (1..15).each do |i|
-        row_label = UI::Label.new("Item #{i} — scrollable content row")
+        row_label = UI::Label.new("Entry #{i}")
         row_label.font = UI::Font.new(size: 14.0, weight: :regular)
         row_label.accessibility_label = "Scroll row #{i}"
         sv_content << row_label
@@ -2158,20 +2152,29 @@ require "../../../src/ui/validation_scenes"
       end
 
       # Wrap in a ScrollView with vertical scrolling enabled.
-      # frame_height=200 pins the NSScrollView viewport height inside the
-      # parent NSStackView; the content VStack (~15 rows * 32pt = ~480pt)
-      # is taller than the viewport, making the scroll boundary visible.
       scroll = UI::ScrollView.new(sv_content)
       scroll.scroll_vertical = true
       scroll.scroll_horizontal = false
       scroll.shows_indicators = true
-      scroll.frame_height = 200.0
+      scroll.frame_height = 192.0
+      scroll.minimum_width = 384.0
+      scroll.maximum_width = 384.0
       scroll.accessibility_label = "Vertical scroll view with 15 rows"
 
-      outer = UI::VStack.new(spacing: 12.0)
-      outer << sv_title
-      outer << scroll
-      outer
+      scroll_body = UI::VStack.new(spacing: 12.0)
+      scroll_body.alignment = UI::Alignment::Leading
+      scroll_body << sv_title.as(UI::View)
+      scroll_body << sv_subtitle.as(UI::View)
+      scroll_body << scroll.as(UI::View)
+
+      scroll_card = UI::Card.new(scroll_body.as(UI::View))
+      scroll_card.minimum_width = 432.0
+      scroll_card.maximum_width = 432.0
+      scroll_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+      scroll_card.is_outlined = true
+      scroll_card.material = :secondary
+      scroll_card.accessibility_label = "Scroll view study card"
+      scroll_card.as(UI::View)
     when "toolbars"
       # HIG: "A toolbar provides convenient access to frequently used commands,
       # controls, navigation, and search." On macOS 26 the toolbar background
@@ -3698,50 +3701,82 @@ HTML
 
       outer.as(UI::View)
     when "rating-indicators"
-      # HIG: "A rating indicator uses a series of horizontally arranged
-      # graphical symbols — by default, stars — to communicate a ranking
-      # level." — Rating indicators, abstract.
-      # macOS: NSLevelIndicator with NSLevelIndicatorStyleRating = 4.
-      # Exercises: full 5-star, partial 3-star, 2-of-5, and custom tint.
-      outer = UI::VStack.new(spacing: 16.0)
+      # HIG rating indicators: a compact star study with enough breathing room
+      # to feel like a deliberate plate instead of a test harness.
+      outer = UI::VStack.new(spacing: 12.0)
+      outer.alignment = UI::Alignment::Leading
 
-      # Full 5-star rating
-      lbl_full = UI::Label.new("5 of 5 stars (full):")
-      lbl_full.accessibility_label = "5 of 5 stars label"
-      outer << lbl_full
-      ri_full = UI::RatingIndicator.new(value: 5.0, max: 5)
-      ri_full.accessibility_label = "5 out of 5 stars"
-      outer << ri_full
+      rating_title = UI::Label.new("Ratings")
+      rating_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      rating_title.accessibility_label = "Rating indicators study title"
+      outer << rating_title.as(UI::View)
 
-      # Partial 3-of-5 stars
-      lbl_partial = UI::Label.new("3 of 5 stars (partial):")
-      lbl_partial.accessibility_label = "3 of 5 stars label"
-      outer << lbl_partial
-      ri_partial = UI::RatingIndicator.new(value: 3.0, max: 5)
-      ri_partial.accessibility_label = "3 out of 5 stars"
-      outer << ri_partial
+      rating_subtitle = UI::Label.new("Star rows")
+      rating_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      rating_subtitle.text_color_role = UI::LabelRole::Secondary
+      rating_subtitle.accessibility_label = "Rating indicators study subtitle"
+      outer << rating_subtitle.as(UI::View)
 
-      # 2-of-5 stars
-      lbl_two = UI::Label.new("2 of 5 stars:")
-      lbl_two.accessibility_label = "2 of 5 stars label"
-      outer << lbl_two
-      ri_two = UI::RatingIndicator.new(value: 2.0, max: 5)
-      ri_two.accessibility_label = "2 out of 5 stars"
-      outer << ri_two
+      full_row = UI::HStack.new(spacing: 12.0)
+      full_row.alignment = UI::Alignment::Center
+      full_label = UI::Label.new("Full")
+      full_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      full_label.text_color_role = UI::LabelRole::Secondary
+      full_row << full_label.as(UI::View)
+      full_row << UI::Spacer.new.as(UI::View)
+      full_indicator = UI::RatingIndicator.new(value: 5.0, max: 5)
+      full_indicator.accessibility_label = "5 out of 5 stars"
+      full_row << full_indicator.as(UI::View)
+      outer << full_row.as(UI::View)
 
-      # Custom tint: blue
-      lbl_tint = UI::Label.new("3 of 5 stars (blue tint):")
-      lbl_tint.accessibility_label = "3 of 5 stars blue tint label"
-      outer << lbl_tint
-      ri_tint = UI::RatingIndicator.new(
+      partial_row = UI::HStack.new(spacing: 12.0)
+      partial_row.alignment = UI::Alignment::Center
+      partial_label = UI::Label.new("Partial")
+      partial_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      partial_label.text_color_role = UI::LabelRole::Secondary
+      partial_row << partial_label.as(UI::View)
+      partial_row << UI::Spacer.new.as(UI::View)
+      partial_indicator = UI::RatingIndicator.new(value: 3.0, max: 5)
+      partial_indicator.accessibility_label = "3 out of 5 stars"
+      partial_row << partial_indicator.as(UI::View)
+      outer << partial_row.as(UI::View)
+
+      low_row = UI::HStack.new(spacing: 12.0)
+      low_row.alignment = UI::Alignment::Center
+      low_label = UI::Label.new("Low")
+      low_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      low_label.text_color_role = UI::LabelRole::Secondary
+      low_row << low_label.as(UI::View)
+      low_row << UI::Spacer.new.as(UI::View)
+      low_indicator = UI::RatingIndicator.new(value: 2.0, max: 5)
+      low_indicator.accessibility_label = "2 out of 5 stars"
+      low_row << low_indicator.as(UI::View)
+      outer << low_row.as(UI::View)
+
+      tint_row = UI::HStack.new(spacing: 12.0)
+      tint_row.alignment = UI::Alignment::Center
+      tint_label = UI::Label.new("Tinted")
+      tint_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      tint_label.text_color_role = UI::LabelRole::Secondary
+      tint_row << tint_label.as(UI::View)
+      tint_row << UI::Spacer.new.as(UI::View)
+      tint_indicator = UI::RatingIndicator.new(
         value: 3.0,
         max: 5,
         tint_color: UI::Color.new(r: 0.0, g: 0.48, b: 1.0)
       )
-      ri_tint.accessibility_label = "3 out of 5 stars blue tint"
-      outer << ri_tint
+      tint_indicator.accessibility_label = "3 out of 5 stars blue tint"
+      tint_row << tint_indicator.as(UI::View)
+      outer << tint_row.as(UI::View)
 
-      outer.as(UI::View)
+      rating_card = UI::Card.new(outer.as(UI::View))
+      rating_card.minimum_width = 420.0
+      rating_card.maximum_width = 420.0
+      rating_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+      rating_card.is_outlined = true
+      rating_card.material = :secondary
+      rating_card.accessibility_label = "Rating indicators study card"
+      rating_card.as(UI::View)
     else
       UI::Label.new("Unknown slug: #{slug}")
     end
@@ -3941,6 +3976,7 @@ HTML
                     when "charts"              then 420.0
                     when "progress-indicators" then 428.0
                     when "menus"               then 460.0
+                    when "edit-menus"          then 420.0
                     when "pop-up-buttons"      then 436.0
                     when "pull-down-buttons"   then 436.0
                     when "steppers"            then 396.0
@@ -3953,6 +3989,8 @@ HTML
                     when "tab-views"           then 556.0
                     when "text-views"          then 680.0
                     when "text-fields"         then 420.0
+                    when "rating-indicators"   then 420.0
+                    when "scroll-views"        then 432.0
                     when "maps"                then 556.0
                     when "playing-video"       then 556.0
                     when "collections"         then 500.0

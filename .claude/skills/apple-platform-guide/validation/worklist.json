@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-17T13:46:15.058570+00:00",
+  "generated_at": "2026-04-17T15:10:05.983335+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -1002,9 +1002,8 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "glass_required": true,
       "glass_material_expected": "menu",
       "appearances_required": [
@@ -1012,20 +1011,17 @@
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "pass_with_notes",
-        "macos_dark": "pass_with_notes",
-        "ios_light": "pass_with_notes",
-        "ios_dark": "pass_with_notes"
+        "macos_light": "PASS_WITH_NOTES",
+        "macos_dark": "PASS_WITH_NOTES",
+        "ios_light": "PASS_WITH_NOTES",
+        "ios_dark": "PASS_WITH_NOTES"
       },
       "backdrop": "menu-backdrop-amber-document",
-      "scene": "document",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: edit-menus-macos-light.png",
-        "screenshot newer than report: edit-menus-macos-dark.png",
-        "screenshot newer than report: edit-menus-ios-light.png",
-        "screenshot newer than report: edit-menus-ios-dark.png"
-      ]
+      "scene": "ambient",
+      "evidence_state": "valid",
+      "evidence_errors": [],
+      "focal_position": "centered",
+      "notes": "Refreshed on 2026-04-17 with centered ambient studies on both hosts. The menu anatomy now reads clearly with amber gutters and no clipped document chrome. Remaining notes are systemic: pill rows instead of native menu rows, action-tinted labels instead of true labelColor text, and runtime menus remain richer than the inline capture path."
     },
     {
       "slug": "entering-data",
@@ -2576,7 +2572,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2590,17 +2586,12 @@
         "ios_light": "PASS",
         "ios_dark": "PASS"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "scene": "gallery",
-      "focal_position": "inline_rows",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: rating-indicators-macos-light.png",
-        "screenshot newer than report: rating-indicators-macos-dark.png",
-        "screenshot newer than report: rating-indicators-ios-light.png",
-        "screenshot newer than report: rating-indicators-ios-dark.png"
-      ]
+      "scene": "ambient",
+      "focal_position": "centered",
+      "evidence_state": "valid",
+      "evidence_errors": [],
+      "notes": "Refreshed on 2026-04-17 as a calmer centered star study on both hosts. The macOS fallback still uses NSImageView/SF Symbols instead of NSLevelIndicator in the capture path, and iOS remains an approximation because HIG does not define a native rating-indicator there, but the default taste is now strong enough to count as done."
     },
     {
       "slug": "ratings-and-reviews",
@@ -2678,7 +2669,7 @@
       "priority": "P0",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -2687,20 +2678,17 @@
         "dark"
       ],
       "verdict_per_appearance": {
-        "macos_light": "pass",
-        "macos_dark": "pass",
-        "ios_light": "pass_with_notes",
-        "ios_dark": "pass_with_notes"
+        "macos_light": "PASS",
+        "macos_dark": "PASS",
+        "ios_light": "PASS_WITH_NOTES",
+        "ios_dark": "PASS_WITH_NOTES"
       },
-      "remediation_hint": "Evidence audit failed; regenerate all four screenshots, report, and evidence manifest before design-critic review.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "evidence_state": "invalid",
-      "evidence_errors": [
-        "screenshot newer than report: scroll-views-macos-light.png",
-        "screenshot newer than report: scroll-views-macos-dark.png",
-        "screenshot newer than report: scroll-views-ios-light.png",
-        "screenshot newer than report: scroll-views-ios-dark.png"
-      ]
+      "evidence_state": "valid",
+      "evidence_errors": [],
+      "scene": "ambient",
+      "focal_position": "centered",
+      "notes": "Refreshed on 2026-04-17 with smaller centered archive studies on both hosts. The iOS capture now shows overflow beyond the viewport instead of fitting the entire list, while the remaining notes are static-capture constraints rather than taste failures: transient indicators are absent at rest and the content is intentionally simple."
     },
     {
       "slug": "search-fields",
@@ -3689,15 +3677,15 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 46,
-    "pending": 3,
+    "pass_with_notes": 49,
+    "pending": 0,
     "needs_work": 0,
     "fail": 0,
     "skipped": 16
   },
   "evidence_counts": {
-    "valid": 40,
-    "invalid": 9,
+    "valid": 43,
+    "invalid": 6,
     "not_applicable": 16,
     "unknown": 0
   }

@@ -1,58 +1,53 @@
 {
-  "errors": [
-    "screenshot newer than report: rating-indicators-macos-light.png",
-    "screenshot newer than report: rating-indicators-macos-dark.png",
-    "screenshot newer than report: rating-indicators-ios-light.png",
-    "screenshot newer than report: rating-indicators-ios-dark.png"
-  ],
-  "generated_at": "2026-04-17T13:39:40.911393+00:00",
+  "errors": [],
+  "generated_at": "2026-04-17T15:10:05.875528+00:00",
   "report": {
     "exists": true,
-    "mtime": "2026-04-14T18:31:04.816041+00:00",
+    "mtime": "2026-04-17T15:09:56.067878+00:00",
     "path": "reports/rating-indicators.md",
-    "sha256": "093e86d573532ae9fbd4ac26b4929eb8d59bb6f17fd631947ae30d6ae6b0abb7",
-    "size_bytes": 7068
+    "sha256": "d86b568b07ef801d289df907f8d342da27dc62e3417a89d23ab0e3bf6b76cedc",
+    "size_bytes": 1631
   },
   "screenshots": {
     "ios_dark": {
       "exists": true,
-      "mtime": "2026-04-15T21:12:57.080906+00:00",
+      "mtime": "2026-04-17T15:06:03.316760+00:00",
       "path": "screenshots/rating-indicators-ios-dark.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "a86cbb7781bcc5a4e69314e158c1a9f52681640816ccf9e450249247ceadf8a9",
-      "size_bytes": 863986
+      "sha256": "e9fd17c3468d823efdf2b0f00aff4dc26ed112a9ff58f63431a9bafe6c2884eb",
+      "size_bytes": 521423
     },
     "ios_light": {
       "exists": true,
-      "mtime": "2026-04-15T21:12:24.992870+00:00",
+      "mtime": "2026-04-17T15:05:32.660548+00:00",
       "path": "screenshots/rating-indicators-ios-light.png",
       "pixel_height": 1808,
       "pixel_width": 1206,
-      "sha256": "4df16a9b3a663af32639217ab175d032b0a30793413aad013a32d3686f6b9c01",
-      "size_bytes": 608459
+      "sha256": "0d5870c516361f57a4c6900cc392ec2b6de2215ed3cee81738e9249a9ed06a90",
+      "size_bytes": 415711
     },
     "macos_dark": {
       "exists": true,
-      "mtime": "2026-04-15T20:25:50.303188+00:00",
+      "mtime": "2026-04-17T13:51:56.496090+00:00",
       "path": "screenshots/rating-indicators-macos-dark.png",
-      "pixel_height": 1800,
-      "pixel_width": 2400,
-      "sha256": "b6f4efed35dcaa0ffcb362cce55ea6b7a8762f2a00fa11f4742d3e571bec3c86",
-      "size_bytes": 1405124
+      "pixel_height": 900,
+      "pixel_width": 1200,
+      "sha256": "12c56f518d45e180a6ee057f1a90aebf15e7b2b2614905dbe8cd046281aa9e4e",
+      "size_bytes": 450911
     },
     "macos_light": {
       "exists": true,
-      "mtime": "2026-04-15T20:25:49.427590+00:00",
+      "mtime": "2026-04-17T13:51:55.631368+00:00",
       "path": "screenshots/rating-indicators-macos-light.png",
-      "pixel_height": 1800,
-      "pixel_width": 2400,
-      "sha256": "1033d7a4d15ae2da8875ee034cd66766589b5481d45fda951287d5bc03aa4ce8",
-      "size_bytes": 1005552
+      "pixel_height": 900,
+      "pixel_width": 1200,
+      "sha256": "458834e2249ef5242f9d5763ab37548c755d820504f579a39e4314bcc541c3d1",
+      "size_bytes": 392085
     }
   },
   "slug": "rating-indicators",
-  "valid": false,
-  "validation_state": "pending",
+  "valid": true,
+  "validation_state": "pass_with_notes",
   "warnings": []
 }

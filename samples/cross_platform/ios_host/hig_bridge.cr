@@ -45,7 +45,6 @@ module CrystalHIGHost::Bridge
     when "sheets"        then "dashboard"
     when "action-sheets"   then "dashboard"
     when "activity-views"  then "dashboard"
-    when "edit-menus"      then "document"
     when "dock-menus"    then "dock"
     else                      nil
     end
@@ -728,7 +727,21 @@ module CrystalHIGHost::Bridge
               # --- Group 4: Share ---
               edit_content << UI::Button.new("Share", symbol: "square.and.arrow.up")
 
-              UI::Sheet.new(edit_content.as(UI::View), surface_style: :grouped_card).as(UI::View)
+              edit_plate = UI::VStack.new(spacing: 12.0)
+              edit_plate.alignment = UI::Alignment::Leading
+
+              edit_title = UI::Label.new("Edit menus")
+              edit_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              edit_plate << edit_title.as(UI::View)
+
+              edit_subtitle = UI::Label.new("Clipboard and lookup actions in a compact study.")
+              edit_subtitle.font = UI::Font.new(size: 13.0, weight: :regular)
+              edit_subtitle.text_color_role = UI::LabelRole::Secondary
+              edit_subtitle.number_of_lines = 0
+              edit_plate << edit_subtitle.as(UI::View)
+
+              edit_plate << edit_content.as(UI::View)
+              centered_study_card(edit_plate.as(UI::View), card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
             when "menus"
               # Keep the menu study compact and centered so the two menu types
               # read as one calm card instead of separate demo dumps.
@@ -1797,28 +1810,33 @@ module CrystalHIGHost::Bridge
             when "scroll-views"
               # HIG: "A scroll view lets people view content that's larger than
               # the view's boundaries by moving the content vertically or
-              # horizontally."  Showcase: UIScrollView containing a UIStackView
-              # of 15 numbered rows. Content height (~15 * 44pt = ~660pt)
-              # exceeds the clipping frame (~320pt), making the scroll boundary
-              # plainly visible.
-              ios_sv_title = UI::Label.new("HIG: scroll-views")
-              ios_sv_title.font = UI::Font.new(size: 20.0, weight: :medium)
+              # horizontally." Keep the composition small and calm so the
+              # clipped viewport is the point of the screenshot, not the list
+              # chrome around it.
+              ios_sv_title = UI::Label.new("Scroll views")
+              ios_sv_title.font = UI::Font.new(size: 17.0, weight: :semibold)
               ios_sv_title.accessibility_label = "scroll-views showcase title"
 
+              ios_sv_subtitle = UI::Label.new("Vertical content inside a fixed viewport.")
+              ios_sv_subtitle.font = UI::Font.new(size: 13.0, weight: :regular)
+              ios_sv_subtitle.text_color_role = UI::LabelRole::Secondary
+              ios_sv_subtitle.number_of_lines = 0
+              ios_sv_subtitle.accessibility_label = "scroll-views showcase subtitle"
+
               ios_sv_content = UI::VStack.new(spacing: 0.0)
-              (1..15).each do |i|
-                row_lbl = UI::Label.new("Item #{i} \u2014 scrollable content row")
+              (1..24).each do |i|
+                row_lbl = UI::Label.new("Row #{i}")
                 row_lbl.font = UI::Font.new(size: 16.0, weight: :regular)
                 row_lbl.accessibility_label = "Scroll row #{i}"
                 ios_sv_content << row_lbl
-                if i < 15
+                if i < 24
                   ios_sv_content << UI::Divider.new
                 end
               end
 
               # frame_height=320 pins the UIScrollView viewport height inside
-              # the parent UIStackView; the content UIStackView (~15 rows *
-              # 44pt = ~660pt) is taller than the viewport.
+              # the parent UIStackView; 24 rows guarantees the content remains
+              # visibly taller than the viewport in the static capture.
               ios_scroll = UI::ScrollView.new(ios_sv_content)
               ios_scroll.scroll_vertical = true
               ios_scroll.scroll_horizontal = false
@@ -1827,9 +1845,11 @@ module CrystalHIGHost::Bridge
               ios_scroll.accessibility_label = "Vertical scroll view with 15 rows"
 
               ios_sv_outer = UI::VStack.new(spacing: 12.0)
-              ios_sv_outer << ios_sv_title
-              ios_sv_outer << ios_scroll
-              ios_sv_outer.as(UI::View)
+              ios_sv_outer.alignment = UI::Alignment::Leading
+              ios_sv_outer << ios_sv_title.as(UI::View)
+              ios_sv_outer << ios_sv_subtitle.as(UI::View)
+              ios_sv_outer << ios_scroll.as(UI::View)
+              centered_study_card(ios_sv_outer.as(UI::View), card_width: 336.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
             when "toolbars"
               # HIG: "A toolbar provides convenient access to frequently used
               # commands, controls, navigation, and search." On iOS 26,
@@ -2902,41 +2922,74 @@ HTML
               # tvOS, visionOS, or watchOS." — NSLevelIndicator is macOS-only.
               # UIKit renderer synthesises a horizontal UIStackView of
               # UIImageViews carrying SF Symbol names "star.fill" / "star".
-              ios_ri_outer = UI::VStack.new(spacing: 16.0)
+              ios_ri_outer = UI::VStack.new(spacing: 12.0)
+              ios_ri_outer.alignment = UI::Alignment::Leading
 
-              ios_ri_lbl1 = UI::Label.new("5 of 5 stars (full):")
+              ios_ri_title = UI::Label.new("Ratings")
+              ios_ri_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_ri_title.accessibility_label = "rating indicators showcase title"
+              ios_ri_outer << ios_ri_title
+
+              ios_ri_desc = UI::Label.new("Compact star samples with an amber frame.")
+              ios_ri_desc.font = UI::Font.new(size: 13.0, weight: :regular)
+              ios_ri_desc.text_color_role = UI::LabelRole::Secondary
+              ios_ri_desc.number_of_lines = 0
+              ios_ri_desc.accessibility_label = "rating indicators showcase subtitle"
+              ios_ri_outer << ios_ri_desc
+
+              ios_ri_row1 = UI::HStack.new(spacing: 12.0)
+              ios_ri_row1.minimum_width = 280.0
+              ios_ri_row1.maximum_width = 280.0
+              ios_ri_lbl1 = UI::Label.new("Full")
               ios_ri_lbl1.accessibility_label = "5 of 5 stars label"
-              ios_ri_outer << ios_ri_lbl1
               ios_ri_full = UI::RatingIndicator.new(value: 5.0, max: 5)
               ios_ri_full.accessibility_label = "5 out of 5 stars"
-              ios_ri_outer << ios_ri_full
+              ios_ri_row1 << ios_ri_lbl1.as(UI::View)
+              ios_ri_row1 << UI::Spacer.new.as(UI::View)
+              ios_ri_row1 << ios_ri_full.as(UI::View)
+              ios_ri_outer << ios_ri_row1.as(UI::View)
 
-              ios_ri_lbl2 = UI::Label.new("3 of 5 stars (partial):")
+              ios_ri_row2 = UI::HStack.new(spacing: 12.0)
+              ios_ri_row2.minimum_width = 280.0
+              ios_ri_row2.maximum_width = 280.0
+              ios_ri_lbl2 = UI::Label.new("Partial")
               ios_ri_lbl2.accessibility_label = "3 of 5 stars label"
-              ios_ri_outer << ios_ri_lbl2
               ios_ri_partial = UI::RatingIndicator.new(value: 3.0, max: 5)
               ios_ri_partial.accessibility_label = "3 out of 5 stars"
-              ios_ri_outer << ios_ri_partial
+              ios_ri_row2 << ios_ri_lbl2.as(UI::View)
+              ios_ri_row2 << UI::Spacer.new.as(UI::View)
+              ios_ri_row2 << ios_ri_partial.as(UI::View)
+              ios_ri_outer << ios_ri_row2.as(UI::View)
 
-              ios_ri_lbl3 = UI::Label.new("2 of 5 stars:")
+              ios_ri_row3 = UI::HStack.new(spacing: 12.0)
+              ios_ri_row3.minimum_width = 280.0
+              ios_ri_row3.maximum_width = 280.0
+              ios_ri_lbl3 = UI::Label.new("Two stars")
               ios_ri_lbl3.accessibility_label = "2 of 5 stars label"
-              ios_ri_outer << ios_ri_lbl3
               ios_ri_two = UI::RatingIndicator.new(value: 2.0, max: 5)
               ios_ri_two.accessibility_label = "2 out of 5 stars"
-              ios_ri_outer << ios_ri_two
+              ios_ri_row3 << ios_ri_lbl3.as(UI::View)
+              ios_ri_row3 << UI::Spacer.new.as(UI::View)
+              ios_ri_row3 << ios_ri_two.as(UI::View)
+              ios_ri_outer << ios_ri_row3.as(UI::View)
 
-              ios_ri_lbl4 = UI::Label.new("3 of 5 stars (blue tint):")
+              ios_ri_row4 = UI::HStack.new(spacing: 12.0)
+              ios_ri_row4.minimum_width = 280.0
+              ios_ri_row4.maximum_width = 280.0
+              ios_ri_lbl4 = UI::Label.new("Tinted")
               ios_ri_lbl4.accessibility_label = "3 of 5 stars blue tint label"
-              ios_ri_outer << ios_ri_lbl4
               ios_ri_tint = UI::RatingIndicator.new(
                 value: 3.0,
                 max: 5,
                 tint_color: UI::Color.new(r: 0.0, g: 0.48, b: 1.0)
               )
               ios_ri_tint.accessibility_label = "3 out of 5 stars blue tint"
-              ios_ri_outer << ios_ri_tint
+              ios_ri_row4 << ios_ri_lbl4.as(UI::View)
+              ios_ri_row4 << UI::Spacer.new.as(UI::View)
+              ios_ri_row4 << ios_ri_tint.as(UI::View)
+              ios_ri_outer << ios_ri_row4.as(UI::View)
 
-              ios_ri_outer.as(UI::View)
+              centered_study_card(ios_ri_outer.as(UI::View), card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
             else                            UI::Label.new("Unknown slug: #{slug}").as(UI::View)
             end
     # For scene-wrapped slugs, return just the focal component (child) so the
