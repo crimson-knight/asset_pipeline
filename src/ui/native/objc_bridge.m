@@ -1652,6 +1652,128 @@ void *ap_ring_view_new(double width,
     return (void *)view;
 }
 
+static double ap_clamp_unit(double value) {
+    if (value < 0.0) return 0.0;
+    if (value > 1.0) return 1.0;
+    return value;
+}
+
+static void ap_add_activity_ring_layers(CALayer *container_layer,
+                                        double size,
+                                        double center,
+                                        double radius,
+                                        double start_angle,
+                                        double end_angle,
+                                        double thickness,
+                                        double progress_fraction,
+                                        double r,
+                                        double g,
+                                        double b) {
+    if (!container_layer || radius <= 0.0 || thickness <= 0.0) return;
+
+    double clamped_progress = ap_clamp_unit(progress_fraction);
+    double progress_end = start_angle + ((end_angle - start_angle) * clamped_progress);
+
+    CGMutablePathRef track_path = CGPathCreateMutable();
+    CGPathAddArc(track_path,
+                 NULL,
+                 (CGFloat)center,
+                 (CGFloat)center,
+                 (CGFloat)radius,
+                 (CGFloat)start_angle,
+                 (CGFloat)end_angle,
+                 false);
+
+    CGMutablePathRef progress_path = CGPathCreateMutable();
+    CGPathAddArc(progress_path,
+                 NULL,
+                 (CGFloat)center,
+                 (CGFloat)center,
+                 (CGFloat)radius,
+                 (CGFloat)start_angle,
+                 (CGFloat)progress_end,
+                 false);
+
+    id track_color = nscolor_rgba(r * 0.26, g * 0.26, b * 0.26, 1.0);
+    id progress_color = nscolor_rgba(r, g, b, 1.0);
+
+    CAShapeLayer *track_layer = [CAShapeLayer layer];
+    track_layer.frame = CGRectMake(0.0, 0.0, size, size);
+    track_layer.path = track_path;
+    track_layer.fillColor = NULL;
+    track_layer.strokeColor = track_color ? [track_color CGColor] : NULL;
+    track_layer.lineWidth = (CGFloat)thickness;
+    track_layer.lineCap = kCALineCapRound;
+
+    CAShapeLayer *progress_layer = [CAShapeLayer layer];
+    progress_layer.frame = CGRectMake(0.0, 0.0, size, size);
+    progress_layer.path = progress_path;
+    progress_layer.fillColor = NULL;
+    progress_layer.strokeColor = progress_color ? [progress_color CGColor] : NULL;
+    progress_layer.lineWidth = (CGFloat)thickness;
+    progress_layer.lineCap = kCALineCapRound;
+
+    [container_layer addSublayer:track_layer];
+    [container_layer addSublayer:progress_layer];
+
+    CGPathRelease(track_path);
+    CGPathRelease(progress_path);
+}
+
+void *ap_activity_rings_view_new(double size,
+                                 double thickness,
+                                 double gap,
+                                 double move_progress,
+                                 double exercise_progress,
+                                 double stand_progress) {
+#if TARGET_OS_OSX
+    NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0.0, 0.0, size, size)];
+    if (!view) return NULL;
+    [view setWantsLayer:YES];
+    if (!view.layer) {
+        view.layer = [CALayer layer];
+    }
+    view.layer.backgroundColor = NSColor.clearColor.CGColor;
+#else
+    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0.0, 0.0, size, size)];
+    if (!view) return NULL;
+    view.backgroundColor = UIColor.clearColor;
+#endif
+
+    CALayer *container_layer = view.layer;
+    if (!container_layer) return (void *)view;
+
+#if TARGET_OS_OSX
+    CGColorRef black_cg = NSColor.blackColor.CGColor;
+#else
+    CGColorRef black_cg = UIColor.blackColor.CGColor;
+#endif
+
+    CAShapeLayer *background_layer = [CAShapeLayer layer];
+    background_layer.frame = CGRectMake(0.0, 0.0, size, size);
+    CGMutablePathRef background_path = CGPathCreateMutable();
+    CGPathAddEllipseInRect(background_path, NULL, CGRectMake(0.0, 0.0, size, size));
+    background_layer.path = background_path;
+    background_layer.fillColor = black_cg;
+    background_layer.strokeColor = black_cg;
+    background_layer.lineWidth = 1.0;
+    [container_layer addSublayer:background_layer];
+    CGPathRelease(background_path);
+
+    double center = size / 2.0;
+    double outer_radius = center - (thickness / 2.0) - gap;
+    double middle_radius = outer_radius - thickness - gap;
+    double inner_radius = middle_radius - thickness - gap;
+    double start_angle = -1.5707963267948966;
+    double end_angle = 4.71238898038469;
+
+    ap_add_activity_ring_layers(container_layer, size, center, outer_radius, start_angle, end_angle, thickness, move_progress, 250.0 / 255.0, 17.0 / 255.0, 79.0 / 255.0);
+    ap_add_activity_ring_layers(container_layer, size, center, middle_radius, start_angle, end_angle, thickness, exercise_progress, 166.0 / 255.0, 1.0, 0.0);
+    ap_add_activity_ring_layers(container_layer, size, center, inner_radius, start_angle, end_angle, thickness, stand_progress, 0.0, 1.0, 246.0 / 255.0);
+
+    return (void *)view;
+}
+
 static NSMutableArray *ap_share_items_from_payload(NSString *text, NSString *url_string) {
     NSMutableArray *items = [NSMutableArray array];
     if (text && text.length) {

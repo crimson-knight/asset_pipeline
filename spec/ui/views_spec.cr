@@ -122,6 +122,10 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "ActivityRing(#{view.value})"
   end
 
+  def visit(view : UI::ActivityRings)
+    @visited << "ActivityRings(#{view.move}/#{view.exercise}/#{view.stand})"
+  end
+
   def visit(view : UI::SecureField)
     @visited << "SecureField(#{view.placeholder})"
   end
@@ -2693,6 +2697,57 @@ describe UI::ActivityRing do
     visitor = TestVisitor.new
     ring.accept(visitor)
     visitor.visited.should eq(["ActivityRing(42.0)"])
+  end
+end
+
+describe UI::ActivityRings do
+  it "clamps ring fractions" do
+    rings = UI::ActivityRings.new(-0.25, 1.25, 0.5)
+    rings.move_fraction.should eq(0.0)
+    rings.exercise_fraction.should eq(1.0)
+    rings.stand_fraction.should eq(0.5)
+  end
+
+  it "builds a three-ring fallback surface" do
+    rings = UI::ActivityRings.new(0.71, 0.48, 0.93)
+    rings.size = 200.0
+    rings.thickness = 15.0
+    rings.gap = 5.0
+
+    fallback = rings.fallback_view
+    fallback.should be_a(UI::ZStack)
+
+    stage = fallback.as(UI::ZStack)
+    stage.children.size.should eq(4)
+    stage.children[0].should be_a(UI::Circle)
+    stage.children[1].should be_a(UI::Canvas)
+    stage.children[2].should be_a(UI::Canvas)
+    stage.children[3].should be_a(UI::Canvas)
+
+    move_canvas = stage.children[1].as(UI::Canvas)
+    move_canvas.operations.size.should eq(10)
+    move_canvas.operations.map(&.command).should eq([
+      UI::DrawCommand::BeginPath,
+      UI::DrawCommand::Arc,
+      UI::DrawCommand::SetStrokeColor,
+      UI::DrawCommand::SetLineWidth,
+      UI::DrawCommand::Stroke,
+      UI::DrawCommand::BeginPath,
+      UI::DrawCommand::Arc,
+      UI::DrawCommand::SetStrokeColor,
+      UI::DrawCommand::SetLineWidth,
+      UI::DrawCommand::Stroke,
+    ])
+    move_canvas.operations[1].radius.should be > 0.0
+    move_canvas.operations[6].end_angle.should be > move_canvas.operations[6].start_angle
+  end
+
+  it "accepts visitor" do
+    rings = UI::ActivityRings.new(0.3, 0.5, 0.7)
+
+    visitor = TestVisitor.new
+    rings.accept(visitor)
+    visitor.visited.should eq(["ActivityRings(0.3/0.5/0.7)"])
   end
 end
 

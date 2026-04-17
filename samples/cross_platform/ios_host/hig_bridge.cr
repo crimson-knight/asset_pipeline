@@ -148,6 +148,8 @@ module CrystalHIGHost::Bridge
       centered_isolation_plate(focal)
     when "gauges"
       centered_isolation_plate(focal)
+    when "activity-rings"
+      centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 18.0, bottom: 16.0, leading: 18.0))
     when "path-controls"
       centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "outline-views"
@@ -1656,6 +1658,30 @@ module CrystalHIGHost::Bridge
               ios_gauge.viewport_height = 0.0
               ios_gauge.accessibility_label = "Battery reserve gauge"
               ios_gauge.as(UI::View)
+            when "activity-rings"
+              # HIG activity rings: a centered watch-style fitness summary that
+              # needs a black field so the colored rings can breathe without
+              # crowding the frame.
+              ios_rings = UI::ActivityRings.new(0.82, 0.66, 0.58)
+              ios_rings.size = 168.0
+              ios_rings.thickness = 16.0
+              ios_rings.gap = 6.0
+              ios_rings.accessibility_label = "Activity rings summary"
+
+              ios_rings_title = UI::Label.new("Activity rings")
+              ios_rings_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+
+              ios_rings_subtitle = UI::Label.new("A centered study that keeps the black field and ring margins intact.")
+              ios_rings_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+              ios_rings_subtitle.text_color_role = UI::LabelRole::Secondary
+              ios_rings_subtitle.number_of_lines = 0
+
+              ios_rings_body = UI::VStack.new(spacing: 12.0)
+              ios_rings_body.alignment = UI::Alignment::Center
+              ios_rings_body << ios_rings_title
+              ios_rings_body << ios_rings_subtitle
+              ios_rings_body << ios_rings.as(UI::View)
+              ios_rings_body.as(UI::View)
             when "pull-down-buttons"
               # HIG: "A pull-down button displays a menu of items or actions
               # that directly relate to the button's purpose."  On iOS, renders

@@ -84,6 +84,7 @@ module UI::UIKit
     fun mkmapview_add_annotation(map_view : Void*, latitude : Float64, longitude : Float64, title : UInt8*, subtitle : UInt8*) : Void
     fun video_player_view_new(url : UInt8*, shows_controls : Int32, auto_play : Int32, muted : Int32, loop : Int32) : Void*
     fun ap_ring_view_new(width : Float64, height : Float64, center_x : Float64, center_y : Float64, radius : Float64, track_start_angle : Float64, track_end_angle : Float64, progress_start_angle : Float64, progress_end_angle : Float64, line_width : Float64, track_r : Float64, track_g : Float64, track_b : Float64, track_a : Float64, progress_r : Float64, progress_g : Float64, progress_b : Float64, progress_a : Float64) : Void*
+    fun ap_activity_rings_view_new(size : Float64, thickness : Float64, gap : Float64, move_progress : Float64, exercise_progress : Float64, stand_progress : Float64) : Void*
     fun uiactivityview_present(anchor_view : Void*, text : UInt8*, url : UInt8*, subject : UInt8*) : Void
 
     # --- ObjC runtime ---
@@ -3598,6 +3599,20 @@ module UI::UIKit
         progress_color.b,
         progress_color.a
       )
+    end
+
+    def visit(view : UI::ActivityRings)
+      ptr = LibObjCBridge.ap_activity_rings_view_new(
+        view.size,
+        view.thickness,
+        view.gap,
+        view.move_fraction,
+        view.exercise_fraction,
+        view.stand_fraction
+      )
+      LibObjCBridge.objc_constrain_size(ptr, view.size, view.size)
+      apply_common_properties(ptr, view)
+      emit(ptr, "UIView[activity-rings]")
     end
 
     def visit(view : UI::PathView)

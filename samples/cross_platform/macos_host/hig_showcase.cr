@@ -110,6 +110,7 @@ require "../../../src/ui/validation_scenes"
     "token-fields"  => "ambient",
     "image-wells"   => "ambient",
     "gauges"        => "ambient",
+    "activity-rings" => "ambient",
     "boxes"         => "ambient",
     "outline-views" => "ambient",
     "path-controls" => "ambient",
@@ -1230,6 +1231,39 @@ require "../../../src/ui/validation_scenes"
       gauge.viewport_height = 0.0
       gauge.accessibility_label = "Gauge study"
       gauge.as(UI::View)
+    when "activity-rings"
+      # Apple Activity Rings are unsupported on macOS, so this study uses the
+      # shared fallback primitive in an honest, centered composition. The goal
+      # is to read like a tool panel, not a novelty dashboard.
+      rings = UI::ActivityRings.new(0.82, 0.66, 0.58)
+      rings.size = 176.0
+      rings.thickness = 14.0
+      rings.gap = 10.0
+      rings.accessibility_label = "Activity rings"
+
+      rings_title = UI::Label.new("Activity rings")
+      rings_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      rings_title.accessibility_label = "Activity rings study title"
+
+      rings_subtitle = UI::Label.new("A centered fallback that keeps the focus on the rings.")
+      rings_subtitle.font = UI::Font.new(size: 12.0, weight: :regular)
+      rings_subtitle.text_color_role = UI::LabelRole::Secondary
+      rings_subtitle.accessibility_label = "Activity rings study subtitle"
+
+      rings_body = UI::VStack.new(spacing: 12.0)
+      rings_body.alignment = UI::Alignment::Center
+      rings_body << rings_title
+      rings_body << rings_subtitle
+      rings_body << rings.as(UI::View)
+
+      rings_card = UI::Card.new(rings_body.as(UI::View))
+      rings_card.minimum_width = 492.0
+      rings_card.maximum_width = 492.0
+      rings_card.content_padding = UI::EdgeInsets.new(top: 18.0, trailing: 20.0, bottom: 18.0, leading: 20.0)
+      rings_card.is_outlined = true
+      rings_card.material = :secondary
+      rings_card.accessibility_label = "Activity rings study card"
+      rings_card.as(UI::View)
     when "text-views"
       # HIG text-views: multi-line, scrollable text editing area.
       # HIG abstract: "A text view displays multiline, styled text content,
@@ -3753,6 +3787,7 @@ HTML
                     when "maps"                then 556.0
                     when "playing-video"       then 556.0
                     when "collections"         then 500.0
+                    when "activity-rings"      then 488.0
                     when "boxes"               then 460.0
                     when "path-controls"       then 448.0
                     when "outline-views"       then 492.0

@@ -54,6 +54,9 @@ module UI
     def visit(view : ActivityRing)
       view.fallback_view.accept(self)
     end
+    def visit(view : ActivityRings)
+      view.fallback_view.accept(self)
+    end
     abstract def visit(view : SecureField)
     abstract def visit(view : Stepper)
     abstract def visit(view : SegmentedControl)
