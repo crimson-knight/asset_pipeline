@@ -142,6 +142,8 @@ module CrystalHIGHost::Bridge
       centered_study_card(focal, card_width: 324.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "column-views"
       centered_study_card(focal, card_width: 360.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
+    when "token-fields"
+      centered_isolation_plate(focal)
     when "path-controls"
       centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "outline-views"
@@ -1586,6 +1588,28 @@ module CrystalHIGHost::Bridge
               ios_container << ios_row3
 
               ios_container.as(UI::View)
+            when "token-fields"
+              # HIG token fields: a compact recipient-entry surface with chips,
+              # a clear insertion point, and a short prompt.
+              ios_token_field = UI::TokenField.new(
+                [
+                  UI::TokenField::Token.new("Ava", "person.fill"),
+                  UI::TokenField::Token.new("Design"),
+                ],
+                "Name or email",
+                "Recipients",
+                "Add people or tags"
+              )
+              ios_token_field.selected_indexes = [0]
+              ios_token_field.chip_spacing = 6.0
+              ios_token_field.row_spacing = 8.0
+              ios_token_field.chip_padding = UI::EdgeInsets.new(top: 5.0, trailing: 8.0, bottom: 5.0, leading: 8.0)
+              ios_token_field.input_min_width = 112.0
+              ios_token_field.input_max_width = 136.0
+              ios_token_field.viewport_width = 272.0
+              ios_token_field.viewport_height = 0.0
+              ios_token_field.accessibility_label = "Recipients token field"
+              ios_token_field.as(UI::View)
             when "pull-down-buttons"
               # HIG: "A pull-down button displays a menu of items or actions
               # that directly relate to the button's purpose."  On iOS, renders

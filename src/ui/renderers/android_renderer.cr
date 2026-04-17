@@ -1050,6 +1050,10 @@ module UI::Android
       view.fallback_view.accept(self)
     end
 
+    def visit(view : UI::ImageWell)
+      view.fallback_view.accept(self)
+    end
+
     # -----------------------------------------------------------------
     # Visit: SecureField -> android.widget.EditText (password input type)
     # -----------------------------------------------------------------

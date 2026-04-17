@@ -1668,6 +1668,10 @@ module UI::AppKit
       view.fallback_view.accept(self)
     end
 
+    def visit(view : UI::ImageWell)
+      view.fallback_view.accept(self)
+    end
+
     # -----------------------------------------------------------------
     # Visit: SecureField -> NSSecureTextField
     # -----------------------------------------------------------------

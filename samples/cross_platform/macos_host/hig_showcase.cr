@@ -107,6 +107,7 @@ require "../../../src/ui/validation_scenes"
     "search-fields" => "ambient",
     "labels"        => "ambient",
     "column-views"  => "ambient",
+    "token-fields"  => "ambient",
     "boxes"         => "ambient",
     "outline-views" => "ambient",
     "path-controls" => "ambient",
@@ -1164,6 +1165,27 @@ require "../../../src/ui/validation_scenes"
       tf_card.material = :secondary
       tf_card.accessibility_label = "Text field study card"
       tf_card.as(UI::View)
+    when "token-fields"
+      # Mail-like token entry study: compact, centered, and calm. The fallback
+      # token field already gives us the chip tray and input boundary, so the
+      # job here is to stage it with concise copy and restrained content.
+      token_field = UI::TokenField.new(
+        [
+          UI::TokenField::Token.new("Amber", "person.fill"),
+          UI::TokenField::Token.new("Design", "pencil.and.outline"),
+          UI::TokenField::Token.new("QA", "checkmark.seal.fill"),
+        ],
+        "Add recipient",
+        "Recipients",
+        "Mail-style entry for people or groups."
+      )
+      token_field.selected_indexes = [0]
+      token_field.input_min_width = 132.0
+      token_field.input_max_width = 180.0
+      token_field.viewport_width = 456.0
+      token_field.viewport_height = 0.0
+      token_field.accessibility_label = "Token field study"
+      token_field.as(UI::View)
     when "text-views"
       # HIG text-views: multi-line, scrollable text editing area.
       # HIG abstract: "A text view displays multiline, styled text content,

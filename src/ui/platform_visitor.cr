@@ -45,6 +45,9 @@ module UI
     def visit(view : TokenField)
       view.fallback_view.accept(self)
     end
+    def visit(view : ImageWell)
+      view.fallback_view.accept(self)
+    end
     abstract def visit(view : SecureField)
     abstract def visit(view : Stepper)
     abstract def visit(view : SegmentedControl)

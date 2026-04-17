@@ -36,7 +36,7 @@ module UI
     property input_min_width : Float64 = 120.0
     property input_max_width : Float64 = 220.0
     property viewport_width : Float64 = 0.0
-    property viewport_height : Float64 = 0.0
+    property viewport_height : Float64 = 56.0
 
     def initialize(
       @tokens : Array(Token) = [] of Token,
@@ -79,6 +79,13 @@ module UI
       end
 
       tray = UI::HStack.new(spacing: chip_spacing, alignment: UI::Alignment::Center)
+      if (width = preferred_frame_width) > 0.0
+        tray.minimum_width = width
+        tray.maximum_width = width
+      end
+      height = preferred_frame_height
+      tray.minimum_height = height
+      tray.maximum_height = height
       tokens.each_with_index do |token, index|
         tray << build_token_chip(token, index).as(UI::View)
       end
@@ -89,13 +96,7 @@ module UI
       entry.maximum_width = input_max_width
       tray << entry.as(UI::View)
 
-      scroll = UI::ScrollView.new(tray.as(UI::View))
-      scroll.scroll_horizontal = true
-      scroll.scroll_vertical = false
-      scroll.shows_indicators = false
-      scroll.frame_width = preferred_frame_width
-      scroll.frame_height = preferred_frame_height
-      card_body << scroll.as(UI::View)
+      card_body << tray.as(UI::View)
 
       card = UI::Card.new(card_body.as(UI::View))
       card.material = :secondary
@@ -141,14 +142,12 @@ module UI
         chip_content << secondary.as(UI::View)
       end
 
-      chip = UI::Surface.new(chip_content.as(UI::View))
-      chip.shape = :rounded
-      chip.corner_radius = 14.0
-      chip.padding = chip_padding
-      chip.background = selected ? UI::Color.new(r: 0.28, g: 0.46, b: 0.84, a: 0.18) : UI::Color.new(r: 0.95, g: 0.95, b: 0.96)
-      chip.border_width = 1.0
-      chip.border_color = selected ? UI::Color.new(r: 0.28, g: 0.46, b: 0.84, a: 0.30) : UI::Color.new(r: 0.80, g: 0.80, b: 0.82)
-      chip.as(UI::View)
+      chip_content.padding = chip_padding
+      chip_content.corner_radius = 14.0
+      chip_content.background = selected ? UI::Color.new(r: 0.28, g: 0.46, b: 0.84, a: 0.18) : UI::Color.new(r: 0.95, g: 0.95, b: 0.96)
+      chip_content.border_width = 1.0
+      chip_content.border_color = selected ? UI::Color.new(r: 0.28, g: 0.46, b: 0.84, a: 0.30) : UI::Color.new(r: 0.80, g: 0.80, b: 0.82)
+      chip_content.as(UI::View)
     end
 
     private def preferred_frame_width : Float64
@@ -160,7 +159,9 @@ module UI
 
     private def preferred_frame_height : Float64
       return viewport_height if viewport_height > 0.0
-      0.0
+      return minimum_height.not_nil! if minimum_height
+      return maximum_height.not_nil! if maximum_height
+      56.0
     end
 
     private def copy_common_properties(target : UI::View) : Nil

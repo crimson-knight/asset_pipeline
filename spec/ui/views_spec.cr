@@ -110,6 +110,10 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "TokenField(#{view.token_count})"
   end
 
+  def visit(view : UI::ImageWell)
+    @visited << "ImageWell(#{view.has_image?})"
+  end
+
   def visit(view : UI::SecureField)
     @visited << "SecureField(#{view.placeholder})"
   end
@@ -2504,14 +2508,9 @@ describe UI::TokenField do
     body.children[0].should be_a(UI::Label)
     body.children[1].should be_a(UI::Label)
 
-    scroll = body.children[2].as(UI::ScrollView)
-    scroll.scroll_horizontal.should be_true
-    scroll.scroll_vertical.should be_false
-    scroll.content.should be_a(UI::HStack)
-
-    tray = scroll.content.as(UI::HStack)
+    tray = body.children[2].as(UI::HStack)
     tray.children.size.should eq(3)
-    tray.children[0].should be_a(UI::Surface)
+    tray.children[0].should be_a(UI::HStack)
     tray.children[2].should be_a(UI::TextField)
   end
 
@@ -2521,6 +2520,63 @@ describe UI::TokenField do
     visitor = TestVisitor.new
     view.accept(visitor)
     visitor.visited.should eq(["TokenField(1)"])
+  end
+end
+
+describe UI::ImageWell do
+  it "stores preview and text metadata" do
+    well = UI::ImageWell.new(
+      "portrait-amber",
+      "Profile image",
+      "Drag a new image here",
+      "Square preview, 512px or larger",
+      "PNG, JPEG, or HEIC works best"
+    )
+    well.placeholder_icon.should eq("photo")
+    well.has_image?.should be_true
+    well.label.should eq("Profile image")
+    well.prompt.should eq("Drag a new image here")
+    well.caption.should eq("Square preview, 512px or larger")
+    well.help_text.should eq("PNG, JPEG, or HEIC works best")
+  end
+
+  it "builds a bordered fallback well surface" do
+    well = UI::ImageWell.new(
+      nil,
+      "Cover image",
+      "Drop a file or click to choose",
+      "A square crop is recommended",
+      "JPEG, PNG, or HEIC"
+    )
+    well.well_width = 264.0
+    well.well_height = 196.0
+
+    fallback = well.fallback_view
+    fallback.should be_a(UI::Card)
+
+    card = fallback.as(UI::Card)
+    body = card.content.as(UI::VStack)
+    body.children.size.should eq(5)
+    body.children[0].should be_a(UI::Label)
+    body.children[1].should be_a(UI::Label)
+    body.children[2].should be_a(UI::VStack)
+
+    preview = body.children[2].as(UI::VStack)
+    preview.minimum_width.should eq(264.0)
+    preview.maximum_height.should eq(196.0)
+    preview.children.size.should eq(1)
+
+    preview_stack = preview.children[0].as(UI::VStack)
+    preview_stack.children.size.should eq(1)
+    preview_stack.children[0].should be_a(UI::Image)
+  end
+
+  it "accepts visitor" do
+    well = UI::ImageWell.new("portrait-amber")
+
+    visitor = TestVisitor.new
+    well.accept(visitor)
+    visitor.visited.should eq(["ImageWell(true)"])
   end
 end
 
