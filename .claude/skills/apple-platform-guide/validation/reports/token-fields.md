@@ -1,13 +1,13 @@
 ---
 slug: token-fields
-verdict: pending
-validated_at: 2026-04-16T23:33:10Z
-iteration: 0
+verdict: PASS_WITH_NOTES
+validated_at: 2026-04-17T01:19:30Z
+iteration: 1
 verdict_per_appearance:
-  macos_light: pending
-  macos_dark: pending
-  ios_light: pending
-  ios_dark: pending
+  macos_light: PASS_WITH_NOTES
+  macos_dark: PASS_WITH_NOTES
+  ios_light: PASS_WITH_NOTES
+  ios_dark: PASS_WITH_NOTES
 ---
 
 # Token fields -- Visual validation
@@ -27,9 +27,31 @@ verdict_per_appearance:
 ## Rendered -- iOS (dark)
 ![iOS dark](../screenshots/token-fields-ios-dark.png)
 
-## Verdict: PENDING
+## Verdict: PASS_WITH_NOTES
 
-`UI::TokenField` now exists as a shared fallback primitive, but this component
-has not gone through the visual validation loop yet. The next step is to build
-an explicit showcase study, capture all four appearances, and then judge the
-result against the HIG's mail-style token-entry feel.
+The study now reads as a real token-entry control instead of a broken row of
+chips. The token labels are legible on both platforms, the insertion field is
+clear, and the composition finally has enough gutter for the amber backdrop to
+support the component instead of swallowing it.
+
+### What improved
+
+- The chip tray now renders as one calm entry surface instead of collapsing
+  into clipped pills and an over-compressed text field.
+- macOS presents the strongest Mail-like read: compact tokens, a clear input,
+  and enough space around the card for the backdrop to show through.
+- iOS is now framed honestly, with shorter study content that fits the viewport
+  without pushing the whole component off the screen.
+
+### Why this is still notes-only
+
+1. The component is still a shared fallback rather than a native `NSTokenField`
+   bridge on macOS.
+2. The iOS study uses a simplified token set to keep the compact layout clean,
+   so it proves the default taste more than it proves dense real-world data.
+
+### Result
+
+Promote this row to `PASS_WITH_NOTES`. The default taste is now functional and
+calm enough to count as a clean baseline, with the native-bridge caveat kept
+explicit.
