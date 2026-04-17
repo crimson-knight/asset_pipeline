@@ -1,5 +1,8 @@
 require "./ui/view"
+require "./ui/windows"
 require "./ui/views/*"
+require "./ui/menu_bar"
+require "./ui/status_bar"
 require "./ui/platform_visitor"
 require "./ui/theme"
 require "./ui/notifications"
