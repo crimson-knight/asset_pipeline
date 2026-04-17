@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-17T01:21:19.283051+00:00",
+  "generated_at": "2026-04-17T09:22:42.096996+00:00",
   "environment": {
     "ios_target": "26.0",
     "xcode_sdk_version": "26.4",
@@ -17,9 +17,9 @@
     "patterns": 66,
     "platform_guides": 4,
     "collections": 14,
-    "implemented": 49,
+    "implemented": 50,
     "stub": 0,
-    "missing": 16
+    "missing": 15
   },
   "pages": [
     {
@@ -1161,14 +1161,14 @@
       "hig_page": "../apple-hig/pages/gauges.md",
       "hig_ref_image": "../apple-hig/images/components-gauges-intro.png",
       "role": "component",
-      "ui_view": null,
-      "ui_view_file": null,
-      "status": "missing",
+      "ui_view": "UI::Gauge",
+      "ui_view_file": "src/ui/views/gauge.cr",
+      "status": "implemented",
       "priority": "P2",
-      "iOS_visit_found": false,
-      "macOS_visit_found": false,
-      "validation_state": "skipped",
-      "docs_written": false,
+      "iOS_visit_found": true,
+      "macOS_visit_found": true,
+      "validation_state": "pending",
+      "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
       "appearances_required": [
@@ -1176,9 +1176,9 @@
         "dark"
       ],
       "verdict_per_appearance": null,
-      "notes": "Gauges per HIG are drawing-heavy circular/arc progress indicators (SwiftUI Gauge / NSLevelIndicator). Like activity-rings, requires CAShapeLayer arc-path infrastructure (see gaps.md iter-53) + mark-style rendering. Disproportionate for a rarely-used control. Skipped with remediation: build once arc-path infra exists, wrap NSLevelIndicator on macOS and draw manually on iOS.",
+      "notes": "UI::Gauge now exists as a shared Canvas-backed fallback primitive with a circular track, progress arc, and centered value label. Host studies and native renderer polish are still open, so this row is implemented but not yet visually validated.",
       "backdrop": "sheet-backdrop-amber-gradient",
-      "evidence_state": "not_applicable",
+      "evidence_state": "invalid",
       "evidence_errors": []
     },
     {
@@ -1414,7 +1414,7 @@
       "priority": "P2",
       "iOS_visit_found": true,
       "macOS_visit_found": true,
-      "validation_state": "pending",
+      "validation_state": "pass_with_notes",
       "docs_written": true,
       "glass_required": false,
       "glass_material_expected": null,
@@ -1422,8 +1422,13 @@
         "light",
         "dark"
       ],
-      "verdict_per_appearance": null,
-      "notes": "UI::ImageWell now exists as a shared framed-image fallback primitive with preview, empty-state, and supporting copy. Native NSImageWell drag-and-drop bridging and real visual validation studies are still open, so this row is implemented but not yet validated.",
+      "verdict_per_appearance": {
+        "macos_light": "pass_with_notes",
+        "macos_dark": "pass_with_notes",
+        "ios_light": "pass_with_notes",
+        "ios_dark": "pass_with_notes"
+      },
+      "notes": "The image-well studies now read as compact framed replacement surfaces on both platforms, with clear boundaries and enough amber gutter to keep the control calm. It stays notes-only because the captures show empty-state wells rather than filled previews, the iOS study still sits a touch high in frame, and the macOS dark placeholder glyph is subtler than ideal.",
       "backdrop": "sheet-backdrop-amber-gradient",
       "evidence_state": "valid",
       "evidence_errors": []
@@ -3696,16 +3701,16 @@
   ],
   "validation_counts": {
     "pass": 0,
-    "pass_with_notes": 35,
+    "pass_with_notes": 36,
     "pending": 12,
     "needs_work": 0,
     "fail": 0,
-    "skipped": 18
+    "skipped": 17
   },
   "evidence_counts": {
     "valid": 33,
-    "invalid": 13,
-    "not_applicable": 19,
+    "invalid": 14,
+    "not_applicable": 18,
     "unknown": 0
   }
 }
