@@ -114,6 +114,10 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "ImageWell(#{view.has_image?})"
   end
 
+  def visit(view : UI::Gauge)
+    @visited << "Gauge(#{view.value})"
+  end
+
   def visit(view : UI::SecureField)
     @visited << "SecureField(#{view.placeholder})"
   end
@@ -2577,6 +2581,60 @@ describe UI::ImageWell do
     visitor = TestVisitor.new
     well.accept(visitor)
     visitor.visited.should eq(["ImageWell(true)"])
+  end
+end
+
+describe UI::Gauge do
+  it "stores range and label metadata" do
+    gauge = UI::Gauge.new(72.0, 0.0, 100.0, "Disk usage", "Live capacity", "Keep under 80%", "Used capacity")
+    gauge.units.should eq("%")
+    gauge.value_precision.should eq(0)
+    gauge.label.should eq("Disk usage")
+    gauge.prompt.should eq("Live capacity")
+    gauge.caption.should eq("Keep under 80%")
+    gauge.help_text.should eq("Used capacity")
+    gauge.normalized_value.should eq(72.0)
+    gauge.progress_fraction.should eq(0.72)
+    gauge.display_value.should eq("72%")
+  end
+
+  it "builds a canvas-driven fallback surface" do
+    gauge = UI::Gauge.new(40.0, 0.0, 100.0, "CPU", "Current load", "Average across all cores", "Running")
+    gauge.diameter = 192.0
+    gauge.ring_thickness = 14.0
+
+    fallback = gauge.fallback_view
+    fallback.should be_a(UI::Card)
+
+    card = fallback.as(UI::Card)
+    body = card.content.as(UI::VStack)
+    body.children.size.should eq(5)
+    body.children[0].should be_a(UI::Label)
+    body.children[1].should be_a(UI::Label)
+    body.children[2].should be_a(UI::ZStack)
+    body.children[3].should be_a(UI::Label)
+    body.children[4].should be_a(UI::Label)
+
+    stage = body.children[2].as(UI::ZStack)
+    stage.children.size.should eq(2)
+
+    canvas = stage.children[0].as(UI::Canvas)
+    canvas.width.should eq(192.0)
+    canvas.height.should eq(192.0)
+    canvas.operations.map(&.command).should contain(UI::DrawCommand::Arc)
+    canvas.operations.map(&.command).should contain(UI::DrawCommand::Stroke)
+
+    overlay = stage.children[1].as(UI::VStack)
+    overlay.children.size.should eq(1)
+    overlay.children[0].as(UI::Label).text.should eq("40%")
+  end
+
+  it "accepts visitor" do
+    gauge = UI::Gauge.new(55.0)
+
+    visitor = TestVisitor.new
+    gauge.accept(visitor)
+    visitor.visited.should eq(["Gauge(55.0)"])
   end
 end
 

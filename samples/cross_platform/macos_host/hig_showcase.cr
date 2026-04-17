@@ -108,6 +108,7 @@ require "../../../src/ui/validation_scenes"
     "labels"        => "ambient",
     "column-views"  => "ambient",
     "token-fields"  => "ambient",
+    "image-wells"   => "ambient",
     "boxes"         => "ambient",
     "outline-views" => "ambient",
     "path-controls" => "ambient",
@@ -1186,6 +1187,25 @@ require "../../../src/ui/validation_scenes"
       token_field.viewport_height = 0.0
       token_field.accessibility_label = "Token field study"
       token_field.as(UI::View)
+    when "image-wells"
+      # Finder-adjacent image well study: compact, restrained, and centered.
+      # The fallback image well already renders the framed drop target, so this
+      # case focuses on the label/prompt rhythm and a believable empty state.
+      image_well = UI::ImageWell.new(
+        nil,
+        "Poster image",
+        "Drop a photo or screenshot",
+        "Single image replacement.",
+        "The framed field should stay calm and readable."
+      )
+      image_well.placeholder_icon = "photo"
+      image_well.well_width = 230.0
+      image_well.well_height = 168.0
+      image_well.preview_padding = UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0)
+      image_well.viewport_width = 452.0
+      image_well.viewport_height = 0.0
+      image_well.accessibility_label = "Image well study"
+      image_well.as(UI::View)
     when "text-views"
       # HIG text-views: multi-line, scrollable text editing area.
       # HIG abstract: "A text view displays multiline, styled text content,

@@ -144,6 +144,8 @@ module CrystalHIGHost::Bridge
       centered_study_card(focal, card_width: 360.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "token-fields"
       centered_isolation_plate(focal)
+    when "image-wells"
+      centered_isolation_plate(focal)
     when "path-controls"
       centered_study_card(focal, card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 14.0, trailing: 14.0, bottom: 14.0, leading: 14.0))
     when "outline-views"
@@ -1610,6 +1612,25 @@ module CrystalHIGHost::Bridge
               ios_token_field.viewport_height = 0.0
               ios_token_field.accessibility_label = "Recipients token field"
               ios_token_field.as(UI::View)
+            when "image-wells"
+              # HIG image wells: a centered, compact replacement surface for
+              # profile photos or artwork. The image area stays visually framed
+              # while the amber backdrop remains visible around it.
+              ios_image_well = UI::ImageWell.new(
+                nil,
+                "Profile photo",
+                "Choose a photo",
+                "Square crop recommended.",
+                "Drag here or choose from Photos."
+              )
+              ios_image_well.placeholder_icon = "person.crop.square"
+              ios_image_well.well_width = 212.0
+              ios_image_well.well_height = 152.0
+              ios_image_well.preview_padding = UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0)
+              ios_image_well.viewport_width = 272.0
+              ios_image_well.viewport_height = 0.0
+              ios_image_well.accessibility_label = "Profile photo image well"
+              ios_image_well.as(UI::View)
             when "pull-down-buttons"
               # HIG: "A pull-down button displays a menu of items or actions
               # that directly relate to the button's purpose."  On iOS, renders

@@ -45,8 +45,7 @@ module UI
       if prompt = @prompt
         prompt_view = UI::Label.new(prompt)
         prompt_view.font = UI::Font.new(size: 12.0, weight: :regular)
-        prompt_view.text_color_role = nil
-        prompt_view.text_color = UI::Color.new(r: 0.50, g: 0.50, b: 0.50)
+        prompt_view.text_color_role = UI::LabelRole::Secondary
         body << prompt_view.as(UI::View)
       end
 
@@ -73,8 +72,7 @@ module UI
       if help_text = @help_text
         help_view = UI::Label.new(help_text)
         help_view.font = UI::Font.new(size: 11.0, weight: :regular)
-        help_view.text_color_role = nil
-        help_view.text_color = UI::Color.new(r: 0.50, g: 0.50, b: 0.50)
+        help_view.text_color_role = UI::LabelRole::Secondary
         help_view.number_of_lines = 0
         body << help_view.as(UI::View)
       end
