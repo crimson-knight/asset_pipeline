@@ -88,7 +88,7 @@ puts notifications.export_swift_scaffold
 - Native UI source: `src/ui`
 - macOS host showcase: `samples/cross_platform/macos_host/hig_showcase.cr`
 - iOS host showcase: `samples/cross_platform/ios_host/hig_bridge.cr`
-- Validation dashboard: `.claude/skills/apple-platform-guide/validation/index.html`
+- Validation dashboard: `docs/apple-native-validation/index.html`
 - Apple native status overview: `docs/APPLE_NATIVE_UI_STATUS.md`
 - Web/frontloader docs: `docs/FRAMEWORK_INTEGRATION.md`,
   `docs/USAGE_EXAMPLES.md`, `docs/API_REFERENCE.md`
@@ -108,6 +108,11 @@ That folder contains:
 - evidence manifests
 - generated screenshot pairs
 - the current HTML dashboard and historical snapshots
+
+For a browser-friendly stable path, open:
+
+- `docs/apple-native-validation/index.html`
+- `docs/apple-native-validation/history.html`
 
 ## Legacy FrontLoader Notes
 

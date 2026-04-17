@@ -27,6 +27,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent            # .../validation/
 SKILL = HERE.parent                                # .../apple-platform-guide/
 CORPUS = SKILL.parent / "apple-hig"                # .../apple-hig/
+REPO_ROOT = HERE.parents[3]                        # .../asset_pipeline/
+PUBLIC_VALIDATION = REPO_ROOT / "docs" / "apple-native-validation"
 
 WORKLIST = HERE / "worklist.json"
 REPORTS = HERE / "reports"
@@ -468,6 +470,49 @@ def write_history_page() -> Path:
     return out_path
 
 
+def write_public_redirects() -> tuple[Path, Path]:
+    """
+    Publish easy-to-open docs-path redirect pages that forward to the canonical
+    validation dashboard under .claude/.
+    """
+    PUBLIC_VALIDATION.mkdir(parents=True, exist_ok=True)
+
+    def redirect_page(title: str, target: str) -> str:
+        return "\n".join([
+            "<!doctype html>",
+            "<meta charset='utf-8'>",
+            f"<title>{escape(title)}</title>",
+            f"<meta http-equiv='refresh' content='0; url={target}'>",
+            "<style>body{font:14px -apple-system,sans-serif;margin:40px;background:#f2f2f7;color:#1d1d1f}"
+            "main{max-width:720px;background:#fff;padding:24px 28px;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}"
+            "a{color:#007aff;text-decoration:none}a:hover{text-decoration:underline}"
+            "code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;background:#f5f5f7;padding:2px 6px;border-radius:6px}</style>",
+            "<main>",
+            f"<h1>{escape(title)}</h1>",
+            f"<p>Redirecting to <code>{escape(target)}</code>.</p>",
+            f"<p><a href='{target}'>Open the validation page</a></p>",
+            "</main>",
+        ])
+
+    index_path = PUBLIC_VALIDATION / "index.html"
+    index_path.write_text(
+        redirect_page(
+            "Apple Native Validation Dashboard",
+            "../../.claude/skills/apple-platform-guide/validation/index.html",
+        )
+    )
+
+    history_path = PUBLIC_VALIDATION / "history.html"
+    history_path.write_text(
+        redirect_page(
+            "Apple Native Validation History",
+            "../../.claude/skills/apple-platform-guide/validation/history.html",
+        )
+    )
+
+    return index_path, history_path
+
+
 HISTORY_CSS = """body{font:14px -apple-system,sans-serif;margin:24px;background:#f2f2f7;color:#1d1d1f}
 h1{font-size:28px;margin-bottom:4px}
 h2{margin-top:48px;font-family:ui-monospace,monospace;background:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
@@ -487,6 +532,9 @@ if __name__ == "__main__":
     import sys
     label = sys.argv[1] if len(sys.argv) > 1 else None
     current, snap = build(label)
+    public_index, public_history = write_public_redirects()
     print(f"wrote {current}")
     print(f"wrote {snap}")
     print(f"wrote {HERE / 'history.html'}")
+    print(f"wrote {public_index}")
+    print(f"wrote {public_history}")

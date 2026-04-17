@@ -14,7 +14,7 @@ As of April 17, 2026, the validation ledger reports:
 
 The latest generated dashboard lives at:
 
-- `.claude/skills/apple-platform-guide/validation/index.html`
+- `docs/apple-native-validation/index.html`
 
 ## What Is Done
 
