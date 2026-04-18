@@ -33,6 +33,7 @@ fi
 ADB="$ANDROID_SDK_ROOT/platform-tools/adb"
 GRADLEW="$HOST_DIR/gradlew"
 APP_COMPONENT="dev.assetpipeline.androidhost/.MainActivity"
+APK_PATH="$HOST_DIR/app/build/outputs/apk/debug/app-debug.apk"
 JAVA_HOME="${JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}"
 
 ONLY_SLUGS=""
@@ -118,9 +119,16 @@ resolve_device_role() {
 
 settle_seconds_for_study() {
   case "$1" in
-    webview) printf '10\n' ;;
+    webview) printf '4\n' ;;
     video-player) printf '5\n' ;;
-    *) printf '3\n' ;;
+    *) printf '2\n' ;;
+  esac
+}
+
+ready_timeout_for_study() {
+  case "$1" in
+    webview|video-player) printf '60\n' ;;
+    *) printf '45\n' ;;
   esac
 }
 
@@ -157,6 +165,27 @@ capture_study() {
   info "Captured $outfile"
 }
 
+wait_for_renderer_mount() {
+  local serial="$1"
+  local slug="$2"
+  local timeout_seconds="$3"
+  local dump_path="/sdcard/android-material-ready.xml"
+  local elapsed=0
+
+  while (( elapsed < timeout_seconds )); do
+    if "$ADB" -s "$serial" shell uiautomator dump "$dump_path" >/dev/null 2>&1; then
+      if "$ADB" -s "$serial" shell "grep -q 'Android Material study' '$dump_path'" >/dev/null 2>&1; then
+        info "Renderer mount ready for $slug after ${elapsed}s"
+        return 0
+      fi
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+
+  return 1
+}
+
 TARGET_SERIAL="$(resolve_serial)"
 [[ -n "$TARGET_SERIAL" ]] || fail "No connected Android device found. Boot an emulator first."
 
@@ -166,12 +195,14 @@ info "Using adb serial: $TARGET_SERIAL"
 info "Using device role: $(resolve_device_role)"
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
-  info "Building and installing the Android host"
+  info "Building and installing the Android host for $TARGET_SERIAL"
   if [[ "$DRY_RUN" -eq 0 ]]; then
     JAVA_HOME="$JAVA_HOME" \
     ANDROID_HOME="$ANDROID_SDK_ROOT" \
     ANDROID_SDK_ROOT="$ANDROID_SDK_ROOT" \
-    "$GRADLEW" -p "$HOST_DIR" :app:installDebug >/dev/null
+    "$GRADLEW" -p "$HOST_DIR" :app:assembleDebug >/dev/null
+    [[ -f "$APK_PATH" ]] || fail "APK not found at $APK_PATH after assembleDebug"
+    "$ADB" -s "$TARGET_SERIAL" install -r "$APK_PATH" >/dev/null
   fi
 else
   info "Skipping build at user request"
@@ -186,6 +217,9 @@ while IFS= read -r slug; do
     info "Launching $slug ($appearance)"
     if [[ "$DRY_RUN" -eq 0 ]]; then
       launch_study "$TARGET_SERIAL" "$slug" "$appearance"
+      if ! wait_for_renderer_mount "$TARGET_SERIAL" "$slug" "$(ready_timeout_for_study "$slug")"; then
+        fail "Renderer mount did not become ready for $slug ($appearance) on $TARGET_SERIAL"
+      fi
       sleep "$(settle_seconds_for_study "$slug")"
       capture_study "$TARGET_SERIAL" "$slug" "$appearance" "$(resolve_device_role)"
     else

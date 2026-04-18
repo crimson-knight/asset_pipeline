@@ -30,7 +30,8 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 export ANDROID_HOME="/opt/homebrew/share/android-commandlinetools"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 cd samples/cross_platform/android_host
-./gradlew :app:installDebug
+./gradlew :app:assembleDebug
+adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 The host accepts these activity extras:
@@ -50,8 +51,9 @@ adb shell am start -S \
 
 ## Capture Workflow
 
-Use the shared runner from the repo root so screenshot naming, settle delays,
-and host installation stay consistent with the Android validation ledger.
+Use the shared runner from the repo root so screenshot naming, renderer-mount
+readiness checks, and serial-specific host installation stay consistent with
+the Android validation ledger.
 
 ```bash
 ./scripts/run_android_material_tests.sh --serial emulator-5554 --device-role phone --appearance both
