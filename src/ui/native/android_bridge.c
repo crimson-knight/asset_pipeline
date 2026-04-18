@@ -106,6 +106,53 @@ void *android_view_new(void *env_ptr, uint8_t *class_name, void *context) {
     return view;
 }
 
+void *android_view_new_themed(void *env_ptr, uint8_t *class_name, void *context, uint8_t *style_field_name) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject themed_context = NULL;
+
+    if (style_field_name && style_field_name[0] != '\0') {
+        jclass style_cls = (*env)->FindClass(env, "com/google/android/material/R$style");
+        if (style_cls) {
+            jfieldID style_field = (*env)->GetStaticFieldID(env, style_cls, (const char *)style_field_name, "I");
+            if (!style_field && (*env)->ExceptionCheck(env)) {
+                (*env)->ExceptionClear(env);
+            }
+            if (style_field) {
+                jint style_res = (*env)->GetStaticIntField(env, style_cls, style_field);
+                if (style_res != 0) {
+                    jclass wrapper_cls = (*env)->FindClass(env, "android/view/ContextThemeWrapper");
+                    if (wrapper_cls) {
+                        jmethodID wrapper_ctor = ap_get_method(env, wrapper_cls, "<init>", "(Landroid/content/Context;I)V");
+                        if (wrapper_ctor) {
+                            themed_context = (*env)->NewObject(env, wrapper_cls, wrapper_ctor, (jobject)context, style_res);
+                        }
+                        (*env)->DeleteLocalRef(env, wrapper_cls);
+                    }
+                }
+            }
+            (*env)->DeleteLocalRef(env, style_cls);
+        }
+    }
+
+    jclass cls = (*env)->FindClass(env, (const char *)class_name);
+    if (!cls) {
+        if (themed_context) {
+            (*env)->DeleteLocalRef(env, themed_context);
+        }
+        return NULL;
+    }
+
+    jmethodID ctor = ap_get_method(env, cls, "<init>", "(Landroid/content/Context;)V");
+    jobject ctor_context = themed_context ? themed_context : (jobject)context;
+    jobject view = ctor ? (*env)->NewObject(env, cls, ctor, ctor_context) : NULL;
+
+    if (themed_context) {
+        (*env)->DeleteLocalRef(env, themed_context);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    return view;
+}
+
 void android_textview_set_text(void *env_ptr, void *tv, uint8_t *text, int32_t byte_len) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jclass cls = (*env)->GetObjectClass(env, (jobject)tv);
@@ -311,6 +358,102 @@ void *android_edittext_get_text(void *env_ptr, void *et) {
     return result;
 }
 
+void android_textinputlayout_set_hint(void *env_ptr, void *til, uint8_t *hint, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)til);
+    jmethodID method = ap_try_get_method(env, cls, "setHint", "(Ljava/lang/CharSequence;)V");
+    jstring value = ap_new_string(env, hint, byte_len);
+    if (method && value) {
+        (*env)->CallVoidMethod(env, (jobject)til, method, value);
+    }
+    if (value) {
+        (*env)->DeleteLocalRef(env, value);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_textinputlayout_set_placeholder_text(void *env_ptr, void *til, uint8_t *text, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)til);
+    jmethodID method = ap_try_get_method(env, cls, "setPlaceholderText", "(Ljava/lang/CharSequence;)V");
+    jstring value = ap_new_string(env, text, byte_len);
+    if (method && value) {
+        (*env)->CallVoidMethod(env, (jobject)til, method, value);
+    }
+    if (value) {
+        (*env)->DeleteLocalRef(env, value);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_textinputlayout_set_helper_text(void *env_ptr, void *til, uint8_t *text, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)til);
+    jmethodID method = ap_try_get_method(env, cls, "setHelperText", "(Ljava/lang/CharSequence;)V");
+    jstring value = ap_new_string(env, text, byte_len);
+    if (method && value) {
+        (*env)->CallVoidMethod(env, (jobject)til, method, value);
+    }
+    if (value) {
+        (*env)->DeleteLocalRef(env, value);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_textinputlayout_set_box_background_mode(void *env_ptr, void *til, int32_t mode) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)til);
+    jmethodID method = ap_try_get_method(env, cls, "setBoxBackgroundMode", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)til, method, mode);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_textinputlayout_set_box_background_color(void *env_ptr, void *til, int32_t argb) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)til);
+    jmethodID method = ap_try_get_method(env, cls, "setBoxBackgroundColor", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)til, method, argb);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_textinputlayout_set_box_stroke_color(void *env_ptr, void *til, int32_t argb) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)til);
+    jmethodID method = ap_try_get_method(env, cls, "setBoxStrokeColor", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)til, method, argb);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_textinputlayout_set_hint_text_color(void *env_ptr, void *til, int32_t argb) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject tint = ap_make_color_state_list(env, argb);
+    jclass cls = (*env)->GetObjectClass(env, (jobject)til);
+    jmethodID method = ap_try_get_method(env, cls, "setHintTextColor", "(Landroid/content/res/ColorStateList;)V");
+    if (method && tint) {
+        (*env)->CallVoidMethod(env, (jobject)til, method, tint);
+    }
+    if (tint) {
+        (*env)->DeleteLocalRef(env, tint);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_textinputlayout_set_end_icon_mode(void *env_ptr, void *til, int32_t mode) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)til);
+    jmethodID method = ap_try_get_method(env, cls, "setEndIconMode", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)til, method, mode);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
 void android_webview_load_url(void *env_ptr, void *web, uint8_t *url, int32_t byte_len) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jclass cls = (*env)->GetObjectClass(env, (jobject)web);
@@ -454,6 +597,16 @@ void android_view_set_visibility(void *env_ptr, void *v, int32_t visibility) {
     (*env)->DeleteLocalRef(env, cls);
 }
 
+void android_view_set_enabled(void *env_ptr, void *v, int32_t enabled) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)v);
+    jmethodID method = ap_try_get_method(env, cls, "setEnabled", "(Z)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)v, method, enabled ? JNI_TRUE : JNI_FALSE);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
 void android_view_set_alpha(void *env_ptr, void *v, float alpha) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jclass cls = (*env)->GetObjectClass(env, (jobject)v);
@@ -478,6 +631,16 @@ void android_view_set_background_color(void *env_ptr, void *v, int32_t argb) {
     }
     (*env)->DeleteLocalRef(env, gradient_cls);
     (*env)->DeleteLocalRef(env, drawable);
+}
+
+void android_view_clear_background(void *env_ptr, void *v) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)v);
+    jmethodID method = ap_try_get_method(env, cls, "setBackground", "(Landroid/graphics/drawable/Drawable;)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)v, method, NULL);
+    }
+    (*env)->DeleteLocalRef(env, cls);
 }
 
 void android_view_set_content_description(void *env_ptr, void *v, uint8_t *desc, int32_t byte_len) {
@@ -554,6 +717,161 @@ void android_view_set_stroke(void *env_ptr, void *v, float width, int32_t argb) 
     }
     (*env)->DeleteLocalRef(env, gradient_cls);
     (*env)->DeleteLocalRef(env, drawable);
+}
+
+void android_material_button_set_background_tint(void *env_ptr, void *btn, int32_t argb) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject tint = ap_make_color_state_list(env, argb);
+    jclass cls = (*env)->GetObjectClass(env, (jobject)btn);
+    jmethodID method = ap_try_get_method(env, cls, "setBackgroundTintList", "(Landroid/content/res/ColorStateList;)V");
+    if (method && tint) {
+        (*env)->CallVoidMethod(env, (jobject)btn, method, tint);
+    }
+    if (tint) {
+        (*env)->DeleteLocalRef(env, tint);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_material_button_set_stroke_color(void *env_ptr, void *btn, int32_t argb) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject tint = ap_make_color_state_list(env, argb);
+    jclass cls = (*env)->GetObjectClass(env, (jobject)btn);
+    jmethodID method = ap_try_get_method(env, cls, "setStrokeColor", "(Landroid/content/res/ColorStateList;)V");
+    if (method && tint) {
+        (*env)->CallVoidMethod(env, (jobject)btn, method, tint);
+    }
+    if (tint) {
+        (*env)->DeleteLocalRef(env, tint);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_material_button_set_stroke_width(void *env_ptr, void *btn, int32_t width) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)btn);
+    jmethodID method = ap_try_get_method(env, cls, "setStrokeWidth", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)btn, method, width);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_material_button_set_corner_radius(void *env_ptr, void *btn, int32_t radius) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)btn);
+    jmethodID method = ap_try_get_method(env, cls, "setCornerRadius", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)btn, method, radius);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_material_card_set_background_color(void *env_ptr, void *card, int32_t argb) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)card);
+    jmethodID method = ap_try_get_method(env, cls, "setCardBackgroundColor", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)card, method, argb);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_material_card_set_radius(void *env_ptr, void *card, float radius) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)card);
+    jmethodID method = ap_try_get_method(env, cls, "setRadius", "(F)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)card, method, radius);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_material_card_set_elevation(void *env_ptr, void *card, float elevation) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)card);
+    jmethodID method = ap_try_get_method(env, cls, "setCardElevation", "(F)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)card, method, elevation);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_material_card_set_stroke_color(void *env_ptr, void *card, int32_t argb) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)card);
+    jmethodID method = ap_try_get_method(env, cls, "setStrokeColor", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)card, method, argb);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_material_card_set_stroke_width(void *env_ptr, void *card, int32_t width) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)card);
+    jmethodID method = ap_try_get_method(env, cls, "setStrokeWidth", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)card, method, width);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_toolbar_set_title(void *env_ptr, void *toolbar, uint8_t *title, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)toolbar);
+    jmethodID method = ap_try_get_method(env, cls, "setTitle", "(Ljava/lang/CharSequence;)V");
+    jstring value = ap_new_string(env, title, byte_len);
+    if (method && value) {
+        (*env)->CallVoidMethod(env, (jobject)toolbar, method, value);
+    }
+    if (value) {
+        (*env)->DeleteLocalRef(env, value);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_toolbar_set_title_text_color(void *env_ptr, void *toolbar, int32_t argb) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)toolbar);
+    jmethodID method = ap_try_get_method(env, cls, "setTitleTextColor", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)toolbar, method, argb);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_toolbar_add_menu_item(void *env_ptr, void *toolbar, int32_t item_id,
+                                   uint8_t *title, int32_t byte_len, int32_t show_as_action) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass toolbar_cls = (*env)->GetObjectClass(env, (jobject)toolbar);
+    jmethodID get_menu = ap_try_get_method(env, toolbar_cls, "getMenu", "()Landroid/view/Menu;");
+    jobject menu = get_menu ? (*env)->CallObjectMethod(env, (jobject)toolbar, get_menu) : NULL;
+    if (!menu) {
+        (*env)->DeleteLocalRef(env, toolbar_cls);
+        return;
+    }
+
+    jclass menu_cls = (*env)->GetObjectClass(env, menu);
+    jmethodID add = ap_try_get_method(env, menu_cls, "add", "(IIILjava/lang/CharSequence;)Landroid/view/MenuItem;");
+    jstring value = ap_new_string(env, title, byte_len);
+    jobject menu_item = (add && value) ? (*env)->CallObjectMethod(env, menu, add, 0, item_id, 0, value) : NULL;
+    if (menu_item) {
+        jclass item_cls = (*env)->GetObjectClass(env, menu_item);
+        jmethodID set_show = ap_try_get_method(env, item_cls, "setShowAsAction", "(I)V");
+        if (set_show) {
+            (*env)->CallVoidMethod(env, menu_item, set_show, show_as_action);
+        }
+        (*env)->DeleteLocalRef(env, item_cls);
+        (*env)->DeleteLocalRef(env, menu_item);
+    }
+
+    if (value) {
+        (*env)->DeleteLocalRef(env, value);
+    }
+    (*env)->DeleteLocalRef(env, menu_cls);
+    (*env)->DeleteLocalRef(env, menu);
+    (*env)->DeleteLocalRef(env, toolbar_cls);
 }
 
 void android_switch_set_checked(void *env_ptr, void *sw, int32_t checked) {

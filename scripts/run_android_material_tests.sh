@@ -38,6 +38,7 @@ JAVA_HOME="${JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/H
 ONLY_SLUGS=""
 APPEARANCE="both"
 SERIAL="${ANDROID_SERIAL:-}"
+DEVICE_ROLE="phone"
 SKIP_BUILD=0
 DRY_RUN=0
 
@@ -46,12 +47,14 @@ usage() {
 Usage:
   ./scripts/run_android_material_tests.sh
   ./scripts/run_android_material_tests.sh --only buttons,webview
+  ./scripts/run_android_material_tests.sh --device-role tablet --serial emulator-5556
   ANDROID_SERIAL=emulator-5554 ./scripts/run_android_material_tests.sh --appearance light
 
 Options:
   --only <csv>         Comma-separated slugs to capture
   --appearance <mode>  light, dark, or both (default: both)
   --serial <serial>    Explicit adb device serial
+  --device-role <role> phone or tablet (default: phone)
   --skip-build         Reuse the current host APK
   --dry-run            Print commands without launching or capturing
   -h, --help           Show this help
@@ -67,6 +70,7 @@ while [[ $# -gt 0 ]]; do
     --only) ONLY_SLUGS="$2"; shift 2 ;;
     --appearance) APPEARANCE="$2"; shift 2 ;;
     --serial) SERIAL="$2"; shift 2 ;;
+    --device-role) DEVICE_ROLE="$2"; shift 2 ;;
     --skip-build) SKIP_BUILD=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -105,6 +109,21 @@ resolve_appearances() {
   esac
 }
 
+resolve_device_role() {
+  case "$DEVICE_ROLE" in
+    phone|tablet) printf '%s\n' "$DEVICE_ROLE" ;;
+    *) fail "Unsupported device role: $DEVICE_ROLE" ;;
+  esac
+}
+
+settle_seconds_for_study() {
+  case "$1" in
+    webview) printf '10\n' ;;
+    video-player) printf '5\n' ;;
+    *) printf '3\n' ;;
+  esac
+}
+
 resolve_serial() {
   if [[ -n "$SERIAL" ]]; then
     printf '%s\n' "$SERIAL"
@@ -124,16 +143,17 @@ launch_study() {
     -n "$APP_COMPONENT" \
     --es study_slug "$slug" \
     --es study_appearance "$appearance" \
-    --es study_story "$story" >/dev/null
+    --es study_story "$story" >/dev/null </dev/null
 }
 
 capture_study() {
   local serial="$1"
   local slug="$2"
   local appearance="$3"
-  local outfile="$SCREENSHOT_DIR/${slug}-android-phone-${appearance}.png"
+  local role="$4"
+  local outfile="$SCREENSHOT_DIR/${slug}-android-${role}-${appearance}.png"
 
-  "$ADB" -s "$serial" exec-out screencap -p >"$outfile"
+  "$ADB" -s "$serial" exec-out screencap -p </dev/null >"$outfile"
   info "Captured $outfile"
 }
 
@@ -143,6 +163,7 @@ TARGET_SERIAL="$(resolve_serial)"
 info "Using SDK root: $ANDROID_SDK_ROOT"
 info "Using JAVA_HOME: $JAVA_HOME"
 info "Using adb serial: $TARGET_SERIAL"
+info "Using device role: $(resolve_device_role)"
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
   info "Building and installing the Android host"
@@ -165,8 +186,8 @@ while IFS= read -r slug; do
     info "Launching $slug ($appearance)"
     if [[ "$DRY_RUN" -eq 0 ]]; then
       launch_study "$TARGET_SERIAL" "$slug" "$appearance"
-      sleep 3
-      capture_study "$TARGET_SERIAL" "$slug" "$appearance"
+      sleep "$(settle_seconds_for_study "$slug")"
+      capture_study "$TARGET_SERIAL" "$slug" "$appearance" "$(resolve_device_role)"
     else
       printf 'DRY RUN: launch %s (%s) on %s\n' "$slug" "$appearance" "$TARGET_SERIAL"
     fi
