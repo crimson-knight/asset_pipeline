@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-04-18T14:43:15Z",
-  "phase": "first_batch_matrix_review",
+  "generated_at": "2026-04-18T16:28:51Z",
+  "phase": "expanded_surface_matrix_review",
   "acceptance_bar_version": "2026-04-18-android-material-phase0",
   "sdk_root": "/opt/homebrew/share/android-commandlinetools",
-  "captured_light_count": 9,
-  "captured_dark_count": 9,
-  "captured_tablet_count": 9,
+  "captured_light_count": 12,
+  "captured_dark_count": 12,
+  "captured_tablet_count": 12,
   "promoted_count": 1,
   "devices": [
     {
@@ -92,6 +92,36 @@
       "evidence_state": "captured_matrix",
       "report": "./reports/app-bars.md",
       "evidence": "./evidence/app-bars.json"
+    },
+    {
+      "slug": "selection-controls",
+      "renderer": "UI::Picker / UI::SearchField / UI::Stepper",
+      "priority": "P1",
+      "lane": "material-defaults",
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_matrix",
+      "report": "./reports/selection-controls.md",
+      "evidence": "./evidence/selection-controls.json"
+    },
+    {
+      "slug": "transient-surfaces",
+      "renderer": "UI::Sheet / UI::Popover / UI::Snackbar",
+      "priority": "P1",
+      "lane": "android-owned-surfaces",
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_matrix",
+      "report": "./reports/transient-surfaces.md",
+      "evidence": "./evidence/transient-surfaces.json"
+    },
+    {
+      "slug": "share-color",
+      "renderer": "UI::ActivityView / UI::ColorPicker",
+      "priority": "P1",
+      "lane": "android-owned-surfaces",
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_matrix",
+      "report": "./reports/share-color.md",
+      "evidence": "./evidence/share-color.json"
     },
     {
       "slug": "webview",
