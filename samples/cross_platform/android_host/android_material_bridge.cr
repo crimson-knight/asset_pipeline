@@ -11,6 +11,14 @@ module AndroidMaterialHost
     @@interaction_slider_value : Float64? = nil
     @@interaction_radio_index : Int32? = nil
     @@interaction_text_value : String? = nil
+    @@selection_menu_index : Int32? = nil
+    @@selection_segment_index : Int32? = nil
+    @@selection_inline_index : Int32? = nil
+    @@selection_stepper_value : Float64? = nil
+    @@selection_search_value : String? = nil
+    @@surface_note_value : String? = nil
+    @@palette_color_value : UI::Color? = nil
+    @@activity_note_value : String? = nil
 
     def self.initialize_runtime : Nil
       return if @@runtime_initialized
@@ -44,6 +52,38 @@ module AndroidMaterialHost
 
     def self.set_interaction_text(value : String) : Nil
       self.interaction_text_state = value
+    end
+
+    def self.set_selection_menu(index : Int32) : Nil
+      self.selection_menu_state = index
+    end
+
+    def self.set_selection_segment(index : Int32) : Nil
+      self.selection_segment_state = index
+    end
+
+    def self.set_selection_inline(index : Int32) : Nil
+      self.selection_inline_state = index
+    end
+
+    def self.set_selection_stepper(value : Float64) : Nil
+      self.selection_stepper_state = value
+    end
+
+    def self.set_selection_search(value : String) : Nil
+      self.selection_search_state = value
+    end
+
+    def self.set_surface_note(value : String) : Nil
+      self.surface_note_state = value
+    end
+
+    def self.set_palette_color(value : UI::Color) : Nil
+      self.palette_color_state = value
+    end
+
+    def self.set_activity_note(value : String) : Nil
+      self.activity_note_state = value
     end
 
     private def self.interaction_fired_state
@@ -94,6 +134,70 @@ module AndroidMaterialHost
       @@interaction_text_value = value
     end
 
+    private def self.selection_menu_state
+      @@selection_menu_index ||= 1
+    end
+
+    private def self.selection_menu_state=(value : Int32)
+      @@selection_menu_index = value
+    end
+
+    private def self.selection_segment_state
+      @@selection_segment_index ||= 0
+    end
+
+    private def self.selection_segment_state=(value : Int32)
+      @@selection_segment_index = value
+    end
+
+    private def self.selection_inline_state
+      @@selection_inline_index ||= 1
+    end
+
+    private def self.selection_inline_state=(value : Int32)
+      @@selection_inline_index = value
+    end
+
+    private def self.selection_stepper_state
+      @@selection_stepper_value ||= 3.0
+    end
+
+    private def self.selection_stepper_state=(value : Float64)
+      @@selection_stepper_value = value
+    end
+
+    private def self.selection_search_state
+      @@selection_search_value ||= "evidence"
+    end
+
+    private def self.selection_search_state=(value : String)
+      @@selection_search_value = value
+    end
+
+    private def self.surface_note_state
+      @@surface_note_value ||= "Waiting for a transient-surface callback."
+    end
+
+    private def self.surface_note_state=(value : String)
+      @@surface_note_value = value
+    end
+
+    private def self.palette_color_state
+      @@palette_color_value ||= UI::Color.new(r: 0.40, g: 0.31, b: 0.89)
+    end
+
+    private def self.palette_color_state=(value : UI::Color)
+      @@palette_color_value = value
+    end
+
+    private def self.activity_note_state
+      @@activity_note_value ||= "No share-sheet action selected yet."
+    end
+
+    private def self.activity_note_state=(value : String)
+      @@activity_note_value = value
+    end
+
     def self.render_slug(env : Void*, context : Void*, slug : String) : Void*
       initialize_runtime
 
@@ -114,6 +218,9 @@ module AndroidMaterialHost
       when "dialogs"      then build_dialogs
       when "app-bars"     then build_app_bars
       when "interaction-smoke" then build_interaction_smoke
+      when "selection-controls" then build_selection_controls
+      when "transient-surfaces" then build_transient_surfaces
+      when "share-color" then build_share_color
       when "webview"      then build_webview
       when "map-view"     then build_map_view
       when "video-player" then build_video_player
@@ -168,6 +275,13 @@ module AndroidMaterialHost
       card.material = :secondary
       card.elevation = 2.0
       card
+    end
+
+    private def self.hex_color(color : UI::Color) : String
+      r = (color.r * 255.0).round.to_i.clamp(0, 255)
+      g = (color.g * 255.0).round.to_i.clamp(0, 255)
+      b = (color.b * 255.0).round.to_i.clamp(0, 255)
+      "#%02X%02X%02X" % {r, g, b}
     end
 
     private def self.build_buttons : UI::View
@@ -327,6 +441,129 @@ module AndroidMaterialHost
       field.text = interaction_text_state
       stack << field
       stack << body_label("Text value: " + interaction_text_state)
+      stack
+    end
+
+    private def self.build_selection_controls : UI::View
+      mode_options = ["Matrix review", "Renderer focus", "Promotion gate"]
+      breakpoint_options = ["Phone", "Balanced", "Tablet"]
+      section_options = ["Buttons", "Dialogs", "Evidence"]
+
+      stack = root_stack
+      stack << heading("Selection controls")
+      stack << subheading("Menu, segmented, inline, search, and stepper paths mounted through the shared Android renderer.")
+
+      menu_picker = UI::Picker.new(mode_options, selection_menu_state) do |index|
+        set_selection_menu(index)
+      end
+      menu_picker.label = "Validation mode"
+      menu_picker.style = UI::PickerStyle::Menu
+      stack << menu_picker
+      stack << body_label("Menu picker: #{mode_options[selection_menu_state]}")
+
+      segmented_picker = UI::Picker.new(breakpoint_options, selection_segment_state) do |index|
+        set_selection_segment(index)
+      end
+      segmented_picker.label = "Adaptive breakpoint"
+      segmented_picker.style = UI::PickerStyle::Segmented
+      stack << segmented_picker
+      stack << body_label("Segmented picker: #{breakpoint_options[selection_segment_state]}")
+
+      inline_picker = UI::Picker.new(section_options, selection_inline_state) do |index|
+        set_selection_inline(index)
+      end
+      inline_picker.label = "Priority section"
+      inline_picker.style = UI::PickerStyle::Inline
+      stack << inline_picker
+      stack << body_label("Inline picker: #{section_options[selection_inline_state]}")
+
+      search = UI::SearchField.new("Search studies") do |value|
+        set_selection_search(value)
+      end
+      search.text = selection_search_state
+      stack << search
+      stack << body_label("Search query: #{selection_search_state}")
+
+      stepper = UI::Stepper.new(0.0, 6.0, selection_stepper_state) do |value|
+        set_selection_stepper(value)
+      end
+      stepper.label = "Promotion count"
+      stepper.step_value = 1.0
+      stack << stepper
+      stack << body_label("Stepper value: #{selection_stepper_state.round.to_i}")
+      stack
+    end
+
+    private def self.build_transient_surfaces : UI::View
+      stack = root_stack
+      stack << heading("Transient surfaces")
+      stack << subheading("Bottom-sheet, popover, and snackbar surfaces upgraded from placeholder containers to Material-style compositions.")
+
+      sheet_content = UI::VStack.new(10.0, UI::Alignment::Leading)
+      sheet_content << body_label("Review the current Android matrix before promoting any study.")
+      sheet_content << body_label("Captured evidence stays pending until fidelity and matrix coverage are both clear.")
+      sheet = UI::Sheet.new(sheet_content)
+      sheet.is_presented = true
+      sheet.selected_detent = :medium
+      sheet.detents = [:medium, :large]
+      sheet.on_dismiss = Proc(Nil).new { set_surface_note("Sheet dismiss callback fired.") }
+      stack << sheet
+
+      popover_content = UI::VStack.new(8.0, UI::Alignment::Leading)
+      popover_content << body_label("Popover previews can now communicate arrow-edge intent and close actions.")
+      popover = UI::Popover.new(popover_content, :bottom)
+      popover.is_presented = true
+      popover.preferred_width = 280.0
+      popover.on_dismiss = Proc(Nil).new { set_surface_note("Popover close callback fired.") }
+      stack << popover
+
+      snackbar = UI::Snackbar.new("Renderer-backed Android callbacks are ready for transient surfaces.", "Undo")
+      snackbar.is_presented = true
+      snackbar.on_action = Proc(Nil).new { set_surface_note("Snackbar action tapped.") }
+      stack << snackbar
+
+      stack << body_label("Transient note: #{surface_note_state}")
+      stack
+    end
+
+    private def self.build_share_color : UI::View
+      stack = root_stack
+      stack << heading("Share and color")
+      stack << subheading("Android-owned share and palette surfaces mounted as renderer-backed showcase studies.")
+
+      picker = UI::ColorPicker.new
+      picker.label = "Highlight color"
+      picker.selected_color = palette_color_state
+      picker.supports_alpha = true
+      picker.on_change = Proc(UI::Color, Nil).new do |color|
+        set_palette_color(color)
+      end
+      stack << picker
+      stack << body_label("Selected highlight: #{hex_color(palette_color_state)}")
+
+      destinations = [
+        UI::ActivityDestination.new("message", "Message", Proc(Nil).new { set_activity_note("Selected Message destination.") }),
+        UI::ActivityDestination.new("mail", "Mail", Proc(Nil).new { set_activity_note("Selected Mail destination.") }),
+      ]
+      actions = [
+        UI::ActivityAction.new("bookmark", "Save", Proc(Nil).new { set_activity_note("Save action selected.") }),
+        UI::ActivityAction.new("printer", "Print", Proc(Nil).new { set_activity_note("Print action selected.") }),
+      ]
+
+      activity = UI::ActivityView.new(
+        "Android rollout summary",
+        "Share the latest Material validation snapshot with reviewers.",
+        nil,
+        destinations,
+        actions,
+        Proc(Nil).new { set_activity_note("Activity view cancel selected.") }
+      )
+      activity.share_subject = "Android Material status"
+      activity.share_text = "Renderer-backed Android studies are expanding beyond the first batch."
+      activity.share_url = "https://asset-pipeline.local/android-material"
+      activity.is_presented = false
+      stack << activity
+      stack << body_label("Share note: #{activity_note_state}")
       stack
     end
 

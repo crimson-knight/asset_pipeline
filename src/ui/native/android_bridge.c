@@ -394,6 +394,97 @@ void android_searchview_set_iconified(void *env_ptr, void *sv, int32_t iconified
     (*env)->DeleteLocalRef(env, cls);
 }
 
+void android_spinner_set_prompt(void *env_ptr, void *spinner, uint8_t *prompt, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)spinner);
+    jmethodID method = ap_try_get_method(env, cls, "setPrompt", "(Ljava/lang/CharSequence;)V");
+    jstring value = ap_new_string(env, prompt, byte_len);
+    if (method && value) {
+        (*env)->CallVoidMethod(env, (jobject)spinner, method, value);
+    }
+    if (value) {
+        (*env)->DeleteLocalRef(env, value);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_spinner_set_selection(void *env_ptr, void *spinner, int32_t selected_index) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)spinner);
+    jmethodID method = ap_try_get_method(env, cls, "setSelection", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)spinner, method, selected_index);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_spinner_set_items(void *env_ptr, void *spinner, uint8_t *joined_items, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass spinner_cls = (*env)->GetObjectClass(env, (jobject)spinner);
+    jmethodID get_context = ap_try_get_method(env, spinner_cls, "getContext", "()Landroid/content/Context;");
+    jobject context = get_context ? (*env)->CallObjectMethod(env, (jobject)spinner, get_context) : NULL;
+    if (!context) {
+        (*env)->DeleteLocalRef(env, spinner_cls);
+        return;
+    }
+
+    jclass list_cls = (*env)->FindClass(env, "java/util/ArrayList");
+    jmethodID list_ctor = ap_get_method(env, list_cls, "<init>", "(I)V");
+    jmethodID list_add = ap_get_method(env, list_cls, "add", "(Ljava/lang/Object;)Z");
+    jobject items = (*env)->NewObject(env, list_cls, list_ctor, 4);
+
+    if (joined_items && byte_len > 0) {
+        char *buffer = (char *)malloc((size_t)byte_len + 1U);
+        if (buffer) {
+            memcpy(buffer, joined_items, (size_t)byte_len);
+            buffer[byte_len] = '\0';
+
+            char *saveptr = NULL;
+            char *token = strtok_r(buffer, "\n", &saveptr);
+            while (token) {
+                jstring value = ap_new_string(env, (const uint8_t *)token, -1);
+                if (value) {
+                    (*env)->CallBooleanMethod(env, items, list_add, value);
+                    (*env)->DeleteLocalRef(env, value);
+                }
+                token = strtok_r(NULL, "\n", &saveptr);
+            }
+            free(buffer);
+        }
+    }
+
+    jclass layout_cls = (*env)->FindClass(env, "android/R$layout");
+    jfieldID simple_item_field = (*env)->GetStaticFieldID(env, layout_cls, "simple_spinner_item", "I");
+    jfieldID dropdown_item_field = (*env)->GetStaticFieldID(env, layout_cls, "simple_spinner_dropdown_item", "I");
+    jint simple_item_layout = simple_item_field ? (*env)->GetStaticIntField(env, layout_cls, simple_item_field) : 0;
+    jint dropdown_item_layout = dropdown_item_field ? (*env)->GetStaticIntField(env, layout_cls, dropdown_item_field) : 0;
+
+    jclass adapter_cls = (*env)->FindClass(env, "android/widget/ArrayAdapter");
+    jmethodID adapter_ctor = ap_get_method(env, adapter_cls, "<init>", "(Landroid/content/Context;ILjava/util/List;)V");
+    jobject adapter = adapter_ctor ? (*env)->NewObject(env, adapter_cls, adapter_ctor, context, simple_item_layout, items) : NULL;
+
+    if (adapter) {
+        jmethodID set_dropdown = ap_try_get_method(env, adapter_cls, "setDropDownViewResource", "(I)V");
+        if (set_dropdown) {
+            (*env)->CallVoidMethod(env, adapter, set_dropdown, dropdown_item_layout);
+        }
+        jmethodID set_adapter = ap_try_get_method(env, spinner_cls, "setAdapter", "(Landroid/widget/SpinnerAdapter;)V");
+        if (set_adapter) {
+            (*env)->CallVoidMethod(env, (jobject)spinner, set_adapter, adapter);
+        }
+    }
+
+    if (adapter) {
+        (*env)->DeleteLocalRef(env, adapter);
+    }
+    (*env)->DeleteLocalRef(env, adapter_cls);
+    (*env)->DeleteLocalRef(env, layout_cls);
+    (*env)->DeleteLocalRef(env, items);
+    (*env)->DeleteLocalRef(env, list_cls);
+    (*env)->DeleteLocalRef(env, context);
+    (*env)->DeleteLocalRef(env, spinner_cls);
+}
+
 void android_edittext_set_input_type(void *env_ptr, void *et, int32_t input_type) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jclass cls = (*env)->GetObjectClass(env, (jobject)et);
@@ -754,6 +845,16 @@ void android_view_set_padding(void *env_ptr, void *v, int32_t left, int32_t top,
     (*env)->DeleteLocalRef(env, cls);
 }
 
+void android_view_clear_focus(void *env_ptr, void *v) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)v);
+    jmethodID method = ap_try_get_method(env, cls, "clearFocus", "()V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)v, method);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
 void android_view_set_corner_radius(void *env_ptr, void *v, float radius) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jobject drawable = ap_ensure_gradient_background(env, (jobject)v);
@@ -939,6 +1040,133 @@ void android_toolbar_add_menu_item(void *env_ptr, void *toolbar, int32_t item_id
     (*env)->DeleteLocalRef(env, menu_cls);
     (*env)->DeleteLocalRef(env, menu);
     (*env)->DeleteLocalRef(env, toolbar_cls);
+}
+
+void android_context_start_share_chooser(void *env_ptr, void *context_ptr,
+                                         uint8_t *title, int32_t title_len,
+                                         uint8_t *text, int32_t text_len,
+                                         uint8_t *url, int32_t url_len,
+                                         uint8_t *subject, int32_t subject_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject context = (jobject)context_ptr;
+    if (!context) {
+        return;
+    }
+
+    size_t share_len = 0U;
+    if (text && text_len > 0) {
+        share_len += (size_t)text_len;
+    }
+    if (url && url_len > 0) {
+        if (share_len > 0U) {
+            share_len += 1U;
+        }
+        share_len += (size_t)url_len;
+    }
+    if (share_len == 0U) {
+        return;
+    }
+
+    char *share_buffer = (char *)malloc(share_len + 1U);
+    if (!share_buffer) {
+        return;
+    }
+
+    size_t cursor = 0U;
+    if (text && text_len > 0) {
+        memcpy(share_buffer + cursor, text, (size_t)text_len);
+        cursor += (size_t)text_len;
+    }
+    if (url && url_len > 0) {
+        if (cursor > 0U) {
+            share_buffer[cursor++] = '\n';
+        }
+        memcpy(share_buffer + cursor, url, (size_t)url_len);
+        cursor += (size_t)url_len;
+    }
+    share_buffer[cursor] = '\0';
+
+    jclass intent_cls = (*env)->FindClass(env, "android/content/Intent");
+    jmethodID intent_ctor = ap_get_method(env, intent_cls, "<init>", "()V");
+    jobject intent = intent_ctor ? (*env)->NewObject(env, intent_cls, intent_ctor) : NULL;
+    if (!intent) {
+        free(share_buffer);
+        (*env)->DeleteLocalRef(env, intent_cls);
+        return;
+    }
+
+    jmethodID set_action = ap_try_get_method(env, intent_cls, "setAction", "(Ljava/lang/String;)Landroid/content/Intent;");
+    jmethodID set_type = ap_try_get_method(env, intent_cls, "setType", "(Ljava/lang/String;)Landroid/content/Intent;");
+    jmethodID put_extra = ap_try_get_method(env, intent_cls, "putExtra", "(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;");
+    jmethodID add_flags = ap_try_get_method(env, intent_cls, "addFlags", "(I)Landroid/content/Intent;");
+    jmethodID create_chooser = ap_get_static_method(env, intent_cls, "createChooser", "(Landroid/content/Intent;Ljava/lang/CharSequence;)Landroid/content/Intent;");
+
+    jfieldID action_send_field = (*env)->GetStaticFieldID(env, intent_cls, "ACTION_SEND", "Ljava/lang/String;");
+    jfieldID extra_text_field = (*env)->GetStaticFieldID(env, intent_cls, "EXTRA_TEXT", "Ljava/lang/String;");
+    jfieldID extra_subject_field = (*env)->GetStaticFieldID(env, intent_cls, "EXTRA_SUBJECT", "Ljava/lang/String;");
+    jfieldID new_task_field = (*env)->GetStaticFieldID(env, intent_cls, "FLAG_ACTIVITY_NEW_TASK", "I");
+
+    jobject action_send = action_send_field ? (*env)->GetStaticObjectField(env, intent_cls, action_send_field) : NULL;
+    jobject extra_text = extra_text_field ? (*env)->GetStaticObjectField(env, intent_cls, extra_text_field) : NULL;
+    jobject extra_subject = extra_subject_field ? (*env)->GetStaticObjectField(env, intent_cls, extra_subject_field) : NULL;
+    jint flag_new_task = new_task_field ? (*env)->GetStaticIntField(env, intent_cls, new_task_field) : 0;
+
+    jstring mime_type = ap_new_string(env, (const uint8_t *)"text/plain", -1);
+    jstring share_body = ap_new_string(env, (const uint8_t *)share_buffer, (jint)cursor);
+    jstring chooser_title = ap_new_string(env, title, title_len);
+    jstring subject_value = ap_new_string(env, subject, subject_len);
+
+    if (set_action && action_send) {
+        (*env)->CallObjectMethod(env, intent, set_action, action_send);
+    }
+    if (set_type && mime_type) {
+        (*env)->CallObjectMethod(env, intent, set_type, mime_type);
+    }
+    if (put_extra && extra_text && share_body) {
+        (*env)->CallObjectMethod(env, intent, put_extra, extra_text, share_body);
+    }
+    if (put_extra && extra_subject && subject_value) {
+        (*env)->CallObjectMethod(env, intent, put_extra, extra_subject, subject_value);
+    }
+    if (add_flags && flag_new_task != 0) {
+        (*env)->CallObjectMethod(env, intent, add_flags, flag_new_task);
+    }
+
+    jobject chooser = create_chooser ? (*env)->CallStaticObjectMethod(env, intent_cls, create_chooser, intent, chooser_title) : NULL;
+    if (chooser) {
+        jclass context_cls = (*env)->GetObjectClass(env, context);
+        jmethodID start_activity = ap_try_get_method(env, context_cls, "startActivity", "(Landroid/content/Intent;)V");
+        if (start_activity) {
+            (*env)->CallVoidMethod(env, context, start_activity, chooser);
+        }
+        (*env)->DeleteLocalRef(env, context_cls);
+        (*env)->DeleteLocalRef(env, chooser);
+    }
+
+    if (subject_value) {
+        (*env)->DeleteLocalRef(env, subject_value);
+    }
+    if (chooser_title) {
+        (*env)->DeleteLocalRef(env, chooser_title);
+    }
+    if (share_body) {
+        (*env)->DeleteLocalRef(env, share_body);
+    }
+    if (mime_type) {
+        (*env)->DeleteLocalRef(env, mime_type);
+    }
+    if (extra_subject) {
+        (*env)->DeleteLocalRef(env, extra_subject);
+    }
+    if (extra_text) {
+        (*env)->DeleteLocalRef(env, extra_text);
+    }
+    if (action_send) {
+        (*env)->DeleteLocalRef(env, action_send);
+    }
+    (*env)->DeleteLocalRef(env, intent);
+    (*env)->DeleteLocalRef(env, intent_cls);
+    free(share_buffer);
 }
 
 void android_switch_set_checked(void *env_ptr, void *sw, int32_t checked) {
@@ -1211,6 +1439,22 @@ void android_searchview_set_on_close_listener(void *env_ptr, void *sv, uint64_t 
     jmethodID method = ap_try_get_method(env, cls, "setOnCloseListener", "(Landroid/widget/SearchView$OnCloseListener;)V");
     if (method) {
         (*env)->CallVoidMethod(env, (jobject)sv, method, listener);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, listener);
+}
+
+void android_spinner_set_on_item_selected_listener(void *env_ptr, void *spinner, uint64_t callback_id) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject listener = ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalItemSelectedListener", callback_id);
+    if (!listener) {
+        return;
+    }
+
+    jclass cls = (*env)->GetObjectClass(env, (jobject)spinner);
+    jmethodID method = ap_try_get_method(env, cls, "setOnItemSelectedListener", "(Landroid/widget/AdapterView$OnItemSelectedListener;)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)spinner, method, listener);
     }
     (*env)->DeleteLocalRef(env, cls);
     (*env)->DeleteLocalRef(env, listener);

@@ -49,11 +49,27 @@ adb shell am start -S \
   --es study_appearance light
 ```
 
+Current showcase studies include:
+
+- `buttons`
+- `text-fields`
+- `cards`
+- `dialogs`
+- `app-bars`
+- `selection-controls`
+- `transient-surfaces`
+- `share-color`
+- `webview`
+- `map-view`
+- `video-player`
+- `chart-view`
+- `interaction-smoke` for internal callback verification only
+
 ## Capture Workflow
 
 Use the shared runner from the repo root so screenshot naming, renderer-mount
-readiness checks, and serial-specific host installation stay consistent with
-the Android validation ledger.
+readiness checks, splash-screen exit checks, and serial-specific host
+installation stay consistent with the Android validation ledger.
 
 ```bash
 ./scripts/run_android_material_tests.sh --serial emulator-5554 --device-role phone --appearance both
@@ -66,3 +82,7 @@ Helpful flags:
 - `--appearance light|dark|both`
 - `--device-role phone|tablet`
 - `--skip-build` to reuse the installed host APK
+  This assumes the currently installed APK on the target serial already
+  matches your local source tree. If you changed `android_material_bridge.cr`,
+  JNI bridge code, or Kotlin host files, rebuild and reinstall before using
+  `--skip-build`.

@@ -67,6 +67,33 @@ object StudyCatalog {
             summary = "Host-only callback verification surface for taps, toggles, sliders, and radios."
         ),
         StudySpec(
+            slug = "selection-controls",
+            title = "Selection Controls",
+            renderer = "UI::Picker / UI::SearchField / UI::Stepper",
+            priority = "P1",
+            lane = "material-defaults",
+            status = "pending_acceptance",
+            summary = "Menu, segmented, inline, search, and stepper selection flows."
+        ),
+        StudySpec(
+            slug = "transient-surfaces",
+            title = "Transient Surfaces",
+            renderer = "UI::Sheet / UI::Popover / UI::Snackbar",
+            priority = "P1",
+            lane = "android-owned-surfaces",
+            status = "pending_acceptance",
+            summary = "Bottom sheet, popover, and snackbar compositions with callbacks."
+        ),
+        StudySpec(
+            slug = "share-color",
+            title = "Share and Color",
+            renderer = "UI::ActivityView / UI::ColorPicker",
+            priority = "P1",
+            lane = "android-owned-surfaces",
+            status = "pending_acceptance",
+            summary = "Renderer-backed share-sheet preview and palette selection study."
+        ),
+        StudySpec(
             slug = "webview",
             title = "Embedded Web Surface",
             renderer = "UI::WebViewComponent",

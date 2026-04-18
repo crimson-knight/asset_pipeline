@@ -56,7 +56,7 @@ Options:
   --appearance <mode>  light, dark, or both (default: both)
   --serial <serial>    Explicit adb device serial
   --device-role <role> phone or tablet (default: phone)
-  --skip-build         Reuse the current host APK
+  --skip-build         Reuse the installed host APK on the target device
   --dry-run            Print commands without launching or capturing
   -h, --help           Show this help
 EOF
@@ -127,8 +127,8 @@ settle_seconds_for_study() {
 
 ready_timeout_for_study() {
   case "$1" in
-    webview|video-player) printf '60\n' ;;
-    *) printf '45\n' ;;
+    webview|video-player) printf '120\n' ;;
+    *) printf '90\n' ;;
   esac
 }
 
@@ -173,8 +173,9 @@ wait_for_renderer_mount() {
   local elapsed=0
 
   while (( elapsed < timeout_seconds )); do
-    if "$ADB" -s "$serial" shell uiautomator dump "$dump_path" >/dev/null 2>&1; then
-      if "$ADB" -s "$serial" shell "grep -q 'Android Material study' '$dump_path'" >/dev/null 2>&1; then
+    if "$ADB" -s "$serial" shell uiautomator dump "$dump_path" >/dev/null 2>&1 </dev/null; then
+      if "$ADB" -s "$serial" shell "grep -q 'Android Material study' '$dump_path'" >/dev/null 2>&1 </dev/null \
+        && ! "$ADB" -s "$serial" shell dumpsys window windows </dev/null | grep -q 'Splash Screen dev.assetpipeline.androidhost'; then
         info "Renderer mount ready for $slug after ${elapsed}s"
         return 0
       fi

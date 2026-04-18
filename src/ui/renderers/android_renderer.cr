@@ -74,6 +74,9 @@ module UI::Android
     fun android_searchview_set_query_hint(env : Void*, sv : Void*, hint : UInt8*, byte_len : Int32)
     fun android_searchview_set_query(env : Void*, sv : Void*, query : UInt8*, byte_len : Int32, submit : Int32)
     fun android_searchview_set_iconified(env : Void*, sv : Void*, iconified : Int32)
+    fun android_spinner_set_prompt(env : Void*, spinner : Void*, prompt : UInt8*, byte_len : Int32)
+    fun android_spinner_set_selection(env : Void*, spinner : Void*, selected_index : Int32)
+    fun android_spinner_set_items(env : Void*, spinner : Void*, joined_items : UInt8*, byte_len : Int32)
 
     # --- Material text fields ---
     fun android_textinputlayout_set_hint(env : Void*, til : Void*, hint : UInt8*, byte_len : Int32)
@@ -120,6 +123,7 @@ module UI::Android
     fun android_view_set_elevation(env : Void*, v : Void*, dp : Float32)
     fun android_view_set_padding(env : Void*, v : Void*,
                                   left : Int32, top : Int32, right : Int32, bottom : Int32)
+    fun android_view_clear_focus(env : Void*, v : Void*)
 
     # --- CALayer-equivalent: outline/shape for corner radius + border ---
     # Applies a rounded rectangle outline provider for corner radius
@@ -140,6 +144,11 @@ module UI::Android
     fun android_toolbar_set_title_text_color(env : Void*, toolbar : Void*, argb : Int32)
     fun android_toolbar_add_menu_item(env : Void*, toolbar : Void*, item_id : Int32,
                                       title : UInt8*, byte_len : Int32, show_as_action : Int32)
+    fun android_context_start_share_chooser(env : Void*, context : Void*,
+                                            title : UInt8*, title_len : Int32,
+                                            text : UInt8*, text_len : Int32,
+                                            url : UInt8*, url_len : Int32,
+                                            subject : UInt8*, subject_len : Int32)
 
     # --- Switch (Toggle) ---
     fun android_switch_set_checked(env : Void*, sw : Void*, checked : Int32)
@@ -183,6 +192,7 @@ module UI::Android
                                                       change_callback_id : UInt64,
                                                       submit_callback_id : UInt64)
     fun android_searchview_set_on_close_listener(env : Void*, sv : Void*, callback_id : UInt64)
+    fun android_spinner_set_on_item_selected_listener(env : Void*, spinner : Void*, callback_id : UInt64)
 
     # --- Global reference management ---
     fun android_new_global_ref(env : Void*, local_ref : Void*) : Void*
@@ -1079,23 +1089,110 @@ module UI::Android
     # Visit: Picker -> android.widget.Spinner
     # -----------------------------------------------------------------
     def visit(view : UI::Picker)
-      spinner = LibAndroidBridge.android_view_new(@env, "android/widget/Spinner", @context)
-
-      apply_common_properties(spinner, view)
-
-      global_sp = LibAndroidBridge.android_new_global_ref(@env, spinner)
-      handle = JNI.wrap_global(global_sp, label: "Spinner")
-      native = NativeView.new(handle)
-
-      if change_handler = view.on_change
-        wrapped = Proc(Nil).new do
-          change_handler.call(view.selected_index)
+      case view.style
+      when UI::PickerStyle::Segmented
+        segmented = if change_handler = view.on_change
+                      captured_change_handler = change_handler
+                      UI::SegmentedControl.new(view.options, view.selected_index) do |selected_index|
+                        captured_change_handler.call(selected_index)
+                      end
+                    else
+                      UI::SegmentedControl.new(view.options, view.selected_index)
+                    end
+        unless view.label.empty?
+          segmented.accessibility_label = view.label
         end
-        callback_id = native.register_callback(wrapped)
-        LibAndroidBridge.android_view_set_on_click_listener(@env, spinner, callback_id)
+        segmented.accept(self)
+        return
+      when UI::PickerStyle::Inline
+        container = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, container, 1)
+        LibAndroidBridge.android_view_set_background_color(@env, container, material_color(:surface))
+        LibAndroidBridge.android_view_set_corner_radius(@env, container, @material_theme.corner_radius_medium.to_f32)
+        LibAndroidBridge.android_view_set_clip_to_outline(@env, container, 1)
+        LibAndroidBridge.android_view_set_elevation(@env, container, 2.0_f32)
+        LibAndroidBridge.android_view_set_padding(@env, container, 16, 16, 16, 16)
+
+        if !view.label.empty?
+          heading = new_text_view(view.label, 14.0_f32, material_color(:on_surface_variant), 1)
+          LibAndroidBridge.android_view_set_padding(@env, heading, 0, 0, 0, 12)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, heading, -1, -2)
+        end
+
+        apply_common_properties(container, view)
+
+        global_container = LibAndroidBridge.android_new_global_ref(@env, container)
+        handle = JNI.wrap_global(global_container, label: "LinearLayout[picker-inline]")
+        native = NativeView.new(handle)
+
+        radio_group = if change_handler = view.on_change
+                        captured_change_handler = change_handler
+                        UI::RadioGroup.new(view.options, view.selected_index) do |selected_index|
+                          captured_change_handler.call(selected_index)
+                        end
+                      else
+                        UI::RadioGroup.new(view.options, view.selected_index)
+                      end
+        push_stack(native, container, is_linear: true)
+        radio_group.accept(self)
+        pop_stack
+
+        push_native(native, container)
+        return
+      else
       end
 
-      push_native(native, spinner)
+      card = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
+      content = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, content, 1)
+
+      LibAndroidBridge.android_material_card_set_background_color(@env, card, material_color(:surface))
+      LibAndroidBridge.android_material_card_set_radius(@env, card, @material_theme.corner_radius_medium.to_f32)
+      LibAndroidBridge.android_material_card_set_elevation(@env, card, 2.0_f32)
+      LibAndroidBridge.android_material_card_set_stroke_color(@env, card, material_color(:outline_variant))
+      LibAndroidBridge.android_material_card_set_stroke_width(@env, card, 1)
+      LibAndroidBridge.android_view_set_padding(@env, content, 16, 16, 16, 12)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, card, content, -1, -2)
+
+      if !view.label.empty?
+        heading = new_text_view(view.label, 14.0_f32, material_color(:on_surface_variant), 1)
+        LibAndroidBridge.android_view_set_padding(@env, heading, 0, 0, 0, 12)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, heading, -1, -2)
+      end
+
+      spinner = LibAndroidBridge.android_view_new(@env, "android/widget/Spinner", @context)
+      LibAndroidBridge.android_view_set_background_color(@env, spinner, material_color(:surface_variant))
+      LibAndroidBridge.android_view_set_corner_radius(@env, spinner, @material_theme.corner_radius_medium.to_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, spinner, 1)
+      LibAndroidBridge.android_view_set_padding(@env, spinner, 12, 10, 12, 10)
+
+      unless view.label.empty?
+        LibAndroidBridge.android_spinner_set_prompt(@env, spinner, view.label.to_unsafe, view.label.bytesize)
+      end
+
+      if view.options.empty?
+        empty_state = new_text_view("No options available", 13.0_f32, material_color(:on_surface_variant), 0)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, empty_state, -1, -2)
+      else
+        joined_options = view.options.join("\n")
+        LibAndroidBridge.android_spinner_set_items(@env, spinner, joined_options.to_unsafe, joined_options.bytesize)
+        selected_index = view.selected_index.clamp(0, view.options.size - 1)
+        LibAndroidBridge.android_spinner_set_selection(@env, spinner, selected_index)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, spinner, -1, -2)
+      end
+
+      apply_common_non_surface_properties(card, view)
+
+      global_card = LibAndroidBridge.android_new_global_ref(@env, card)
+      handle = JNI.wrap_global(global_card, label: "MaterialCardView[picker]")
+      native = NativeView.new(handle)
+
+      if !view.options.empty? && (change_handler = view.on_change)
+        callback_id = native.track_callback_id(UI::CallbackRegistry.register_int(change_handler))
+        LibAndroidBridge.android_spinner_set_on_item_selected_listener(@env, spinner, callback_id)
+      end
+
+      push_native(native, card)
     end
 
     # -----------------------------------------------------------------
@@ -1406,6 +1503,8 @@ module UI::Android
         callback_id = native.register_callback(cancel_handler)
         LibAndroidBridge.android_searchview_set_on_close_listener(@env, sv, callback_id)
       end
+
+      LibAndroidBridge.android_view_clear_focus(@env, sv)
 
       push_native(native, sv)
     end
@@ -1721,53 +1820,147 @@ module UI::Android
     end
 
     # -----------------------------------------------------------------
-    # Visit: Sheet -> android.widget.FrameLayout (bottom sheet placeholder)
+    # Visit: Sheet -> inline Material bottom-sheet surface
     # -----------------------------------------------------------------
     def visit(view : UI::Sheet)
-      fl = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+      card = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
+      content = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, content, 1)
 
       unless view.is_presented
-        LibAndroidBridge.android_view_set_visibility(@env, fl, 8) # GONE
+        LibAndroidBridge.android_view_set_visibility(@env, card, 8)
       end
 
-      apply_common_properties(fl, view)
+      LibAndroidBridge.android_material_card_set_background_color(@env, card, material_color(:surface))
+      LibAndroidBridge.android_material_card_set_radius(@env, card, @material_theme.corner_radius_large.to_f32)
+      LibAndroidBridge.android_material_card_set_elevation(@env, card, 10.0_f32)
+      LibAndroidBridge.android_material_card_set_stroke_color(@env, card, material_color(:outline_variant))
+      LibAndroidBridge.android_material_card_set_stroke_width(@env, card, 1)
+      LibAndroidBridge.android_view_set_padding(@env, content, 20, 16, 20, 20)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, card, content, -1, -2)
 
-      global_fl = LibAndroidBridge.android_new_global_ref(@env, fl)
-      handle = JNI.wrap_global(global_fl, label: "FrameLayout[sheet]")
+      if view.shows_drag_indicator
+        handle_bar = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+        LibAndroidBridge.android_view_set_background_color(@env, handle_bar, material_color(:outline))
+        LibAndroidBridge.android_view_set_corner_radius(@env, handle_bar, 3.0_f32)
+        LibAndroidBridge.android_view_set_alpha(@env, handle_bar, 0.7_f32)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, handle_bar, 48, 6)
+      end
+
+      detents = view.detents.map(&.to_s.gsub('_', ' ').capitalize).join(" • ")
+      title = new_text_view("Bottom sheet", 18.0_f32, material_color(:on_surface), 1)
+      subtitle = new_text_view("Detents: #{detents}  Active: #{view.selected_detent.to_s.gsub('_', ' ').capitalize}", 13.0_f32, material_color(:on_surface_variant), 0)
+      LibAndroidBridge.android_view_set_padding(@env, title, 0, 12, 0, 4)
+      LibAndroidBridge.android_view_set_padding(@env, subtitle, 0, 0, 0, 16)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, title, -1, -2)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, subtitle, -1, -2)
+
+      global_card = LibAndroidBridge.android_new_global_ref(@env, card)
+      handle = JNI.wrap_global(global_card, label: "MaterialCardView[sheet]")
       native = NativeView.new(handle)
 
-      if content = view.content
-        push_stack(native, fl, is_linear: false)
-        content.accept(self)
+      if content_view = view.content
+        inner = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, inner, 1)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, inner, -1, -2)
+        push_stack(native, inner, is_linear: true)
+        content_view.accept(self)
         pop_stack
       end
 
-      push_native(native, fl)
+      if dismiss_handler = view.on_dismiss
+        footer = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, footer, 0)
+        LibAndroidBridge.android_view_set_padding(@env, footer, 0, 16, 0, 0)
+        spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
+        LibAndroidBridge.android_linearlayout_add_view_weight(@env, footer, spacer, 0, -2, 1.0_f32)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, footer, -1, -2)
+        push_stack(native, footer, is_linear: true)
+        dismiss_button = UI::Button.new("Dismiss", role: :cancel, style: UI::ButtonStyle::Borderless)
+        dismiss_button.on_tap = dismiss_handler
+        dismiss_button.accept(self)
+        pop_stack
+      end
+
+      apply_common_non_surface_properties(card, view)
+      push_native(native, card)
     end
 
     # -----------------------------------------------------------------
-    # Visit: Popover -> android.widget.FrameLayout (popover placeholder)
+    # Visit: Popover -> inline Material callout surface
     # -----------------------------------------------------------------
     def visit(view : UI::Popover)
-      fl = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+      outer = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      is_horizontal = view.arrow_edge == :leading || view.arrow_edge == :trailing
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, outer, is_horizontal ? 0 : 1)
 
       unless view.is_presented
-        LibAndroidBridge.android_view_set_visibility(@env, fl, 8) # GONE
+        LibAndroidBridge.android_view_set_visibility(@env, outer, 8)
       end
 
-      apply_common_properties(fl, view)
+      arrow_glyph = case view.arrow_edge
+                    when :top      then "▲"
+                    when :leading  then "◀"
+                    when :trailing then "▶"
+                    else                "▼"
+                    end
+      arrow = new_text_view(arrow_glyph, 20.0_f32, material_color(:primary), 1)
 
-      global_fl = LibAndroidBridge.android_new_global_ref(@env, fl)
-      handle = JNI.wrap_global(global_fl, label: "FrameLayout[popover]")
+      card = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
+      content = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, content, 1)
+      LibAndroidBridge.android_material_card_set_background_color(@env, card, material_color(:surface))
+      LibAndroidBridge.android_material_card_set_radius(@env, card, @material_theme.corner_radius_medium.to_f32)
+      LibAndroidBridge.android_material_card_set_elevation(@env, card, 6.0_f32)
+      LibAndroidBridge.android_material_card_set_stroke_color(@env, card, material_color(:outline_variant))
+      LibAndroidBridge.android_material_card_set_stroke_width(@env, card, 1)
+      LibAndroidBridge.android_view_set_padding(@env, content, 18, 18, 18, 18)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, card, content, -1, -2)
+
+      if view.arrow_edge == :top || view.arrow_edge == :leading
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, arrow, -2, -2)
+      end
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, card, view.preferred_width.try(&.round.to_i) || -2, view.preferred_height.try(&.round.to_i) || -2)
+      if view.arrow_edge == :bottom || view.arrow_edge == :trailing
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, arrow, -2, -2)
+      end
+
+      title = new_text_view("Popover", 16.0_f32, material_color(:on_surface), 1)
+      subtitle = new_text_view("Arrow edge: #{view.arrow_edge.to_s.capitalize}", 12.0_f32, material_color(:on_surface_variant), 0)
+      LibAndroidBridge.android_view_set_padding(@env, title, 0, 0, 0, 4)
+      LibAndroidBridge.android_view_set_padding(@env, subtitle, 0, 0, 0, 12)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, title, -1, -2)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, subtitle, -1, -2)
+
+      global_outer = LibAndroidBridge.android_new_global_ref(@env, outer)
+      handle = JNI.wrap_global(global_outer, label: "LinearLayout[popover]")
       native = NativeView.new(handle)
 
-      if content = view.content
-        push_stack(native, fl, is_linear: false)
-        content.accept(self)
+      if content_view = view.content
+        inner = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, inner, 1)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, inner, -1, -2)
+        push_stack(native, inner, is_linear: true)
+        content_view.accept(self)
         pop_stack
       end
 
-      push_native(native, fl)
+      if dismiss_handler = view.on_dismiss
+        footer = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, footer, 0)
+        LibAndroidBridge.android_view_set_padding(@env, footer, 0, 14, 0, 0)
+        spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
+        LibAndroidBridge.android_linearlayout_add_view_weight(@env, footer, spacer, 0, -2, 1.0_f32)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, footer, -1, -2)
+        push_stack(native, footer, is_linear: true)
+        dismiss_button = UI::Button.new("Close", role: :cancel, style: UI::ButtonStyle::Borderless)
+        dismiss_button.on_tap = dismiss_handler
+        dismiss_button.accept(self)
+        pop_stack
+      end
+
+      apply_common_non_surface_properties(outer, view)
+      push_native(native, outer)
     end
 
     # -----------------------------------------------------------------
@@ -1824,21 +2017,47 @@ module UI::Android
     end
 
     # -----------------------------------------------------------------
-    # Visit: Snackbar -> android.widget.TextView (snackbar placeholder)
+    # Visit: Snackbar -> inline Material snackbar surface
     # -----------------------------------------------------------------
     def visit(view : UI::Snackbar)
-      tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
-
-      LibAndroidBridge.android_textview_set_text(
-        @env, tv, view.message.to_unsafe, view.message.bytesize)
+      card = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
+      row = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, row, 0)
+      LibAndroidBridge.android_linearlayout_set_gravity(@env, row, 16)
 
       unless view.is_presented
-        LibAndroidBridge.android_view_set_visibility(@env, tv, 8) # GONE
+        LibAndroidBridge.android_view_set_visibility(@env, card, 8)
       end
 
-      apply_common_properties(tv, view)
+      LibAndroidBridge.android_material_card_set_background_color(@env, card, material_color(:inverse_surface))
+      LibAndroidBridge.android_material_card_set_radius(@env, card, @material_theme.corner_radius_large.to_f32)
+      LibAndroidBridge.android_material_card_set_elevation(@env, card, 6.0_f32)
+      LibAndroidBridge.android_view_set_padding(@env, row, 16, 14, 16, 14)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, card, row, -1, -2)
 
-      emit(tv, "TextView[snackbar]")
+      message = new_text_view(view.message, 14.0_f32, material_color(:inverse_on_surface), 0)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, row, message, -2, -2)
+
+      spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
+      LibAndroidBridge.android_linearlayout_add_view_weight(@env, row, spacer, 0, -2, 1.0_f32)
+
+      global_card = LibAndroidBridge.android_new_global_ref(@env, card)
+      handle = JNI.wrap_global(global_card, label: "MaterialCardView[snackbar]")
+      native = NativeView.new(handle)
+
+      if action_label = view.action_label
+        push_stack(native, row, is_linear: true)
+        action_button = UI::Button.new(action_label, style: UI::ButtonStyle::Borderless)
+        action_button.on_tap = view.on_action if view.on_action
+        action_button.accept(self)
+        pop_stack
+      else
+        duration = new_text_view("#{view.duration.round.to_i}s", 12.0_f32, material_color(:primary), 1)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, row, duration, -2, -2)
+      end
+
+      apply_common_non_surface_properties(card, view)
+      push_native(native, card)
     end
 
     # -----------------------------------------------------------------
@@ -2479,24 +2698,98 @@ module UI::Android
       emit(container, "LinearLayout[webview]")
     end
 
-    # ColorPicker: android.view.View placeholder for color selection UI.
-    # Android's color picker is typically implemented via a custom dialog;
-    # background color reflects the currently selected color.
+    # ColorPicker: inline swatch palette with selected-color preview.
     def visit(view : UI::ColorPicker)
-      v = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+      card = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
+      content = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, content, 1)
+      LibAndroidBridge.android_material_card_set_background_color(@env, card, material_color(:surface))
+      LibAndroidBridge.android_material_card_set_radius(@env, card, @material_theme.corner_radius_medium.to_f32)
+      LibAndroidBridge.android_material_card_set_elevation(@env, card, 4.0_f32)
+      LibAndroidBridge.android_material_card_set_stroke_color(@env, card, material_color(:outline_variant))
+      LibAndroidBridge.android_material_card_set_stroke_width(@env, card, 1)
+      LibAndroidBridge.android_view_set_padding(@env, content, 16, 16, 16, 16)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, card, content, -1, -2)
 
-      # Show selected color as background
-      LibAndroidBridge.android_view_set_background_color(
-        @env, v, color_to_argb(view.selected_color))
+      title_text = view.label.empty? ? "Color selection" : view.label
+      title = new_text_view(title_text, 18.0_f32, material_color(:on_surface), 1)
+      subtitle = new_text_view("Selected: #{hex_color(view.selected_color)}", 13.0_f32, material_color(:on_surface_variant), 0)
+      LibAndroidBridge.android_view_set_padding(@env, title, 0, 0, 0, 4)
+      LibAndroidBridge.android_view_set_padding(@env, subtitle, 0, 0, 0, 14)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, title, -1, -2)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, subtitle, -1, -2)
 
-      # Use label as content description
-      unless view.label.empty?
-        LibAndroidBridge.android_view_set_content_description(
-          @env, v, view.label.to_unsafe, view.label.bytesize)
+      preview_row = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, preview_row, 0)
+      LibAndroidBridge.android_linearlayout_set_gravity(@env, preview_row, 16)
+      LibAndroidBridge.android_view_set_padding(@env, preview_row, 0, 0, 0, 16)
+      preview_swatch = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+      LibAndroidBridge.android_view_set_background_color(@env, preview_swatch, color_to_argb(view.selected_color))
+      LibAndroidBridge.android_view_set_corner_radius(@env, preview_swatch, 16.0_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, preview_swatch, 1)
+      LibAndroidBridge.android_view_set_stroke(@env, preview_swatch, 1.5_f32, material_color(:outline))
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, preview_row, preview_swatch, 32, 32)
+      preview_note = new_text_view(view.supports_alpha ? "Alpha-aware selection enabled" : "Solid color selection", 12.0_f32, material_color(:on_surface_variant), 0)
+      LibAndroidBridge.android_view_set_padding(@env, preview_note, 12, 0, 0, 0)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, preview_row, preview_note, -2, -2)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, preview_row, -1, -2)
+
+      palette = [
+        {label: "Violet", color: UI::Color.new(r: 0.40, g: 0.31, b: 0.89)},
+        {label: "Blue", color: UI::Color.new(r: 0.12, g: 0.47, b: 0.95)},
+        {label: "Mint", color: UI::Color.new(r: 0.13, g: 0.69, b: 0.58)},
+        {label: "Lime", color: UI::Color.new(r: 0.47, g: 0.74, b: 0.19)},
+        {label: "Amber", color: UI::Color.new(r: 0.96, g: 0.69, b: 0.12)},
+        {label: "Coral", color: UI::Color.new(r: 0.92, g: 0.39, b: 0.29)},
+        {label: "Rose", color: UI::Color.new(r: 0.83, g: 0.28, b: 0.53)},
+        {label: "Slate", color: UI::Color.new(r: 0.36, g: 0.39, b: 0.45)},
+      ]
+
+      global_card = LibAndroidBridge.android_new_global_ref(@env, card)
+      handle = JNI.wrap_global(global_card, label: "MaterialCardView[color-picker]")
+      native = NativeView.new(handle)
+      selected_argb = color_to_argb(view.selected_color)
+      color_change_handler = view.on_change
+
+      palette.each_slice(4) do |slice|
+        row = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, row, 0)
+        LibAndroidBridge.android_view_set_padding(@env, row, 0, 0, 0, 12)
+        slice.each do |entry|
+          item = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+          LibAndroidBridge.android_linearlayout_set_orientation(@env, item, 1)
+          LibAndroidBridge.android_linearlayout_set_gravity(@env, item, 1)
+          LibAndroidBridge.android_view_set_padding(@env, item, 6, 0, 6, 0)
+
+          swatch = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+          swatch_color = entry[:color]
+          swatch_argb = color_to_argb(swatch_color)
+          LibAndroidBridge.android_view_set_background_color(@env, swatch, swatch_argb)
+          LibAndroidBridge.android_view_set_corner_radius(@env, swatch, 20.0_f32)
+          LibAndroidBridge.android_view_set_clip_to_outline(@env, swatch, 1)
+          if swatch_argb == selected_argb
+            LibAndroidBridge.android_view_set_stroke(@env, swatch, 3.0_f32, material_color(:primary))
+          else
+            LibAndroidBridge.android_view_set_stroke(@env, swatch, 1.0_f32, material_color(:outline_variant))
+          end
+          description = swatch_argb == selected_argb ? "#{entry[:label]} selected" : entry[:label]
+          LibAndroidBridge.android_view_set_content_description(@env, swatch, description.to_unsafe, description.bytesize)
+          if captured_change_handler = color_change_handler
+            callback_id = native.register_callback(Proc(Nil).new { captured_change_handler.call(swatch_color) })
+            LibAndroidBridge.android_view_set_on_click_listener(@env, swatch, callback_id)
+          end
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, item, swatch, 40, 40)
+
+          label = new_text_view(entry[:label], 11.0_f32, material_color(:on_surface_variant), 0)
+          LibAndroidBridge.android_view_set_padding(@env, label, 0, 8, 0, 0)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, item, label, -2, -2)
+          LibAndroidBridge.android_linearlayout_add_view_weight(@env, row, item, 0, -2, 1.0_f32)
+        end
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, row, -1, -2)
       end
 
-      apply_common_properties(v, view)
-      emit(v, "View[color-picker]")
+      apply_common_properties(card, view)
+      push_native(native, card)
     end
 
     # VideoPlayer: native VideoView mounted in a Material media surface.
@@ -2576,19 +2869,180 @@ module UI::Android
     end
 
     # -----------------------------------------------------------------
-    # Visit: ActivityView -> LinearLayout placeholder
-    # Android uses Intent.ACTION_SEND / ShareCompat for sharing.
-    # This renderer emits a LinearLayout stub so the abstract visit
-    # contract is satisfied. Production apps should dispatch an Intent.
+    # Visit: ActivityView -> inline share-sheet preview plus chooser dispatch
     # -----------------------------------------------------------------
     def visit(view : UI::ActivityView)
-      container = LibAndroidBridge.android_view_new(
-        @env, "android/widget/LinearLayout", @context)
-      apply_common_properties(container, view)
-      global_ptr = LibAndroidBridge.android_new_global_ref(@env, container)
-      handle = JNI.wrap_global(global_ptr, label: "LinearLayout[activity-view]")
+      share_text = view.share_text || ""
+      share_url = view.share_url || ""
+      share_subject = view.share_subject || view.title
+      has_share_payload = !share_text.empty? || !share_url.empty?
+
+      if view.is_presented && has_share_payload
+        LibAndroidBridge.android_context_start_share_chooser(
+          @env,
+          @context,
+          view.title.to_unsafe,
+          view.title.bytesize,
+          share_text.to_unsafe,
+          share_text.bytesize,
+          share_url.to_unsafe,
+          share_url.bytesize,
+          share_subject.to_unsafe,
+          share_subject.bytesize
+        )
+      end
+
+      card = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
+      content = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, content, 1)
+      LibAndroidBridge.android_material_card_set_background_color(@env, card, material_color(:surface))
+      LibAndroidBridge.android_material_card_set_radius(@env, card, @material_theme.corner_radius_large.to_f32)
+      LibAndroidBridge.android_material_card_set_elevation(@env, card, 10.0_f32)
+      LibAndroidBridge.android_material_card_set_stroke_color(@env, card, material_color(:outline_variant))
+      LibAndroidBridge.android_material_card_set_stroke_width(@env, card, 1)
+      LibAndroidBridge.android_view_set_padding(@env, content, 18, 18, 18, 18)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, card, content, -1, -2)
+
+      global_card = LibAndroidBridge.android_new_global_ref(@env, card)
+      handle = JNI.wrap_global(global_card, label: "MaterialCardView[activity-view]")
       native = NativeView.new(handle)
-      push_native(native, container)
+
+      header = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, header, 0)
+      LibAndroidBridge.android_linearlayout_set_gravity(@env, header, 16)
+      LibAndroidBridge.android_view_set_padding(@env, header, 0, 0, 0, 16)
+
+      if thumbnail = view.thumbnail
+        thumb = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+        LibAndroidBridge.android_view_set_background_color(@env, thumb, material_color(:secondary_container))
+        LibAndroidBridge.android_view_set_corner_radius(@env, thumb, 16.0_f32)
+        LibAndroidBridge.android_view_set_clip_to_outline(@env, thumb, 1)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, header, thumb, 56, 56)
+        push_stack(native, thumb, is_linear: false)
+        thumbnail.accept(self)
+        pop_stack
+      else
+        avatar = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+        LibAndroidBridge.android_view_set_background_color(@env, avatar, material_color(:secondary_container))
+        LibAndroidBridge.android_view_set_corner_radius(@env, avatar, 16.0_f32)
+        LibAndroidBridge.android_view_set_clip_to_outline(@env, avatar, 1)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, header, avatar, 56, 56)
+      end
+
+      header_text = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, header_text, 1)
+      LibAndroidBridge.android_view_set_padding(@env, header_text, 14, 0, 0, 0)
+      title = new_text_view(view.title, 18.0_f32, material_color(:on_surface), 1)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, header_text, title, -1, -2)
+      if subtitle = view.subtitle
+        subtitle_view = new_text_view(subtitle, 13.0_f32, material_color(:on_surface_variant), 0)
+        LibAndroidBridge.android_view_set_padding(@env, subtitle_view, 0, 4, 0, 0)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, header_text, subtitle_view, -1, -2)
+      end
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, header, header_text, -1, -2)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, header, -1, -2)
+
+      status = if view.is_presented && has_share_payload
+                 "System Android chooser dispatched during presentation."
+               elsif has_share_payload
+                 "Share payload is ready for the Android chooser."
+               else
+                 "Previewing inline destinations and actions."
+               end
+      status_view = new_text_view(status, 12.0_f32, material_color(:on_surface_variant), 0)
+      LibAndroidBridge.android_view_set_padding(@env, status_view, 0, 0, 0, 16)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, status_view, -1, -2)
+
+      unless view.destinations.empty?
+        destinations_heading = new_text_view("Share targets", 13.0_f32, material_color(:on_surface_variant), 1)
+        LibAndroidBridge.android_view_set_padding(@env, destinations_heading, 0, 0, 0, 10)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, destinations_heading, -1, -2)
+
+        destination_row = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, destination_row, 0)
+        LibAndroidBridge.android_view_set_padding(@env, destination_row, 0, 0, 0, 16)
+        view.destinations.each do |destination|
+          item = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
+          inner = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+          LibAndroidBridge.android_linearlayout_set_orientation(@env, inner, 1)
+          LibAndroidBridge.android_linearlayout_set_gravity(@env, inner, 1)
+          LibAndroidBridge.android_material_card_set_background_color(@env, item, material_color(:secondary_container))
+          LibAndroidBridge.android_material_card_set_radius(@env, item, 20.0_f32)
+          LibAndroidBridge.android_material_card_set_elevation(@env, item, 0.0_f32)
+          LibAndroidBridge.android_view_set_padding(@env, inner, 12, 12, 12, 12)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, item, inner, -1, -2)
+
+          glyph_source = destination.label.empty? ? destination.icon_symbol : destination.label
+          glyph = glyph_source.empty? ? "•" : glyph_source[0].upcase.to_s
+          icon = new_text_view(glyph, 18.0_f32, material_color(:on_secondary_container), 1)
+          label = new_text_view(destination.label, 11.0_f32, material_color(:on_secondary_container), 0)
+          LibAndroidBridge.android_view_set_padding(@env, label, 0, 8, 0, 0)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, inner, icon, -2, -2)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, inner, label, -2, -2)
+          if callback = destination.on_select
+            callback_id = native.register_callback(callback)
+            LibAndroidBridge.android_view_set_on_click_listener(@env, item, callback_id)
+          end
+          LibAndroidBridge.android_linearlayout_add_view_weight(@env, destination_row, item, 0, -2, 1.0_f32)
+        end
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, destination_row, -1, -2)
+      end
+
+      unless view.actions.empty?
+        actions_heading = new_text_view("Quick actions", 13.0_f32, material_color(:on_surface_variant), 1)
+        LibAndroidBridge.android_view_set_padding(@env, actions_heading, 0, 0, 0, 10)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, actions_heading, -1, -2)
+
+        view.actions.each_slice(2) do |slice|
+          row = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+          LibAndroidBridge.android_linearlayout_set_orientation(@env, row, 0)
+          LibAndroidBridge.android_view_set_padding(@env, row, 0, 0, 0, 10)
+          slice.each do |action|
+            tile = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
+            inner = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+            LibAndroidBridge.android_linearlayout_set_orientation(@env, inner, 1)
+            LibAndroidBridge.android_material_card_set_background_color(@env, tile, material_color(:surface_variant))
+            LibAndroidBridge.android_material_card_set_radius(@env, tile, @material_theme.corner_radius_medium.to_f32)
+            LibAndroidBridge.android_material_card_set_elevation(@env, tile, 0.0_f32)
+            LibAndroidBridge.android_material_card_set_stroke_color(@env, tile, material_color(:outline_variant))
+            LibAndroidBridge.android_material_card_set_stroke_width(@env, tile, 1)
+            LibAndroidBridge.android_view_set_padding(@env, inner, 14, 14, 14, 14)
+            LibAndroidBridge.android_viewgroup_add_view_wh(@env, tile, inner, -1, -2)
+
+            action_color = action.role == :destructive ? material_color(:error) : material_color(:on_surface)
+            glyph_source = action.label.empty? ? action.icon_symbol : action.label
+            glyph = glyph_source.empty? ? "•" : glyph_source[0].upcase.to_s
+            icon = new_text_view(glyph, 17.0_f32, action_color, 1)
+            label = new_text_view(action.label, 12.0_f32, action_color, 1)
+            LibAndroidBridge.android_view_set_padding(@env, label, 0, 8, 0, 0)
+            LibAndroidBridge.android_viewgroup_add_view_wh(@env, inner, icon, -2, -2)
+            LibAndroidBridge.android_viewgroup_add_view_wh(@env, inner, label, -1, -2)
+            if callback = action.on_select
+              callback_id = native.register_callback(callback)
+              LibAndroidBridge.android_view_set_on_click_listener(@env, tile, callback_id)
+            end
+            LibAndroidBridge.android_linearlayout_add_view_weight(@env, row, tile, 0, -2, 1.0_f32)
+          end
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, row, -1, -2)
+        end
+      end
+
+      if cancel_handler = view.on_cancel
+        footer = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, footer, 0)
+        LibAndroidBridge.android_view_set_padding(@env, footer, 0, 12, 0, 0)
+        spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
+        LibAndroidBridge.android_linearlayout_add_view_weight(@env, footer, spacer, 0, -2, 1.0_f32)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, footer, -1, -2)
+        push_stack(native, footer, is_linear: true)
+        cancel_button = UI::Button.new("Cancel", role: :cancel, style: UI::ButtonStyle::Borderless)
+        cancel_button.on_tap = cancel_handler
+        cancel_button.accept(self)
+        pop_stack
+      end
+
+      apply_common_properties(card, view)
+      push_native(native, card)
     end
 
     # -----------------------------------------------------------------
@@ -2678,6 +3132,18 @@ module UI::Android
       g = (color.g * 255.0).round.to_i.clamp(0, 255)
       b = (color.b * 255.0).round.to_i.clamp(0, 255)
       ((a << 24) | (r << 16) | (g << 8) | b).to_i32
+    end
+
+    private def hex_color(color : UI::Color) : String
+      r = (color.r * 255.0).round.to_i.clamp(0, 255)
+      g = (color.g * 255.0).round.to_i.clamp(0, 255)
+      b = (color.b * 255.0).round.to_i.clamp(0, 255)
+      if color.a < 1.0
+        a = (color.a * 255.0).round.to_i.clamp(0, 255)
+        "#%02X%02X%02X%02X" % {a, r, g, b}
+      else
+        "#%02X%02X%02X" % {r, g, b}
+      end
     end
 
     private def material_color(role : Symbol) : Int32

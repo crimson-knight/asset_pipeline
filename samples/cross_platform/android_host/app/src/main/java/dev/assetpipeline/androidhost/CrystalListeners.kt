@@ -3,6 +3,7 @@ package dev.assetpipeline.androidhost
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+import android.widget.AdapterView
 import android.widget.CompoundButton
 import android.widget.RadioGroup
 import android.widget.SearchView
@@ -75,5 +76,20 @@ class CrystalSearchCloseListener(private val callbackId: Long) : SearchView.OnCl
             CrystalBridge.dispatchVoidCallback(callbackId)
         }
         return false
+    }
+}
+
+class CrystalItemSelectedListener(private val callbackId: Long) : AdapterView.OnItemSelectedListener {
+    private var hasSeenInitialSelection = false
+
+    override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+        if (!hasSeenInitialSelection) {
+            hasSeenInitialSelection = true
+            return
+        }
+        CrystalBridge.dispatchIntCallback(callbackId, position)
+    }
+
+    override fun onNothingSelected(parent: AdapterView<*>?) {
     }
 }
