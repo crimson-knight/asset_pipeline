@@ -156,7 +156,7 @@ else
   info "Skipping build at user request"
 fi
 
-warn "Captures remain shell-only until the renderer mount is wired to real Android renderer output."
+warn "Keep studies pending until the captured renderer output is reviewed against Material 3 expectations and ledger criteria."
 
 while IFS= read -r slug; do
   [[ -n "$slug" ]] || continue

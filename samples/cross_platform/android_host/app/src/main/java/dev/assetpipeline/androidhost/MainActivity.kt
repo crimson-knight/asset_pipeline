@@ -2,16 +2,17 @@ package dev.assetpipeline.androidhost
 
 import android.os.Bundle
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
-import com.google.android.material.chip.ChipGroup
 import dev.assetpipeline.androidhost.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
+    private lateinit var study: StudySpec
+    private var storyText: String = DEFAULT_STORY
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val requestedAppearance = intent.getStringExtra(EXTRA_STUDY_APPEARANCE)?.lowercase()
@@ -27,9 +28,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val study = StudyCatalog.bySlug(intent.getStringExtra(EXTRA_STUDY_SLUG))
+        study = StudyCatalog.bySlug(intent.getStringExtra(EXTRA_STUDY_SLUG))
         val appearance = requestedAppearance ?: "system"
-        val story = intent.getStringExtra(EXTRA_STUDY_STORY) ?: DEFAULT_STORY
+        storyText = intent.getStringExtra(EXTRA_STUDY_STORY) ?: DEFAULT_STORY
 
         binding.toolbar.subtitle = study.slug
         binding.studyTitle.text = study.title
@@ -38,7 +39,7 @@ class MainActivity : AppCompatActivity() {
         binding.mountSummary.text =
             "Host shell ready. This mount card is where the Crystal Android renderer attaches native study content for ${study.slug}."
         binding.footnote.text =
-            "Validation status: ${study.status}. Story: $story. The screenshot ledger should only be promoted after this mount contains renderer output."
+            "Validation status: ${study.status}. Story: $storyText. The screenshot ledger should only be promoted after this mount contains renderer output."
 
         addChip("Priority ${study.priority}")
         addChip("Lane ${study.lane}")
@@ -63,12 +64,31 @@ class MainActivity : AppCompatActivity() {
             radius = resources.displayMetrics.density.times(28f)
         }
 
+        binding.rendererMount.removeAllViews()
+
+        val renderedView = runCatching {
+            CrystalBridge.initialize()
+            CrystalBridge.renderStudy(this, study.slug)
+        }.getOrNull()
+
+        if (renderedView != null) {
+            binding.mountSummary.text =
+                "Renderer mount live. This study is being drawn by the Crystal Android renderer for ${study.slug}."
+            binding.footnote.text =
+                "Validation status: ${study.status}. Story: $storyText. Review renderer output against Material 3 expectations before promoting the ledger."
+            renderedView.layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+            binding.rendererMount.addView(renderedView)
+            return
+        }
+
         val placeholder = TextView(this).apply {
             text = "Renderer mount pending native attach"
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             setPadding(24, 24, 24, 24)
         }
-        binding.rendererMount.removeAllViews()
         binding.rendererMount.addView(placeholder)
     }
 
@@ -80,4 +100,3 @@ class MainActivity : AppCompatActivity() {
         private const val DEFAULT_STORY = "Cross-platform showcase shell"
     }
 }
-

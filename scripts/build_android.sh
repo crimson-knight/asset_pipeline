@@ -20,6 +20,11 @@
 # The .so can be loaded from Kotlin/Java via System.loadLibrary("<name>").
 # The JNI bridge in samples/cross_platform/android/jni_bridge.c provides
 # a template for wiring Crystal functions into JNI_OnLoad.
+#
+# Extra native sources:
+#   Set EXTRA_C_SOURCES to a space-separated list of C sources that should be
+#   compiled with the NDK clang and linked into the final shared library.
+#   This is how Android JNI bridge files and renderer support shims are added.
 
 set -euo pipefail
 
@@ -38,7 +43,13 @@ BUILD_DIR="${BUILD_DIR:-$(cd "$(dirname "$0")/.." && pwd)/build}"
 CRYSTAL_FLAGS="${CRYSTAL_FLAGS:--Dwithout_openssl -Dwithout_xml}"
 
 # Extra flags passed to NDK clang at link time (e.g. -llog for Android logging)
-EXTRA_LINK_FLAGS="${EXTRA_LINK_FLAGS:--llog}"
+EXTRA_LINK_FLAGS="${EXTRA_LINK_FLAGS:--llog -lz}"
+
+# Optional extra C sources to compile and link into the final shared object.
+EXTRA_C_SOURCES="${EXTRA_C_SOURCES:-}"
+
+# Optional extra CFLAGS for additional include paths or feature defines.
+EXTRA_CFLAGS="${EXTRA_CFLAGS:-}"
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -113,6 +124,7 @@ DEPS_DIR="${CROSS_DEPS}/android-arm64"
 OUT_DIR="${BUILD_DIR}/android-arm64"
 OBJECT_FILE="${OUT_DIR}/${STEM}.o"
 SO_FILE="${OUT_DIR}/lib${STEM}.so"
+C_OBJECTS=()
 
 # ---------------------------------------------------------------------------
 # Validation
@@ -146,7 +158,6 @@ step "Output:  $OBJECT_FILE"
 "$CRYSTAL" build "$SOURCE" \
     --cross-compile \
     --target "$CRYSTAL_TARGET" \
-    --shared \
     $CRYSTAL_FLAGS \
     -o "${OUT_DIR}/${STEM}"
 
@@ -155,6 +166,28 @@ step "Output:  $OBJECT_FILE"
 
 step "Object file produced:"
 file "$OBJECT_FILE"
+
+# ---------------------------------------------------------------------------
+# Step 1.5: Compile extra C bridge sources
+# ---------------------------------------------------------------------------
+
+if [[ -n "$EXTRA_C_SOURCES" ]]; then
+    info "Step 1.5/2: Compiling extra C sources"
+    for source in $EXTRA_C_SOURCES; do
+        [[ -f "$source" ]] || die "Extra C source not found: $source"
+        obj_name="$(basename "${source%.*}")"
+        obj_path="${OUT_DIR}/${obj_name}.o"
+        step "Compiling: $source -> $obj_path"
+        "$NDK_CLANG" \
+            --target="aarch64-linux-android${ANDROID_API}" \
+            -c \
+            -fPIC \
+            $EXTRA_CFLAGS \
+            "$source" \
+            -o "$obj_path"
+        C_OBJECTS+=("$obj_path")
+    done
+fi
 
 # ---------------------------------------------------------------------------
 # Step 2: Link with NDK clang -> .so
@@ -173,6 +206,7 @@ step "Output:  $SO_FILE"
     -fPIC \
     -o "$SO_FILE" \
     "$OBJECT_FILE" \
+    "${C_OBJECTS[@]}" \
     "${DEPS_DIR}/lib/libgc.a" \
     "${DEPS_DIR}/lib/libpcre2-8.a" \
     -Wl,--build-id \

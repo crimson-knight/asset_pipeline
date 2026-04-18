@@ -3,6 +3,16 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val crystalBridgeBuildScript = rootProject.file("build_crystal_lib.sh")
+
+val buildCrystalBridge by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Build the Crystal-backed Android renderer bridge for the host app."
+
+    workingDir = rootProject.projectDir
+    commandLine("bash", crystalBridgeBuildScript.absolutePath)
+}
+
 android {
     namespace = "dev.assetpipeline.androidhost"
     compileSdk = 35
@@ -40,6 +50,10 @@ android {
     buildFeatures {
         viewBinding = true
     }
+}
+
+tasks.matching { it.name == "preBuild" }.configureEach {
+    dependsOn(buildCrystalBridge)
 }
 
 dependencies {

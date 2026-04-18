@@ -71,6 +71,11 @@ module UI::Android
     fun android_edittext_set_text(env : Void*, et : Void*, text : UInt8*, byte_len : Int32)
     fun android_edittext_get_text(env : Void*, et : Void*) : Void* # returns jstring
 
+    # --- WebView / Media ---
+    fun android_webview_load_url(env : Void*, web : Void*, url : UInt8*, byte_len : Int32)
+    fun android_webview_load_html(env : Void*, web : Void*, html : UInt8*, html_len : Int32,
+                                  base_url : UInt8*, base_url_len : Int32)
+
     # --- LinearLayout ---
     fun android_linearlayout_set_orientation(env : Void*, ll : Void*, orientation : Int32)
     # orientation: 0=HORIZONTAL, 1=VERTICAL
@@ -332,7 +337,11 @@ module UI::Android
       end
 
       if zero_padding?(view.padding)
-        LibAndroidBridge.android_view_set_padding(@env, btn, 24, 14, 24, 14)
+        if view.style == UI::ButtonStyle::Borderless
+          LibAndroidBridge.android_view_set_padding(@env, btn, 12, 10, 12, 10)
+        else
+          LibAndroidBridge.android_view_set_padding(@env, btn, 24, 14, 24, 14)
+        end
       end
 
       # Enabled state: VISIBLE=0, INVISIBLE=4, GONE=8; enabled is separate
@@ -2174,14 +2183,14 @@ module UI::Android
       LibAndroidBridge.android_view_set_elevation(@env, container, 4.0_f32)
       LibAndroidBridge.android_view_set_padding(@env, container, 16, 16, 16, 16)
 
-      desc = "map:#{view.map_type}:#{view.latitude},#{view.longitude}:z#{view.zoom_level}"
+      desc = "map:#{view.map_type}:annotations=#{view.annotations.size}:user=#{view.shows_user_location}"
       LibAndroidBridge.android_view_set_content_description(
         @env, container, desc.to_unsafe, desc.bytesize)
 
       title = new_text_view("Map preview", 18.0_f32, material_color(:on_surface), 1)
       LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, title, -1, -2)
 
-      subtitle_text = "#{view.map_type.to_s.capitalize}  #{view.latitude.round(4)}, #{view.longitude.round(4)}  z#{view.zoom_level.round(1)}"
+      subtitle_text = "#{view.map_type.to_s.capitalize} map  #{view.annotations.size} pins  #{view.shows_user_location ? "user on" : "user off"}"
       subtitle = new_text_view(subtitle_text, 13.0_f32, material_color(:on_surface_variant), 0)
       LibAndroidBridge.android_view_set_padding(@env, subtitle, 0, 8, 0, 12)
       LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, subtitle, -1, -2)
@@ -2370,6 +2379,19 @@ module UI::Android
       LibAndroidBridge.android_view_set_clip_to_outline(@env, web, 1)
       LibAndroidBridge.android_view_set_content_description(
         @env, web, source_text.to_unsafe, source_text.bytesize)
+      if html = view.html
+        base_url = view.base_url || "https://asset-pipeline.local/android-material"
+        LibAndroidBridge.android_webview_load_html(
+          @env,
+          web,
+          html.to_unsafe,
+          html.bytesize,
+          base_url.to_unsafe,
+          base_url.bytesize
+        )
+      elsif !view.url.empty?
+        LibAndroidBridge.android_webview_load_url(@env, web, view.url.to_unsafe, view.url.bytesize)
+      end
       LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, web, -1, 260)
 
       apply_common_properties(container, view)
@@ -2433,6 +2455,8 @@ module UI::Android
       play_label = new_text_view(view.is_playing ? "Playing" : "Paused", 12.0_f32, material_color(:primary), 1)
       sound_label = new_text_view(view.muted ? "Muted" : "Audio on", 12.0_f32, material_color(:on_surface_variant), 0)
       controls_label = new_text_view(view.shows_controls ? "Controls visible" : "Controls hidden", 12.0_f32, material_color(:on_surface_variant), 0)
+      LibAndroidBridge.android_view_set_padding(@env, play_label, 0, 0, 16, 0)
+      LibAndroidBridge.android_view_set_padding(@env, sound_label, 0, 0, 16, 0)
       LibAndroidBridge.android_viewgroup_add_view_wh(@env, control_row, play_label, -2, -2)
       LibAndroidBridge.android_viewgroup_add_view_wh(@env, control_row, sound_label, -2, -2)
       LibAndroidBridge.android_viewgroup_add_view_wh(@env, control_row, controls_label, -2, -2)

@@ -4,4 +4,4 @@ build/
 app/build/
 .idea/
 captures/
-
+app/src/main/jniLibs/

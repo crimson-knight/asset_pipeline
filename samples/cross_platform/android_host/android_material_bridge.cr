@@ -1,0 +1,344 @@
+require "../../../scripts/crystal_init"
+require "../../../src/ui"
+
+module AndroidMaterialHost
+  module Bridge
+    @@runtime_initialized = false
+    @@last_native : UI::NativeView? = nil
+
+    def self.initialize_runtime : Nil
+      return if @@runtime_initialized
+      crystal_init
+      @@runtime_initialized = true
+    end
+
+    def self.render_slug(env : Void*, context : Void*, slug : String) : Void*
+      initialize_runtime
+
+      # Keep the most recent native tree strongly reachable while the Android
+      # host owns the mounted view hierarchy.
+      view = build_component(slug)
+      renderer = UI::Android::Renderer.new(env, context)
+      native = renderer.render(view)
+      @@last_native = native
+      native.handle.ptr!
+    end
+
+    def self.build_component(slug : String) : UI::View
+      case slug
+      when "buttons"      then build_buttons
+      when "text-fields"  then build_text_fields
+      when "cards"        then build_cards
+      when "dialogs"      then build_dialogs
+      when "app-bars"     then build_app_bars
+      when "webview"      then build_webview
+      when "map-view"     then build_map_view
+      when "video-player" then build_video_player
+      when "chart-view"   then build_chart_view
+      else
+        build_fallback(slug)
+      end
+    end
+
+    private def self.root_stack : UI::VStack
+      stack = UI::VStack.new(16.0, UI::Alignment::Leading)
+      stack.test_id = "android-material-study-root"
+      stack.accessibility_label = "Android Material study"
+      stack.padding = UI::EdgeInsets.new(top: 20.0, trailing: 20.0, bottom: 20.0, leading: 20.0)
+      stack.background = UI::Color.new(r: 0.98, g: 0.97, b: 0.99)
+      stack.corner_radius = 20.0
+      stack
+    end
+
+    private def self.heading(text : String) : UI::Label
+      label = UI::Label.new(text)
+      label.font = UI::Font.new(size: 22.0, weight: :bold)
+      label.text_color = UI::Color.new(r: 0.11, g: 0.11, b: 0.15)
+      label.text_color_role = nil
+      label
+    end
+
+    private def self.subheading(text : String) : UI::Label
+      label = UI::Label.new(text)
+      label.font = UI::Font.new(size: 14.0, weight: :regular)
+      label.text_color = UI::Color.new(r: 0.34, g: 0.35, b: 0.4)
+      label.text_color_role = nil
+      label.number_of_lines = 0
+      label
+    end
+
+    private def self.body_label(text : String) : UI::Label
+      label = UI::Label.new(text)
+      label.font = UI::Font.new(size: 15.0, weight: :regular)
+      label.text_color = UI::Color.new(r: 0.16, g: 0.16, b: 0.2)
+      label.text_color_role = nil
+      label.number_of_lines = 0
+      label
+    end
+
+    private def self.support_card(title : String, detail : String) : UI::Card
+      content = UI::VStack.new(10.0, UI::Alignment::Leading)
+      content << body_label(detail)
+
+      card = UI::Card.new(content)
+      card.title = title
+      card.material = :secondary
+      card.elevation = 2.0
+      card
+    end
+
+    private def self.build_buttons : UI::View
+      stack = root_stack
+      stack << heading("Material button defaults")
+      stack << subheading("Primary, tonal, outlined, and text emphasis rendered through the shared Android renderer.")
+
+      primary_row = UI::HStack.new(12.0, UI::Alignment::Center)
+      primary_row << UI::Button.new("Continue", style: UI::ButtonStyle::Prominent)
+      primary_row << UI::Button.new("Use sample", style: UI::ButtonStyle::Tinted)
+      stack << primary_row
+
+      secondary_row = UI::HStack.new(12.0, UI::Alignment::Center)
+      secondary_row << UI::Button.new("Learn more", style: UI::ButtonStyle::Bordered)
+      secondary_row << UI::Button.new("Dismiss", role: :cancel, style: UI::ButtonStyle::Borderless)
+      stack << secondary_row
+
+      destructive = UI::Button.new("Delete draft", role: :destructive, style: UI::ButtonStyle::Prominent)
+      stack << destructive
+      stack
+    end
+
+    private def self.build_text_fields : UI::View
+      stack = root_stack
+      stack << heading("Material text fields")
+      stack << subheading("Shared token-driven field chrome for common entry surfaces.")
+
+      email = UI::TextField.new("Work email")
+      email.text = "alex@amber.dev"
+      stack << email
+
+      project = UI::TextField.new("Project name")
+      project.text = "Cross-platform launch"
+      stack << project
+
+      combo = UI::ComboBox.new(
+        value: "Material baseline",
+        options: ["Material baseline", "Brand expressive", "High contrast"],
+        placeholder: "Select theme mode"
+      )
+      stack << combo
+
+      stack << support_card("Field guidance", "The Android renderer now applies intentional Material defaults instead of generic boxes.")
+      stack
+    end
+
+    private def self.build_cards : UI::View
+      stack = root_stack
+      stack << heading("Material cards")
+      stack << subheading("Elevated, outlined, and supporting surfaces rendered with shared defaults.")
+
+      summary_card = support_card("Shipment readiness", "Renderer-backed Android studies are replacing placeholder families first so the validation ledger can graduate honestly.")
+      stack << summary_card
+
+      outlined_content = UI::VStack.new(8.0, UI::Alignment::Leading)
+      outlined_content << body_label("Outline emphasis for audit-ready secondary groupings.")
+      outlined_card = UI::Card.new(outlined_content)
+      outlined_card.title = "Outlined status"
+      outlined_card.is_outlined = true
+      stack << outlined_card
+
+      tertiary_content = UI::VStack.new(8.0, UI::Alignment::Leading)
+      tertiary_content << body_label("Supporting detail surfaces can tone down emphasis without collapsing into placeholder chrome.")
+      tertiary_card = UI::Card.new(tertiary_content)
+      tertiary_card.title = "Tonal surface"
+      tertiary_card.material = :tertiary
+      tertiary_card.elevation = 1.0
+      stack << tertiary_card
+      stack
+    end
+
+    private def self.build_dialogs : UI::View
+      stack = root_stack
+      stack << heading("Material dialogs")
+      stack << subheading("Inline renderer studies for alert and confirmation flows.")
+
+      alert = UI::Alert.new("Publish this release?", "The screenshot ledger will update after the Android renderer mount contains real output.")
+      alert.is_presented = true
+      alert.add_button("Review", style: :cancel)
+      alert.add_button("Publish", style: :default)
+      stack << alert
+
+      confirm = UI::ConfirmationDialog.new("Discard the draft?", "Unsaved Android evidence annotations will be removed.")
+      confirm.is_presented = true
+      confirm.cancel_label = "Keep editing"
+      confirm.confirm_label = "Discard"
+      confirm.confirm_style = :destructive
+      stack << confirm
+      stack
+    end
+
+    private def self.build_app_bars : UI::View
+      stack = root_stack
+      stack << heading("Top app bars")
+      stack << subheading("Shared toolbar composition with title and trailing utility actions.")
+
+      main_bar = UI::Toolbar.new("Android validation")
+      main_bar.add_item("refresh", "Refresh")
+      main_bar.add_item("share", "Share")
+      stack << main_bar
+
+      detail_bar = UI::Toolbar.new("Cross-platform story")
+      detail_bar.add_item("filter", "Filter")
+      detail_bar.add_item("open", "Open")
+      stack << detail_bar
+      stack
+    end
+
+    private def self.build_webview : UI::View
+      stack = root_stack
+      stack << heading("Embedded web surface")
+
+      web = UI::WebViewComponent.new
+      web.title = "Launch brief"
+      web.base_url = "https://asset-pipeline.local/android-material"
+      web.html = <<-HTML
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              margin: 0;
+              font-family: sans-serif;
+              background: #f8f2ff;
+              color: #1d192b;
+            }
+            .shell {
+              padding: 20px;
+            }
+            .eyebrow {
+              font-size: 12px;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: #6750a4;
+            }
+            h1 {
+              margin: 10px 0 8px;
+              font-size: 24px;
+            }
+            p {
+              margin: 0 0 16px;
+              line-height: 1.45;
+            }
+            .grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 12px;
+            }
+            .card {
+              border-radius: 18px;
+              padding: 14px;
+              background: white;
+              box-shadow: 0 10px 24px rgba(103, 80, 164, 0.12);
+            }
+            .label {
+              font-size: 11px;
+              text-transform: uppercase;
+              color: #65558f;
+            }
+            .value {
+              margin-top: 6px;
+              font-size: 18px;
+              font-weight: 700;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="shell">
+            <div class="eyebrow">Android host</div>
+            <h1>Renderer-backed web content</h1>
+            <p>The shared renderer is now mounting a real Android WebView instead of a placeholder box.</p>
+            <div class="grid">
+              <div class="card"><div class="label">Mode</div><div class="value">Inline HTML</div></div>
+              <div class="card"><div class="label">Phase</div><div class="value">First batch</div></div>
+              <div class="card"><div class="label">Goal</div><div class="value">Trustworthy screenshots</div></div>
+              <div class="card"><div class="label">Next</div><div class="value">Dark + tablet</div></div>
+            </div>
+          </div>
+        </body>
+        </html>
+      HTML
+      stack << web
+      stack
+    end
+
+    private def self.build_map_view : UI::View
+      stack = root_stack
+      stack << heading("Map surface")
+
+      map = UI::MapView.new
+      map.latitude = 40.7128
+      map.longitude = -74.0060
+      map.zoom_level = 11.5
+      map.annotations = [
+        UI::MapAnnotation.new(latitude: 40.741, longitude: -73.989, title: "Capture site"),
+        UI::MapAnnotation.new(latitude: 40.729, longitude: -73.996, title: "Validation lab")
+      ]
+      map.shows_user_location = true
+      stack << map
+      stack
+    end
+
+    private def self.build_video_player : UI::View
+      stack = root_stack
+      stack << heading("Video surface")
+
+      video = UI::VideoPlayer.new("https://example.com/demo.mp4")
+      video.shows_controls = true
+      video.is_playing = false
+      video.muted = false
+      stack << video
+      stack
+    end
+
+    private def self.build_chart_view : UI::View
+      stack = root_stack
+      stack << heading("Chart surface")
+
+      chart = UI::ChartView.new
+      chart.title = "Renderer migration status"
+      chart.chart_type = :bar
+      chart.data_points = [
+        UI::ChartDataPoint.new(label: "Buttons", value: 4.0),
+        UI::ChartDataPoint.new(label: "Dialogs", value: 3.0),
+        UI::ChartDataPoint.new(label: "Media", value: 4.0),
+        UI::ChartDataPoint.new(label: "Host", value: 2.0)
+      ]
+      stack << chart
+
+      trend = UI::ChartView.new
+      trend.title = "Evidence maturity"
+      trend.chart_type = :line
+      trend.data_points = [
+        UI::ChartDataPoint.new(label: "Shell", value: 1.0),
+        UI::ChartDataPoint.new(label: "Renderer", value: 2.0),
+        UI::ChartDataPoint.new(label: "Accepted", value: 3.0)
+      ]
+      trend.show_legend = false
+      stack << trend
+      stack
+    end
+
+    private def self.build_fallback(slug : String) : UI::View
+      stack = root_stack
+      stack << heading("Unknown study")
+      stack << body_label("No Android Material study is registered for '#{slug}'.")
+      stack
+    end
+  end
+end
+
+fun crystal_android_host_render_slug(env : Void*, context : Void*, slug_ptr : UInt8*) : Void*
+  slug = slug_ptr.null? ? "buttons" : String.new(slug_ptr)
+  AndroidMaterialHost::Bridge.render_slug(env, context, slug)
+end

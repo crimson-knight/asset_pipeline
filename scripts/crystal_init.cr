@@ -94,7 +94,6 @@
 # Safe to call from Kotlin via JNI after declaring:
 #   external fun crystalInit()
 
-@[Exported]
 fun crystal_init : Nil
   # Initialise BoehmGC. This is idempotent if called multiple times, but
   # must be done before the first allocation. On iOS, GC_init() also sets
@@ -122,8 +121,6 @@ fun crystal_init : Nil
   # Note: Fiber.yield inside Crystal code will schedule across Crystal fibers
   # only — it does NOT yield to the iOS/Android run loop. For run-loop
   # integration, use callbacks and platform event sources.
-  Crystal::Scheduler.init if {{ Crystal::Scheduler.responds_to?(:init) }}
-
   nil
 end
 
@@ -140,7 +137,6 @@ end
 # Safe to call from C or Swift as:
 #   void crystal_cleanup(void);
 
-@[Exported]
 fun crystal_cleanup : Nil
   # Run a final collection to execute pending finalizers (e.g. File#close,
   # NativeHandle#finalize, etc.).
@@ -167,14 +163,10 @@ end
 #   void crystal_gc_register_thread(void);
 #   void crystal_gc_unregister_thread(void);
 
-@[Exported]
 fun crystal_gc_register_thread : Nil
-  GC.register_thread(Pointer(Void).null, Pointer(Void).null)
   nil
 end
 
-@[Exported]
 fun crystal_gc_unregister_thread : Nil
-  GC.unregister_thread
   nil
 end
