@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Android Material Validation Dashboard</title>
+<style>
+body{font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:32px;background:#f4f0f7;color:#1f1b24}
+main{max-width:920px;margin:0 auto;background:#fff;border-radius:24px;padding:28px 32px;box-shadow:0 16px 40px rgba(33,0,93,.08)}
+h1{font-size:30px;margin:0 0 8px}
+h2{font-size:16px;margin:28px 0 10px;text-transform:uppercase;letter-spacing:.06em;color:#65558f}
+p,li{line-height:1.5}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f3edf7;padding:2px 6px;border-radius:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:16px}
+.card{background:#faf7ff;border:1px solid #e7def8;border-radius:18px;padding:16px}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#65558f}
+.value{font-size:24px;font-weight:700;margin-top:6px}
+a{color:#6750a4;text-decoration:none}
+a:hover{text-decoration:underline}
+ul{padding-left:18px}
+</style>
+<main>
+  <h1>Android Material Validation</h1>
+  <p>The Android ledger is now bootstrapped. This dashboard starts honest: the host shell, capture script, and study manifest are in place, but evidence remains pending until renderer-backed Android studies are mounted and captured.</p>
+
+  <div class="grid">
+    <div class="card"><div class="label">Phase</div><div class="value">Scaffold</div></div>
+    <div class="card"><div class="label">Tracked studies</div><div class="value">9</div></div>
+    <div class="card"><div class="label">Verified AVDs</div><div class="value">4</div></div>
+    <div class="card"><div class="label">Canonical SDK root</div><div class="value" style="font-size:15px">/opt/homebrew/share/android-commandlinetools</div></div>
+  </div>
+
+  <h2>Acceptance Bar</h2>
+  <ul>
+    <li>Study captures must come from the Android host, not ad hoc screens.</li>
+    <li>Every promoted study needs current light and dark evidence.</li>
+    <li>Phone and tablet coverage must be explicit for adaptive surfaces.</li>
+    <li>Ledger state stays <code>pending</code> until renderer-backed output is visible.</li>
+  </ul>
+
+  <h2>Artifacts</h2>
+  <ul>
+    <li><a href="./manifest.json">Study manifest</a></li>
+    <li><a href="./evidence/README.md">Evidence contract</a></li>
+    <li><a href="./reports/README.md">Report contract</a></li>
+    <li><a href="./screenshots/README.md">Screenshot naming</a></li>
+  </ul>
+</main>
+
