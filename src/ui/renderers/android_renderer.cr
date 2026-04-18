@@ -71,6 +71,9 @@ module UI::Android
     fun android_edittext_set_input_type(env : Void*, et : Void*, input_type : Int32)
     fun android_edittext_set_text(env : Void*, et : Void*, text : UInt8*, byte_len : Int32)
     fun android_edittext_get_text(env : Void*, et : Void*) : Void* # returns jstring
+    fun android_searchview_set_query_hint(env : Void*, sv : Void*, hint : UInt8*, byte_len : Int32)
+    fun android_searchview_set_query(env : Void*, sv : Void*, query : UInt8*, byte_len : Int32, submit : Int32)
+    fun android_searchview_set_iconified(env : Void*, sv : Void*, iconified : Int32)
 
     # --- Material text fields ---
     fun android_textinputlayout_set_hint(env : Void*, til : Void*, hint : UInt8*, byte_len : Int32)
@@ -147,12 +150,15 @@ module UI::Android
     fun android_checkbox_set_checked(env : Void*, cb : Void*, checked : Int32)
     fun android_checkbox_set_text(env : Void*, cb : Void*, text : UInt8*, byte_len : Int32)
     fun android_checkbox_set_button_tint(env : Void*, cb : Void*, argb : Int32)
+    fun android_compoundbutton_is_checked(env : Void*, button : Void*) : Int32
 
     # --- RadioGroup / RadioButton ---
     fun android_radiogroup_check(env : Void*, rg : Void*, child_id : Int32)
+    fun android_radiogroup_get_checked_radio_button_id(env : Void*, rg : Void*) : Int32
     fun android_radiobutton_set_text(env : Void*, rb : Void*, text : UInt8*, byte_len : Int32)
     fun android_radiobutton_set_checked(env : Void*, rb : Void*, checked : Int32)
     fun android_view_generate_id(env : Void*) : Int32
+    fun android_view_set_id(env : Void*, v : Void*, view_id : Int32)
 
     # --- SeekBar (Slider) ---
     fun android_seekbar_set_max(env : Void*, sb : Void*, max : Int32)
@@ -173,6 +179,10 @@ module UI::Android
     fun android_edittext_set_text_watcher(env : Void*, et : Void*, callback_id : UInt64)
     # RadioGroup.OnCheckedChangeListener
     fun android_radiogroup_set_on_checked_change_listener(env : Void*, rg : Void*, callback_id : UInt64)
+    fun android_searchview_set_on_query_text_listener(env : Void*, sv : Void*,
+                                                      change_callback_id : UInt64,
+                                                      submit_callback_id : UInt64)
+    fun android_searchview_set_on_close_listener(env : Void*, sv : Void*, callback_id : UInt64)
 
     # --- Global reference management ---
     fun android_new_global_ref(env : Void*, local_ref : Void*) : Void*
@@ -609,21 +619,10 @@ module UI::Android
       native = NativeView.new(handle)
 
       # Wire up on_change via TextWatcher.
-      # The C bridge registers a TextWatcher that calls crystal_ui_callback_dispatch(id)
-      # on afterTextChanged. The Crystal wrapper reads the current text back via JNI.
+      # The Android listener dispatches the latest text value directly so we
+      # do not retain JNI local refs across callback frames.
       if change_handler = view.on_change
-        et_local = et
-        wrapped = Proc(Nil).new do
-          # Read current text from EditText via JNI.
-          # android_edittext_get_text returns a jstring local ref.
-          jstr = LibAndroidBridge.android_edittext_get_text(@env, et_local)
-          unless jstr.null?
-            jstr_wrapper = UI::JNI::JString.new(@env, jstr)
-            change_handler.call(jstr_wrapper.to_string)
-            jstr_wrapper.delete_local
-          end
-        end
-        callback_id = native.register_callback(wrapped)
+        callback_id = native.track_callback_id(UI::CallbackRegistry.register_string(change_handler))
         LibAndroidBridge.android_edittext_set_text_watcher(@env, et, callback_id)
       end
 
@@ -725,22 +724,10 @@ module UI::Android
       handle = JNI.wrap_global(global_sw, label: "Switch")
       native = NativeView.new(handle)
 
-      # Wire up on_change via OnCheckedChangeListener.
-      # The C bridge registers a CompoundButton.OnCheckedChangeListener that calls
-      # crystal_ui_callback_dispatch(id). The Crystal wrapper reads the checked
-      # state from the Switch.
+      # Wire up on_change via OnCheckedChangeListener. The Android listener
+      # dispatches the updated checked state directly.
       if change_handler = view.on_change
-        sw_local = sw
-        wrapped = Proc(Nil).new do
-          # Read current checked state: Switch extends CompoundButton, which has isChecked()
-          # We use android_switch_set_checked as a read-back via the bridge.
-          # In a full implementation, android_compoundbutton_is_checked(env, sw) : Int32
-          # would be exposed. For now we note the pattern and call the handler with
-          # the logical state tracked in Crystal (simplified approach).
-          # A production bridge would expose: is_checked = LibAndroidBridge.android_compoundbutton_is_checked(env, sw_local)
-          change_handler.call(false) # placeholder; bridge would provide actual state
-        end
-        callback_id = native.register_callback(wrapped)
+        callback_id = native.track_callback_id(UI::CallbackRegistry.register_bool(change_handler))
         LibAndroidBridge.android_view_set_on_checked_change_listener(@env, sw, callback_id)
       end
 
@@ -769,15 +756,9 @@ module UI::Android
       handle = JNI.wrap_global(global_cb, label: "CheckBox")
       native = NativeView.new(handle)
 
-      # Wire up on_change via OnCheckedChangeListener (same pattern as Switch)
+      # Wire up on_change via OnCheckedChangeListener (same pattern as Switch).
       if change_handler = view.on_change
-        current_state = view.is_checked
-        cb_local = cb
-        wrapped = Proc(Nil).new do
-          current_state = !current_state
-          change_handler.call(current_state)
-        end
-        callback_id = native.register_callback(wrapped)
+        callback_id = native.track_callback_id(UI::CallbackRegistry.register_bool(change_handler))
         LibAndroidBridge.android_view_set_on_checked_change_listener(@env, cb, callback_id)
       end
 
@@ -819,6 +800,7 @@ module UI::Android
         # Generate a unique view ID for this RadioButton
         rb_id = LibAndroidBridge.android_view_generate_id(@env)
         radio_ids << rb_id
+        LibAndroidBridge.android_view_set_id(@env, rb, rb_id)
 
         # Add RadioButton to RadioGroup
         LibAndroidBridge.android_viewgroup_add_view(@env, rg, rb)
@@ -835,20 +817,20 @@ module UI::Android
         LibAndroidBridge.android_radiogroup_check(@env, rg, radio_ids[view.selected_index])
       end
 
-      # Wire up on_change via OnCheckedChangeListener on the RadioGroup.
-      # The C bridge registers RadioGroup.OnCheckedChangeListener that calls
-      # crystal_ui_callback_dispatch(id). The Crystal wrapper maps the checked
-      # view ID back to an index.
+      # Wire up on_change via OnCheckedChangeListener on the RadioGroup. The
+      # listener dispatches the checked child view ID directly and we map it
+      # back to the shared option index in Crystal.
       if change_handler = view.on_change
         captured_radio_ids = radio_ids
-        wrapped = Proc(Nil).new do
-          # In a production bridge, the callback receives the checked view ID.
-          # We would look it up in captured_radio_ids to find the index.
-          # For structural completeness, we call the handler with selected_index.
-          # A production implementation: change_handler.call(captured_radio_ids.index(checked_id) || 0)
-          change_handler.call(view.selected_index)
-        end
-        callback_id = native.register_callback(wrapped)
+        fallback_index = view.selected_index
+        callback_id = native.track_callback_id(
+          UI::CallbackRegistry.register_int(
+            ->(checked_id : Int32) do
+              resolved_index = captured_radio_ids.index(checked_id) || fallback_index
+              change_handler.call(resolved_index)
+            end
+          )
+        )
         LibAndroidBridge.android_radiogroup_set_on_checked_change_listener(@env, rg, callback_id)
       end
 
@@ -899,33 +881,34 @@ module UI::Android
       handle = JNI.wrap_global(global_sb, label: "SeekBar")
       native = NativeView.new(handle)
 
-      # Wire up on_change via OnSeekBarChangeListener.
-      # The C bridge registers OnSeekBarChangeListener.onProgressChanged that calls
-      # crystal_ui_callback_dispatch(id). The Crystal wrapper reads the current
-      # progress and converts back to the Crystal Float64 range.
+      # Wire up on_change via OnSeekBarChangeListener. The listener dispatches
+      # raw progress directly and we convert that integer progress back to the
+      # shared Float64 slider range in Crystal.
       if change_handler = view.on_change
-        sb_local = sb
         captured_min = view.minimum
         captured_range = range
         captured_steps = steps
         captured_step = view.step
 
-        wrapped = Proc(Nil).new do
-          raw_progress = LibAndroidBridge.android_seekbar_get_progress(@env, sb_local)
-          raw_value = if captured_steps > 0
-                        captured_min + (raw_progress.to_f64 / captured_steps) * captured_range
-                      else
-                        captured_min
-                      end
-          actual_value = if captured_step > 0.0
-                           snapped = (raw_value / captured_step).round * captured_step
-                           snapped.clamp(captured_min, captured_min + captured_range)
-                         else
-                           raw_value.clamp(captured_min, captured_min + captured_range)
-                         end
-          change_handler.call(actual_value)
-        end
-        callback_id = native.register_callback(wrapped)
+        callback_id = native.track_callback_id(
+          UI::CallbackRegistry.register_float(
+            ->(raw_progress_value : Float64) do
+              raw_progress = raw_progress_value.round.to_i
+              raw_value = if captured_steps > 0
+                            captured_min + (raw_progress.to_f64 / captured_steps) * captured_range
+                          else
+                            captured_min
+                          end
+              actual_value = if captured_step > 0.0
+                               snapped = (raw_value / captured_step).round * captured_step
+                               snapped.clamp(captured_min, captured_min + captured_range)
+                             else
+                               raw_value.clamp(captured_min, captured_min + captured_range)
+                             end
+              change_handler.call(actual_value)
+            end
+          )
+        )
         LibAndroidBridge.android_seekbar_set_on_change_listener(@env, sb, callback_id)
       end
 
@@ -1238,16 +1221,7 @@ module UI::Android
       native = NativeView.new(handle)
 
       if change_handler = view.on_change
-        et_local = et
-        wrapped = Proc(Nil).new do
-          jstr = LibAndroidBridge.android_edittext_get_text(@env, et_local)
-          unless jstr.null?
-            jstr_wrapper = UI::JNI::JString.new(@env, jstr)
-            change_handler.call(jstr_wrapper.to_string)
-            jstr_wrapper.delete_local
-          end
-        end
-        callback_id = native.register_callback(wrapped)
+        callback_id = native.track_callback_id(UI::CallbackRegistry.register_string(change_handler))
         LibAndroidBridge.android_edittext_set_text_watcher(@env, et, callback_id)
       end
 
@@ -1265,31 +1239,53 @@ module UI::Android
 
       apply_common_properties(ll, view)
 
-      minus_btn = LibAndroidBridge.android_view_new(@env, "android/widget/Button", @context)
-      LibAndroidBridge.android_textview_set_text(@env, minus_btn, "-", 1)
-      LibAndroidBridge.android_viewgroup_add_view(@env, ll, minus_btn)
-
-      value_tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
-      val_str = view.value.to_s
-      LibAndroidBridge.android_textview_set_text(@env, value_tv, val_str.to_unsafe, val_str.bytesize)
-      LibAndroidBridge.android_viewgroup_add_view(@env, ll, value_tv)
-
-      plus_btn = LibAndroidBridge.android_view_new(@env, "android/widget/Button", @context)
-      LibAndroidBridge.android_textview_set_text(@env, plus_btn, "+", 1)
-      LibAndroidBridge.android_viewgroup_add_view(@env, ll, plus_btn)
-
       global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
       handle = JNI.wrap_global(global_ll, label: "LinearLayout[stepper]")
       native = NativeView.new(handle)
 
+      push_stack(native, ll, is_linear: true)
+
       if change_handler = view.on_change
-        current_val = view.value
-        wrapped = Proc(Nil).new do
-          change_handler.call(current_val)
+        decrement_handler = change_handler
+        minus_button = UI::Button.new("-", style: UI::ButtonStyle::Bordered)
+        minus_button.on_tap = Proc(Nil).new do
+          next_value = view.value - view.step_value
+          if next_value < view.minimum
+            next_value = view.wraps ? view.maximum : view.minimum
+          end
+          decrement_handler.call(next_value)
         end
-        callback_id = native.register_callback(wrapped)
-        LibAndroidBridge.android_view_set_on_click_listener(@env, plus_btn, callback_id)
+        minus_button.accept(self)
+      else
+        UI::Button.new("-", style: UI::ButtonStyle::Bordered).accept(self)
       end
+
+      value_text = if view.value.round == view.value
+                     view.value.round.to_i.to_s
+                   else
+                     view.value.to_s
+                   end
+      label_text = view.label.empty? ? value_text : "#{view.label}: #{value_text}"
+      value_tv = new_text_view(label_text, 16.0_f32, material_color(:on_surface), 1)
+      LibAndroidBridge.android_view_set_padding(@env, value_tv, 12, 0, 12, 0)
+      emit(value_tv, "TextView[stepper-value]")
+
+      if change_handler = view.on_change
+        increment_handler = change_handler
+        plus_button = UI::Button.new("+", style: UI::ButtonStyle::Bordered)
+        plus_button.on_tap = Proc(Nil).new do
+          next_value = view.value + view.step_value
+          if next_value > view.maximum
+            next_value = view.wraps ? view.minimum : view.maximum
+          end
+          increment_handler.call(next_value)
+        end
+        plus_button.accept(self)
+      else
+        UI::Button.new("+", style: UI::ButtonStyle::Bordered).accept(self)
+      end
+
+      pop_stack
 
       push_native(native, ll)
     end
@@ -1305,11 +1301,20 @@ module UI::Android
 
       apply_common_properties(rg, view)
 
+      segment_ids = Array(Int32).new(view.segments.size)
+
       view.segments.each_with_index do |segment, index|
         rb = LibAndroidBridge.android_view_new(@env, "android/widget/RadioButton", @context)
         LibAndroidBridge.android_radiobutton_set_text(@env, rb, segment.to_unsafe, segment.bytesize)
         LibAndroidBridge.android_radiobutton_set_checked(@env, rb, index == view.selected_index ? 1 : 0)
+        rb_id = LibAndroidBridge.android_view_generate_id(@env)
+        segment_ids << rb_id
+        LibAndroidBridge.android_view_set_id(@env, rb, rb_id)
         LibAndroidBridge.android_viewgroup_add_view(@env, rg, rb)
+      end
+
+      if view.selected_index >= 0 && view.selected_index < segment_ids.size
+        LibAndroidBridge.android_radiogroup_check(@env, rg, segment_ids[view.selected_index])
       end
 
       global_rg = LibAndroidBridge.android_new_global_ref(@env, rg)
@@ -1317,10 +1322,16 @@ module UI::Android
       native = NativeView.new(handle)
 
       if change_handler = view.on_change
-        wrapped = Proc(Nil).new do
-          change_handler.call(view.selected_index)
-        end
-        callback_id = native.register_callback(wrapped)
+        captured_segment_ids = segment_ids
+        fallback_index = view.selected_index
+        callback_id = native.track_callback_id(
+          UI::CallbackRegistry.register_int(
+            ->(checked_id : Int32) do
+              resolved_index = captured_segment_ids.index(checked_id) || fallback_index
+              change_handler.call(resolved_index)
+            end
+          )
+        )
         LibAndroidBridge.android_radiogroup_set_on_checked_change_listener(@env, rg, callback_id)
       end
 
@@ -1354,6 +1365,15 @@ module UI::Android
     # -----------------------------------------------------------------
     def visit(view : UI::SearchField)
       sv = LibAndroidBridge.android_view_new(@env, "android/widget/SearchView", @context)
+      LibAndroidBridge.android_searchview_set_iconified(@env, sv, 0)
+
+      unless view.placeholder.empty?
+        LibAndroidBridge.android_searchview_set_query_hint(@env, sv, view.placeholder.to_unsafe, view.placeholder.bytesize)
+      end
+
+      unless view.text.empty?
+        LibAndroidBridge.android_searchview_set_query(@env, sv, view.text.to_unsafe, view.text.bytesize, 0)
+      end
 
       apply_common_properties(sv, view)
 
@@ -1361,12 +1381,30 @@ module UI::Android
       handle = JNI.wrap_global(global_sv, label: "SearchView")
       native = NativeView.new(handle)
 
-      if change_handler = view.on_change
-        wrapped = Proc(Nil).new do
-          change_handler.call(view.text)
-        end
-        callback_id = native.register_callback(wrapped)
-        LibAndroidBridge.android_view_set_on_click_listener(@env, sv, callback_id)
+      change_callback_id = if change_handler = view.on_change
+                             native.track_callback_id(UI::CallbackRegistry.register_string(change_handler))
+                           else
+                             0_u64
+                           end
+
+      submit_callback_id = if submit_handler = view.on_submit
+                             native.track_callback_id(UI::CallbackRegistry.register_string(submit_handler))
+                           else
+                             0_u64
+                           end
+
+      if change_callback_id != 0_u64 || submit_callback_id != 0_u64
+        LibAndroidBridge.android_searchview_set_on_query_text_listener(
+          @env,
+          sv,
+          change_callback_id,
+          submit_callback_id
+        )
+      end
+
+      if cancel_handler = view.on_cancel
+        callback_id = native.register_callback(cancel_handler)
+        LibAndroidBridge.android_searchview_set_on_close_listener(@env, sv, callback_id)
       end
 
       push_native(native, sv)
@@ -1532,16 +1570,7 @@ module UI::Android
       native = NativeView.new(handle)
 
       if change_handler = view.on_change
-        et_local = et
-        wrapped = Proc(Nil).new do
-          jstr = LibAndroidBridge.android_edittext_get_text(@env, et_local)
-          unless jstr.null?
-            jstr_wrapper = UI::JNI::JString.new(@env, jstr)
-            change_handler.call(jstr_wrapper.to_string)
-            jstr_wrapper.delete_local
-          end
-        end
-        callback_id = native.register_callback(wrapped)
+        callback_id = native.track_callback_id(UI::CallbackRegistry.register_string(change_handler))
         LibAndroidBridge.android_edittext_set_text_watcher(@env, et, callback_id)
       end
 

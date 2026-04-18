@@ -5,11 +5,93 @@ module AndroidMaterialHost
   module Bridge
     @@runtime_initialized = false
     @@last_native : UI::NativeView? = nil
+    @@interaction_fired : Bool? = nil
+    @@interaction_toggle_on : Bool? = nil
+    @@interaction_checkbox_checked : Bool? = nil
+    @@interaction_slider_value : Float64? = nil
+    @@interaction_radio_index : Int32? = nil
+    @@interaction_text_value : String? = nil
 
     def self.initialize_runtime : Nil
       return if @@runtime_initialized
       crystal_init
       @@runtime_initialized = true
+    end
+
+    def self.record_interaction_fire : Nil
+      self.interaction_fired_state = true
+    end
+
+    def self.interaction_note : String
+      interaction_fired_state ? "Button callback reached." : "No Android callback has fired yet."
+    end
+
+    def self.set_interaction_toggle(value : Bool) : Nil
+      self.interaction_toggle_state = value
+    end
+
+    def self.set_interaction_checkbox(value : Bool) : Nil
+      self.interaction_checkbox_state = value
+    end
+
+    def self.set_interaction_slider(value : Float64) : Nil
+      self.interaction_slider_state = value
+    end
+
+    def self.set_interaction_radio(index : Int32) : Nil
+      self.interaction_radio_state = index
+    end
+
+    def self.set_interaction_text(value : String) : Nil
+      self.interaction_text_state = value
+    end
+
+    private def self.interaction_fired_state
+      @@interaction_fired ||= false
+    end
+
+    private def self.interaction_fired_state=(value : Bool)
+      @@interaction_fired = value
+    end
+
+    private def self.interaction_toggle_state
+      @@interaction_toggle_on ||= false
+    end
+
+    private def self.interaction_toggle_state=(value : Bool)
+      @@interaction_toggle_on = value
+    end
+
+    private def self.interaction_checkbox_state
+      @@interaction_checkbox_checked ||= false
+    end
+
+    private def self.interaction_checkbox_state=(value : Bool)
+      @@interaction_checkbox_checked = value
+    end
+
+    private def self.interaction_slider_state
+      @@interaction_slider_value ||= 35.0
+    end
+
+    private def self.interaction_slider_state=(value : Float64)
+      @@interaction_slider_value = value
+    end
+
+    private def self.interaction_radio_state
+      @@interaction_radio_index ||= 0
+    end
+
+    private def self.interaction_radio_state=(value : Int32)
+      @@interaction_radio_index = value
+    end
+
+    private def self.interaction_text_state
+      @@interaction_text_value ||= "Draft note"
+    end
+
+    private def self.interaction_text_state=(value : String)
+      @@interaction_text_value = value
     end
 
     def self.render_slug(env : Void*, context : Void*, slug : String) : Void*
@@ -31,6 +113,7 @@ module AndroidMaterialHost
       when "cards"        then build_cards
       when "dialogs"      then build_dialogs
       when "app-bars"     then build_app_bars
+      when "interaction-smoke" then build_interaction_smoke
       when "webview"      then build_webview
       when "map-view"     then build_map_view
       when "video-player" then build_video_player
@@ -190,6 +273,60 @@ module AndroidMaterialHost
       detail_bar.add_item("filter", "Filter")
       detail_bar.add_item("open", "Open")
       stack << detail_bar
+      stack
+    end
+
+    private def self.build_interaction_smoke : UI::View
+      toggle_state_text = interaction_toggle_state ? "on" : "off"
+      checkbox_state_text = interaction_checkbox_state ? "checked" : "unchecked"
+      slider_state_text = "#{interaction_slider_state.round.to_i}%"
+      radio_labels = ["Phone-first", "Balanced", "Tablet-first"]
+      radio_state_text = radio_labels[interaction_radio_state]
+
+      stack = root_stack
+      stack << heading("Interaction smoke")
+      stack << subheading("Internal host-only study for verifying Android button, toggle, slider, radio, and text callback delivery.")
+
+      smoke_button = UI::Button.new("Fire callback", style: UI::ButtonStyle::Prominent) do
+        record_interaction_fire
+      end
+      stack << smoke_button
+
+      note = body_label(interaction_note)
+      note.number_of_lines = 0
+      stack << note
+
+      toggle = UI::Toggle.new("Send release alerts", interaction_toggle_state) do |value|
+        set_interaction_toggle(value)
+      end
+      stack << toggle
+      stack << body_label("Toggle state: " + toggle_state_text)
+
+      checkbox = UI::Checkbox.new("Include tablet captures", interaction_checkbox_state) do |value|
+        set_interaction_checkbox(value)
+      end
+      stack << checkbox
+      stack << body_label("Checkbox state: " + checkbox_state_text)
+
+      slider = UI::Slider.new(0.0, 100.0, interaction_slider_state) do |value|
+        set_interaction_slider(value)
+      end
+      slider.label = "Validation confidence"
+      stack << slider
+      stack << body_label("Slider value: " + slider_state_text)
+
+      radio = UI::RadioGroup.new(["Phone-first", "Balanced", "Tablet-first"], interaction_radio_state) do |index|
+        set_interaction_radio(index)
+      end
+      stack << radio
+      stack << body_label("Radio selection: " + radio_state_text)
+
+      field = UI::TextField.new("Validation note") do |value|
+        set_interaction_text(value)
+      end
+      field.text = interaction_text_state
+      stack << field
+      stack << body_label("Text value: " + interaction_text_state)
       stack
     end
 

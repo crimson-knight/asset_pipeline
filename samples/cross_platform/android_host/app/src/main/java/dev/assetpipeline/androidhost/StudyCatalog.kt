@@ -58,6 +58,15 @@ object StudyCatalog {
             summary = "Small and medium app bar structure for study captures."
         ),
         StudySpec(
+            slug = "interaction-smoke",
+            title = "Interaction Smoke",
+            renderer = "Internal Android callback study",
+            priority = "P2",
+            lane = "internal-smoke",
+            status = "internal_smoke",
+            summary = "Host-only callback verification surface for taps, toggles, sliders, and radios."
+        ),
+        StudySpec(
             slug = "webview",
             title = "Embedded Web Surface",
             renderer = "UI::WebViewComponent",

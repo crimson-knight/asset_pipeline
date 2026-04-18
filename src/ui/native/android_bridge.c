@@ -53,6 +53,30 @@ static jobject ap_make_color_state_list(JNIEnv *env, jint argb) {
     return color_state_list;
 }
 
+static jobject ap_new_callback_helper(JNIEnv *env, const char *class_name, uint64_t callback_id) {
+    jclass cls = (*env)->FindClass(env, class_name);
+    if (!cls) {
+        return NULL;
+    }
+
+    jmethodID ctor = ap_get_method(env, cls, "<init>", "(J)V");
+    jobject helper = ctor ? (*env)->NewObject(env, cls, ctor, (jlong)callback_id) : NULL;
+    (*env)->DeleteLocalRef(env, cls);
+    return helper;
+}
+
+static jobject ap_new_dual_callback_helper(JNIEnv *env, const char *class_name, uint64_t callback_id_a, uint64_t callback_id_b) {
+    jclass cls = (*env)->FindClass(env, class_name);
+    if (!cls) {
+        return NULL;
+    }
+
+    jmethodID ctor = ap_get_method(env, cls, "<init>", "(JJ)V");
+    jobject helper = ctor ? (*env)->NewObject(env, cls, ctor, (jlong)callback_id_a, (jlong)callback_id_b) : NULL;
+    (*env)->DeleteLocalRef(env, cls);
+    return helper;
+}
+
 static jobject ap_ensure_gradient_background(JNIEnv *env, jobject view) {
     jclass view_cls = (*env)->GetObjectClass(env, view);
     jmethodID get_background = ap_get_method(env, view_cls, "getBackground", "()Landroid/graphics/drawable/Drawable;");
@@ -323,6 +347,49 @@ void android_edittext_set_hint(void *env_ptr, void *et, uint8_t *hint, int32_t b
     }
     if (value) {
         (*env)->DeleteLocalRef(env, value);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_searchview_set_query_hint(void *env_ptr, void *sv, uint8_t *hint, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)sv);
+    jmethodID method = ap_try_get_method(env, cls, "setQueryHint", "(Ljava/lang/CharSequence;)V");
+    jstring value = ap_new_string(env, hint, byte_len);
+    if (method && value) {
+        (*env)->CallVoidMethod(env, (jobject)sv, method, value);
+    }
+    if (value) {
+        (*env)->DeleteLocalRef(env, value);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_searchview_set_query(void *env_ptr, void *sv, uint8_t *query, int32_t byte_len, int32_t submit) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)sv);
+    jmethodID method = ap_try_get_method(env, cls, "setQuery", "(Ljava/lang/CharSequence;Z)V");
+    jstring value = ap_new_string(env, query, byte_len);
+    if (method && value) {
+        (*env)->CallVoidMethod(env, (jobject)sv, method, value, submit ? JNI_TRUE : JNI_FALSE);
+    }
+    if (value) {
+        (*env)->DeleteLocalRef(env, value);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_searchview_set_iconified(void *env_ptr, void *sv, int32_t iconified) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)sv);
+    jmethodID set_default = ap_try_get_method(env, cls, "setIconifiedByDefault", "(Z)V");
+    jmethodID set_iconified = ap_try_get_method(env, cls, "setIconified", "(Z)V");
+    jboolean flag = iconified ? JNI_TRUE : JNI_FALSE;
+    if (set_default) {
+        (*env)->CallVoidMethod(env, (jobject)sv, set_default, flag);
+    }
+    if (set_iconified) {
+        (*env)->CallVoidMethod(env, (jobject)sv, set_iconified, flag);
     }
     (*env)->DeleteLocalRef(env, cls);
 }
@@ -961,6 +1028,16 @@ int32_t android_view_generate_id(void *env_ptr) {
     return result;
 }
 
+void android_view_set_id(void *env_ptr, void *v, int32_t view_id) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)v);
+    jmethodID method = ap_try_get_method(env, cls, "setId", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)v, method, view_id);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
 void android_seekbar_set_max(void *env_ptr, void *sb, int32_t max) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jclass cls = (*env)->GetObjectClass(env, (jobject)sb);
@@ -1004,34 +1081,139 @@ int32_t android_seekbar_get_progress(void *env_ptr, void *sb) {
     return result;
 }
 
+int32_t android_compoundbutton_is_checked(void *env_ptr, void *button) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)button);
+    jmethodID method = ap_try_get_method(env, cls, "isChecked", "()Z");
+    jint result = method ? ((*env)->CallBooleanMethod(env, (jobject)button, method) ? 1 : 0) : 0;
+    (*env)->DeleteLocalRef(env, cls);
+    return result;
+}
+
+int32_t android_radiogroup_get_checked_radio_button_id(void *env_ptr, void *rg) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)rg);
+    jmethodID method = ap_try_get_method(env, cls, "getCheckedRadioButtonId", "()I");
+    jint result = method ? (*env)->CallIntMethod(env, (jobject)rg, method) : -1;
+    (*env)->DeleteLocalRef(env, cls);
+    return result;
+}
+
 void android_view_set_on_click_listener(void *env_ptr, void *v, uint64_t callback_id) {
-    (void)env_ptr;
-    (void)v;
-    (void)callback_id;
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject listener = ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalClickListener", callback_id);
+    if (!listener) {
+        return;
+    }
+
+    jclass cls = (*env)->GetObjectClass(env, (jobject)v);
+    jmethodID method = ap_try_get_method(env, cls, "setOnClickListener", "(Landroid/view/View$OnClickListener;)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)v, method, listener);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, listener);
 }
 
 void android_view_set_on_checked_change_listener(void *env_ptr, void *v, uint64_t callback_id) {
-    (void)env_ptr;
-    (void)v;
-    (void)callback_id;
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject listener = ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalCheckedChangeListener", callback_id);
+    if (!listener) {
+        return;
+    }
+
+    jclass cls = (*env)->GetObjectClass(env, (jobject)v);
+    jmethodID method = ap_try_get_method(env, cls, "setOnCheckedChangeListener", "(Landroid/widget/CompoundButton$OnCheckedChangeListener;)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)v, method, listener);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, listener);
 }
 
 void android_seekbar_set_on_change_listener(void *env_ptr, void *sb, uint64_t callback_id) {
-    (void)env_ptr;
-    (void)sb;
-    (void)callback_id;
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject listener = ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalSeekBarChangeListener", callback_id);
+    if (!listener) {
+        return;
+    }
+
+    jclass cls = (*env)->GetObjectClass(env, (jobject)sb);
+    jmethodID method = ap_try_get_method(env, cls, "setOnSeekBarChangeListener", "(Landroid/widget/SeekBar$OnSeekBarChangeListener;)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)sb, method, listener);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, listener);
 }
 
 void android_edittext_set_text_watcher(void *env_ptr, void *et, uint64_t callback_id) {
-    (void)env_ptr;
-    (void)et;
-    (void)callback_id;
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject watcher = ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalTextWatcher", callback_id);
+    if (!watcher) {
+        return;
+    }
+
+    jclass cls = (*env)->GetObjectClass(env, (jobject)et);
+    jmethodID method = ap_try_get_method(env, cls, "addTextChangedListener", "(Landroid/text/TextWatcher;)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)et, method, watcher);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, watcher);
 }
 
 void android_radiogroup_set_on_checked_change_listener(void *env_ptr, void *rg, uint64_t callback_id) {
-    (void)env_ptr;
-    (void)rg;
-    (void)callback_id;
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject listener = ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalRadioGroupCheckedChangeListener", callback_id);
+    if (!listener) {
+        return;
+    }
+
+    jclass cls = (*env)->GetObjectClass(env, (jobject)rg);
+    jmethodID method = ap_try_get_method(env, cls, "setOnCheckedChangeListener", "(Landroid/widget/RadioGroup$OnCheckedChangeListener;)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)rg, method, listener);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, listener);
+}
+
+void android_searchview_set_on_query_text_listener(void *env_ptr, void *sv, uint64_t change_callback_id, uint64_t submit_callback_id) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject listener = ap_new_dual_callback_helper(
+        env,
+        "dev/assetpipeline/androidhost/CrystalSearchQueryListener",
+        change_callback_id,
+        submit_callback_id
+    );
+    if (!listener) {
+        return;
+    }
+
+    jclass cls = (*env)->GetObjectClass(env, (jobject)sv);
+    jmethodID method = ap_try_get_method(env, cls, "setOnQueryTextListener", "(Landroid/widget/SearchView$OnQueryTextListener;)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)sv, method, listener);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, listener);
+}
+
+void android_searchview_set_on_close_listener(void *env_ptr, void *sv, uint64_t callback_id) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject listener = ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalSearchCloseListener", callback_id);
+    if (!listener) {
+        return;
+    }
+
+    jclass cls = (*env)->GetObjectClass(env, (jobject)sv);
+    jmethodID method = ap_try_get_method(env, cls, "setOnCloseListener", "(Landroid/widget/SearchView$OnCloseListener;)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)sv, method, listener);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, listener);
 }
 
 void *android_new_global_ref(void *env_ptr, void *local_ref) {

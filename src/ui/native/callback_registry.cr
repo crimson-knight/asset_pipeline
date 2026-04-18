@@ -16,6 +16,21 @@ fun crystal_ui_string_bool_callback_dispatch(tag : UInt64, value : UInt8*) : Int
   UI::CallbackRegistry.call_string_bool(tag, resolved) ? 1 : 0
 end
 
+fun crystal_ui_bool_callback_dispatch(tag : UInt64, value : Int32) : Void
+  return if tag == 0_u64
+  UI::CallbackRegistry.call_bool(tag, value != 0)
+end
+
+fun crystal_ui_float_callback_dispatch(tag : UInt64, value : Float64) : Void
+  return if tag == 0_u64
+  UI::CallbackRegistry.call_float(tag, value)
+end
+
+fun crystal_ui_int_callback_dispatch(tag : UInt64, value : Int32) : Void
+  return if tag == 0_u64
+  UI::CallbackRegistry.call_int(tag, value)
+end
+
 module UI
   # Module-level registry that prevents Crystal `Proc` closures from being
   # garbage collected while native code holds references to them.
@@ -43,39 +58,122 @@ module UI
   #
   # ## Thread Safety
   #
-  # The `@@next_id` counter uses `Atomic(UInt64)` for safe concurrent ID generation.
-  # The `@@callbacks` hash is NOT thread-safe; all registration/unregistration/calls
-  # should happen on the main thread (which is the standard model for UI callbacks).
+  # The registry itself is not thread-safe. All registration,
+  # unregistration, and callback dispatch should happen on the main thread,
+  # which matches the normal UI callback model for AppKit/UIKit/Android.
   module CallbackRegistry
+    private class VoidCallbackBox
+      getter callback : Proc(Nil)
+
+      def initialize(@callback : Proc(Nil))
+      end
+    end
+
+    private class StringCallbackBox
+      getter callback : Proc(String, Nil)
+
+      def initialize(@callback : Proc(String, Nil))
+      end
+    end
+
+    private class StringBoolCallbackBox
+      getter callback : Proc(String, Bool)
+
+      def initialize(@callback : Proc(String, Bool))
+      end
+    end
+
+    private class BoolCallbackBox
+      getter callback : Proc(Bool, Nil)
+
+      def initialize(@callback : Proc(Bool, Nil))
+      end
+    end
+
+    private class FloatCallbackBox
+      getter callback : Proc(Float64, Nil)
+
+      def initialize(@callback : Proc(Float64, Nil))
+      end
+    end
+
+    private class IntCallbackBox
+      getter callback : Proc(Int32, Nil)
+
+      def initialize(@callback : Proc(Int32, Nil))
+      end
+    end
+
+    private class TimeCallbackBox
+      getter callback : Proc(Time, Nil)
+
+      def initialize(@callback : Proc(Time, Nil))
+      end
+    end
+
     # Existing void callbacks (button taps)
-    @@callbacks = Hash(UInt64, Proc(Nil)).new
+    @@callbacks : Hash(UInt64, VoidCallbackBox)? = nil
 
     # String callbacks (text field changes)
-    @@string_callbacks = Hash(UInt64, Proc(String, Nil)).new
+    @@string_callbacks : Hash(UInt64, StringCallbackBox)? = nil
 
     # String -> Bool callbacks (navigation policy decisions)
-    @@string_bool_callbacks = Hash(UInt64, Proc(String, Bool)).new
+    @@string_bool_callbacks : Hash(UInt64, StringBoolCallbackBox)? = nil
 
     # Bool callbacks (toggle changes)
-    @@bool_callbacks = Hash(UInt64, Proc(Bool, Nil)).new
+    @@bool_callbacks : Hash(UInt64, BoolCallbackBox)? = nil
 
     # Float64 callbacks (slider changes)
-    @@float_callbacks = Hash(UInt64, Proc(Float64, Nil)).new
+    @@float_callbacks : Hash(UInt64, FloatCallbackBox)? = nil
 
     # Int32 callbacks (picker/segmented changes)
-    @@int_callbacks = Hash(UInt64, Proc(Int32, Nil)).new
+    @@int_callbacks : Hash(UInt64, IntCallbackBox)? = nil
 
     # Time callbacks (date/time picker changes)
-    @@time_callbacks = Hash(UInt64, Proc(Time, Nil)).new
+    @@time_callbacks : Hash(UInt64, TimeCallbackBox)? = nil
 
-    @@next_id = Atomic(UInt64).new(1_u64)
+    @@next_id : UInt64? = nil
+
+    private def self.callbacks
+      @@callbacks ||= Hash(UInt64, VoidCallbackBox).new
+    end
+
+    private def self.string_callbacks
+      @@string_callbacks ||= Hash(UInt64, StringCallbackBox).new
+    end
+
+    private def self.string_bool_callbacks
+      @@string_bool_callbacks ||= Hash(UInt64, StringBoolCallbackBox).new
+    end
+
+    private def self.bool_callbacks
+      @@bool_callbacks ||= Hash(UInt64, BoolCallbackBox).new
+    end
+
+    private def self.float_callbacks
+      @@float_callbacks ||= Hash(UInt64, FloatCallbackBox).new
+    end
+
+    private def self.int_callbacks
+      @@int_callbacks ||= Hash(UInt64, IntCallbackBox).new
+    end
+
+    private def self.time_callbacks
+      @@time_callbacks ||= Hash(UInt64, TimeCallbackBox).new
+    end
+
+    private def self.next_id
+      current = @@next_id || 1_u64
+      @@next_id = current + 1_u64
+      current
+    end
 
     # Register a callback proc and return its unique ID.
     #
     # The proc is held by strong reference until `unregister` is called.
     def self.register(callback : Proc(Nil)) : UInt64
-      id = @@next_id.add(1_u64)
-      @@callbacks[id] = callback
+      id = next_id
+      callbacks[id] = VoidCallbackBox.new(callback)
       id
     end
 
@@ -92,25 +190,25 @@ module UI
     # a safe no-op. This prevents crashes if a native callback fires after
     # the Crystal side has torn down.
     def self.call(id : UInt64) : Nil
-      @@callbacks[id]?.try(&.call)
+      callbacks[id]?.try(&.callback.call)
     end
 
     # Register a String callback proc and return its unique ID.
     def self.register_string(callback : Proc(String, Nil)) : UInt64
-      id = @@next_id.add(1_u64)
-      @@string_callbacks[id] = callback
+      id = next_id
+      string_callbacks[id] = StringCallbackBox.new(callback)
       id
     end
 
     # Invoke the String callback registered under the given ID.
     def self.call_string(id : UInt64, value : String) : Nil
-      @@string_callbacks[id]?.try(&.call(value))
+      string_callbacks[id]?.try { |box| box.callback.call(value) }
     end
 
     # Register a String -> Bool callback proc and return its unique ID.
     def self.register_string_bool(callback : Proc(String, Bool)) : UInt64
-      id = @@next_id.add(1_u64)
-      @@string_bool_callbacks[id] = callback
+      id = next_id
+      string_bool_callbacks[id] = StringBoolCallbackBox.new(callback)
       id
     end
 
@@ -119,55 +217,55 @@ module UI
     # Missing IDs default to `true` so native policy delegates stay permissive
     # instead of failing closed when a view has already been torn down.
     def self.call_string_bool(id : UInt64, value : String) : Bool
-      @@string_bool_callbacks[id]?.try(&.call(value)) || true
+      string_bool_callbacks[id]?.try { |box| box.callback.call(value) } || true
     end
 
     # Register a Bool callback proc and return its unique ID.
     def self.register_bool(callback : Proc(Bool, Nil)) : UInt64
-      id = @@next_id.add(1_u64)
-      @@bool_callbacks[id] = callback
+      id = next_id
+      bool_callbacks[id] = BoolCallbackBox.new(callback)
       id
     end
 
     # Invoke the Bool callback registered under the given ID.
     def self.call_bool(id : UInt64, value : Bool) : Nil
-      @@bool_callbacks[id]?.try(&.call(value))
+      bool_callbacks[id]?.try { |box| box.callback.call(value) }
     end
 
     # Register a Float64 callback proc and return its unique ID.
     def self.register_float(callback : Proc(Float64, Nil)) : UInt64
-      id = @@next_id.add(1_u64)
-      @@float_callbacks[id] = callback
+      id = next_id
+      float_callbacks[id] = FloatCallbackBox.new(callback)
       id
     end
 
     # Invoke the Float64 callback registered under the given ID.
     def self.call_float(id : UInt64, value : Float64) : Nil
-      @@float_callbacks[id]?.try(&.call(value))
+      float_callbacks[id]?.try { |box| box.callback.call(value) }
     end
 
     # Register an Int32 callback proc and return its unique ID.
     def self.register_int(callback : Proc(Int32, Nil)) : UInt64
-      id = @@next_id.add(1_u64)
-      @@int_callbacks[id] = callback
+      id = next_id
+      int_callbacks[id] = IntCallbackBox.new(callback)
       id
     end
 
     # Invoke the Int32 callback registered under the given ID.
     def self.call_int(id : UInt64, value : Int32) : Nil
-      @@int_callbacks[id]?.try(&.call(value))
+      int_callbacks[id]?.try { |box| box.callback.call(value) }
     end
 
     # Register a Time callback proc and return its unique ID.
     def self.register_time(callback : Proc(Time, Nil)) : UInt64
-      id = @@next_id.add(1_u64)
-      @@time_callbacks[id] = callback
+      id = next_id
+      time_callbacks[id] = TimeCallbackBox.new(callback)
       id
     end
 
     # Invoke the Time callback registered under the given ID.
     def self.call_time(id : UInt64, value : Time) : Nil
-      @@time_callbacks[id]?.try(&.call(value))
+      time_callbacks[id]?.try { |box| box.callback.call(value) }
     end
 
     # Remove the callback registered under the given ID.
@@ -176,13 +274,13 @@ module UI
     # longer resolve. Safe to call with an ID that was already unregistered.
     # Checks all typed hashes.
     def self.unregister(id : UInt64) : Nil
-      @@callbacks.delete(id)
-      @@string_callbacks.delete(id)
-      @@string_bool_callbacks.delete(id)
-      @@bool_callbacks.delete(id)
-      @@float_callbacks.delete(id)
-      @@int_callbacks.delete(id)
-      @@time_callbacks.delete(id)
+      @@callbacks.try(&.delete(id))
+      @@string_callbacks.try(&.delete(id))
+      @@string_bool_callbacks.try(&.delete(id))
+      @@bool_callbacks.try(&.delete(id))
+      @@float_callbacks.try(&.delete(id))
+      @@int_callbacks.try(&.delete(id))
+      @@time_callbacks.try(&.delete(id))
     end
 
     # Remove multiple callbacks by their IDs.
@@ -194,9 +292,10 @@ module UI
 
     # Returns the number of currently registered callbacks across all typed hashes.
     def self.size : Int32
-      @@callbacks.size + @@string_callbacks.size + @@string_bool_callbacks.size +
-        @@bool_callbacks.size + @@float_callbacks.size + @@int_callbacks.size +
-        @@time_callbacks.size
+      (@@callbacks.try(&.size) || 0) + (@@string_callbacks.try(&.size) || 0) +
+        (@@string_bool_callbacks.try(&.size) || 0) + (@@bool_callbacks.try(&.size) || 0) +
+        (@@float_callbacks.try(&.size) || 0) + (@@int_callbacks.try(&.size) || 0) +
+        (@@time_callbacks.try(&.size) || 0)
     end
 
     # Remove all registered callbacks from all typed hashes.
@@ -204,14 +303,14 @@ module UI
     # Intended for use in test cleanup (`Spec.after_each`). Do NOT call
     # this in production code -- use `unregister` for targeted cleanup.
     def self.clear : Nil
-      @@callbacks.clear
-      @@string_callbacks.clear
-      @@string_bool_callbacks.clear
-      @@bool_callbacks.clear
-      @@float_callbacks.clear
-      @@int_callbacks.clear
-      @@time_callbacks.clear
-      @@next_id = Atomic(UInt64).new(1_u64)
+      @@callbacks.try(&.clear)
+      @@string_callbacks.try(&.clear)
+      @@string_bool_callbacks.try(&.clear)
+      @@bool_callbacks.try(&.clear)
+      @@float_callbacks.try(&.clear)
+      @@int_callbacks.try(&.clear)
+      @@time_callbacks.try(&.clear)
+      @@next_id = 1_u64
     end
   end
 end

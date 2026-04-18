@@ -1,6 +1,8 @@
 package dev.assetpipeline.androidhost
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -13,6 +15,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var study: StudySpec
     private var storyText: String = DEFAULT_STORY
+    private val rendererRefreshHandler = Handler(Looper.getMainLooper())
+    private val rendererRefreshRunnable = Runnable {
+        if (!isFinishing && !isDestroyed) {
+            configureRendererCard()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val requestedAppearance = intent.getStringExtra(EXTRA_STUDY_APPEARANCE)?.lowercase()
@@ -46,7 +54,22 @@ class MainActivity : AppCompatActivity() {
         addChip("Appearance $appearance")
         addChip("Status ${study.status}")
 
+        CrystalBridge.callbackObserver = { scheduleRendererRefresh() }
+
         configureRendererCard()
+    }
+
+    override fun onDestroy() {
+        rendererRefreshHandler.removeCallbacks(rendererRefreshRunnable)
+        if (CrystalBridge.callbackObserver != null) {
+            CrystalBridge.callbackObserver = null
+        }
+        super.onDestroy()
+    }
+
+    private fun scheduleRendererRefresh() {
+        rendererRefreshHandler.removeCallbacks(rendererRefreshRunnable)
+        rendererRefreshHandler.postDelayed(rendererRefreshRunnable, 250L)
     }
 
     private fun addChip(text: String) {
