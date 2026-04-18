@@ -203,11 +203,7 @@ module UI::Android
     # Android Context object (Activity or Application) global ref.
     # Required for every View constructor.
     @context : Void*
-
-    def initialize(@env : Void*, @context : Void*)
-      @stack = [] of NativeView
-      @stack_is_linear = [] of Bool
-    end
+    @material_theme : UI::Theme
 
     # Returns the root NativeView produced by the last top-level visit.
     # Raises if no view has been visited yet.
@@ -276,10 +272,68 @@ module UI::Android
         @env, btn, view.label.to_unsafe, view.label.bytesize)
 
       # Font size
-      LibAndroidBridge.android_textview_set_text_size(@env, btn, view.font.size.to_f32)
+      button_size = view.font.size > 0 ? view.font.size.to_f32 : @material_theme.font_size_body.to_f32
+      LibAndroidBridge.android_textview_set_text_size(@env, btn, button_size)
 
       # Typeface
       LibAndroidBridge.android_textview_set_typeface(@env, btn, typeface_style_for(view.font))
+
+      background_color = material_color(:primary_container)
+      foreground_color = material_color(:on_primary_container)
+      stroke_color : Int32? = nil
+
+      case view.style
+      when UI::ButtonStyle::Prominent
+        if view.role == :destructive
+          background_color = material_color(:error)
+          foreground_color = material_color(:on_error)
+        else
+          background_color = material_color(:primary)
+          foreground_color = material_color(:on_primary)
+        end
+      when UI::ButtonStyle::Tinted
+        if view.role == :destructive
+          background_color = material_color(:error_container)
+          foreground_color = material_color(:on_error_container)
+        else
+          background_color = material_color(:primary_container)
+          foreground_color = material_color(:on_primary_container)
+        end
+      when UI::ButtonStyle::Bordered
+        background_color = material_color(:surface)
+        foreground_color = view.role == :destructive ? material_color(:error) : material_color(:primary)
+        stroke_color = material_color(:outline)
+      when UI::ButtonStyle::Borderless
+        background_color = 0x00000000
+        foreground_color = view.role == :destructive ? material_color(:error) : material_color(:primary)
+      else
+        if view.role == :cancel
+          background_color = material_color(:surface_variant)
+          foreground_color = material_color(:on_surface)
+        elsif view.role == :destructive
+          background_color = material_color(:error_container)
+          foreground_color = material_color(:on_error_container)
+        else
+          background_color = material_color(:secondary_container)
+          foreground_color = material_color(:on_secondary_container)
+        end
+        stroke_color = material_color(:outline_variant)
+      end
+
+      LibAndroidBridge.android_textview_set_text_color(@env, btn, foreground_color)
+      LibAndroidBridge.android_view_set_background_color(@env, btn, background_color)
+
+      radius = view.corner_radius > 0.0 ? view.corner_radius.to_f32 : @material_theme.corner_radius_large.to_f32
+      LibAndroidBridge.android_view_set_corner_radius(@env, btn, radius)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, btn, 1)
+
+      if stroke = stroke_color
+        LibAndroidBridge.android_view_set_stroke(@env, btn, 1.0_f32, stroke)
+      end
+
+      if zero_padding?(view.padding)
+        LibAndroidBridge.android_view_set_padding(@env, btn, 24, 14, 24, 14)
+      end
 
       # Enabled state: VISIBLE=0, INVISIBLE=4, GONE=8; enabled is separate
       if view.disabled
@@ -495,6 +549,17 @@ module UI::Android
       # Text color
       LibAndroidBridge.android_textview_set_text_color(
         @env, et, color_to_argb(view.text_color))
+
+      LibAndroidBridge.android_view_set_background_color(@env, et, material_color(:surface))
+      LibAndroidBridge.android_view_set_corner_radius(
+        @env, et,
+        (view.corner_radius > 0.0 ? view.corner_radius : @material_theme.corner_radius_medium).to_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, et, 1)
+      LibAndroidBridge.android_view_set_stroke(@env, et, 1.0_f32, material_color(:outline_variant))
+
+      if zero_padding?(view.padding)
+        LibAndroidBridge.android_view_set_padding(@env, et, 18, 16, 18, 16)
+      end
 
       # Common properties
       apply_common_properties(et, view)
@@ -928,29 +993,62 @@ module UI::Android
     end
 
     # -----------------------------------------------------------------
-    # Visit: Alert -> android.app.AlertDialog (stub: creates a FrameLayout placeholder)
+    # Visit: Alert -> inline Material dialog study surface
     # -----------------------------------------------------------------
     def visit(view : UI::Alert)
-      # AlertDialog requires a fully instantiated Activity context and must be
-      # shown on the main UI thread. We create a FrameLayout as a structural
-      # placeholder. Production code would call AlertDialog.Builder on the host side.
-      fl = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+      ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 1)
 
-      title_tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
-      LibAndroidBridge.android_textview_set_text(
-        @env, title_tv, view.title.to_unsafe, view.title.bytesize)
-      LibAndroidBridge.android_viewgroup_add_view(@env, fl, title_tv)
-
-      unless view.message.empty?
-        msg_tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
-        LibAndroidBridge.android_textview_set_text(
-          @env, msg_tv, view.message.to_unsafe, view.message.bytesize)
-        LibAndroidBridge.android_viewgroup_add_view(@env, fl, msg_tv)
+      if view.hidden || !view.is_presented
+        LibAndroidBridge.android_view_set_visibility(@env, ll, 8)
       end
 
-      apply_common_properties(fl, view)
+      LibAndroidBridge.android_view_set_background_color(@env, ll, material_color(:surface))
+      LibAndroidBridge.android_view_set_corner_radius(@env, ll, @material_theme.corner_radius_large.to_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, ll, 1)
+      LibAndroidBridge.android_view_set_elevation(@env, ll, 6.0_f32)
+      LibAndroidBridge.android_view_set_padding(@env, ll, 24, 24, 24, 20)
 
-      emit(fl, "FrameLayout[alert]")
+      global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
+      handle = JNI.wrap_global(global_ll, label: "LinearLayout[alert]")
+      native = NativeView.new(handle)
+
+      title_tv = new_text_view(view.title, 22.0_f32, material_color(:on_surface), 1)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, title_tv, -1, -2)
+
+      unless view.message.empty?
+        msg_tv = new_text_view(view.message, 15.0_f32, material_color(:on_surface_variant), 0)
+        LibAndroidBridge.android_view_set_padding(@env, msg_tv, 0, 12, 0, 0)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, msg_tv, -1, -2)
+      end
+
+      button_row = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, button_row, 0)
+      LibAndroidBridge.android_view_set_padding(@env, button_row, 0, 20, 0, 0)
+
+      push_spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
+      LibAndroidBridge.android_linearlayout_add_view_weight(@env, button_row, push_spacer, 0, -2, 1.0_f32)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, button_row, -1, -2)
+
+      push_stack(native, button_row, is_linear: true)
+      if view.buttons.empty?
+        UI::Button.new("OK", role: :default, style: UI::ButtonStyle::Borderless).accept(self)
+      else
+        view.buttons.each do |action|
+          role = case action.style
+                 when :destructive then :destructive
+                 when :cancel      then :cancel
+                 else                   :default
+                 end
+          button = UI::Button.new(action.label, role: role, style: UI::ButtonStyle::Borderless)
+          button.on_tap = action.action if action.action
+          button.accept(self)
+        end
+      end
+      pop_stack
+
+      apply_common_properties(ll, view)
+      push_native(native, ll)
     end
 
     # -----------------------------------------------------------------
@@ -1219,6 +1317,117 @@ module UI::Android
     end
 
     # -----------------------------------------------------------------
+    # Visit: PageControl -> Material-style row of page indicator dots
+    # -----------------------------------------------------------------
+    def visit(view : UI::PageControl)
+      total = [view.total, 1].max
+      current = view.current.clamp(0, total - 1)
+
+      ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 0)
+      LibAndroidBridge.android_linearlayout_set_gravity(@env, ll, 17)
+      LibAndroidBridge.android_view_set_padding(@env, ll, 8, 8, 8, 8)
+
+      total.times do |index|
+        dot = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+        is_current = index == current
+        fill = if is_current
+                 if tint = view.tint_color
+                   color_to_argb(tint)
+                 else
+                   material_color(:on_surface)
+                 end
+               elsif tint = view.page_indicator_tint_color
+                 color_to_argb(tint)
+               elsif tint = view.tint_color
+                 color_to_argb(tint)
+               else
+                 material_color(:outline_variant)
+               end
+        size = is_current ? 18 : 12
+        LibAndroidBridge.android_view_set_background_color(@env, dot, fill)
+        LibAndroidBridge.android_view_set_corner_radius(@env, dot, (size / 2).to_f32)
+        LibAndroidBridge.android_view_set_clip_to_outline(@env, dot, 1)
+        if !is_current && view.page_indicator_tint_color.nil?
+          LibAndroidBridge.android_view_set_stroke(@env, dot, 1.0_f32, material_color(:outline))
+        end
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, dot, size, size)
+      end
+
+      acc_label = view.accessibility_label || "Page #{current + 1} of #{total}"
+      LibAndroidBridge.android_view_set_content_description(@env, ll, acc_label.to_unsafe, acc_label.bytesize)
+      apply_common_properties(ll, view)
+      emit(ll, "LinearLayout[page-control]")
+    end
+
+    # -----------------------------------------------------------------
+    # Visit: ComboBox -> outlined text field + trailing chevron affordance
+    # -----------------------------------------------------------------
+    def visit(view : UI::ComboBox)
+      shell = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, shell, 0)
+      LibAndroidBridge.android_linearlayout_set_gravity(@env, shell, 16)
+      LibAndroidBridge.android_view_set_background_color(@env, shell, material_color(:surface))
+      LibAndroidBridge.android_view_set_corner_radius(@env, shell, @material_theme.corner_radius_medium.to_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, shell, 1)
+      LibAndroidBridge.android_view_set_stroke(@env, shell, 1.0_f32, material_color(:outline_variant))
+      LibAndroidBridge.android_view_set_padding(@env, shell, 18, 14, 18, 14)
+
+      field = LibAndroidBridge.android_view_new(@env, "android/widget/EditText", @context)
+      unless view.value.empty?
+        LibAndroidBridge.android_edittext_set_text(@env, field, view.value.to_unsafe, view.value.bytesize)
+      end
+      unless view.placeholder.empty?
+        LibAndroidBridge.android_edittext_set_hint(@env, field, view.placeholder.to_unsafe, view.placeholder.bytesize)
+      end
+      LibAndroidBridge.android_textview_set_text_size(@env, field, @material_theme.font_size_body.to_f32)
+      LibAndroidBridge.android_textview_set_text_color(@env, field, material_color(:on_surface))
+      LibAndroidBridge.android_view_set_background_color(@env, field, 0x00000000)
+      LibAndroidBridge.android_linearlayout_add_view_weight(@env, shell, field, 0, -2, 1.0_f32)
+
+      chevron = new_text_view("v", 14.0_f32, material_color(:on_surface_variant), 1)
+      LibAndroidBridge.android_view_set_padding(@env, chevron, 12, 0, 0, 0)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, shell, chevron, -2, -2)
+
+      if acc = view.accessibility_label
+        LibAndroidBridge.android_view_set_content_description(@env, shell, acc.to_unsafe, acc.bytesize)
+      elsif !view.placeholder.empty?
+        LibAndroidBridge.android_view_set_content_description(@env, shell, view.placeholder.to_unsafe, view.placeholder.bytesize)
+      end
+
+      apply_common_properties(shell, view)
+      emit(shell, "LinearLayout[combo-box]")
+    end
+
+    # -----------------------------------------------------------------
+    # Visit: RatingIndicator -> Material-style star row using TextViews
+    # -----------------------------------------------------------------
+    def visit(view : UI::RatingIndicator)
+      ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 0)
+      LibAndroidBridge.android_linearlayout_set_gravity(@env, ll, 16)
+
+      clamped = view.value.clamp(0.0, view.max.to_f64)
+      filled_count = clamped.round.to_i
+      tint = if color = view.tint_color
+               color_to_argb(color)
+             else
+               0xFFFFC107_u32.to_i32
+             end
+
+      view.max.times do |index|
+        star = new_text_view(index < filled_count ? "★" : "☆", 20.0_f32, tint, 0)
+        LibAndroidBridge.android_view_set_padding(@env, star, 0, 0, 4, 0)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, star, -2, -2)
+      end
+
+      acc = view.accessibility_label || "#{filled_count} out of #{view.max} stars"
+      LibAndroidBridge.android_view_set_content_description(@env, ll, acc.to_unsafe, acc.bytesize)
+      apply_common_properties(ll, view)
+      emit(ll, "LinearLayout[rating-indicator]")
+    end
+
+    # -----------------------------------------------------------------
     # Visit: TextArea -> android.widget.EditText (multiline)
     # -----------------------------------------------------------------
     def visit(view : UI::TextArea)
@@ -1393,17 +1602,35 @@ module UI::Android
 
       # HORIZONTAL = 0
       LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 0)
+      LibAndroidBridge.android_linearlayout_set_gravity(@env, ll, 16)
+      LibAndroidBridge.android_view_set_background_color(@env, ll, material_color(:surface))
+      LibAndroidBridge.android_view_set_padding(@env, ll, 20, 18, 20, 18)
+      LibAndroidBridge.android_view_set_elevation(@env, ll, 3.0_f32)
+      LibAndroidBridge.android_view_set_stroke(@env, ll, 1.0_f32, material_color(:outline_variant))
 
-      if title = view.title
-        tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
-        LibAndroidBridge.android_textview_set_text(
-          @env, tv, title.to_unsafe, title.bytesize)
-        LibAndroidBridge.android_viewgroup_add_view(@env, ll, tv)
+      global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
+      handle = JNI.wrap_global(global_ll, label: "LinearLayout[toolbar]")
+      native = NativeView.new(handle)
+
+      if view.shows_title
+        title_text = view.title || "Material study"
+        tv = new_text_view(title_text, 20.0_f32, material_color(:on_surface), 1)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, tv, -2, -2)
       end
 
-      apply_common_properties(ll, view)
+      spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
+      LibAndroidBridge.android_linearlayout_add_view_weight(@env, ll, spacer, 0, -2, 1.0_f32)
 
-      emit(ll, "LinearLayout[toolbar]")
+      push_stack(native, ll, is_linear: true)
+      view.items.each do |item|
+        button = UI::Button.new(item.label, style: UI::ButtonStyle::Borderless)
+        button.on_tap = item.action if item.action
+        button.accept(self)
+      end
+      pop_stack
+
+      apply_common_properties(ll, view)
+      push_native(native, ll)
     end
 
     # -----------------------------------------------------------------
@@ -1457,30 +1684,55 @@ module UI::Android
     end
 
     # -----------------------------------------------------------------
-    # Visit: ConfirmationDialog -> android.widget.FrameLayout (dialog placeholder)
+    # Visit: ConfirmationDialog -> inline Material dialog study surface
     # -----------------------------------------------------------------
     def visit(view : UI::ConfirmationDialog)
-      fl = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
-
-      title_tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
-      LibAndroidBridge.android_textview_set_text(
-        @env, title_tv, view.title.to_unsafe, view.title.bytesize)
-      LibAndroidBridge.android_viewgroup_add_view(@env, fl, title_tv)
-
-      unless view.message.empty?
-        msg_tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
-        LibAndroidBridge.android_textview_set_text(
-          @env, msg_tv, view.message.to_unsafe, view.message.bytesize)
-        LibAndroidBridge.android_viewgroup_add_view(@env, fl, msg_tv)
-      end
+      ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 1)
 
       unless view.is_presented
-        LibAndroidBridge.android_view_set_visibility(@env, fl, 8) # GONE
+        LibAndroidBridge.android_view_set_visibility(@env, ll, 8)
       end
 
-      apply_common_properties(fl, view)
+      LibAndroidBridge.android_view_set_background_color(@env, ll, material_color(:surface))
+      LibAndroidBridge.android_view_set_corner_radius(@env, ll, @material_theme.corner_radius_large.to_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, ll, 1)
+      LibAndroidBridge.android_view_set_elevation(@env, ll, 6.0_f32)
+      LibAndroidBridge.android_view_set_padding(@env, ll, 24, 24, 24, 20)
 
-      emit(fl, "FrameLayout[confirmation-dialog]")
+      global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
+      handle = JNI.wrap_global(global_ll, label: "LinearLayout[confirmation-dialog]")
+      native = NativeView.new(handle)
+
+      title_tv = new_text_view(view.title, 22.0_f32, material_color(:on_surface), 1)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, title_tv, -1, -2)
+
+      unless view.message.empty?
+        msg_tv = new_text_view(view.message, 15.0_f32, material_color(:on_surface_variant), 0)
+        LibAndroidBridge.android_view_set_padding(@env, msg_tv, 0, 12, 0, 0)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, msg_tv, -1, -2)
+      end
+
+      button_row = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, button_row, 0)
+      LibAndroidBridge.android_view_set_padding(@env, button_row, 0, 20, 0, 0)
+      push_spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
+      LibAndroidBridge.android_linearlayout_add_view_weight(@env, button_row, push_spacer, 0, -2, 1.0_f32)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, button_row, -1, -2)
+
+      push_stack(native, button_row, is_linear: true)
+      cancel_button = UI::Button.new(view.cancel_label, role: :cancel, style: UI::ButtonStyle::Borderless)
+      cancel_button.on_tap = view.on_cancel if view.on_cancel
+      cancel_button.accept(self)
+      confirm_style = view.confirm_style == :destructive ? UI::ButtonStyle::Prominent : UI::ButtonStyle::Tinted
+      confirm_role = view.confirm_style == :destructive ? :destructive : :default
+      confirm_button = UI::Button.new(view.confirm_label, role: confirm_role, style: confirm_style)
+      confirm_button.on_tap = view.on_confirm if view.on_confirm
+      confirm_button.accept(self)
+      pop_stack
+
+      apply_common_properties(ll, view)
+      push_native(native, ll)
     end
 
     # -----------------------------------------------------------------
@@ -1507,22 +1759,47 @@ module UI::Android
     def visit(view : UI::Card)
       fl = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
 
-      if view.elevation > 0
-        LibAndroidBridge.android_view_set_elevation(@env, fl, view.elevation.to_f32)
-      end
-
-      apply_common_properties(fl, view)
-
       global_fl = LibAndroidBridge.android_new_global_ref(@env, fl)
       handle = JNI.wrap_global(global_fl, label: "FrameLayout[card]")
       native = NativeView.new(handle)
 
+      LibAndroidBridge.android_view_set_background_color(
+        @env, fl,
+        material_color(view.material == :tertiary ? :surface_variant : :surface))
+      LibAndroidBridge.android_view_set_corner_radius(
+        @env, fl,
+        (view.corner_radius > 0.0 ? view.corner_radius : @material_theme.corner_radius_medium).to_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, fl, 1)
+      LibAndroidBridge.android_view_set_elevation(
+        @env, fl,
+        (view.elevation > 0 ? view.elevation : 2.0).to_f32)
+      if view.is_outlined
+        LibAndroidBridge.android_view_set_stroke(@env, fl, 1.0_f32, material_color(:outline_variant))
+      end
+
+      content_ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, content_ll, 1)
+      padding = view.content_padding
+      LibAndroidBridge.android_view_set_padding(
+        @env, content_ll,
+        padding.leading.round.to_i,
+        padding.top.round.to_i,
+        padding.trailing.round.to_i,
+        padding.bottom.round.to_i)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, fl, content_ll, -1, -2)
+
+      if title = view.title
+        title_tv = new_text_view(title, 18.0_f32, material_color(:on_surface), 1)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content_ll, title_tv, -1, -2)
+      end
+
       if content = view.content
-        push_stack(native, fl, is_linear: false)
+        push_stack(native, content_ll, is_linear: true)
         content.accept(self)
         pop_stack
       end
 
+      apply_common_properties(fl, view)
       push_native(native, fl)
     end
 
@@ -1887,49 +2164,216 @@ module UI::Android
       push_native(native, ll)
     end
 
-    # MapView: android.view.View placeholder (com.google.android.gms.maps.MapView
-    # requires Google Play Services; use content description for lat/lng/zoom).
+    # MapView: Android-native study composition using real View primitives.
     def visit(view : UI::MapView)
-      v = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+      container = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, container, 1)
+      LibAndroidBridge.android_view_set_background_color(@env, container, material_color(:surface))
+      LibAndroidBridge.android_view_set_corner_radius(@env, container, @material_theme.corner_radius_medium.to_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, container, 1)
+      LibAndroidBridge.android_view_set_elevation(@env, container, 4.0_f32)
+      LibAndroidBridge.android_view_set_padding(@env, container, 16, 16, 16, 16)
 
-      # Store map parameters in content description for testing
       desc = "map:#{view.map_type}:#{view.latitude},#{view.longitude}:z#{view.zoom_level}"
       LibAndroidBridge.android_view_set_content_description(
-        @env, v, desc.to_unsafe, desc.bytesize)
+        @env, container, desc.to_unsafe, desc.bytesize)
 
-      apply_common_properties(v, view)
-      emit(v, "View[map]")
+      title = new_text_view("Map preview", 18.0_f32, material_color(:on_surface), 1)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, title, -1, -2)
+
+      subtitle_text = "#{view.map_type.to_s.capitalize}  #{view.latitude.round(4)}, #{view.longitude.round(4)}  z#{view.zoom_level.round(1)}"
+      subtitle = new_text_view(subtitle_text, 13.0_f32, material_color(:on_surface_variant), 0)
+      LibAndroidBridge.android_view_set_padding(@env, subtitle, 0, 8, 0, 12)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, subtitle, -1, -2)
+
+      canvas = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, canvas, 1)
+      LibAndroidBridge.android_view_set_background_color(@env, canvas, material_color(:surface_variant))
+      LibAndroidBridge.android_view_set_corner_radius(@env, canvas, 24.0_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, canvas, 1)
+      LibAndroidBridge.android_view_set_padding(@env, canvas, 16, 16, 16, 16)
+
+      route = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+      LibAndroidBridge.android_view_set_background_color(@env, route, material_color(:primary))
+      LibAndroidBridge.android_view_set_corner_radius(@env, route, 4.0_f32)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, canvas, route, -1, 8)
+
+      block_strip = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+      LibAndroidBridge.android_view_set_background_color(@env, block_strip, material_color(:outline_variant))
+      LibAndroidBridge.android_view_set_corner_radius(@env, block_strip, 4.0_f32)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, canvas, block_strip, -1, 8)
+
+      meta = new_text_view(
+        view.annotations.empty? ? "Annotations: none" : "Annotations: #{view.annotations.size}",
+        13.0_f32,
+        material_color(:on_surface_variant),
+        0
+      )
+      LibAndroidBridge.android_view_set_padding(@env, meta, 0, 12, 0, 0)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, canvas, meta, -1, -2)
+
+      if view.shows_user_location
+        user = new_text_view("User location enabled", 12.0_f32, material_color(:primary), 1)
+        LibAndroidBridge.android_view_set_padding(@env, user, 0, 8, 0, 0)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, canvas, user, -1, -2)
+      end
+
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, canvas, -1, 220)
+
+      apply_common_properties(container, view)
+      emit(container, "LinearLayout[map]")
     end
 
-    # ChartView: android.view.View placeholder (full chart rendering requires
-    # MPAndroidChart or custom drawing; use content description for chart metadata).
+    # ChartView: Android-native chart study built from View primitives.
     def visit(view : UI::ChartView)
-      v = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+      container = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, container, 1)
+      LibAndroidBridge.android_view_set_background_color(@env, container, material_color(:surface))
+      LibAndroidBridge.android_view_set_corner_radius(@env, container, @material_theme.corner_radius_medium.to_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, container, 1)
+      LibAndroidBridge.android_view_set_elevation(@env, container, 4.0_f32)
+      LibAndroidBridge.android_view_set_padding(@env, container, 16, 16, 16, 16)
 
-      # Store chart parameters in content description for testing
       chart_title = view.title.empty? ? "chart" : view.title
       desc = "chart:#{view.chart_type}:#{chart_title}:#{view.data_points.size}pts"
       LibAndroidBridge.android_view_set_content_description(
-        @env, v, desc.to_unsafe, desc.bytesize)
+        @env, container, desc.to_unsafe, desc.bytesize)
 
-      apply_common_properties(v, view)
-      emit(v, "View[chart]")
-    end
+      title = new_text_view(chart_title, 18.0_f32, material_color(:on_surface), 1)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, title, -1, -2)
 
-    # WebViewComponent: android.webkit.WebView placeholder.
-    # android.webkit.WebView requires the WebKit library; use content description
-    # for URL/settings for now.
-    def visit(view : UI::WebViewComponent)
-      v = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+      subtitle = new_text_view(
+        "#{view.chart_type.to_s.capitalize} chart  #{view.data_points.size} points",
+        13.0_f32,
+        material_color(:on_surface_variant),
+        0
+      )
+      LibAndroidBridge.android_view_set_padding(@env, subtitle, 0, 8, 0, 12)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, subtitle, -1, -2)
 
-      # Store URL in content description for accessibility and testing
-      unless view.url.empty?
-        LibAndroidBridge.android_view_set_content_description(
-          @env, v, view.url.to_unsafe, view.url.bytesize)
+      plot = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, plot, 0)
+      LibAndroidBridge.android_linearlayout_set_gravity(@env, plot, 80)
+      LibAndroidBridge.android_view_set_background_color(@env, plot, material_color(:surface_variant))
+      LibAndroidBridge.android_view_set_corner_radius(@env, plot, 24.0_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, plot, 1)
+      LibAndroidBridge.android_view_set_padding(@env, plot, 12, 18, 12, 16)
+
+      if view.data_points.empty?
+        empty_label = new_text_view("No series data", 14.0_f32, material_color(:on_surface_variant), 0)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, plot, empty_label, -2, -2)
+      elsif view.chart_type == :line
+        max_value = view.data_points.map(&.value).max
+        max_value = 1.0 if max_value <= 0.0
+        view.data_points.each do |point|
+          column = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+          LibAndroidBridge.android_linearlayout_set_orientation(@env, column, 1)
+          LibAndroidBridge.android_linearlayout_set_gravity(@env, column, 1)
+
+          normalized = (point.value / max_value).clamp(0.0, 1.0)
+          stem_height = (normalized * 96.0).round.to_i
+          spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, column, spacer, 32, 100 - stem_height)
+
+          dot = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+          dot_color = if c = point.color
+                        color_to_argb(c)
+                      else
+                        material_color(:primary)
+                      end
+          LibAndroidBridge.android_view_set_background_color(@env, dot, dot_color)
+          LibAndroidBridge.android_view_set_corner_radius(@env, dot, 6.0_f32)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, column, dot, 12, 12)
+
+          if stem_height > 12
+            stem = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+            LibAndroidBridge.android_view_set_background_color(@env, stem, dot_color)
+            LibAndroidBridge.android_viewgroup_add_view_wh(@env, column, stem, 2, stem_height - 12)
+          end
+
+          label = new_text_view(point.label, 11.0_f32, material_color(:on_surface_variant), 0)
+          LibAndroidBridge.android_view_set_padding(@env, label, 0, 8, 0, 0)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, column, label, 48, -2)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, plot, column, 56, -2)
+        end
+      else
+        max_value = view.data_points.map(&.value).max
+        max_value = 1.0 if max_value <= 0.0
+        view.data_points.each do |point|
+          column = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+          LibAndroidBridge.android_linearlayout_set_orientation(@env, column, 1)
+          LibAndroidBridge.android_linearlayout_set_gravity(@env, column, 1)
+
+          normalized = (point.value / max_value).clamp(0.0, 1.0)
+          bar_height = [(normalized * 116.0).round.to_i, 8].max
+          spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, column, spacer, 32, 124 - bar_height)
+
+          bar = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+          bar_color = if c = point.color
+                        color_to_argb(c)
+                      else
+                        material_color(:primary)
+                      end
+          LibAndroidBridge.android_view_set_background_color(@env, bar, bar_color)
+          LibAndroidBridge.android_view_set_corner_radius(@env, bar, 6.0_f32)
+          LibAndroidBridge.android_view_set_clip_to_outline(@env, bar, 1)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, column, bar, 28, bar_height)
+
+          label = new_text_view(point.label, 11.0_f32, material_color(:on_surface_variant), 0)
+          LibAndroidBridge.android_view_set_padding(@env, label, 0, 8, 0, 0)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, column, label, 48, -2)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, plot, column, 56, -2)
+        end
       end
 
-      apply_common_properties(v, view)
-      emit(v, "View[webview]")
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, plot, -1, 180)
+
+      if view.show_legend && !view.data_points.empty?
+        legend = new_text_view("Legend: #{view.data_points.map(&.label).join(", ")}", 12.0_f32, material_color(:on_surface_variant), 0)
+        LibAndroidBridge.android_view_set_padding(@env, legend, 0, 12, 0, 0)
+        LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, legend, -1, -2)
+      end
+
+      apply_common_properties(container, view)
+      emit(container, "LinearLayout[chart]")
+    end
+
+    # WebViewComponent: native WebView mounted inside a Material study frame.
+    def visit(view : UI::WebViewComponent)
+      container = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, container, 1)
+      LibAndroidBridge.android_view_set_background_color(@env, container, material_color(:surface))
+      LibAndroidBridge.android_view_set_corner_radius(@env, container, @material_theme.corner_radius_medium.to_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, container, 1)
+      LibAndroidBridge.android_view_set_elevation(@env, container, 4.0_f32)
+      LibAndroidBridge.android_view_set_padding(@env, container, 16, 16, 16, 16)
+
+      heading_text = view.title || (view.url.empty? ? "Embedded web content" : "Web preview")
+      heading = new_text_view(heading_text, 18.0_f32, material_color(:on_surface), 1)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, heading, -1, -2)
+
+      source_text = if !view.url.empty?
+                      view.url
+                    elsif view.html
+                      "Inline HTML document"
+                    else
+                      "Waiting for host-side content load"
+                    end
+      source = new_text_view(source_text, 12.0_f32, material_color(:on_surface_variant), 0)
+      LibAndroidBridge.android_view_set_padding(@env, source, 0, 8, 0, 12)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, source, -1, -2)
+
+      web = LibAndroidBridge.android_view_new(@env, "android/webkit/WebView", @context)
+      LibAndroidBridge.android_view_set_background_color(@env, web, material_color(:surface_variant))
+      LibAndroidBridge.android_view_set_corner_radius(@env, web, 18.0_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, web, 1)
+      LibAndroidBridge.android_view_set_content_description(
+        @env, web, source_text.to_unsafe, source_text.bytesize)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, web, -1, 260)
+
+      apply_common_properties(container, view)
+      emit(container, "LinearLayout[webview]")
     end
 
     # ColorPicker: android.view.View placeholder for color selection UI.
@@ -1952,19 +2396,50 @@ module UI::Android
       emit(v, "View[color-picker]")
     end
 
-    # VideoPlayer: android.view.View placeholder (full integration uses
-    # ExoPlayer or MediaPlayer with SurfaceView; content description holds URL).
+    # VideoPlayer: native VideoView mounted in a Material media surface.
     def visit(view : UI::VideoPlayer)
-      v = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+      container = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, container, 1)
+      LibAndroidBridge.android_view_set_background_color(@env, container, material_color(:surface))
+      LibAndroidBridge.android_view_set_corner_radius(@env, container, @material_theme.corner_radius_medium.to_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, container, 1)
+      LibAndroidBridge.android_view_set_elevation(@env, container, 4.0_f32)
+      LibAndroidBridge.android_view_set_padding(@env, container, 16, 16, 16, 16)
 
-      # Store URL in content description for accessibility and testing
+      heading = new_text_view("Video preview", 18.0_f32, material_color(:on_surface), 1)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, heading, -1, -2)
+
+      details = new_text_view(
+        view.url.empty? ? "No source assigned" : view.url,
+        12.0_f32,
+        material_color(:on_surface_variant),
+        0
+      )
+      LibAndroidBridge.android_view_set_padding(@env, details, 0, 8, 0, 12)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, details, -1, -2)
+
+      video = LibAndroidBridge.android_view_new(@env, "android/widget/VideoView", @context)
+      LibAndroidBridge.android_view_set_background_color(@env, video, material_color(:inverse_surface))
+      LibAndroidBridge.android_view_set_corner_radius(@env, video, 20.0_f32)
+      LibAndroidBridge.android_view_set_clip_to_outline(@env, video, 1)
       unless view.url.empty?
-        LibAndroidBridge.android_view_set_content_description(
-          @env, v, view.url.to_unsafe, view.url.bytesize)
+        LibAndroidBridge.android_view_set_content_description(@env, video, view.url.to_unsafe, view.url.bytesize)
       end
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, video, -1, 220)
 
-      apply_common_properties(v, view)
-      emit(v, "View[video]")
+      control_row = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, control_row, 0)
+      LibAndroidBridge.android_view_set_padding(@env, control_row, 0, 12, 0, 0)
+      play_label = new_text_view(view.is_playing ? "Playing" : "Paused", 12.0_f32, material_color(:primary), 1)
+      sound_label = new_text_view(view.muted ? "Muted" : "Audio on", 12.0_f32, material_color(:on_surface_variant), 0)
+      controls_label = new_text_view(view.shows_controls ? "Controls visible" : "Controls hidden", 12.0_f32, material_color(:on_surface_variant), 0)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, control_row, play_label, -2, -2)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, control_row, sound_label, -2, -2)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, control_row, controls_label, -2, -2)
+      LibAndroidBridge.android_viewgroup_add_view_wh(@env, container, control_row, -1, -2)
+
+      apply_common_properties(container, view)
+      emit(container, "LinearLayout[video]")
     end
 
     # Tooltip: FrameLayout wrapping optional content with tooltip text stored
@@ -2026,37 +2501,37 @@ module UI::Android
       outer = LibAndroidBridge.android_view_new(
         @env, "android/widget/LinearLayout", @context)
       # VERTICAL orientation = 1
-      LibAndroidBridge.android_linear_layout_set_orientation(@env, outer, 1)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, outer, 1)
 
       # Header row LinearLayout (horizontal = 0)
       header_row = LibAndroidBridge.android_view_new(
         @env, "android/widget/LinearLayout", @context)
-      LibAndroidBridge.android_linear_layout_set_orientation(@env, header_row, 0)
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, header_row, 0)
 
       # Chevron glyph TextView
       chevron_tv = LibAndroidBridge.android_view_new(
         @env, "android/widget/TextView", @context)
       chevron_char = view.expanded ? "\u25BC" : "\u25B6"
-      LibAndroidBridge.android_text_view_set_text(@env, chevron_tv, chevron_char.to_unsafe, chevron_char.bytesize)
+      LibAndroidBridge.android_textview_set_text(@env, chevron_tv, chevron_char.to_unsafe, chevron_char.bytesize)
 
       # Title TextView
       title_tv = LibAndroidBridge.android_view_new(
         @env, "android/widget/TextView", @context)
-      LibAndroidBridge.android_text_view_set_text(@env, title_tv, view.title.to_unsafe, view.title.bytesize)
+      LibAndroidBridge.android_textview_set_text(@env, title_tv, view.title.to_unsafe, view.title.bytesize)
 
       # Accessibility: content description on header row
       acc_text = view.accessibility_label || "#{view.title}, #{view.expanded ? "expanded" : "collapsed"}"
       LibAndroidBridge.android_view_set_content_description(@env, header_row, acc_text.to_unsafe, acc_text.bytesize)
 
-      LibAndroidBridge.android_view_group_add_child(@env, header_row, chevron_tv)
-      LibAndroidBridge.android_view_group_add_child(@env, header_row, title_tv)
-      LibAndroidBridge.android_view_group_add_child(@env, outer, header_row)
+      LibAndroidBridge.android_viewgroup_add_view(@env, header_row, chevron_tv)
+      LibAndroidBridge.android_viewgroup_add_view(@env, header_row, title_tv)
+      LibAndroidBridge.android_viewgroup_add_view(@env, outer, header_row)
 
       # Content block (visible when expanded)
       if view.expanded && !view.content.empty?
         content_ll = LibAndroidBridge.android_view_new(
           @env, "android/widget/LinearLayout", @context)
-        LibAndroidBridge.android_linear_layout_set_orientation(@env, content_ll, 1)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, content_ll, 1)
 
         global_content = LibAndroidBridge.android_new_global_ref(@env, content_ll)
         content_handle = JNI.wrap_global(global_content, label: "LinearLayout[disclosure-content]")
@@ -2068,7 +2543,7 @@ module UI::Android
         end
         pop_stack
 
-        LibAndroidBridge.android_view_group_add_child(@env, outer, content_ll)
+        LibAndroidBridge.android_viewgroup_add_view(@env, outer, content_ll)
       end
 
       apply_common_properties(outer, view)
@@ -2090,6 +2565,64 @@ module UI::Android
       g = (color.g * 255.0).round.to_i.clamp(0, 255)
       b = (color.b * 255.0).round.to_i.clamp(0, 255)
       ((a << 24) | (r << 16) | (g << 8) | b).to_i32
+    end
+
+    private def theme_color_to_argb(color : UI::ThemeColor) : Int32
+      a = (color.a * 255.0).round.to_i.clamp(0, 255)
+      r = (color.r * 255.0).round.to_i.clamp(0, 255)
+      g = (color.g * 255.0).round.to_i.clamp(0, 255)
+      b = (color.b * 255.0).round.to_i.clamp(0, 255)
+      ((a << 24) | (r << 16) | (g << 8) | b).to_i32
+    end
+
+    private def material_color(role : Symbol) : Int32
+      theme = @material_theme
+      color = case role
+              when :primary              then theme.primary
+              when :on_primary           then theme.on_primary
+              when :primary_container    then theme.primary_container
+              when :on_primary_container then theme.on_primary_container
+              when :secondary            then theme.secondary
+              when :on_secondary         then theme.on_secondary
+              when :secondary_container  then theme.secondary_container
+              when :on_secondary_container then theme.on_secondary_container
+              when :error                then theme.error
+              when :on_error             then theme.on_error
+              when :error_container      then theme.error_container
+              when :on_error_container   then theme.on_error_container
+              when :background           then theme.background
+              when :on_background        then theme.on_background
+              when :surface              then theme.surface
+              when :on_surface           then theme.on_surface
+              when :surface_variant      then theme.surface_variant
+              when :on_surface_variant   then theme.on_surface_variant
+              when :outline              then theme.outline
+              when :outline_variant      then theme.outline_variant
+              when :inverse_surface      then theme.inverse_surface
+              when :inverse_on_surface   then theme.inverse_on_surface
+              else
+                theme.surface
+              end
+      theme_color_to_argb(color)
+    end
+
+    private def zero_padding?(insets : UI::EdgeInsets) : Bool
+      insets.top == 0.0 &&
+        insets.trailing == 0.0 &&
+        insets.bottom == 0.0 &&
+        insets.leading == 0.0
+    end
+
+    private def new_text_view(text : String,
+                              size_sp : Float32 = 14.0_f32,
+                              color : Int32 = material_color(:on_surface),
+                              typeface_style : Int32 = 0) : Void*
+      tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
+      LibAndroidBridge.android_textview_set_text(@env, tv, text.to_unsafe, text.bytesize)
+      LibAndroidBridge.android_textview_set_text_size(@env, tv, size_sp)
+      LibAndroidBridge.android_textview_set_text_color(@env, tv, color)
+      LibAndroidBridge.android_textview_set_typeface(@env, tv, typeface_style)
+      tv
     end
 
     # Map a UI::Font to an Android Typeface style integer.
@@ -2191,6 +2724,7 @@ module UI::Android
       @stack = [] of NativeView
       @stack_is_linear = [] of Bool
       @stack_local_ptrs = [] of Void*
+      @material_theme = UI::Theme.material_baseline
     end
 
     # Push a container NativeView onto the nesting stack, with its local ptr.
