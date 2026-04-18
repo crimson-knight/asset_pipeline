@@ -36,7 +36,7 @@ object StudyCatalog {
             renderer = "UI::Card",
             priority = "P0",
             lane = "material-defaults",
-            status = "pending_acceptance",
+            status = "accepted",
             summary = "Surface, outlined, and elevated card treatments."
         ),
         StudySpec(
@@ -99,4 +99,3 @@ object StudyCatalog {
         return studies.firstOrNull { it.slug == slug } ?: studies.first()
     }
 }
-

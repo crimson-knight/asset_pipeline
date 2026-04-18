@@ -451,7 +451,9 @@ Environment:
   CRYSTAL_CROSS_DEPS   Deps root directory     (default: /tmp/crystal-cross-deps)
   IOS_DEPLOYMENT_TARGET                        (default: 17.0)
   CRYSTAL_FLAGS        Extra -D flags          (default: -Dwithout_openssl -Dwithout_xml)
-  EXTRA_LINK_FLAGS     Extra clang link flags
+  EXTRA_C_SOURCES      Extra C bridge sources  (default: none)
+  EXTRA_CFLAGS         Extra C compiler flags  (default: none)
+  EXTRA_LINK_FLAGS     Extra clang link flags  (default: target-specific)
   BUILD_DIR            Output directory        (default: <repo>/build)
 ```
 
@@ -466,7 +468,9 @@ Environment:
   ANDROID_API          Min API level           (default: 31)
   ANDROID_NDK_HOME     NDK path
   CRYSTAL_FLAGS        Extra -D flags          (default: -Dwithout_openssl -Dwithout_xml)
-  EXTRA_LINK_FLAGS     Extra NDK link flags    (default: -llog)
+  EXTRA_C_SOURCES      Extra C bridge sources  (default: none)
+  EXTRA_CFLAGS         Extra C compiler flags  (default: none)
+  EXTRA_LINK_FLAGS     Extra NDK link flags    (default: -llog -lz)
   STRIP                Set to 1 for release    (default: 0)
   BUILD_DIR            Output directory        (default: <repo>/build)
 ```

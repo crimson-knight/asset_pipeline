@@ -1,20 +1,22 @@
 {
-  "generated_at": "2026-04-18T13:06:00Z",
+  "generated_at": "2026-04-18T14:43:15Z",
   "slug": "cards",
-  "validation_state": "captured_pending_review",
+  "validation_state": "accepted",
   "report": "../reports/cards.md",
   "screenshots": {
     "light": {
-      "phone": "../screenshots/cards-android-phone-light.png"
+      "phone": "../screenshots/cards-android-phone-light.png",
+      "tablet": "../screenshots/cards-android-tablet-light.png"
     },
     "dark": {
-      "phone": null
+      "phone": "../screenshots/cards-android-phone-dark.png",
+      "tablet": "../screenshots/cards-android-tablet-dark.png"
     }
   },
   "warnings": [
-    "Dark phone capture is still pending.",
-    "Tablet adaptive review has not started.",
-    "Study uses FrameLayout plus shared shape and elevation treatment rather than MaterialCardView."
+
   ],
-  "errors": []
+  "errors": [
+
+  ]
 }

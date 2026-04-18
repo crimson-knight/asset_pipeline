@@ -1,20 +1,24 @@
 {
-  "generated_at": "2026-04-18T13:06:00Z",
+  "generated_at": "2026-04-18T14:43:15Z",
   "slug": "dialogs",
   "validation_state": "captured_pending_review",
   "report": "../reports/dialogs.md",
   "screenshots": {
     "light": {
-      "phone": "../screenshots/dialogs-android-phone-light.png"
+      "phone": "../screenshots/dialogs-android-phone-light.png",
+      "tablet": "../screenshots/dialogs-android-tablet-light.png"
     },
     "dark": {
-      "phone": null
+      "phone": "../screenshots/dialogs-android-phone-dark.png",
+      "tablet": "../screenshots/dialogs-android-tablet-dark.png"
     }
   },
   "warnings": [
-    "Dark phone capture is still pending.",
-    "Tablet adaptive review has not started.",
-    "Alert and confirmation surfaces are inline renderer compositions, not platform dialogs."
+    "Light, dark, phone, and tablet captures are current.",
+    "Alert and confirmation flows are still inline renderer studies rather than platform dialog APIs.",
+    "Dialog action callbacks remain blocked on the unfinished Android interaction bridge."
   ],
-  "errors": []
+  "errors": [
+
+  ]
 }

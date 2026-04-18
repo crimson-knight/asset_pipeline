@@ -1,20 +1,24 @@
 {
-  "generated_at": "2026-04-18T13:06:00Z",
+  "generated_at": "2026-04-18T14:43:15Z",
   "slug": "webview",
   "validation_state": "captured_pending_review",
   "report": "../reports/webview.md",
   "screenshots": {
     "light": {
-      "phone": "../screenshots/webview-android-phone-light.png"
+      "phone": "../screenshots/webview-android-phone-light.png",
+      "tablet": "../screenshots/webview-android-tablet-light.png"
     },
     "dark": {
-      "phone": null
+      "phone": "../screenshots/webview-android-phone-dark.png",
+      "tablet": "../screenshots/webview-android-tablet-dark.png"
     }
   },
   "warnings": [
-    "Dark phone capture is still pending.",
-    "Tablet adaptive review has not started.",
-    "Current study validates inline HTML loading; parity for external content scenarios still needs follow-up."
+    "Light, dark, phone, and tablet captures are current.",
+    "Current validation is based on inline HTML content loaded into a real Android WebView.",
+    "External-content flow and navigation behavior still need follow-up before promotion."
   ],
-  "errors": []
+  "errors": [
+
+  ]
 }

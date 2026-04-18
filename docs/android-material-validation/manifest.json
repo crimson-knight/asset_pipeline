@@ -1,10 +1,12 @@
 {
-  "generated_at": "2026-04-18T13:06:00Z",
-  "phase": "first_batch_light_review",
+  "generated_at": "2026-04-18T14:43:15Z",
+  "phase": "first_batch_matrix_review",
   "acceptance_bar_version": "2026-04-18-android-material-phase0",
   "sdk_root": "/opt/homebrew/share/android-commandlinetools",
   "captured_light_count": 9,
-  "promoted_count": 0,
+  "captured_dark_count": 9,
+  "captured_tablet_count": 9,
+  "promoted_count": 1,
   "devices": [
     {
       "name": "crystal_test",
@@ -47,7 +49,7 @@
       "priority": "P0",
       "lane": "material-defaults",
       "validation_state": "captured_pending_review",
-      "evidence_state": "captured_light",
+      "evidence_state": "captured_matrix",
       "report": "./reports/buttons.md",
       "evidence": "./evidence/buttons.json"
     },
@@ -57,7 +59,7 @@
       "priority": "P0",
       "lane": "material-defaults",
       "validation_state": "captured_pending_review",
-      "evidence_state": "captured_light",
+      "evidence_state": "captured_matrix",
       "report": "./reports/text-fields.md",
       "evidence": "./evidence/text-fields.json"
     },
@@ -66,8 +68,8 @@
       "renderer": "UI::Card",
       "priority": "P0",
       "lane": "material-defaults",
-      "validation_state": "captured_pending_review",
-      "evidence_state": "captured_light",
+      "validation_state": "accepted",
+      "evidence_state": "accepted",
       "report": "./reports/cards.md",
       "evidence": "./evidence/cards.json"
     },
@@ -77,7 +79,7 @@
       "priority": "P0",
       "lane": "material-defaults",
       "validation_state": "captured_pending_review",
-      "evidence_state": "captured_light",
+      "evidence_state": "captured_matrix",
       "report": "./reports/dialogs.md",
       "evidence": "./evidence/dialogs.json"
     },
@@ -87,7 +89,7 @@
       "priority": "P0",
       "lane": "material-defaults",
       "validation_state": "captured_pending_review",
-      "evidence_state": "captured_light",
+      "evidence_state": "captured_matrix",
       "report": "./reports/app-bars.md",
       "evidence": "./evidence/app-bars.json"
     },
@@ -97,7 +99,7 @@
       "priority": "P0",
       "lane": "placeholder-elimination",
       "validation_state": "captured_pending_review",
-      "evidence_state": "captured_light",
+      "evidence_state": "captured_matrix",
       "report": "./reports/webview.md",
       "evidence": "./evidence/webview.json"
     },
@@ -107,7 +109,7 @@
       "priority": "P0",
       "lane": "placeholder-elimination",
       "validation_state": "captured_pending_review",
-      "evidence_state": "captured_light",
+      "evidence_state": "captured_matrix",
       "report": "./reports/map-view.md",
       "evidence": "./evidence/map-view.json"
     },
@@ -117,7 +119,7 @@
       "priority": "P0",
       "lane": "placeholder-elimination",
       "validation_state": "captured_pending_review",
-      "evidence_state": "captured_light",
+      "evidence_state": "captured_matrix",
       "report": "./reports/video-player.md",
       "evidence": "./evidence/video-player.json"
     },
@@ -127,7 +129,7 @@
       "priority": "P0",
       "lane": "placeholder-elimination",
       "validation_state": "captured_pending_review",
-      "evidence_state": "captured_light",
+      "evidence_state": "captured_matrix",
       "report": "./reports/chart-view.md",
       "evidence": "./evidence/chart-view.json"
     }

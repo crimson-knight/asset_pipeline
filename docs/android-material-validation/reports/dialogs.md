@@ -1,9 +1,9 @@
 # Dialogs
 
 - Study purpose: validate the first Material-style pass for alert and confirmation actions in the Android renderer.
-- Native classes involved: `android.widget.LinearLayout`, `android.widget.TextView`, `android.widget.Button`, `android.widget.Space`.
-- Current renderer status: renderer-backed in the Android host with a fresh phone/light capture from April 18, 2026.
-- Light appearance notes: title, body copy, and action ordering are all visible, and the study now reads like a dialog surface rather than a raw placeholder box.
-- Dark appearance notes: not captured yet.
-- Phone and tablet observations: phone capture is current; tablet validation has not started.
-- Open deviations and promotion impact: both alert and confirmation flows are still inline renderer compositions instead of platform or Material dialog APIs, so the study remains blocked from promotion.
+- Native classes involved: `com.google.android.material.card.MaterialCardView`, `android.widget.LinearLayout`, `android.widget.TextView`, `com.google.android.material.button.MaterialButton`.
+- Current renderer status: renderer-backed with current phone, tablet, light, and dark captures from April 18, 2026.
+- Light appearance notes: title, body copy, and action ordering now read like Material dialog studies instead of raw placeholder boxes.
+- Dark appearance notes: dark captures are current and the action layout remains legible on both device classes.
+- Phone and tablet observations: the inline study scales cleanly to tablet width, but it is still an in-host composition rather than a real modal surface.
+- Open deviations and promotion impact: the renderer still needs honest platform dialog presentation and callback verification, so promotion remains blocked.

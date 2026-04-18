@@ -8,9 +8,10 @@ phase. It is intentionally scoped to `asset_pipeline` ownership:
 - this host owns the Android showcase shell, capture entry point, and renderer
   mount surface
 
-The shell is honest about current state. Until the Crystal/JNI render mount is
-wired, the host shows study metadata and a dedicated native mount card instead
-of pretending screenshots are renderer-complete.
+The Crystal/JNI render mount is wired. The host launches renderer-backed Android
+studies, applies the requested appearance, and records the study status that is
+meant to match the validation ledger. The ledger still decides whether a study
+is accepted; the host should not be treated as a shortcut around that review.
 
 ## Local expectations
 
@@ -18,6 +19,7 @@ of pretending screenshots are renderer-complete.
   `/opt/homebrew/share/android-commandlinetools`
 - recommended AVDs:
   - `crystal_test`
+  - `test_api35`
   - `Pixel_3a_API_34_extension_level_7_arm64-v8a`
   - `pixel_tablet_api35`
 
@@ -45,3 +47,20 @@ adb shell am start -S \
   --es study_slug buttons \
   --es study_appearance light
 ```
+
+## Capture Workflow
+
+Use the shared runner from the repo root so screenshot naming, settle delays,
+and host installation stay consistent with the Android validation ledger.
+
+```bash
+./scripts/run_android_material_tests.sh --serial emulator-5554 --device-role phone --appearance both
+./scripts/run_android_material_tests.sh --serial emulator-5556 --device-role tablet --appearance both --skip-build
+```
+
+Helpful flags:
+
+- `--only buttons,text-fields`
+- `--appearance light|dark|both`
+- `--device-role phone|tablet`
+- `--skip-build` to reuse the installed host APK

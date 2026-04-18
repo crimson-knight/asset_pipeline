@@ -2,8 +2,8 @@
 
 - Study purpose: eliminate the Android map placeholder family and keep the validation host stable while the platform bridge grows.
 - Native classes involved: `android.widget.LinearLayout`, `android.widget.TextView`, `android.view.View`.
-- Current renderer status: renderer-backed in the Android host with a fresh phone/light capture from April 18, 2026, and the prior crash path is fixed.
-- Light appearance notes: the study now captures reliably and summarizes map mode, pins, and user-location state without falling back to the launcher.
-- Dark appearance notes: not captured yet.
-- Phone and tablet observations: phone capture is current; tablet validation has not started.
-- Open deviations and promotion impact: this is still a composed preview surface rather than an SDK-backed map widget, so promotion stays blocked even though the crash is resolved.
+- Current renderer status: renderer-backed with current phone, tablet, light, and dark captures from April 18, 2026, and the prior crash path is fixed.
+- Light appearance notes: the study captures reliably and summarizes route, annotations, and user-location state without falling back to a launcher crash.
+- Dark appearance notes: dark captures are current, but they still represent a composed preview surface rather than a real map widget.
+- Phone and tablet observations: the layout scales to tablet width, which is useful for review, but it is still only a preview composition.
+- Open deviations and promotion impact: an SDK-backed map implementation is still missing, so promotion remains blocked.
