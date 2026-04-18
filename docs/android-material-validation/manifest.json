@@ -1,8 +1,10 @@
 {
-  "generated_at": "2026-04-18T08:20:00Z",
-  "phase": "scaffold",
+  "generated_at": "2026-04-18T13:06:00Z",
+  "phase": "first_batch_light_review",
   "acceptance_bar_version": "2026-04-18-android-material-phase0",
   "sdk_root": "/opt/homebrew/share/android-commandlinetools",
+  "captured_light_count": 9,
+  "promoted_count": 0,
   "devices": [
     {
       "name": "crystal_test",
@@ -44,73 +46,90 @@
       "renderer": "UI::Button",
       "priority": "P0",
       "lane": "material-defaults",
-      "validation_state": "pending",
-      "evidence_state": "missing"
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_light",
+      "report": "./reports/buttons.md",
+      "evidence": "./evidence/buttons.json"
     },
     {
       "slug": "text-fields",
       "renderer": "UI::TextField",
       "priority": "P0",
       "lane": "material-defaults",
-      "validation_state": "pending",
-      "evidence_state": "missing"
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_light",
+      "report": "./reports/text-fields.md",
+      "evidence": "./evidence/text-fields.json"
     },
     {
       "slug": "cards",
       "renderer": "UI::Card",
       "priority": "P0",
       "lane": "material-defaults",
-      "validation_state": "pending",
-      "evidence_state": "missing"
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_light",
+      "report": "./reports/cards.md",
+      "evidence": "./evidence/cards.json"
     },
     {
       "slug": "dialogs",
       "renderer": "UI::Alert / UI::ConfirmationDialog",
       "priority": "P0",
       "lane": "material-defaults",
-      "validation_state": "pending",
-      "evidence_state": "missing"
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_light",
+      "report": "./reports/dialogs.md",
+      "evidence": "./evidence/dialogs.json"
     },
     {
       "slug": "app-bars",
       "renderer": "UI::Toolbar",
       "priority": "P0",
       "lane": "material-defaults",
-      "validation_state": "pending",
-      "evidence_state": "missing"
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_light",
+      "report": "./reports/app-bars.md",
+      "evidence": "./evidence/app-bars.json"
     },
     {
       "slug": "webview",
       "renderer": "UI::WebViewComponent",
       "priority": "P0",
       "lane": "placeholder-elimination",
-      "validation_state": "pending",
-      "evidence_state": "missing"
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_light",
+      "report": "./reports/webview.md",
+      "evidence": "./evidence/webview.json"
     },
     {
       "slug": "map-view",
       "renderer": "UI::MapView",
       "priority": "P0",
       "lane": "placeholder-elimination",
-      "validation_state": "pending",
-      "evidence_state": "missing"
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_light",
+      "report": "./reports/map-view.md",
+      "evidence": "./evidence/map-view.json"
     },
     {
       "slug": "video-player",
       "renderer": "UI::VideoPlayer",
       "priority": "P0",
       "lane": "placeholder-elimination",
-      "validation_state": "pending",
-      "evidence_state": "missing"
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_light",
+      "report": "./reports/video-player.md",
+      "evidence": "./evidence/video-player.json"
     },
     {
       "slug": "chart-view",
       "renderer": "UI::ChartView",
       "priority": "P0",
       "lane": "placeholder-elimination",
-      "validation_state": "pending",
-      "evidence_state": "missing"
+      "validation_state": "captured_pending_review",
+      "evidence_state": "captured_light",
+      "report": "./reports/chart-view.md",
+      "evidence": "./evidence/chart-view.json"
     }
   ]
 }
-

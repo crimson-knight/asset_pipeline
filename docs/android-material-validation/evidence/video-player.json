@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-04-18T13:06:00Z",
+  "slug": "video-player",
+  "validation_state": "captured_pending_review",
+  "report": "../reports/video-player.md",
+  "screenshots": {
+    "light": {
+      "phone": "../screenshots/video-player-android-phone-light.png"
+    },
+    "dark": {
+      "phone": null
+    }
+  },
+  "warnings": [
+    "Dark phone capture is still pending.",
+    "Tablet adaptive review has not started.",
+    "VideoView is mounted, but a trustworthy demo-ready media source is not wired yet."
+  ],
+  "errors": []
+}

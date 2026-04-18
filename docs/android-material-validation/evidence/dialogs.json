@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-04-18T13:06:00Z",
+  "slug": "dialogs",
+  "validation_state": "captured_pending_review",
+  "report": "../reports/dialogs.md",
+  "screenshots": {
+    "light": {
+      "phone": "../screenshots/dialogs-android-phone-light.png"
+    },
+    "dark": {
+      "phone": null
+    }
+  },
+  "warnings": [
+    "Dark phone capture is still pending.",
+    "Tablet adaptive review has not started.",
+    "Alert and confirmation surfaces are inline renderer compositions, not platform dialogs."
+  ],
+  "errors": []
+}

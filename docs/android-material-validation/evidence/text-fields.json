@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-04-18T13:06:00Z",
+  "slug": "text-fields",
+  "validation_state": "captured_pending_review",
+  "report": "../reports/text-fields.md",
+  "screenshots": {
+    "light": {
+      "phone": "../screenshots/text-fields-android-phone-light.png"
+    },
+    "dark": {
+      "phone": null
+    }
+  },
+  "warnings": [
+    "Dark phone capture is still pending.",
+    "Tablet adaptive review has not started.",
+    "Study currently uses EditText and Spinner instead of TextInputLayout-backed Material text fields."
+  ],
+  "errors": []
+}
