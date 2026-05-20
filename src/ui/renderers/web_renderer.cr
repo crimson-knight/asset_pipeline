@@ -66,6 +66,32 @@ module UI
         output
       end
 
+      # Render `view` wrapped in a full HTML5 document. Always emits the
+      # responsive viewport meta tag, the charset, the supplied title, and
+      # the active design-token `<style>` block (via `inject_theme_css`)
+      # before the rendered view in `<body>`. Callers therefore never need
+      # to hand-roll a `<head>` or remember the viewport meta — the
+      # renderer owns that responsibility for any consumer.
+      #
+      # `lang` defaults to `"en"` and can be overridden for localized output.
+      def render_document(view : UI::View, title : String, lang : String = "en") : String
+        body_html = render(view)
+        String.build do |str|
+          str << "<!doctype html>\n"
+          str << %(<html lang="#{lang}">) << '\n'
+          str << "<head>\n"
+          str << %(<meta charset="utf-8">) << '\n'
+          str << %(<meta name="viewport" content="width=device-width, initial-scale=1">) << '\n'
+          str << "<title>" << title << "</title>\n"
+          str << inject_theme_css
+          str << "</head>\n"
+          str << "<body>\n"
+          str << body_html
+          str << "\n</body>\n"
+          str << "</html>\n"
+        end
+      end
+
       # ---------------------------------------------------------------
       # Visit methods
       # ---------------------------------------------------------------
