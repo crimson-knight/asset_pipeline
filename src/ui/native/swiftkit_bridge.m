@@ -71,6 +71,22 @@ void apsk_runtime_initialize(void *trampoline) {
     ((void (*)(Class, SEL, void *))objc_msgSend)(cls, sel, trampoline);
 }
 
+// Forward-declare the Crystal trampoline so the static linker resolves
+// `_ap_swiftkit_invoke_action` at link time and the address below is a
+// straight load against the resolved symbol. Crystal emits this `fun`
+// in `callback_registry.cr`.
+extern void ap_swiftkit_invoke_action(unsigned long long token, double value);
+
+// Convenience wrapper Crystal renderers actually call. Avoids the
+// Crystal-side gymnastics of producing an `@convention(c)`-compatible
+// function pointer from Crystal's `->fun(...)` syntax (which produces
+// either a closure-bearing Proc or, depending on optimisation level,
+// no stable address at all). The C compiler knows the address of
+// `ap_swiftkit_invoke_action` natively — we just hand it over.
+void apsk_runtime_install_default_action_trampoline(void) {
+    apsk_runtime_initialize((void *)&ap_swiftkit_invoke_action);
+}
+
 // Install (or replace) the brand tint colour applied to every SwiftUI
 // facade root. Crystal calls this on every `render(...)` entry with the
 // active `design_tokens.colors_light.brand_primary` RGBA so a brand

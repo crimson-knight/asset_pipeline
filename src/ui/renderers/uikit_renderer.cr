@@ -3,6 +3,8 @@ require "../platform_visitor"
 require "../native/native_handle"
 require "../native/native_view"
 require "../native/callback_registry"
+require "../native/swiftkit_bridge"
+require "../native/swiftkit_overrides"
 require "../design_tokens"
 
 module UI::UIKit
@@ -153,6 +155,12 @@ module UI::UIKit
     # intrinsic width during UIKit fitting passes.
     @label_preferred_max_layout_width_stack : Array(Float64)
 
+    # Latches once `apsk_runtime_initialize` has handed the Crystal
+    # action trampoline pointer to AssetPipelineSwiftKit's `APSKRuntime`.
+    # Process-wide install, but kept per-renderer so the spec lifecycle
+    # of multi-renderer test runs is easier to reason about.
+    @swiftkit_action_trampoline_installed : Bool = false
+
     def initialize
       @stack = [] of NativeView
       @stack_is_uistack = [] of Bool
@@ -167,6 +175,11 @@ module UI::UIKit
 
     # Convenience: visit a view and return its NativeView.
     def render(view : UI::View) : NativeView
+      # Initialise the SwiftKit runtime and propagate the active brand
+      # tint before traversing the tree. Mirrors the AppKit renderer's
+      # cascade contract — see appkit_renderer.cr#render for the design
+      # context.
+      ensure_swiftkit_runtime!
       view.accept(self)
       result
     end
@@ -231,252 +244,62 @@ module UI::UIKit
     end
 
     # -----------------------------------------------------------------
-    # Visit: Button -> UIButton with UIButton.Configuration (iOS 15+)
+    # Visit: Button -> SwiftUI Button hosted in UIHostingController
     #
-    # Style -> Configuration factory method mapping:
-    #   Default / Bordered -> UIButton.Configuration.gray()
-    #   Prominent          -> UIButton.Configuration.filled()
-    #   Tinted             -> UIButton.Configuration.tinted()
-    #   Borderless         -> UIButton.Configuration.plain()
+    # Phase 3a migration (Option B — SwiftUI Default Supremacy):
     #
-    # Role overrides applied on top of the configuration:
-    #   :destructive -> baseBackgroundColor = systemRedColor (Prominent/Tinted)
-    #                   or baseForegroundColor = systemRedColor (Default/Bordered)
-    #   :cancel      -> semibold title attribute weight
+    # The renderer no longer constructs a UIButton with per-widget brand
+    # colour injection (amber-gold base, plum-for-destructive, dark-mode
+    # tint contrast pass, role × style matrix). Instead it routes
+    # through AssetPipelineSwiftKit's `APSKButtonFacade`, which emits a
+    # raw SwiftUI `Button(role:action:)` and inherits brand identity via
+    # the `.tint()` cascade installed by `apsk_runtime_set_brand_tint`
+    # (see `render(...)` / `ensure_swiftkit_runtime!`).
     #
-    # HIG: "Use a filled button for the most likely action in a view."
-    #       "Use the destructive style to identify a button that performs a
-    #        destructive action people didn't deliberately choose."
+    # Default behaviour is now whatever SwiftUI gives us:
+    #   - System tint (resolved to `brand_primary` via the tint cascade)
+    #   - System body font + Dynamic Type
+    #   - Built-in hover / press / focus animations
+    #   - VoiceOver `.button` trait + automatic dark-mode tracking
+    #   - Liquid Glass treatment for `.borderedProminent` on iOS 26+
+    #
+    # Per-widget overrides only fire when the developer explicitly sets
+    # the matching `UI::Button` property (`view.background`,
+    # `view.foreground_color`, `view.style`, `view.role`,
+    # `view.disabled`, `view.symbol`, etc.) — the default-detection
+    # invariant in `Populator.populate_button` skips every setter whose
+    # backing property is still at its type default.
+    #
+    # See `docs/initiative-cross-platform-ui/handoff/phase-03-stopped-early-2026-05-20.md`
+    # for the architectural decision context and the prior ~230-line
+    # UIButton implementation this replaces.
     # -----------------------------------------------------------------
     def visit(view : UI::Button)
-      uibutton_cls = LibObjCBridge.objc_getClass("UIButton")
-      uicolor_cls = LibObjCBridge.objc_getClass("UIColor")
+      # 1. Allocate a fresh APSKButtonOverrides instance and populate it
+      #    via the Sender contract. The String target identifier is a
+      #    debug aid; the production sender closes over the pointer.
+      overrides_ptr = LibSwiftKitBridge.apsk_button_overrides_new
+      sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+      target_str = overrides_ptr.address.to_s(16)
+      UI::Native::Populator.populate_button(target_str, view, sender)
 
-      # Build UIButton.Configuration from style.
-      # +[UIButton.Configuration gray] etc. are class methods on UIButtonConfiguration.
-      # The class name changed in different SDK headers but the ObjC runtime name is
-      # "UIButtonConfiguration". We call through uibutton_cls's class method because
-      # that is the public UIKit factory surface.
-      config_cls = LibObjCBridge.objc_getClass("UIButtonConfiguration")
-
-      # Determine the configuration selector based on style.
-      config_sel = case view.style
-                   when UI::ButtonStyle::Prominent  then "filledButtonConfiguration"
-                   when UI::ButtonStyle::Tinted     then "tintedButtonConfiguration"
-                   when UI::ButtonStyle::Borderless then "plainButtonConfiguration"
-                   else                                  "grayButtonConfiguration"
-                   end
-
-      # Create configuration object. Falls back to nil on older iOS where
-      # UIButtonConfiguration is unavailable — we degrade to UIButtonTypeSystem.
-      config = if config_cls.null?
-                 Pointer(Void).null
-               else
-                 LibObjCBridge.objc_send(config_cls, sel(config_sel))
-               end
-
-      # Amber brand gold — replaces systemBlue as the primary tint for all
-      # non-destructive roles. Light: #FFAD33, Dark: #FFB84D. Resolved from
-      # TEST_RUNNER_HIG_APPEARANCE env var (set by iOS capture harness).
-      # Destructive always uses systemRed — HIG mandates red for danger actions.
-      amber_gold = amber_brand_gold
-      # Deep ember — legible foreground on Amber gold fill. Routes through the
-      # token system as `text_primary` (light palette) which the canonical Amber
-      # defaults to oklch(0.18 …) — visually equivalent to the legacy #2A1A08.
-      # A brand override (e.g. SentinelBrand swapping brand_primary to magenta)
-      # that wants a different on-brand foreground overrides text_primary too.
-      ember_dark = token_nscolor(:text_primary, appearance: :light)
-
-      # Apply role + brand color overrides to the configuration.
-      # Dark mode contrast fix (June R3): UIButtonConfiguration.gray() in dark mode
-      # can desaturate baseForegroundColor to ~50% perceived value. To guarantee full
-      # #FFB84D saturation on Tinted/Bordered/Borderless in dark, we:
-      #   (a) set baseForegroundColor to the full-saturation amber gold, AND
-      #   (b) after creating the UIButton (below), set setTintColor: on the button
-      #       directly as a belt-and-suspenders pass that UIKit honors even when
-      #       configuration-level colors are processed/dimmed.
-      # For destructive, systemRedColor dark resolves to ~#FF453A (systemRed in dark).
-      # grayButtonConfiguration in dark may desaturate systemRed to salmon; we also
-      # set the button's tintColor to systemRedColor post-creation to force it.
-      unless config.null?
-        if view.role == :destructive
-          # Amber brand: destructive uses plum (#5B3A94 light / #7D59B8 dark).
-          # HIG role semantics are preserved by prominence and position in the
-          # action sheet — the plum overrides the systemRed hue per amber.md
-          # destructive=plum mapping. Contrast vs cream surface: 5.8:1 (WCAG AA).
-          raw_app = LibC.getenv("TEST_RUNNER_HIG_APPEARANCE")
-          want_dark_dest = !raw_app.null? && String.new(raw_app) == "dark"
-          # Dark destructive: #D6B8F2 (0.839, 0.722, 0.949). Prior #B99CE0 still
-          # read ~#9B85C0 against warm-amber translucent glass (apparent contrast
-          # ~3:1) because of alpha-compositing + simultaneous contrast dropping
-          # perceived luminance. Pushed further to #D6B8F2 for ≥4.5:1 perceived
-          # contrast against warm-glass surfaces (June round 4 citation).
-          plum = LibObjCBridge.nscolor_rgba(
-            want_dark_dest ? 0.839 : 0.357,
-            want_dark_dest ? 0.722 : 0.227,
-            want_dark_dest ? 0.949 : 0.580,
-            1.0
-          )
-          unless plum.null?
-            case view.style
-            when UI::ButtonStyle::Prominent, UI::ButtonStyle::Tinted
-              LibObjCBridge.objc_send_id(config, sel("setBaseBackgroundColor:"), plum)
-              white = LibObjCBridge.objc_send(uicolor_cls, sel("whiteColor"))
-              LibObjCBridge.objc_send_id(config, sel("setBaseForegroundColor:"), white) unless white.null?
-            else
-              # Default / Bordered / Borderless destructive: plum label.
-              LibObjCBridge.objc_send_id(config, sel("setBaseForegroundColor:"), plum)
-            end
-          end
-        else
-          # Non-destructive: apply Amber gold brand primary.
-          unless amber_gold.null?
-            case view.style
-            when UI::ButtonStyle::Prominent
-              # Filled: Amber gold background + deep ember foreground for contrast.
-              LibObjCBridge.objc_send_id(config, sel("setBaseBackgroundColor:"), amber_gold)
-              LibObjCBridge.objc_send_id(config, sel("setBaseForegroundColor:"), ember_dark) unless ember_dark.null?
-            when UI::ButtonStyle::Tinted
-              # Tinted: Amber gold tint (UIKit uses baseForegroundColor for the label
-              # and derives the translucent fill automatically from it).
-              # Dark mode: set full-saturation #FFB84D; tintColor override applied post-creation.
-              LibObjCBridge.objc_send_id(config, sel("setBaseForegroundColor:"), amber_gold)
-            else
-              # Default / Bordered / Borderless: Amber gold label.
-              # Dark mode: set full-saturation #FFB84D; tintColor override applied post-creation.
-              LibObjCBridge.objc_send_id(config, sel("setBaseForegroundColor:"), amber_gold)
-            end
-          end
-        end
-      end
-
-      # Create UIButton with configuration via +[UIButton buttonWithConfiguration:primaryAction:]
-      # (iOS 15+). When UIButtonConfiguration is unavailable (nil config) fall back to
-      # UIButtonTypeSystem = 1 which gives a text-link style button.
-      #
-      # buttonWithConfiguration:primaryAction: signature:
-      #   + (UIButton *)buttonWithConfiguration:(UIButtonConfiguration *)configuration
-      #                           primaryAction:(UIAction *)primaryAction;
-      # We pass nil for primaryAction (actions wired separately via addTarget:action:forControlEvents:).
-      ptr = if !config.null?
-              LibObjCBridge.objc_send_id_id(
-                uibutton_cls,
-                sel("buttonWithConfiguration:primaryAction:"),
-                config,
-                Pointer(Void).null
-              )
-            else
-              LibObjCBridge.objc_send_long(uibutton_cls, sel("buttonWithType:"), 1_i64)
-            end
-
-      # Post-creation tint color override — belt-and-suspenders for dark mode.
-      # UIButtonConfiguration.gray() / .tinted() / .plain() in dark mode may
-      # desaturate or alpha-reduce baseForegroundColor. Setting setTintColor:
-      # on the UIButton directly overrides the configuration-level tint, ensuring
-      # the label + any SF Symbol icon render at full saturation in both appearances.
-      #
-      # For Prominent (filled), the background is the primary brand signal; we do NOT
-      # override tintColor there (it would override the fill-derived label color).
-      #
-      # Fallback (no configuration): setTitleColor:forState: as before.
-      if config.null?
-        tint_color = if view.role == :destructive
-                       # Amber plum (#5B3A94 light / #D6B8F2 dark) for destructive.
-                       # Dark bumped to #D6B8F2 for 4.5:1+ perceived contrast on
-                       # warm-glass surfaces (June round 4 citation).
-                       raw_app_fb = LibC.getenv("TEST_RUNNER_HIG_APPEARANCE")
-                       want_dark_fb = !raw_app_fb.null? && String.new(raw_app_fb) == "dark"
-                       LibObjCBridge.nscolor_rgba(
-                         want_dark_fb ? 0.839 : 0.357,
-                         want_dark_fb ? 0.722 : 0.227,
-                         want_dark_fb ? 0.949 : 0.580,
-                         1.0
-                       )
-                     else
-                       amber_brand_gold
-                     end
-        unless tint_color.null?
-          LibObjCBridge.objc_send_id_long(ptr, sel("setTitleColor:forState:"), tint_color, 0_i64)
-        end
-      elsif view.style != UI::ButtonStyle::Prominent
-        # Configuration-backed non-Prominent: also set UIButton.tintColor directly
-        # to guarantee dark-mode contrast on Tinted, Bordered, Borderless, and
-        # Destructive (Default/Bordered) buttons. Prominent does not need this
-        # because its filled background is already applied via setBaseBackgroundColor:.
-        direct_tint = if view.role == :destructive
-                        LibObjCBridge.objc_send(uicolor_cls, sel("systemRedColor"))
-                      else
-                        amber_gold
-                      end
-        unless direct_tint.null?
-          LibObjCBridge.objc_send_id(ptr, sel("setTintColor:"), direct_tint)
-        end
-      end
-
-      # setTitle:forState: — works on both configuration-backed and legacy buttons.
-      title_str = LibObjCBridge.nsstring_from_cstr(view.label.to_unsafe)
-      LibObjCBridge.objc_send_id_long(ptr, sel("setTitle:forState:"), title_str, 0_i64)
-
-      # Role-aware font: cancel = semibold, others = view.font.
-      # NOTE: on configuration-backed buttons, titleLabel is nil; we set the
-      # font via the configuration's titleTextAttributesTransformer path if needed.
-      # For simplicity we attempt setFont: on titleLabel and skip if nil — the
-      # configuration-based button uses Dynamic Type automatically which is
-      # HIG-correct for most cases.
-      font_for_role = view.font
-      if view.role == :cancel
-        font_for_role = UI::Font.new(
-          family: view.font.family,
-          size: view.font.size,
-          weight: :semibold,
-          italic: view.font.italic,
-        )
-      end
-      title_label = LibObjCBridge.objc_send(ptr, sel("titleLabel"))
-      unless title_label.null?
-        font_ptr = resolve_font(font_for_role)
-        LibObjCBridge.objc_send_id(title_label, sel("setFont:"), font_ptr)
-      end
-
-      # Leading SF Symbol (iOS 13+). +[UIImage systemImageNamed:] returns
-      # nil for unknown names; skip silently.
-      if sym = view.symbol
-        uiimage_cls = LibObjCBridge.objc_getClass("UIImage")
-        sym_ns = LibObjCBridge.nsstring_from_cstr(sym.to_unsafe)
-        sym_image = LibObjCBridge.objc_send_id(uiimage_cls, sel("systemImageNamed:"), sym_ns)
-        unless sym_image.null?
-          LibObjCBridge.objc_send_id_long(ptr, sel("setImage:forState:"), sym_image, 0_i64)
-        end
-      end
-
-      # Enabled/disabled.
-      if view.disabled
-        LibObjCBridge.objc_send_bool(ptr, sel("setEnabled:"), 0)
-      end
-
-      apply_common_properties(ptr, view)
-
-      handle = ObjC.owned(ptr, label: "UIButton[#{view.style}]")
-      native = NativeView.new(handle)
-
-      # Wire on_tap via CrystalActionDispatcher + UIControlEventTouchUpInside = 64.
+      # 2. Register the tap handler. Token 0 means "no callback wired."
+      action_token = 0_u64
       if tap_handler = view.on_tap
-        callback_id = native.register_callback(tap_handler)
-
-        dispatcher_cls = LibObjCBridge.objc_getClass("CrystalActionDispatcher")
-        unless dispatcher_cls.null?
-          dispatcher = LibObjCBridge.objc_send(dispatcher_cls, sel("alloc"))
-          dispatcher = LibObjCBridge.objc_send(dispatcher, sel("init"))
-          LibObjCBridge.objc_send_long(dispatcher, sel("setTag:"), callback_id.to_i64)
-          LibObjCBridge.objc_send_id_id_id(
-            ptr,
-            sel("addTarget:action:forControlEvents:"),
-            dispatcher,
-            sel("dispatch:"),
-            Pointer(Void).new(64_u64)
-          )
-        end
+        action_token = UI::CallbackRegistry.register_action(&tap_handler)
       end
+
+      # 3. Build the SwiftUI Button and hand the underlying UIView back.
+      ptr = LibSwiftKitBridge.apsk_make_button(
+        view.label.to_unsafe, overrides_ptr, action_token,
+      )
+
+      # 4. Wrap and track. The UIHostingController is associated with the
+      #    UIView via objc_setAssociatedObject inside HostingHelpers.host,
+      #    so the controller's lifetime tracks the view's.
+      handle = ObjC.owned(ptr, label: "UIHostingController[Button]")
+      native = NativeView.new(handle)
+      native.track_callback_id(action_token) unless action_token == 0_u64
 
       push_native(native)
     end
@@ -5030,6 +4853,22 @@ module UI::UIKit
     private def token_font(step : Symbol = :body) : Void*
       ts = @design_tokens.type.lookup(step) || @design_tokens.type.body
       LibObjCBridge.nsfont_system(ts.size * 16.0)
+    end
+
+    # Idempotently install the SwiftKit action trampoline and (re)apply
+    # the brand-tint cascade from the active `design_tokens`. Mirrors
+    # `UI::AppKit::Renderer#ensure_swiftkit_runtime!` — see that method
+    # for the Option B design context. Tied to `render(...)` so a brand
+    # swap mid-session takes effect on the next render.
+    private def ensure_swiftkit_runtime! : Nil
+      unless @swiftkit_action_trampoline_installed
+        LibSwiftKitBridge.apsk_runtime_install_default_action_trampoline
+        @swiftkit_action_trampoline_installed = true
+      end
+      brand = @design_tokens.colors_light.brand_primary
+      LibSwiftKitBridge.apsk_runtime_set_brand_tint(
+        brand.r, brand.g, brand.b, brand.alpha,
+      )
     end
 
     # Token-driven radius in points (rem * 16).

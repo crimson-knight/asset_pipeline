@@ -52,6 +52,21 @@ fun ap_swiftkit_invoke_action(token : UInt64, value : Float64) : Void
   UI::CallbackRegistry.invoke_swiftkit(token, value)
 end
 
+# The Crystal-side address of `ap_swiftkit_invoke_action` is needed by
+# `apsk_runtime_initialize`. Producing it from Crystal is finicky —
+# `->ap_swiftkit_invoke_action(...).pointer` works at one optimisation
+# level and not another, and a wrapped `Proc.pointer` leaks the closure
+# header into the @convention(c) ABI. The robust path is to resolve the
+# symbol from C: the static linker has already emitted
+# `_ap_swiftkit_invoke_action` (the underscore-prefixed Mach-O symbol)
+# so `swiftkit_bridge.m` knows the function exists. A no-arg
+# `apsk_runtime_install_action_trampoline()` C trampoline takes the
+# Crystal address by name and forwards it into
+# `[APSKRuntime initializeWithActionTrampoline:]`. Crystal renderers
+# call the no-arg variant; the `fun apsk_runtime_initialize(void*)`
+# Crystal binding stays available for tests that want to install a
+# different trampoline.
+
 module UI
   # Module-level registry that prevents Crystal `Proc` closures from being
   # garbage collected while native code holds references to them.

@@ -142,10 +142,21 @@ module UI
         def initialize(@overrides_ptr : Void*)
         end
 
+        # The Populator emits setter names without a trailing colon
+        # (`:setBackgroundColor`, `:setStyle`, ...) — the recording
+        # spec sender asserts against that exact shape. ObjC selectors
+        # for single-argument setters need the colon, so we append it
+        # at the boundary so the populator contract and the spec
+        # recording remain symmetric.
+        private def objc_selector(setter : Symbol) : String
+          name = setter.to_s
+          name.ends_with?(':') ? name : "#{name}:"
+        end
+
         def set_color(target : String, setter : Symbol, color : UI::Color?)
           return if color.nil?
           LibSwiftKitBridge.apsk_overrides_set_color(
-            @overrides_ptr, setter.to_s.to_unsafe,
+            @overrides_ptr, objc_selector(setter).to_unsafe,
             color.r, color.g, color.b, color.a,
           )
         end
@@ -153,21 +164,21 @@ module UI
         def set_number(target : String, setter : Symbol, value : Float64?)
           return if value.nil?
           LibSwiftKitBridge.apsk_overrides_set_number(
-            @overrides_ptr, setter.to_s.to_unsafe, value,
+            @overrides_ptr, objc_selector(setter).to_unsafe, value,
           )
         end
 
         def set_bool(target : String, setter : Symbol, value : Bool?)
           return if value.nil?
           LibSwiftKitBridge.apsk_overrides_set_bool(
-            @overrides_ptr, setter.to_s.to_unsafe, value ? 1 : 0,
+            @overrides_ptr, objc_selector(setter).to_unsafe, value ? 1 : 0,
           )
         end
 
         def set_string(target : String, setter : Symbol, value : String?)
           return if value.nil?
           LibSwiftKitBridge.apsk_overrides_set_string(
-            @overrides_ptr, setter.to_s.to_unsafe, value.to_unsafe,
+            @overrides_ptr, objc_selector(setter).to_unsafe, value.to_unsafe,
           )
         end
       end

@@ -28,6 +28,15 @@ public typealias APSKHostingController = UIHostingController
 import AppKit
 // APSKPlatformView is declared in ViewOverrides.swift; do not redeclare.
 public typealias APSKHostingController = NSHostingController
+
+// On AppKit we prefer NSHostingView directly over NSHostingController:
+// the view *is* the hosting surface, reports the SwiftUI root's
+// intrinsic content size to NSStackView without any extra sizing-options
+// dance, and produces a stable +1-retain NSView pointer the Crystal
+// renderer can hand to `ObjC.owned(...)`. NSHostingController exists
+// for cases where the SwiftUI root needs to participate in a view
+// controller hierarchy (e.g. an NSWindow's contentViewController); a
+// Crystal-driven AppKit renderer never needs that layer.
 #endif
 
 /// Anchor key for the associated hosting-controller object. The hosting
@@ -61,18 +70,43 @@ enum HostingHelpers {
             tinted = AnyView(view)
         }
         let sized = AnyView(tinted.frame(minWidth: 1, minHeight: 1))
-        let controller = APSKHostingController(rootView: sized)
+
         let platformView: APSKPlatformView
+        let lifetimeOwner: AnyObject
         #if canImport(UIKit)
+        // UIHostingController + .view is the standard UIKit path.
+        // `sizingOptions` is set BEFORE first access to `.view` so the
+        // hosted UIView reports the SwiftUI intrinsic size on the first
+        // layout pass; the prior order produced a CGSizeZero report and
+        // collapsed the button to invisible inside a UIStackView.
+        let controller = UIHostingController(rootView: sized)
+        if #available(iOS 16.0, *) {
+            controller.sizingOptions = [.intrinsicContentSize]
+        }
         platformView = controller.view
+        platformView.translatesAutoresizingMaskIntoConstraints = false
+        platformView.backgroundColor = .clear
+        lifetimeOwner = controller
         #else
-        platformView = controller.view
+        // NSHostingView is the AppKit-native shortcut: the view *is* the
+        // SwiftUI surface, reports `intrinsicContentSize` accurately to
+        // NSStackView's gravity-areas distribution out of the box, and
+        // saves us from `NSHostingController.sizingOptions` ordering
+        // bugs. The view is a +0-retain NSView; ObjC.owned on the
+        // Crystal side bumps it to +1 immediately.
+        let hostingView = NSHostingView(rootView: sized)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        platformView = hostingView
+        lifetimeOwner = hostingView
         #endif
 
+        // Keep the lifetime owner pinned for as long as the platform
+        // view lives. On AppKit they are the same object, but the
+        // association is cheap and uniform across platforms.
         objc_setAssociatedObject(
             platformView,
             &kHostingControllerKey,
-            controller,
+            lifetimeOwner,
             .OBJC_ASSOCIATION_RETAIN_NONATOMIC
         )
         return platformView

@@ -27,6 +27,13 @@
     # -------------------------------------------------------------------------
     fun apsk_runtime_initialize(action_trampoline : Void*)
 
+    # Convenience init for the default case where the renderer just wants
+    # the Crystal `ap_swiftkit_invoke_action` symbol installed. The C
+    # side resolves the address (avoiding Crystal-level
+    # `@convention(c)`-pointer gymnastics that don't survive every
+    # optimisation level).
+    fun apsk_runtime_install_default_action_trampoline
+
     # -------------------------------------------------------------------------
     # Brand-tint cascade. Drives "SwiftUI Default Supremacy" (Option B):
     # the active brand identity propagates into every SwiftUI facade via
