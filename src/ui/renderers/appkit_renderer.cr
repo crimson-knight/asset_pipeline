@@ -3,6 +3,7 @@ require "../platform_visitor"
 require "../native/native_handle"
 require "../native/native_view"
 require "../native/callback_registry"
+require "../design_tokens"
 
 module UI::AppKit
   # ObjC bridge function bindings for the type-safe ARM64 wrappers
@@ -4566,19 +4567,51 @@ module UI::AppKit
       LibObjCBridge.nscolor_rgba(color.r, color.g, color.b, color.a)
     end
 
-    # Returns the Amber brand primary color as an NSColor.
-    # Light appearance: #FFAD33 (r=1.0 g=0.678 b=0.2 a=1.0).
-    # Dark  appearance: #FFB84D (r=1.0 g=0.722 b=0.302 a=1.0).
-    # Appearance is resolved from the HIG_APPEARANCE env var, which the
-    # validation capture harness sets before launching the host binary.
-    # Production apps should substitute their own theme token here.
+    # The unified design-tokens model. Host apps can swap this with a
+    # brand-overridden Tokens before render to cascade their identity into
+    # every visit method that calls `token_nscolor` / `token_radius` /
+    # `token_font_size`. Defaults to `UI::DesignTokens::Tokens.default`,
+    # which mirrors the canonical Amber palette transcribed from the web
+    # token bag.
+    property design_tokens : UI::DesignTokens::Tokens = UI::DesignTokens::Tokens.default
+
+    # Current appearance (light / dark) resolved from HIG_APPEARANCE — the
+    # same env var the validation capture harness sets before launching the
+    # host binary. Production apps should substitute their own runtime
+    # check (e.g. NSAppearance.currentAppearance.name).
+    private def current_appearance : Symbol
+      (ENV["HIG_APPEARANCE"]? == "dark") ? :dark : :light
+    end
+
+    # Resolve a semantic brand color role to an NSColor pointer via the
+    # active design tokens (Step 9 of the Phase 1 implementation plan).
+    # `amber_brand_gold` previously hardcoded `#FFAD33` / `#FFB84D`; that
+    # helper is gone — every caller now passes through here so a brand
+    # override on `design_tokens` cascades through.
+    private def token_nscolor(role : Symbol, appearance : Symbol = current_appearance) : Void*
+      palette = appearance == :dark ? @design_tokens.colors_dark : @design_tokens.colors_light
+      color = palette.lookup(role) || palette.brand_primary
+      LibObjCBridge.nscolor_rgba(color.r, color.g, color.b, color.alpha)
+    end
+
+    # Deprecated shim: `amber_brand_gold` callers now resolve through the
+    # token model. Retained as an alias to keep the call sites readable
+    # while Step 9 mechanically migrates them; the function is private to
+    # this file so it's not part of the public API.
     private def amber_brand_gold : Void*
-      dark = (ENV["HIG_APPEARANCE"]? == "dark")
-      if dark
-        LibObjCBridge.nscolor_rgba(1.0, 0.722, 0.302, 1.0)
-      else
-        LibObjCBridge.nscolor_rgba(1.0, 0.678, 0.2, 1.0)
-      end
+      token_nscolor(:brand_primary)
+    end
+
+    # Token-driven NSFont (system) at the size pulled from the active
+    # TypeScale, multiplied by 16 to convert rem → points.
+    private def token_font(step : Symbol = :body) : Void*
+      ts = @design_tokens.type.lookup(step) || @design_tokens.type.body
+      LibObjCBridge.nsfont_system(ts.size * 16.0)
+    end
+
+    # Token-driven radius in points (rem * 16).
+    private def token_radius(key : Symbol) : Float64
+      (@design_tokens.radius.lookup(key) || @design_tokens.radius.md) * 16.0
     end
 
     # Apply common View base-class properties to a raw AppKit view pointer.

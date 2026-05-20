@@ -3,6 +3,7 @@ require "../platform_visitor"
 require "../native/native_handle"
 require "../native/native_view"
 require "../native/callback_registry"
+require "../design_tokens"
 
 module UI::UIKit
   # ObjC bridge function bindings for UIKit rendering on iOS.
@@ -4952,28 +4953,47 @@ module UI::UIKit
       LibObjCBridge.nscolor_rgba(color.r, color.g, color.b, color.a)
     end
 
-    # Returns the Amber brand primary color as a UIColor.
-    # Light: #FFAD33 (r=1.0 g=0.678 b=0.2 a=1.0).
-    # Dark:  #FFB84D (r=1.0 g=0.722 b=0.302 a=1.0).
-    # Appearance resolved from TEST_RUNNER_HIG_APPEARANCE env var.
-    #
-    # IMPORTANT: Do NOT use ENV["TEST_RUNNER_HIG_APPEARANCE"]? here.
-    # Crystal's ENV[] accessor acquires a mutex via Thread::current and
-    # Crystal::once — both of which require the Crystal fiber subsystem to
-    # be initialized. UIKit may call visit(button) from makeUIView during
-    # the SwiftUI first-layout pass, which runs BEFORE crystal_init has
-    # set up Crystal's thread subsystem. Using ENV[] in that window crashes
-    # with SIGSEGV at 0x18 (Thread::LinkedList#push dereferences a null
-    # thread pointer). Use LibC.getenv — a raw POSIX C call that touches
-    # no Crystal runtime state — instead.
-    private def amber_brand_gold : Void*
+    # The unified design-tokens model — same pattern as UI::AppKit::Renderer.
+    # See `appkit_renderer.cr` for the rationale and Step 10 of the Phase 1
+    # implementation plan.
+    property design_tokens : UI::DesignTokens::Tokens = UI::DesignTokens::Tokens.default
+
+    # IMPORTANT: We use LibC.getenv rather than Crystal's ENV[] accessor
+    # because UIKit may call visit(button) from makeUIView during the
+    # SwiftUI first-layout pass, which runs BEFORE crystal_init has set up
+    # Crystal's thread subsystem. Using ENV[] in that window crashes with
+    # SIGSEGV — LibC.getenv is a raw POSIX C call that touches no Crystal
+    # runtime state.
+    private def current_appearance : Symbol
       raw = LibC.getenv("TEST_RUNNER_HIG_APPEARANCE")
-      dark = !raw.null? && String.new(raw) == "dark"
-      if dark
-        LibObjCBridge.nscolor_rgba(1.0, 0.722, 0.302, 1.0)
-      else
-        LibObjCBridge.nscolor_rgba(1.0, 0.678, 0.2, 1.0)
-      end
+      (!raw.null? && String.new(raw) == "dark") ? :dark : :light
+    end
+
+    # Resolve a semantic brand color role to a UIColor pointer via the
+    # active design tokens (Step 10 of the Phase 1 implementation plan).
+    # Mirrors AppKit's `token_nscolor`.
+    private def token_nscolor(role : Symbol, appearance : Symbol = current_appearance) : Void*
+      palette = appearance == :dark ? @design_tokens.colors_dark : @design_tokens.colors_light
+      color = palette.lookup(role) || palette.brand_primary
+      LibObjCBridge.nscolor_rgba(color.r, color.g, color.b, color.alpha)
+    end
+
+    # Deprecated shim: `amber_brand_gold` callers route through the token
+    # model so a brand override on `design_tokens` cascades through.
+    private def amber_brand_gold : Void*
+      token_nscolor(:brand_primary)
+    end
+
+    # Token-driven UIFont (system) at the size pulled from the active
+    # TypeScale, multiplied by 16 to convert rem → points.
+    private def token_font(step : Symbol = :body) : Void*
+      ts = @design_tokens.type.lookup(step) || @design_tokens.type.body
+      LibObjCBridge.nsfont_system(ts.size * 16.0)
+    end
+
+    # Token-driven radius in points (rem * 16).
+    private def token_radius(key : Symbol) : Float64
+      (@design_tokens.radius.lookup(key) || @design_tokens.radius.md) * 16.0
     end
 
     # Apply common View base-class properties to a raw UIKit view pointer.
