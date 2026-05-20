@@ -65,6 +65,42 @@ module UI::AXTest
       read_bool_attribute("AXFocused") == true
     end
 
+    # --- Geometry (A2) ---
+
+    # The element's top-left position in screen coordinates (CGPoint).
+    # Reads kAXPositionAttribute and unboxes the AXValueRef.
+    # Returns nil if the attribute is unsupported or empty.
+    def position : NamedTuple(x: Float64, y: Float64)?
+      pt = read_cgpoint_attribute("AXPosition")
+      return nil unless pt
+      {x: pt.x, y: pt.y}
+    end
+
+    # The element's size in screen points (CGSize).
+    # Reads kAXSizeAttribute and unboxes the AXValueRef.
+    # Returns nil if the attribute is unsupported or empty.
+    def size : NamedTuple(width: Float64, height: Float64)?
+      sz = read_cgsize_attribute("AXSize")
+      return nil unless sz
+      {width: sz.width, height: sz.height}
+    end
+
+    # The element's screen-space rectangle, composed from position + size.
+    # Returns nil if either component is unavailable.
+    def frame : NamedTuple(x: Float64, y: Float64, width: Float64, height: Float64)?
+      pos = position
+      sz = size
+      return nil unless pos && sz
+      {x: pos[:x], y: pos[:y], width: sz[:width], height: sz[:height]}
+    end
+
+    # Alias for `#frame` documenting that AX position/size are already
+    # in screen coordinates on macOS. Used by the screenshot cropper.
+    # (A7)
+    def bounds_in_screen : NamedTuple(x: Float64, y: Float64, width: Float64, height: Float64)?
+      frame
+    end
+
     # --- Children & Windows ---
 
     # All child elements
@@ -203,6 +239,34 @@ module UI::AXTest
         LibCF.CFRelease(value_ref)
         nil
       end
+    end
+
+    # Read a kAX*-typed attribute that wraps a CGPoint via AXValueRef.
+    private def read_cgpoint_attribute(attr_name : String) : CGPoint?
+      attr_cf = cfstring(attr_name)
+      value_ref = Pointer(Void).null
+      err = LibAX.AXUIElementCopyAttributeValue(@ref, attr_cf, pointerof(value_ref))
+      LibCF.CFRelease(attr_cf)
+      return nil unless err == LibAX::AXErrorSuccess && !value_ref.null?
+
+      pt = CGPoint.new
+      ok = LibAX.AXValueGetValue(value_ref, LibAX::AXValueCGPointType, pointerof(pt).as(Void*))
+      LibCF.CFRelease(value_ref)
+      ok != 0 ? pt : nil
+    end
+
+    # Read a kAX*-typed attribute that wraps a CGSize via AXValueRef.
+    private def read_cgsize_attribute(attr_name : String) : CGSize?
+      attr_cf = cfstring(attr_name)
+      value_ref = Pointer(Void).null
+      err = LibAX.AXUIElementCopyAttributeValue(@ref, attr_cf, pointerof(value_ref))
+      LibCF.CFRelease(attr_cf)
+      return nil unless err == LibAX::AXErrorSuccess && !value_ref.null?
+
+      sz = CGSize.new
+      ok = LibAX.AXValueGetValue(value_ref, LibAX::AXValueCGSizeType, pointerof(sz).as(Void*))
+      LibCF.CFRelease(value_ref)
+      ok != 0 ? sz : nil
     end
 
     private def read_element_array_attribute(attr_name : String) : Array(Element)
