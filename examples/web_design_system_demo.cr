@@ -64,8 +64,10 @@ module WebDesignSystemDemo
 
       .am-demo-container {
         margin: 0 auto;
-        max-width: 1220px;
-        padding: 1rem;
+        /* Page shell scales smoothly between phones and a 1220px ceiling
+           rather than clipping at fixed gutters on narrow viewports. */
+        max-width: clamp(20rem, 92vw, 1220px);
+        padding: clamp(0.75rem, 2.5vw, 1.5rem);
       }
 
       .am-demo-nav {
@@ -282,9 +284,14 @@ module WebDesignSystemDemo
       }
 
       .am-page-card-grid {
+        container-type: inline-size;
+        container-name: card-grid;
         display: grid;
         gap: 1rem;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        /* Container-driven auto-fit: cards reflow naturally from one column
+           on narrow viewports to as many as fit at min(100%, 320px) without
+           a media query breakpoint. */
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
       }
 
       .am-page-card {
@@ -620,6 +627,8 @@ module WebDesignSystemDemo
       }
 
       .am-form {
+        container-type: inline-size;
+        container-name: form;
         display: grid;
         gap: 1rem;
       }
@@ -728,6 +737,8 @@ module WebDesignSystemDemo
       }
 
       .am-dashboard-shell {
+        container-type: inline-size;
+        container-name: dashboard;
         display: grid;
         gap: 1rem;
         grid-template-columns: 13rem minmax(0, 1fr);
@@ -1233,6 +1244,39 @@ module WebDesignSystemDemo
 
         .am-timeline-item:nth-child(n) .am-timeline-dot {
           grid-column: 1;
+        }
+      }
+
+      /* === Phase 2 container queries =====================================
+         These rules adapt components to *their* container width rather than
+         the viewport, so a card inside a narrow sidebar reflows the same
+         way the same card inside a wide hero would. */
+
+      @container form (max-width: 360px) {
+        .am-form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @container form (min-width: 480px) {
+        .am-form-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @container card-grid (max-width: 480px) {
+        .am-page-card {
+          min-height: 9rem;
+        }
+      }
+
+      @container dashboard (max-width: 720px) {
+        .am-dashboard-shell {
+          grid-template-columns: 1fr;
+        }
+        .am-sidebar {
+          grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+          display: grid;
         }
       }
       CSS
