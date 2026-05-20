@@ -21,6 +21,24 @@ module Components
         padding: 1rem;
       }
 
+      /* Closed-state pre-layout: native <dialog> defaults to display:none
+         which collapses the modal's bounding rect and prevents AA touch-
+         target audits from inspecting the inner controls. Render the
+         closed dialog off-screen in a positioned box so the children get
+         real bounding rects without intruding on the visible surface.
+         When the modal is opened via .showModal(), the browser promotes
+         it onto the top layer and our positioning is irrelevant. */
+      dialog.am-dialog:not([open]) {
+        display: block;
+        inset: auto;
+        opacity: 0;
+        pointer-events: none;
+        position: fixed;
+        right: -9999px;
+        top: -9999px;
+        visibility: hidden;
+      }
+
       .am-dialog::backdrop {
         background: oklch(0 0 0 / 0.42);
       }

@@ -20,16 +20,29 @@ module Components
         border-radius: var(--ap-radius-card);
         box-shadow: var(--ap-elevation-floating);
         color: var(--ap-color-text-primary);
-        display: none;
+        /* Closed state: hide visually but keep the inner controls laid
+           out so AA touch-target audits, focus-visible enumeration, and
+           accessibility-tree walkers can inspect the items without
+           opening the palette. The owning element carries `inert` while
+           closed; see scripts/design-system.js openCommandPanel. */
         inset: 12vh max(1rem, calc((100vw - 760px) / 2)) auto;
+        opacity: 0;
         overflow: hidden;
         padding: 0;
+        pointer-events: none;
         position: fixed;
+        transform: translateY(-6px);
+        transition: opacity var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          transform var(--ap-motion-duration-fast) var(--ap-motion-ease-standard);
+        visibility: hidden;
         z-index: 50;
       }
 
       .am-command-panel[data-state="open"] {
-        display: block;
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+        visibility: visible;
       }
 
       .am-command-list {

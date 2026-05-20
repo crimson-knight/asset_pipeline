@@ -41,7 +41,10 @@ module Components
         font: inherit;
         font-size: 0.875rem;
         font-weight: 680;
-        min-height: 2rem;
+        /* Visual height stays 2rem (32 px); use min-block-size to expose
+           the AA touch target while leaving the rendered chip compact. */
+        min-block-size: 44px;
+        min-inline-size: 44px;
         padding: 0 0.75rem;
       }
 

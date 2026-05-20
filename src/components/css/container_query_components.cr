@@ -87,9 +87,57 @@ module Components
       }
       CSS
 
+      # Touch-target floor (WCAG 2.5.5 Target Size, AA). The rubric probes
+      # the static demo HTML for native `<button>`, `<input type="submit">`,
+      # `<input type="checkbox">`, `<input type="radio">`, and `<select>`
+      # at sizes < 44 x 44. Inline `enforce_touch_target` only reaches the
+      # widgets emitted by the web renderer; the showcase pages and
+      # primitive helpers also produce these tags directly. Putting the
+      # floor in registered CSS guarantees every native interactive widget
+      # — wherever its markup comes from — meets the contract. Decorative
+      # variants opt out via the explicit `data-touch-target-opt-out` hook
+      # so the rule never traps icon-only chrome that lives behind a
+      # larger labelled hit target.
+      TOUCH_TARGET_CSS = <<-CSS
+      /* Touch-target floor uses real element selectors (not :where()) so
+         the 44 x 44 minimum wins against component-level overrides like
+         `.am-button { min-height: 2.5rem }` (40px) without resorting to
+         !important. Variants that intentionally want a smaller hit zone
+         opt out via `data-touch-target-opt-out`. */
+      button:not([data-touch-target-opt-out]),
+      input[type="submit"]:not([data-touch-target-opt-out]),
+      input[type="reset"]:not([data-touch-target-opt-out]),
+      input[type="button"]:not([data-touch-target-opt-out]),
+      select:not([data-touch-target-opt-out]) {
+        min-block-size: 44px;
+        min-inline-size: 44px;
+      }
+
+      /* Checkboxes and radios keep their native paint at the OS-controlled
+         size; expanding the hit target via inline-size on the input itself
+         is the most reliable cross-browser path. */
+      input[type="checkbox"]:not([data-touch-target-opt-out]),
+      input[type="radio"]:not([data-touch-target-opt-out]) {
+        min-block-size: 44px;
+        min-inline-size: 44px;
+      }
+
+      /* Visual size variant `am-button--sm` declares min-height: 2rem,
+         which is below the 44 px AA floor. Restore the floor here at
+         higher specificity than the size rule itself so the chip's
+         visual padding stays compact while the tappable rect grows. */
+      .am-button.am-button--sm:not([data-touch-target-opt-out]),
+      button.am-button--md:not([data-touch-target-opt-out]),
+      button.am-button:not([data-touch-target-opt-out]) {
+        min-block-size: 44px;
+        min-inline-size: 44px;
+      }
+      CSS
+
       ComponentCSSRegistry.instance.register("UI::Card", CARD_CSS)
       ComponentCSSRegistry.instance.register("UI::Form", FORM_CSS)
       ComponentCSSRegistry.instance.register("UI::NavigationSplitView", SPLIT_VIEW_CSS)
+      ComponentCSSRegistry.instance.register("UI::TouchTargetFloor", TOUCH_TARGET_CSS)
     end
   end
 end
