@@ -435,7 +435,7 @@ module UI
   module Notifications
     extend self
 
-    {% if flag?(:darwin) %}
+    {% if flag?(:macos) || flag?(:ios) %}
       lib LibObjCBridge
         fun ap_notifications_authorization_status : Int64
         fun ap_notifications_request_authorization(alert : Int32, sound : Int32, badge : Int32) : Int32
@@ -446,7 +446,7 @@ module UI
     {% end %}
 
     def authorization_status : NotificationAuthorizationStatus
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         status_from_native(LibObjCBridge.ap_notifications_authorization_status)
       {% else %}
         NotificationAuthorizationStatus::Unsupported
@@ -454,7 +454,7 @@ module UI
     end
 
     def request_authorization(alert : Bool = true, sound : Bool = true, badge : Bool = true) : Bool
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         LibObjCBridge.ap_notifications_request_authorization(alert ? 1 : 0, sound ? 1 : 0, badge ? 1 : 0) == 1
       {% else %}
         false
@@ -462,7 +462,7 @@ module UI
     end
 
     def schedule(request : NotificationRequest) : Bool
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         subtitle_ptr = request.subtitle ? request.subtitle.not_nil!.to_unsafe : Pointer(UInt8).null
         thread_ptr = request.thread_id ? request.thread_id.not_nil!.to_unsafe : Pointer(UInt8).null
         badge_value = request.badge || -1
@@ -484,13 +484,13 @@ module UI
     end
 
     def remove_pending(identifier : String) : Nil
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         LibObjCBridge.ap_notifications_remove_pending(identifier.to_unsafe)
       {% end %}
     end
 
     def remove_all_pending : Nil
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         LibObjCBridge.ap_notifications_remove_all_pending
       {% end %}
     end

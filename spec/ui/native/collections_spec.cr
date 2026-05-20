@@ -26,7 +26,12 @@ end
 # ObjC Collection Specs (macOS/iOS only)
 # ==========================================================================
 
-{% if flag?(:darwin) %}
+{% if flag?(:macos) || flag?(:ios) %}
+  # Phase 3 link-gap repair: narrowed from `flag?(:darwin)` (auto-set on macOS
+  # hosts) to `flag?(:macos) || flag?(:ios)` (explicit renderer flags). This
+  # matches the gate now used by src/ui/native/objc_collections.cr so the
+  # spec block compiles only when the LibCollectionBridge symbols are
+  # actually linked (i.e. by the native sample builds).
   describe UI::ObjC::NSString do
     it "creates an NSString from a Crystal String and converts back" do
       UI::ObjC.autoreleasepool do
@@ -357,8 +362,8 @@ end
 # ==========================================================================
 
 describe "Collection bridge platform gating" do
-  {% if flag?(:darwin) %}
-    it "ObjC collection types are available on Darwin" do
+  {% if flag?(:macos) || flag?(:ios) %}
+    it "ObjC collection types are available on Darwin native builds" do
       # Verify the types compile and are accessible
       typeof(UI::ObjC::NSString).should_not be_nil
       typeof(UI::ObjC::NSArray).should_not be_nil

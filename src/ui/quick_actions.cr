@@ -89,7 +89,7 @@ module UI
   module HomeScreenQuickActions
     extend self
 
-    {% if flag?(:darwin) %}
+    {% if flag?(:macos) || flag?(:ios) %}
       lib LibObjCBridge
         fun ap_home_screen_quick_actions_apply(payload : UInt8*) : Int32
         fun ap_home_screen_quick_actions_clear : Void
@@ -133,7 +133,7 @@ module UI
     end
 
     def apply(catalog : QuickActionsCatalog) : Bool
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         LibObjCBridge.ap_home_screen_quick_actions_apply(catalog.to_json.to_unsafe) == 1
       {% else %}
         false
@@ -141,7 +141,7 @@ module UI
     end
 
     def clear : Nil
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         LibObjCBridge.ap_home_screen_quick_actions_clear
       {% end %}
     end

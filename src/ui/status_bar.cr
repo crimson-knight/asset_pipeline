@@ -107,7 +107,7 @@ module UI
   module StatusBars
     extend self
 
-    {% if flag?(:darwin) %}
+    {% if flag?(:macos) || flag?(:ios) %}
       lib LibObjCBridge
         fun ap_status_bar_apply(style : Int64, hidden : Int32, animated : Int32) : Int32
         fun ap_status_item_install(identifier : UInt8*, title : UInt8*, icon : UInt8*, tooltip : UInt8*, template_icon : Int32, visible : Int32, menu_payload : UInt8*) : Int32
@@ -118,7 +118,7 @@ module UI
     {% end %}
 
     def apply(appearance : StatusBarAppearance) : Bool
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         LibObjCBridge.ap_status_bar_apply(
           appearance.style.value,
           appearance.hidden ? 1 : 0,
@@ -130,7 +130,7 @@ module UI
     end
 
     def install_item(item : UI::StatusBar) : Bool
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         title_ptr = item.title ? item.title.not_nil!.to_unsafe : Pointer(UInt8).null
         icon_ptr = item.icon ? item.icon.not_nil!.to_unsafe : Pointer(UInt8).null
         tooltip_ptr = item.tooltip ? item.tooltip.not_nil!.to_unsafe : Pointer(UInt8).null
@@ -152,13 +152,13 @@ module UI
     end
 
     def uninstall_item(identifier : String) : Nil
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         LibObjCBridge.ap_status_item_uninstall(identifier.to_unsafe)
       {% end %}
     end
 
     def take_triggered_identifier : String?
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         ptr = LibObjCBridge.ap_status_item_take_triggered_identifier
         return nil if ptr.null?
 

@@ -1,5 +1,18 @@
-{% if flag?(:darwin) %}
+{% if flag?(:macos) || flag?(:ios) %}
   # Crystal wrappers for Objective-C collection bridge operations.
+  #
+  # NOTE (Phase 3 link-gap repair, 2026-05-20): This module was previously
+  # gated on `flag?(:darwin)`, which is auto-set on macOS hosts regardless
+  # of whether a renderer flag was passed. That meant `crystal spec` from
+  # the repo root (no `-Dmacos` / `-Dios`) tried to compile this module's
+  # `lib LibCollectionBridge` references and then failed to link because
+  # the implementing C trampolines live in code that is only compiled +
+  # linked by the native sample builds. The narrower gate below restricts
+  # the module to actual native-target builds (the sample apps, which
+  # always pass `-Dmacos` or `-Dios` and explicitly link the bridge .m).
+  # Crystal spec runs on macOS / Linux now skip this module entirely;
+  # the spec-time `LibObjCBridge` / `LibSwiftKitBridge` shims live in
+  # `spec/support/fake_lib_objc_bridge.cr`.
   #
   # These wrap the C functions defined in collection_bridge.c (Section 1:
   # Objective-C Collection Bridge). All returned ObjC objects follow standard

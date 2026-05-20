@@ -103,7 +103,7 @@ module UI
   module MenuBars
     extend self
 
-    {% if flag?(:darwin) %}
+    {% if flag?(:macos) || flag?(:ios) %}
       lib LibObjCBridge
         fun ap_menu_bar_install(payload : UInt8*) : Int32
         fun ap_menu_bar_clear : Void
@@ -113,7 +113,7 @@ module UI
     {% end %}
 
     def install(menu_bar : UI::MenuBar) : Bool
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         LibObjCBridge.ap_menu_bar_install(menu_bar.to_payload.to_unsafe) == 1
       {% else %}
         false
@@ -121,13 +121,13 @@ module UI
     end
 
     def clear : Nil
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         LibObjCBridge.ap_menu_bar_clear
       {% end %}
     end
 
     def take_triggered_identifier : String?
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         ptr = LibObjCBridge.ap_menu_bar_take_triggered_identifier
         return nil if ptr.null?
 

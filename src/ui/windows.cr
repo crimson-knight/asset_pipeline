@@ -82,7 +82,7 @@ module UI
   module Windows
     extend self
 
-    {% if flag?(:darwin) %}
+    {% if flag?(:macos) || flag?(:ios) %}
       lib LibObjCBridge
         fun ap_window_apply_configuration(title : UInt8*, subtitle : UInt8*, width : Float64, height : Float64, min_width : Float64, min_height : Float64, max_width : Float64, max_height : Float64, titlebar_style : Int64, shows_titlebar : Int32, shows_toolbar : Int32, allows_full_screen : Int32, resizable : Int32) : Int32
       end
@@ -118,7 +118,7 @@ module UI
     end
 
     def apply(configuration : WindowConfiguration) : Bool
-      {% if flag?(:darwin) %}
+      {% if flag?(:macos) || flag?(:ios) %}
         subtitle_ptr = configuration.subtitle ? configuration.subtitle.not_nil!.to_unsafe : Pointer(UInt8).null
         preferred = configuration.normalized_preferred_size
         minimum = configuration.minimum_size
