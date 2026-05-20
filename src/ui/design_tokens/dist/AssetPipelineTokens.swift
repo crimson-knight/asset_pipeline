@@ -95,11 +95,16 @@ public enum AssetPipelineTokens {
 
     public enum Radius {
         public static let none: CGFloat = 0
+        public static let xs: CGFloat = 4
         public static let sm: CGFloat = 2
         public static let md: CGFloat = 6
         public static let lg: CGFloat = 8
         public static let xl: CGFloat = 12
         public static let x2l: CGFloat = 16
+        public static let card: CGFloat = 10
+        public static let sheet: CGFloat = 14
+        public static let avatar: CGFloat = 30
+        public static let avatarLg: CGFloat = 60
         public static let pill: CGFloat = 9999
     }
 

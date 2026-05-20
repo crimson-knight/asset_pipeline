@@ -72,11 +72,16 @@ module UI
       private def emit_radius_enum(io : IO, scale : RadiusScale) : Nil
         io << "    public enum Radius {\n"
         io << "        public static let none: CGFloat = #{format_cgfloat(rem_to_points(scale.none))}\n"
+        io << "        public static let xs: CGFloat = #{format_cgfloat(rem_to_points(scale.xs))}\n"
         io << "        public static let sm: CGFloat = #{format_cgfloat(rem_to_points(scale.sm))}\n"
         io << "        public static let md: CGFloat = #{format_cgfloat(rem_to_points(scale.md))}\n"
         io << "        public static let lg: CGFloat = #{format_cgfloat(rem_to_points(scale.lg))}\n"
         io << "        public static let xl: CGFloat = #{format_cgfloat(rem_to_points(scale.xl))}\n"
         io << "        public static let x2l: CGFloat = #{format_cgfloat(rem_to_points(scale.x2l))}\n"
+        io << "        public static let card: CGFloat = #{format_cgfloat(rem_to_points(scale.card))}\n"
+        io << "        public static let sheet: CGFloat = #{format_cgfloat(rem_to_points(scale.sheet))}\n"
+        io << "        public static let avatar: CGFloat = #{format_cgfloat(rem_to_points(scale.avatar))}\n"
+        io << "        public static let avatarLg: CGFloat = #{format_cgfloat(rem_to_points(scale.avatar_lg))}\n"
         # Pill is a sentinel — emit a literal large value rather than 9999.9375pt.
         io << "        public static let pill: CGFloat = 9999\n"
         io << "    }\n"

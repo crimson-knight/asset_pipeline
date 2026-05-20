@@ -401,24 +401,40 @@ module UI
       end
     end
 
+    # Role-based radius scale. Phase 1 added `xs`, `card`, `sheet`, `avatar`,
+    # and `avatar_lg` to cover concrete renderer use cases (4pt bar corners,
+    # 10pt grouped-card / popover / snackbar corners, 14pt sheet corners,
+    # 30pt circular action icons, 60pt circular hero icons). These are
+    # role-named rather than t-shirt-sized so consuming brands can override
+    # them semantically.
     record RadiusScale,
       none : Float64,
+      xs : Float64,
       sm : Float64,
       md : Float64,
       lg : Float64,
       xl : Float64,
       x2l : Float64,
+      card : Float64,
+      sheet : Float64,
+      avatar : Float64,
+      avatar_lg : Float64,
       pill : Float64 do
       def lookup(key : Symbol) : Float64?
         case key
-        when :none then none
-        when :sm   then sm
-        when :md   then md
-        when :lg   then lg
-        when :xl   then xl
-        when :x2l  then x2l
-        when :pill then pill
-        else            nil
+        when :none      then none
+        when :xs        then xs
+        when :sm        then sm
+        when :md        then md
+        when :lg        then lg
+        when :xl        then xl
+        when :x2l       then x2l
+        when :card      then card
+        when :sheet     then sheet
+        when :avatar    then avatar
+        when :avatar_lg then avatar_lg
+        when :pill      then pill
+        else                 nil
         end
       end
     end
@@ -853,12 +869,17 @@ module UI
       def radius_scale : RadiusScale
         RadiusScale.new(
           none: 0.0,
-          sm: 0.125,
-          md: 0.375,
-          lg: 0.5,
-          xl: 0.75,
-          x2l: 1.0,
-          pill: 624.9375, # 9999 / 16 — the canonical "pill" sentinel in rem.
+          xs: 0.25,            # 4pt — small bar / chip / micro chart corner
+          sm: 0.125,           # 2pt — small inline element
+          md: 0.375,           # 6pt — default control corner (button, field)
+          lg: 0.5,             # 8pt — thumbnail / plot background
+          xl: 0.75,            # 12pt — alert card
+          x2l: 1.0,            # 16pt — action sheet / large glass surface
+          card: 0.625,         # 10pt — inset-grouped card, popover, snackbar, tile
+          sheet: 0.875,        # 14pt — sheet / glass card (slightly tighter than x2l)
+          avatar: 1.875,       # 30pt — 60pt circular destination icon
+          avatar_lg: 3.75,     # 60pt — 120pt circular hero (pie chart, large avatar)
+          pill: 624.9375,      # 9999 / 16 — the canonical "pill" sentinel in rem.
         )
       end
 

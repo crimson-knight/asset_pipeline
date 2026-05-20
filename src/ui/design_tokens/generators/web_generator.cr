@@ -109,11 +109,16 @@ module UI
       private def emit_radius_vars(io : IO, scale : RadiusScale, indent : String) : Nil
         io << "#{indent}/* radius */\n"
         io << "#{indent}--ap-radius-none: #{format_rem(scale.none)};\n"
+        io << "#{indent}--ap-radius-xs: #{format_rem(scale.xs)};\n"
         io << "#{indent}--ap-radius-sm: #{format_rem(scale.sm)};\n"
         io << "#{indent}--ap-radius-md: #{format_rem(scale.md)};\n"
         io << "#{indent}--ap-radius-lg: #{format_rem(scale.lg)};\n"
         io << "#{indent}--ap-radius-xl: #{format_rem(scale.xl)};\n"
         io << "#{indent}--ap-radius-2xl: #{format_rem(scale.x2l)};\n"
+        io << "#{indent}--ap-radius-card: #{format_rem(scale.card)};\n"
+        io << "#{indent}--ap-radius-sheet: #{format_rem(scale.sheet)};\n"
+        io << "#{indent}--ap-radius-avatar: #{format_rem(scale.avatar)};\n"
+        io << "#{indent}--ap-radius-avatar-lg: #{format_rem(scale.avatar_lg)};\n"
         # The pill sentinel renders as a literal pixel size (9999px), not rem,
         # so we don't accidentally get a comically large rem-based render.
         io << "#{indent}--ap-radius-pill: 9999px;\n"
