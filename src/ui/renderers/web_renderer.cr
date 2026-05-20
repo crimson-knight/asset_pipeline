@@ -663,7 +663,10 @@ module UI
         el.add_style("position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: oklch(0.18 0.02 248 / 0.42); display: flex; align-items: center; justify-content: center; z-index: 1000")
 
         dialog = Components::Elements::Div.new
-        dialog.add_style("background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border-radius: var(--ap-radius-panel); padding: 24px; min-width: 270px; max-width: 400px; box-shadow: var(--ap-elevation-overlay)")
+        # Dialog reflows from a 260px floor through 80vw up to 270px on phones,
+        # and from 280px through 90vw up to 400px on tablets/desktop. Padding
+        # also scales from 16px (small viewports) through 4vw up to 24px.
+        dialog.add_style("background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border-radius: var(--ap-radius-panel); padding: #{fluid_px(16, 4, 24)}; min-width: #{fluid_px(260, 80, 270)}; max-width: #{fluid_px(280, 90, 400)}; box-shadow: var(--ap-elevation-overlay)")
 
         title_el = Components::Elements::Span.new
         title_el << view.title
@@ -1078,7 +1081,7 @@ module UI
               unless field.label.empty?
                 label_el = Components::Elements::Span.new
                 label_el << field.label
-                label_el.add_style("min-width: 100px; color: var(--ap-color-text-secondary)")
+                label_el.add_style("min-width: #{fluid_px(80, 22, 120)}; color: var(--ap-color-text-secondary)")
                 field_el.add_child(label_el)
               end
 
@@ -1258,7 +1261,7 @@ module UI
         end
 
         dialog = Components::Elements::Div.new
-        dialog.add_style("background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border-radius: var(--ap-radius-panel); padding: 24px; min-width: 270px; max-width: 400px; box-shadow: var(--ap-elevation-overlay)")
+        dialog.add_style("background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border-radius: var(--ap-radius-panel); padding: #{fluid_px(16, 4, 24)}; min-width: #{fluid_px(260, 80, 270)}; max-width: #{fluid_px(280, 90, 400)}; box-shadow: var(--ap-elevation-overlay)")
 
         title_el = Components::Elements::Span.new
         title_el << view.title
@@ -1497,7 +1500,7 @@ module UI
 
         if !view.items.empty?
           menu = Components::Elements::Div.new
-          menu.add_style("position: absolute; top: 100%; left: 0; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); box-shadow: var(--ap-elevation-floating); min-width: 150px; z-index: 100")
+          menu.add_style("position: absolute; top: 100%; left: 0; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); box-shadow: var(--ap-elevation-floating); min-width: #{fluid_px(150, 40, 240)}; z-index: 100")
           menu.set_attribute("role", "menu")
           view.items.each do |item|
             item_el = Components::Elements::Div.new
@@ -1523,7 +1526,7 @@ module UI
       def visit(view : UI::ContextMenu)
         el = Components::Elements::Div.new
         el.set_attribute("role", "menu")
-        el.add_style("display: flex; flex-direction: column; min-width: 220px; padding: 8px; border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); background: var(--ap-color-surface-panel); box-shadow: var(--ap-elevation-floating)")
+        el.add_style("display: flex; flex-direction: column; min-width: #{fluid_px(200, 50, 280)}; padding: 8px; border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); background: var(--ap-color-surface-panel); box-shadow: var(--ap-elevation-floating)")
 
         view.items.each do |entry|
           case entry
@@ -1851,7 +1854,7 @@ module UI
       # Web rendering: popover-style card with all four zones.
       def visit(view : UI::ActivityView)
         el = Components::Elements::Div.new
-        el.add_style("background: color-mix(in oklch, var(--ap-color-surface-panel) 86%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-panel); box-shadow: var(--ap-elevation-overlay); color: var(--ap-color-text-primary); padding: 16px; max-width: 400px; display: flex; flex-direction: column; gap: 12px")
+        el.add_style("background: color-mix(in oklch, var(--ap-color-surface-panel) 86%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-panel); box-shadow: var(--ap-elevation-overlay); color: var(--ap-color-text-primary); padding: #{fluid_px(12, 3, 16)}; max-width: #{fluid_px(280, 92, 480)}; display: flex; flex-direction: column; gap: 12px")
         el.set_attribute("role", "dialog")
         el.set_attribute("aria-label", view.title)
 
