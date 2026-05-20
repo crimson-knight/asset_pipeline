@@ -130,7 +130,7 @@ The team lead updates this table as work proceeds. Each row's `Status` is one of
 
 | # | Phase | Status | Implementer commit(s) | Validator report | Notes |
 |---|---|---|---|---|---|
-| 1 | Design Token Foundation | Branch cut, Team Lead dispatched 2026-05-20 | — | — | Branch `phase-01-design-token-foundation` from `feature/utility-first-css-asset-pipeline@72fdc7a`. Android generator deferred per `handoff/phase-01-architect-scope-deferral-2026-05-20.md`; canonical-palette tolerance tightened to ΔE2000 ≤ 1.0 |
+| 1 | Design Token Foundation | Implementer Active (2026-05-20) | — | — | Branch `phase-01-design-token-foundation`. Architect dispatches directly per `handoff/architect-dispatch-collapse-2026-05-20.md` (Team Lead role collapsed). Android generator deferred per `handoff/phase-01-architect-scope-deferral-2026-05-20.md`; canonical-palette tolerance tightened to ΔE2000 ≤ 1.0 |
 | 2 | Responsive Web Fluid Resize | Not Started | — | — | |
 | 3 | SwiftUI Native Bridge | Not Started | — | — | High-risk; budget remediation loops |
 | 4 | Platform Tier Gating | Not Started | — | — | |
