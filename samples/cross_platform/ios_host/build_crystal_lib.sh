@@ -104,6 +104,48 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Step 1b: Compile AssetPipelineSwiftKit C trampolines and static library
+# ---------------------------------------------------------------------------
+# Phase 3a routes UI::Button through AssetPipelineSwiftKit. The C
+# trampolines in `swiftkit_bridge.m` resolve `apsk_make_button(...)` etc.
+# via objc_msgSend onto the Swift facade classes. The Swift facade is
+# packaged as a static archive that the consuming Xcode project (or
+# `ar`-merged libhighost.a below) links against alongside SwiftUI /
+# Combine system frameworks. iOS Swift runtime ships at
+# /usr/lib/swift inside the SDK; the Xcode project must add a runtime
+# search path to load it.
+
+SWIFTKIT_BRIDGE_SRC="$PROJECT_ROOT/src/ui/native/swiftkit_bridge.m"
+SWIFTKIT_BRIDGE_OBJ="$BUILD_DIR/swiftkit_bridge_ios.o"
+SWIFTKIT_PACKAGE_DIR="$PROJECT_ROOT/swift/AssetPipelineSwiftKit"
+SWIFTKIT_BUILD_TARGET="$BUILD_DIR/swiftkit_${BUILD_TARGET}.a"
+
+if [[ -f "$SWIFTKIT_BRIDGE_SRC" ]]; then
+    info "Compiling AssetPipelineSwiftKit C trampolines for $BUILD_TARGET..."
+    "$CLANG" -c "$SWIFTKIT_BRIDGE_SRC" -o "$SWIFTKIT_BRIDGE_OBJ" \
+        -target "$LLVM_TARGET" \
+        -isysroot "$SDK_PATH" \
+        -mios-version-min=$MIN_IOS_VER \
+        -fno-objc-arc
+    ok "SwiftKit C trampolines compiled"
+fi
+
+info "Compiling AssetPipelineSwiftKit Swift facade for $BUILD_TARGET..."
+swift build -c release \
+    --package-path "$SWIFTKIT_PACKAGE_DIR" \
+    --triple "$LLVM_TARGET" \
+    --sdk "$SDK_PATH"
+
+# Swift puts the archive at .build/<triple>/release/lib*.a; gather it.
+SWIFTKIT_SRC_LIB="$SWIFTKIT_PACKAGE_DIR/.build/$LLVM_TARGET/release/libAssetPipelineSwiftKit.a"
+if [[ -f "$SWIFTKIT_SRC_LIB" ]]; then
+    cp "$SWIFTKIT_SRC_LIB" "$SWIFTKIT_BUILD_TARGET"
+    ok "SwiftKit static library staged at $SWIFTKIT_BUILD_TARGET"
+else
+    info "Swift archive not found at $SWIFTKIT_SRC_LIB — Xcode link step will need to locate it manually"
+fi
+
+# ---------------------------------------------------------------------------
 # Step 2: Cross-compile Crystal bridge
 # ---------------------------------------------------------------------------
 
@@ -139,8 +181,12 @@ info "Creating static library..."
 
 OBJ_FILES="$BRIDGE_BASE.o"
 [[ -f "$AP_BRIDGE_OBJ" ]] && OBJ_FILES="$OBJ_FILES $AP_BRIDGE_OBJ"
+[[ -f "$SWIFTKIT_BRIDGE_OBJ" ]] && OBJ_FILES="$OBJ_FILES $SWIFTKIT_BRIDGE_OBJ"
 
 ar rcs "$OUTPUT_LIB" $OBJ_FILES
 ok "Static library created: $OUTPUT_LIB"
 
 info "Done! Link with: -L$BUILD_DIR -lhighost"
+info "Also link: $SWIFTKIT_BUILD_TARGET (AssetPipelineSwiftKit Swift facade)"
+info "Frameworks: -framework SwiftUI -framework Combine -framework Foundation -framework UIKit"
+info "Swift runtime rpath: add /usr/lib/swift to the consuming target's runpath search paths"

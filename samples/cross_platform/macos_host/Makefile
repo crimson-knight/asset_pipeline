@@ -29,26 +29,50 @@ CODESIGN_IDENTITY ?= Developer ID Application: AgentC Consulting LLC (PXDF92M2T4
 AP_BRIDGE     := $(SHARD_ROOT)/src/ui/native/objc_bridge.o
 AP_BRIDGE_SRC := $(SHARD_ROOT)/src/ui/native/objc_bridge.m
 
+# AssetPipelineSwiftKit — Swift companion library that the Phase 3a Button
+# (and every Dispatch B widget that follows) routes through. The Crystal
+# renderer calls `apsk_make_button(...)` via the C trampolines in
+# `swiftkit_bridge.m`; `swiftkit_bridge.o` is the ObjC glue and the static
+# `libAssetPipelineSwiftKit.a` is the Swift facade implementation.
+SWIFTKIT_DIR        := $(SHARD_ROOT)/swift/AssetPipelineSwiftKit
+SWIFTKIT_LIB        := $(SWIFTKIT_DIR)/.build/release/libAssetPipelineSwiftKit.a
+SWIFTKIT_BRIDGE     := $(SHARD_ROOT)/src/ui/native/swiftkit_bridge.o
+SWIFTKIT_BRIDGE_SRC := $(SHARD_ROOT)/src/ui/native/swiftkit_bridge.m
+
 # HIG host window helper (NSApplication + NSWindow init).
 WIN_HELPER     := $(PROJECT_DIR)/window_helper.o
 WIN_HELPER_SRC := $(PROJECT_DIR)/window_helper.m
 
 # Framework flags for macOS.
 # AppKit + Foundation + lobjc = renderer essentials.
+# SwiftUI + Combine = AssetPipelineSwiftKit facade runtime.
 # ApplicationServices + CoreFoundation = AXTest screenshot harness.
 # CoreGraphics + ImageIO = CGWindowListCreateImage capture path (Phase 0.1).
 MACOS_FRAMEWORKS := -framework AppKit -framework Foundation \
+	-framework SwiftUI -framework Combine \
 	-framework ApplicationServices -framework CoreFoundation \
 	-framework CoreGraphics -framework ImageIO -framework QuartzCore \
 	-framework UserNotifications \
 	-framework WebKit -framework MapKit -framework CoreLocation -framework AVKit -framework AVFoundation \
 	-lobjc
 
-MACOS_LINK_FLAGS := $(AP_BRIDGE) $(WIN_HELPER) $(MACOS_FRAMEWORKS)
+# The Swift runtime lives at /usr/lib/swift on macOS 13+; embedding the
+# rpath lets the binary load Foundation/SwiftUI without DYLD overrides.
+# `-force_load $(SWIFTKIT_LIB)` is REQUIRED: AssetPipelineSwiftKit's
+# `APSK*` classes are referenced only via `objc_getClass(...)` lookups
+# in `swiftkit_bridge.m`. Apple's ld treats unreferenced ObjC classes
+# inside .a archives as dead code by default — without `-force_load`
+# the Swift facade symbols vanish, `apsk_make_button` returns NULL, and
+# every hosted SwiftUI view collapses to a zero-size NSView. Discovered
+# during Phase 3a integration; see commit log for the failure mode.
+MACOS_LINK_FLAGS := $(AP_BRIDGE) $(SWIFTKIT_BRIDGE) $(WIN_HELPER) \
+	-Wl,-force_load,$(SWIFTKIT_LIB) \
+	$(MACOS_FRAMEWORKS) \
+	-Wl,-rpath,/usr/lib/swift
 
 SLUG ?= buttons
 
-.PHONY: showcase build ext-ap ext-win clean
+.PHONY: showcase build ext-ap ext-swiftkit ext-swiftkit-lib ext-win clean
 
 # --- Build + run ---
 
@@ -62,9 +86,9 @@ showcase: build
 		HIG_SLUG=$(SLUG) ./$(BIN); \
 	fi
 
-build: ext-ap ext-win $(BIN)
+build: ext-ap ext-swiftkit ext-swiftkit-lib ext-win $(BIN)
 
-$(BIN): $(SRC) ext-ap ext-win
+$(BIN): $(SRC) ext-ap ext-swiftkit ext-swiftkit-lib ext-win
 	@mkdir -p bin
 	$(CRYSTAL) build $(SRC) -o $(BIN) -Dmacos \
 		--link-flags="$(MACOS_LINK_FLAGS)"
@@ -99,6 +123,17 @@ ext-ap: $(AP_BRIDGE)
 $(AP_BRIDGE): $(AP_BRIDGE_SRC)
 	clang -c $(AP_BRIDGE_SRC) -o $(AP_BRIDGE) -fno-objc-arc
 
+# AssetPipelineSwiftKit C trampoline + Swift static library targets.
+ext-swiftkit: $(SWIFTKIT_BRIDGE)
+$(SWIFTKIT_BRIDGE): $(SWIFTKIT_BRIDGE_SRC)
+	clang -c $(SWIFTKIT_BRIDGE_SRC) -o $(SWIFTKIT_BRIDGE) -fno-objc-arc
+
+ext-swiftkit-lib: $(SWIFTKIT_LIB)
+$(SWIFTKIT_LIB): $(wildcard $(SWIFTKIT_DIR)/Sources/AssetPipelineSwiftKit/*.swift) \
+                 $(wildcard $(SWIFTKIT_DIR)/Sources/AssetPipelineSwiftKit/**/*.swift) \
+                 $(SWIFTKIT_DIR)/Package.swift
+	swift build -c release --package-path $(SWIFTKIT_DIR)
+
 ext-win: $(WIN_HELPER)
 $(WIN_HELPER): $(WIN_HELPER_SRC)
 	clang -c $(WIN_HELPER_SRC) -o $(WIN_HELPER) -fno-objc-arc
@@ -106,5 +141,6 @@ $(WIN_HELPER): $(WIN_HELPER_SRC)
 # --- Clean ---
 
 clean:
-	rm -f $(BIN) $(AP_BRIDGE) $(WIN_HELPER)
+	rm -f $(BIN) $(AP_BRIDGE) $(SWIFTKIT_BRIDGE) $(WIN_HELPER)
 	rm -rf bin
+	rm -rf $(SWIFTKIT_DIR)/.build
