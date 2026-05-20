@@ -707,36 +707,52 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Visit: NavigationStack -> NSView (container for navigation content)
       # -----------------------------------------------------------------
       def visit(view : UI::NavigationStack)
-        ptr = alloc_init("NSView")
+        # SwiftUI NavigationStack facade. The current top-of-stack view
+        # is rendered detached to obtain its native pointer, then handed
+        # to the facade as a one-element children array.
+        overrides_ptr = LibSwiftKitBridge.apsk_navigation_stack_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_navigation_stack(target_str, view, sender)
 
-        apply_common_properties(ptr, view)
+        children_native = [] of NativeView
+        if detached = render_detached(view.current_view)
+          children_native << detached
+        end
 
-        handle = ObjC.owned(ptr, label: "NSView[nav-stack]")
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_navigation_stack(
+          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[NavigationStack]")
         native = NativeView.new(handle)
-
-        # Render the current view (top of stack or root) into this container
-        push_stack(native, is_nsstack: false)
-        view.current_view.accept(self)
-        pop_stack
-
+        children_native.each { |c| native.add_child(c) }
         push_native(native)
       end
 
       # -----------------------------------------------------------------
-      # Visit: NavigationLink -> NSButton (styled as a link row)
+      # Visit: NavigationLink -> SwiftUI NavigationLink facade.
       # -----------------------------------------------------------------
       def visit(view : UI::NavigationLink)
-        ptr = alloc_init("NSButton")
+        overrides_ptr = LibSwiftKitBridge.apsk_navigation_link_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_navigation_link(target_str, view, sender)
 
-        title_str = LibObjCBridge.nsstring_from_cstr(view.label.to_unsafe)
-        LibObjCBridge.objc_send_id(ptr, sel("setTitle:"), title_str)
+        children_native = [] of NativeView
+        if detached = render_detached(view.destination)
+          children_native << detached
+        end
 
-        # NSBezelStyleRounded = 1
-        LibObjCBridge.objc_send_long(ptr, sel("setBezelStyle:"), 1_i64)
-
-        apply_common_properties(ptr, view)
-
-        emit(ptr, "NSButton[nav-link]")
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_navigation_link(
+          view.label.to_unsafe, child_buf.as(Void*),
+          children_native.size.to_i32, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[NavigationLink]")
+        native = NativeView.new(handle)
+        children_native.each { |c| native.add_child(c) }
+        push_native(native)
       end
 
       # -----------------------------------------------------------------
@@ -763,7 +779,45 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Unselected tabs: NSColor.secondaryLabelColor (appearance-tracking).
       # -----------------------------------------------------------------
       def visit(view : UI::TabView)
-        # Glass root container: NSVisualEffectMaterialMenu = 10 tracks appearance.
+        # SwiftUI TabView facade. Each tab's content is rendered detached
+        # to obtain a native pointer; the facade wraps each in
+        # APSKHostedChild + applies .tabItem with the parallel label/icon
+        # arrays from the overrides.
+        overrides_ptr = LibSwiftKitBridge.apsk_tab_view_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_tab_view(target_str, view, sender)
+
+        action_token = 0_u64
+        if change_handler = view.on_change
+          action_token = UI::CallbackRegistry.register_action_with_value do |v|
+            change_handler.call(v.to_i32)
+          end
+        end
+
+        children_native = [] of NativeView
+        view.tabs.each do |tab|
+          if d = render_detached(tab.content)
+            children_native << d
+          else
+            empty_ptr = alloc_init("NSView")
+            children_native << NativeView.new(ObjC.owned(empty_ptr, label: "NSView[tab-empty]"))
+          end
+        end
+
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_tab_view(
+          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[TabView]")
+        native = NativeView.new(handle)
+        native.track_callback_id(action_token) unless action_token == 0_u64
+        children_native.each { |c| native.add_child(c) }
+        push_native(native)
+      end
+
+      # Legacy AppKit tab view body, retained for reference.
+      private def _legacy_tab_view(view : UI::TabView)
         glass_root = alloc_init("NSVisualEffectView")
         LibObjCBridge.objc_send_long(glass_root, sel("setMaterial:"), 10_i64)
         # NSVisualEffectBlendingModeWithinWindow = 1 — samples what is beneath
@@ -965,10 +1019,38 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # corner radius, and role-coloring are HIG-faithful.
       # -----------------------------------------------------------------
       def visit(view : UI::Alert)
-        # Outer glass container — NSVisualEffectView with hudWindow material.
-        effect = alloc_init("NSVisualEffectView")
+        # SwiftUI .alert(title:isPresented:actions:message:) facade.
+        overrides_ptr = LibSwiftKitBridge.apsk_alert_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_alert(target_str, view, sender)
 
-        # NSVisualEffectMaterialHUDWindow = 7. Tracks light/dark appearance.
+        # Register each button's action token; pass as UInt64 array.
+        tokens = [] of UInt64
+        callback_ids = [] of UInt64
+        view.buttons.each do |btn|
+          if action = btn.action
+            tok = UI::CallbackRegistry.register_action(&action)
+            tokens << tok
+            callback_ids << tok
+          else
+            tokens << 0_u64
+          end
+        end
+        sender.set_uint64_array(target_str, :setButtonTokens, tokens)
+
+        ptr = LibSwiftKitBridge.apsk_make_alert(
+          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[Alert]")
+        native = NativeView.new(handle)
+        callback_ids.each { |id| native.track_callback_id(id) }
+        push_native(native)
+      end
+
+      # Legacy AppKit NSVisualEffectView alert body, retained for reference.
+      private def _legacy_alert(view : UI::Alert)
+        effect = alloc_init("NSVisualEffectView")
         LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), 7_i64)
         # NSVisualEffectBlendingModeWithinWindow = 1
         LibObjCBridge.objc_send_long(effect, sel("setBlendingMode:"), 1_i64)
@@ -1533,24 +1615,30 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Visit: Grid -> NSGridView
       # -----------------------------------------------------------------
       def visit(view : UI::Grid)
-        ptr = alloc_init("NSGridView")
+        # SwiftUI Grid { GridRow { ... } } facade. Children are flattened
+        # row-by-row; the populator emits row_cell_counts so the facade
+        # can slice the flat array back into rows.
+        overrides_ptr = LibSwiftKitBridge.apsk_grid_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_grid(target_str, view, sender)
 
-        LibObjCBridge.objc_send_1d(ptr, sel("setRowSpacing:"), view.row_spacing)
-        LibObjCBridge.objc_send_1d(ptr, sel("setColumnSpacing:"), view.column_spacing)
-
-        apply_common_properties(ptr, view)
-
-        handle = ObjC.owned(ptr, label: "NSGridView")
-        native = NativeView.new(handle)
-
-        push_stack(native, is_nsstack: false)
+        children_native = [] of NativeView
         view.children.each do |row|
           row.each do |cell|
-            cell.accept(self)
+            if d = render_detached(cell)
+              children_native << d
+            end
           end
         end
-        pop_stack
 
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_grid(
+          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[Grid]")
+        native = NativeView.new(handle)
+        children_native.each { |c| native.add_child(c) }
         push_native(native)
       end
 
@@ -1558,78 +1646,38 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Visit: Form -> NSStackView (vertical, with sections)
       # -----------------------------------------------------------------
       def visit(view : UI::Form)
-        ptr = alloc_init("NSStackView")
+        # SwiftUI Form { Section { ... } } facade. Field contents are
+        # flattened across all sections; the populator carries the
+        # per-section counts so the facade can slice them back.
+        overrides_ptr = LibSwiftKitBridge.apsk_form_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_form(target_str, view, sender)
 
-        # NSUserInterfaceLayoutOrientationVertical = 1
-        LibObjCBridge.objc_send_long(ptr, sel("setOrientation:"), 1_i64)
-        LibObjCBridge.objc_send_1d(ptr, sel("setSpacing:"), 16.0)
-
-        apply_common_properties(ptr, view)
-
-        handle = ObjC.owned(ptr, label: "NSStackView[form]")
-        native = NativeView.new(handle)
-
-        push_stack(native, is_nsstack: true)
-
+        children_native = [] of NativeView
         view.sections.each do |section|
-          section_ptr = alloc_init("NSStackView")
-          LibObjCBridge.objc_send_long(section_ptr, sel("setOrientation:"), 1_i64)
-          LibObjCBridge.objc_send_1d(section_ptr, sel("setSpacing:"), 8.0)
-
-          if header = section.header
-            header_ptr = alloc_init("NSTextField")
-            header_str = LibObjCBridge.nsstring_from_cstr(header.to_unsafe)
-            LibObjCBridge.objc_send_id(header_ptr, sel("setStringValue:"), header_str)
-            LibObjCBridge.objc_send_bool(header_ptr, sel("setEditable:"), 0)
-            LibObjCBridge.objc_send_bool(header_ptr, sel("setBezeled:"), 0)
-            LibObjCBridge.objc_send_bool(header_ptr, sel("setDrawsBackground:"), 0)
-            LibObjCBridge.objc_send_void_id(section_ptr, sel("addArrangedSubview:"), header_ptr)
-          end
-
           section.fields.each do |field|
-            row_ptr = alloc_init("NSStackView")
-            LibObjCBridge.objc_send_long(row_ptr, sel("setOrientation:"), 0_i64) # horizontal
-            LibObjCBridge.objc_send_1d(row_ptr, sel("setSpacing:"), 8.0)
-
-            unless field.label.empty?
-              lbl_ptr = alloc_init("NSTextField")
-              lbl_str = LibObjCBridge.nsstring_from_cstr(field.label.to_unsafe)
-              LibObjCBridge.objc_send_id(lbl_ptr, sel("setStringValue:"), lbl_str)
-              LibObjCBridge.objc_send_bool(lbl_ptr, sel("setEditable:"), 0)
-              LibObjCBridge.objc_send_bool(lbl_ptr, sel("setBezeled:"), 0)
-              LibObjCBridge.objc_send_bool(lbl_ptr, sel("setDrawsBackground:"), 0)
-              LibObjCBridge.objc_send_void_id(row_ptr, sel("addArrangedSubview:"), lbl_ptr)
-            end
-
             if content = field.content
-              row_handle = ObjC.owned(row_ptr, label: "NSStackView[form-row]")
-              row_native = NativeView.new(row_handle)
-              push_stack(row_native, is_nsstack: true)
-              content.accept(self)
-              pop_stack
-              LibObjCBridge.objc_send_void_id(section_ptr, sel("addArrangedSubview:"), row_ptr)
+              if d = render_detached(content)
+                children_native << d
+              else
+                empty_ptr = alloc_init("NSView")
+                children_native << NativeView.new(ObjC.owned(empty_ptr, label: "NSView[form-empty]"))
+              end
             else
-              LibObjCBridge.objc_send_void_id(section_ptr, sel("addArrangedSubview:"), row_ptr)
+              empty_ptr = alloc_init("NSView")
+              children_native << NativeView.new(ObjC.owned(empty_ptr, label: "NSView[form-empty]"))
             end
           end
-
-          if footer = section.footer
-            footer_ptr = alloc_init("NSTextField")
-            footer_str = LibObjCBridge.nsstring_from_cstr(footer.to_unsafe)
-            LibObjCBridge.objc_send_id(footer_ptr, sel("setStringValue:"), footer_str)
-            LibObjCBridge.objc_send_bool(footer_ptr, sel("setEditable:"), 0)
-            LibObjCBridge.objc_send_bool(footer_ptr, sel("setBezeled:"), 0)
-            LibObjCBridge.objc_send_bool(footer_ptr, sel("setDrawsBackground:"), 0)
-            LibObjCBridge.objc_send_void_id(section_ptr, sel("addArrangedSubview:"), footer_ptr)
-          end
-
-          section_handle = ObjC.owned(section_ptr, label: "NSStackView[form-section]")
-          section_native = NativeView.new(section_handle)
-          push_native(section_native)
         end
 
-        pop_stack
-
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_form(
+          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[Form]")
+        native = NativeView.new(handle)
+        children_native.each { |c| native.add_child(c) }
         push_native(native)
       end
 
@@ -1657,10 +1705,42 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       #       <detail children>
       # -----------------------------------------------------------------
       def visit(view : UI::NavigationSplitView)
-        # Outer horizontal NSStackView — replaces the plain NSView so that
-        # AutoLayout gives arranged subviews real frames. Without this, content
-        # and detail columns receive addSubview: into a zero-frame NSView and
-        # collapse to grey zero-height bars.
+        # SwiftUI NavigationSplitView facade. Three slots: sidebar /
+        # content / detail. Empty slots are passed as an empty NSView
+        # placeholder so the facade can address them by index.
+        overrides_ptr = LibSwiftKitBridge.apsk_navigation_split_view_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_navigation_split_view(target_str, view, sender)
+
+        children_native = [] of NativeView
+        [view.sidebar, view.content, view.detail].each do |slot|
+          if slot
+            if d = render_detached(slot)
+              children_native << d
+            else
+              empty_ptr = alloc_init("NSView")
+              children_native << NativeView.new(ObjC.owned(empty_ptr, label: "NSView[split-empty]"))
+            end
+          else
+            empty_ptr = alloc_init("NSView")
+            children_native << NativeView.new(ObjC.owned(empty_ptr, label: "NSView[split-empty]"))
+          end
+        end
+
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_navigation_split_view(
+          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[NavigationSplitView]")
+        native = NativeView.new(handle)
+        children_native.each { |c| native.add_child(c) }
+        push_native(native)
+      end
+
+      # Legacy AppKit NSStackView NavigationSplitView body, retained for
+      # reference. Replaced by the SwiftUI facade above.
+      private def _legacy_navigation_split_view(view : UI::NavigationSplitView)
         outer = alloc_init("NSStackView")
         # NSUserInterfaceLayoutOrientationHorizontal = 0
         LibObjCBridge.objc_send_long(outer, sel("setOrientation:"), 0_i64)
@@ -1806,11 +1886,41 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # HIG Best practices: "Choose items deliberately to avoid overcrowding."
       # -----------------------------------------------------------------
       def visit(view : UI::Toolbar)
-        # Glass root: NSVisualEffectView toolbar material.
+        # SwiftUI .toolbar(...) facade. The Toolbar carries item arrays
+        # (labels/icons/placements) plus action tokens registered here.
+        overrides_ptr = LibSwiftKitBridge.apsk_toolbar_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_toolbar(target_str, view, sender)
+
+        # Register each item's action; pass tokens through as a parallel
+        # UInt64 array.
+        tokens = [] of UInt64
+        callback_ids = [] of UInt64
+        view.items.each do |item|
+          if action = item.action
+            tok = UI::CallbackRegistry.register_action(&action)
+            tokens << tok
+            callback_ids << tok
+          else
+            tokens << 0_u64
+          end
+        end
+        sender.set_uint64_array(target_str, :setItemTokens, tokens)
+
+        ptr = LibSwiftKitBridge.apsk_make_toolbar(
+          Pointer(Void*).null.as(Void*), 0_i32, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[Toolbar]")
+        native = NativeView.new(handle)
+        callback_ids.each { |id| native.track_callback_id(id) }
+        push_native(native)
+      end
+
+      # Legacy AppKit NSStackView/NSVisualEffectView toolbar body. Kept
+      # for reference; superseded by the SwiftUI facade above.
+      private def _legacy_toolbar(view : UI::Toolbar)
         glass_root = alloc_init("NSVisualEffectView")
-        # NSVisualEffectMaterialToolBar = 12 on macOS 10.11+; fall back to
-        # NSVisualEffectMaterialMenu (10) which also tracks appearance.
-        # We use 10 (menu) for widest compatibility with the validation host.
         LibObjCBridge.objc_send_long(glass_root, sel("setMaterial:"), 10_i64)
         # NSVisualEffectBlendingModeWithinWindow = 1
         LibObjCBridge.objc_send_long(glass_root, sel("setBlendingMode:"), 1_i64)
@@ -1935,15 +2045,42 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Visit: Sheet -> NSVisualEffectView + inner NSStackView (Liquid Glass)
       # -----------------------------------------------------------------
       def visit(view : UI::Sheet)
-        # Two render paths:
-        #   (a) true modal presentation (is_presented == true): the pre-
-        #       existing plain-NSView placeholder — real modal dispatch
-        #       happens at the SheetPresenter layer. Keep this untouched.
-        #   (b) inline content rendering (is_presented == false): compose
-        #       a Liquid Glass surface using NSVisualEffectView wrapping
-        #       an inner NSStackView with 16pt insets. This is the pattern
-        #       the HIG validation loop uses. Material: NSVisualEffectMaterialSheet
-        #       (11) -- the semantically correct material for macOS sheets.
+        # SwiftUI .sheet(isPresented:) facade. The Sheet's content is
+        # rendered detached; the facade hosts a 1pt clear rect that
+        # carries the .sheet modifier, presenting the content modally.
+        overrides_ptr = LibSwiftKitBridge.apsk_sheet_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_sheet(target_str, view, sender)
+
+        dismiss_token = 0_u64
+        callback_ids = [] of UInt64
+        if dismiss = view.on_dismiss
+          dismiss_token = UI::CallbackRegistry.register_action(&dismiss)
+          callback_ids << dismiss_token
+        end
+
+        children_native = [] of NativeView
+        if content = view.content
+          if d = render_detached(content)
+            children_native << d
+          end
+        end
+
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_sheet(
+          child_buf.as(Void*), children_native.size.to_i32,
+          overrides_ptr, dismiss_token,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[Sheet]")
+        native = NativeView.new(handle)
+        callback_ids.each { |id| native.track_callback_id(id) }
+        children_native.each { |c| native.add_child(c) }
+        push_native(native)
+      end
+
+      # Legacy AppKit Sheet body, retained for reference.
+      private def _legacy_sheet(view : UI::Sheet)
         grouped_card = !view.is_presented &&
                        (view.surface_style == :auto || view.surface_style == :grouped_card)
 
@@ -2083,10 +2220,42 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Corner radius ~10pt matching NSVisualEffectMaterialPopover default.
       # -----------------------------------------------------------------
       def visit(view : UI::Popover)
-        # Outer glass container -- NSVisualEffectView with popover material.
-        effect = alloc_init("NSVisualEffectView")
+        # SwiftUI .popover(isPresented:) facade.
+        overrides_ptr = LibSwiftKitBridge.apsk_popover_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_popover(target_str, view, sender)
 
-        # NSVisualEffectMaterialPopover = 6. Tracks light/dark appearance.
+        dismiss_token = 0_u64
+        callback_ids = [] of UInt64
+        if dismiss = view.on_dismiss
+          dismiss_token = UI::CallbackRegistry.register_action(&dismiss)
+          callback_ids << dismiss_token
+        end
+
+        children_native = [] of NativeView
+        if content = view.content
+          if d = render_detached(content)
+            children_native << d
+          end
+        end
+
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_popover(
+          child_buf.as(Void*), children_native.size.to_i32,
+          overrides_ptr, dismiss_token,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[Popover]")
+        native = NativeView.new(handle)
+        callback_ids.each { |id| native.track_callback_id(id) }
+        children_native.each { |c| native.add_child(c) }
+        push_native(native)
+      end
+
+      # Legacy AppKit Popover body, retained for reference.
+      private def _legacy_popover(view : UI::Popover)
+        effect = alloc_init("NSVisualEffectView")
+        # NSVisualEffectMaterialPopover = 6.
         LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), 6_i64)
         # NSVisualEffectBlendingModeWithinWindow = 1
         LibObjCBridge.objc_send_long(effect, sel("setBlendingMode:"), 1_i64)
@@ -2149,28 +2318,35 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Visit: ConfirmationDialog -> NSAlert
       # -----------------------------------------------------------------
       def visit(view : UI::ConfirmationDialog)
-        ptr = alloc_init("NSAlert")
+        # SwiftUI .confirmationDialog(...) facade.
+        overrides_ptr = LibSwiftKitBridge.apsk_confirmation_dialog_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_confirmation_dialog(target_str, view, sender)
 
-        title_str = LibObjCBridge.nsstring_from_cstr(view.title.to_unsafe)
-        LibObjCBridge.objc_send_id(ptr, sel("setMessageText:"), title_str)
-
-        unless view.message.empty?
-          msg_str = LibObjCBridge.nsstring_from_cstr(view.message.to_unsafe)
-          LibObjCBridge.objc_send_id(ptr, sel("setInformativeText:"), msg_str)
+        callback_ids = [] of UInt64
+        if confirm = view.on_confirm
+          tok = UI::CallbackRegistry.register_action(&confirm)
+          callback_ids << tok
+          LibSwiftKitBridge.apsk_overrides_set_int(
+            overrides_ptr, "setConfirmToken:".to_unsafe, tok.to_i64,
+          )
+        end
+        if cancel = view.on_cancel
+          tok = UI::CallbackRegistry.register_action(&cancel)
+          callback_ids << tok
+          LibSwiftKitBridge.apsk_overrides_set_int(
+            overrides_ptr, "setCancelToken:".to_unsafe, tok.to_i64,
+          )
         end
 
-        confirm_str = LibObjCBridge.nsstring_from_cstr(view.confirm_label.to_unsafe)
-        LibObjCBridge.objc_send_id(ptr, sel("addButtonWithTitle:"), confirm_str)
-
-        cancel_str = LibObjCBridge.nsstring_from_cstr(view.cancel_label.to_unsafe)
-        LibObjCBridge.objc_send_id(ptr, sel("addButtonWithTitle:"), cancel_str)
-
-        if view.confirm_style == :destructive
-          # NSCriticalAlertStyle = 2
-          LibObjCBridge.objc_send_long(ptr, sel("setAlertStyle:"), 2_i64)
-        end
-
-        emit(ptr, "NSAlert[confirmation]")
+        ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog(
+          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[ConfirmationDialog]")
+        native = NativeView.new(handle)
+        callback_ids.each { |id| native.track_callback_id(id) }
+        push_native(native)
       end
 
       # -----------------------------------------------------------------
@@ -2223,9 +2399,32 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # subview, matching that platform behaviour.
       # -----------------------------------------------------------------
       def visit(view : UI::Card)
-        ptr = alloc_init("NSStackView")
+        # SwiftUI Card facade (custom composition).
+        overrides_ptr = LibSwiftKitBridge.apsk_card_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_card(target_str, view, sender)
 
-        # Vertical orientation (NSUserInterfaceLayoutOrientationVertical = 1).
+        children_native = [] of NativeView
+        if content = view.content
+          if d = render_detached(content)
+            children_native << d
+          end
+        end
+
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_card(
+          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[Card]")
+        native = NativeView.new(handle)
+        children_native.each { |c| native.add_child(c) }
+        push_native(native)
+      end
+
+      # Legacy AppKit Card body, retained for reference.
+      private def _legacy_card(view : UI::Card)
+        ptr = alloc_init("NSStackView")
         LibObjCBridge.objc_send_long(ptr, sel("setOrientation:"), 1_i64)
         # 8pt inter-row spacing (HIG default for grouped content rows).
         LibObjCBridge.objc_send_1d(ptr, sel("setSpacing:"), 8.0)
@@ -2333,21 +2532,26 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Visit: Surface -> NSView (elevated container)
       # -----------------------------------------------------------------
       def visit(view : UI::Surface)
-        ptr = alloc_init("NSView")
+        # SwiftUI Surface facade (thin container with optional shape).
+        overrides_ptr = LibSwiftKitBridge.apsk_surface_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_surface(target_str, view, sender)
 
-        LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)
-
-        apply_common_properties(ptr, view)
-
-        handle = ObjC.owned(ptr, label: "NSView[surface]")
-        native = NativeView.new(handle)
-
+        children_native = [] of NativeView
         if content = view.content
-          push_stack(native, is_nsstack: false)
-          content.accept(self)
-          pop_stack
+          if d = render_detached(content)
+            children_native << d
+          end
         end
 
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_surface(
+          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[Surface]")
+        native = NativeView.new(handle)
+        children_native.each { |c| native.add_child(c) }
         push_native(native)
       end
 
@@ -2516,50 +2720,34 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       #   practices.
       # -----------------------------------------------------------------
       def visit(view : UI::MenuButton)
-        ptr = alloc_init("NSPopUpButton")
+        # SwiftUI Menu { ... } facade.
+        overrides_ptr = LibSwiftKitBridge.apsk_menu_button_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_menu_button(target_str, view, sender)
 
-        if view.is_pull_down
-          # pullsDown: true -- button face shows the verb label + chevron.down.
-          # No item is pre-selected; AppKit does not auto-checkmark items in
-          # pull-down mode.  The NSPopUpButton property name is `pullsDown`, so
-          # the setter selector is `setPullsDown:` (not `setIsPullDown:`).
-          # Per AppKit convention, item[0] is the face title when pullsDown is
-          # true, so we insert the button's own label first.
-          LibObjCBridge.objc_send_bool(ptr, sel("setPullsDown:"), 1)
-          title_str = LibObjCBridge.nsstring_from_cstr(view.label.to_unsafe)
-          LibObjCBridge.objc_send_id(ptr, sel("addItemWithTitle:"), title_str)
-          view.items.each do |item|
-            item_str = LibObjCBridge.nsstring_from_cstr(item.label.to_unsafe)
-            LibObjCBridge.objc_send_id(ptr, sel("addItemWithTitle:"), item_str)
-            # NOTE: red destructive text via NSMenuItem setAttributedTitle:
-            # requires NSMutableAttributedString helpers not yet in the bridge.
-            # Tracked in gaps.md.  The item IS added; HIG destruction red
-            # is a planned bridge enhancement (see gaps.md iteration 37).
-          end
-          # Prominent style: NSPopUpButton uses bezel style 1 (NSBezelStyleRounded)
-          # by default.  No change needed -- the prominent distinction is handled
-          # more richly on iOS (filledButtonConfiguration).  The macOS pull-down
-          # renders in the standard system NSPopUpButton bezel for both styles.
-          # Brand-level tinting via setBezelColor: is a macOS 12+ API -- tracked
-          # as a future enhancement.
-        else
-          # Pop-up mode (default): populate items and set selection.
-          if view.items.empty?
-            title_str = LibObjCBridge.nsstring_from_cstr(view.label.to_unsafe)
-            LibObjCBridge.objc_send_id(ptr, sel("addItemWithTitle:"), title_str)
+        # Register per-item actions; pass tokens through as a parallel
+        # UInt64 array.
+        tokens = [] of UInt64
+        callback_ids = [] of UInt64
+        view.items.each do |item|
+          if action = item.action
+            tok = UI::CallbackRegistry.register_action(&action)
+            tokens << tok
+            callback_ids << tok
           else
-            view.items.each do |item|
-              item_str = LibObjCBridge.nsstring_from_cstr(item.label.to_unsafe)
-              LibObjCBridge.objc_send_id(ptr, sel("addItemWithTitle:"), item_str)
-            end
-            # selectItemAtIndex: updates the button face to the chosen item and
-            # places a checkmark on that item in the open menu.
-            LibObjCBridge.objc_send_long(ptr, sel("selectItemAtIndex:"), view.selected_index.to_i64)
+            tokens << 0_u64
           end
         end
+        sender.set_uint64_array(target_str, :setItemTokens, tokens) unless tokens.empty?
 
-        apply_common_properties(ptr, view)
-        emit(ptr, "NSPopUpButton")
+        ptr = LibSwiftKitBridge.apsk_make_menu_button(
+          view.label.to_unsafe, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[MenuButton]")
+        native = NativeView.new(handle)
+        callback_ids.each { |id| native.track_callback_id(id) }
+        push_native(native)
       end
 
       def visit(view : UI::ContextMenu)
@@ -2671,13 +2859,26 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       end
 
       def visit(view : UI::ToggleButton)
-        ptr = alloc_init("NSButton")
-        title_str = LibObjCBridge.nsstring_from_cstr(view.label.to_unsafe)
-        LibObjCBridge.objc_send_id(ptr, sel("setTitle:"), title_str)
-        LibObjCBridge.objc_send_long(ptr, sel("setButtonType:"), 3_i64)
-        LibObjCBridge.objc_send_long(ptr, sel("setState:"), view.is_selected ? 1_i64 : 0_i64)
-        apply_common_properties(ptr, view)
-        emit(ptr, "NSButton[toggle]")
+        # SwiftUI Toggle with .toggleStyle(.button) facade.
+        overrides_ptr = LibSwiftKitBridge.apsk_toggle_button_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_toggle_button(target_str, view, sender)
+
+        action_token = 0_u64
+        if toggle_handler = view.on_toggle
+          action_token = UI::CallbackRegistry.register_action_with_value do |v|
+            toggle_handler.call(v != 0.0)
+          end
+        end
+
+        ptr = LibSwiftKitBridge.apsk_make_toggle_button(
+          view.label.to_unsafe, overrides_ptr, action_token,
+        )
+        handle = ObjC.owned(ptr, label: "NSHostingView[ToggleButton]")
+        native = NativeView.new(handle)
+        native.track_callback_id(action_token) unless action_token == 0_u64
+        push_native(native)
       end
 
       def visit(view : UI::TextEditor)
@@ -4409,6 +4610,19 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       private def pop_stack : Nil
         @stack.pop
         @stack_is_nsstack.pop
+      end
+
+      # Build a contiguous `Void*` buffer of native-view pointers from a
+      # list of detached `NativeView`s. Returns a pointer suitable for
+      # passing to a `LibSwiftKitBridge.apsk_make_*` facade as its
+      # `child_views` arg. When `natives` is empty the buffer is a
+      # 1-element pad pointer (the facade reads zero entries because
+      # `child_count == 0`).
+      private def build_child_buffer(natives : Array(NativeView)) : Pointer(Void*)
+        size = natives.size == 0 ? 1_u64 : natives.size.to_u64
+        buf = Pointer(Void*).malloc(size)
+        natives.each_with_index { |nv, i| buf[i] = nv.handle.ptr! }
+        buf
       end
 
       # Visit a child view subtree in isolation, returning its NativeView
