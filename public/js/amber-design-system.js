@@ -179,13 +179,13 @@
             row.hidden = false;
             row.style.animation = "";
             if (!reduceMotion()) {
-              row.style.animation = "ap-row-enter var(--ap-motion-duration-base, var(--amber-motion-duration-base)) var(--ap-motion-ease-emphasized, var(--amber-motion-ease-emphasized)) both";
+              row.style.animation = "ap-row-enter var(--ap-motion-duration-base) var(--ap-motion-ease-emphasized) both";
             }
           } else if (reduceMotion()) {
             row.hidden = true;
             row.style.animation = "";
           } else {
-            row.style.animation = "ap-row-exit var(--ap-motion-duration-fast, var(--amber-motion-duration-fast)) var(--ap-motion-ease-standard, var(--amber-motion-ease-standard)) both";
+            row.style.animation = "ap-row-exit var(--ap-motion-duration-fast) var(--ap-motion-ease-standard) both";
             row.addEventListener("animationend", () => {
               if (!row.textContent.toLowerCase().includes(control.value.trim().toLowerCase())) row.hidden = true;
             }, { once: true });

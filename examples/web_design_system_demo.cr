@@ -33,10 +33,38 @@ module WebDesignSystemDemo
     Components::CSS::ComponentCSSRegistry.instance.register(
       "WebDesignSystemDemo::FrontloaderStudio",
       <<-CSS
+      /* Demo-local token aliases. Phase 1 removed the `--amber-*` cascade
+         and Phase 2 migrated the demo heredoc to `--ap-*`. The dist token
+         file ships canonical scalars (--ap-color-danger, --ap-color-info,
+         etc.) but does NOT ship the surface/border/text triples or the
+         radius-control / elevation-* family that the demo composes. We
+         derive them here so the static demo stays self-contained without
+         polluting the source-of-truth token dist. */
+      :where(:root) {
+        --ap-radius-control: 0.5rem;
+        --ap-color-state-hover: color-mix(in oklch, var(--ap-color-brand-primary) 12%, transparent);
+        --ap-color-success-bg: color-mix(in oklch, var(--ap-color-success) 14%, var(--ap-color-surface-canvas));
+        --ap-color-success-border: color-mix(in oklch, var(--ap-color-success) 42%, var(--ap-color-border-default));
+        --ap-color-success-text: var(--ap-color-success);
+        --ap-color-warning-bg: color-mix(in oklch, var(--ap-color-warning) 16%, var(--ap-color-surface-canvas));
+        --ap-color-warning-border: color-mix(in oklch, var(--ap-color-warning) 44%, var(--ap-color-border-default));
+        --ap-color-warning-text: var(--ap-color-warning);
+        --ap-color-danger-bg: color-mix(in oklch, var(--ap-color-danger) 14%, var(--ap-color-surface-canvas));
+        --ap-color-danger-border: color-mix(in oklch, var(--ap-color-danger) 44%, var(--ap-color-border-default));
+        --ap-color-danger-text: var(--ap-color-danger);
+        --ap-color-danger-focus-ring: color-mix(in oklch, var(--ap-color-danger) 38%, transparent);
+        --ap-color-info-bg: color-mix(in oklch, var(--ap-color-info) 14%, var(--ap-color-surface-canvas));
+        --ap-color-info-border: color-mix(in oklch, var(--ap-color-info) 44%, var(--ap-color-border-default));
+        --ap-color-info-text: var(--ap-color-info);
+        --ap-elevation-raised: var(--ap-shadow-raised);
+        --ap-elevation-floating: var(--ap-shadow-floating);
+        --ap-elevation-overlay: var(--ap-shadow-overlay);
+      }
+
       .am-skip-link {
-        background: var(--amber-color-surface-inverse);
-        border-radius: 0 0 var(--amber-radius-control) 0;
-        color: var(--amber-color-text-inverse);
+        background: var(--ap-color-surface-inverse);
+        border-radius: 0 0 var(--ap-radius-control) 0;
+        color: var(--ap-color-text-inverse);
         left: 0;
         padding: 0.75rem 1rem;
         position: fixed;
@@ -50,14 +78,20 @@ module WebDesignSystemDemo
       }
 
       .am-demo-shell {
-        background:
-          linear-gradient(135deg, color-mix(in oklch, var(--amber-color-brand-primary) 13%, transparent), transparent 24rem),
-          linear-gradient(170deg, transparent 56%, color-mix(in oklch, var(--amber-color-brand-accent) 9%, transparent) 56%, transparent 74%),
-          linear-gradient(90deg, color-mix(in oklch, var(--amber-color-border-subtle) 45%, transparent) 1px, transparent 1px),
-          linear-gradient(180deg, color-mix(in oklch, var(--amber-color-border-subtle) 34%, transparent) 1px, transparent 1px),
-          linear-gradient(180deg, var(--amber-color-surface-canvas), var(--amber-color-surface-sunken));
+        /* Explicit flat background-color so axe-core's contrast walker
+           can compute foreground-vs-background pairs without falling back
+           to its `#ffffff` sentinel. The gradient stack on top supplies
+           the textured surface; the flat color underneath supplies the
+           contrast baseline that AA serializes against. */
+        background-color: var(--ap-color-surface-canvas);
+        background-image:
+          linear-gradient(135deg, color-mix(in oklch, var(--ap-color-brand-primary) 13%, transparent), transparent 24rem),
+          linear-gradient(170deg, transparent 56%, color-mix(in oklch, var(--ap-color-brand-accent) 9%, transparent) 56%, transparent 74%),
+          linear-gradient(90deg, color-mix(in oklch, var(--ap-color-border-subtle) 45%, transparent) 1px, transparent 1px),
+          linear-gradient(180deg, color-mix(in oklch, var(--ap-color-border-subtle) 34%, transparent) 1px, transparent 1px),
+          linear-gradient(180deg, var(--ap-color-surface-canvas), var(--ap-color-surface-sunken));
         background-size: auto, auto, 5.5rem 5.5rem, 5.5rem 5.5rem, auto;
-        color: var(--amber-color-text-primary);
+        color: var(--ap-color-text-primary);
         min-height: 100vh;
         overflow-x: clip;
       }
@@ -73,18 +107,18 @@ module WebDesignSystemDemo
       .am-demo-nav {
         align-items: center;
         display: flex;
-        gap: 1rem;
+        gap: clamp(0.5rem, 1.6vw, 1.25rem);
         justify-content: space-between;
-        padding: 0.75rem 0 1.1rem;
+        padding: clamp(0.5rem, 1.4vw, 0.9rem) 0 clamp(0.75rem, 2vw, 1.25rem);
         position: sticky;
         top: 0;
         z-index: 20;
       }
 
       .am-demo-nav::before {
-        background: color-mix(in oklch, var(--amber-color-surface-canvas) 88%, transparent);
+        background: color-mix(in oklch, var(--ap-color-surface-canvas) 88%, transparent);
         backdrop-filter: blur(18px);
-        border-bottom: 1px solid color-mix(in oklch, var(--amber-color-border-subtle) 72%, transparent);
+        border-bottom: 1px solid color-mix(in oklch, var(--ap-color-border-subtle) 72%, transparent);
         content: "";
         inset: -1rem -1rem 0;
         position: absolute;
@@ -93,7 +127,7 @@ module WebDesignSystemDemo
 
       .am-demo-brand {
         align-items: center;
-        color: var(--amber-color-text-primary);
+        color: var(--ap-color-text-primary);
         display: inline-flex;
         font-weight: 760;
         gap: 0.6rem;
@@ -103,51 +137,51 @@ module WebDesignSystemDemo
 
       .am-demo-mark {
         background:
-          linear-gradient(135deg, var(--amber-color-brand-primary), var(--amber-color-brand-accent)),
-          var(--amber-color-brand-primary);
-        border-radius: 0.5rem;
+          linear-gradient(135deg, var(--ap-color-brand-primary), var(--ap-color-brand-accent)),
+          var(--ap-color-brand-primary);
+        border-radius: clamp(0.4rem, 0.6vw, 0.65rem);
         box-shadow:
           inset 0 0 0 1px oklch(1 0 0 / 0.38),
-          0 8px 24px color-mix(in oklch, var(--amber-color-brand-primary) 28%, transparent);
+          0 8px 24px color-mix(in oklch, var(--ap-color-brand-primary) 28%, transparent);
         display: inline-block;
-        height: 2rem;
-        width: 2rem;
+        height: clamp(1.75rem, 2.4vw, 2.5rem);
+        width: clamp(1.75rem, 2.4vw, 2.5rem);
       }
 
       .am-demo-nav-links {
         align-items: center;
         display: flex;
         flex-wrap: wrap;
-        gap: 0.35rem;
+        gap: clamp(0.25rem, 0.6vw, 0.5rem);
         justify-content: flex-end;
         min-width: 0;
       }
 
       .am-demo-nav-links a {
-        border-radius: var(--amber-radius-pill);
-        color: var(--amber-color-text-secondary);
-        font-size: 0.875rem;
+        border-radius: var(--ap-radius-pill);
+        color: var(--ap-color-text-secondary);
+        font-size: clamp(0.8rem, 1vw, 0.9375rem);
         font-weight: 680;
-        padding: 0.45rem 0.7rem;
+        padding: clamp(0.4rem, 0.7vw, 0.55rem) clamp(0.55rem, 1vw, 0.85rem);
         text-decoration: none;
       }
 
       .am-demo-nav-links a:hover,
       .am-demo-nav-links a:focus-visible {
-        background: var(--amber-color-state-hover);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-state-hover);
+        color: var(--ap-color-text-primary);
       }
 
       .am-demo-nav-links a[aria-current="page"] {
-        background: var(--amber-color-surface-inverse);
-        color: var(--amber-color-text-inverse);
+        background: var(--ap-color-surface-inverse);
+        color: var(--ap-color-text-inverse);
       }
 
       .am-theme-status {
         align-items: center;
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-pill);
-        color: var(--amber-color-text-secondary);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-pill);
+        color: var(--ap-color-text-secondary);
         display: inline-flex;
         font-size: 0.8125rem;
         font-weight: 680;
@@ -171,19 +205,19 @@ module WebDesignSystemDemo
 
       .am-kicker,
       .am-demo-subtle {
-        color: var(--amber-color-text-muted);
+        color: var(--ap-color-text-muted);
         font-size: 0.8125rem;
         font-weight: 760;
       }
 
       .am-kicker {
-        color: var(--amber-color-brand-primary-active);
+        color: var(--ap-color-brand-primary-active);
         text-transform: uppercase;
       }
 
       .am-demo-title,
       .am-page-title {
-        font-family: var(--amber-font-display);
+        font-family: var(--ap-font-display);
         font-size: clamp(2.55rem, 7vw, 5.6rem);
         font-weight: 720;
         letter-spacing: 0;
@@ -198,7 +232,7 @@ module WebDesignSystemDemo
       }
 
       .am-demo-copy {
-        color: var(--amber-color-text-primary);
+        color: var(--ap-color-text-primary);
         font-size: 1.03125rem;
         line-height: 1.7;
         margin: 0;
@@ -211,47 +245,53 @@ module WebDesignSystemDemo
         align-items: center;
         display: flex;
         flex-wrap: wrap;
-        gap: 0.75rem;
-        margin-top: 1.25rem;
+        gap: clamp(0.5rem, 1.2vw, 1rem);
+        margin-top: clamp(0.85rem, 2vw, 1.5rem);
       }
 
       .am-panel,
       .am-demo-panel {
-        background: color-mix(in oklch, var(--amber-color-surface-panel) 92%, transparent);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-raised);
+        /* Opaque background-color first, decorative tint layered on top.
+           Axe's contrast walker needs a flat opaque ancestor to compute
+           4.5:1; a `color-mix(..., transparent)` makes the panel itself
+           transparent and the walker keeps climbing until it hits the
+           browser default. */
+        background-color: var(--ap-color-surface-panel);
+        background-image: linear-gradient(0deg, color-mix(in oklch, var(--ap-color-surface-panel) 92%, transparent), color-mix(in oklch, var(--ap-color-surface-panel) 92%, transparent));
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-raised);
         display: grid;
-        gap: 1rem;
+        gap: clamp(0.75rem, 1.6vw, 1.25rem);
         min-width: 0;
-        padding: 1rem;
+        padding: clamp(0.85rem, 1.8vw, 1.4rem);
       }
 
       .am-panel[data-tone="accent"] {
         background:
-          linear-gradient(135deg, color-mix(in oklch, var(--amber-color-brand-accent) 12%, transparent), transparent 58%),
-          var(--amber-color-surface-panel);
+          linear-gradient(135deg, color-mix(in oklch, var(--ap-color-brand-accent) 12%, transparent), transparent 58%),
+          var(--ap-color-surface-panel);
       }
 
       .am-section {
         display: grid;
-        gap: 1.2rem;
-        padding: 2.5rem 0;
+        gap: clamp(0.9rem, 2vw, 1.6rem);
+        padding: clamp(1.5rem, 4vw, 3.25rem) 0;
       }
 
       .am-section + .am-section {
-        border-top: 1px solid color-mix(in oklch, var(--amber-color-border-subtle) 72%, transparent);
+        border-top: 1px solid color-mix(in oklch, var(--ap-color-border-subtle) 72%, transparent);
       }
 
       .am-section-header {
         align-items: end;
         display: grid;
-        gap: 0.75rem;
+        gap: clamp(0.5rem, 1.4vw, 1rem);
         grid-template-columns: minmax(0, 0.9fr) minmax(18rem, 0.7fr);
       }
 
       .am-section-header h2 {
-        font-family: var(--amber-font-display);
+        font-family: var(--ap-font-display);
         font-size: clamp(1.8rem, 3.4vw, 3.1rem);
         letter-spacing: 0;
         line-height: 1;
@@ -259,7 +299,7 @@ module WebDesignSystemDemo
       }
 
       .am-section-header p {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
         margin: 0;
       }
 
@@ -268,7 +308,7 @@ module WebDesignSystemDemo
       .am-three-col,
       .am-four-col {
         display: grid;
-        gap: 1rem;
+        gap: clamp(0.6rem, 1.5vw, 1.25rem);
       }
 
       .am-two-col {
@@ -287,7 +327,7 @@ module WebDesignSystemDemo
         container-type: inline-size;
         container-name: card-grid;
         display: grid;
-        gap: 1rem;
+        gap: clamp(0.75rem, 1.5vw, 1.25rem);
         /* Container-driven auto-fit: cards reflow naturally from one column
            on narrow viewports to as many as fit at min(100%, 320px) without
            a media query breakpoint. */
@@ -295,35 +335,35 @@ module WebDesignSystemDemo
       }
 
       .am-page-card {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-raised);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-raised);
+        color: var(--ap-color-text-primary);
         display: grid;
-        gap: 0.55rem;
-        min-height: 11rem;
-        padding: 1rem;
+        gap: clamp(0.4rem, 0.9vw, 0.7rem);
+        min-height: clamp(8rem, 14vw, 13rem);
+        padding: clamp(0.75rem, 1.6vw, 1.25rem);
         text-decoration: none;
-        transition: transform var(--amber-motion-duration-fast) var(--amber-motion-ease-standard),
-          border-color var(--amber-motion-duration-fast) var(--amber-motion-ease-standard),
-          background-color var(--amber-motion-duration-fast) var(--amber-motion-ease-standard);
+        transition: transform var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          border-color var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          background-color var(--ap-motion-duration-fast) var(--ap-motion-ease-standard);
       }
 
       .am-page-card:hover,
       .am-page-card:focus-visible {
-        background: var(--amber-color-state-hover);
-        border-color: var(--amber-color-border-strong);
+        background: var(--ap-color-state-hover);
+        border-color: var(--ap-color-border-strong);
         transform: translateY(-2px);
       }
 
       .am-page-card span {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
       }
 
       .am-page-card small {
         align-self: end;
-        color: var(--amber-color-brand-primary-active);
+        color: var(--ap-color-brand-primary-active);
         font-weight: 760;
       }
 
@@ -332,11 +372,11 @@ module WebDesignSystemDemo
       .am-terminal,
       .am-command-panel {
         background:
-          linear-gradient(135deg, color-mix(in oklch, var(--amber-color-brand-primary) 12%, transparent), transparent 45%),
-          var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-floating);
+          linear-gradient(135deg, color-mix(in oklch, var(--ap-color-brand-primary) 12%, transparent), transparent 45%),
+          var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-floating);
         overflow: hidden;
       }
 
@@ -347,7 +387,7 @@ module WebDesignSystemDemo
 
       .am-window-chrome {
         align-items: center;
-        border-bottom: 1px solid var(--amber-color-border-subtle);
+        border-bottom: 1px solid var(--ap-color-border-subtle);
         display: flex;
         gap: 0.45rem;
         justify-content: space-between;
@@ -360,7 +400,7 @@ module WebDesignSystemDemo
       }
 
       .am-window-dots span {
-        background: var(--amber-color-border-default);
+        background: var(--ap-color-border-default);
         border-radius: 999px;
         height: 0.55rem;
         width: 0.55rem;
@@ -374,8 +414,8 @@ module WebDesignSystemDemo
       }
 
       .am-showcase-rail {
-        background: color-mix(in oklch, var(--amber-color-surface-sunken) 65%, transparent);
-        border-right: 1px solid var(--amber-color-border-subtle);
+        background: color-mix(in oklch, var(--ap-color-surface-sunken) 65%, transparent);
+        border-right: 1px solid var(--ap-color-border-subtle);
         display: grid;
         gap: 0.45rem;
         align-content: start;
@@ -384,8 +424,8 @@ module WebDesignSystemDemo
 
       .am-showcase-pill,
       .am-segmented button {
-        border-radius: var(--amber-radius-pill);
-        color: var(--amber-color-text-secondary);
+        border-radius: var(--ap-radius-pill);
+        color: var(--ap-color-text-secondary);
         font-size: 0.8125rem;
         font-weight: 680;
         padding: 0.48rem 0.65rem;
@@ -394,8 +434,8 @@ module WebDesignSystemDemo
       .am-showcase-pill[data-active="true"],
       .am-segmented button[aria-pressed="true"],
       .am-segmented button[data-state="selected"] {
-        background: var(--amber-color-surface-inverse);
-        color: var(--amber-color-text-inverse);
+        background: var(--ap-color-surface-inverse);
+        color: var(--ap-color-text-inverse);
       }
 
       .am-showcase-main {
@@ -424,9 +464,9 @@ module WebDesignSystemDemo
 
       .am-journey-step {
         align-items: center;
-        background: color-mix(in oklch, var(--amber-color-surface-elevated) 88%, transparent);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
+        background: color-mix(in oklch, var(--ap-color-surface-elevated) 88%, transparent);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
         display: grid;
         gap: 0.75rem;
         grid-template-columns: auto minmax(0, 1fr) auto;
@@ -435,9 +475,9 @@ module WebDesignSystemDemo
 
       .am-step-index {
         align-items: center;
-        background: var(--amber-color-brand-primary);
+        background: var(--ap-color-brand-primary);
         border-radius: 0.45rem;
-        color: var(--amber-color-text-inverse);
+        color: var(--ap-color-text-inverse);
         display: inline-grid;
         font-weight: 760;
         height: 2rem;
@@ -447,10 +487,10 @@ module WebDesignSystemDemo
 
       .am-badge {
         align-items: center;
-        background: var(--amber-color-info-bg);
-        border: 1px solid var(--amber-color-info-border);
-        border-radius: var(--amber-radius-pill);
-        color: var(--amber-color-info-text);
+        background: var(--ap-color-info-bg);
+        border: 1px solid var(--ap-color-info-border);
+        border-radius: var(--ap-radius-pill);
+        color: var(--ap-color-info-text);
         display: inline-flex;
         font-size: 0.8125rem;
         font-weight: 760;
@@ -460,60 +500,60 @@ module WebDesignSystemDemo
       }
 
       .am-badge[data-tone="success"] {
-        background: var(--amber-color-success-bg);
-        border-color: var(--amber-color-success-border);
-        color: var(--amber-color-success-text);
+        background: var(--ap-color-success-bg);
+        border-color: var(--ap-color-success-border);
+        color: var(--ap-color-success-text);
       }
 
       .am-badge[data-tone="warning"] {
-        background: var(--amber-color-warning-bg);
-        border-color: var(--amber-color-warning-border);
-        color: var(--amber-color-warning-text);
+        background: var(--ap-color-warning-bg);
+        border-color: var(--ap-color-warning-border);
+        color: var(--ap-color-warning-text);
       }
 
       .am-badge[data-tone="danger"] {
-        background: var(--amber-color-danger-bg);
-        border-color: var(--amber-color-danger-border);
-        color: var(--amber-color-danger-text);
+        background: var(--ap-color-danger-bg);
+        border-color: var(--ap-color-danger-border);
+        color: var(--ap-color-danger-text);
       }
 
       .am-badge[data-tone="brand"] {
-        background: color-mix(in oklch, var(--amber-color-brand-primary) 16%, transparent);
-        border-color: color-mix(in oklch, var(--amber-color-brand-primary) 38%, var(--amber-color-border-subtle));
-        color: var(--amber-color-text-primary);
+        background: color-mix(in oklch, var(--ap-color-brand-primary) 16%, transparent);
+        border-color: color-mix(in oklch, var(--ap-color-brand-primary) 38%, var(--ap-color-border-subtle));
+        color: var(--ap-color-text-primary);
       }
 
       .am-alert {
-        border: 1px solid var(--amber-color-info-border);
-        border-radius: var(--amber-radius-card);
-        color: var(--amber-color-info-text);
+        border: 1px solid var(--ap-color-info-border);
+        border-radius: var(--ap-radius-card);
+        color: var(--ap-color-info-text);
         display: grid;
         gap: 0.25rem;
         padding: 0.85rem 1rem;
       }
 
       .am-alert[data-tone="success"] {
-        background: var(--amber-color-success-bg);
-        border-color: var(--amber-color-success-border);
-        color: var(--amber-color-success-text);
+        background: var(--ap-color-success-bg);
+        border-color: var(--ap-color-success-border);
+        color: var(--ap-color-success-text);
       }
 
       .am-alert[data-tone="warning"] {
-        background: var(--amber-color-warning-bg);
-        border-color: var(--amber-color-warning-border);
-        color: var(--amber-color-warning-text);
+        background: var(--ap-color-warning-bg);
+        border-color: var(--ap-color-warning-border);
+        color: var(--ap-color-warning-text);
       }
 
       .am-alert[data-tone="danger"] {
-        background: var(--amber-color-danger-bg);
-        border-color: var(--amber-color-danger-border);
-        color: var(--amber-color-danger-text);
+        background: var(--ap-color-danger-bg);
+        border-color: var(--ap-color-danger-border);
+        color: var(--ap-color-danger-text);
       }
 
       .am-segmented {
-        background: var(--amber-color-surface-elevated);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-pill);
+        background: var(--ap-color-surface-elevated);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-pill);
         display: inline-flex;
         gap: 0.2rem;
         padding: 0.2rem;
@@ -523,7 +563,8 @@ module WebDesignSystemDemo
         background: transparent;
         border: 0;
         cursor: pointer;
-        min-height: 2rem;
+        min-block-size: 44px;
+        min-inline-size: 44px;
       }
 
       .am-metric-grid,
@@ -537,9 +578,9 @@ module WebDesignSystemDemo
       }
 
       .am-metric {
-        background: var(--amber-color-surface-elevated);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
+        background: var(--ap-color-surface-elevated);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
         display: grid;
         gap: 0.25rem;
         padding: 0.85rem;
@@ -551,20 +592,20 @@ module WebDesignSystemDemo
       }
 
       .am-terminal {
-        background: var(--amber-color-surface-inverse);
-        color: var(--amber-color-text-inverse);
-        font-family: var(--amber-font-mono);
+        background: var(--ap-color-surface-inverse);
+        color: var(--ap-color-text-inverse);
+        font-family: var(--ap-font-mono);
         overflow-wrap: anywhere;
         padding: 1rem;
       }
 
       .am-terminal-line {
-        color: color-mix(in oklch, var(--amber-color-text-inverse) 82%, var(--amber-color-brand-accent));
+        color: color-mix(in oklch, var(--ap-color-text-inverse) 82%, var(--ap-color-brand-accent));
         margin: 0.35rem 0;
       }
 
       .am-terminal-line::before {
-        color: var(--amber-color-brand-primary);
+        color: var(--ap-color-brand-primary);
         content: "$ ";
       }
 
@@ -577,18 +618,18 @@ module WebDesignSystemDemo
       .am-field label,
       .am-field > span:first-child,
       .am-control-example > span:first-child {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
         font-size: 0.875rem;
         font-weight: 680;
       }
 
       .am-field__hint {
-        color: var(--amber-color-text-muted);
+        color: var(--ap-color-text-muted);
         font-size: 0.8125rem;
       }
 
       .am-field__error {
-        color: var(--amber-color-danger-text);
+        color: var(--ap-color-danger-text);
         font-size: 0.8125rem;
         font-weight: 680;
       }
@@ -596,10 +637,10 @@ module WebDesignSystemDemo
       .am-input,
       .am-select,
       .am-textarea {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-default);
-        border-radius: var(--amber-radius-control);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-default);
+        border-radius: var(--ap-radius-control);
+        color: var(--ap-color-text-primary);
         font: inherit;
         min-height: 2.55rem;
         padding: 0.65rem 0.75rem;
@@ -614,16 +655,16 @@ module WebDesignSystemDemo
       .am-input:focus,
       .am-select:focus,
       .am-textarea:focus {
-        border-color: var(--amber-color-border-focus);
-        box-shadow: 0 0 0 3px var(--amber-color-border-focus);
+        border-color: var(--ap-color-border-focus);
+        box-shadow: 0 0 0 3px var(--ap-color-border-focus);
         outline: none;
       }
 
       .am-input[aria-invalid="true"],
       .am-select[aria-invalid="true"],
       .am-textarea[aria-invalid="true"] {
-        border-color: var(--amber-color-danger-border);
-        box-shadow: 0 0 0 3px var(--amber-color-danger-focus-ring);
+        border-color: var(--ap-color-danger-border);
+        box-shadow: 0 0 0 3px var(--ap-color-danger-focus-ring);
       }
 
       .am-form {
@@ -646,23 +687,23 @@ module WebDesignSystemDemo
       }
 
       .am-form-status {
-        background: var(--amber-color-surface-elevated);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        color: var(--amber-color-text-secondary);
+        background: var(--ap-color-surface-elevated);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        color: var(--ap-color-text-secondary);
         padding: 0.8rem 0.9rem;
       }
 
       .am-form-status[data-state="error"] {
-        background: var(--amber-color-danger-bg);
-        border-color: var(--amber-color-danger-border);
-        color: var(--amber-color-danger-text);
+        background: var(--ap-color-danger-bg);
+        border-color: var(--ap-color-danger-border);
+        color: var(--ap-color-danger-text);
       }
 
       .am-form-status[data-state="success"] {
-        background: var(--amber-color-success-bg);
-        border-color: var(--amber-color-success-border);
-        color: var(--amber-color-success-text);
+        background: var(--ap-color-success-bg);
+        border-color: var(--ap-color-success-border);
+        color: var(--ap-color-success-text);
       }
 
       .am-choice-grid {
@@ -673,7 +714,7 @@ module WebDesignSystemDemo
       .am-choice,
       .am-switch {
         align-items: center;
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
         display: flex;
         gap: 0.6rem;
       }
@@ -681,7 +722,7 @@ module WebDesignSystemDemo
       .am-choice input,
       .am-switch input,
       .am-range {
-        accent-color: var(--amber-color-brand-primary);
+        accent-color: var(--ap-color-brand-primary);
       }
 
       .am-range {
@@ -689,18 +730,18 @@ module WebDesignSystemDemo
       }
 
       .am-price-card {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-raised);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-raised);
         display: grid;
         gap: 1rem;
         padding: 1rem;
       }
 
       .am-price-card[data-featured="true"] {
-        border-color: color-mix(in oklch, var(--amber-color-brand-primary) 58%, var(--amber-color-border-subtle));
-        box-shadow: var(--amber-elevation-floating);
+        border-color: color-mix(in oklch, var(--ap-color-brand-primary) 58%, var(--ap-color-border-subtle));
+        box-shadow: var(--ap-elevation-floating);
       }
 
       .am-price {
@@ -715,9 +756,9 @@ module WebDesignSystemDemo
       }
 
       .am-summary {
-        background: var(--amber-color-surface-sunken);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
+        background: var(--ap-color-surface-sunken);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
         display: grid;
         gap: 0.65rem;
         padding: 1rem;
@@ -745,9 +786,9 @@ module WebDesignSystemDemo
       }
 
       .am-sidebar {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
         display: grid;
         gap: 0.55rem;
         align-content: start;
@@ -755,8 +796,8 @@ module WebDesignSystemDemo
       }
 
       .am-sidebar a {
-        border-radius: var(--amber-radius-control);
-        color: var(--amber-color-text-secondary);
+        border-radius: var(--ap-radius-control);
+        color: var(--ap-color-text-secondary);
         font-weight: 680;
         padding: 0.55rem 0.65rem;
         text-decoration: none;
@@ -764,8 +805,8 @@ module WebDesignSystemDemo
 
       .am-sidebar a[aria-current="page"],
       .am-sidebar a:hover {
-        background: var(--amber-color-state-hover);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-state-hover);
+        color: var(--ap-color-text-primary);
       }
 
       .am-dashboard-main {
@@ -791,23 +832,15 @@ module WebDesignSystemDemo
       }
 
       .am-heat-pill {
-        background: color-mix(in oklch, var(--amber-color-brand-accent) calc(var(--heat, 10) * 1%), var(--amber-color-surface-elevated));
-        border: 1px solid color-mix(in oklch, var(--amber-color-brand-accent) 24%, var(--amber-color-border-subtle));
-        border-radius: var(--amber-radius-pill);
+        background: color-mix(in oklch, var(--ap-color-brand-accent) calc(var(--heat, 10) * 1%), var(--ap-color-surface-elevated));
+        border: 1px solid color-mix(in oklch, var(--ap-color-brand-accent) 24%, var(--ap-color-border-subtle));
+        border-radius: var(--ap-radius-pill);
         min-height: 0.8rem;
       }
 
-      .am-command-panel {
-        display: none;
-        inset: 12vh max(1rem, calc((100vw - 760px) / 2)) auto;
-        padding: 0;
-        position: fixed;
-        z-index: 50;
-      }
-
-      .am-command-panel[data-state="open"] {
-        display: block;
-      }
+      /* Note: closed-state styling for `.am-command-panel` is handled by
+         the CommandPaletteComponent's registered CSS so the layout-but-
+         hidden semantics propagate everywhere the palette is used. */
 
       .am-command-list {
         display: grid;
@@ -817,8 +850,8 @@ module WebDesignSystemDemo
 
       .am-command-item {
         align-items: center;
-        border-radius: var(--amber-radius-control);
-        color: var(--amber-color-text-secondary);
+        border-radius: var(--ap-radius-control);
+        color: var(--ap-color-text-secondary);
         display: flex;
         justify-content: space-between;
         gap: 1rem;
@@ -827,16 +860,16 @@ module WebDesignSystemDemo
 
       .am-command-item:hover,
       .am-command-item:focus-visible {
-        background: var(--amber-color-state-hover);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-state-hover);
+        color: var(--ap-color-text-primary);
         outline: none;
       }
 
       kbd {
-        background: var(--amber-color-surface-sunken);
-        border: 1px solid var(--amber-color-border-subtle);
+        background: var(--ap-color-surface-sunken);
+        border: 1px solid var(--ap-color-border-subtle);
         border-radius: 0.35rem;
-        color: var(--amber-color-text-muted);
+        color: var(--ap-color-text-muted);
         font-size: 0.75rem;
         padding: 0.1rem 0.35rem;
       }
@@ -846,8 +879,8 @@ module WebDesignSystemDemo
       }
 
       .am-timeline::before {
-        background: linear-gradient(180deg, var(--amber-color-brand-primary), var(--amber-color-brand-accent));
-        border-radius: var(--amber-radius-pill);
+        background: linear-gradient(180deg, var(--ap-color-brand-primary), var(--ap-color-brand-accent));
+        border-radius: var(--ap-radius-pill);
         content: "";
         inset: 0 auto 0 50%;
         position: absolute;
@@ -867,16 +900,16 @@ module WebDesignSystemDemo
       .am-timeline-item[data-visible="true"] {
         opacity: 1;
         transform: translateY(0);
-        transition: opacity var(--amber-motion-duration-slow) var(--amber-motion-ease-emphasized),
-          transform var(--amber-motion-duration-slow) var(--amber-motion-ease-emphasized);
+        transition: opacity var(--ap-motion-duration-slow) var(--ap-motion-ease-emphasized),
+          transform var(--ap-motion-duration-slow) var(--ap-motion-ease-emphasized);
       }
 
       .am-timeline-dot {
         align-self: center;
-        background: var(--amber-color-brand-primary);
-        border: 4px solid var(--amber-color-surface-canvas);
+        background: var(--ap-color-brand-primary);
+        border: 4px solid var(--ap-color-surface-canvas);
         border-radius: 999px;
-        box-shadow: 0 0 0 1px var(--amber-color-border-subtle);
+        box-shadow: 0 0 0 1px var(--ap-color-border-subtle);
         height: 1.25rem;
         justify-self: center;
         width: 1.25rem;
@@ -884,10 +917,10 @@ module WebDesignSystemDemo
       }
 
       .am-timeline-card {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-raised);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-raised);
         display: grid;
         gap: 0.45rem;
         padding: 1rem;
@@ -911,11 +944,11 @@ module WebDesignSystemDemo
 
       .am-time-field {
         background:
-          radial-gradient(circle at 20% 25%, color-mix(in oklch, var(--amber-color-brand-primary) 26%, transparent), transparent 14rem),
-          radial-gradient(circle at 80% 68%, color-mix(in oklch, var(--amber-color-brand-accent) 22%, transparent), transparent 16rem),
-          var(--amber-color-surface-sunken);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
+          radial-gradient(circle at 20% 25%, color-mix(in oklch, var(--ap-color-brand-primary) 26%, transparent), transparent 14rem),
+          radial-gradient(circle at 80% 68%, color-mix(in oklch, var(--ap-color-brand-accent) 22%, transparent), transparent 16rem),
+          var(--ap-color-surface-sunken);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
         min-height: 18rem;
         overflow: hidden;
         position: relative;
@@ -944,17 +977,17 @@ module WebDesignSystemDemo
       }
 
       .am-message {
-        background: var(--amber-color-surface-elevated);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
+        background: var(--ap-color-surface-elevated);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
         display: grid;
         gap: 0.25rem;
         padding: 0.75rem;
       }
 
       .am-message[data-own="true"] {
-        background: color-mix(in oklch, var(--amber-color-brand-primary) 13%, var(--amber-color-surface-panel));
-        border-color: color-mix(in oklch, var(--amber-color-brand-primary) 38%, var(--amber-color-border-subtle));
+        background: color-mix(in oklch, var(--ap-color-brand-primary) 13%, var(--ap-color-surface-panel));
+        border-color: color-mix(in oklch, var(--ap-color-brand-primary) 38%, var(--ap-color-border-subtle));
         margin-left: 2rem;
       }
 
@@ -963,7 +996,7 @@ module WebDesignSystemDemo
       }
 
       .am-chat-form {
-        border-top: 1px solid var(--amber-color-border-subtle);
+        border-top: 1px solid var(--ap-color-border-subtle);
         display: grid;
         gap: 0.75rem;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -977,9 +1010,9 @@ module WebDesignSystemDemo
       }
 
       .am-search-result {
-        background: var(--amber-color-surface-elevated);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
+        background: var(--ap-color-surface-elevated);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
         display: grid;
         gap: 0.2rem;
         padding: 0.75rem;
@@ -991,21 +1024,21 @@ module WebDesignSystemDemo
       }
 
       .am-progress {
-        background: var(--amber-color-surface-sunken);
-        border-radius: var(--amber-radius-pill);
+        background: var(--ap-color-surface-sunken);
+        border-radius: var(--ap-radius-pill);
         height: 0.55rem;
         overflow: hidden;
       }
 
       .am-progress span {
-        background: linear-gradient(90deg, var(--amber-color-brand-primary), var(--amber-color-brand-accent));
+        background: linear-gradient(90deg, var(--ap-color-brand-primary), var(--ap-color-brand-accent));
         display: block;
         height: 100%;
       }
 
       .am-divider {
         align-items: center;
-        color: var(--amber-color-text-muted);
+        color: var(--ap-color-text-muted);
         display: grid;
         font-size: 0.8125rem;
         font-weight: 760;
@@ -1015,18 +1048,18 @@ module WebDesignSystemDemo
 
       .am-divider::before,
       .am-divider::after {
-        background: var(--amber-color-border-subtle);
+        background: var(--ap-color-border-subtle);
         content: "";
         height: 1px;
       }
 
       .am-parallax-band {
         background:
-          linear-gradient(120deg, color-mix(in oklch, var(--amber-color-brand-primary) 20%, transparent), transparent 34%),
-          linear-gradient(300deg, color-mix(in oklch, var(--amber-color-brand-accent) 20%, transparent), transparent 36%),
-          var(--amber-color-surface-inverse);
-        border-radius: var(--amber-radius-card);
-        color: var(--amber-color-text-inverse);
+          linear-gradient(120deg, color-mix(in oklch, var(--ap-color-brand-primary) 20%, transparent), transparent 34%),
+          linear-gradient(300deg, color-mix(in oklch, var(--ap-color-brand-accent) 20%, transparent), transparent 36%),
+          var(--ap-color-surface-inverse);
+        border-radius: var(--ap-radius-card);
+        color: var(--ap-color-text-inverse);
         min-height: 17rem;
         overflow: hidden;
         padding: 1.25rem;
@@ -1046,18 +1079,18 @@ module WebDesignSystemDemo
       }
 
       .am-tabs [role="tab"] {
-        background: var(--amber-color-surface-elevated);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-pill);
-        color: var(--amber-color-text-secondary);
+        background: var(--ap-color-surface-elevated);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-pill);
+        color: var(--ap-color-text-secondary);
         cursor: pointer;
         font-weight: 680;
         padding: 0.55rem 0.8rem;
       }
 
       .am-tabs [role="tab"][aria-selected="true"] {
-        background: var(--amber-color-surface-inverse);
-        color: var(--amber-color-text-inverse);
+        background: var(--ap-color-surface-inverse);
+        color: var(--ap-color-text-inverse);
       }
 
       .am-tab-panel[hidden] {
@@ -1084,9 +1117,9 @@ module WebDesignSystemDemo
 
       .am-empty,
       .am-skeleton-card {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
         display: grid;
         gap: 0.75rem;
         justify-items: start;
@@ -1095,25 +1128,25 @@ module WebDesignSystemDemo
 
       .am-skeleton {
         animation: amber-shimmer 1.2s linear infinite;
-        background: linear-gradient(90deg, var(--amber-color-surface-sunken), var(--amber-color-surface-elevated), var(--amber-color-surface-sunken));
+        background: linear-gradient(90deg, var(--ap-color-surface-sunken), var(--ap-color-surface-elevated), var(--ap-color-surface-sunken));
         background-size: 200% 100%;
-        border-radius: var(--amber-radius-pill);
+        border-radius: var(--ap-radius-pill);
         display: block;
         min-height: 0.85rem;
         width: 100%;
       }
 
       .am-skeleton[data-block="true"] {
-        border-radius: var(--amber-radius-card);
+        border-radius: var(--ap-radius-card);
         min-height: 5rem;
       }
 
       .am-toast {
         align-items: center;
-        background: var(--amber-color-surface-inverse);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-floating);
-        color: var(--amber-color-text-inverse);
+        background: var(--ap-color-surface-inverse);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-floating);
+        color: var(--ap-color-text-inverse);
         display: flex;
         gap: 0.75rem;
         justify-content: space-between;
@@ -1121,7 +1154,7 @@ module WebDesignSystemDemo
       }
 
       .am-toast .am-button {
-        color: var(--amber-color-text-inverse);
+        color: var(--ap-color-text-inverse);
       }
 
       .am-toast .am-toast__body {
@@ -1129,11 +1162,11 @@ module WebDesignSystemDemo
       }
 
       .am-dialog {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-overlay);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-overlay);
+        color: var(--ap-color-text-primary);
         max-width: min(34rem, calc(100vw - 2rem));
         padding: 1rem;
       }
@@ -1195,7 +1228,7 @@ module WebDesignSystemDemo
 
         .am-showcase-rail {
           border-right: 0;
-          border-bottom: 1px solid var(--amber-color-border-subtle);
+          border-bottom: 1px solid var(--ap-color-border-subtle);
           grid-template-columns: repeat(3, minmax(0, 1fr));
         }
       }
@@ -1270,13 +1303,38 @@ module WebDesignSystemDemo
         }
       }
 
-      @container dashboard (max-width: 720px) {
+      @container dashboard (max-width: 960px) {
         .am-dashboard-shell {
           grid-template-columns: 1fr;
         }
         .am-sidebar {
           grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
           display: grid;
+        }
+        /* Inner two-col (table + chart panel) demands 34rem + 22rem and
+           was the root cause of the dashboard's horizontal overflow at
+           768 / 375 / 320. Collapse to a single column whenever the
+           dashboard container itself is below 960. */
+        .am-dashboard-main > .am-two-col {
+          grid-template-columns: 1fr;
+        }
+        .am-dashboard-main .am-metric-grid {
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+        }
+        .am-dashboard-toolbar {
+          align-items: stretch;
+        }
+        .am-dashboard-toolbar > * {
+          min-width: 0;
+        }
+      }
+
+      @container dashboard (max-width: 520px) {
+        .am-dashboard-main .am-metric-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .am-dashboard-main .am-heatmap {
+          grid-template-columns: repeat(6, minmax(0, 1fr));
         }
       }
       CSS
@@ -1570,12 +1628,12 @@ module WebDesignSystemDemo
           #{command_palette}
     HTML
     dashboard_body = <<-HTML
-    <div class="am-dashboard-toolbar">
-            <div><h2 id="dashboard-title" style="margin:0;">Launch readiness</h2><p class="am-demo-copy">Every row state has a visible indicator, subtle background, richer hover, and semantic label.</p></div>
-            #{field("Filter work", "launch-filter", "search", {"placeholder" => "Try blocked, selected, pricing", "hint_html" => %(<span id="launch-filter-status" role="status" aria-live="polite">4 matching rows</span>)}, {"data-amber-filter" => "#launch-table", "data-ap-filter" => "#launch-table", "data-amber-filter-status" => "#launch-filter-status", "data-ap-filter-status" => "#launch-filter-status"})}
+    <div class="am-dashboard-toolbar" data-testid="dashboard-toolbar">
+            <div data-testid="dashboard-heading"><h2 id="dashboard-title" style="margin:0;">Launch readiness</h2><p class="am-demo-copy">Every row state has a visible indicator, subtle background, richer hover, and semantic label.</p></div>
+            #{field("Filter work", "launch-filter", "search", {"placeholder" => "Try blocked, selected, pricing", "hint_html" => %(<span id="launch-filter-status" role="status" aria-live="polite">4 matching rows</span>)}, {"data-amber-filter" => "#launch-table", "data-ap-filter" => "#launch-table", "data-amber-filter-status" => "#launch-filter-status", "data-ap-filter-status" => "#launch-filter-status", "data-testid" => "dashboard-filter-field"})}
           </div>
-          #{layout_grid("metric", [metric("Ready", "82%", "Up 12% after form audit."), metric("Open risks", "3", "One color issue is blocking."), metric("Evidence", "27", "Screenshots and audits stored."), metric("Runtime deps", "0", "All interactions are vanilla JS.")])}
-          #{layout_grid("two", [%(<div>#{table}</div>), visual_panel])}
+          <div data-testid="dashboard-metric-grid">#{layout_grid("metric", [metric("Ready", "82%", "Up 12% after form audit."), metric("Open risks", "3", "One color issue is blocking."), metric("Evidence", "27", "Screenshots and audits stored."), metric("Runtime deps", "0", "All interactions are vanilla JS.")])}</div>
+          <div data-testid="dashboard-two-col">#{layout_grid("two", [%(<div data-testid="dashboard-table-panel">#{table}</div>), visual_panel])}</div>
     HTML
     dashboard_shell = Components::DesignSystem::DashboardShell.new(sidebar_html: sidebar_html, body_html: dashboard_body, compatibility_markup: "demo").render
 
