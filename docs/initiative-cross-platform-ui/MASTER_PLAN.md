@@ -130,7 +130,7 @@ The team lead updates this table as work proceeds. Each row's `Status` is one of
 
 | # | Phase | Status | Implementer commit(s) | Validator report | Notes |
 |---|---|---|---|---|---|
-| 1 | Design Token Foundation | Implementer Returned → Validator Active (2026-05-20) | `5b6483b 40e396d 0e3b943 575613a 8ecd37d 006dc70 3874a4e 8b68717` | — | Branch `phase-01-design-token-foundation`. Architect dispatches directly per `handoff/architect-dispatch-collapse-2026-05-20.md`. Android generator deferred per `handoff/phase-01-architect-scope-deferral-2026-05-20.md`; canonical-palette tolerance tightened to ΔE2000 ≤ 1.0. Implementer flagged renderer literal-scrub as partial (helpers in place; visit-method literals still present) — Validator should scrutinize checks #12/#13 |
+| 1 | Design Token Foundation | Failing → Remediation loop 1 dispatched (2026-05-20) | `5b6483b 40e396d 0e3b943 575613a 8ecd37d 006dc70 3874a4e 8b68717` | `handoff/phase-01-failing-1-2026-05-20.md` | Validator returned FAIL: #12 AppKit + #13 UIKit literal-scrub incomplete; #19/#20 cascade harnesses not shipped on Apple targets. #15/#17 architect-adjudicated as pre-existing env gaps (NOT Phase 1 regressions, NOT remediation targets) |
 | 2 | Responsive Web Fluid Resize | Not Started | — | — | |
 | 3 | SwiftUI Native Bridge | Not Started | — | — | High-risk; budget remediation loops |
 | 4 | Platform Tier Gating | Not Started | — | — | |
