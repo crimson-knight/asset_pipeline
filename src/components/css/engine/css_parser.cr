@@ -111,6 +111,11 @@ module Components
             if value = config.letter_spacing[$1]?
               {"letter-spacing" => value}
             end
+            # Opinionated design-system visual utilities
+          when "bg-gradient-brand"
+            {"background-image" => "linear-gradient(135deg, var(--ap-color-brand-primary, var(--amber-color-brand-primary)), var(--ap-color-brand-accent, var(--amber-color-brand-accent)))"}
+          when "bg-size-200"
+            {"background-size" => "200% 200%"}
             # Colors
           when /^bg-(.+)$/
             if color = config.get_color($1)
@@ -156,7 +161,45 @@ module Components
             if value = config.transitions[type]?
               {"transition" => value}
             end
-
+          when /^duration-(.+)$/
+            {
+              "transition-duration" => case $1
+              when "instant" then "var(--ap-motion-duration-instant, var(--amber-motion-duration-instant))"
+              when "fast"    then "var(--ap-motion-duration-fast, var(--amber-motion-duration-fast))"
+              when "base"    then "var(--ap-motion-duration-base, var(--amber-motion-duration-base))"
+              when "slow"    then "var(--ap-motion-duration-slow, var(--amber-motion-duration-slow))"
+              else                "#{$1}ms"
+              end,
+            }
+          when /^ease-(.+)$/
+            {
+              "transition-timing-function" => case $1
+              when "standard"   then "var(--ap-motion-ease-standard, var(--amber-motion-ease-standard))"
+              when "emphasized" then "var(--ap-motion-ease-emphasized, var(--amber-motion-ease-emphasized))"
+              when "spring"     then "var(--ap-motion-spring, var(--amber-motion-spring))"
+              else                   "var(--ap-motion-ease-standard, var(--amber-motion-ease-standard))"
+              end,
+            }
+          when "transform"
+            {"transform" => "translateZ(0)"}
+          when /^translate-y-(.+)$/
+            if value = config.spacing[$1]?
+              {"transform" => "translateY(#{value})"}
+            end
+          when /^-translate-y-(.+)$/
+            if value = config.spacing[$1]?
+              {"transform" => "translateY(calc(#{value} * -1))"}
+            end
+          when /^scale-(\d+)$/
+            {"transform" => "scale(#{$1.to_f / 100})"}
+          when /^rotate-(\-?\d+)$/
+            {"transform" => "rotate(#{$1}deg)"}
+          when "animate-row-in"
+            {"animation" => "ap-row-enter var(--ap-motion-duration-base, var(--amber-motion-duration-base)) var(--ap-motion-ease-emphasized, var(--amber-motion-ease-emphasized)) both"}
+          when "animate-row-out"
+            {"animation" => "ap-row-exit var(--ap-motion-duration-fast, var(--amber-motion-duration-fast)) var(--ap-motion-ease-standard, var(--amber-motion-ease-standard)) both"}
+          when "animate-section-in"
+            {"animation" => "ap-section-reveal var(--ap-motion-duration-slow, var(--amber-motion-duration-slow)) var(--ap-motion-ease-emphasized, var(--amber-motion-ease-emphasized)) both"}
             # Overflow
           when "overflow-hidden"
             {"overflow" => "hidden"}
@@ -212,6 +255,10 @@ module Components
             {"box-shadow" => "0 0 0 8px oklch(0.623 0.214 259.815 / 0.5)"}
           when "ring-inset"
             {"box-shadow" => "inset 0 0 0 3px oklch(0.623 0.214 259.815 / 0.5)"}
+          when /^ring-(.+)$/
+            if color = config.get_color($1)
+              {"box-shadow" => "0 0 0 3px #{color}"}
+            end
           when /^outline-(\d+)$/
             {"outline-width" => "#{$1}px"}
           when "outline-none"

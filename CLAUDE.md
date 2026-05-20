@@ -44,7 +44,9 @@ src/asset_pipeline/
 - No templates — all HTML generated from Crystal classes with compile-time type safety
 - Utility-first CSS with OKLCH color space and `@layer` cascade structure
 - WCAG 2.2 AA accessibility built into defaults (focus rings, motion preferences, ARIA states)
-- Stimulus-only JavaScript — no frameworks, ESM import maps, automatic controller detection
+- Design-system web helpers are vanilla JavaScript: no Node, npm, bundlers, or
+  Stimulus. The legacy FrontLoader path still supports ESM import maps and
+  Stimulus for non-design-system assets.
 - Components render to strings via `.render()` for server-side rendering
 
 ## Cross-Platform UI System
@@ -110,7 +112,7 @@ For the full cross-platform mapping (SwiftUI / UIKit / AppKit / Compose / Androi
 |-------|-------|
 | Building UIs with elements and components | `build-ui` |
 | CSS styling, ClassBuilder, design tokens | `css-styling` |
-| JavaScript, Stimulus, reactive components | `javascript` |
+| JavaScript, Stimulus, reactive components (legacy FrontLoader path only) | `javascript` |
 | WCAG 2.2 AA accessibility | `accessibility` |
 | Cross-platform UI overview (59 UI::View types) | `cross-platform-components` |
 | Full API reference for UI::View types | `component-api` |
@@ -125,7 +127,9 @@ For the full cross-platform mapping (SwiftUI / UIKit / AppKit / Compose / Androi
 | Apple HIG corpus (166 pages, offline, searchable) | `apple-hig` |
 | **Apple platform developer guide (HIG-backed usage docs)** | **`apple-platform-guide`** |
 
-> **Compiler:** Use `crystal-alpha` (NOT `crystal`) for all builds. Match `happy_coach`'s proven toolchain — see `~/personal_coding_projects/happy_coach/Makefile` and `mobile/ios/build_crystal_lib.sh` for the canonical patterns.
+> **Native compiler:** Use `crystal-alpha` (not `crystal`) for native macOS,
+> iOS, and Android builds. Web design-system proof commands use plain `crystal`;
+> see `docs/web-design-system/compiler-command-matrix.md`.
 
 ## Native App Development Workflow
 
@@ -223,7 +227,12 @@ See the `ax-test` skill for the full API reference.
 
 ```bash
 crystal spec                    # Run unit tests
-crystal spec spec/ui/ -Dmacos   # Run UI tests (requires Accessibility permission)
+crystal run examples/web_design_system_demo.cr
+                                # Build the static web design-system proof
+crystal run scripts/validate_web_demo.cr
+                                # Audit the static web design-system proof
+crystal-alpha spec spec/ui/ -Dmacos --link-flags="-framework ApplicationServices -framework CoreFoundation"
+                                # Run native UI tests (requires Accessibility permission)
 crystal tool format --check     # Check formatting
 crystal run src/generators/brand_kit.cr  # Generate style guide
 ```

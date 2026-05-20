@@ -10,6 +10,21 @@ private def render(view : UI::View) : String
 end
 
 describe UI::Web::Renderer do
+  describe "theme injection" do
+    it "injects Amber token CSS variables with dark overrides" do
+      renderer = UI::Web::Renderer.new
+      css = renderer.inject_theme_css
+
+      css.should contain("--amber-color-brand-primary:")
+      css.should contain("@media (prefers-color-scheme: dark)")
+      css.should contain("[data-ap-theme=\"light\"]")
+      css.should contain("[data-ap-theme=\"dark\"]")
+      css.should contain("[data-amber-theme=\"light\"]")
+      css.should contain("[data-amber-theme=\"dark\"]")
+      css.should contain("--md-sys-color-primary:")
+    end
+  end
+
   describe "Label" do
     it "renders to <span> with text content" do
       label = UI::Label.new("Hello World")
@@ -50,9 +65,18 @@ describe UI::Web::Renderer do
 
     it "applies text color as rgba" do
       label = UI::Label.new("Red")
+      label.text_color_role = nil
       label.text_color = UI::Color.new(r: 1.0, g: 0.0, b: 0.0)
       html = render(label)
       html.should contain("color: rgba(255, 0, 0, 1.0)")
+    end
+
+    it "maps semantic label roles to Amber text tokens" do
+      label = UI::Label.new("Secondary")
+      label.text_color_role = UI::LabelRole::Secondary
+      html = render(label)
+
+      html.should contain("color: var(--amber-color-text-secondary)")
     end
 
     it "applies text alignment" do
@@ -98,6 +122,8 @@ describe UI::Web::Renderer do
       html.should contain("</button>")
       html.should contain("type=\"button\"")
       html.should contain("Click Me")
+      html.should contain("class=\"am-button am-button--brand am-button--outline am-button--md\"")
+      html.should contain("data-state=\"default\"")
     end
 
     it "applies foreground color" do
@@ -112,6 +138,7 @@ describe UI::Web::Renderer do
       button.disabled = true
       html = render(button)
       html.should contain("disabled=\"disabled\"")
+      html.should contain("data-state=\"disabled\"")
     end
 
     it "adds data-action attribute when on_tap is set" do
@@ -132,6 +159,15 @@ describe UI::Web::Renderer do
       html = render(button)
       html.should contain("font-size: 20.0px")
       html.should contain("font-weight: bold")
+    end
+
+    it "maps destructive prominent buttons to token-backed classes" do
+      button = UI::Button.new("Delete", role: :destructive, style: UI::ButtonStyle::Prominent)
+      html = render(button)
+
+      html.should contain("am-button--danger")
+      html.should contain("am-button--solid")
+      html.should contain("data-tone=\"danger\"")
     end
   end
 

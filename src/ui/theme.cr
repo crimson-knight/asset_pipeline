@@ -1,3 +1,5 @@
+require "../components/css/tokens/amber_theme"
+
 module UI
   record ThemeColor,
     r : Float64,
@@ -74,10 +76,10 @@ module UI
     # Apple-style theme (HIG defaults)
     def self.apple_default : Theme
       theme = new
-      theme.primary = ThemeColor.new(r: 0.0, g: 0.478, b: 1.0)       # System Blue
+      theme.primary = ThemeColor.new(r: 0.0, g: 0.478, b: 1.0) # System Blue
       theme.on_primary = ThemeColor.new(r: 1.0, g: 1.0, b: 1.0)
-      theme.secondary = ThemeColor.new(r: 0.34, g: 0.34, b: 0.36)    # System Gray
-      theme.error = ThemeColor.new(r: 1.0, g: 0.23, b: 0.19)         # System Red
+      theme.secondary = ThemeColor.new(r: 0.34, g: 0.34, b: 0.36) # System Gray
+      theme.error = ThemeColor.new(r: 1.0, g: 0.23, b: 0.19)      # System Red
       theme.background = ThemeColor.new(r: 1.0, g: 1.0, b: 1.0)
       theme.on_background = ThemeColor.new(r: 0.0, g: 0.0, b: 0.0)
       theme.surface = ThemeColor.new(r: 0.97, g: 0.97, b: 0.97)
@@ -94,7 +96,7 @@ module UI
     # Material Design 3 baseline theme
     def self.material_baseline : Theme
       theme = new
-      theme.primary = ThemeColor.new(r: 0.4, g: 0.31, b: 0.64)       # M3 Purple
+      theme.primary = ThemeColor.new(r: 0.4, g: 0.31, b: 0.64) # M3 Purple
       theme.on_primary = ThemeColor.new(r: 1.0, g: 1.0, b: 1.0)
       theme.secondary = ThemeColor.new(r: 0.39, g: 0.45, b: 0.55)
       theme.error = ThemeColor.new(r: 0.73, g: 0.11, b: 0.11)
@@ -151,6 +153,52 @@ module UI
         io << "  --md-sys-shape-corner-large: #{corner_radius_large}px;\n"
         io << "}\n"
       end
+    end
+
+    # Web design-system theme. This preserves the cross-platform Theme shape
+    # while choosing the current default web palette for milestone 1.
+    def self.amber_default : Theme
+      theme = new
+      theme.primary = ThemeColor.new(r: 0.84, g: 0.41, b: 0.13)
+      theme.on_primary = ThemeColor.new(r: 1.0, g: 0.98, b: 0.93)
+      theme.primary_container = ThemeColor.new(r: 0.98, g: 0.88, b: 0.71)
+      theme.on_primary_container = ThemeColor.new(r: 0.22, g: 0.13, b: 0.07)
+      theme.secondary = ThemeColor.new(r: 0.22, g: 0.35, b: 0.52)
+      theme.on_secondary = ThemeColor.new(r: 1.0, g: 1.0, b: 1.0)
+      theme.secondary_container = ThemeColor.new(r: 0.84, g: 0.9, b: 0.96)
+      theme.on_secondary_container = ThemeColor.new(r: 0.1, g: 0.15, b: 0.24)
+      theme.tertiary = ThemeColor.new(r: 0.08, g: 0.5, b: 0.42)
+      theme.on_tertiary = ThemeColor.new(r: 1.0, g: 1.0, b: 1.0)
+      theme.error = ThemeColor.new(r: 0.76, g: 0.18, b: 0.12)
+      theme.background = ThemeColor.new(r: 0.98, g: 0.97, b: 0.94)
+      theme.on_background = ThemeColor.new(r: 0.15, g: 0.16, b: 0.18)
+      theme.surface = ThemeColor.new(r: 1.0, g: 1.0, b: 1.0)
+      theme.on_surface = ThemeColor.new(r: 0.15, g: 0.16, b: 0.18)
+      theme.surface_variant = ThemeColor.new(r: 0.94, g: 0.92, b: 0.87)
+      theme.on_surface_variant = ThemeColor.new(r: 0.36, g: 0.34, b: 0.3)
+      theme.outline = ThemeColor.new(r: 0.67, g: 0.58, b: 0.48)
+      theme.outline_variant = ThemeColor.new(r: 0.84, g: 0.78, b: 0.7)
+      theme.font_family = "var(--amber-font-sans)"
+      theme.font_size_body = 16.0
+      theme.font_size_title = 22.0
+      theme.font_size_headline = 34.0
+      theme.font_size_caption = 12.5
+      theme.corner_radius_small = 8.0
+      theme.corner_radius_medium = 12.0
+      theme.corner_radius_large = 16.0
+      theme
+    end
+
+    def self.design_system_default : Theme
+      amber_default
+    end
+
+    def self.amber_tokens : Components::CSS::Tokens::Theme
+      design_system_tokens
+    end
+
+    def self.design_system_tokens : Components::CSS::Tokens::Theme
+      Components::CSS::Tokens::Theme.design_system_default
     end
 
     private def color_to_css(c : ThemeColor) : String

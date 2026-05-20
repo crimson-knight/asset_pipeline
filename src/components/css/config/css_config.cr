@@ -1,7 +1,13 @@
+require "../tokens/design_system_theme"
+
 module Components
   module CSS
     # Configuration for the utility-first CSS system
     class Config
+      # Semantic design-system tokens. The storage name remains as an alpha
+      # compatibility detail; use `design_system_theme` in new code.
+      property amber_theme : Components::CSS::Tokens::Theme
+
       # Color palette
       property colors : Hash(String, String | Hash(String, String))
 
@@ -45,6 +51,7 @@ module Components
       property extend : Hash(String, Hash(String, String))
 
       def initialize
+        @amber_theme = Components::CSS::Tokens::Theme.design_system_default
         @colors = default_colors
         @spacing = default_spacing
         @fonts = default_fonts
@@ -59,6 +66,25 @@ module Components
         @opacity = default_opacity
         @containers = default_containers
         @extend = {} of String => Hash(String, String)
+        apply_design_system_theme_colors
+      end
+
+      def use_amber_theme(theme : Components::CSS::Tokens::Theme) : self
+        use_design_system_theme(theme)
+      end
+
+      def design_system_theme : Components::CSS::Tokens::Theme
+        @amber_theme
+      end
+
+      def design_system_theme=(theme : Components::CSS::Tokens::Theme)
+        @amber_theme = theme
+        apply_design_system_theme_colors
+      end
+
+      def use_design_system_theme(theme : Components::CSS::Tokens::Theme) : self
+        self.design_system_theme = theme
+        self
       end
 
       # Default color palette
@@ -173,9 +199,10 @@ module Components
       # Default font families
       private def default_fonts
         {
-          "sans"  => "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
-          "serif" => "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif",
-          "mono"  => "ui-monospace, SFMono-Regular, \"SF Mono\", Consolas, \"Liberation Mono\", Menlo, Courier, monospace",
+          "sans"    => "#{token_var("font-sans")}, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+          "display" => "#{token_var("font-display")}, Georgia, ui-serif, serif",
+          "serif"   => "ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif",
+          "mono"    => "#{token_var("font-mono")}, ui-monospace, SFMono-Regular, \"SF Mono\", Consolas, \"Liberation Mono\", Menlo, Courier, monospace",
         }
       end
 
@@ -232,12 +259,12 @@ module Components
       # Default letter spacing
       private def default_letter_spacing
         {
-          "tighter" => "-0.05em",
-          "tight"   => "-0.025em",
+          "tighter" => "0em",
+          "tight"   => "0em",
           "normal"  => "0em",
-          "wide"    => "0.025em",
-          "wider"   => "0.05em",
-          "widest"  => "0.1em",
+          "wide"    => "0em",
+          "wider"   => "0em",
+          "widest"  => "0em",
         }
       end
 
@@ -347,6 +374,47 @@ module Components
         nil
       end
 
+      private def apply_design_system_theme_colors
+        @colors["brand"] = {
+          "primary"   => token_var("color-brand-primary"),
+          "secondary" => token_var("color-brand-secondary"),
+          "accent"    => token_var("color-brand-accent"),
+          "hover"     => token_var("color-brand-primary-hover"),
+          "active"    => token_var("color-brand-primary-active"),
+        }
+
+        @colors["surface"] = {
+          "canvas"   => token_var("color-surface-canvas"),
+          "panel"    => token_var("color-surface-panel"),
+          "elevated" => token_var("color-surface-elevated"),
+          "sunken"   => token_var("color-surface-sunken"),
+        }
+
+        %w[success warning danger info].each do |intent|
+          @colors[intent] = {
+            "indicator" => token_var("color-#{intent}-indicator"),
+            "subtle"    => token_var("color-#{intent}-bg"),
+            "hover"     => token_var("color-#{intent}-bg-hover"),
+            "border"    => token_var("color-#{intent}-border"),
+            "strong"    => token_var("color-#{intent}-indicator"),
+            "text"      => token_var("color-#{intent}-text"),
+            "focus"     => token_var("color-#{intent}-focus-ring"),
+          }
+        end
+
+        @colors["primary"] = token_var("color-text-primary")
+        @colors["secondary"] = token_var("color-text-secondary")
+        @colors["muted"] = token_var("color-text-muted")
+        @colors["inverse"] = token_var("color-text-inverse")
+        @colors["link"] = token_var("color-text-link")
+        @colors["focus"] = token_var("color-border-focus")
+        @colors["border"] = token_var("color-border-default")
+      end
+
+      private def token_var(name : String) : String
+        "var(--ap-#{name}, var(--amber-#{name}))"
+      end
+
       # Generate CSS custom property declarations for all design tokens.
       # Returns a multi-line string of custom property declarations (without
       # the :root {} wrapper -- the caller adds that).
@@ -425,7 +493,14 @@ module Components
           @opacity.each do |key, value|
             str << "--opacity-#{key}: #{value};\n"
           end
+
+          # --- Design-system semantic tokens ---
+          str << @amber_theme.to_css_variables(:light)
         end
+      end
+
+      def to_dark_custom_properties : String
+        @amber_theme.to_css_variables(:dark)
       end
 
       # Merge with another config

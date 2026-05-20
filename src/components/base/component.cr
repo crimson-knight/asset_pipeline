@@ -81,12 +81,10 @@ module Components
         @@_component_css
       end
 
-      {% verbatim do %}
-        Components::CSS::ComponentCSSRegistry.instance.register(
-          {{@type.name.stringify}},
-          {{css_string}}
-        )
-      {% end %}
+      Components::CSS::ComponentCSSRegistry.instance.register(
+        {{@type.name.stringify}},
+        @@_component_css
+      )
     end
 
     # Abstract method to be implemented by subclasses
