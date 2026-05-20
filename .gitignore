@@ -17,6 +17,10 @@ src/ui/native/*.o
 samples/cross_platform/ios_host/build/
 samples/cross_platform/macos_host/bin/
 samples/cross_platform/macos_host/*.o
+/build/
+
+# Visual-regression baselines — large binary tree managed out-of-band
+/test-results/
 
 # HIG validation history — grows unbounded, regenerates from code
 .claude/skills/apple-platform-guide/validation/history/
