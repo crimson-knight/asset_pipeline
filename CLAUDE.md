@@ -106,6 +106,49 @@ Source files in `src/ui/views/`. Canonical core mapping:
 
 For the full cross-platform mapping (SwiftUI / UIKit / AppKit / Compose / Android View / HTML) see the `component-mapping-matrix` skill.
 
+## Design tokens
+
+The canonical Tier 1 brand contract lives in `src/ui/design_tokens.cr`
+(`UI::DesignTokens::Tokens`). It carries 23 semantic color roles in both light
+and dark palettes, a 35-step spacing scale, type / radius / shadow / motion
+scales, breakpoints, and `touch_target_minimum_px`. Colors are stored as both
+OKLCH (the source of truth) and a baked sRGB triple.
+
+Per-platform generators emit committed dist files from this single source:
+
+| Generator | Output | Consumer |
+|-----------|--------|----------|
+| `UI::DesignTokens::WebGenerator` | `src/ui/design_tokens/dist/web_tokens.css` | Web renderer's `inject_theme_css` |
+| `UI::DesignTokens::AppleGenerator` | `src/ui/design_tokens/dist/AssetPipelineTokens.swift` | Phase 3 SwiftUI bridge |
+
+Regenerate after editing the model:
+```bash
+crystal run scripts/regenerate_design_tokens.cr
+```
+
+The web CSS variable prefix is `--ap-*` (canonical). The legacy `--amber-*`
+alias was removed wholesale in Phase 1 of the cross-platform UI initiative;
+downstream code must reference `var(--ap-color-brand-primary)` etc.
+
+Consumer apps override the brand by subclassing `UI::DesignTokens::Brand`:
+```crystal
+class AcmeBrand < UI::DesignTokens::Brand
+  protected def override_color_light(palette)
+    palette.copy_with(brand_primary: UI::DesignTokens::Color.hex("#1d4ed8"))
+  end
+end
+
+tokens = UI::DesignTokens::Tokens.default.with_brand(AcmeBrand.new)
+```
+
+`Tokens.default.with_brand(brand)` returns a NEW `Tokens` — never mutates the
+default. Pass the result into a renderer's `design_tokens` property.
+
+The Android XML generator is deferred to a follow-up phase; see
+`docs/initiative-cross-platform-ui/handoff/phase-01-architect-scope-deferral-2026-05-20.md`.
+The `UI::DesignTokens::Color#to_android_argb` helper already ships so the
+deferred generator has a stable conversion API.
+
 ## Quick Reference
 
 | Topic | Skill |
