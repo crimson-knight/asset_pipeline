@@ -27,6 +27,13 @@ module UI
     property content_padding : EdgeInsets = EdgeInsets.new(top: 21.0, trailing: 21.0, bottom: 21.0, leading: 21.0)
 
     def initialize(@content : View? = nil)
+      # Default container-query root name: enables descendant
+      # `@container card (...)` rules and lets `render(Card.new)` emit
+      # `container-type: inline-size; container-name: card;` inline so
+      # the per-element render-output rubric finds the contract without
+      # registered class CSS. Callers may override by assigning
+      # `container_query_name = nil` or another name.
+      @container_query_name = "card"
     end
 
     def accept(visitor : PlatformVisitor)

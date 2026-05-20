@@ -14,6 +14,11 @@ module UI
     property sections : Array(FormSection) = [] of FormSection
 
     def initialize
+      # Default container-query root so `@container form (...)` rules and
+      # the per-element render output both pick up `container-type:
+      # inline-size; container-name: form;` without needing the registered
+      # class CSS to be loaded.
+      @container_query_name = "form"
     end
 
     def add_section(header : String? = nil, footer : String? = nil) : FormSection
