@@ -27,7 +27,7 @@ module Components
       }
 
       .am-carousel:focus-visible {
-        outline: 2px solid var(--amber-color-border-focus);
+        outline: 2px solid var(--ap-color-border-focus);
         outline-offset: 4px;
       }
       CSS

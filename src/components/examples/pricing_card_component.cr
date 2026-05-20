@@ -10,18 +10,18 @@ module Components
     class PricingCardComponent < StatelessComponent
       component_css <<-CSS
       .am-price-card {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-raised);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-raised);
         display: grid;
         gap: 1rem;
         padding: 1rem;
       }
 
       .am-price-card[data-featured="true"] {
-        border-color: color-mix(in oklch, var(--amber-color-brand-primary) 58%, var(--amber-color-border-subtle));
-        box-shadow: var(--amber-elevation-floating);
+        border-color: color-mix(in oklch, var(--ap-color-brand-primary) 58%, var(--ap-color-border-subtle));
+        box-shadow: var(--ap-elevation-floating);
       }
 
       .am-price {

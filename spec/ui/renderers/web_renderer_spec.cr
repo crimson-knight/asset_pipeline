@@ -11,16 +11,18 @@ end
 
 describe UI::Web::Renderer do
   describe "theme injection" do
-    it "injects Amber token CSS variables with dark overrides" do
+    it "injects --ap-* design tokens with dark overrides" do
       renderer = UI::Web::Renderer.new
       css = renderer.inject_theme_css
 
-      css.should contain("--amber-color-brand-primary:")
+      # Phase 1 of the cross-platform UI initiative: the canonical prefix is
+      # --ap-*; --amber-* aliases and [data-amber-theme] selectors are gone.
+      css.should contain("--ap-color-brand-primary:")
       css.should contain("@media (prefers-color-scheme: dark)")
       css.should contain("[data-ap-theme=\"light\"]")
       css.should contain("[data-ap-theme=\"dark\"]")
-      css.should contain("[data-amber-theme=\"light\"]")
-      css.should contain("[data-amber-theme=\"dark\"]")
+      css.includes?("[data-amber-theme=").should be_false
+      css.includes?("--amber-color-").should be_false
       css.should contain("--md-sys-color-primary:")
     end
   end
@@ -71,12 +73,12 @@ describe UI::Web::Renderer do
       html.should contain("color: rgba(255, 0, 0, 1.0)")
     end
 
-    it "maps semantic label roles to Amber text tokens" do
+    it "maps semantic label roles to --ap-* text tokens" do
       label = UI::Label.new("Secondary")
       label.text_color_role = UI::LabelRole::Secondary
       html = render(label)
 
-      html.should contain("color: var(--amber-color-text-secondary)")
+      html.should contain("color: var(--ap-color-text-secondary)")
     end
 
     it "applies text alignment" do

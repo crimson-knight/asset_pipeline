@@ -11,28 +11,28 @@ module Components
     class CardComponent < StatelessComponent
       component_css <<-CSS
       .am-card {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-raised);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-raised);
+        color: var(--ap-color-text-primary);
         display: flex;
         flex-direction: column;
         min-width: 0;
         overflow: hidden;
-        transition: border-color var(--amber-motion-duration-fast) var(--amber-motion-ease-standard),
-          box-shadow var(--amber-motion-duration-fast) var(--amber-motion-ease-standard),
-          transform var(--amber-motion-duration-fast) var(--amber-motion-ease-emphasized);
+        transition: border-color var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          box-shadow var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          transform var(--ap-motion-duration-fast) var(--ap-motion-ease-emphasized);
       }
 
       .am-card:hover {
-        border-color: var(--amber-color-border-default);
-        box-shadow: var(--amber-elevation-floating);
+        border-color: var(--ap-color-border-default);
+        box-shadow: var(--ap-elevation-floating);
         transform: translateY(-2px);
       }
 
       .am-card--flat {
-        box-shadow: var(--amber-elevation-flat);
+        box-shadow: var(--ap-elevation-flat);
       }
 
       .am-card--outline {
@@ -44,17 +44,17 @@ module Components
       }
 
       .am-card--selected {
-        border-color: var(--amber-color-brand-primary);
-        box-shadow: 0 0 0 3px var(--amber-color-border-focus), var(--amber-elevation-raised);
+        border-color: var(--ap-color-brand-primary);
+        box-shadow: 0 0 0 3px var(--ap-color-border-focus), var(--ap-elevation-raised);
       }
 
       .am-card--danger {
-        border-color: var(--amber-color-danger-border);
+        border-color: var(--ap-color-danger-border);
       }
 
       .am-card__media {
         aspect-ratio: 16 / 9;
-        background: var(--amber-color-surface-sunken);
+        background: var(--ap-color-surface-sunken);
         object-fit: cover;
         width: 100%;
       }
@@ -66,7 +66,7 @@ module Components
       }
 
       .am-card__eyebrow {
-        color: var(--amber-color-brand-primary-active);
+        color: var(--ap-color-brand-primary-active);
         font-size: 0.75rem;
         font-weight: 760;
         letter-spacing: 0;
@@ -74,15 +74,15 @@ module Components
       }
 
       .am-card__title {
-        color: var(--amber-color-text-primary);
+        color: var(--ap-color-text-primary);
         font-size: 1.125rem;
-        font-weight: var(--amber-type-heading-weight);
+        font-weight: var(--ap-type-heading-weight);
         line-height: 1.2;
       }
 
       .am-card__subtitle,
       .am-card__content {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
         line-height: 1.55;
       }
 

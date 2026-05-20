@@ -10,11 +10,11 @@ module Components
     class SimpleChartComponent < StatelessComponent
       component_css <<-CSS
       .am-chart {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-raised);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-raised);
+        color: var(--ap-color-text-primary);
         display: grid;
         gap: 0.75rem;
         min-width: 0;
@@ -22,12 +22,12 @@ module Components
       }
 
       .am-chart__title {
-        color: var(--amber-color-text-primary);
-        font-weight: var(--amber-type-heading-weight);
+        color: var(--ap-color-text-primary);
+        font-weight: var(--ap-type-heading-weight);
       }
 
       .am-chart__summary {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
         font-size: 0.875rem;
       }
 
@@ -39,23 +39,23 @@ module Components
       }
 
       .am-chart__bar {
-        fill: var(--amber-color-brand-primary);
+        fill: var(--ap-color-brand-primary);
         rx: 6;
         transform-origin: bottom;
       }
 
       .am-chart__bar:nth-of-type(2n) {
-        fill: var(--amber-color-brand-accent);
+        fill: var(--ap-color-brand-accent);
       }
 
       .am-chart__axis {
-        stroke: var(--amber-color-border-default);
+        stroke: var(--ap-color-border-default);
         stroke-width: 1;
       }
 
       .am-chart__label {
-        fill: var(--amber-color-text-muted);
-        font: 600 10px var(--amber-font-sans);
+        fill: var(--ap-color-text-muted);
+        font: 600 10px var(--ap-font-sans);
       }
 
       .am-sr-only {
@@ -72,7 +72,7 @@ module Components
 
       @media (prefers-reduced-motion: no-preference) {
         .am-chart__bar {
-          animation: amber-chart-grow var(--amber-motion-duration-slow) var(--amber-motion-ease-emphasized) both;
+          animation: amber-chart-grow var(--ap-motion-duration-slow) var(--ap-motion-ease-emphasized) both;
           transform: scaleY(0.08);
         }
 

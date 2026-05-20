@@ -412,7 +412,7 @@ module Components
       end
 
       private def token_var(name : String) : String
-        "var(--ap-#{name}, var(--amber-#{name}))"
+        "var(--ap-#{name})"
       end
 
       # Generate CSS custom property declarations for all design tokens.

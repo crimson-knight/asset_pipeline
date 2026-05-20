@@ -12,11 +12,11 @@ module Components
       }
 
       .am-dialog {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-overlay);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-overlay);
+        color: var(--ap-color-text-primary);
         max-width: min(34rem, calc(100vw - 2rem));
         padding: 1rem;
       }
@@ -26,7 +26,7 @@ module Components
       }
 
       .am-dialog__body {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
         margin: 0.65rem 0 1rem;
       }
       CSS

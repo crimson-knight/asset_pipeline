@@ -17,9 +17,9 @@ module Components
       }
 
       .am-chat__messages {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
         display: grid;
         gap: 0.625rem;
         max-height: 25rem;
@@ -29,15 +29,15 @@ module Components
       }
 
       .am-chat__message {
-        background: var(--amber-color-surface-elevated);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-surface-elevated);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        color: var(--ap-color-text-primary);
         padding: 0.625rem 0.75rem;
       }
 
       .am-chat__author {
-        color: var(--amber-color-brand-primary-active);
+        color: var(--ap-color-brand-primary-active);
       }
 
       .am-chat__input-row {

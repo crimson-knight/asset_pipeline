@@ -12,8 +12,8 @@ module Components
       }
 
       .am-timeline::before {
-        background: linear-gradient(180deg, var(--amber-color-brand-primary), var(--amber-color-brand-accent));
-        border-radius: var(--amber-radius-pill);
+        background: linear-gradient(180deg, var(--ap-color-brand-primary), var(--ap-color-brand-accent));
+        border-radius: var(--ap-radius-pill);
         content: "";
         inset: 0 auto 0 50%;
         position: absolute;
@@ -33,16 +33,16 @@ module Components
       .am-timeline-item[data-visible="true"] {
         opacity: 1;
         transform: translateY(0);
-        transition: opacity var(--amber-motion-duration-slow) var(--amber-motion-ease-emphasized),
-          transform var(--amber-motion-duration-slow) var(--amber-motion-ease-emphasized);
+        transition: opacity var(--ap-motion-duration-slow) var(--ap-motion-ease-emphasized),
+          transform var(--ap-motion-duration-slow) var(--ap-motion-ease-emphasized);
       }
 
       .am-timeline-dot {
         align-self: center;
-        background: var(--amber-color-brand-primary);
-        border: 4px solid var(--amber-color-surface-canvas);
+        background: var(--ap-color-brand-primary);
+        border: 4px solid var(--ap-color-surface-canvas);
         border-radius: 999px;
-        box-shadow: 0 0 0 1px var(--amber-color-border-subtle);
+        box-shadow: 0 0 0 1px var(--ap-color-border-subtle);
         height: 1.25rem;
         justify-self: center;
         width: 1.25rem;
@@ -50,10 +50,10 @@ module Components
       }
 
       .am-timeline-card {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-raised);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-raised);
         display: grid;
         gap: 0.45rem;
         padding: 1rem;

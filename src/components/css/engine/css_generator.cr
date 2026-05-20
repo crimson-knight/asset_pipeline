@@ -335,33 +335,33 @@ module Components
           <<-CSS
             /* WCAG 2.4.7: Focus Visible -- baseline keyboard focus ring */
             :focus-visible {
-              outline: 2px solid var(--focus-ring-color, var(--ap-color-border-focus, var(--amber-color-border-focus, oklch(0.488 0.243 264.376))));
+              outline: 2px solid var(--focus-ring-color, var(--ap-color-border-focus, oklch(0.488 0.243 264.376)));
               outline-offset: 2px;
             }
 
             body {
-              background: var(--ap-color-surface-canvas, var(--amber-color-surface-canvas));
-              color: var(--ap-color-text-primary, var(--amber-color-text-primary));
-              font-family: var(--ap-font-sans, var(--amber-font-sans));
-              font-size: var(--ap-type-body-size, var(--amber-type-body-size));
-              font-weight: var(--ap-type-body-weight, var(--amber-type-body-weight));
-              line-height: var(--ap-type-body-line-height, var(--amber-type-body-line-height));
+              background: var(--ap-color-surface-canvas);
+              color: var(--ap-color-text-primary);
+              font-family: var(--ap-font-sans);
+              font-size: var(--ap-type-body-size);
+              font-weight: var(--ap-type-body-weight);
+              line-height: var(--ap-type-body-line-height);
               text-rendering: optimizeLegibility;
             }
 
             p {
-              font-size: var(--ap-type-paragraph-size, var(--amber-type-paragraph-size));
-              line-height: var(--ap-type-paragraph-line-height, var(--amber-type-paragraph-line-height));
+              font-size: var(--ap-type-paragraph-size);
+              line-height: var(--ap-type-paragraph-line-height);
             }
 
             a {
-              color: var(--ap-color-text-link, var(--amber-color-text-link));
+              color: var(--ap-color-text-link);
             }
 
             @keyframes ap-row-enter {
               from {
                 opacity: 0;
-                transform: translateY(var(--ap-motion-distance-subtle, var(--amber-motion-distance-subtle)));
+                transform: translateY(var(--ap-motion-distance-subtle));
               }
               to {
                 opacity: 1;
@@ -376,44 +376,11 @@ module Components
               }
               to {
                 opacity: 0;
-                transform: translateY(calc(var(--ap-motion-distance-subtle, var(--amber-motion-distance-subtle)) * -1));
+                transform: translateY(calc(var(--ap-motion-distance-subtle) * -1));
               }
             }
 
             @keyframes ap-section-reveal {
-              from {
-                opacity: 0;
-                transform: translateY(0.75rem);
-              }
-              to {
-                opacity: 1;
-                transform: translateY(0);
-              }
-            }
-
-            @keyframes amber-row-enter {
-              from {
-                opacity: 0;
-                transform: translateY(var(--ap-motion-distance-subtle, var(--amber-motion-distance-subtle)));
-              }
-              to {
-                opacity: 1;
-                transform: translateY(0);
-              }
-            }
-
-            @keyframes amber-row-exit {
-              from {
-                opacity: 1;
-                transform: translateY(0);
-              }
-              to {
-                opacity: 0;
-                transform: translateY(calc(var(--ap-motion-distance-subtle, var(--amber-motion-distance-subtle)) * -1));
-              }
-            }
-
-            @keyframes amber-section-reveal {
               from {
                 opacity: 0;
                 transform: translateY(0.75rem);

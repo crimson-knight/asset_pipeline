@@ -14,11 +14,11 @@ module Components
       }
 
       .am-counter__display {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
       }
 
       .am-counter__value {
-        color: var(--amber-color-text-primary);
+        color: var(--ap-color-text-primary);
         font-weight: 760;
       }
 

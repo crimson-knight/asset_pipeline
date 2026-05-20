@@ -11,20 +11,20 @@ module Components
     class ButtonComponent < StatelessComponent
       component_css <<-CSS
       .am-button {
-        --am-button-bg: var(--amber-color-brand-primary);
-        --am-button-bg-hover: var(--amber-color-brand-primary-hover);
+        --am-button-bg: var(--ap-color-brand-primary);
+        --am-button-bg-hover: var(--ap-color-brand-primary-hover);
         --am-button-border: transparent;
-        --am-button-text: var(--amber-color-text-inverse);
+        --am-button-text: var(--ap-color-text-inverse);
         align-items: center;
         appearance: none;
         background: var(--am-button-bg);
         border: 1px solid var(--am-button-border);
-        border-radius: var(--amber-radius-control);
+        border-radius: var(--ap-radius-control);
         box-shadow: 0 1px 0 oklch(1 0 0 / 0.22) inset;
         color: var(--am-button-text);
         cursor: pointer;
         display: inline-flex;
-        font-family: var(--amber-font-sans);
+        font-family: var(--ap-font-sans);
         font-weight: 680;
         gap: 0.5rem;
         justify-content: center;
@@ -33,35 +33,35 @@ module Components
         padding: 0.625rem 1rem;
         position: relative;
         text-decoration: none;
-        transition: background var(--amber-motion-duration-fast) var(--amber-motion-ease-standard),
-          border-color var(--amber-motion-duration-fast) var(--amber-motion-ease-standard),
-          box-shadow var(--amber-motion-duration-fast) var(--amber-motion-ease-standard),
-          transform var(--amber-motion-duration-fast) var(--amber-motion-ease-emphasized);
+        transition: background var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          border-color var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          box-shadow var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          transform var(--ap-motion-duration-fast) var(--ap-motion-ease-emphasized);
         user-select: none;
       }
 
       .am-button:hover:not(:disabled):not([aria-disabled="true"]) {
         background: var(--am-button-bg-hover);
-        box-shadow: var(--amber-elevation-raised);
+        box-shadow: var(--ap-elevation-raised);
         transform: translateY(-1px);
       }
 
       .am-button:active:not(:disabled):not([aria-disabled="true"]),
       .am-button[data-state="active"] {
-        background: var(--amber-color-brand-primary-active);
+        background: var(--ap-color-brand-primary-active);
         box-shadow: none;
         transform: translateY(0);
       }
 
       .am-button:focus {
-        box-shadow: 0 0 0 3px var(--amber-color-focus-ring-solid);
-        outline: 2px solid var(--amber-color-focus-ring-solid);
+        box-shadow: 0 0 0 3px var(--ap-color-focus-ring-solid);
+        outline: 2px solid var(--ap-color-focus-ring-solid);
         outline-offset: 3px;
       }
 
       .am-button:focus-visible {
-        box-shadow: 0 0 0 3px var(--amber-color-focus-ring-solid);
-        outline: 2px solid var(--amber-color-focus-ring-solid);
+        box-shadow: 0 0 0 3px var(--ap-color-focus-ring-solid);
+        outline: 2px solid var(--ap-color-focus-ring-solid);
         outline-offset: 3px;
       }
 
@@ -88,61 +88,61 @@ module Components
       }
 
       .am-button--neutral {
-        --am-button-bg: var(--amber-color-surface-elevated);
-        --am-button-bg-hover: var(--amber-color-state-hover);
-        --am-button-border: var(--amber-color-border-default);
-        --am-button-text: var(--amber-color-text-primary);
+        --am-button-bg: var(--ap-color-surface-elevated);
+        --am-button-bg-hover: var(--ap-color-state-hover);
+        --am-button-border: var(--ap-color-border-default);
+        --am-button-text: var(--ap-color-text-primary);
       }
 
       .am-button--success {
-        --am-button-bg: var(--amber-color-success-indicator);
-        --am-button-bg-hover: var(--amber-color-success-border);
+        --am-button-bg: var(--ap-color-success-indicator);
+        --am-button-bg-hover: var(--ap-color-success-border);
       }
 
       .am-button--warning {
-        --am-button-bg: var(--amber-color-warning-indicator);
-        --am-button-bg-hover: var(--amber-color-warning-border);
-        --am-button-text: var(--amber-color-text-primary);
+        --am-button-bg: var(--ap-color-warning-indicator);
+        --am-button-bg-hover: var(--ap-color-warning-border);
+        --am-button-text: var(--ap-color-text-primary);
       }
 
       .am-button--danger {
-        --am-button-bg: var(--amber-color-danger-indicator);
-        --am-button-bg-hover: var(--amber-color-danger-border);
+        --am-button-bg: var(--ap-color-danger-indicator);
+        --am-button-bg-hover: var(--ap-color-danger-border);
       }
 
       .am-button--info {
-        --am-button-bg: var(--amber-color-info-indicator);
-        --am-button-bg-hover: var(--amber-color-info-border);
+        --am-button-bg: var(--ap-color-info-indicator);
+        --am-button-bg-hover: var(--ap-color-info-border);
       }
 
       .am-button--soft {
-        background: var(--amber-color-state-selected);
-        border-color: var(--amber-color-border-subtle);
-        color: var(--amber-color-brand-primary-active);
+        background: var(--ap-color-state-selected);
+        border-color: var(--ap-color-border-subtle);
+        color: var(--ap-color-brand-primary-active);
       }
 
       .am-button--success.am-button--soft {
-        background: var(--amber-color-success-bg);
-        border-color: var(--amber-color-success-border);
-        color: var(--amber-color-success-text);
+        background: var(--ap-color-success-bg);
+        border-color: var(--ap-color-success-border);
+        color: var(--ap-color-success-text);
       }
 
       .am-button--warning.am-button--soft {
-        background: var(--amber-color-warning-bg);
-        border-color: var(--amber-color-warning-border);
-        color: var(--amber-color-warning-text);
+        background: var(--ap-color-warning-bg);
+        border-color: var(--ap-color-warning-border);
+        color: var(--ap-color-warning-text);
       }
 
       .am-button--danger.am-button--soft {
-        background: var(--amber-color-danger-bg);
-        border-color: var(--amber-color-danger-border);
-        color: var(--amber-color-danger-text);
+        background: var(--ap-color-danger-bg);
+        border-color: var(--ap-color-danger-border);
+        color: var(--ap-color-danger-text);
       }
 
       .am-button--info.am-button--soft {
-        background: var(--amber-color-info-bg);
-        border-color: var(--amber-color-info-border);
-        color: var(--amber-color-info-text);
+        background: var(--ap-color-info-bg);
+        border-color: var(--ap-color-info-border);
+        color: var(--ap-color-info-text);
       }
 
       .am-button--outline {
@@ -160,11 +160,11 @@ module Components
 
       .am-button--neutral.am-button--outline,
       .am-button--neutral.am-button--ghost {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
       }
 
       .am-button--neutral.am-button--outline {
-        border-color: var(--amber-color-border-default);
+        border-color: var(--ap-color-border-default);
       }
 
       .am-button--sm {
@@ -187,14 +187,14 @@ module Components
       }
 
       .am-button:focus {
-        box-shadow: 0 0 0 3px var(--amber-color-focus-ring-solid);
-        outline: 2px solid var(--amber-color-focus-ring-solid);
+        box-shadow: 0 0 0 3px var(--ap-color-focus-ring-solid);
+        outline: 2px solid var(--ap-color-focus-ring-solid);
         outline-offset: 3px;
       }
 
       .am-button:focus-visible {
-        box-shadow: 0 0 0 3px var(--amber-color-focus-ring-solid);
-        outline: 2px solid var(--amber-color-focus-ring-solid);
+        box-shadow: 0 0 0 3px var(--ap-color-focus-ring-solid);
+        outline: 2px solid var(--ap-color-focus-ring-solid);
         outline-offset: 3px;
       }
 

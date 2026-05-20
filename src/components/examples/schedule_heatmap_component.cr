@@ -20,14 +20,14 @@ module Components
       }
 
       .am-heat-pill {
-        background: color-mix(in oklch, var(--amber-color-brand-accent) calc(var(--heat, 10) * 1%), var(--amber-color-surface-elevated));
-        border: 1px solid color-mix(in oklch, var(--amber-color-brand-accent) 24%, var(--amber-color-border-subtle));
-        border-radius: var(--amber-radius-pill);
+        background: color-mix(in oklch, var(--ap-color-brand-accent) calc(var(--heat, 10) * 1%), var(--ap-color-surface-elevated));
+        border: 1px solid color-mix(in oklch, var(--ap-color-brand-accent) 24%, var(--ap-color-border-subtle));
+        border-radius: var(--ap-radius-pill);
         min-height: 0.8rem;
       }
 
       .am-heatmap-summary {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
         font-size: 0.875rem;
       }
 

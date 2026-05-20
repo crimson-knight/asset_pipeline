@@ -12,9 +12,9 @@ module Components
       component_css <<-CSS
       .am-theme-status {
         align-items: center;
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-pill);
-        color: var(--amber-color-text-secondary);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-pill);
+        color: var(--ap-color-text-secondary);
         display: inline-flex;
         font-size: 0.8125rem;
         font-weight: 680;
@@ -24,9 +24,9 @@ module Components
 
       .am-segmented {
         align-items: center;
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-pill);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-pill);
         display: inline-flex;
         gap: 0.2rem;
         padding: 0.2rem;
@@ -35,8 +35,8 @@ module Components
       .am-segmented button {
         background: transparent;
         border: 0;
-        border-radius: var(--amber-radius-pill);
-        color: var(--amber-color-text-secondary);
+        border-radius: var(--ap-radius-pill);
+        color: var(--ap-color-text-secondary);
         cursor: pointer;
         font: inherit;
         font-size: 0.875rem;
@@ -47,15 +47,15 @@ module Components
 
       .am-segmented button:hover,
       .am-segmented button:focus-visible {
-        background: var(--amber-color-state-hover);
-        color: var(--amber-color-text-primary);
-        outline: 2px solid var(--amber-color-focus-ring-solid);
+        background: var(--ap-color-state-hover);
+        color: var(--ap-color-text-primary);
+        outline: 2px solid var(--ap-color-focus-ring-solid);
         outline-offset: 2px;
       }
 
       .am-segmented button[aria-pressed="true"] {
-        background: var(--amber-color-surface-inverse);
-        color: var(--amber-color-text-inverse);
+        background: var(--ap-color-surface-inverse);
+        color: var(--ap-color-text-inverse);
       }
       CSS
 

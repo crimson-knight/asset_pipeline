@@ -1,5 +1,7 @@
 require "../platform_visitor"
 require "../../components"
+require "../design_tokens"
+require "../design_tokens/generators/web_generator"
 
 module UI
   module Web
@@ -30,36 +32,25 @@ module UI
         @root = nil
       end
 
-      # Inject CSS custom properties from the active theme as a <style> element
-      # at the beginning of the output
+      # The unified UI::DesignTokens model. Defaults to Tokens.default; can be
+      # swapped (with a brand override applied) by the host app before render.
+      property design_tokens : UI::DesignTokens::Tokens = UI::DesignTokens::Tokens.default
+
+      # Inject CSS custom properties from the active design tokens model as a
+      # <style> element at the beginning of the output.
+      #
+      # Phase 1 of the cross-platform UI initiative: this delegates entirely
+      # to UI::DesignTokens::WebGenerator so the renderer and the committed
+      # dist file share a single source of truth. The legacy UI::Theme
+      # custom-property block is emitted too for backward compatibility with
+      # callers that depend on `--md-sys-color-*` aliases.
       def inject_theme_css : String
         t = @theme || UI::Theme.design_system_default
-        amber = Components::CSS::Tokens::Theme.design_system_default
 
         String.build do |io|
           io << "<style>\n"
           io << t.to_css_custom_properties
-          io << ":root {\n"
-          io << "  color-scheme: light dark;\n"
-          amber.to_css_variables(:light).each_line { |line| io << "  #{line}\n" unless line.empty? }
-          io << "}\n"
-          io << "@media (prefers-color-scheme: dark) {\n"
-          io << "  :root {\n"
-          amber.to_css_variables(:dark).each_line { |line| io << "    #{line}\n" unless line.empty? }
-          io << "  }\n"
-          io << "}\n"
-          io << "[data-ap-theme=\"light\"] {\n"
-          amber.to_css_variables(:light).each_line { |line| io << "  #{line}\n" unless line.empty? }
-          io << "}\n"
-          io << "[data-amber-theme=\"light\"] {\n"
-          amber.to_css_variables(:light).each_line { |line| io << "  #{line}\n" unless line.empty? }
-          io << "}\n"
-          io << "[data-ap-theme=\"dark\"] {\n"
-          amber.to_css_variables(:dark).each_line { |line| io << "  #{line}\n" unless line.empty? }
-          io << "}\n"
-          io << "[data-amber-theme=\"dark\"] {\n"
-          amber.to_css_variables(:dark).each_line { |line| io << "  #{line}\n" unless line.empty? }
-          io << "}\n"
+          io << UI::DesignTokens::WebGenerator.generate(@design_tokens)
           io << "</style>\n"
         end
       end
@@ -90,7 +81,7 @@ module UI
         if role = view.text_color_role
           el.add_style("color: #{label_role_css(role)}")
         else
-          el.add_style("color: #{color_css(view.text_color, default_token: "var(--amber-color-text-primary)")}")
+          el.add_style("color: #{color_css(view.text_color, default_token: "var(--ap-color-text-primary)")}")
         end
 
         # Text alignment
@@ -259,7 +250,7 @@ module UI
 
         # Font and text color
         apply_font_styles(el, view.font)
-        el.add_style("color: #{color_css(view.text_color, default_token: "var(--amber-color-text-primary)")}")
+        el.add_style("color: #{color_css(view.text_color, default_token: "var(--ap-color-text-primary)")}")
 
         apply_common_styles(el, view)
         push_element(el)
@@ -316,7 +307,7 @@ module UI
           input.set_attribute("checked", "checked")
         end
         if view.style == UI::ToggleStyle::Switch
-          input.add_style("appearance: none; width: 42px; height: 24px; border-radius: 12px; background: var(--amber-color-border-default); position: relative; cursor: pointer; transition: background var(--amber-motion-duration-fast) var(--amber-motion-ease-standard)")
+          input.add_style("appearance: none; width: 42px; height: 24px; border-radius: 12px; background: var(--ap-color-border-default); position: relative; cursor: pointer; transition: background var(--ap-motion-duration-fast) var(--ap-motion-ease-standard)")
         end
         if tint = view.tint_color
           input.add_style("accent-color: rgba(#{to_rgb_int(tint.r)}, #{to_rgb_int(tint.g)}, #{to_rgb_int(tint.b)}, #{tint.a})")
@@ -452,7 +443,7 @@ module UI
 
         if view.shows_navigation_bar
           nav_bar = Components::Elements::Div.new
-          nav_bar.add_style("display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--amber-color-border-subtle)")
+          nav_bar.add_style("display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--ap-color-border-subtle)")
 
           if title = view.title
             title_el = Components::Elements::Span.new
@@ -504,7 +495,7 @@ module UI
         if view.shows_disclosure
           chevron = Components::Elements::Span.new
           chevron << "›"
-          chevron.add_style("color: var(--amber-color-text-muted); font-size: 20px")
+          chevron.add_style("color: var(--ap-color-text-muted); font-size: 20px")
           el.add_child(chevron)
         end
 
@@ -534,7 +525,7 @@ module UI
 
         # Tab bar at bottom
         tab_bar = Components::Elements::Div.new
-        tab_bar.add_style("display: flex; border-top: 1px solid var(--amber-color-border-subtle); padding: 8px 0")
+        tab_bar.add_style("display: flex; border-top: 1px solid var(--ap-color-border-subtle); padding: 8px 0")
         tab_bar.set_attribute("role", "tablist")
 
         view.tabs.each_with_index do |tab, index|
@@ -543,9 +534,9 @@ module UI
           tab_el.set_attribute("role", "tab")
           if index == view.selected_index
             tab_el.set_attribute("aria-selected", "true")
-            tab_el.add_style("color: var(--amber-color-brand-primary); font-weight: 600")
+            tab_el.add_style("color: var(--ap-color-brand-primary); font-weight: 600")
           else
-            tab_el.add_style("color: var(--amber-color-text-muted)")
+            tab_el.add_style("color: var(--ap-color-text-muted)")
           end
 
           label_span = Components::Elements::Span.new
@@ -573,10 +564,10 @@ module UI
 
         case view.style
         when UI::ProgressStyle::Linear
-          progress_el.add_style("width: 100%; height: 4px; background: var(--amber-color-border-subtle); border-radius: var(--amber-radius-pill); overflow: hidden")
+          progress_el.add_style("width: 100%; height: 4px; background: var(--ap-color-border-subtle); border-radius: var(--ap-radius-pill); overflow: hidden")
           if val = view.value
             inner = Components::Elements::Div.new
-            inner.add_style("height: 100%; width: #{(val * 100).round}%; background: var(--amber-color-brand-primary)")
+            inner.add_style("height: 100%; width: #{(val * 100).round}%; background: var(--ap-color-brand-primary)")
             progress_el.add_child(inner)
             progress_el.set_attribute("aria-valuenow", (val * 100).round.to_s)
             progress_el.set_attribute("aria-valuemin", "0")
@@ -586,7 +577,7 @@ module UI
           end
         when UI::ProgressStyle::Circular
           size = 24
-          progress_el.add_style("width: #{size}px; height: #{size}px; border-radius: 50%; border: 3px solid var(--amber-color-border-subtle); border-top-color: var(--amber-color-brand-primary)")
+          progress_el.add_style("width: #{size}px; height: #{size}px; border-radius: 50%; border: 3px solid var(--ap-color-border-subtle); border-top-color: var(--ap-color-brand-primary)")
           if view.value.nil?
             progress_el.add_style("animation: spin 1s linear infinite")
           end
@@ -614,7 +605,7 @@ module UI
                   end
 
         spinner = Components::Elements::Div.new
-        spinner.add_style("width: #{size_px}px; height: #{size_px}px; border-radius: 50%; border: 2px solid var(--amber-color-border-subtle); border-top-color: var(--amber-color-brand-primary)")
+        spinner.add_style("width: #{size_px}px; height: #{size_px}px; border-radius: 50%; border: 2px solid var(--ap-color-border-subtle); border-top-color: var(--ap-color-brand-primary)")
 
         if view.is_animating
           spinner.add_style("animation: spin 1s linear infinite")
@@ -635,7 +626,7 @@ module UI
         el.add_style("position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: oklch(0.18 0.02 248 / 0.42); display: flex; align-items: center; justify-content: center; z-index: 1000")
 
         dialog = Components::Elements::Div.new
-        dialog.add_style("background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary); border-radius: var(--amber-radius-panel); padding: 24px; min-width: 270px; max-width: 400px; box-shadow: var(--amber-elevation-overlay)")
+        dialog.add_style("background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border-radius: var(--ap-radius-panel); padding: 24px; min-width: 270px; max-width: 400px; box-shadow: var(--ap-elevation-overlay)")
 
         title_el = Components::Elements::Span.new
         title_el << view.title
@@ -645,7 +636,7 @@ module UI
         unless view.message.empty?
           msg_el = Components::Elements::Span.new
           msg_el << view.message
-          msg_el.add_style("display: block; font-size: 13px; text-align: center; color: var(--amber-color-text-secondary); margin-bottom: 16px")
+          msg_el.add_style("display: block; font-size: 13px; text-align: center; color: var(--ap-color-text-secondary); margin-bottom: 16px")
           dialog.add_child(msg_el)
         end
 
@@ -671,7 +662,7 @@ module UI
 
         select_el = Components::Elements::Div.new
         select_el.set_attribute("role", "combobox")
-        select_el.add_style("border: 1px solid var(--amber-color-border-default); border-radius: var(--amber-radius-control); padding: 8px 12px; cursor: pointer; background: var(--amber-color-surface-panel)")
+        select_el.add_style("border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); padding: 8px 12px; cursor: pointer; background: var(--ap-color-surface-panel)")
 
         view.options.each_with_index do |option, index|
           opt_el = Components::Elements::Div.new
@@ -733,7 +724,7 @@ module UI
             if header = section.header
               header_el = Components::Elements::Span.new
               header_el << header
-              header_el.add_style("font-size: 13px; font-weight: 600; color: var(--amber-color-text-muted); padding: 8px 16px")
+              header_el.add_style("font-size: 13px; font-weight: 600; color: var(--ap-color-text-muted); padding: 8px 16px")
               push_element(header_el)
             end
 
@@ -750,7 +741,7 @@ module UI
             if footer = section.footer
               footer_el = Components::Elements::Span.new
               footer_el << footer
-              footer_el.add_style("font-size: 12px; color: var(--amber-color-text-muted); padding: 4px 16px")
+              footer_el.add_style("font-size: 12px; color: var(--ap-color-text-muted); padding: 4px 16px")
               push_element(footer_el)
             end
           end
@@ -786,7 +777,7 @@ module UI
         end
 
         apply_font_styles(el, view.font)
-        el.add_style("color: #{color_css(view.text_color, default_token: "var(--amber-color-text-primary)")}")
+        el.add_style("color: #{color_css(view.text_color, default_token: "var(--ap-color-text-primary)")}")
 
         apply_common_styles(el, view)
         push_element(el)
@@ -804,7 +795,7 @@ module UI
 
         minus_btn = Components::Elements::Button.new(type: "button")
         minus_btn << "-"
-        minus_btn.add_style("width: 32px; height: 32px; border: 1px solid var(--amber-color-border-default); border-radius: var(--amber-radius-control); cursor: pointer")
+        minus_btn.add_style("width: 32px; height: 32px; border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); cursor: pointer")
         el.add_child(minus_btn)
 
         value_el = Components::Elements::Span.new
@@ -814,7 +805,7 @@ module UI
 
         plus_btn = Components::Elements::Button.new(type: "button")
         plus_btn << "+"
-        plus_btn.add_style("width: 32px; height: 32px; border: 1px solid var(--amber-color-border-default); border-radius: var(--amber-radius-control); cursor: pointer")
+        plus_btn.add_style("width: 32px; height: 32px; border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); cursor: pointer")
         el.add_child(plus_btn)
 
         apply_common_styles(el, view)
@@ -827,18 +818,18 @@ module UI
 
       def visit(view : UI::SegmentedControl)
         el = Components::Elements::Div.new
-        el.add_style("display: inline-flex; border: 1px solid var(--amber-color-brand-primary); border-radius: var(--amber-radius-control); overflow: hidden")
+        el.add_style("display: inline-flex; border: 1px solid var(--ap-color-brand-primary); border-radius: var(--ap-radius-control); overflow: hidden")
 
         view.segments.each_with_index do |segment, index|
           seg_el = Components::Elements::Div.new
           seg_el.add_style("padding: 6px 16px; cursor: pointer; font-size: 14px")
           if index == view.selected_index
-            seg_el.add_style("background: var(--amber-color-brand-primary); color: var(--amber-color-text-inverse)")
+            seg_el.add_style("background: var(--ap-color-brand-primary); color: var(--ap-color-text-inverse)")
           else
-            seg_el.add_style("background: transparent; color: var(--amber-color-brand-primary)")
+            seg_el.add_style("background: transparent; color: var(--ap-color-brand-primary)")
           end
           if index > 0
-            seg_el.add_style("border-left: 1px solid var(--amber-color-brand-primary)")
+            seg_el.add_style("border-left: 1px solid var(--ap-color-brand-primary)")
           end
           seg_span = Components::Elements::Span.new
           seg_span << segment
@@ -873,7 +864,7 @@ module UI
         when UI::DatePickerMode::DateAndTime
           input.set_attribute("type", "datetime-local")
         end
-        input.add_style("border: 1px solid var(--amber-color-border-default); border-radius: var(--amber-radius-control); padding: 6px 12px; background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary)")
+        input.add_style("border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); padding: 6px 12px; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary)")
         el.add_child(input)
 
         apply_common_styles(el, view)
@@ -899,7 +890,7 @@ module UI
         if view.minute_interval > 1
           input.set_attribute("step", (view.minute_interval * 60).to_s)
         end
-        input.add_style("border: 1px solid var(--amber-color-border-default); border-radius: var(--amber-radius-control); padding: 6px 12px; background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary)")
+        input.add_style("border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); padding: 6px 12px; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary)")
         el.add_child(input)
 
         apply_common_styles(el, view)
@@ -922,13 +913,13 @@ module UI
         unless view.text.empty?
           input.set_attribute("value", view.text)
         end
-        input.add_style("flex: 1; border: 1px solid var(--amber-color-border-default); border-radius: var(--amber-radius-pill); padding: 8px 16px; background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary)")
+        input.add_style("flex: 1; border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-pill); padding: 8px 16px; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary)")
         el.add_child(input)
 
         if view.shows_cancel_button && view.is_searching
           cancel = Components::Elements::Button.new(type: "button")
           cancel << "Cancel"
-          cancel.add_style("border: none; background: transparent; color: var(--amber-color-brand-primary); cursor: pointer")
+          cancel.add_style("border: none; background: transparent; color: var(--ap-color-brand-primary); cursor: pointer")
           el.add_child(cancel)
         end
 
@@ -949,11 +940,11 @@ module UI
         textarea.set_attribute("contenteditable", view.is_editable ? "true" : "false")
         textarea.set_attribute("role", "textbox")
         textarea.set_attribute("aria-multiline", "true")
-        textarea.add_style("border: 1px solid var(--amber-color-border-default); border-radius: var(--amber-radius-control); padding: 8px; min-height: 80px; background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary)")
+        textarea.add_style("border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); padding: 8px; min-height: 80px; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary)")
 
         if view.text.empty? && !view.placeholder.empty?
           textarea << view.placeholder
-          textarea.add_style("color: var(--amber-color-text-muted)")
+          textarea.add_style("color: var(--ap-color-text-muted)")
         else
           textarea << view.text
         end
@@ -965,7 +956,7 @@ module UI
         apply_font_styles(textarea, view.font)
         c = view.text_color
         unless view.text.empty?
-          textarea.add_style("color: #{color_css(c, default_token: "var(--amber-color-text-primary)")}")
+          textarea.add_style("color: #{color_css(c, default_token: "var(--ap-color-text-primary)")}")
         end
 
         el.add_child(textarea)
@@ -1017,18 +1008,18 @@ module UI
             if header = section.header
               header_el = Components::Elements::Span.new
               header_el << header
-              header_el.add_style("font-size: 13px; font-weight: 600; color: var(--amber-color-text-muted); text-transform: uppercase; padding: 0 16px")
+              header_el.add_style("font-size: 13px; font-weight: 600; color: var(--ap-color-text-muted); text-transform: uppercase; padding: 0 16px")
               section_el.add_child(header_el)
             end
 
             section.fields.each do |field|
               field_el = Components::Elements::Div.new
-              field_el.add_style("display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--amber-color-surface-panel); border-bottom: 1px solid var(--amber-color-border-subtle)")
+              field_el.add_style("display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--ap-color-surface-panel); border-bottom: 1px solid var(--ap-color-border-subtle)")
 
               unless field.label.empty?
                 label_el = Components::Elements::Span.new
                 label_el << field.label
-                label_el.add_style("min-width: 100px; color: var(--amber-color-text-secondary)")
+                label_el.add_style("min-width: 100px; color: var(--ap-color-text-secondary)")
                 field_el.add_child(label_el)
               end
 
@@ -1044,7 +1035,7 @@ module UI
             if footer = section.footer
               footer_el = Components::Elements::Span.new
               footer_el << footer
-              footer_el.add_style("font-size: 12px; color: var(--amber-color-text-muted); padding: 4px 16px")
+              footer_el.add_style("font-size: 12px; color: var(--ap-color-text-muted); padding: 4px 16px")
               section_el.add_child(footer_el)
             end
 
@@ -1060,7 +1051,7 @@ module UI
         if view.shows_sidebar
           if sidebar = view.sidebar
             sidebar_el = Components::Elements::Div.new
-            sidebar_el.add_style("width: #{view.sidebar_width}px; border-right: 1px solid var(--amber-color-border-subtle); overflow-y: auto")
+            sidebar_el.add_style("width: #{view.sidebar_width}px; border-right: 1px solid var(--ap-color-border-subtle); overflow-y: auto")
             @element_stack.push(sidebar_el)
             sidebar.accept(self)
             @element_stack.pop
@@ -1096,7 +1087,7 @@ module UI
 
       def visit(view : UI::Toolbar)
         el = Components::Elements::Div.new
-        el.add_style("display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--amber-color-border-subtle); background: var(--amber-color-surface-sunken)")
+        el.add_style("display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--ap-color-border-subtle); background: var(--ap-color-surface-sunken)")
         el.set_attribute("role", "toolbar")
 
         if view.shows_title
@@ -1127,7 +1118,7 @@ module UI
       def visit(view : UI::Sheet)
         el = Components::Elements::Div.new
         if view.is_presented
-          el.add_style("position: fixed; bottom: 0; left: 0; right: 0; background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary); border-radius: var(--amber-radius-panel) var(--amber-radius-panel) 0 0; box-shadow: var(--amber-elevation-overlay); z-index: 900; transition: transform var(--amber-motion-duration-base) var(--amber-motion-ease-standard)")
+          el.add_style("position: fixed; bottom: 0; left: 0; right: 0; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border-radius: var(--ap-radius-panel) var(--ap-radius-panel) 0 0; box-shadow: var(--ap-elevation-overlay); z-index: 900; transition: transform var(--ap-motion-duration-base) var(--ap-motion-ease-standard)")
           case view.selected_detent
           when :small  then el.add_style("max-height: 25vh")
           when :medium then el.add_style("max-height: 50vh")
@@ -1139,7 +1130,7 @@ module UI
 
         if view.shows_drag_indicator
           indicator = Components::Elements::Div.new
-          indicator.add_style("width: 36px; height: 5px; background: var(--amber-color-border-default); border-radius: var(--amber-radius-pill); margin: 8px auto")
+          indicator.add_style("width: 36px; height: 5px; background: var(--ap-color-border-default); border-radius: var(--ap-radius-pill); margin: 8px auto")
           el.add_child(indicator)
         end
 
@@ -1163,7 +1154,7 @@ module UI
       def visit(view : UI::Popover)
         el = Components::Elements::Div.new
         if view.is_presented
-          el.add_style("position: absolute; background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary); border: 1px solid var(--amber-color-border-subtle); border-radius: var(--amber-radius-card); box-shadow: var(--amber-elevation-floating); z-index: 800; padding: 12px")
+          el.add_style("position: absolute; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); box-shadow: var(--ap-elevation-floating); z-index: 800; padding: 12px")
           if w = view.preferred_width
             el.add_style("width: #{w}px")
           end
@@ -1199,7 +1190,7 @@ module UI
         end
 
         dialog = Components::Elements::Div.new
-        dialog.add_style("background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary); border-radius: var(--amber-radius-panel); padding: 24px; min-width: 270px; max-width: 400px; box-shadow: var(--amber-elevation-overlay)")
+        dialog.add_style("background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border-radius: var(--ap-radius-panel); padding: 24px; min-width: 270px; max-width: 400px; box-shadow: var(--ap-elevation-overlay)")
 
         title_el = Components::Elements::Span.new
         title_el << view.title
@@ -1209,7 +1200,7 @@ module UI
         unless view.message.empty?
           msg_el = Components::Elements::Span.new
           msg_el << view.message
-          msg_el.add_style("display: block; font-size: 13px; text-align: center; color: var(--amber-color-text-secondary); margin-bottom: 16px")
+          msg_el.add_style("display: block; font-size: 13px; text-align: center; color: var(--ap-color-text-secondary); margin-bottom: 16px")
           dialog.add_child(msg_el)
         end
 
@@ -1218,15 +1209,15 @@ module UI
 
         cancel_btn = Components::Elements::Button.new(type: "button")
         cancel_btn << view.cancel_label
-        cancel_btn.add_style("padding: 8px 24px; border-radius: var(--amber-radius-control); border: 1px solid var(--amber-color-border-default); background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary); cursor: pointer")
+        cancel_btn.add_style("padding: 8px 24px; border-radius: var(--ap-radius-control); border: 1px solid var(--ap-color-border-default); background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); cursor: pointer")
         buttons_el.add_child(cancel_btn)
 
         confirm_btn = Components::Elements::Button.new(type: "button")
         confirm_btn << view.confirm_label
         if view.confirm_style == :destructive
-          confirm_btn.add_style("padding: 8px 24px; border-radius: var(--amber-radius-control); border: none; background: var(--amber-color-danger-indicator); color: var(--amber-color-text-inverse); cursor: pointer")
+          confirm_btn.add_style("padding: 8px 24px; border-radius: var(--ap-radius-control); border: none; background: var(--ap-color-danger-indicator); color: var(--ap-color-text-inverse); cursor: pointer")
         else
-          confirm_btn.add_style("padding: 8px 24px; border-radius: var(--amber-radius-control); border: none; background: var(--amber-color-brand-primary); color: var(--amber-color-text-inverse); cursor: pointer")
+          confirm_btn.add_style("padding: 8px 24px; border-radius: var(--ap-radius-control); border: none; background: var(--ap-color-brand-primary); color: var(--ap-color-text-inverse); cursor: pointer")
         end
         buttons_el.add_child(confirm_btn)
 
@@ -1244,7 +1235,7 @@ module UI
       def visit(view : UI::Snackbar)
         el = Components::Elements::Div.new
         if view.is_presented
-          el.add_style("position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--amber-color-surface-inverse); color: var(--amber-color-text-inverse); padding: 12px 24px; border-radius: var(--amber-radius-card); display: flex; align-items: center; gap: 16px; z-index: 950; box-shadow: var(--amber-elevation-floating)")
+          el.add_style("position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--ap-color-surface-inverse); color: var(--ap-color-text-inverse); padding: 12px 24px; border-radius: var(--ap-radius-card); display: flex; align-items: center; gap: 16px; z-index: 950; box-shadow: var(--ap-elevation-floating)")
         else
           el.add_style("display: none")
         end
@@ -1256,7 +1247,7 @@ module UI
         if action = view.action_label
           btn = Components::Elements::Button.new(type: "button")
           btn << action
-          btn.add_style("border: none; background: transparent; color: var(--amber-color-brand-accent); font-weight: 600; cursor: pointer; text-transform: uppercase")
+          btn.add_style("border: none; background: transparent; color: var(--ap-color-brand-accent); font-weight: 600; cursor: pointer; text-transform: uppercase")
           el.add_child(btn)
         end
 
@@ -1342,7 +1333,7 @@ module UI
                when :chrome     then 50
                else                  30
                end
-        el.add_style("backdrop-filter: blur(#{blur}px); -webkit-backdrop-filter: blur(#{blur}px); background: color-mix(in oklch, var(--amber-color-surface-panel) 72%, transparent); border-radius: inherit")
+        el.add_style("backdrop-filter: blur(#{blur}px); -webkit-backdrop-filter: blur(#{blur}px); background: color-mix(in oklch, var(--ap-color-surface-panel) 72%, transparent); border-radius: inherit")
 
         if content = view.content
           @element_stack.push(el)
@@ -1367,7 +1358,7 @@ module UI
         el.add_style("display: inline-block; position: relative")
         if view.is_loading
           spinner = Components::Elements::Div.new
-          spinner.add_style("width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--amber-color-border-subtle); border-top-color: var(--amber-color-brand-primary); animation: spin 1s linear infinite")
+          spinner.add_style("width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--ap-color-border-subtle); border-top-color: var(--ap-color-brand-primary); animation: spin 1s linear infinite")
           el.add_child(spinner)
         elsif !view.url.empty?
           img = Components::Elements::Img.new
@@ -1399,7 +1390,7 @@ module UI
           styles << "text-decoration: line-through" if span.strikethrough
           styles.each { |s| span_el.add_style(s) }
           if link = span.link
-            span_el.add_style("cursor: pointer; color: var(--amber-color-brand-primary)")
+            span_el.add_style("cursor: pointer; color: var(--ap-color-brand-primary)")
             span_el.set_attribute("data-href", link)
           end
           el.add_child(span_el)
@@ -1412,7 +1403,7 @@ module UI
         el = Components::Elements::Div.new
         el.set_attribute("role", "link")
         el.set_attribute("tabindex", "0")
-        el.add_style("color: var(--amber-color-brand-primary); cursor: pointer; display: inline")
+        el.add_style("color: var(--ap-color-brand-primary); cursor: pointer; display: inline")
         unless view.url.empty?
           el.set_attribute("data-href", view.url)
         end
@@ -1426,19 +1417,19 @@ module UI
         el.add_style("display: inline-block; position: relative")
         btn = Components::Elements::Button.new(type: "button")
         btn << view.label
-        btn.add_style("display: flex; align-items: center; gap: 4px; padding: 6px 12px; border: 1px solid var(--amber-color-border-default); border-radius: var(--amber-radius-control); background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary); cursor: pointer")
+        btn.add_style("display: flex; align-items: center; gap: 4px; padding: 6px 12px; border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); cursor: pointer")
         el.add_child(btn)
 
         if !view.items.empty?
           menu = Components::Elements::Div.new
-          menu.add_style("position: absolute; top: 100%; left: 0; background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary); border: 1px solid var(--amber-color-border-subtle); border-radius: var(--amber-radius-card); box-shadow: var(--amber-elevation-floating); min-width: 150px; z-index: 100")
+          menu.add_style("position: absolute; top: 100%; left: 0; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); box-shadow: var(--ap-elevation-floating); min-width: 150px; z-index: 100")
           menu.set_attribute("role", "menu")
           view.items.each do |item|
             item_el = Components::Elements::Div.new
             item_el.set_attribute("role", "menuitem")
             item_el.add_style("padding: 8px 16px; cursor: pointer")
             if item.is_destructive
-              item_el.add_style("color: var(--amber-color-danger-text)")
+              item_el.add_style("color: var(--ap-color-danger-text)")
             end
             item_el << item.label
             menu.add_child(item_el)
@@ -1457,20 +1448,20 @@ module UI
       def visit(view : UI::ContextMenu)
         el = Components::Elements::Div.new
         el.set_attribute("role", "menu")
-        el.add_style("display: flex; flex-direction: column; min-width: 220px; padding: 8px; border: 1px solid var(--amber-color-border-subtle); border-radius: var(--amber-radius-card); background: var(--amber-color-surface-panel); box-shadow: var(--amber-elevation-floating)")
+        el.add_style("display: flex; flex-direction: column; min-width: 220px; padding: 8px; border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); background: var(--ap-color-surface-panel); box-shadow: var(--ap-elevation-floating)")
 
         view.items.each do |entry|
           case entry
           when UI::ContextMenu::Separator
             sep = Components::Elements::Div.new
-            sep.add_style("height: 1px; margin: 6px 0; background: var(--amber-color-border-subtle)")
+            sep.add_style("height: 1px; margin: 6px 0; background: var(--ap-color-border-subtle)")
             el.add_child(sep)
           when UI::ContextMenu::Item
             row = Components::Elements::Div.new
             row.set_attribute("role", "menuitem")
             row.add_style("display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 10px; border-radius: 8px")
-            color = entry.is_destructive ? "var(--amber-color-danger-text)" : "var(--amber-color-text-primary)"
-            color = "var(--amber-color-text-muted)" if entry.is_disabled && !entry.is_destructive
+            color = entry.is_destructive ? "var(--ap-color-danger-text)" : "var(--ap-color-text-primary)"
+            color = "var(--ap-color-text-muted)" if entry.is_disabled && !entry.is_destructive
             row.add_style("color: #{color}")
             if icon = entry.icon
               icon_el = Components::Elements::Span.new
@@ -1499,9 +1490,9 @@ module UI
         el.set_attribute("role", "switch")
         el.set_attribute("aria-checked", view.is_selected.to_s)
         if view.is_selected
-          el.add_style("background: var(--amber-color-brand-primary); color: var(--amber-color-text-inverse); border: none; padding: 8px 16px; border-radius: var(--amber-radius-control); cursor: pointer")
+          el.add_style("background: var(--ap-color-brand-primary); color: var(--ap-color-text-inverse); border: none; padding: 8px 16px; border-radius: var(--ap-radius-control); cursor: pointer")
         else
-          el.add_style("background: transparent; color: var(--amber-color-text-secondary); border: 1px solid var(--amber-color-border-default); padding: 8px 16px; border-radius: var(--amber-radius-control); cursor: pointer")
+          el.add_style("background: transparent; color: var(--ap-color-text-secondary); border: 1px solid var(--ap-color-border-default); padding: 8px 16px; border-radius: var(--ap-radius-control); cursor: pointer")
         end
         el << view.label
         apply_common_styles(el, view)
@@ -1510,7 +1501,7 @@ module UI
 
       def visit(view : UI::TextEditor)
         el = Components::Elements::Div.new
-        el.add_style("display: flex; flex-direction: column; border: 1px solid var(--amber-color-border-default); border-radius: var(--amber-radius-control); overflow: hidden")
+        el.add_style("display: flex; flex-direction: column; border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); overflow: hidden")
 
         if view.shows_line_numbers
           el.add_style("font-family: monospace")
@@ -1523,11 +1514,11 @@ module UI
         editor.add_style("padding: 12px; min-height: 200px; outline: none; white-space: pre-wrap")
         apply_font_styles(editor, view.font)
         c = view.text_color
-        editor.add_style("color: #{color_css(c, default_token: "var(--amber-color-text-primary)")}")
+        editor.add_style("color: #{color_css(c, default_token: "var(--ap-color-text-primary)")}")
 
         if view.text.empty? && !view.placeholder.empty?
           editor << view.placeholder
-          editor.add_style("color: var(--amber-color-text-muted)")
+          editor.add_style("color: var(--ap-color-text-muted)")
         else
           editor << view.text
         end
@@ -1629,11 +1620,11 @@ module UI
 
       def visit(view : UI::PathControl)
         el = Components::Elements::Div.new
-        el.add_style("display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--amber-color-border-subtle); border-radius: var(--amber-radius-card); background: var(--amber-color-surface-panel)")
+        el.add_style("display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); background: var(--ap-color-surface-panel)")
 
         view.components.each_with_index do |component, index|
           segment = Components::Elements::Span.new
-          segment.add_style("display: inline-flex; align-items: center; gap: 4px; color: var(--amber-color-text-primary)")
+          segment.add_style("display: inline-flex; align-items: center; gap: 4px; color: var(--ap-color-text-primary)")
           if icon = component.icon
             icon_el = Components::Elements::Span.new
             icon_el.set_attribute("aria-hidden", "true")
@@ -1649,7 +1640,7 @@ module UI
 
           chevron = Components::Elements::Span.new
           chevron.set_attribute("aria-hidden", "true")
-          chevron.add_style("color: var(--amber-color-text-muted)")
+          chevron.add_style("color: var(--ap-color-text-muted)")
           chevron << ">"
           el.add_child(chevron)
         end
@@ -1657,7 +1648,7 @@ module UI
         if view.style == UI::PathControlStyle::PopUp
           popup = Components::Elements::Span.new
           popup.set_attribute("aria-hidden", "true")
-          popup.add_style("margin-left: 2px; color: var(--amber-color-text-muted)")
+          popup.add_style("margin-left: 2px; color: var(--ap-color-text-muted)")
           popup << "v"
           el.add_child(popup)
         end
@@ -1668,7 +1659,7 @@ module UI
 
       def visit(view : UI::MapView)
         el = Components::Elements::Div.new
-        el.add_style("display: inline-block; position: relative; overflow: hidden; background: var(--amber-color-surface-sunken)")
+        el.add_style("display: inline-block; position: relative; overflow: hidden; background: var(--ap-color-surface-sunken)")
         el.set_attribute("data-component", "map")
         el.set_attribute("data-latitude", view.latitude.to_s)
         el.set_attribute("data-longitude", view.longitude.to_s)
@@ -1695,7 +1686,7 @@ module UI
 
       def visit(view : UI::WebViewComponent)
         el = Components::Elements::Iframe.new
-        el.add_style("display: block; width: 100%; min-height: 280px; border: 0; border-radius: var(--amber-radius-panel); overflow: hidden; background: var(--amber-color-surface-panel)")
+        el.add_style("display: block; width: 100%; min-height: 280px; border: 0; border-radius: var(--ap-radius-panel); overflow: hidden; background: var(--ap-color-surface-panel)")
         el.set_attribute("loading", "lazy")
         el.set_attribute("src", view.url) unless view.url.empty?
         if html = view.html
@@ -1783,7 +1774,7 @@ module UI
       # Web rendering: popover-style card with all four zones.
       def visit(view : UI::ActivityView)
         el = Components::Elements::Div.new
-        el.add_style("background: color-mix(in oklch, var(--amber-color-surface-panel) 86%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--amber-color-border-subtle); border-radius: var(--amber-radius-panel); box-shadow: var(--amber-elevation-overlay); color: var(--amber-color-text-primary); padding: 16px; max-width: 400px; display: flex; flex-direction: column; gap: 12px")
+        el.add_style("background: color-mix(in oklch, var(--ap-color-surface-panel) 86%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-panel); box-shadow: var(--ap-elevation-overlay); color: var(--ap-color-text-primary); padding: 16px; max-width: 400px; display: flex; flex-direction: column; gap: 12px")
         el.set_attribute("role", "dialog")
         el.set_attribute("aria-label", view.title)
 
@@ -1795,7 +1786,7 @@ module UI
         title_el << view.title
         if sub = view.subtitle
           sub_el = Components::Elements::Div.new
-          sub_el.add_style("font-size: 13px; color: var(--amber-color-text-muted)")
+          sub_el.add_style("font-size: 13px; color: var(--ap-color-text-muted)")
           sub_el << sub
           title_el.add_child(sub_el)
         end
@@ -1809,10 +1800,10 @@ module UI
           dest_item = Components::Elements::Div.new
           dest_item.add_style("display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 60px")
           icon_el = Components::Elements::Div.new
-          icon_el.add_style("width: 60px; height: 60px; border-radius: 30px; background: var(--amber-color-surface-elevated); display: flex; align-items: center; justify-content: center; font-size: 24px")
+          icon_el.add_style("width: 60px; height: 60px; border-radius: 30px; background: var(--ap-color-surface-elevated); display: flex; align-items: center; justify-content: center; font-size: 24px")
           icon_el.set_attribute("aria-label", dest.icon_symbol)
           lbl_el = Components::Elements::Div.new
-          lbl_el.add_style("font-size: 11px; color: var(--amber-color-text-secondary); text-align: center")
+          lbl_el.add_style("font-size: 11px; color: var(--ap-color-text-secondary); text-align: center")
           lbl_el << dest.label
           dest_item.add_child(icon_el)
           dest_item.add_child(lbl_el)
@@ -1825,13 +1816,13 @@ module UI
         grid.add_style("display: grid; grid-template-columns: 1fr 1fr; gap: 8px")
         view.actions.each do |act|
           tile = Components::Elements::Div.new
-          tile.add_style("display: flex; flex-direction: row; align-items: center; gap: 8px; background: var(--amber-color-surface-elevated); border-radius: var(--amber-radius-card); padding: 10px 12px")
+          tile.add_style("display: flex; flex-direction: row; align-items: center; gap: 8px; background: var(--ap-color-surface-elevated); border-radius: var(--ap-radius-card); padding: 10px 12px")
           icon_span = Components::Elements::Div.new
           icon_span.set_attribute("aria-label", act.icon_symbol)
-          icon_span.add_style("width: 28px; height: 28px; border-radius: var(--amber-radius-control); background: var(--amber-color-surface-elevated); display: flex; align-items: center; justify-content: center")
+          icon_span.add_style("width: 28px; height: 28px; border-radius: var(--ap-radius-control); background: var(--ap-color-surface-elevated); display: flex; align-items: center; justify-content: center")
           lbl_span = Components::Elements::Div.new
           lbl_span << act.label
-          color = act.role == :destructive ? "var(--amber-color-danger-text)" : "inherit"
+          color = act.role == :destructive ? "var(--ap-color-danger-text)" : "inherit"
           lbl_span.add_style("font-size: 13px; color: #{color}")
           tile.add_child(icon_span)
           tile.add_child(lbl_span)
@@ -1841,7 +1832,7 @@ module UI
 
         # Zone 4: Cancel button
         cancel_el = Components::Elements::Div.new
-        cancel_el.add_style("font-size: 17px; font-weight: 600; color: var(--amber-color-brand-primary); text-align: center; padding: 12px; cursor: pointer; border-radius: var(--amber-radius-card); background: var(--amber-color-surface-elevated)")
+        cancel_el.add_style("font-size: 17px; font-weight: 600; color: var(--ap-color-brand-primary); text-align: center; padding: 12px; cursor: pointer; border-radius: var(--ap-radius-card); background: var(--ap-color-surface-elevated)")
         cancel_el << "Cancel"
         el.add_child(cancel_el)
 
@@ -1870,7 +1861,7 @@ module UI
         acc_text = view.accessibility_label || "#{view.title}, #{view.expanded ? "expanded" : "collapsed"}"
         header_div.set_attribute("aria-label", acc_text)
         chevron = Components::Elements::Div.new
-        chevron.add_style("font-size: 12px; color: var(--amber-color-text-muted); transition: transform var(--amber-motion-duration-fast) var(--amber-motion-ease-standard)")
+        chevron.add_style("font-size: 12px; color: var(--ap-color-text-muted); transition: transform var(--ap-motion-duration-fast) var(--ap-motion-ease-standard)")
         # Right-pointing = collapsed (U+276F ❯); down-pointing = expanded (U+276F rotated)
         chevron_char = view.expanded ? "\u25BC" : "\u25B6"
         chevron << chevron_char
@@ -1922,14 +1913,14 @@ module UI
             fill_color = if tc = view.tint_color
                            "rgba(#{(tc.r * 255).to_i}, #{(tc.g * 255).to_i}, #{(tc.b * 255).to_i}, #{tc.a})"
                          else
-                           "var(--amber-color-brand-primary)"
+                           "var(--ap-color-brand-primary)"
                          end
             dot.add_style("width: #{size}; height: #{size}; border-radius: 50%; background-color: #{fill_color}; flex-shrink: 0")
           else
             stroke_color = if tc = view.tint_color
                              "rgba(#{(tc.r * 255).to_i}, #{(tc.g * 255).to_i}, #{(tc.b * 255).to_i}, 0.4)"
                            else
-                             "color-mix(in oklch, var(--amber-color-brand-primary) 40%, transparent)"
+                             "color-mix(in oklch, var(--ap-color-brand-primary) 40%, transparent)"
                            end
             dot.add_style("width: #{size}; height: #{size}; border-radius: 50%; border: 1px solid #{stroke_color}; background-color: transparent; flex-shrink: 0")
           end
@@ -1988,7 +1979,7 @@ module UI
         input_el.set_attribute("role", "combobox")
         input_el.set_attribute("aria-expanded", "false")
         input_el.set_attribute("aria-haspopup", "listbox")
-        input_el.add_style("display: flex; border: 1px solid var(--amber-color-border-default); border-radius: var(--amber-radius-control); padding: 8px 32px 8px 8px; font-size: 13px; width: 100%; box-sizing: border-box; background: var(--amber-color-surface-panel); color: var(--amber-color-text-primary)")
+        input_el.add_style("display: flex; border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); padding: 8px 32px 8px 8px; font-size: 13px; width: 100%; box-sizing: border-box; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary)")
 
         outer.add_child(input_el)
 
@@ -2048,13 +2039,13 @@ module UI
       private def label_role_css(role : UI::LabelRole) : String
         case role
         when UI::LabelRole::Primary
-          "var(--amber-color-text-primary)"
+          "var(--ap-color-text-primary)"
         when UI::LabelRole::Secondary
-          "var(--amber-color-text-secondary)"
+          "var(--ap-color-text-secondary)"
         when UI::LabelRole::Tertiary, UI::LabelRole::Quaternary
-          "var(--amber-color-text-muted)"
+          "var(--ap-color-text-muted)"
         else
-          "var(--amber-color-text-primary)"
+          "var(--ap-color-text-primary)"
         end
       end
 

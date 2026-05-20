@@ -61,20 +61,22 @@ describe "Semantic design-system tokens" do
   it "adds semantic utility colors to config" do
     config = Components::CSS::Config.new
 
-    config.get_color("danger-subtle").should eq("var(--ap-color-danger-bg, var(--amber-color-danger-bg))")
-    config.get_color("surface-elevated").should eq("var(--ap-color-surface-elevated, var(--amber-color-surface-elevated))")
-    config.get_color("muted").should eq("var(--ap-color-text-muted, var(--amber-color-text-muted))")
-    config.get_color("focus").should eq("var(--ap-color-border-focus, var(--amber-color-border-focus))")
+    # Phase 1 of the cross-platform UI initiative dropped --amber-* fallback
+    # chains; utility classes resolve directly through --ap-* only.
+    config.get_color("danger-subtle").should eq("var(--ap-color-danger-bg)")
+    config.get_color("surface-elevated").should eq("var(--ap-color-surface-elevated)")
+    config.get_color("muted").should eq("var(--ap-color-text-muted)")
+    config.get_color("focus").should eq("var(--ap-color-border-focus)")
   end
 
-  it "supports a neutral config theme API with Amber compatibility aliases" do
+  it "supports a neutral config theme API" do
     theme = Components::CSS::Tokens::Theme.design_system_default
     theme.override_token("brand-primary", "oklch(0.68 0.18 48)")
 
     config = Components::CSS::Config.new.use_design_system_theme(theme)
     config.design_system_theme.should be(theme)
     config.amber_theme.should be(theme)
-    config.get_color("brand-primary").should eq("var(--ap-color-brand-primary, var(--amber-color-brand-primary))")
+    config.get_color("brand-primary").should eq("var(--ap-color-brand-primary)")
 
     compatibility = Components::CSS::Config.new.use_amber_theme(theme)
     compatibility.design_system_theme.should be(theme)
@@ -110,20 +112,20 @@ describe "Semantic design-system tokens" do
     css.includes?("[data-amber-theme=\"light\"]").should be_false
     css.includes?("[data-amber-theme=\"dark\"]").should be_false
     css.should contain(".bg-danger-subtle")
-    css.should contain("background-color: var(--ap-color-danger-bg, var(--amber-color-danger-bg));")
-    css.should contain("border-color: var(--ap-color-danger-indicator, var(--amber-color-danger-indicator));")
-    css.should contain("color: var(--ap-color-text-muted, var(--amber-color-text-muted));")
-    css.should contain("box-shadow: 0 0 0 3px var(--ap-color-border-focus, var(--amber-color-border-focus));")
-    css.should contain("background-color: var(--ap-color-surface-elevated, var(--amber-color-surface-elevated));")
+    css.should contain("background-color: var(--ap-color-danger-bg);")
+    css.should contain("border-color: var(--ap-color-danger-indicator);")
+    css.should contain("color: var(--ap-color-text-muted);")
+    css.should contain("box-shadow: 0 0 0 3px var(--ap-color-border-focus);")
+    css.should contain("background-color: var(--ap-color-surface-elevated);")
   end
 
   it "parses motion utilities used by the web proof" do
     config = Components::CSS::Config.new
 
     Components::CSS::Engine::Parser.parse_utility("duration-base", config).not_nil!["transition-duration"]
-      .should eq("var(--ap-motion-duration-base, var(--amber-motion-duration-base))")
+      .should eq("var(--ap-motion-duration-base)")
     Components::CSS::Engine::Parser.parse_utility("ease-emphasized", config).not_nil!["transition-timing-function"]
-      .should eq("var(--ap-motion-ease-emphasized, var(--amber-motion-ease-emphasized))")
+      .should eq("var(--ap-motion-ease-emphasized)")
     Components::CSS::Engine::Parser.parse_utility("animate-row-in", config).not_nil!["animation"]
       .should contain("ap-row-enter")
     Components::CSS::Engine::Parser.parse_utility("bg-gradient-brand", config).not_nil!["background-image"]

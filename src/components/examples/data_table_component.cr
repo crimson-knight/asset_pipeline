@@ -14,10 +14,10 @@ module Components
 
       component_css <<-CSS
       .am-table-wrap {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-raised);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-raised);
         max-width: 100%;
         overflow: hidden;
       }
@@ -31,16 +31,16 @@ module Components
       }
 
       .am-table caption {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
         font-size: 0.875rem;
         padding: 1rem;
         text-align: left;
       }
 
       .am-table th {
-        background: var(--amber-color-surface-sunken);
-        border-bottom: 1px solid var(--amber-color-border-subtle);
-        color: var(--amber-color-text-muted);
+        background: var(--ap-color-surface-sunken);
+        border-bottom: 1px solid var(--ap-color-border-subtle);
+        color: var(--ap-color-text-muted);
         font-size: 0.75rem;
         font-weight: 760;
         letter-spacing: 0;
@@ -68,11 +68,11 @@ module Components
       .am-table td:nth-child(5) { width: 16%; text-align: right; }
 
       .am-table td {
-        border-bottom: 1px solid var(--amber-color-border-subtle);
-        color: var(--amber-color-text-secondary);
+        border-bottom: 1px solid var(--ap-color-border-subtle);
+        color: var(--ap-color-text-secondary);
         padding: 0.875rem 1rem;
-        transition: background-color var(--amber-motion-duration-fast) var(--amber-motion-ease-standard),
-          color var(--amber-motion-duration-fast) var(--amber-motion-ease-standard);
+        transition: background-color var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          color var(--ap-motion-duration-fast) var(--ap-motion-ease-standard);
       }
 
       .am-table tr {
@@ -80,8 +80,8 @@ module Components
       }
 
       .am-table tbody tr:hover td {
-        background: var(--amber-color-state-hover);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-state-hover);
+        color: var(--ap-color-text-primary);
       }
 
       .am-table tbody tr[data-state] td:first-child {
@@ -90,38 +90,38 @@ module Components
       }
 
       .am-table tbody tr[data-state="success"] {
-        --row-bg: var(--amber-color-success-bg);
-        --row-bg-hover: var(--amber-color-success-bg-hover);
-        --row-indicator: var(--amber-color-success-indicator);
-        --row-text: var(--amber-color-success-text);
+        --row-bg: var(--ap-color-success-bg);
+        --row-bg-hover: var(--ap-color-success-bg-hover);
+        --row-indicator: var(--ap-color-success-indicator);
+        --row-text: var(--ap-color-success-text);
       }
 
       .am-table tbody tr[data-state="warning"] {
-        --row-bg: var(--amber-color-warning-bg);
-        --row-bg-hover: var(--amber-color-warning-bg-hover);
-        --row-indicator: var(--amber-color-warning-indicator);
-        --row-text: var(--amber-color-warning-text);
+        --row-bg: var(--ap-color-warning-bg);
+        --row-bg-hover: var(--ap-color-warning-bg-hover);
+        --row-indicator: var(--ap-color-warning-indicator);
+        --row-text: var(--ap-color-warning-text);
       }
 
       .am-table tbody tr[data-state="danger"],
       .am-table tbody tr[data-state="error"] {
-        --row-bg: var(--amber-color-danger-bg);
-        --row-bg-hover: var(--amber-color-danger-bg-hover);
-        --row-indicator: var(--amber-color-danger-indicator);
-        --row-text: var(--amber-color-danger-text);
+        --row-bg: var(--ap-color-danger-bg);
+        --row-bg-hover: var(--ap-color-danger-bg-hover);
+        --row-indicator: var(--ap-color-danger-indicator);
+        --row-text: var(--ap-color-danger-text);
       }
 
       .am-table tbody tr[data-state="info"],
       .am-table tbody tr[data-state="selected"] {
-        --row-bg: var(--amber-color-info-bg);
-        --row-bg-hover: var(--amber-color-info-bg-hover);
-        --row-indicator: var(--amber-color-info-indicator);
-        --row-text: var(--amber-color-info-text);
+        --row-bg: var(--ap-color-info-bg);
+        --row-bg-hover: var(--ap-color-info-bg-hover);
+        --row-indicator: var(--ap-color-info-indicator);
+        --row-text: var(--ap-color-info-text);
       }
 
       .am-table tbody tr[data-state] td {
         background: var(--row-bg);
-        color: var(--amber-color-text-primary);
+        color: var(--ap-color-text-primary);
       }
 
       .am-table tbody tr[data-state]:hover td {
@@ -130,8 +130,8 @@ module Components
 
       .am-table__status {
         align-items: center;
-        border-radius: var(--amber-radius-pill);
-        color: var(--row-text, var(--amber-color-text-secondary));
+        border-radius: var(--ap-radius-pill);
+        color: var(--row-text, var(--ap-color-text-secondary));
         display: inline-flex;
         font-size: 0.8125rem;
         font-weight: 680;
@@ -164,8 +164,8 @@ module Components
 
       .am-empty-state {
         align-items: center;
-        background: var(--amber-color-surface-elevated);
-        color: var(--amber-color-text-secondary);
+        background: var(--ap-color-surface-elevated);
+        color: var(--ap-color-text-secondary);
         display: grid;
         gap: 0.5rem;
         justify-items: center;
@@ -175,7 +175,7 @@ module Components
 
       @media (prefers-reduced-motion: no-preference) {
         .am-table [data-motion="row"] {
-          animation: amber-row-enter var(--amber-motion-duration-base) var(--amber-motion-ease-emphasized) both;
+          animation: amber-row-enter var(--ap-motion-duration-base) var(--ap-motion-ease-emphasized) both;
         }
       }
       CSS

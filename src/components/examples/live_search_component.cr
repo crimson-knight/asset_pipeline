@@ -19,10 +19,10 @@ module Components
 
       .am-live-search__status {
         align-items: center;
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        color: var(--amber-color-text-muted);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        color: var(--ap-color-text-muted);
         display: flex;
         min-height: 2.75rem;
         padding: 0.75rem 0.875rem;
@@ -37,19 +37,19 @@ module Components
       }
 
       .am-live-search__item {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        color: var(--ap-color-text-primary);
         padding: 0.75rem 0.875rem;
-        transition: background-color var(--amber-motion-duration-fast) var(--amber-motion-ease-standard),
-          border-color var(--amber-motion-duration-fast) var(--amber-motion-ease-standard),
-          transform var(--amber-motion-duration-fast) var(--amber-motion-ease-standard);
+        transition: background-color var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          border-color var(--ap-motion-duration-fast) var(--ap-motion-ease-standard),
+          transform var(--ap-motion-duration-fast) var(--ap-motion-ease-standard);
       }
 
       .am-live-search__item:hover {
-        background: var(--amber-color-state-hover);
-        border-color: var(--amber-color-border-default);
+        background: var(--ap-color-state-hover);
+        border-color: var(--ap-color-border-default);
         transform: translateY(-1px);
       }
 

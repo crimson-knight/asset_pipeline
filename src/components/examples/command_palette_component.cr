@@ -14,12 +14,12 @@ module Components
 
       .am-command-panel {
         background:
-          linear-gradient(135deg, color-mix(in oklch, var(--amber-color-brand-primary) 12%, transparent), transparent 45%),
-          var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        box-shadow: var(--amber-elevation-floating);
-        color: var(--amber-color-text-primary);
+          linear-gradient(135deg, color-mix(in oklch, var(--ap-color-brand-primary) 12%, transparent), transparent 45%),
+          var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-floating);
+        color: var(--ap-color-text-primary);
         display: none;
         inset: 12vh max(1rem, calc((100vw - 760px) / 2)) auto;
         overflow: hidden;
@@ -42,8 +42,8 @@ module Components
         align-items: center;
         background: transparent;
         border: 0;
-        border-radius: var(--amber-radius-control);
-        color: var(--amber-color-text-secondary);
+        border-radius: var(--ap-radius-control);
+        color: var(--ap-color-text-secondary);
         cursor: pointer;
         display: flex;
         font: inherit;
@@ -56,16 +56,16 @@ module Components
       .am-command-item:hover,
       .am-command-item:focus-visible,
       .am-command-item[data-active="true"] {
-        background: var(--amber-color-state-hover);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-state-hover);
+        color: var(--ap-color-text-primary);
         outline: none;
       }
 
       kbd {
-        background: var(--amber-color-surface-sunken);
-        border: 1px solid var(--amber-color-border-subtle);
+        background: var(--ap-color-surface-sunken);
+        border: 1px solid var(--ap-color-border-subtle);
         border-radius: 0.35rem;
-        color: var(--amber-color-text-muted);
+        color: var(--ap-color-text-muted);
         font-size: 0.75rem;
         padding: 0.1rem 0.35rem;
       }

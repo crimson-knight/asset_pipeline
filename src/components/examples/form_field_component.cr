@@ -21,18 +21,18 @@ module Components
 
       .am-field > span:first-child,
       .am-field label {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
         font-size: 0.875rem;
         font-weight: 680;
       }
 
       .am-field__hint {
-        color: var(--amber-color-text-muted);
+        color: var(--ap-color-text-muted);
         font-size: 0.8125rem;
       }
 
       .am-field__error {
-        color: var(--amber-color-danger-text);
+        color: var(--ap-color-danger-text);
         font-size: 0.8125rem;
         font-weight: 680;
       }
@@ -40,10 +40,10 @@ module Components
       .am-input,
       .am-select,
       .am-textarea {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-default);
-        border-radius: var(--amber-radius-control);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-default);
+        border-radius: var(--ap-radius-control);
+        color: var(--ap-color-text-primary);
         font: inherit;
         min-height: 2.55rem;
         padding: 0.65rem 0.75rem;
@@ -58,20 +58,20 @@ module Components
       .am-input:focus,
       .am-select:focus,
       .am-textarea:focus {
-        border-color: var(--amber-color-border-focus);
-        box-shadow: 0 0 0 3px var(--amber-color-border-focus);
+        border-color: var(--ap-color-border-focus);
+        box-shadow: 0 0 0 3px var(--ap-color-border-focus);
         outline: none;
       }
 
       .am-input[aria-invalid="true"],
       .am-select[aria-invalid="true"],
       .am-textarea[aria-invalid="true"] {
-        border-color: var(--amber-color-danger-border);
-        box-shadow: 0 0 0 3px var(--amber-color-danger-focus-ring);
+        border-color: var(--ap-color-danger-border);
+        box-shadow: 0 0 0 3px var(--ap-color-danger-focus-ring);
       }
 
       .am-range {
-        accent-color: var(--amber-color-brand-primary);
+        accent-color: var(--ap-color-brand-primary);
         min-height: 1.5rem;
         width: 100%;
       }

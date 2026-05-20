@@ -21,13 +21,13 @@ module Components
       }
 
       .am-field label {
-        color: var(--amber-color-text-secondary);
+        color: var(--ap-color-text-secondary);
         font-weight: 680;
       }
 
       .am-field__required,
       .am-field__error {
-        color: var(--amber-color-danger-text);
+        color: var(--ap-color-danger-text);
       }
 
       .am-field__error {
@@ -35,29 +35,29 @@ module Components
       }
 
       .am-input {
-        background: var(--amber-color-surface-panel);
-        border: 1px solid var(--amber-color-border-default);
-        border-radius: var(--amber-radius-control);
-        color: var(--amber-color-text-primary);
+        background: var(--ap-color-surface-panel);
+        border: 1px solid var(--ap-color-border-default);
+        border-radius: var(--ap-radius-control);
+        color: var(--ap-color-text-primary);
         min-height: 2.5rem;
         padding: 0.625rem 0.75rem;
       }
 
       .am-input--invalid,
       .am-input[aria-invalid="true"] {
-        border-color: var(--amber-color-danger-border);
-        box-shadow: 0 0 0 3px var(--amber-color-danger-focus-ring);
+        border-color: var(--ap-color-danger-border);
+        box-shadow: 0 0 0 3px var(--ap-color-danger-focus-ring);
       }
 
       .am-alert {
-        border-radius: var(--amber-radius-card);
+        border-radius: var(--ap-radius-card);
         padding: 0.85rem 1rem;
       }
 
       .am-alert--success {
-        background: var(--amber-color-success-bg);
-        border: 1px solid var(--amber-color-success-border);
-        color: var(--amber-color-success-text);
+        background: var(--ap-color-success-bg);
+        border: 1px solid var(--ap-color-success-border);
+        color: var(--ap-color-success-text);
       }
       CSS
 

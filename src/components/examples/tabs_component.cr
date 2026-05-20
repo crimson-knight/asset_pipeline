@@ -20,10 +20,10 @@ module Components
       }
 
       .am-tabs [role="tab"] {
-        background: var(--amber-color-surface-elevated);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-pill);
-        color: var(--amber-color-text-secondary);
+        background: var(--ap-color-surface-elevated);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-pill);
+        color: var(--ap-color-text-secondary);
         cursor: pointer;
         font: inherit;
         font-weight: 680;
@@ -32,20 +32,20 @@ module Components
       }
 
       .am-tabs [role="tab"][aria-selected="true"] {
-        background: var(--amber-color-surface-inverse);
-        color: var(--amber-color-text-inverse);
+        background: var(--ap-color-surface-inverse);
+        color: var(--ap-color-text-inverse);
       }
 
       .am-tabs [role="tab"]:focus-visible {
-        outline: 2px solid var(--amber-color-border-focus);
+        outline: 2px solid var(--ap-color-border-focus);
         outline-offset: 3px;
       }
 
       .am-tab-panel {
-        background: var(--amber-color-surface-elevated);
-        border: 1px solid var(--amber-color-border-subtle);
-        border-radius: var(--amber-radius-card);
-        color: var(--amber-color-text-secondary);
+        background: var(--ap-color-surface-elevated);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        color: var(--ap-color-text-secondary);
         padding: 0.85rem;
       }
 
