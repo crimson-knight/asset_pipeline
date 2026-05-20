@@ -218,6 +218,34 @@ nonzero_tracking = html.lines.select do |line|
 end
 assert("no nonzero letter-spacing in generated demo", nonzero_tracking.empty?, failures)
 
+# === Phase 2 responsive-web assertions =====================================
+# Validate that the demo's CSS has been migrated to clamp() and container
+# queries rather than relying on fixed pixel min/max-width literals.
+clamp_count = html.scan(/\bclamp\(/).size
+assert("Phase 2: generated CSS contains >= 20 clamp() expressions (found #{clamp_count})", clamp_count >= 20, failures)
+
+container_block_count = html.scan(/@container\s+[a-zA-Z0-9_-]*\s*\(/).size
+assert("Phase 2: generated CSS contains >= 3 @container blocks (found #{container_block_count})", container_block_count >= 3, failures)
+
+# Bare min-width / max-width pixel literals inside *inline* styles outside
+# clamp() are forbidden. Block-level <style> rules can still use them in a
+# limited way (e.g., the dialog backdrop), but inline `style="..."` strings
+# emitted by the renderer must reflow via clamp.
+inline_bare_pixel_min = [] of String
+runtime_free_pages.each do |_, clean|
+  clean.scan(/style="([^"]*)"/) do |match|
+    inline = match[1]
+    inline.scan(/(?:min|max)-width:\s*(\d{2,4})px/) do |sub|
+      # Skip if the surrounding token is inside a clamp() expression.
+      pixel_idx = inline.index(sub[0]).not_nil!
+      around = inline[Math.max(pixel_idx - 60, 0)..pixel_idx + 10]
+      next if around.includes?("clamp(")
+      inline_bare_pixel_min << inline[Math.max(pixel_idx - 30, 0)..Math.min(pixel_idx + 30, inline.size - 1)]
+    end
+  end
+end
+assert("Phase 2: no bare min/max-width pixel literals outside clamp() in inline styles", inline_bare_pixel_min.empty?, failures)
+
 defined_amber_vars = html.scan(/(--amber-[a-z0-9-]+)\s*:/).map { |match| match[1] }.uniq
 used_amber_vars = html.scan(/var\((--amber-[a-z0-9-]+)\)/).map { |match| match[1] }.uniq
 undefined_amber_vars = used_amber_vars - defined_amber_vars
