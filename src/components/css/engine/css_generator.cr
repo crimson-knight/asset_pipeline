@@ -111,11 +111,28 @@ module Components
               rule.with_media("(pointer: coarse)")
             when "pointer-fine"
               rule.with_media("(pointer: fine)")
-              # Container query modifiers
+              # Container query modifiers.
+              #
+              # Supported syntaxes:
+              #   @<bp>           -> anonymous container query at named bp
+              #                      (e.g. `@md:flex` -> `@container (min-width: 768px)`)
+              #   @<name>:<bp>    -> named container query at named bp
+              #                      (e.g. `@card:md:flex-row` would arrive as
+              #                      modifier "@card:md" producing
+              #                      `@container card (min-width: 768px)`)
+              #
+              # The size lookup uses the `containers` map; if the bp segment
+              # is not a known key the modifier is silently dropped so we
+              # don't emit a broken @container header.
             when .starts_with?("@")
-              container_bp = modifier.lchop("@")
-              if bp = @config.containers[container_bp]?
-                rule.with_container("(min-width: #{bp})")
+              raw = modifier.lchop("@")
+              if raw.includes?(":")
+                name, bp = raw.split(":", 2)
+                if size = @config.containers[bp]?
+                  rule.with_container("#{name} (min-width: #{size})")
+                end
+              elsif bp_size = @config.containers[raw]?
+                rule.with_container("(min-width: #{bp_size})")
               end
 
               # Form state pseudo classes

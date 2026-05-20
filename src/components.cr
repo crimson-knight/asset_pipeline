@@ -50,6 +50,7 @@ require "./components/css/engine/css_rule"
 require "./components/css/engine/css_parser"
 require "./components/css/engine/css_generator"
 require "./components/css/component_css_registry"
+require "./components/css/container_query_components"
 require "./components/css/scanner/class_scanner"
 require "./components/variants/component_variant"
 

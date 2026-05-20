@@ -996,6 +996,13 @@ module UI
       def visit(view : UI::Form)
         el = Components::Elements::Div.new
         el.set_attribute("role", "form")
+        el.add_class("am-form")
+        el.set_attribute("data-component", "form")
+        # Opt the form into the container-query component CSS shipped via
+        # ComponentCSSRegistry. `data-layout="auto"` selects the layout-
+        # switching rules; consumers who want a fixed layout can override
+        # `data-layout` to a different value.
+        el.set_attribute("data-layout", "auto")
         el.add_style("display: flex; flex-direction: column; gap: 16px")
 
         apply_common_styles(el, view)
@@ -1014,6 +1021,7 @@ module UI
 
             section.fields.each do |field|
               field_el = Components::Elements::Div.new
+              field_el.add_class("am-form-field")
               field_el.add_style("display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--ap-color-surface-panel); border-bottom: 1px solid var(--ap-color-border-subtle)")
 
               unless field.label.empty?
@@ -1046,12 +1054,21 @@ module UI
 
       def visit(view : UI::NavigationSplitView)
         el = Components::Elements::Div.new
+        el.add_class("am-split-view")
+        el.set_attribute("data-component", "split-view")
+        # Opt into container-query layout switching (sidebar overlays content
+        # below 768 px container, sidebar inline at 768 px+).
+        el.set_attribute("data-layout", "auto")
         el.add_style("display: flex; height: 100%")
 
         if view.shows_sidebar
           if sidebar = view.sidebar
             sidebar_el = Components::Elements::Div.new
-            sidebar_el.add_style("width: #{view.sidebar_width}px; border-right: 1px solid var(--ap-color-border-subtle); overflow-y: auto")
+            sidebar_el.add_class("am-split-view__sidebar")
+            # Sidebar reflows from 220px floor through a 30vw curve up to
+            # the caller-specified ceiling so it adapts to wider monitors
+            # without overrunning on phones.
+            sidebar_el.add_style("width: #{fluid_with_floor(220, "30vw", view.sidebar_width)}; border-right: 1px solid var(--ap-color-border-subtle); overflow-y: auto")
             @element_stack.push(sidebar_el)
             sidebar.accept(self)
             @element_stack.pop
@@ -1265,6 +1282,9 @@ module UI
         el.add_class(view.is_outlined ? "am-card--outline" : "am-card--elevated")
         el.set_attribute("data-component", "card")
         el.set_attribute("data-elevation", view.elevation.to_s)
+        # Opt into container-query layout switching (vertical stack below
+        # 480px container, horizontal split above).
+        el.set_attribute("data-layout", "auto")
         el.add_style("overflow: hidden")
 
         if content = view.content
