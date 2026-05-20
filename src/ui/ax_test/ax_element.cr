@@ -113,6 +113,110 @@ module UI::AXTest
       read_element_array_attribute("AXWindows")
     end
 
+    # --- Value Writers (A3) ---
+
+    # Write `kAXValueAttribute` on this element. The Crystal value is
+    # boxed into the right CoreFoundation / CoreGraphics type based on
+    # its Crystal runtime type:
+    #
+    #   * Float32/Float64 → CFNumber (Float64)
+    #   * Int32/Int64/Int  → CFNumber (SInt64)
+    #   * String           → CFString
+    #   * Bool             → kCFBooleanTrue / kCFBooleanFalse
+    #
+    # Used to drive sliders (numeric values), text fields (string), and
+    # checkboxes (bool). Returns true on AXError.success, false otherwise.
+    #
+    # Requires the target process to have an accessible UIElement that
+    # advertises a settable kAXValueAttribute (`isAttributeSettable`).
+    def set_value(value : Float64 | Float32 | Int32 | Int64 | Int | String | Bool) : Bool
+      set_attribute("AXValue", value)
+    end
+
+    # Write an arbitrary AX attribute. Internal escape hatch used by
+    # set_value, focus!, and the App-level resize helper.
+    def set_attribute(attr_name : String, value : Float64 | Float32 | Int32 | Int64 | Int | String | Bool) : Bool
+      attr_cf = cfstring(attr_name)
+      cf_value = box_value(value)
+      err = LibAX.AXUIElementSetAttributeValue(@ref, attr_cf, cf_value)
+      LibCF.CFRelease(attr_cf)
+      # CFString / CFNumber boxes we created must be released; CFBoolean
+      # constants are global singletons — releasing them is a no-op but
+      # not harmful (CFRelease is reference-counted).
+      LibCF.CFRelease(cf_value) unless cf_value.null? || value.is_a?(Bool)
+      err == LibAX::AXErrorSuccess
+    end
+
+    # Box a Crystal value into a CFTypeRef appropriate for
+    # AXUIElementSetAttributeValue. Caller owns the returned ref except
+    # for booleans (global singletons, do not release).
+    private def box_value(value) : Void*
+      case value
+      when Bool
+        value ? LibCF.kCFBooleanTrue : LibCF.kCFBooleanFalse
+      when Float64
+        v = value.to_f64
+        LibCF.CFNumberCreate(Pointer(Void).null, LibCF::CFNumberFloat64Type, pointerof(v).as(Void*))
+      when Float32
+        v = value.to_f32
+        LibCF.CFNumberCreate(Pointer(Void).null, LibCF::CFNumberFloat32Type, pointerof(v).as(Void*))
+      when Int64
+        v = value.to_i64
+        LibCF.CFNumberCreate(Pointer(Void).null, LibCF::CFNumberSInt64Type, pointerof(v).as(Void*))
+      when Int32, Int
+        v = value.to_i32
+        LibCF.CFNumberCreate(Pointer(Void).null, LibCF::CFNumberSInt32Type, pointerof(v).as(Void*))
+      when String
+        cfstring(value)
+      else
+        Pointer(Void).null
+      end
+    end
+
+    # Box a CGSize into an AXValueRef. Caller must CFRelease.
+    private def box_cgsize(width : Float64, height : Float64) : Void*
+      sz = CGSize.new(width, height)
+      LibAX.AXValueCreate(LibAX::AXValueCGSizeType, pointerof(sz).as(Void*))
+    end
+
+    # Box a CGPoint into an AXValueRef. Caller must CFRelease.
+    private def box_cgpoint(x : Float64, y : Float64) : Void*
+      pt = CGPoint.new(x, y)
+      LibAX.AXValueCreate(LibAX::AXValueCGPointType, pointerof(pt).as(Void*))
+    end
+
+    # Set `kAXSizeAttribute` to a new CGSize. Used by App#resize_window.
+    def set_size(width : Float64, height : Float64) : Bool
+      attr_cf = cfstring("AXSize")
+      sz_ref = box_cgsize(width, height)
+      err = LibAX.AXUIElementSetAttributeValue(@ref, attr_cf, sz_ref)
+      LibCF.CFRelease(attr_cf)
+      LibCF.CFRelease(sz_ref)
+      err == LibAX::AXErrorSuccess
+    end
+
+    # Set `kAXPositionAttribute` to a new CGPoint.
+    def set_position(x : Float64, y : Float64) : Bool
+      attr_cf = cfstring("AXPosition")
+      pt_ref = box_cgpoint(x, y)
+      err = LibAX.AXUIElementSetAttributeValue(@ref, attr_cf, pt_ref)
+      LibCF.CFRelease(attr_cf)
+      LibCF.CFRelease(pt_ref)
+      err == LibAX::AXErrorSuccess
+    end
+
+    # --- Focus (A4) ---
+
+    # Set `kAXFocusedAttribute` to true on this element. Useful for
+    # driving keyboard-only navigation tests without simulating clicks.
+    # Returns true on AXError.success.
+    def focus! : Bool
+      attr_cf = cfstring("AXFocused")
+      err = LibAX.AXUIElementSetAttributeValue(@ref, attr_cf, LibCF.kCFBooleanTrue)
+      LibCF.CFRelease(attr_cf)
+      err == LibAX::AXErrorSuccess
+    end
+
     # --- Actions ---
 
     # Click/press the element
