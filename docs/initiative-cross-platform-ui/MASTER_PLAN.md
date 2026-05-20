@@ -130,7 +130,7 @@ The team lead updates this table as work proceeds. Each row's `Status` is one of
 
 | # | Phase | Status | Implementer commit(s) | Validator report | Notes |
 |---|---|---|---|---|---|
-| 1 | Design Token Foundation | Remediation Loop 1 Implementer Returned → Fresh Validator dispatched (2026-05-20) | `5b6483b 40e396d 0e3b943 575613a 8ecd37d 006dc70 3874a4e 8b68717` + remediation `a84c6c3 4cefe9f 0988646` | `handoff/phase-01-failing-1-2026-05-20.md` (loop 1 failure) | Remediation scrubbed AppKit + UIKit visit-method literals through token shims, extended RadiusScale with 5 role-based steps (xs/card/sheet/avatar/avatar_lg), shipped macOS brand cascade harness. iOS cascade #20 stays blocked under env-unavailability clause (DoD only requires 1 Apple target; macOS #19 now satisfies) |
+| 1 | Design Token Foundation | **Passed (2026-05-20)** — tag `phase-01-passed-2026-05-20` | `5b6483b 40e396d 0e3b943 575613a 8ecd37d 006dc70 3874a4e 8b68717` + remediation `a84c6c3 4cefe9f 0988646` | `handoff/phase-01-passed-2026-05-20.md` (iter 2 PASS); `handoff/phase-01-failing-1-2026-05-20.md` (iter 1 FAIL → remediated); `handoff/phase-01-reflection-2026-05-20.md` (architect reflection) | Iter 2 verdict PASS: 19/20 required checks pass; 3 deferred per architect handoff; #20 iOS cascade blocked but Architect-adjudicated satisfied by #19 macOS pivot proof. Merged ff into `feature/utility-first-css-asset-pipeline`. Awaiting Seth checkpoint #3 before Phase 2 dispatch |
 | 2 | Responsive Web Fluid Resize | Not Started | — | — | |
 | 3 | SwiftUI Native Bridge | Not Started | — | — | High-risk; budget remediation loops |
 | 4 | Platform Tier Gating | Not Started | — | — | |
