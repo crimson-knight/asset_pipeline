@@ -56,6 +56,27 @@
     # -------------------------------------------------------------------------
     fun apsk_view_overrides_new : Void*
     fun apsk_button_overrides_new : Void*
+    fun apsk_label_overrides_new : Void*
+    fun apsk_image_overrides_new : Void*
+    fun apsk_text_field_overrides_new : Void*
+    fun apsk_secure_field_overrides_new : Void*
+    fun apsk_search_field_overrides_new : Void*
+    fun apsk_text_area_overrides_new : Void*
+    fun apsk_text_editor_overrides_new : Void*
+    fun apsk_link_button_overrides_new : Void*
+    fun apsk_icon_button_overrides_new : Void*
+    fun apsk_divider_overrides_new : Void*
+    fun apsk_spacer_overrides_new : Void*
+    fun apsk_toggle_overrides_new : Void*
+    fun apsk_checkbox_overrides_new : Void*
+    fun apsk_radio_group_overrides_new : Void*
+    fun apsk_slider_overrides_new : Void*
+    fun apsk_stepper_overrides_new : Void*
+    fun apsk_segmented_control_overrides_new : Void*
+    fun apsk_picker_overrides_new : Void*
+    fun apsk_date_picker_overrides_new : Void*
+    fun apsk_time_picker_overrides_new : Void*
+    fun apsk_color_picker_overrides_new : Void*
 
     # -------------------------------------------------------------------------
     # Overrides field setters. Each takes the `APSK*Overrides` pointer,
@@ -84,5 +105,51 @@
     # `UI::CallbackRegistry.register_action`. `0` means "no callback wired."
     # -------------------------------------------------------------------------
     fun apsk_make_button(label : UInt8*, overrides : Void*, action_token : UInt64) : Void*
+
+    # ---- Group 1 facades (value display + simple input) ---------------
+    fun apsk_make_label(text : UInt8*, overrides : Void*) : Void*
+    fun apsk_make_image(source : UInt8*, overrides : Void*) : Void*
+    fun apsk_make_text_field(placeholder : UInt8*, initial_text : UInt8*,
+                             overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_secure_field(placeholder : UInt8*, initial_text : UInt8*,
+                               overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_search_field(placeholder : UInt8*, initial_text : UInt8*,
+                               overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_text_area(placeholder : UInt8*, initial_text : UInt8*,
+                            overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_text_editor(placeholder : UInt8*, initial_text : UInt8*,
+                              overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_link_button(label : UInt8*, url : UInt8*,
+                              overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_icon_button(icon : UInt8*, overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_divider(overrides : Void*) : Void*
+    fun apsk_make_spacer(overrides : Void*) : Void*
+
+    # ---- Group 2 facades (selection + form controls) ------------------
+    fun apsk_make_toggle(label : UInt8*, is_on : Int32, overrides : Void*,
+                         action_token : UInt64) : Void*
+    fun apsk_make_checkbox(label : UInt8*, is_on : Int32, overrides : Void*,
+                           action_token : UInt64) : Void*
+    fun apsk_make_radio_group(options : Void*, option_count : Int32,
+                              selected_index : Int32,
+                              overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_slider(value : Float64, minimum : Float64, maximum : Float64,
+                         overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_stepper(label : UInt8*, value : Float64,
+                          minimum : Float64, maximum : Float64,
+                          overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_segmented_control(segments : Void*, segment_count : Int32,
+                                    selected_index : Int32,
+                                    overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_picker(label : UInt8*, options : Void*, option_count : Int32,
+                         selected_index : Int32,
+                         overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_date_picker(label : UInt8*, initial_epoch : Float64,
+                              overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_time_picker(label : UInt8*, initial_epoch : Float64,
+                              overrides : Void*, action_token : UInt64) : Void*
+    fun apsk_make_color_picker(label : UInt8*, r : Float64, g : Float64,
+                               b : Float64, a : Float64,
+                               overrides : Void*, action_token : UInt64) : Void*
   end
 {% end %}

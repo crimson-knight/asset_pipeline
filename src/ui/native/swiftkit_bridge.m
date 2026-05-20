@@ -196,3 +196,269 @@ void *apsk_make_button(const char *label,
     return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
         cls, sel, ns_label, (id)overrides, action_token);
 }
+
+// ---------------------------------------------------------------------------
+// Group 1 + 2 overrides allocators. Each opens an `APSK*Overrides` class via
+// `objc_getClass` and dispatches +new through `objc_msgSend`. Pattern matches
+// `apsk_button_overrides_new` above.
+// ---------------------------------------------------------------------------
+
+#define APSK_OVERRIDES_NEW(NAME, CLS)                                            \
+    void *NAME(void) {                                                           \
+        Class cls = objc_getClass(CLS);                                          \
+        if (cls == nil) return NULL;                                             \
+        return ((id (*)(Class, SEL))objc_msgSend)(cls, sel_registerName("new")); \
+    }
+
+APSK_OVERRIDES_NEW(apsk_label_overrides_new,             "APSKLabelOverrides")
+APSK_OVERRIDES_NEW(apsk_image_overrides_new,             "APSKImageOverrides")
+APSK_OVERRIDES_NEW(apsk_text_field_overrides_new,        "APSKTextFieldOverrides")
+APSK_OVERRIDES_NEW(apsk_secure_field_overrides_new,      "APSKSecureFieldOverrides")
+APSK_OVERRIDES_NEW(apsk_search_field_overrides_new,      "APSKSearchFieldOverrides")
+APSK_OVERRIDES_NEW(apsk_text_area_overrides_new,         "APSKTextAreaOverrides")
+APSK_OVERRIDES_NEW(apsk_text_editor_overrides_new,       "APSKTextEditorOverrides")
+APSK_OVERRIDES_NEW(apsk_link_button_overrides_new,       "APSKLinkButtonOverrides")
+APSK_OVERRIDES_NEW(apsk_icon_button_overrides_new,       "APSKIconButtonOverrides")
+APSK_OVERRIDES_NEW(apsk_divider_overrides_new,           "APSKDividerOverrides")
+APSK_OVERRIDES_NEW(apsk_spacer_overrides_new,            "APSKSpacerOverrides")
+APSK_OVERRIDES_NEW(apsk_toggle_overrides_new,            "APSKToggleOverrides")
+APSK_OVERRIDES_NEW(apsk_checkbox_overrides_new,          "APSKCheckboxOverrides")
+APSK_OVERRIDES_NEW(apsk_radio_group_overrides_new,       "APSKRadioGroupOverrides")
+APSK_OVERRIDES_NEW(apsk_slider_overrides_new,            "APSKSliderOverrides")
+APSK_OVERRIDES_NEW(apsk_stepper_overrides_new,           "APSKStepperOverrides")
+APSK_OVERRIDES_NEW(apsk_segmented_control_overrides_new, "APSKSegmentedControlOverrides")
+APSK_OVERRIDES_NEW(apsk_picker_overrides_new,            "APSKPickerOverrides")
+APSK_OVERRIDES_NEW(apsk_date_picker_overrides_new,       "APSKDatePickerOverrides")
+APSK_OVERRIDES_NEW(apsk_time_picker_overrides_new,       "APSKTimePickerOverrides")
+APSK_OVERRIDES_NEW(apsk_color_picker_overrides_new,      "APSKColorPickerOverrides")
+
+// ---------------------------------------------------------------------------
+// Helper: build an NSArray<NSString*> from a C array of UTF-8 strings.
+// Used by Picker / RadioGroup / SegmentedControl facades whose options are
+// arrays. The Crystal side passes a Void* that points to a contiguous block
+// of `const char *` pointers plus a count.
+// ---------------------------------------------------------------------------
+static NSArray<NSString *> *apsk_nsarray_from_cstrings(const char **utf8s,
+                                                      int count) {
+    if (utf8s == NULL || count <= 0) return @[];
+    NSMutableArray<NSString *> *arr = [NSMutableArray arrayWithCapacity:count];
+    for (int i = 0; i < count; i++) {
+        const char *s = utf8s[i];
+        if (s == NULL) continue;
+        [arr addObject:[NSString stringWithUTF8String:s]];
+    }
+    return arr;
+}
+
+// ---------------------------------------------------------------------------
+// Group 1 facade trampolines.
+// ---------------------------------------------------------------------------
+
+void *apsk_make_label(const char *text, void *overrides) {
+    Class cls = objc_getClass("APSKLabelFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeLabelWithText:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, apsk_nsstring(text), (id)overrides);
+}
+
+void *apsk_make_image(const char *source, void *overrides) {
+    Class cls = objc_getClass("APSKImageFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeImageWithSource:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, apsk_nsstring(source), (id)overrides);
+}
+
+void *apsk_make_text_field(const char *placeholder, const char *initial_text,
+                           void *overrides, unsigned long long action_token) {
+    Class cls = objc_getClass("APSKTextFieldFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeTextFieldWithPlaceholder:initialText:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(placeholder), apsk_nsstring(initial_text),
+        (id)overrides, action_token);
+}
+
+void *apsk_make_secure_field(const char *placeholder, const char *initial_text,
+                             void *overrides, unsigned long long action_token) {
+    Class cls = objc_getClass("APSKSecureFieldFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeSecureFieldWithPlaceholder:initialText:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(placeholder), apsk_nsstring(initial_text),
+        (id)overrides, action_token);
+}
+
+void *apsk_make_search_field(const char *placeholder, const char *initial_text,
+                             void *overrides, unsigned long long action_token) {
+    Class cls = objc_getClass("APSKSearchFieldFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeSearchFieldWithPlaceholder:initialText:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(placeholder), apsk_nsstring(initial_text),
+        (id)overrides, action_token);
+}
+
+void *apsk_make_text_area(const char *placeholder, const char *initial_text,
+                          void *overrides, unsigned long long action_token) {
+    Class cls = objc_getClass("APSKTextAreaFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeTextAreaWithPlaceholder:initialText:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(placeholder), apsk_nsstring(initial_text),
+        (id)overrides, action_token);
+}
+
+void *apsk_make_text_editor(const char *placeholder, const char *initial_text,
+                            void *overrides, unsigned long long action_token) {
+    Class cls = objc_getClass("APSKTextEditorFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeTextEditorWithPlaceholder:initialText:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(placeholder), apsk_nsstring(initial_text),
+        (id)overrides, action_token);
+}
+
+void *apsk_make_link_button(const char *label, const char *url,
+                            void *overrides, unsigned long long action_token) {
+    Class cls = objc_getClass("APSKLinkButtonFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeLinkButtonWithLabel:url:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), apsk_nsstring(url),
+        (id)overrides, action_token);
+}
+
+void *apsk_make_icon_button(const char *icon, void *overrides,
+                            unsigned long long action_token) {
+    Class cls = objc_getClass("APSKIconButtonFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeIconButtonWithIcon:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(icon), (id)overrides, action_token);
+}
+
+void *apsk_make_divider(void *overrides) {
+    Class cls = objc_getClass("APSKDividerFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeDividerWithOverrides:");
+    return ((id (*)(Class, SEL, id))objc_msgSend)(cls, sel, (id)overrides);
+}
+
+void *apsk_make_spacer(void *overrides) {
+    Class cls = objc_getClass("APSKSpacerFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeSpacerWithOverrides:");
+    return ((id (*)(Class, SEL, id))objc_msgSend)(cls, sel, (id)overrides);
+}
+
+// ---------------------------------------------------------------------------
+// Group 2 facade trampolines.
+// ---------------------------------------------------------------------------
+
+void *apsk_make_toggle(const char *label, int is_on, void *overrides,
+                       unsigned long long action_token) {
+    Class cls = objc_getClass("APSKToggleFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeToggleWithLabel:isOn:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, BOOL, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), is_on != 0, (id)overrides, action_token);
+}
+
+void *apsk_make_checkbox(const char *label, int is_on, void *overrides,
+                         unsigned long long action_token) {
+    Class cls = objc_getClass("APSKCheckboxFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeCheckboxWithLabel:isOn:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, BOOL, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), is_on != 0, (id)overrides, action_token);
+}
+
+void *apsk_make_radio_group(const void *options_ptr, int option_count,
+                            int selected_index, void *overrides,
+                            unsigned long long action_token) {
+    Class cls = objc_getClass("APSKRadioGroupFacade");
+    if (cls == nil) return NULL;
+    NSArray<NSString *> *arr = apsk_nsarray_from_cstrings(
+        (const char **)options_ptr, option_count);
+    SEL sel = sel_registerName("makeRadioGroupWithOptions:selectedIndex:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, NSInteger, id, unsigned long long))objc_msgSend)(
+        cls, sel, arr, (NSInteger)selected_index, (id)overrides, action_token);
+}
+
+void *apsk_make_slider(double value, double minimum, double maximum,
+                       void *overrides, unsigned long long action_token) {
+    Class cls = objc_getClass("APSKSliderFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeSliderWithValue:minimum:maximum:overrides:actionToken:");
+    return ((id (*)(Class, SEL, double, double, double, id, unsigned long long))objc_msgSend)(
+        cls, sel, value, minimum, maximum, (id)overrides, action_token);
+}
+
+void *apsk_make_stepper(const char *label, double value, double minimum,
+                        double maximum, void *overrides,
+                        unsigned long long action_token) {
+    Class cls = objc_getClass("APSKStepperFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeStepperWithLabel:value:minimum:maximum:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, double, double, double, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), value, minimum, maximum,
+        (id)overrides, action_token);
+}
+
+void *apsk_make_segmented_control(const void *segments_ptr, int segment_count,
+                                  int selected_index, void *overrides,
+                                  unsigned long long action_token) {
+    Class cls = objc_getClass("APSKSegmentedControlFacade");
+    if (cls == nil) return NULL;
+    NSArray<NSString *> *arr = apsk_nsarray_from_cstrings(
+        (const char **)segments_ptr, segment_count);
+    SEL sel = sel_registerName("makeSegmentedControlWithSegments:selectedIndex:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, NSInteger, id, unsigned long long))objc_msgSend)(
+        cls, sel, arr, (NSInteger)selected_index, (id)overrides, action_token);
+}
+
+void *apsk_make_picker(const char *label, const void *options_ptr,
+                       int option_count, int selected_index, void *overrides,
+                       unsigned long long action_token) {
+    Class cls = objc_getClass("APSKPickerFacade");
+    if (cls == nil) return NULL;
+    NSArray<NSString *> *arr = apsk_nsarray_from_cstrings(
+        (const char **)options_ptr, option_count);
+    SEL sel = sel_registerName("makePickerWithLabel:options:selectedIndex:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, NSInteger, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), arr, (NSInteger)selected_index,
+        (id)overrides, action_token);
+}
+
+void *apsk_make_date_picker(const char *label, double initial_epoch,
+                            void *overrides, unsigned long long action_token) {
+    Class cls = objc_getClass("APSKDatePickerFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeDatePickerWithLabel:initialEpoch:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, double, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), initial_epoch,
+        (id)overrides, action_token);
+}
+
+void *apsk_make_time_picker(const char *label, double initial_epoch,
+                            void *overrides, unsigned long long action_token) {
+    Class cls = objc_getClass("APSKTimePickerFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeTimePickerWithLabel:initialEpoch:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, double, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), initial_epoch,
+        (id)overrides, action_token);
+}
+
+void *apsk_make_color_picker(const char *label, double r, double g, double b,
+                             double a, void *overrides,
+                             unsigned long long action_token) {
+    Class cls = objc_getClass("APSKColorPickerFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeColorPickerWithLabel:initialR:initialG:initialB:initialA:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, double, double, double, double, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), r, g, b, a,
+        (id)overrides, action_token);
+}
