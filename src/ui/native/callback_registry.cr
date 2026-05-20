@@ -31,6 +31,27 @@ fun crystal_ui_int_callback_dispatch(tag : UInt64, value : Int32) : Void
   UI::CallbackRegistry.call_int(tag, value)
 end
 
+# -----------------------------------------------------------------------------
+# SwiftKit action trampoline.
+#
+# Called by AssetPipelineSwiftKit's `CallbackBridge.fire(token:value:)` via
+# the `@convention(c)` function pointer installed by
+# `APSKRuntime.initialize(actionTrampoline:)`. The pointer to this `fun`
+# is what Crystal hands to Swift during sample-app startup.
+#
+# `value` carries:
+#   - 0.0 for no-arg callbacks (Button#on_tap)
+#   - the new Float64 for Slider#on_change, Stepper#on_change
+#   - 1.0/0.0 for Toggle#on_change (Bool encoded as Float64)
+#
+# Unknown tokens are a silent no-op (matches the existing crystal_ui_*
+# convention so a callback firing after teardown does not crash).
+# -----------------------------------------------------------------------------
+fun ap_swiftkit_invoke_action(token : UInt64, value : Float64) : Void
+  return if token == 0_u64
+  UI::CallbackRegistry.invoke_swiftkit(token, value)
+end
+
 module UI
   # Module-level registry that prevents Crystal `Proc` closures from being
   # garbage collected while native code holds references to them.
@@ -266,6 +287,53 @@ module UI
     # Invoke the Time callback registered under the given ID.
     def self.call_time(id : UInt64, value : Time) : Nil
       time_callbacks[id]?.try { |box| box.callback.call(value) }
+    end
+
+    # -------------------------------------------------------------------------
+    # Phase 3 — SwiftKit action dispatch surface.
+    #
+    # `register_action` and `register_action_with_value` are thin aliases
+    # that route to the existing `register` / `register_float` machinery
+    # while giving SwiftKit-aware callers a clearer name. The brief's
+    # contract (implementation.md §8.1) explicitly calls for these names
+    # so the renderer code reads "register a SwiftKit action" rather than
+    # "register a Crystal Proc."
+    #
+    # `invoke_swiftkit(token, value)` dispatches to whichever typed
+    # registry holds the token. Order matters only when a token id is
+    # genuinely ambiguous; the next_id monotonic counter guarantees a
+    # token resolves at most one registry, so the lookup order is
+    # cosmetic. Unknown tokens are a silent no-op.
+    # -------------------------------------------------------------------------
+
+    # Register a no-arg SwiftKit action (Button#on_tap, MenuItem activation).
+    # Returns the opaque `UInt64` token the Swift facade keeps.
+    def self.register_action(&block : -> Nil) : UInt64
+      register(block)
+    end
+
+    # Register a Float64-valued SwiftKit action (Slider#on_change,
+    # Stepper#on_change, Toggle#on_change after Bool→Float64 coercion).
+    def self.register_action_with_value(&block : Float64 -> Nil) : UInt64
+      register_float(block)
+    end
+
+    # Dispatch a SwiftKit action by token. Called from the
+    # `ap_swiftkit_invoke_action` C trampoline.
+    #
+    # Looks the token up across the relevant typed registries:
+    #   1. The no-arg Proc(Nil) registry (Button taps fire here).
+    #   2. The Float64 registry (Slider/Stepper/Toggle fire here).
+    #
+    # Unknown tokens fall through silently — mirrors the existing
+    # `crystal_ui_*_callback_dispatch` convention so a stale callback
+    # fired by Swift after Crystal teardown does not crash.
+    def self.invoke_swiftkit(token : UInt64, value : Float64) : Nil
+      if box = callbacks[token]?
+        box.callback.call
+      elsif box = float_callbacks[token]?
+        box.callback.call(value)
+      end
     end
 
     # Remove the callback registered under the given ID.

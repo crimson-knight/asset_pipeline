@@ -31,6 +31,13 @@ require "./ui/native/native_view"
 require "./ui/native/objc_collections"
 require "./ui/native/jni_collections"
 
+# SwiftKit bridge (Phase 3: AppKit/UIKit renderers reach SwiftUI defaults
+# through this typed wrapper). Platform-gated to macos/ios; the populator
+# module is unconditional so specs can exercise the default-detection
+# rule without -Dmacos / -Dios.
+require "./ui/native/swiftkit_bridge"
+require "./ui/native/swiftkit_overrides"
+
 # Platform-specific renderers (compile-time gated)
 require "./ui/renderers/appkit_renderer"
 require "./ui/renderers/uikit_renderer"

@@ -28,3 +28,8 @@ samples/cross_platform/macos_host/*.o
 
 # HIG validation history — grows unbounded, regenerates from code
 .claude/skills/apple-platform-guide/validation/history/
+
+# Swift Package Manager build artifacts for AssetPipelineSwiftKit
+swift/AssetPipelineSwiftKit/.build/
+swift/AssetPipelineSwiftKit/.swiftpm/
+swift/AssetPipelineSwiftKit/Package.resolved
