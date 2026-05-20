@@ -94,6 +94,49 @@ module UI::AXTest
       @root.find_by_id!(identifier)
     end
 
+    # --- Focus (A4) ---
+
+    # The currently focused UI element within this app, as reported by
+    # the AXFocusedUIElement attribute on the application root.
+    # Returns nil if no element claims focus or the app does not expose it.
+    def focused_element : Element?
+      attr_cf = LibCF.CFStringCreateWithCString(Pointer(Void).null, "AXFocusedUIElement".to_unsafe, LibCF::CFStringEncodingUTF8)
+      value_ref = Pointer(Void).null
+      err = LibAX.AXUIElementCopyAttributeValue(@root.ref, attr_cf, pointerof(value_ref))
+      LibCF.CFRelease(attr_cf)
+      return nil unless err == LibAX::AXErrorSuccess && !value_ref.null?
+      Element.new(value_ref.as(LibAX::AXUIElementRef))
+    end
+
+    # The system-wide focused UI element (across all apps). Reads
+    # `kAXFocusedUIElement` on the system-wide AXUIElement.
+    def self.system_focused_element : Element?
+      sys = LibAX.AXUIElementCreateSystemWide
+      return nil if sys.null?
+      attr_cf = LibCF.CFStringCreateWithCString(Pointer(Void).null, "AXFocusedUIElement".to_unsafe, LibCF::CFStringEncodingUTF8)
+      value_ref = Pointer(Void).null
+      err = LibAX.AXUIElementCopyAttributeValue(sys, attr_cf, pointerof(value_ref))
+      LibCF.CFRelease(attr_cf)
+      LibCF.CFRelease(sys.as(Void*))
+      return nil unless err == LibAX::AXErrorSuccess && !value_ref.null?
+      Element.new(value_ref.as(LibAX::AXUIElementRef))
+    end
+
+    # --- Window Resize (A5) ---
+
+    # Resize a window of this app, identified by title, to the given
+    # width and height (in screen points). Sets kAXSizeAttribute on the
+    # window's AXUIElement — no AppleScript fallback. Returns true on
+    # success, false if the window was not found or the AX write failed.
+    #
+    # The target app must advertise kAXSizeAttribute as settable on its
+    # windows (most AppKit windows do, unless explicitly fixed-size).
+    def resize_window(title : String, width : Int32, height : Int32, timeout : Float64 = 5.0) : Bool
+      win = window(title, timeout: timeout)
+      return false unless win
+      win.set_size(width.to_f64, height.to_f64)
+    end
+
     # --- Screenshot ---
 
     # Capture a screenshot to the given file path (PNG format).
