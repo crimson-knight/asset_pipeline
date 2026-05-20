@@ -194,6 +194,15 @@ begin
   PAGES.keys.each do |page|
     cases << {name: "#{page}-reflow-320-light", page: page, width: 320, height: 1800, mobile: true, color_scheme: "light", theme: "light", reduce_motion: false}
     cases << {name: "#{page}-reflow-320-dark", page: page, width: 320, height: 1800, mobile: true, color_scheme: "dark", theme: "dark", reduce_motion: false}
+    # Phase 2 cross-platform UI initiative pinned viewport set:
+    # 1280x800, 768x1024, 375x667 (in addition to the 320 reflow above)
+    # in both light and dark to validate fluid resize at every anchor.
+    cases << {name: "#{page}-reflow-375-light", page: page, width: 375, height: 1600, mobile: true, color_scheme: "light", theme: "light", reduce_motion: false}
+    cases << {name: "#{page}-reflow-375-dark", page: page, width: 375, height: 1600, mobile: true, color_scheme: "dark", theme: "dark", reduce_motion: false}
+    cases << {name: "#{page}-reflow-768-light", page: page, width: 768, height: 1400, mobile: false, color_scheme: "light", theme: "light", reduce_motion: false}
+    cases << {name: "#{page}-reflow-768-dark", page: page, width: 768, height: 1400, mobile: false, color_scheme: "dark", theme: "dark", reduce_motion: false}
+    cases << {name: "#{page}-reflow-1280-light", page: page, width: 1280, height: 1200, mobile: false, color_scheme: "light", theme: "light", reduce_motion: false}
+    cases << {name: "#{page}-reflow-1280-dark", page: page, width: 1280, height: 1200, mobile: false, color_scheme: "dark", theme: "dark", reduce_motion: false}
   end
 
   failures = [] of String
