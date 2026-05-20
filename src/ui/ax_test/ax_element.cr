@@ -49,6 +49,12 @@ module UI::AXTest
       read_string_attribute("AXSubrole")
     end
 
+    # The accessibility identifier (set via setAccessibilityIdentifier: in AppKit
+    # / UI::View#test_id in this framework). Stable across locales.
+    def identifier : String?
+      read_string_attribute("AXIdentifier")
+    end
+
     # Whether the element is enabled
     def enabled? : Bool
       read_bool_attribute("AXEnabled") != false
@@ -95,24 +101,39 @@ module UI::AXTest
 
     # Find the first descendant matching the given criteria.
     # Searches breadth-first through the accessibility tree.
-    def find(role : String? = nil, label : String? = nil, title : String? = nil, max_depth : Int32 = 10) : Element?
+    def find(role : String? = nil, label : String? = nil, title : String? = nil, identifier : String? = nil, max_depth : Int32 = 10) : Element?
       return nil if max_depth <= 0
       children.each do |child|
         matches = true
         matches = false if role && child.role != role
         matches = false if label && child.label != label
         matches = false if title && child.title != title
+        matches = false if identifier && child.identifier != identifier
         return child if matches
 
-        if found = child.find(role: role, label: label, title: title, max_depth: max_depth - 1)
+        if found = child.find(role: role, label: label, title: title, identifier: identifier, max_depth: max_depth - 1)
           return found
         end
       end
       nil
     end
 
+    # Find a descendant by accessibility identifier (AXIdentifier).
+    # Returns nil if no match is found. Convenience wrapper around
+    # `find(identifier: ...)` for the common test_id lookup case.
+    def find_by_id(identifier : String, max_depth : Int32 = 10) : Element?
+      find(identifier: identifier, max_depth: max_depth)
+    end
+
+    # Find a descendant by accessibility identifier, raising if not found.
+    def find_by_id!(identifier : String, max_depth : Int32 = 10) : Element
+      el = find_by_id(identifier, max_depth: max_depth)
+      raise "AXTest: no element with AXIdentifier=#{identifier.inspect} found within depth #{max_depth}" unless el
+      el
+    end
+
     # Find ALL descendants matching the given criteria.
-    def find_all(role : String? = nil, label : String? = nil, title : String? = nil, max_depth : Int32 = 10) : Array(Element)
+    def find_all(role : String? = nil, label : String? = nil, title : String? = nil, identifier : String? = nil, max_depth : Int32 = 10) : Array(Element)
       return [] of Element if max_depth <= 0
       results = [] of Element
       children.each do |child|
@@ -120,9 +141,10 @@ module UI::AXTest
         matches = false if role && child.role != role
         matches = false if label && child.label != label
         matches = false if title && child.title != title
+        matches = false if identifier && child.identifier != identifier
         results << child if matches
 
-        results.concat(child.find_all(role: role, label: label, title: title, max_depth: max_depth - 1))
+        results.concat(child.find_all(role: role, label: label, title: title, identifier: identifier, max_depth: max_depth - 1))
       end
       results
     end

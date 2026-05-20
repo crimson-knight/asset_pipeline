@@ -76,12 +76,22 @@ module UI::AXTest
 
     # --- Convenience Queries (search entire app tree) ---
 
-    def find(role : String? = nil, label : String? = nil, title : String? = nil) : Element?
-      @root.find(role: role, label: label, title: title)
+    def find(role : String? = nil, label : String? = nil, title : String? = nil, identifier : String? = nil) : Element?
+      @root.find(role: role, label: label, title: title, identifier: identifier)
     end
 
-    def find_all(role : String? = nil, label : String? = nil, title : String? = nil) : Array(Element)
-      @root.find_all(role: role, label: label, title: title)
+    def find_all(role : String? = nil, label : String? = nil, title : String? = nil, identifier : String? = nil) : Array(Element)
+      @root.find_all(role: role, label: label, title: title, identifier: identifier)
+    end
+
+    # Find a descendant of the app's root by accessibility identifier.
+    def find_by_id(identifier : String) : Element?
+      @root.find_by_id(identifier)
+    end
+
+    # Find a descendant of the app's root by accessibility identifier, raising if not found.
+    def find_by_id!(identifier : String) : Element
+      @root.find_by_id!(identifier)
     end
 
     # --- Screenshot ---
