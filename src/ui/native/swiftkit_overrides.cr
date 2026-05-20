@@ -113,6 +113,23 @@ module UI
         # SF Symbol leading glyph.
         sender.set_string(target, :setSymbolName, view.symbol)
       end
+
+      # Symbol-to-ObjC-selector helper. The Populator emits setter
+      # symbols without a trailing colon (`:setStyle`,
+      # `:setBackgroundColor`) because that's the shape the spec
+      # recording sender asserts against. ObjC selectors for single-
+      # argument setters need the colon; the production
+      # `SwiftKitObjCSender` routes through this helper at the boundary
+      # so the populator contract and the spec recording remain
+      # symmetric.
+      #
+      # Idempotent: passing a Symbol that already ends in `:` returns
+      # its String form unchanged so a future caller that knows the
+      # ObjC convention can pass the canonical Symbol directly.
+      def self.objc_setter_selector(setter : Symbol) : String
+        name = setter.to_s
+        name.ends_with?(':') ? name : "#{name}:"
+      end
     end
 
     # ---------------------------------------------------------------------
@@ -142,21 +159,10 @@ module UI
         def initialize(@overrides_ptr : Void*)
         end
 
-        # The Populator emits setter names without a trailing colon
-        # (`:setBackgroundColor`, `:setStyle`, ...) — the recording
-        # spec sender asserts against that exact shape. ObjC selectors
-        # for single-argument setters need the colon, so we append it
-        # at the boundary so the populator contract and the spec
-        # recording remain symmetric.
-        private def objc_selector(setter : Symbol) : String
-          name = setter.to_s
-          name.ends_with?(':') ? name : "#{name}:"
-        end
-
         def set_color(target : String, setter : Symbol, color : UI::Color?)
           return if color.nil?
           LibSwiftKitBridge.apsk_overrides_set_color(
-            @overrides_ptr, objc_selector(setter).to_unsafe,
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe,
             color.r, color.g, color.b, color.a,
           )
         end
@@ -164,21 +170,21 @@ module UI
         def set_number(target : String, setter : Symbol, value : Float64?)
           return if value.nil?
           LibSwiftKitBridge.apsk_overrides_set_number(
-            @overrides_ptr, objc_selector(setter).to_unsafe, value,
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe, value,
           )
         end
 
         def set_bool(target : String, setter : Symbol, value : Bool?)
           return if value.nil?
           LibSwiftKitBridge.apsk_overrides_set_bool(
-            @overrides_ptr, objc_selector(setter).to_unsafe, value ? 1 : 0,
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe, value ? 1 : 0,
           )
         end
 
         def set_string(target : String, setter : Symbol, value : String?)
           return if value.nil?
           LibSwiftKitBridge.apsk_overrides_set_string(
-            @overrides_ptr, objc_selector(setter).to_unsafe, value.to_unsafe,
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe, value.to_unsafe,
           )
         end
       end
