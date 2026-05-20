@@ -196,23 +196,14 @@ module Components
               end
               str << "  }\n"
               str << "\n"
-              str << "  [data-amber-theme=\"light\"] {\n"
-              light_tokens.each_line do |line|
-                str << "    " << line << "\n" unless line.empty?
-              end
-              str << "  }\n"
-              str << "\n"
               str << "  [data-ap-theme=\"dark\"] {\n"
               dark_tokens.each_line do |line|
                 str << "    " << line << "\n" unless line.empty?
               end
               str << "  }\n"
-              str << "\n"
-              str << "  [data-amber-theme=\"dark\"] {\n"
-              dark_tokens.each_line do |line|
-                str << "    " << line << "\n" unless line.empty?
-              end
-              str << "  }\n"
+              # `[data-amber-theme=...]` aliases were removed in Phase 1 of the
+              # cross-platform UI initiative; the canonical attribute selector
+              # is `[data-ap-theme]` exclusively.
             end
             str << "}\n\n"
 

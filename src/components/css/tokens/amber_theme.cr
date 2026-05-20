@@ -1,3 +1,5 @@
+require "../../../ui/design_tokens"
+
 module Components
   module CSS
     module Tokens
@@ -87,30 +89,48 @@ module Components
           @dark_overrides = {} of String => String
         end
 
+        # Builds the legacy light/dark hash from the canonical
+        # `UI::DesignTokens::Tokens.default` palette. Keys that the new
+        # model owns are derived here; keys that remain web-specific
+        # (success-bg-hover variants, focus-ring-solid, state-*) keep their
+        # literal values below so existing call sites and downstream
+        # stylesheets don't regress.
+        #
+        # A brand override on `UI::DesignTokens::Tokens` cascades through
+        # this method because we read the active model at call time, not
+        # at class-load time. Phase 1's WebGenerator is the preferred
+        # cascade path; this method exists for backward compatibility with
+        # consumers of the legacy `Components::CSS::Tokens::Theme` shape.
         def self.amber_default : Theme
+          tokens = UI::DesignTokens::Tokens.default
+          unified_light = tokens.colors_light.to_h
+          unified_dark = tokens.colors_dark.to_h
+          oklch_light = ->(key : String) { unified_light[key].to_oklch_css }
+          oklch_dark = ->(key : String) { unified_dark[key].to_oklch_css }
+
           light = {
-            "brand-primary"        => "oklch(0.52 0.16 50)",
-            "brand-secondary"      => "oklch(0.47 0.15 265)",
-            "brand-accent"         => "oklch(0.73 0.15 190)",
-            "brand-primary-hover"  => "oklch(0.47 0.17 48)",
-            "brand-primary-active" => "oklch(0.4 0.15 46)",
+            "brand-primary"        => oklch_light.call("brand-primary"),
+            "brand-secondary"      => oklch_light.call("brand-secondary"),
+            "brand-accent"         => oklch_light.call("brand-accent"),
+            "brand-primary-hover"  => oklch_light.call("brand-primary-hover"),
+            "brand-primary-active" => oklch_light.call("brand-primary-active"),
 
-            "surface-canvas"   => "oklch(0.985 0.009 82)",
-            "surface-panel"    => "oklch(1 0 0)",
-            "surface-elevated" => "oklch(0.995 0.003 80)",
-            "surface-sunken"   => "oklch(0.955 0.011 79)",
-            "surface-inverse"  => "oklch(0.18 0.018 248)",
+            "surface-canvas"   => oklch_light.call("surface-canvas"),
+            "surface-panel"    => oklch_light.call("surface-panel"),
+            "surface-elevated" => oklch_light.call("surface-elevated"),
+            "surface-sunken"   => oklch_light.call("surface-sunken"),
+            "surface-inverse"  => oklch_light.call("surface-inverse"),
 
-            "text-primary"   => "oklch(0.18 0.018 248)",
-            "text-secondary" => "oklch(0.38 0.028 248)",
-            "text-muted"     => "oklch(0.52 0.025 248)",
-            "text-inverse"   => "oklch(0.99 0.003 80)",
-            "text-link"      => "oklch(0.5 0.13 235)",
+            "text-primary"   => oklch_light.call("text-primary"),
+            "text-secondary" => oklch_light.call("text-secondary"),
+            "text-muted"     => oklch_light.call("text-muted"),
+            "text-inverse"   => oklch_light.call("text-inverse"),
+            "text-link"      => oklch_light.call("text-link"),
 
-            "border-subtle"    => "oklch(0.91 0.014 82)",
-            "border-default"   => "oklch(0.82 0.021 82)",
-            "border-strong"    => "oklch(0.62 0.04 75)",
-            "border-focus"     => "oklch(0.66 0.15 50 / 0.58)",
+            "border-subtle"    => oklch_light.call("border-subtle"),
+            "border-default"   => oklch_light.call("border-default"),
+            "border-strong"    => oklch_light.call("border-strong"),
+            "border-focus"     => oklch_light.call("border-focus"),
             "focus-ring-solid" => "rgb(12 112 214)",
 
             "success-indicator"  => "oklch(0.47 0.12 155)",
@@ -150,28 +170,28 @@ module Components
           }
 
           dark = {
-            "brand-primary"        => "oklch(0.78 0.17 58)",
-            "brand-secondary"      => "oklch(0.75 0.12 265)",
-            "brand-accent"         => "oklch(0.8 0.14 190)",
-            "brand-primary-hover"  => "oklch(0.84 0.15 60)",
-            "brand-primary-active" => "oklch(0.7 0.18 54)",
+            "brand-primary"        => oklch_dark.call("brand-primary"),
+            "brand-secondary"      => oklch_dark.call("brand-secondary"),
+            "brand-accent"         => oklch_dark.call("brand-accent"),
+            "brand-primary-hover"  => oklch_dark.call("brand-primary-hover"),
+            "brand-primary-active" => oklch_dark.call("brand-primary-active"),
 
-            "surface-canvas"   => "oklch(0.15 0.025 260)",
-            "surface-panel"    => "oklch(0.2 0.024 260)",
-            "surface-elevated" => "oklch(0.25 0.028 260)",
-            "surface-sunken"   => "oklch(0.12 0.022 260)",
-            "surface-inverse"  => "oklch(0.95 0.006 80)",
+            "surface-canvas"   => oklch_dark.call("surface-canvas"),
+            "surface-panel"    => oklch_dark.call("surface-panel"),
+            "surface-elevated" => oklch_dark.call("surface-elevated"),
+            "surface-sunken"   => oklch_dark.call("surface-sunken"),
+            "surface-inverse"  => oklch_dark.call("surface-inverse"),
 
-            "text-primary"   => "oklch(0.95 0.006 80)",
-            "text-secondary" => "oklch(0.78 0.015 85)",
-            "text-muted"     => "oklch(0.65 0.018 85)",
-            "text-inverse"   => "oklch(0.18 0.018 248)",
-            "text-link"      => "oklch(0.77 0.1 225)",
+            "text-primary"   => oklch_dark.call("text-primary"),
+            "text-secondary" => oklch_dark.call("text-secondary"),
+            "text-muted"     => oklch_dark.call("text-muted"),
+            "text-inverse"   => oklch_dark.call("text-inverse"),
+            "text-link"      => oklch_dark.call("text-link"),
 
-            "border-subtle"    => "oklch(0.31 0.02 248)",
-            "border-default"   => "oklch(0.38 0.025 248)",
-            "border-strong"    => "oklch(0.52 0.03 248)",
-            "border-focus"     => "oklch(0.75 0.14 58 / 0.62)",
+            "border-subtle"    => oklch_dark.call("border-subtle"),
+            "border-default"   => oklch_dark.call("border-default"),
+            "border-strong"    => oklch_dark.call("border-strong"),
+            "border-focus"     => oklch_dark.call("border-focus"),
             "focus-ring-solid" => "rgb(132 184 255)",
 
             "success-indicator"  => "oklch(0.72 0.14 153)",
@@ -235,26 +255,30 @@ module Components
             "info"    => semantic_from(light, "info"),
           }
 
+          # Typography/motion read through the unified DesignTokens model so
+          # a brand override there cascades into this legacy bag. The two
+          # `paragraph_*` and `distance_subtle` fields are web-only and have
+          # no equivalent in the unified TypeScale; they remain literal here.
           typography = TypographyScale.new(
-            sans: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
-            display: "Newsreader, Georgia, ui-serif, serif",
-            mono: "ui-monospace, SFMono-Regular, \"SF Mono\", Consolas, monospace",
-            body_size: "1rem",
-            body_line_height: "1.55",
+            sans: tokens.type.family_sans,
+            display: tokens.type.family_display,
+            mono: tokens.type.family_mono,
+            body_size: rem_string(tokens.type.body.size),
+            body_line_height: line_height_string(tokens.type.body.line_height),
             paragraph_size: "1.03125rem",
             paragraph_line_height: "1.72",
-            heading_weight: "720",
-            body_weight: "450",
+            heading_weight: tokens.type.headline.weight.to_s,
+            body_weight: tokens.type.body.weight.to_s,
           )
 
           motion = MotionScale.new(
-            duration_instant: "80ms",
-            duration_fast: "150ms",
-            duration_base: "240ms",
-            duration_slow: "420ms",
-            ease_standard: "cubic-bezier(0.2, 0, 0, 1)",
-            ease_emphasized: "cubic-bezier(0.16, 1, 0.3, 1)",
-            spring: "linear(0, 0.35 25%, 1.08 70%, 1)",
+            duration_instant: "#{tokens.motion.duration_instant_ms}ms",
+            duration_fast: "#{tokens.motion.duration_fast_ms}ms",
+            duration_base: "#{tokens.motion.duration_base_ms}ms",
+            duration_slow: "#{tokens.motion.duration_slow_ms}ms",
+            ease_standard: tokens.motion.ease_standard,
+            ease_emphasized: tokens.motion.ease_emphasized,
+            spring: tokens.motion.spring,
             distance_subtle: "0.375rem",
           )
 
@@ -354,6 +378,24 @@ module Components
           end
         end
 
+        private def self.rem_string(value : Float64) : String
+          return "0rem" if value == 0.0
+          if value == value.to_i.to_f
+            "#{value.to_i}rem"
+          else
+            s = ("%.6f" % value).rstrip('0').rstrip('.')
+            "#{s.empty? ? "0" : s}rem"
+          end
+        end
+
+        private def self.line_height_string(value : Float64) : String
+          if value == value.to_i.to_f
+            value.to_i.to_s
+          else
+            ("%.6f" % value).rstrip('0').rstrip('.')
+          end
+        end
+
         private def self.semantic_from(values : Hash(String, String), name : String) : SemanticColor
           SemanticColor.new(
             indicator: values["#{name}-indicator"],
@@ -365,10 +407,16 @@ module Components
           )
         end
 
+        # Emits only the canonical `--ap-*` variable. The `--amber-*` alias
+        # block was dropped wholesale in Phase 1 of the cross-platform UI
+        # initiative — see implementation.md §4.1 and the Architect's tolerance
+        # call in `docs/initiative-cross-platform-ui/handoff/phase-01-architect-scope-deferral-2026-05-20.md`.
+        # Any downstream stylesheet that referenced `--amber-color-*` must be
+        # migrated to `--ap-color-*` (and any nested `var(--amber-...)` inside
+        # token values is rewritten to `var(--ap-...)` here on the way out).
         private def add_design_system_variable(vars : Hash(String, String), name : String, value : String) : Nil
           generic_name = "--ap-#{name}"
           vars[generic_name] = value.gsub("--amber-", "--ap-")
-          vars["--amber-#{name}"] = "var(#{generic_name})"
         end
       end
     end

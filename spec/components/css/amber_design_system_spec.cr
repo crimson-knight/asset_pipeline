@@ -30,7 +30,7 @@ describe "Semantic design-system tokens" do
     generic.to_css_variables(:dark).should eq(compatibility.to_css_variables(:dark))
   end
 
-  it "emits generic light and dark CSS custom properties with compatibility aliases" do
+  it "emits generic light and dark CSS custom properties (no --amber-* aliases)" do
     theme = Components::CSS::Tokens::Theme.design_system_default
 
     light = theme.to_css_variables(:light)
@@ -39,10 +39,12 @@ describe "Semantic design-system tokens" do
     light.should contain("--ap-color-brand-primary:")
     light.should contain("--ap-color-danger-bg:")
     light.should contain("--ap-font-sans:")
-    light.should contain("--amber-color-brand-primary: var(--ap-color-brand-primary);")
+    # Phase 1 of the cross-platform UI initiative dropped the `--amber-*`
+    # alias block wholesale — only `--ap-*` is canonical.
+    light.includes?("--amber-color-brand-primary:").should be_false
     dark.should contain("--ap-color-surface-canvas:")
     dark.should contain("--ap-color-danger-bg:")
-    dark.should contain("--amber-color-danger-bg: var(--ap-color-danger-bg);")
+    dark.includes?("--amber-").should be_false
     dark.should_not eq(light)
   end
 
@@ -51,9 +53,9 @@ describe "Semantic design-system tokens" do
     theme.override_token("brand-primary", "oklch(0.7 0.2 60)", "oklch(0.78 0.18 60)")
 
     theme.to_css_variables(:light).should contain("--ap-color-brand-primary: oklch(0.7 0.2 60);")
-    theme.to_css_variables(:light).should contain("--amber-color-brand-primary: var(--ap-color-brand-primary);")
     theme.to_css_variables(:dark).should contain("--ap-color-brand-primary: oklch(0.78 0.18 60);")
-    theme.to_css_variables(:dark).should contain("--amber-color-brand-primary: var(--ap-color-brand-primary);")
+    # No --amber-* alias is emitted alongside the override.
+    theme.to_css_variables(:light).includes?("--amber-color-brand-primary:").should be_false
   end
 
   it "adds semantic utility colors to config" do
@@ -99,12 +101,14 @@ describe "Semantic design-system tokens" do
     css = Components::CSS::Engine::Generator.new(Components::CSS::Config.new).generate
 
     css.should contain("--ap-color-brand-primary:")
-    css.should contain("--amber-color-brand-primary: var(--ap-color-brand-primary);")
+    # `--amber-*` aliases and `[data-amber-theme]` selectors were dropped in
+    # Phase 1 of the cross-platform UI initiative.
+    css.includes?("--amber-color-brand-primary:").should be_false
     css.should contain("@media (prefers-color-scheme: dark)")
     css.should contain("[data-ap-theme=\"light\"]")
     css.should contain("[data-ap-theme=\"dark\"]")
-    css.should contain("[data-amber-theme=\"light\"]")
-    css.should contain("[data-amber-theme=\"dark\"]")
+    css.includes?("[data-amber-theme=\"light\"]").should be_false
+    css.includes?("[data-amber-theme=\"dark\"]").should be_false
     css.should contain(".bg-danger-subtle")
     css.should contain("background-color: var(--ap-color-danger-bg, var(--amber-color-danger-bg));")
     css.should contain("border-color: var(--ap-color-danger-indicator, var(--amber-color-danger-indicator));")

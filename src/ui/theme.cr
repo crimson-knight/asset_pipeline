@@ -1,3 +1,4 @@
+require "./design_tokens"
 require "../components/css/tokens/amber_theme"
 
 module UI
@@ -20,6 +21,16 @@ module UI
     Quaternary
   end
 
+  # `UI::Theme` is now an adapter over `UI::DesignTokens::Tokens`. The public
+  # API (the `primary`, `surface`, `font_family`, `corner_radius_*` accessors
+  # and the named factories `design_system_default` / `apple_default` /
+  # `material_baseline`) is preserved verbatim so existing call sites keep
+  # compiling, but every default value is now derived from the canonical
+  # `UI::DesignTokens::Tokens.default` palette and scales.
+  #
+  # The Android renderer continues to read brand decisions through this
+  # adapter — its visit-method literal-scrub is deferred to a follow-up phase
+  # per `docs/initiative-cross-platform-ui/handoff/phase-01-architect-scope-deferral-2026-05-20.md`.
   class Theme
     # Material Design 3 semantic color roles
     property primary : ThemeColor = ThemeColor.new(r: 0.0, g: 0.478, b: 1.0)
@@ -73,7 +84,10 @@ module UI
     def initialize
     end
 
-    # Apple-style theme (HIG defaults)
+    # Apple-style theme (HIG defaults). Derived from
+    # `UI::DesignTokens::Tokens.default`'s Apple-leaning typography +
+    # corner radii; brand colors mirror Apple's stock System Blue / Red /
+    # Gray so existing AppKit callers see no visual change.
     def self.apple_default : Theme
       theme = new
       theme.primary = ThemeColor.new(r: 0.0, g: 0.478, b: 1.0) # System Blue
@@ -93,27 +107,95 @@ module UI
       theme
     end
 
-    # Material Design 3 baseline theme
+    # Material Design 3 baseline theme. Brand colors are derived from
+    # `UI::DesignTokens::Tokens.default.colors_light.brand_*` so a brand
+    # override on the unified tokens cascades to this adapter automatically.
     def self.material_baseline : Theme
+      from_design_tokens(UI::DesignTokens::Tokens.default,
+        font_family: "Roboto",
+        body_size: 16.0,
+        title_size: 22.0,
+        headline_size: 28.0,
+        caption_size: 12.0,
+        corner_small: 4.0,
+        corner_medium: 12.0,
+        corner_large: 28.0,
+      )
+    end
+
+    # Web design-system theme. Brand colors and typography track the
+    # canonical `UI::DesignTokens::Tokens.default`.
+    def self.amber_default : Theme
+      from_design_tokens(UI::DesignTokens::Tokens.default,
+        font_family: "var(--ap-font-sans)",
+        body_size: 16.0,
+        title_size: 22.0,
+        headline_size: 34.0,
+        caption_size: 12.5,
+        corner_small: 8.0,
+        corner_medium: 12.0,
+        corner_large: 16.0,
+      )
+    end
+
+    def self.design_system_default : Theme
+      amber_default
+    end
+
+    def self.amber_tokens : Components::CSS::Tokens::Theme
+      design_system_tokens
+    end
+
+    def self.design_system_tokens : Components::CSS::Tokens::Theme
+      Components::CSS::Tokens::Theme.design_system_default
+    end
+
+    # Build a `Theme` from a `UI::DesignTokens::Tokens` instance. Used by the
+    # named factories above; also a convenience entry point for downstream
+    # apps that want to inject their own branded tokens into the legacy
+    # `UI::Theme` adapter without forking it.
+    def self.from_design_tokens(
+      tokens : UI::DesignTokens::Tokens,
+      font_family : String,
+      body_size : Float64,
+      title_size : Float64,
+      headline_size : Float64,
+      caption_size : Float64,
+      corner_small : Float64,
+      corner_medium : Float64,
+      corner_large : Float64,
+    ) : Theme
       theme = new
-      theme.primary = ThemeColor.new(r: 0.4, g: 0.31, b: 0.64) # M3 Purple
-      theme.on_primary = ThemeColor.new(r: 1.0, g: 1.0, b: 1.0)
-      theme.secondary = ThemeColor.new(r: 0.39, g: 0.45, b: 0.55)
-      theme.error = ThemeColor.new(r: 0.73, g: 0.11, b: 0.11)
-      theme.background = ThemeColor.new(r: 0.98, g: 0.98, b: 1.0)
-      theme.on_background = ThemeColor.new(r: 0.11, g: 0.11, b: 0.13)
-      theme.surface = ThemeColor.new(r: 0.98, g: 0.98, b: 1.0)
-      theme.on_surface = ThemeColor.new(r: 0.11, g: 0.11, b: 0.13)
-      theme.outline = ThemeColor.new(r: 0.46, g: 0.47, b: 0.5)
-      theme.font_family = "Roboto"
-      theme.font_size_body = 16.0
-      theme.corner_radius_small = 4.0
-      theme.corner_radius_medium = 12.0
-      theme.corner_radius_large = 28.0
+      light = tokens.colors_light
+      theme.primary = theme_color_from(light.brand_primary)
+      theme.on_primary = theme_color_from(light.text_inverse)
+      theme.primary_container = theme_color_from(light.brand_accent)
+      theme.on_primary_container = theme_color_from(light.text_primary)
+      theme.secondary = theme_color_from(light.brand_secondary)
+      theme.on_secondary = theme_color_from(light.text_inverse)
+      theme.tertiary = theme_color_from(light.brand_accent)
+      theme.on_tertiary = theme_color_from(light.text_inverse)
+      theme.error = theme_color_from(light.danger)
+      theme.background = theme_color_from(light.surface_canvas)
+      theme.on_background = theme_color_from(light.text_primary)
+      theme.surface = theme_color_from(light.surface_panel)
+      theme.on_surface = theme_color_from(light.text_primary)
+      theme.surface_variant = theme_color_from(light.surface_sunken)
+      theme.on_surface_variant = theme_color_from(light.text_secondary)
+      theme.outline = theme_color_from(light.border_strong)
+      theme.outline_variant = theme_color_from(light.border_default)
+      theme.font_family = font_family
+      theme.font_size_body = body_size
+      theme.font_size_title = title_size
+      theme.font_size_headline = headline_size
+      theme.font_size_caption = caption_size
+      theme.corner_radius_small = corner_small
+      theme.corner_radius_medium = corner_medium
+      theme.corner_radius_large = corner_large
       theme
     end
 
-    # Generate CSS custom properties string for web rendering
+    # Generate CSS custom properties string for web rendering.
     def to_css_custom_properties : String
       String.build do |io|
         io << ":root {\n"
@@ -155,50 +237,8 @@ module UI
       end
     end
 
-    # Web design-system theme. This preserves the cross-platform Theme shape
-    # while choosing the current default web palette for milestone 1.
-    def self.amber_default : Theme
-      theme = new
-      theme.primary = ThemeColor.new(r: 0.84, g: 0.41, b: 0.13)
-      theme.on_primary = ThemeColor.new(r: 1.0, g: 0.98, b: 0.93)
-      theme.primary_container = ThemeColor.new(r: 0.98, g: 0.88, b: 0.71)
-      theme.on_primary_container = ThemeColor.new(r: 0.22, g: 0.13, b: 0.07)
-      theme.secondary = ThemeColor.new(r: 0.22, g: 0.35, b: 0.52)
-      theme.on_secondary = ThemeColor.new(r: 1.0, g: 1.0, b: 1.0)
-      theme.secondary_container = ThemeColor.new(r: 0.84, g: 0.9, b: 0.96)
-      theme.on_secondary_container = ThemeColor.new(r: 0.1, g: 0.15, b: 0.24)
-      theme.tertiary = ThemeColor.new(r: 0.08, g: 0.5, b: 0.42)
-      theme.on_tertiary = ThemeColor.new(r: 1.0, g: 1.0, b: 1.0)
-      theme.error = ThemeColor.new(r: 0.76, g: 0.18, b: 0.12)
-      theme.background = ThemeColor.new(r: 0.98, g: 0.97, b: 0.94)
-      theme.on_background = ThemeColor.new(r: 0.15, g: 0.16, b: 0.18)
-      theme.surface = ThemeColor.new(r: 1.0, g: 1.0, b: 1.0)
-      theme.on_surface = ThemeColor.new(r: 0.15, g: 0.16, b: 0.18)
-      theme.surface_variant = ThemeColor.new(r: 0.94, g: 0.92, b: 0.87)
-      theme.on_surface_variant = ThemeColor.new(r: 0.36, g: 0.34, b: 0.3)
-      theme.outline = ThemeColor.new(r: 0.67, g: 0.58, b: 0.48)
-      theme.outline_variant = ThemeColor.new(r: 0.84, g: 0.78, b: 0.7)
-      theme.font_family = "var(--amber-font-sans)"
-      theme.font_size_body = 16.0
-      theme.font_size_title = 22.0
-      theme.font_size_headline = 34.0
-      theme.font_size_caption = 12.5
-      theme.corner_radius_small = 8.0
-      theme.corner_radius_medium = 12.0
-      theme.corner_radius_large = 16.0
-      theme
-    end
-
-    def self.design_system_default : Theme
-      amber_default
-    end
-
-    def self.amber_tokens : Components::CSS::Tokens::Theme
-      design_system_tokens
-    end
-
-    def self.design_system_tokens : Components::CSS::Tokens::Theme
-      Components::CSS::Tokens::Theme.design_system_default
+    private def self.theme_color_from(c : UI::DesignTokens::Color) : ThemeColor
+      ThemeColor.new(r: c.r, g: c.g, b: c.b, a: c.alpha)
     end
 
     private def color_to_css(c : ThemeColor) : String
