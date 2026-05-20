@@ -22,5 +22,9 @@ samples/cross_platform/macos_host/*.o
 # Visual-regression baselines — large binary tree managed out-of-band
 /test-results/
 
+# Web design-system phase-N snapshot backups — regenerable, unbounded growth
+/output/web-design-system-before-phase*/
+/output/web-design-system-phase*-first/
+
 # HIG validation history — grows unbounded, regenerates from code
 .claude/skills/apple-platform-guide/validation/history/

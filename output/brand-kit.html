@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Amber V2 — Brand Kit &amp; Accessibility Showcase</title>
+  <title>Asset Pipeline Design System — Brand Kit &amp; Accessibility Showcase</title>
   <style>
 @layer reset, tokens, base, components, utilities;
 
@@ -21,7 +21,7 @@ html {
   -webkit-text-size-adjust: 100%;
   -moz-tab-size: 4;
   tab-size: 4;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family: var(--amber-font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 body {
@@ -54,7 +54,7 @@ b, strong {
 }
 
 code, kbd, samp, pre {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-family: var(--amber-font-mono), ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, Courier, monospace;
   font-size: 1em;
 }
 
@@ -239,6 +239,50 @@ img, video {
     --color-green-800: oklch(0.448 0.119 151.328);
     --color-green-900: oklch(0.393 0.095 152.535);
     --color-green-950: oklch(0.266 0.065 152.934);
+    --color-brand-primary: var(--amber-color-brand-primary);
+    --color-brand-secondary: var(--amber-color-brand-secondary);
+    --color-brand-accent: var(--amber-color-brand-accent);
+    --color-brand-hover: var(--amber-color-brand-primary-hover);
+    --color-brand-active: var(--amber-color-brand-primary-active);
+    --color-surface-canvas: var(--amber-color-surface-canvas);
+    --color-surface-panel: var(--amber-color-surface-panel);
+    --color-surface-elevated: var(--amber-color-surface-elevated);
+    --color-surface-sunken: var(--amber-color-surface-sunken);
+    --color-success-indicator: var(--amber-color-success-indicator);
+    --color-success-subtle: var(--amber-color-success-bg);
+    --color-success-hover: var(--amber-color-success-bg-hover);
+    --color-success-border: var(--amber-color-success-border);
+    --color-success-strong: var(--amber-color-success-indicator);
+    --color-success-text: var(--amber-color-success-text);
+    --color-success-focus: var(--amber-color-success-focus-ring);
+    --color-warning-indicator: var(--amber-color-warning-indicator);
+    --color-warning-subtle: var(--amber-color-warning-bg);
+    --color-warning-hover: var(--amber-color-warning-bg-hover);
+    --color-warning-border: var(--amber-color-warning-border);
+    --color-warning-strong: var(--amber-color-warning-indicator);
+    --color-warning-text: var(--amber-color-warning-text);
+    --color-warning-focus: var(--amber-color-warning-focus-ring);
+    --color-danger-indicator: var(--amber-color-danger-indicator);
+    --color-danger-subtle: var(--amber-color-danger-bg);
+    --color-danger-hover: var(--amber-color-danger-bg-hover);
+    --color-danger-border: var(--amber-color-danger-border);
+    --color-danger-strong: var(--amber-color-danger-indicator);
+    --color-danger-text: var(--amber-color-danger-text);
+    --color-danger-focus: var(--amber-color-danger-focus-ring);
+    --color-info-indicator: var(--amber-color-info-indicator);
+    --color-info-subtle: var(--amber-color-info-bg);
+    --color-info-hover: var(--amber-color-info-bg-hover);
+    --color-info-border: var(--amber-color-info-border);
+    --color-info-strong: var(--amber-color-info-indicator);
+    --color-info-text: var(--amber-color-info-text);
+    --color-info-focus: var(--amber-color-info-focus-ring);
+    --color-primary: var(--amber-color-text-primary);
+    --color-secondary: var(--amber-color-text-secondary);
+    --color-muted: var(--amber-color-text-muted);
+    --color-inverse: var(--amber-color-text-inverse);
+    --color-link: var(--amber-color-text-link);
+    --color-focus: var(--amber-color-border-focus);
+    --color-border: var(--amber-color-border-default);
     --spacing-px: 1px;
     --spacing-0: 0px;
     --spacing-0.5: 0.125rem;
@@ -274,9 +318,10 @@ img, video {
     --spacing-72: 18rem;
     --spacing-80: 20rem;
     --spacing-96: 24rem;
-    --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-sans: var(--amber-font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: var(--amber-font-display), Georgia, ui-serif, serif;
     --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    --font-mono: var(--amber-font-mono), ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, Courier, monospace;
     --font-size-xs: 0.75rem;
     --font-size-sm: 0.875rem;
     --font-size-base: 1rem;
@@ -304,12 +349,12 @@ img, video {
     --line-height-8: 2rem;
     --line-height-9: 2.25rem;
     --line-height-10: 2.5rem;
-    --letter-spacing-tighter: -0.05em;
-    --letter-spacing-tight: -0.025em;
+    --letter-spacing-tighter: 0em;
+    --letter-spacing-tight: 0em;
     --letter-spacing-normal: 0em;
-    --letter-spacing-wide: 0.025em;
-    --letter-spacing-wider: 0.05em;
-    --letter-spacing-widest: 0.1em;
+    --letter-spacing-wide: 0em;
+    --letter-spacing-wider: 0em;
+    --letter-spacing-widest: 0em;
     --radius-none: 0px;
     --radius-sm: 0.125rem;
     --radius: 0.25rem;
@@ -356,14 +401,953 @@ img, video {
     --opacity-90: 0.9;
     --opacity-95: 0.95;
     --opacity-100: 1;
+    --amber-color-brand-primary: oklch(0.52 0.16 50);
+    --amber-color-brand-secondary: oklch(0.47 0.15 265);
+    --amber-color-brand-accent: oklch(0.73 0.15 190);
+    --amber-color-brand-primary-hover: oklch(0.47 0.17 48);
+    --amber-color-brand-primary-active: oklch(0.4 0.15 46);
+    --amber-color-surface-canvas: oklch(0.985 0.009 82);
+    --amber-color-surface-panel: oklch(1 0 0);
+    --amber-color-surface-elevated: oklch(0.995 0.003 80);
+    --amber-color-surface-sunken: oklch(0.955 0.011 79);
+    --amber-color-surface-inverse: oklch(0.18 0.018 248);
+    --amber-color-text-primary: oklch(0.18 0.018 248);
+    --amber-color-text-secondary: oklch(0.38 0.028 248);
+    --amber-color-text-muted: oklch(0.52 0.025 248);
+    --amber-color-text-inverse: oklch(0.99 0.003 80);
+    --amber-color-text-link: oklch(0.5 0.13 235);
+    --amber-color-border-subtle: oklch(0.91 0.014 82);
+    --amber-color-border-default: oklch(0.82 0.021 82);
+    --amber-color-border-strong: oklch(0.62 0.04 75);
+    --amber-color-border-focus: oklch(0.66 0.15 50 / 0.58);
+    --amber-color-focus-ring-solid: rgb(12 112 214);
+    --amber-color-success-indicator: oklch(0.47 0.12 155);
+    --amber-color-success-bg: oklch(0.95 0.035 153);
+    --amber-color-success-bg-hover: oklch(0.9 0.06 153);
+    --amber-color-success-border: oklch(0.73 0.09 153);
+    --amber-color-success-text: oklch(0.31 0.09 153);
+    --amber-color-success-focus-ring: oklch(0.67 0.13 153 / 0.45);
+    --amber-color-warning-indicator: oklch(0.58 0.15 75);
+    --amber-color-warning-bg: oklch(0.96 0.052 82);
+    --amber-color-warning-bg-hover: oklch(0.91 0.08 82);
+    --amber-color-warning-border: oklch(0.75 0.12 78);
+    --amber-color-warning-text: oklch(0.36 0.09 70);
+    --amber-color-warning-focus-ring: oklch(0.72 0.12 78 / 0.45);
+    --amber-color-danger-indicator: oklch(0.45 0.18 28);
+    --amber-color-danger-bg: oklch(0.96 0.025 28);
+    --amber-color-danger-bg-hover: oklch(0.9 0.055 28);
+    --amber-color-danger-border: oklch(0.75 0.12 28);
+    --amber-color-danger-text: oklch(0.36 0.15 28);
+    --amber-color-danger-focus-ring: oklch(0.64 0.17 28 / 0.45);
+    --amber-color-info-indicator: oklch(0.48 0.13 235);
+    --amber-color-info-bg: oklch(0.95 0.03 235);
+    --amber-color-info-bg-hover: oklch(0.9 0.055 235);
+    --amber-color-info-border: oklch(0.72 0.09 235);
+    --amber-color-info-text: oklch(0.34 0.1 235);
+    --amber-color-info-focus-ring: oklch(0.62 0.14 235 / 0.45);
+    --amber-color-state-default: var(--amber-color-surface-panel);
+    --amber-color-state-hover: oklch(0.96 0.014 78);
+    --amber-color-state-active: oklch(0.91 0.028 74);
+    --amber-color-state-selected: oklch(0.92 0.07 58);
+    --amber-color-state-disabled: oklch(0.9 0.006 248 / 0.68);
+    --amber-color-state-loading: oklch(0.93 0.018 235);
+    --amber-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --amber-font-display: Newsreader, Georgia, ui-serif, serif;
+    --amber-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+    --amber-type-body-size: 1rem;
+    --amber-type-body-line-height: 1.55;
+    --amber-type-paragraph-size: 1.03125rem;
+    --amber-type-paragraph-line-height: 1.72;
+    --amber-type-heading-weight: 720;
+    --amber-type-body-weight: 450;
+    --amber-motion-duration-instant: 80ms;
+    --amber-motion-duration-fast: 150ms;
+    --amber-motion-duration-base: 240ms;
+    --amber-motion-duration-slow: 420ms;
+    --amber-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --amber-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+    --amber-motion-spring: linear(0, 0.35 25%, 1.08 70%, 1);
+    --amber-motion-distance-subtle: 0.375rem;
+    --amber-elevation-flat: none;
+    --amber-elevation-raised: 0 1px 2px oklch(0 0 0 / 0.08), 0 8px 24px oklch(0.18 0.02 248 / 0.08);
+    --amber-elevation-floating: 0 16px 42px oklch(0.18 0.02 248 / 0.16);
+    --amber-elevation-overlay: 0 24px 80px oklch(0.18 0.02 248 / 0.22);
+    --amber-radius-control: 0.5rem;
+    --amber-radius-card: 0.5rem;
+    --amber-radius-panel: 0.75rem;
+    --amber-radius-pill: 999px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --amber-color-brand-primary: oklch(0.78 0.17 58);
+      --amber-color-brand-secondary: oklch(0.75 0.12 265);
+      --amber-color-brand-accent: oklch(0.8 0.14 190);
+      --amber-color-brand-primary-hover: oklch(0.84 0.15 60);
+      --amber-color-brand-primary-active: oklch(0.7 0.18 54);
+      --amber-color-surface-canvas: oklch(0.15 0.025 260);
+      --amber-color-surface-panel: oklch(0.2 0.024 260);
+      --amber-color-surface-elevated: oklch(0.25 0.028 260);
+      --amber-color-surface-sunken: oklch(0.12 0.022 260);
+      --amber-color-surface-inverse: oklch(0.95 0.006 80);
+      --amber-color-text-primary: oklch(0.95 0.006 80);
+      --amber-color-text-secondary: oklch(0.78 0.015 85);
+      --amber-color-text-muted: oklch(0.65 0.018 85);
+      --amber-color-text-inverse: oklch(0.18 0.018 248);
+      --amber-color-text-link: oklch(0.77 0.1 225);
+      --amber-color-border-subtle: oklch(0.31 0.02 248);
+      --amber-color-border-default: oklch(0.38 0.025 248);
+      --amber-color-border-strong: oklch(0.52 0.03 248);
+      --amber-color-border-focus: oklch(0.75 0.14 58 / 0.62);
+      --amber-color-focus-ring-solid: rgb(132 184 255);
+      --amber-color-success-indicator: oklch(0.72 0.14 153);
+      --amber-color-success-bg: oklch(0.25 0.045 153);
+      --amber-color-success-bg-hover: oklch(0.31 0.065 153);
+      --amber-color-success-border: oklch(0.54 0.09 153);
+      --amber-color-success-text: oklch(0.84 0.09 153);
+      --amber-color-success-focus-ring: oklch(0.74 0.12 153 / 0.5);
+      --amber-color-warning-indicator: oklch(0.8 0.15 78);
+      --amber-color-warning-bg: oklch(0.28 0.052 78);
+      --amber-color-warning-bg-hover: oklch(0.34 0.075 78);
+      --amber-color-warning-border: oklch(0.58 0.12 78);
+      --amber-color-warning-text: oklch(0.88 0.1 82);
+      --amber-color-warning-focus-ring: oklch(0.78 0.12 78 / 0.5);
+      --amber-color-danger-indicator: oklch(0.72 0.18 28);
+      --amber-color-danger-bg: oklch(0.25 0.06 28);
+      --amber-color-danger-bg-hover: oklch(0.31 0.085 28);
+      --amber-color-danger-border: oklch(0.55 0.13 28);
+      --amber-color-danger-text: oklch(0.86 0.09 28);
+      --amber-color-danger-focus-ring: oklch(0.75 0.16 28 / 0.5);
+      --amber-color-info-indicator: oklch(0.72 0.12 235);
+      --amber-color-info-bg: oklch(0.25 0.045 235);
+      --amber-color-info-bg-hover: oklch(0.31 0.065 235);
+      --amber-color-info-border: oklch(0.55 0.1 235);
+      --amber-color-info-text: oklch(0.84 0.08 235);
+      --amber-color-info-focus-ring: oklch(0.75 0.12 235 / 0.5);
+      --amber-color-state-default: var(--amber-color-surface-panel);
+      --amber-color-state-hover: oklch(0.27 0.022 248);
+      --amber-color-state-active: oklch(0.32 0.026 248);
+      --amber-color-state-selected: oklch(0.3 0.062 58);
+      --amber-color-state-disabled: oklch(0.42 0.012 248 / 0.56);
+      --amber-color-state-loading: oklch(0.29 0.04 235);
+      --amber-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --amber-font-display: Newsreader, Georgia, ui-serif, serif;
+      --amber-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+      --amber-type-body-size: 1rem;
+      --amber-type-body-line-height: 1.55;
+      --amber-type-paragraph-size: 1.03125rem;
+      --amber-type-paragraph-line-height: 1.72;
+      --amber-type-heading-weight: 720;
+      --amber-type-body-weight: 450;
+      --amber-motion-duration-instant: 80ms;
+      --amber-motion-duration-fast: 150ms;
+      --amber-motion-duration-base: 240ms;
+      --amber-motion-duration-slow: 420ms;
+      --amber-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+      --amber-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+      --amber-motion-spring: linear(0, 0.35 25%, 1.08 70%, 1);
+      --amber-motion-distance-subtle: 0.375rem;
+      --amber-elevation-flat: none;
+      --amber-elevation-raised: 0 1px 2px oklch(0 0 0 / 0.08), 0 8px 24px oklch(0.18 0.02 248 / 0.08);
+      --amber-elevation-floating: 0 16px 42px oklch(0.18 0.02 248 / 0.16);
+      --amber-elevation-overlay: 0 24px 80px oklch(0.18 0.02 248 / 0.22);
+      --amber-radius-control: 0.5rem;
+      --amber-radius-card: 0.5rem;
+      --amber-radius-panel: 0.75rem;
+      --amber-radius-pill: 999px;
+    }
+  }
+
+  [data-ap-theme="light"] {
+    --color-transparent: transparent;
+    --color-current: currentColor;
+    --color-black: oklch(0 0 0);
+    --color-white: oklch(1 0 0);
+    --color-gray-50: oklch(0.985 0.002 247.839);
+    --color-gray-100: oklch(0.967 0.003 264.542);
+    --color-gray-200: oklch(0.928 0.006 264.531);
+    --color-gray-300: oklch(0.872 0.010 258.338);
+    --color-gray-400: oklch(0.707 0.022 261.325);
+    --color-gray-500: oklch(0.551 0.027 264.364);
+    --color-gray-600: oklch(0.446 0.030 256.802);
+    --color-gray-700: oklch(0.373 0.034 259.733);
+    --color-gray-800: oklch(0.278 0.033 256.848);
+    --color-gray-900: oklch(0.210 0.034 264.665);
+    --color-gray-950: oklch(0.130 0.028 261.692);
+    --color-red-50: oklch(0.971 0.013 17.380);
+    --color-red-100: oklch(0.936 0.032 17.717);
+    --color-red-200: oklch(0.885 0.062 18.334);
+    --color-red-300: oklch(0.808 0.114 19.571);
+    --color-red-400: oklch(0.704 0.191 22.216);
+    --color-red-500: oklch(0.637 0.237 25.331);
+    --color-red-600: oklch(0.577 0.245 27.325);
+    --color-red-700: oklch(0.505 0.213 27.518);
+    --color-red-800: oklch(0.444 0.177 26.899);
+    --color-red-900: oklch(0.396 0.141 25.723);
+    --color-red-950: oklch(0.258 0.092 26.042);
+    --color-blue-50: oklch(0.970 0.014 254.604);
+    --color-blue-100: oklch(0.932 0.032 255.585);
+    --color-blue-200: oklch(0.882 0.059 254.128);
+    --color-blue-300: oklch(0.809 0.105 251.813);
+    --color-blue-400: oklch(0.707 0.165 254.624);
+    --color-blue-500: oklch(0.623 0.214 259.815);
+    --color-blue-600: oklch(0.546 0.245 262.881);
+    --color-blue-700: oklch(0.488 0.243 264.376);
+    --color-blue-800: oklch(0.424 0.199 265.638);
+    --color-blue-900: oklch(0.379 0.146 265.522);
+    --color-blue-950: oklch(0.282 0.091 267.935);
+    --color-green-50: oklch(0.982 0.018 155.826);
+    --color-green-100: oklch(0.962 0.044 156.743);
+    --color-green-200: oklch(0.925 0.084 155.995);
+    --color-green-300: oklch(0.871 0.150 154.449);
+    --color-green-400: oklch(0.792 0.209 151.711);
+    --color-green-500: oklch(0.723 0.219 149.579);
+    --color-green-600: oklch(0.627 0.194 149.214);
+    --color-green-700: oklch(0.527 0.154 150.069);
+    --color-green-800: oklch(0.448 0.119 151.328);
+    --color-green-900: oklch(0.393 0.095 152.535);
+    --color-green-950: oklch(0.266 0.065 152.934);
+    --color-brand-primary: var(--amber-color-brand-primary);
+    --color-brand-secondary: var(--amber-color-brand-secondary);
+    --color-brand-accent: var(--amber-color-brand-accent);
+    --color-brand-hover: var(--amber-color-brand-primary-hover);
+    --color-brand-active: var(--amber-color-brand-primary-active);
+    --color-surface-canvas: var(--amber-color-surface-canvas);
+    --color-surface-panel: var(--amber-color-surface-panel);
+    --color-surface-elevated: var(--amber-color-surface-elevated);
+    --color-surface-sunken: var(--amber-color-surface-sunken);
+    --color-success-indicator: var(--amber-color-success-indicator);
+    --color-success-subtle: var(--amber-color-success-bg);
+    --color-success-hover: var(--amber-color-success-bg-hover);
+    --color-success-border: var(--amber-color-success-border);
+    --color-success-strong: var(--amber-color-success-indicator);
+    --color-success-text: var(--amber-color-success-text);
+    --color-success-focus: var(--amber-color-success-focus-ring);
+    --color-warning-indicator: var(--amber-color-warning-indicator);
+    --color-warning-subtle: var(--amber-color-warning-bg);
+    --color-warning-hover: var(--amber-color-warning-bg-hover);
+    --color-warning-border: var(--amber-color-warning-border);
+    --color-warning-strong: var(--amber-color-warning-indicator);
+    --color-warning-text: var(--amber-color-warning-text);
+    --color-warning-focus: var(--amber-color-warning-focus-ring);
+    --color-danger-indicator: var(--amber-color-danger-indicator);
+    --color-danger-subtle: var(--amber-color-danger-bg);
+    --color-danger-hover: var(--amber-color-danger-bg-hover);
+    --color-danger-border: var(--amber-color-danger-border);
+    --color-danger-strong: var(--amber-color-danger-indicator);
+    --color-danger-text: var(--amber-color-danger-text);
+    --color-danger-focus: var(--amber-color-danger-focus-ring);
+    --color-info-indicator: var(--amber-color-info-indicator);
+    --color-info-subtle: var(--amber-color-info-bg);
+    --color-info-hover: var(--amber-color-info-bg-hover);
+    --color-info-border: var(--amber-color-info-border);
+    --color-info-strong: var(--amber-color-info-indicator);
+    --color-info-text: var(--amber-color-info-text);
+    --color-info-focus: var(--amber-color-info-focus-ring);
+    --color-primary: var(--amber-color-text-primary);
+    --color-secondary: var(--amber-color-text-secondary);
+    --color-muted: var(--amber-color-text-muted);
+    --color-inverse: var(--amber-color-text-inverse);
+    --color-link: var(--amber-color-text-link);
+    --color-focus: var(--amber-color-border-focus);
+    --color-border: var(--amber-color-border-default);
+    --spacing-px: 1px;
+    --spacing-0: 0px;
+    --spacing-0.5: 0.125rem;
+    --spacing-1: 0.25rem;
+    --spacing-1.5: 0.375rem;
+    --spacing-2: 0.5rem;
+    --spacing-2.5: 0.625rem;
+    --spacing-3: 0.75rem;
+    --spacing-3.5: 0.875rem;
+    --spacing-4: 1rem;
+    --spacing-5: 1.25rem;
+    --spacing-6: 1.5rem;
+    --spacing-7: 1.75rem;
+    --spacing-8: 2rem;
+    --spacing-9: 2.25rem;
+    --spacing-10: 2.5rem;
+    --spacing-11: 2.75rem;
+    --spacing-12: 3rem;
+    --spacing-14: 3.5rem;
+    --spacing-16: 4rem;
+    --spacing-20: 5rem;
+    --spacing-24: 6rem;
+    --spacing-28: 7rem;
+    --spacing-32: 8rem;
+    --spacing-36: 9rem;
+    --spacing-40: 10rem;
+    --spacing-44: 11rem;
+    --spacing-48: 12rem;
+    --spacing-52: 13rem;
+    --spacing-56: 14rem;
+    --spacing-60: 15rem;
+    --spacing-64: 16rem;
+    --spacing-72: 18rem;
+    --spacing-80: 20rem;
+    --spacing-96: 24rem;
+    --font-sans: var(--amber-font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: var(--amber-font-display), Georgia, ui-serif, serif;
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --font-mono: var(--amber-font-mono), ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+    --font-size-4xl: 2.25rem;
+    --font-size-5xl: 3rem;
+    --font-size-6xl: 3.75rem;
+    --font-size-7xl: 4.5rem;
+    --font-size-8xl: 6rem;
+    --font-size-9xl: 8rem;
+    --line-height-none: 1;
+    --line-height-tight: 1.25;
+    --line-height-snug: 1.375;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.625;
+    --line-height-loose: 2;
+    --line-height-3: .75rem;
+    --line-height-4: 1rem;
+    --line-height-5: 1.25rem;
+    --line-height-6: 1.5rem;
+    --line-height-7: 1.75rem;
+    --line-height-8: 2rem;
+    --line-height-9: 2.25rem;
+    --line-height-10: 2.5rem;
+    --letter-spacing-tighter: 0em;
+    --letter-spacing-tight: 0em;
+    --letter-spacing-normal: 0em;
+    --letter-spacing-wide: 0em;
+    --letter-spacing-wider: 0em;
+    --letter-spacing-widest: 0em;
+    --radius-none: 0px;
+    --radius-sm: 0.125rem;
+    --radius: 0.25rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+    --radius-xl: 0.75rem;
+    --radius-2xl: 1rem;
+    --radius-3xl: 1.5rem;
+    --radius-full: 9999px;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+    --shadow-none: none;
+    --transition-none: none;
+    --transition-all: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), text-decoration-color 150ms cubic-bezier(0.4, 0, 0.2, 1), fill 150ms cubic-bezier(0.4, 0, 0.2, 1), stroke 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-colors: color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), text-decoration-color 150ms cubic-bezier(0.4, 0, 0.2, 1), fill 150ms cubic-bezier(0.4, 0, 0.2, 1), stroke 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-opacity: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-shadow: box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-transform: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --z-auto: auto;
+    --z-0: 0;
+    --z-10: 10;
+    --z-20: 20;
+    --z-30: 30;
+    --z-40: 40;
+    --z-50: 50;
+    --opacity-0: 0;
+    --opacity-5: 0.05;
+    --opacity-10: 0.1;
+    --opacity-20: 0.2;
+    --opacity-25: 0.25;
+    --opacity-30: 0.3;
+    --opacity-40: 0.4;
+    --opacity-50: 0.5;
+    --opacity-60: 0.6;
+    --opacity-70: 0.7;
+    --opacity-75: 0.75;
+    --opacity-80: 0.8;
+    --opacity-90: 0.9;
+    --opacity-95: 0.95;
+    --opacity-100: 1;
+    --amber-color-brand-primary: oklch(0.52 0.16 50);
+    --amber-color-brand-secondary: oklch(0.47 0.15 265);
+    --amber-color-brand-accent: oklch(0.73 0.15 190);
+    --amber-color-brand-primary-hover: oklch(0.47 0.17 48);
+    --amber-color-brand-primary-active: oklch(0.4 0.15 46);
+    --amber-color-surface-canvas: oklch(0.985 0.009 82);
+    --amber-color-surface-panel: oklch(1 0 0);
+    --amber-color-surface-elevated: oklch(0.995 0.003 80);
+    --amber-color-surface-sunken: oklch(0.955 0.011 79);
+    --amber-color-surface-inverse: oklch(0.18 0.018 248);
+    --amber-color-text-primary: oklch(0.18 0.018 248);
+    --amber-color-text-secondary: oklch(0.38 0.028 248);
+    --amber-color-text-muted: oklch(0.52 0.025 248);
+    --amber-color-text-inverse: oklch(0.99 0.003 80);
+    --amber-color-text-link: oklch(0.5 0.13 235);
+    --amber-color-border-subtle: oklch(0.91 0.014 82);
+    --amber-color-border-default: oklch(0.82 0.021 82);
+    --amber-color-border-strong: oklch(0.62 0.04 75);
+    --amber-color-border-focus: oklch(0.66 0.15 50 / 0.58);
+    --amber-color-focus-ring-solid: rgb(12 112 214);
+    --amber-color-success-indicator: oklch(0.47 0.12 155);
+    --amber-color-success-bg: oklch(0.95 0.035 153);
+    --amber-color-success-bg-hover: oklch(0.9 0.06 153);
+    --amber-color-success-border: oklch(0.73 0.09 153);
+    --amber-color-success-text: oklch(0.31 0.09 153);
+    --amber-color-success-focus-ring: oklch(0.67 0.13 153 / 0.45);
+    --amber-color-warning-indicator: oklch(0.58 0.15 75);
+    --amber-color-warning-bg: oklch(0.96 0.052 82);
+    --amber-color-warning-bg-hover: oklch(0.91 0.08 82);
+    --amber-color-warning-border: oklch(0.75 0.12 78);
+    --amber-color-warning-text: oklch(0.36 0.09 70);
+    --amber-color-warning-focus-ring: oklch(0.72 0.12 78 / 0.45);
+    --amber-color-danger-indicator: oklch(0.45 0.18 28);
+    --amber-color-danger-bg: oklch(0.96 0.025 28);
+    --amber-color-danger-bg-hover: oklch(0.9 0.055 28);
+    --amber-color-danger-border: oklch(0.75 0.12 28);
+    --amber-color-danger-text: oklch(0.36 0.15 28);
+    --amber-color-danger-focus-ring: oklch(0.64 0.17 28 / 0.45);
+    --amber-color-info-indicator: oklch(0.48 0.13 235);
+    --amber-color-info-bg: oklch(0.95 0.03 235);
+    --amber-color-info-bg-hover: oklch(0.9 0.055 235);
+    --amber-color-info-border: oklch(0.72 0.09 235);
+    --amber-color-info-text: oklch(0.34 0.1 235);
+    --amber-color-info-focus-ring: oklch(0.62 0.14 235 / 0.45);
+    --amber-color-state-default: var(--amber-color-surface-panel);
+    --amber-color-state-hover: oklch(0.96 0.014 78);
+    --amber-color-state-active: oklch(0.91 0.028 74);
+    --amber-color-state-selected: oklch(0.92 0.07 58);
+    --amber-color-state-disabled: oklch(0.9 0.006 248 / 0.68);
+    --amber-color-state-loading: oklch(0.93 0.018 235);
+    --amber-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --amber-font-display: Newsreader, Georgia, ui-serif, serif;
+    --amber-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+    --amber-type-body-size: 1rem;
+    --amber-type-body-line-height: 1.55;
+    --amber-type-paragraph-size: 1.03125rem;
+    --amber-type-paragraph-line-height: 1.72;
+    --amber-type-heading-weight: 720;
+    --amber-type-body-weight: 450;
+    --amber-motion-duration-instant: 80ms;
+    --amber-motion-duration-fast: 150ms;
+    --amber-motion-duration-base: 240ms;
+    --amber-motion-duration-slow: 420ms;
+    --amber-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --amber-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+    --amber-motion-spring: linear(0, 0.35 25%, 1.08 70%, 1);
+    --amber-motion-distance-subtle: 0.375rem;
+    --amber-elevation-flat: none;
+    --amber-elevation-raised: 0 1px 2px oklch(0 0 0 / 0.08), 0 8px 24px oklch(0.18 0.02 248 / 0.08);
+    --amber-elevation-floating: 0 16px 42px oklch(0.18 0.02 248 / 0.16);
+    --amber-elevation-overlay: 0 24px 80px oklch(0.18 0.02 248 / 0.22);
+    --amber-radius-control: 0.5rem;
+    --amber-radius-card: 0.5rem;
+    --amber-radius-panel: 0.75rem;
+    --amber-radius-pill: 999px;
+  }
+
+  [data-amber-theme="light"] {
+    --color-transparent: transparent;
+    --color-current: currentColor;
+    --color-black: oklch(0 0 0);
+    --color-white: oklch(1 0 0);
+    --color-gray-50: oklch(0.985 0.002 247.839);
+    --color-gray-100: oklch(0.967 0.003 264.542);
+    --color-gray-200: oklch(0.928 0.006 264.531);
+    --color-gray-300: oklch(0.872 0.010 258.338);
+    --color-gray-400: oklch(0.707 0.022 261.325);
+    --color-gray-500: oklch(0.551 0.027 264.364);
+    --color-gray-600: oklch(0.446 0.030 256.802);
+    --color-gray-700: oklch(0.373 0.034 259.733);
+    --color-gray-800: oklch(0.278 0.033 256.848);
+    --color-gray-900: oklch(0.210 0.034 264.665);
+    --color-gray-950: oklch(0.130 0.028 261.692);
+    --color-red-50: oklch(0.971 0.013 17.380);
+    --color-red-100: oklch(0.936 0.032 17.717);
+    --color-red-200: oklch(0.885 0.062 18.334);
+    --color-red-300: oklch(0.808 0.114 19.571);
+    --color-red-400: oklch(0.704 0.191 22.216);
+    --color-red-500: oklch(0.637 0.237 25.331);
+    --color-red-600: oklch(0.577 0.245 27.325);
+    --color-red-700: oklch(0.505 0.213 27.518);
+    --color-red-800: oklch(0.444 0.177 26.899);
+    --color-red-900: oklch(0.396 0.141 25.723);
+    --color-red-950: oklch(0.258 0.092 26.042);
+    --color-blue-50: oklch(0.970 0.014 254.604);
+    --color-blue-100: oklch(0.932 0.032 255.585);
+    --color-blue-200: oklch(0.882 0.059 254.128);
+    --color-blue-300: oklch(0.809 0.105 251.813);
+    --color-blue-400: oklch(0.707 0.165 254.624);
+    --color-blue-500: oklch(0.623 0.214 259.815);
+    --color-blue-600: oklch(0.546 0.245 262.881);
+    --color-blue-700: oklch(0.488 0.243 264.376);
+    --color-blue-800: oklch(0.424 0.199 265.638);
+    --color-blue-900: oklch(0.379 0.146 265.522);
+    --color-blue-950: oklch(0.282 0.091 267.935);
+    --color-green-50: oklch(0.982 0.018 155.826);
+    --color-green-100: oklch(0.962 0.044 156.743);
+    --color-green-200: oklch(0.925 0.084 155.995);
+    --color-green-300: oklch(0.871 0.150 154.449);
+    --color-green-400: oklch(0.792 0.209 151.711);
+    --color-green-500: oklch(0.723 0.219 149.579);
+    --color-green-600: oklch(0.627 0.194 149.214);
+    --color-green-700: oklch(0.527 0.154 150.069);
+    --color-green-800: oklch(0.448 0.119 151.328);
+    --color-green-900: oklch(0.393 0.095 152.535);
+    --color-green-950: oklch(0.266 0.065 152.934);
+    --color-brand-primary: var(--amber-color-brand-primary);
+    --color-brand-secondary: var(--amber-color-brand-secondary);
+    --color-brand-accent: var(--amber-color-brand-accent);
+    --color-brand-hover: var(--amber-color-brand-primary-hover);
+    --color-brand-active: var(--amber-color-brand-primary-active);
+    --color-surface-canvas: var(--amber-color-surface-canvas);
+    --color-surface-panel: var(--amber-color-surface-panel);
+    --color-surface-elevated: var(--amber-color-surface-elevated);
+    --color-surface-sunken: var(--amber-color-surface-sunken);
+    --color-success-indicator: var(--amber-color-success-indicator);
+    --color-success-subtle: var(--amber-color-success-bg);
+    --color-success-hover: var(--amber-color-success-bg-hover);
+    --color-success-border: var(--amber-color-success-border);
+    --color-success-strong: var(--amber-color-success-indicator);
+    --color-success-text: var(--amber-color-success-text);
+    --color-success-focus: var(--amber-color-success-focus-ring);
+    --color-warning-indicator: var(--amber-color-warning-indicator);
+    --color-warning-subtle: var(--amber-color-warning-bg);
+    --color-warning-hover: var(--amber-color-warning-bg-hover);
+    --color-warning-border: var(--amber-color-warning-border);
+    --color-warning-strong: var(--amber-color-warning-indicator);
+    --color-warning-text: var(--amber-color-warning-text);
+    --color-warning-focus: var(--amber-color-warning-focus-ring);
+    --color-danger-indicator: var(--amber-color-danger-indicator);
+    --color-danger-subtle: var(--amber-color-danger-bg);
+    --color-danger-hover: var(--amber-color-danger-bg-hover);
+    --color-danger-border: var(--amber-color-danger-border);
+    --color-danger-strong: var(--amber-color-danger-indicator);
+    --color-danger-text: var(--amber-color-danger-text);
+    --color-danger-focus: var(--amber-color-danger-focus-ring);
+    --color-info-indicator: var(--amber-color-info-indicator);
+    --color-info-subtle: var(--amber-color-info-bg);
+    --color-info-hover: var(--amber-color-info-bg-hover);
+    --color-info-border: var(--amber-color-info-border);
+    --color-info-strong: var(--amber-color-info-indicator);
+    --color-info-text: var(--amber-color-info-text);
+    --color-info-focus: var(--amber-color-info-focus-ring);
+    --color-primary: var(--amber-color-text-primary);
+    --color-secondary: var(--amber-color-text-secondary);
+    --color-muted: var(--amber-color-text-muted);
+    --color-inverse: var(--amber-color-text-inverse);
+    --color-link: var(--amber-color-text-link);
+    --color-focus: var(--amber-color-border-focus);
+    --color-border: var(--amber-color-border-default);
+    --spacing-px: 1px;
+    --spacing-0: 0px;
+    --spacing-0.5: 0.125rem;
+    --spacing-1: 0.25rem;
+    --spacing-1.5: 0.375rem;
+    --spacing-2: 0.5rem;
+    --spacing-2.5: 0.625rem;
+    --spacing-3: 0.75rem;
+    --spacing-3.5: 0.875rem;
+    --spacing-4: 1rem;
+    --spacing-5: 1.25rem;
+    --spacing-6: 1.5rem;
+    --spacing-7: 1.75rem;
+    --spacing-8: 2rem;
+    --spacing-9: 2.25rem;
+    --spacing-10: 2.5rem;
+    --spacing-11: 2.75rem;
+    --spacing-12: 3rem;
+    --spacing-14: 3.5rem;
+    --spacing-16: 4rem;
+    --spacing-20: 5rem;
+    --spacing-24: 6rem;
+    --spacing-28: 7rem;
+    --spacing-32: 8rem;
+    --spacing-36: 9rem;
+    --spacing-40: 10rem;
+    --spacing-44: 11rem;
+    --spacing-48: 12rem;
+    --spacing-52: 13rem;
+    --spacing-56: 14rem;
+    --spacing-60: 15rem;
+    --spacing-64: 16rem;
+    --spacing-72: 18rem;
+    --spacing-80: 20rem;
+    --spacing-96: 24rem;
+    --font-sans: var(--amber-font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: var(--amber-font-display), Georgia, ui-serif, serif;
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --font-mono: var(--amber-font-mono), ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+    --font-size-4xl: 2.25rem;
+    --font-size-5xl: 3rem;
+    --font-size-6xl: 3.75rem;
+    --font-size-7xl: 4.5rem;
+    --font-size-8xl: 6rem;
+    --font-size-9xl: 8rem;
+    --line-height-none: 1;
+    --line-height-tight: 1.25;
+    --line-height-snug: 1.375;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.625;
+    --line-height-loose: 2;
+    --line-height-3: .75rem;
+    --line-height-4: 1rem;
+    --line-height-5: 1.25rem;
+    --line-height-6: 1.5rem;
+    --line-height-7: 1.75rem;
+    --line-height-8: 2rem;
+    --line-height-9: 2.25rem;
+    --line-height-10: 2.5rem;
+    --letter-spacing-tighter: 0em;
+    --letter-spacing-tight: 0em;
+    --letter-spacing-normal: 0em;
+    --letter-spacing-wide: 0em;
+    --letter-spacing-wider: 0em;
+    --letter-spacing-widest: 0em;
+    --radius-none: 0px;
+    --radius-sm: 0.125rem;
+    --radius: 0.25rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+    --radius-xl: 0.75rem;
+    --radius-2xl: 1rem;
+    --radius-3xl: 1.5rem;
+    --radius-full: 9999px;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+    --shadow-none: none;
+    --transition-none: none;
+    --transition-all: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), text-decoration-color 150ms cubic-bezier(0.4, 0, 0.2, 1), fill 150ms cubic-bezier(0.4, 0, 0.2, 1), stroke 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-colors: color 150ms cubic-bezier(0.4, 0, 0.2, 1), background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), text-decoration-color 150ms cubic-bezier(0.4, 0, 0.2, 1), fill 150ms cubic-bezier(0.4, 0, 0.2, 1), stroke 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-opacity: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-shadow: box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-transform: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --z-auto: auto;
+    --z-0: 0;
+    --z-10: 10;
+    --z-20: 20;
+    --z-30: 30;
+    --z-40: 40;
+    --z-50: 50;
+    --opacity-0: 0;
+    --opacity-5: 0.05;
+    --opacity-10: 0.1;
+    --opacity-20: 0.2;
+    --opacity-25: 0.25;
+    --opacity-30: 0.3;
+    --opacity-40: 0.4;
+    --opacity-50: 0.5;
+    --opacity-60: 0.6;
+    --opacity-70: 0.7;
+    --opacity-75: 0.75;
+    --opacity-80: 0.8;
+    --opacity-90: 0.9;
+    --opacity-95: 0.95;
+    --opacity-100: 1;
+    --amber-color-brand-primary: oklch(0.52 0.16 50);
+    --amber-color-brand-secondary: oklch(0.47 0.15 265);
+    --amber-color-brand-accent: oklch(0.73 0.15 190);
+    --amber-color-brand-primary-hover: oklch(0.47 0.17 48);
+    --amber-color-brand-primary-active: oklch(0.4 0.15 46);
+    --amber-color-surface-canvas: oklch(0.985 0.009 82);
+    --amber-color-surface-panel: oklch(1 0 0);
+    --amber-color-surface-elevated: oklch(0.995 0.003 80);
+    --amber-color-surface-sunken: oklch(0.955 0.011 79);
+    --amber-color-surface-inverse: oklch(0.18 0.018 248);
+    --amber-color-text-primary: oklch(0.18 0.018 248);
+    --amber-color-text-secondary: oklch(0.38 0.028 248);
+    --amber-color-text-muted: oklch(0.52 0.025 248);
+    --amber-color-text-inverse: oklch(0.99 0.003 80);
+    --amber-color-text-link: oklch(0.5 0.13 235);
+    --amber-color-border-subtle: oklch(0.91 0.014 82);
+    --amber-color-border-default: oklch(0.82 0.021 82);
+    --amber-color-border-strong: oklch(0.62 0.04 75);
+    --amber-color-border-focus: oklch(0.66 0.15 50 / 0.58);
+    --amber-color-focus-ring-solid: rgb(12 112 214);
+    --amber-color-success-indicator: oklch(0.47 0.12 155);
+    --amber-color-success-bg: oklch(0.95 0.035 153);
+    --amber-color-success-bg-hover: oklch(0.9 0.06 153);
+    --amber-color-success-border: oklch(0.73 0.09 153);
+    --amber-color-success-text: oklch(0.31 0.09 153);
+    --amber-color-success-focus-ring: oklch(0.67 0.13 153 / 0.45);
+    --amber-color-warning-indicator: oklch(0.58 0.15 75);
+    --amber-color-warning-bg: oklch(0.96 0.052 82);
+    --amber-color-warning-bg-hover: oklch(0.91 0.08 82);
+    --amber-color-warning-border: oklch(0.75 0.12 78);
+    --amber-color-warning-text: oklch(0.36 0.09 70);
+    --amber-color-warning-focus-ring: oklch(0.72 0.12 78 / 0.45);
+    --amber-color-danger-indicator: oklch(0.45 0.18 28);
+    --amber-color-danger-bg: oklch(0.96 0.025 28);
+    --amber-color-danger-bg-hover: oklch(0.9 0.055 28);
+    --amber-color-danger-border: oklch(0.75 0.12 28);
+    --amber-color-danger-text: oklch(0.36 0.15 28);
+    --amber-color-danger-focus-ring: oklch(0.64 0.17 28 / 0.45);
+    --amber-color-info-indicator: oklch(0.48 0.13 235);
+    --amber-color-info-bg: oklch(0.95 0.03 235);
+    --amber-color-info-bg-hover: oklch(0.9 0.055 235);
+    --amber-color-info-border: oklch(0.72 0.09 235);
+    --amber-color-info-text: oklch(0.34 0.1 235);
+    --amber-color-info-focus-ring: oklch(0.62 0.14 235 / 0.45);
+    --amber-color-state-default: var(--amber-color-surface-panel);
+    --amber-color-state-hover: oklch(0.96 0.014 78);
+    --amber-color-state-active: oklch(0.91 0.028 74);
+    --amber-color-state-selected: oklch(0.92 0.07 58);
+    --amber-color-state-disabled: oklch(0.9 0.006 248 / 0.68);
+    --amber-color-state-loading: oklch(0.93 0.018 235);
+    --amber-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --amber-font-display: Newsreader, Georgia, ui-serif, serif;
+    --amber-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+    --amber-type-body-size: 1rem;
+    --amber-type-body-line-height: 1.55;
+    --amber-type-paragraph-size: 1.03125rem;
+    --amber-type-paragraph-line-height: 1.72;
+    --amber-type-heading-weight: 720;
+    --amber-type-body-weight: 450;
+    --amber-motion-duration-instant: 80ms;
+    --amber-motion-duration-fast: 150ms;
+    --amber-motion-duration-base: 240ms;
+    --amber-motion-duration-slow: 420ms;
+    --amber-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --amber-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+    --amber-motion-spring: linear(0, 0.35 25%, 1.08 70%, 1);
+    --amber-motion-distance-subtle: 0.375rem;
+    --amber-elevation-flat: none;
+    --amber-elevation-raised: 0 1px 2px oklch(0 0 0 / 0.08), 0 8px 24px oklch(0.18 0.02 248 / 0.08);
+    --amber-elevation-floating: 0 16px 42px oklch(0.18 0.02 248 / 0.16);
+    --amber-elevation-overlay: 0 24px 80px oklch(0.18 0.02 248 / 0.22);
+    --amber-radius-control: 0.5rem;
+    --amber-radius-card: 0.5rem;
+    --amber-radius-panel: 0.75rem;
+    --amber-radius-pill: 999px;
+  }
+
+  [data-ap-theme="dark"] {
+    --amber-color-brand-primary: oklch(0.78 0.17 58);
+    --amber-color-brand-secondary: oklch(0.75 0.12 265);
+    --amber-color-brand-accent: oklch(0.8 0.14 190);
+    --amber-color-brand-primary-hover: oklch(0.84 0.15 60);
+    --amber-color-brand-primary-active: oklch(0.7 0.18 54);
+    --amber-color-surface-canvas: oklch(0.15 0.025 260);
+    --amber-color-surface-panel: oklch(0.2 0.024 260);
+    --amber-color-surface-elevated: oklch(0.25 0.028 260);
+    --amber-color-surface-sunken: oklch(0.12 0.022 260);
+    --amber-color-surface-inverse: oklch(0.95 0.006 80);
+    --amber-color-text-primary: oklch(0.95 0.006 80);
+    --amber-color-text-secondary: oklch(0.78 0.015 85);
+    --amber-color-text-muted: oklch(0.65 0.018 85);
+    --amber-color-text-inverse: oklch(0.18 0.018 248);
+    --amber-color-text-link: oklch(0.77 0.1 225);
+    --amber-color-border-subtle: oklch(0.31 0.02 248);
+    --amber-color-border-default: oklch(0.38 0.025 248);
+    --amber-color-border-strong: oklch(0.52 0.03 248);
+    --amber-color-border-focus: oklch(0.75 0.14 58 / 0.62);
+    --amber-color-focus-ring-solid: rgb(132 184 255);
+    --amber-color-success-indicator: oklch(0.72 0.14 153);
+    --amber-color-success-bg: oklch(0.25 0.045 153);
+    --amber-color-success-bg-hover: oklch(0.31 0.065 153);
+    --amber-color-success-border: oklch(0.54 0.09 153);
+    --amber-color-success-text: oklch(0.84 0.09 153);
+    --amber-color-success-focus-ring: oklch(0.74 0.12 153 / 0.5);
+    --amber-color-warning-indicator: oklch(0.8 0.15 78);
+    --amber-color-warning-bg: oklch(0.28 0.052 78);
+    --amber-color-warning-bg-hover: oklch(0.34 0.075 78);
+    --amber-color-warning-border: oklch(0.58 0.12 78);
+    --amber-color-warning-text: oklch(0.88 0.1 82);
+    --amber-color-warning-focus-ring: oklch(0.78 0.12 78 / 0.5);
+    --amber-color-danger-indicator: oklch(0.72 0.18 28);
+    --amber-color-danger-bg: oklch(0.25 0.06 28);
+    --amber-color-danger-bg-hover: oklch(0.31 0.085 28);
+    --amber-color-danger-border: oklch(0.55 0.13 28);
+    --amber-color-danger-text: oklch(0.86 0.09 28);
+    --amber-color-danger-focus-ring: oklch(0.75 0.16 28 / 0.5);
+    --amber-color-info-indicator: oklch(0.72 0.12 235);
+    --amber-color-info-bg: oklch(0.25 0.045 235);
+    --amber-color-info-bg-hover: oklch(0.31 0.065 235);
+    --amber-color-info-border: oklch(0.55 0.1 235);
+    --amber-color-info-text: oklch(0.84 0.08 235);
+    --amber-color-info-focus-ring: oklch(0.75 0.12 235 / 0.5);
+    --amber-color-state-default: var(--amber-color-surface-panel);
+    --amber-color-state-hover: oklch(0.27 0.022 248);
+    --amber-color-state-active: oklch(0.32 0.026 248);
+    --amber-color-state-selected: oklch(0.3 0.062 58);
+    --amber-color-state-disabled: oklch(0.42 0.012 248 / 0.56);
+    --amber-color-state-loading: oklch(0.29 0.04 235);
+    --amber-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --amber-font-display: Newsreader, Georgia, ui-serif, serif;
+    --amber-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+    --amber-type-body-size: 1rem;
+    --amber-type-body-line-height: 1.55;
+    --amber-type-paragraph-size: 1.03125rem;
+    --amber-type-paragraph-line-height: 1.72;
+    --amber-type-heading-weight: 720;
+    --amber-type-body-weight: 450;
+    --amber-motion-duration-instant: 80ms;
+    --amber-motion-duration-fast: 150ms;
+    --amber-motion-duration-base: 240ms;
+    --amber-motion-duration-slow: 420ms;
+    --amber-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --amber-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+    --amber-motion-spring: linear(0, 0.35 25%, 1.08 70%, 1);
+    --amber-motion-distance-subtle: 0.375rem;
+    --amber-elevation-flat: none;
+    --amber-elevation-raised: 0 1px 2px oklch(0 0 0 / 0.08), 0 8px 24px oklch(0.18 0.02 248 / 0.08);
+    --amber-elevation-floating: 0 16px 42px oklch(0.18 0.02 248 / 0.16);
+    --amber-elevation-overlay: 0 24px 80px oklch(0.18 0.02 248 / 0.22);
+    --amber-radius-control: 0.5rem;
+    --amber-radius-card: 0.5rem;
+    --amber-radius-panel: 0.75rem;
+    --amber-radius-pill: 999px;
+  }
+
+  [data-amber-theme="dark"] {
+    --amber-color-brand-primary: oklch(0.78 0.17 58);
+    --amber-color-brand-secondary: oklch(0.75 0.12 265);
+    --amber-color-brand-accent: oklch(0.8 0.14 190);
+    --amber-color-brand-primary-hover: oklch(0.84 0.15 60);
+    --amber-color-brand-primary-active: oklch(0.7 0.18 54);
+    --amber-color-surface-canvas: oklch(0.15 0.025 260);
+    --amber-color-surface-panel: oklch(0.2 0.024 260);
+    --amber-color-surface-elevated: oklch(0.25 0.028 260);
+    --amber-color-surface-sunken: oklch(0.12 0.022 260);
+    --amber-color-surface-inverse: oklch(0.95 0.006 80);
+    --amber-color-text-primary: oklch(0.95 0.006 80);
+    --amber-color-text-secondary: oklch(0.78 0.015 85);
+    --amber-color-text-muted: oklch(0.65 0.018 85);
+    --amber-color-text-inverse: oklch(0.18 0.018 248);
+    --amber-color-text-link: oklch(0.77 0.1 225);
+    --amber-color-border-subtle: oklch(0.31 0.02 248);
+    --amber-color-border-default: oklch(0.38 0.025 248);
+    --amber-color-border-strong: oklch(0.52 0.03 248);
+    --amber-color-border-focus: oklch(0.75 0.14 58 / 0.62);
+    --amber-color-focus-ring-solid: rgb(132 184 255);
+    --amber-color-success-indicator: oklch(0.72 0.14 153);
+    --amber-color-success-bg: oklch(0.25 0.045 153);
+    --amber-color-success-bg-hover: oklch(0.31 0.065 153);
+    --amber-color-success-border: oklch(0.54 0.09 153);
+    --amber-color-success-text: oklch(0.84 0.09 153);
+    --amber-color-success-focus-ring: oklch(0.74 0.12 153 / 0.5);
+    --amber-color-warning-indicator: oklch(0.8 0.15 78);
+    --amber-color-warning-bg: oklch(0.28 0.052 78);
+    --amber-color-warning-bg-hover: oklch(0.34 0.075 78);
+    --amber-color-warning-border: oklch(0.58 0.12 78);
+    --amber-color-warning-text: oklch(0.88 0.1 82);
+    --amber-color-warning-focus-ring: oklch(0.78 0.12 78 / 0.5);
+    --amber-color-danger-indicator: oklch(0.72 0.18 28);
+    --amber-color-danger-bg: oklch(0.25 0.06 28);
+    --amber-color-danger-bg-hover: oklch(0.31 0.085 28);
+    --amber-color-danger-border: oklch(0.55 0.13 28);
+    --amber-color-danger-text: oklch(0.86 0.09 28);
+    --amber-color-danger-focus-ring: oklch(0.75 0.16 28 / 0.5);
+    --amber-color-info-indicator: oklch(0.72 0.12 235);
+    --amber-color-info-bg: oklch(0.25 0.045 235);
+    --amber-color-info-bg-hover: oklch(0.31 0.065 235);
+    --amber-color-info-border: oklch(0.55 0.1 235);
+    --amber-color-info-text: oklch(0.84 0.08 235);
+    --amber-color-info-focus-ring: oklch(0.75 0.12 235 / 0.5);
+    --amber-color-state-default: var(--amber-color-surface-panel);
+    --amber-color-state-hover: oklch(0.27 0.022 248);
+    --amber-color-state-active: oklch(0.32 0.026 248);
+    --amber-color-state-selected: oklch(0.3 0.062 58);
+    --amber-color-state-disabled: oklch(0.42 0.012 248 / 0.56);
+    --amber-color-state-loading: oklch(0.29 0.04 235);
+    --amber-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --amber-font-display: Newsreader, Georgia, ui-serif, serif;
+    --amber-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+    --amber-type-body-size: 1rem;
+    --amber-type-body-line-height: 1.55;
+    --amber-type-paragraph-size: 1.03125rem;
+    --amber-type-paragraph-line-height: 1.72;
+    --amber-type-heading-weight: 720;
+    --amber-type-body-weight: 450;
+    --amber-motion-duration-instant: 80ms;
+    --amber-motion-duration-fast: 150ms;
+    --amber-motion-duration-base: 240ms;
+    --amber-motion-duration-slow: 420ms;
+    --amber-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --amber-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+    --amber-motion-spring: linear(0, 0.35 25%, 1.08 70%, 1);
+    --amber-motion-distance-subtle: 0.375rem;
+    --amber-elevation-flat: none;
+    --amber-elevation-raised: 0 1px 2px oklch(0 0 0 / 0.08), 0 8px 24px oklch(0.18 0.02 248 / 0.08);
+    --amber-elevation-floating: 0 16px 42px oklch(0.18 0.02 248 / 0.16);
+    --amber-elevation-overlay: 0 24px 80px oklch(0.18 0.02 248 / 0.22);
+    --amber-radius-control: 0.5rem;
+    --amber-radius-card: 0.5rem;
+    --amber-radius-panel: 0.75rem;
+    --amber-radius-pill: 999px;
   }
 }
 
 @layer base {
   /* WCAG 2.4.7: Focus Visible -- baseline keyboard focus ring */
   :focus-visible {
-    outline: 2px solid var(--focus-ring-color, oklch(0.488 0.243 264.376));
+    outline: 2px solid var(--focus-ring-color, var(--amber-color-border-focus, oklch(0.488 0.243 264.376)));
     outline-offset: 2px;
+  }
+
+  body {
+    background: var(--amber-color-surface-canvas);
+    color: var(--amber-color-text-primary);
+    font-family: var(--amber-font-sans);
+    font-size: var(--amber-type-body-size);
+    font-weight: var(--amber-type-body-weight);
+    line-height: var(--amber-type-body-line-height);
+    text-rendering: optimizeLegibility;
+  }
+
+  p {
+    font-size: var(--amber-type-paragraph-size);
+    line-height: var(--amber-type-paragraph-line-height);
+  }
+
+  a {
+    color: var(--amber-color-text-link);
+  }
+
+  @keyframes amber-row-enter {
+    from {
+      opacity: 0;
+      transform: translateY(var(--amber-motion-distance-subtle));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes amber-row-exit {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(calc(var(--amber-motion-distance-subtle) * -1));
+    }
+  }
+
+  @keyframes amber-section-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   /* WCAG 2.2.2 / 2.3.1: Reduced Motion -- global animation kill switch */
@@ -881,22 +1865,22 @@ img, video {
     line-height: 2;
   }
   .tracking-tighter {
-    letter-spacing: -0.05em;
+    letter-spacing: 0em;
   }
   .tracking-tight {
-    letter-spacing: -0.025em;
+    letter-spacing: 0em;
   }
   .tracking-normal {
     letter-spacing: 0em;
   }
   .tracking-wide {
-    letter-spacing: 0.025em;
+    letter-spacing: 0em;
   }
   .tracking-wider {
-    letter-spacing: 0.05em;
+    letter-spacing: 0em;
   }
   .tracking-widest {
-    letter-spacing: 0.1em;
+    letter-spacing: 0em;
   }
   .text-black {
     color: oklch(0 0 0);
@@ -2087,7 +3071,7 @@ code { color: light-dark(var(--color-gray-700), var(--color-gray-300)); }
     <header style="margin-bottom: 3rem;">
       <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
         <div>
-          <h1 style="font-size: 2rem; font-weight: 800; margin-bottom: 0.25rem;">Amber V2 Brand Kit</h1>
+          <h1 style="font-size: 2rem; font-weight: 800; margin-bottom: 0.25rem;">Asset Pipeline Design System Brand Kit</h1>
           <p style="color: light-dark(var(--color-gray-500), var(--color-gray-400)); font-size: 1rem;">
             Design tokens, component library, and WCAG 2.2 AA accessibility showcase.<br>
             Generated from the CSS engine — this file <em>is</em> the source of truth.
@@ -2199,6 +3183,61 @@ code { color: light-dark(var(--color-gray-700), var(--color-gray-300)); }
 <div class="swatch" style="background-color: oklch(0.393 0.095 152.535);"><span>900</span></div>
 <div class="swatch" style="background-color: oklch(0.266 0.065 152.934);"><span>950</span></div>
 </div>
+<h3 style="font-size: 0.875rem; font-weight: 600; text-transform: capitalize; margin: 1rem 0 0.5rem;">brand</h3>
+<div class="swatch-grid">
+<div class="swatch" style="background-color: var(--amber-color-brand-primary);"><span>primary</span></div>
+<div class="swatch" style="background-color: var(--amber-color-brand-secondary);"><span>secondary</span></div>
+<div class="swatch" style="background-color: var(--amber-color-brand-accent);"><span>accent</span></div>
+<div class="swatch" style="background-color: var(--amber-color-brand-primary-hover);"><span>hover</span></div>
+<div class="swatch" style="background-color: var(--amber-color-brand-primary-active);"><span>active</span></div>
+</div>
+<h3 style="font-size: 0.875rem; font-weight: 600; text-transform: capitalize; margin: 1rem 0 0.5rem;">surface</h3>
+<div class="swatch-grid">
+<div class="swatch" style="background-color: var(--amber-color-surface-canvas);"><span>canvas</span></div>
+<div class="swatch" style="background-color: var(--amber-color-surface-panel);"><span>panel</span></div>
+<div class="swatch" style="background-color: var(--amber-color-surface-elevated);"><span>elevated</span></div>
+<div class="swatch" style="background-color: var(--amber-color-surface-sunken);"><span>sunken</span></div>
+</div>
+<h3 style="font-size: 0.875rem; font-weight: 600; text-transform: capitalize; margin: 1rem 0 0.5rem;">success</h3>
+<div class="swatch-grid">
+<div class="swatch" style="background-color: var(--amber-color-success-indicator);"><span>indicator</span></div>
+<div class="swatch" style="background-color: var(--amber-color-success-bg);"><span>subtle</span></div>
+<div class="swatch" style="background-color: var(--amber-color-success-bg-hover);"><span>hover</span></div>
+<div class="swatch" style="background-color: var(--amber-color-success-border);"><span>border</span></div>
+<div class="swatch" style="background-color: var(--amber-color-success-indicator);"><span>strong</span></div>
+<div class="swatch" style="background-color: var(--amber-color-success-text);"><span>text</span></div>
+<div class="swatch" style="background-color: var(--amber-color-success-focus-ring);"><span>focus</span></div>
+</div>
+<h3 style="font-size: 0.875rem; font-weight: 600; text-transform: capitalize; margin: 1rem 0 0.5rem;">warning</h3>
+<div class="swatch-grid">
+<div class="swatch" style="background-color: var(--amber-color-warning-indicator);"><span>indicator</span></div>
+<div class="swatch" style="background-color: var(--amber-color-warning-bg);"><span>subtle</span></div>
+<div class="swatch" style="background-color: var(--amber-color-warning-bg-hover);"><span>hover</span></div>
+<div class="swatch" style="background-color: var(--amber-color-warning-border);"><span>border</span></div>
+<div class="swatch" style="background-color: var(--amber-color-warning-indicator);"><span>strong</span></div>
+<div class="swatch" style="background-color: var(--amber-color-warning-text);"><span>text</span></div>
+<div class="swatch" style="background-color: var(--amber-color-warning-focus-ring);"><span>focus</span></div>
+</div>
+<h3 style="font-size: 0.875rem; font-weight: 600; text-transform: capitalize; margin: 1rem 0 0.5rem;">danger</h3>
+<div class="swatch-grid">
+<div class="swatch" style="background-color: var(--amber-color-danger-indicator);"><span>indicator</span></div>
+<div class="swatch" style="background-color: var(--amber-color-danger-bg);"><span>subtle</span></div>
+<div class="swatch" style="background-color: var(--amber-color-danger-bg-hover);"><span>hover</span></div>
+<div class="swatch" style="background-color: var(--amber-color-danger-border);"><span>border</span></div>
+<div class="swatch" style="background-color: var(--amber-color-danger-indicator);"><span>strong</span></div>
+<div class="swatch" style="background-color: var(--amber-color-danger-text);"><span>text</span></div>
+<div class="swatch" style="background-color: var(--amber-color-danger-focus-ring);"><span>focus</span></div>
+</div>
+<h3 style="font-size: 0.875rem; font-weight: 600; text-transform: capitalize; margin: 1rem 0 0.5rem;">info</h3>
+<div class="swatch-grid">
+<div class="swatch" style="background-color: var(--amber-color-info-indicator);"><span>indicator</span></div>
+<div class="swatch" style="background-color: var(--amber-color-info-bg);"><span>subtle</span></div>
+<div class="swatch" style="background-color: var(--amber-color-info-bg-hover);"><span>hover</span></div>
+<div class="swatch" style="background-color: var(--amber-color-info-border);"><span>border</span></div>
+<div class="swatch" style="background-color: var(--amber-color-info-indicator);"><span>strong</span></div>
+<div class="swatch" style="background-color: var(--amber-color-info-text);"><span>text</span></div>
+<div class="swatch" style="background-color: var(--amber-color-info-focus-ring);"><span>focus</span></div>
+</div>
 <h3 style="font-size: 0.875rem; font-weight: 600; margin: 1.5rem 0 0.5rem;">Special Values</h3>
 <div class="sample-row">
 <div style="width: 5rem; height: 3rem; background: oklch(0 0 0); border-radius: 0.375rem; border: 1px solid light-dark(var(--color-gray-300), var(--color-gray-600));"></div>
@@ -2242,35 +3281,35 @@ code { color: light-dark(var(--color-gray-700), var(--color-gray-300)); }
 <h3 style="font-size: 0.875rem; font-weight: 600; margin: 1.5rem 0 1rem;">Weights</h3>
 <div class="type-row" style="display: flex; align-items: baseline; gap: 1rem;">
 <span class="code" style="width: 8rem; flex-shrink: 0;">font-thin</span>
-<span style="font-weight: 100;">Amber V2 Framework</span>
+<span style="font-weight: 100;">Asset Pipeline Design System</span>
 </div>
 <div class="type-row" style="display: flex; align-items: baseline; gap: 1rem;">
 <span class="code" style="width: 8rem; flex-shrink: 0;">font-light</span>
-<span style="font-weight: 300;">Amber V2 Framework</span>
+<span style="font-weight: 300;">Asset Pipeline Design System</span>
 </div>
 <div class="type-row" style="display: flex; align-items: baseline; gap: 1rem;">
 <span class="code" style="width: 8rem; flex-shrink: 0;">font-normal</span>
-<span style="font-weight: 400;">Amber V2 Framework</span>
+<span style="font-weight: 400;">Asset Pipeline Design System</span>
 </div>
 <div class="type-row" style="display: flex; align-items: baseline; gap: 1rem;">
 <span class="code" style="width: 8rem; flex-shrink: 0;">font-medium</span>
-<span style="font-weight: 500;">Amber V2 Framework</span>
+<span style="font-weight: 500;">Asset Pipeline Design System</span>
 </div>
 <div class="type-row" style="display: flex; align-items: baseline; gap: 1rem;">
 <span class="code" style="width: 8rem; flex-shrink: 0;">font-semibold</span>
-<span style="font-weight: 600;">Amber V2 Framework</span>
+<span style="font-weight: 600;">Asset Pipeline Design System</span>
 </div>
 <div class="type-row" style="display: flex; align-items: baseline; gap: 1rem;">
 <span class="code" style="width: 8rem; flex-shrink: 0;">font-bold</span>
-<span style="font-weight: 700;">Amber V2 Framework</span>
+<span style="font-weight: 700;">Asset Pipeline Design System</span>
 </div>
 <div class="type-row" style="display: flex; align-items: baseline; gap: 1rem;">
 <span class="code" style="width: 8rem; flex-shrink: 0;">font-extrabold</span>
-<span style="font-weight: 800;">Amber V2 Framework</span>
+<span style="font-weight: 800;">Asset Pipeline Design System</span>
 </div>
 <div class="type-row" style="display: flex; align-items: baseline; gap: 1rem;">
 <span class="code" style="width: 8rem; flex-shrink: 0;">font-black</span>
-<span style="font-weight: 900;">Amber V2 Framework</span>
+<span style="font-weight: 900;">Asset Pipeline Design System</span>
 </div>
 </section>
 <section class="section" id="modern-layout">
@@ -2291,11 +3330,11 @@ code { color: light-dark(var(--color-gray-700), var(--color-gray-300)); }
 <div class="grid-2">
 <div class="demo-box">
 <p class="a11y-label">Default paragraph</p>
-<p style="font-size: 0.875rem; line-height: 1.6;">Amber V2 uses modern CSS features to create elegant, accessible web applications. The framework leverages native browser capabilities to reduce JavaScript complexity while maintaining a rich user experience across devices.</p>
+<p style="font-size: 0.875rem; line-height: 1.6;">Asset Pipeline uses modern CSS features to create elegant, accessible web applications. The design system leverages native browser capabilities to reduce JavaScript complexity while maintaining a rich user experience across devices.</p>
 </div>
 <div class="demo-box">
 <p class="a11y-label">text-wrap: pretty</p>
-<p style="font-size: 0.875rem; line-height: 1.6; text-wrap: pretty;">Amber V2 uses modern CSS features to create elegant, accessible web applications. The framework leverages native browser capabilities to reduce JavaScript complexity while maintaining a rich user experience across devices.</p>
+<p style="font-size: 0.875rem; line-height: 1.6; text-wrap: pretty;">Asset Pipeline uses modern CSS features to create elegant, accessible web applications. The design system leverages native browser capabilities to reduce JavaScript complexity while maintaining a rich user experience across devices.</p>
 </div>
 </div>
 <h3 style="font-size: 0.875rem; font-weight: 600; margin: 1.5rem 0 0.75rem;">Container Queries</h3>
@@ -2917,12 +3956,12 @@ code { color: light-dark(var(--color-gray-700), var(--color-gray-300)); }
 </div>
 <h3 style="font-size: 0.875rem; font-weight: 600; margin: 1.5rem 0 0.75rem;">&lt;details&gt; / &lt;summary&gt; Accordion</h3>
 <details class="details-styled">
-<summary>What is Amber V2?</summary>
-<div class="details-body">Amber V2 is a complete rewrite of the Amber web framework for Crystal. It ships as a monorepo with zero runtime dependencies, uses ECR templates exclusively, and targets WCAG 2.2 AA accessibility compliance.</div>
+<summary>What is this brand kit?</summary>
+<div class="details-body">This brand kit is a generated showcase for Asset Pipeline design tokens, CSS output, component styling, and WCAG 2.2 AA-oriented accessibility conventions.</div>
 </details>
 <details class="details-styled">
 <summary>Why no JavaScript frameworks?</summary>
-<div class="details-body">Amber V2 uses native HTML/CSS features and minimal Stimulus controllers instead of heavy JavaScript frameworks. Features like <code>&lt;dialog&gt;</code>, the Popover API, and <code>&lt;details&gt;</code> provide rich interactivity natively.</div>
+<div class="details-body">The design-system direction uses native HTML/CSS features and focused vanilla JavaScript helpers instead of heavy JavaScript frameworks. Features like <code>&lt;dialog&gt;</code>, the Popover API, and <code>&lt;details&gt;</code> provide rich interactivity natively.</div>
 </details>
 <details class="details-styled">
 <summary>How does the adapter pattern work?</summary>
@@ -3231,6 +4270,50 @@ Section 2 <span style="float: right;">&#9660;</span></button>
 <tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: oklch(0.448 0.119 151.328); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>green-800</td><td style="font-size: 0.6875rem;">oklch(0.448 0.119 151.328)</td><td>--color-green-800</td></tr>
 <tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: oklch(0.393 0.095 152.535); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>green-900</td><td style="font-size: 0.6875rem;">oklch(0.393 0.095 152.535)</td><td>--color-green-900</td></tr>
 <tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: oklch(0.266 0.065 152.934); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>green-950</td><td style="font-size: 0.6875rem;">oklch(0.266 0.065 152.934)</td><td>--color-green-950</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-brand-primary); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>brand-primary</td><td style="font-size: 0.6875rem;">var(--amber-color-brand-primary)</td><td>--color-brand-primary</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-brand-secondary); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>brand-secondary</td><td style="font-size: 0.6875rem;">var(--amber-color-brand-secondary)</td><td>--color-brand-secondary</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-brand-accent); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>brand-accent</td><td style="font-size: 0.6875rem;">var(--amber-color-brand-accent)</td><td>--color-brand-accent</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-brand-primary-hover); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>brand-hover</td><td style="font-size: 0.6875rem;">var(--amber-color-brand-primary-hover)</td><td>--color-brand-hover</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-brand-primary-active); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>brand-active</td><td style="font-size: 0.6875rem;">var(--amber-color-brand-primary-active)</td><td>--color-brand-active</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-surface-canvas); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>surface-canvas</td><td style="font-size: 0.6875rem;">var(--amber-color-surface-canvas)</td><td>--color-surface-canvas</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-surface-panel); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>surface-panel</td><td style="font-size: 0.6875rem;">var(--amber-color-surface-panel)</td><td>--color-surface-panel</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-surface-elevated); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>surface-elevated</td><td style="font-size: 0.6875rem;">var(--amber-color-surface-elevated)</td><td>--color-surface-elevated</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-surface-sunken); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>surface-sunken</td><td style="font-size: 0.6875rem;">var(--amber-color-surface-sunken)</td><td>--color-surface-sunken</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-success-indicator); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>success-indicator</td><td style="font-size: 0.6875rem;">var(--amber-color-success-indicator)</td><td>--color-success-indicator</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-success-bg); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>success-subtle</td><td style="font-size: 0.6875rem;">var(--amber-color-success-bg)</td><td>--color-success-subtle</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-success-bg-hover); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>success-hover</td><td style="font-size: 0.6875rem;">var(--amber-color-success-bg-hover)</td><td>--color-success-hover</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-success-border); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>success-border</td><td style="font-size: 0.6875rem;">var(--amber-color-success-border)</td><td>--color-success-border</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-success-indicator); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>success-strong</td><td style="font-size: 0.6875rem;">var(--amber-color-success-indicator)</td><td>--color-success-strong</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-success-text); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>success-text</td><td style="font-size: 0.6875rem;">var(--amber-color-success-text)</td><td>--color-success-text</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-success-focus-ring); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>success-focus</td><td style="font-size: 0.6875rem;">var(--amber-color-success-focus-ring)</td><td>--color-success-focus</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-warning-indicator); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>warning-indicator</td><td style="font-size: 0.6875rem;">var(--amber-color-warning-indicator)</td><td>--color-warning-indicator</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-warning-bg); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>warning-subtle</td><td style="font-size: 0.6875rem;">var(--amber-color-warning-bg)</td><td>--color-warning-subtle</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-warning-bg-hover); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>warning-hover</td><td style="font-size: 0.6875rem;">var(--amber-color-warning-bg-hover)</td><td>--color-warning-hover</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-warning-border); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>warning-border</td><td style="font-size: 0.6875rem;">var(--amber-color-warning-border)</td><td>--color-warning-border</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-warning-indicator); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>warning-strong</td><td style="font-size: 0.6875rem;">var(--amber-color-warning-indicator)</td><td>--color-warning-strong</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-warning-text); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>warning-text</td><td style="font-size: 0.6875rem;">var(--amber-color-warning-text)</td><td>--color-warning-text</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-warning-focus-ring); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>warning-focus</td><td style="font-size: 0.6875rem;">var(--amber-color-warning-focus-ring)</td><td>--color-warning-focus</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-danger-indicator); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>danger-indicator</td><td style="font-size: 0.6875rem;">var(--amber-color-danger-indicator)</td><td>--color-danger-indicator</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-danger-bg); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>danger-subtle</td><td style="font-size: 0.6875rem;">var(--amber-color-danger-bg)</td><td>--color-danger-subtle</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-danger-bg-hover); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>danger-hover</td><td style="font-size: 0.6875rem;">var(--amber-color-danger-bg-hover)</td><td>--color-danger-hover</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-danger-border); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>danger-border</td><td style="font-size: 0.6875rem;">var(--amber-color-danger-border)</td><td>--color-danger-border</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-danger-indicator); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>danger-strong</td><td style="font-size: 0.6875rem;">var(--amber-color-danger-indicator)</td><td>--color-danger-strong</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-danger-text); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>danger-text</td><td style="font-size: 0.6875rem;">var(--amber-color-danger-text)</td><td>--color-danger-text</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-danger-focus-ring); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>danger-focus</td><td style="font-size: 0.6875rem;">var(--amber-color-danger-focus-ring)</td><td>--color-danger-focus</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-info-indicator); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>info-indicator</td><td style="font-size: 0.6875rem;">var(--amber-color-info-indicator)</td><td>--color-info-indicator</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-info-bg); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>info-subtle</td><td style="font-size: 0.6875rem;">var(--amber-color-info-bg)</td><td>--color-info-subtle</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-info-bg-hover); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>info-hover</td><td style="font-size: 0.6875rem;">var(--amber-color-info-bg-hover)</td><td>--color-info-hover</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-info-border); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>info-border</td><td style="font-size: 0.6875rem;">var(--amber-color-info-border)</td><td>--color-info-border</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-info-indicator); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>info-strong</td><td style="font-size: 0.6875rem;">var(--amber-color-info-indicator)</td><td>--color-info-strong</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-info-text); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>info-text</td><td style="font-size: 0.6875rem;">var(--amber-color-info-text)</td><td>--color-info-text</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-info-focus-ring); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>info-focus</td><td style="font-size: 0.6875rem;">var(--amber-color-info-focus-ring)</td><td>--color-info-focus</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-text-primary); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>primary</td><td>var(--amber-color-text-primary)</td><td>--color-primary</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-text-secondary); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>secondary</td><td>var(--amber-color-text-secondary)</td><td>--color-secondary</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-text-muted); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>muted</td><td>var(--amber-color-text-muted)</td><td>--color-muted</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-text-inverse); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>inverse</td><td>var(--amber-color-text-inverse)</td><td>--color-inverse</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-text-link); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>link</td><td>var(--amber-color-text-link)</td><td>--color-link</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-border-focus); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>focus</td><td>var(--amber-color-border-focus)</td><td>--color-focus</td></tr>
+<tr><td><div style="width: 1.5rem; height: 1rem; border-radius: 0.125rem; background: var(--amber-color-border-default); border: 1px solid oklch(0 0 0 / 0.1);"></div></td><td>border</td><td>var(--amber-color-border-default)</td><td>--color-border</td></tr>
 </tbody></table>
 </div>
 </details>
@@ -3253,7 +4336,7 @@ Section 2 <span style="float: right;">&#9660;</span></button>
 </details>
 </section>
     <footer style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid light-dark(var(--color-gray-200), var(--color-gray-700)); font-size: 0.75rem; color: light-dark(var(--color-gray-400), var(--color-gray-500));">
-      <p>Generated by Amber V2 Asset Pipeline CSS Engine. All styles above are produced by the engine — no external CSS.</p>
+      <p>Generated by the Asset Pipeline CSS engine. All styles above are produced by the engine — no external CSS.</p>
     </footer>
   </div>
 </body>
