@@ -135,11 +135,64 @@ module UI
     property maximum_width : Float64? = nil
     property maximum_height : Float64? = nil
 
+    # Fluid (responsive) size constraints. When set, the web renderer emits a
+    # `width: clamp(min, ideal, max)` (resp. `height:`) declaration instead of
+    # the literal `minimum_*` / `maximum_*` pair. Native renderers will adopt
+    # platform-idiomatic size class translations in later phases.
+    property fluid_width : UI::Fluid? = nil
+    property fluid_height : UI::Fluid? = nil
+
+    # Container query name. When set, the web renderer emits
+    # `container-type: inline-size; container-name: <name>` on the element so
+    # nested `@container <name> (...)` blocks resolve against this view's box
+    # rather than the viewport.
+    property container_query_name : String? = nil
+
     # Test identifier for automated UI testing, maps to native test attributes
     property test_id : String? = nil
+
+    # Chainable setter: set a fluid horizontal size. Accepts CSS-compatible
+    # strings (e.g. `"60vw"`, `"20rem"`) or numeric pixel values, which are
+    # emitted as `Npx`. Returns `self` so calls can be chained.
+    def fluid_width(min : String | Number, ideal : String | Number, max : String | Number) : self
+      @fluid_width = UI::Fluid.new(
+        min: coerce_fluid_size(min),
+        ideal: coerce_fluid_size(ideal),
+        max: coerce_fluid_size(max),
+      )
+      self
+    end
+
+    # Chainable setter: set a fluid vertical size. See `fluid_width`.
+    def fluid_height(min : String | Number, ideal : String | Number, max : String | Number) : self
+      @fluid_height = UI::Fluid.new(
+        min: coerce_fluid_size(min),
+        ideal: coerce_fluid_size(ideal),
+        max: coerce_fluid_size(max),
+      )
+      self
+    end
+
+    # Chainable setter: mark this view as a container-query root. Renderers
+    # that support container queries emit `container-type: inline-size` and
+    # `container-name: <name>` on this element so descendant rules of the
+    # form `@container <name> (min-width: ...)` resolve against this box.
+    def container_query(name : String) : self
+      @container_query_name = name
+      self
+    end
 
     # Accept a platform visitor for rendering dispatch.
     # Each concrete view type calls `visitor.visit(self)`.
     abstract def accept(visitor : PlatformVisitor)
+
+    # Coerce a fluid size argument into its CSS string form. Numbers are
+    # treated as pixel values; strings pass through unchanged.
+    private def coerce_fluid_size(value : String | Number) : String
+      case value
+      when Number then "#{value}px"
+      else             value.to_s
+      end
+    end
   end
 end

@@ -1,3 +1,4 @@
+require "./ui/fluid"
 require "./ui/view"
 require "./ui/app_shortcuts"
 require "./ui/live_activities"
