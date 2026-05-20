@@ -47,7 +47,20 @@ enum HostingHelpers {
     /// The `.frame(minWidth: 1, minHeight: 1)` defensive sizing is required
     /// for the SwiftUI Form/List re-measure quirk documented in §5.6.
     static func host<V: View>(_ view: V) -> APSKPlatformView {
-        let sized = AnyView(view.frame(minWidth: 1, minHeight: 1))
+        // Apply the brand tint last so it cascades into every child view
+        // SwiftUI considers part of this hosted root. Hosted roots are
+        // isolated tint scopes — there is no propagation across
+        // `UIHostingController` / `NSHostingController` boundaries — so
+        // each facade re-applies the currently installed brand tint.
+        // When no tint has been installed (`APSKRuntime.brandTint == nil`)
+        // SwiftUI's system accent colour shows through unchanged.
+        let tinted: AnyView
+        if let tint = APSKRuntime.brandTint {
+            tinted = AnyView(view.tint(tint))
+        } else {
+            tinted = AnyView(view)
+        }
+        let sized = AnyView(tinted.frame(minWidth: 1, minHeight: 1))
         let controller = APSKHostingController(rootView: sized)
         let platformView: APSKPlatformView
         #if canImport(UIKit)

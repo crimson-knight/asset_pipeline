@@ -1,5 +1,6 @@
 require "../view"
 require "../views/button"
+require "./swiftkit_bridge"
 
 module UI
   module Native
@@ -113,5 +114,63 @@ module UI
         sender.set_string(target, :setSymbolName, view.symbol)
       end
     end
+
+    # ---------------------------------------------------------------------
+    # Production `Sender` backed by `LibSwiftKitBridge`.
+    #
+    # This is the sender the AppKit / UIKit renderer's `visit(UI::Button)`
+    # constructs. It holds the raw `APSK*Overrides` pointer the C
+    # trampoline returned and forwards every `set_*` invocation to the
+    # matching `apsk_overrides_set_*` `fun`. The `target : String`
+    # argument the abstract contract passes is ignored — the production
+    # sender already knows which overrides object it is populating from
+    # the pointer captured at construction time. Symbol setter names are
+    # stringified once at the C boundary via `to_s.to_unsafe`.
+    #
+    # The sender is gated on `flag?(:macos) || flag?(:ios)` because
+    # `LibSwiftKitBridge` only resolves under those builds. The web /
+    # Android renderers never reach this code path.
+    # ---------------------------------------------------------------------
+    {% if flag?(:macos) || flag?(:ios) %}
+      class SwiftKitObjCSender < Populator::Sender
+        # The `APSK*Overrides` pointer returned by `apsk_*_overrides_new`.
+        # Lives at least as long as the sender; the renderer drops the
+        # sender immediately after the matching `apsk_make_*` call, which
+        # is the next ObjC autorelease-pool drain at the latest.
+        getter overrides_ptr : Void*
+
+        def initialize(@overrides_ptr : Void*)
+        end
+
+        def set_color(target : String, setter : Symbol, color : UI::Color?)
+          return if color.nil?
+          LibSwiftKitBridge.apsk_overrides_set_color(
+            @overrides_ptr, setter.to_s.to_unsafe,
+            color.r, color.g, color.b, color.a,
+          )
+        end
+
+        def set_number(target : String, setter : Symbol, value : Float64?)
+          return if value.nil?
+          LibSwiftKitBridge.apsk_overrides_set_number(
+            @overrides_ptr, setter.to_s.to_unsafe, value,
+          )
+        end
+
+        def set_bool(target : String, setter : Symbol, value : Bool?)
+          return if value.nil?
+          LibSwiftKitBridge.apsk_overrides_set_bool(
+            @overrides_ptr, setter.to_s.to_unsafe, value ? 1 : 0,
+          )
+        end
+
+        def set_string(target : String, setter : Symbol, value : String?)
+          return if value.nil?
+          LibSwiftKitBridge.apsk_overrides_set_string(
+            @overrides_ptr, setter.to_s.to_unsafe, value.to_unsafe,
+          )
+        end
+      end
+    {% end %}
   end
 end

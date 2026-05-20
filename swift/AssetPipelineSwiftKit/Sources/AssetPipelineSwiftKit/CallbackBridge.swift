@@ -1,18 +1,36 @@
-// CallbackBridge — the one-direction Swift → Crystal action dispatch surface.
+// CallbackBridge — the one-direction Swift → Crystal action dispatch surface
+// PLUS the brand-tint runtime registry that drives the "SwiftUI Default
+// Supremacy" cascade.
 //
-// At runtime the Swift companion is statically linked into the Crystal-driven
-// host binary. Crystal exports a single `@convention(c)` trampoline function,
-// `ap_swiftkit_invoke_action(token: UInt64, value: Double)`. During app
-// startup Crystal calls `APSKRuntime.initialize(actionTrampoline:)` once,
-// passing the address of that trampoline. Subsequent UI events (Button tap,
-// Toggle change, Slider drag-end) fire `CallbackBridge.fire(token:value:)`
-// which calls the trampoline, which routes through the Crystal-side
-// `UI::CallbackRegistry` to the original `Proc`.
+// Action dispatch:
 //
-// `token == 0` means "no callback wired" — every call site checks. This
-// matches the Crystal-side convention (token 0 is never handed out by
-// `register_action`).
+//   At runtime the Swift companion is statically linked into the
+//   Crystal-driven host binary. Crystal exports a single `@convention(c)`
+//   trampoline function, `ap_swiftkit_invoke_action(token: UInt64, value:
+//   Double)`. During app startup Crystal calls
+//   `APSKRuntime.initialize(actionTrampoline:)` once, passing the address
+//   of that trampoline. Subsequent UI events (Button tap, Toggle change,
+//   Slider drag-end) fire `CallbackBridge.fire(token:value:)` which calls
+//   the trampoline, which routes through the Crystal-side
+//   `UI::CallbackRegistry` to the original `Proc`.
+//
+//   `token == 0` means "no callback wired" — every call site checks. This
+//   matches the Crystal-side convention (token 0 is never handed out by
+//   `register_action`).
+//
+// Brand tint:
+//
+//   Under Option B ("SwiftUI Default Supremacy") brand identity propagates
+//   through the SwiftUI `.tint()` accent cascade rather than per-widget
+//   colour overrides. The Crystal renderer calls
+//   `APSKRuntime.setBrandTint(red:green:blue:alpha:)` once during render
+//   set-up (and re-applies it whenever `design_tokens` changes), passing
+//   the active `brand_primary` colour. The current tint is stored on
+//   `APSKRuntime` and every facade's `HostingHelpers.host(_:)` wrapper
+//   applies it via `.tint(...)` to its hosted root. A `nil` tint means
+//   "no override — use the system accent colour."
 
+import SwiftUI
 import Foundation
 
 /// Pointer to the Crystal-side trampoline. Set once at startup by
@@ -20,6 +38,16 @@ import Foundation
 /// so the package can be loaded before Crystal initialization (the spec
 /// helper exercises this path).
 private var actionTrampoline: (@convention(c) (UInt64, Double) -> Void)? = nil
+
+/// Cached brand tint applied to every hosted SwiftUI root. `nil` means
+/// "use the system accent colour" (SwiftUI default behaviour). Stored as
+/// `SwiftUI.Color?` so `HostingHelpers.host(_:)` can splat it into a
+/// `.tint(_:)` call without re-converting on every render.
+///
+/// Reads and writes are confined to the main thread (UIKit/AppKit
+/// renderer contract — the Crystal-side renderer initialiser and the
+/// facade `host(_:)` call both run on the main thread).
+private var currentBrandTint: Color? = nil
 
 @objc(APSKRuntime)
 public class APSKRuntime: NSObject {
@@ -35,6 +63,45 @@ public class APSKRuntime: NSObject {
             trampoline,
             to: (@convention(c) (UInt64, Double) -> Void).self
         )
+    }
+
+    /// Install (or replace) the brand tint colour applied to every
+    /// SwiftUI facade root. Components inside a hosted root inherit this
+    /// tint as their accent colour, which is how a brand override on
+    /// Crystal's `design_tokens.colors.brand_primary` reaches the
+    /// rendered pixel.
+    ///
+    /// Re-callable: the renderer calls this on every `render(...)` entry
+    /// so a brand swap mid-session (`design_tokens =
+    /// Tokens.default.with_brand(...)`) takes effect on the next render.
+    /// Channel values are normalised 0...1 sRGB.
+    @objc public static func setBrandTint(red: Double, green: Double, blue: Double, alpha: Double) {
+        currentBrandTint = Color(
+            .sRGB,
+            red: red,
+            green: green,
+            blue: blue,
+            opacity: alpha
+        )
+    }
+
+    /// Clear the brand tint. After this call, hosted roots fall back to
+    /// SwiftUI's automatic accent colour. Used by tests and for sample
+    /// builds that intentionally want raw SwiftUI defaults.
+    @objc public static func clearBrandTint() {
+        currentBrandTint = nil
+    }
+
+    /// Internal accessor used by `HostingHelpers.host(_:)`. Marked
+    /// `internal` because nothing outside the package needs the raw
+    /// `SwiftUI.Color`; ObjC callers go through `setBrandTint`.
+    static var brandTint: Color? { currentBrandTint }
+
+    /// Returns true once `setBrandTint` has been called at least once and
+    /// the tint has not been cleared. Used by specs and by the runtime
+    /// spec to confirm wiring without exposing the colour itself.
+    @objc public static var hasBrandTint: Bool {
+        currentBrandTint != nil
     }
 
     /// Test-only hook. Lets `CallbackBridgeTests.swift` install a Swift
