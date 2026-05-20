@@ -157,6 +157,7 @@ module UI
         end
 
         apply_common_styles(el, view)
+        enforce_touch_target(el)
         push_element(el)
       end
 
@@ -279,6 +280,7 @@ module UI
         el.add_style("color: #{color_css(view.text_color, default_token: "var(--ap-color-text-primary)")}")
 
         apply_common_styles(el, view)
+        enforce_touch_target(el)
         push_element(el)
       end
 
@@ -339,6 +341,10 @@ module UI
           input.add_style("accent-color: rgba(#{to_rgb_int(tint.r)}, #{to_rgb_int(tint.g)}, #{to_rgb_int(tint.b)}, #{tint.a})")
         end
 
+        # The native checkbox input is the tappable target; the wrapping
+        # <div> is decorative. Enforce on the input.
+        enforce_touch_target(input)
+
         apply_common_styles(el, view)
 
         @element_stack.push(el)
@@ -366,6 +372,8 @@ module UI
         if view.is_checked
           input.set_attribute("checked", "checked")
         end
+
+        enforce_touch_target(input)
 
         apply_common_styles(el, view)
 
@@ -449,6 +457,8 @@ module UI
           input.add_style("accent-color: rgba(#{to_rgb_int(tint.r)}, #{to_rgb_int(tint.g)}, #{to_rgb_int(tint.b)}, #{tint.a})")
         end
 
+        enforce_touch_target(input)
+
         apply_common_styles(el, view)
 
         @element_stack.push(el)
@@ -526,6 +536,7 @@ module UI
         end
 
         apply_common_styles(el, view)
+        enforce_touch_target(el)
 
         if parent = @element_stack.last?
           parent.as(Components::Elements::ContainerElement).add_child(el)
@@ -735,6 +746,7 @@ module UI
         end
 
         apply_common_styles(el, view)
+        enforce_touch_target(el)
         push_element(el)
       end
 
@@ -806,6 +818,7 @@ module UI
         el.add_style("color: #{color_css(view.text_color, default_token: "var(--ap-color-text-primary)")}")
 
         apply_common_styles(el, view)
+        enforce_touch_target(el)
         push_element(el)
       end
 
@@ -822,16 +835,20 @@ module UI
         minus_btn = Components::Elements::Button.new(type: "button")
         minus_btn << "-"
         minus_btn.add_style("width: 32px; height: 32px; border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); cursor: pointer")
+        enforce_touch_target(minus_btn)
         el.add_child(minus_btn)
 
         value_el = Components::Elements::Span.new
         value_el << view.value.to_s
-        value_el.add_style("min-width: 40px; text-align: center")
+        # The numeric value display is not a touch target; it just needs a
+        # readable width that scales with the surrounding viewport.
+        value_el.add_style("min-width: #{fluid_px(40, 12, 56)}; text-align: center")
         el.add_child(value_el)
 
         plus_btn = Components::Elements::Button.new(type: "button")
         plus_btn << "+"
         plus_btn.add_style("width: 32px; height: 32px; border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); cursor: pointer")
+        enforce_touch_target(plus_btn)
         el.add_child(plus_btn)
 
         apply_common_styles(el, view)
@@ -848,6 +865,7 @@ module UI
 
         view.segments.each_with_index do |segment, index|
           seg_el = Components::Elements::Div.new
+          seg_el.set_attribute("role", "button")
           seg_el.add_style("padding: 6px 16px; cursor: pointer; font-size: 14px")
           if index == view.selected_index
             seg_el.add_style("background: var(--ap-color-brand-primary); color: var(--ap-color-text-inverse)")
@@ -857,6 +875,9 @@ module UI
           if index > 0
             seg_el.add_style("border-left: 1px solid var(--ap-color-brand-primary)")
           end
+          # Each segment is independently tappable; enforce touch target on
+          # the segment itself, not the parent strip.
+          enforce_touch_target(seg_el)
           seg_span = Components::Elements::Span.new
           seg_span << segment
           seg_el.add_child(seg_span)
@@ -891,6 +912,7 @@ module UI
           input.set_attribute("type", "datetime-local")
         end
         input.add_style("border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); padding: 6px 12px; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary)")
+        enforce_touch_target(input)
         el.add_child(input)
 
         apply_common_styles(el, view)
@@ -917,6 +939,7 @@ module UI
           input.set_attribute("step", (view.minute_interval * 60).to_s)
         end
         input.add_style("border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); padding: 6px 12px; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary)")
+        enforce_touch_target(input)
         el.add_child(input)
 
         apply_common_styles(el, view)
@@ -940,6 +963,7 @@ module UI
           input.set_attribute("value", view.text)
         end
         input.add_style("flex: 1; border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-pill); padding: 8px 16px; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary)")
+        enforce_touch_target(input)
         el.add_child(input)
 
         if view.shows_cancel_button && view.is_searching
@@ -967,6 +991,7 @@ module UI
         textarea.set_attribute("role", "textbox")
         textarea.set_attribute("aria-multiline", "true")
         textarea.add_style("border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); padding: 8px; min-height: 80px; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary)")
+        enforce_touch_target(textarea)
 
         if view.text.empty? && !view.placeholder.empty?
           textarea << view.placeholder
@@ -1253,6 +1278,7 @@ module UI
         cancel_btn = Components::Elements::Button.new(type: "button")
         cancel_btn << view.cancel_label
         cancel_btn.add_style("padding: 8px 24px; border-radius: var(--ap-radius-control); border: 1px solid var(--ap-color-border-default); background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); cursor: pointer")
+        enforce_touch_target(cancel_btn)
         buttons_el.add_child(cancel_btn)
 
         confirm_btn = Components::Elements::Button.new(type: "button")
@@ -1262,6 +1288,7 @@ module UI
         else
           confirm_btn.add_style("padding: 8px 24px; border-radius: var(--ap-radius-control); border: none; background: var(--ap-color-brand-primary); color: var(--ap-color-text-inverse); cursor: pointer")
         end
+        enforce_touch_target(confirm_btn)
         buttons_el.add_child(confirm_btn)
 
         dialog.add_child(buttons_el)
@@ -1455,6 +1482,7 @@ module UI
         end
         el << view.label
         apply_common_styles(el, view)
+        enforce_touch_target(el)
         push_element(el)
       end
 
@@ -1464,6 +1492,7 @@ module UI
         btn = Components::Elements::Button.new(type: "button")
         btn << view.label
         btn.add_style("display: flex; align-items: center; gap: 4px; padding: 6px 12px; border: 1px solid var(--ap-color-border-default); border-radius: var(--ap-radius-control); background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); cursor: pointer")
+        enforce_touch_target(btn)
         el.add_child(btn)
 
         if !view.items.empty?
@@ -1542,6 +1571,7 @@ module UI
         end
         el << view.label
         apply_common_styles(el, view)
+        enforce_touch_target(el)
         push_element(el)
       end
 
@@ -1768,6 +1798,7 @@ module UI
         if view.supports_alpha
           input.set_attribute("data-supports-alpha", "true")
         end
+        enforce_touch_target(input)
         el.add_child(input)
         apply_common_styles(el, view)
         if parent = @element_stack.last?
