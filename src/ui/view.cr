@@ -27,8 +27,8 @@ module UI
 
   # Style for toggle/switch controls
   enum ToggleStyle
-    Switch     # iOS-style toggle switch
-    Checkbox   # Standard checkbox
+    Switch   # iOS-style toggle switch
+    Checkbox # Standard checkbox
   end
 
   # Style for picker controls
@@ -41,24 +41,24 @@ module UI
 
   # Mode for date/time pickers
   enum DatePickerMode
-    Date         # Date only
-    Time         # Time only
-    DateAndTime  # Both date and time
+    Date        # Date only
+    Time        # Time only
+    DateAndTime # Both date and time
   end
 
   # Style for progress indicators
   enum ProgressStyle
-    Linear    # Horizontal progress bar
-    Circular  # Spinning circular progress
+    Linear   # Horizontal progress bar
+    Circular # Spinning circular progress
   end
 
   # Style for list views
   enum ListStyle
-    Plain         # No grouping, no separators between sections
-    Inset         # Rounded group sections with insets
-    Grouped       # Grouped with section headers
-    InsetGrouped  # Rounded grouped sections
-    Sidebar       # macOS-style sidebar list
+    Plain        # No grouping, no separators between sections
+    Inset        # Rounded group sections with insets
+    Grouped      # Grouped with section headers
+    InsetGrouped # Rounded grouped sections
+    Sidebar      # macOS-style sidebar list
   end
 
   # Layout mode for list/collection views

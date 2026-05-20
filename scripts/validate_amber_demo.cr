@@ -1,13 +1,13 @@
 require "file_utils"
 require "json"
 
-ROOT        = File.expand_path("..", __DIR__)
-JS          = File.join(ROOT, "public/js/design-system.js")
-RESULT_DIR  = File.join(ROOT, "test-results/web-design-system")
-LEGACY_RESULT_DIR = File.join(ROOT, "test-results/amber-design-system")
-RESULT_FILE = File.join(RESULT_DIR, "static-audit.json")
+ROOT                 = File.expand_path("..", __DIR__)
+JS                   = File.join(ROOT, "public/js/design-system.js")
+RESULT_DIR           = File.join(ROOT, "test-results/web-design-system")
+LEGACY_RESULT_DIR    = File.join(ROOT, "test-results/amber-design-system")
+RESULT_FILE          = File.join(RESULT_DIR, "static-audit.json")
 CANONICAL_AUDIT_FILE = File.join(RESULT_DIR, "canonical-surface-audit.json")
-PAGES       = {
+PAGES                = {
   "overview"      => File.join(ROOT, "output/web-design-system-demo.html"),
   "pricing"       => File.join(ROOT, "output/web-design-system-pricing.html"),
   "forms"         => File.join(ROOT, "output/web-design-system-forms.html"),
@@ -92,37 +92,37 @@ PAGE_LINKS.each do |file|
 end
 
 {
-  "Frontloader Studio"       => "brand concept appears",
-  "data-ap-theme-toggle"     => "neutral theme toggle exists",
-  "data-ap-theme-set"        => "neutral explicit theme controls exist",
-  "data-ap-pricing"          => "neutral pricing calculator exists",
-  "data-ap-payment-form"     => "neutral payment form exists",
-  "data-ap-auth-form"        => "neutral auth form exists",
-  "data-ap-password"         => "neutral password rules exist",
-  "data-ap-password-confirm" => "neutral password confirmation exists",
-  "type=\"email\""          => "email input uses HTML5 type",
-  "autocomplete=\"email\""  => "email autocomplete exists",
-  "data-ap-card-number"      => "neutral payment card formatting exists",
-  "data-ap-filter"           => "neutral table filtering exists",
-  "data-ap-command-panel"    => "neutral command palette exists",
-  "am-heatmap"               => "schedule heatmap exists",
-  "data-ap-reveal"           => "neutral timeline reveal exists",
-  "data-ap-chat-form"        => "neutral chat form exists",
-  "data-ap-live-search"      => "neutral live search exists",
-  "data-ap-carousel"         => "neutral carousel exists",
-  "data-ap-tabs"             => "neutral tabs exist",
-  "data-ap-dialog-open"      => "neutral dialog opener helper exists",
-  "data-component=\"command-palette\"" => "command palette component is promoted",
+  "Frontloader Studio"                  => "brand concept appears",
+  "data-ap-theme-toggle"                => "neutral theme toggle exists",
+  "data-ap-theme-set"                   => "neutral explicit theme controls exist",
+  "data-ap-pricing"                     => "neutral pricing calculator exists",
+  "data-ap-payment-form"                => "neutral payment form exists",
+  "data-ap-auth-form"                   => "neutral auth form exists",
+  "data-ap-password"                    => "neutral password rules exist",
+  "data-ap-password-confirm"            => "neutral password confirmation exists",
+  "type=\"email\""                      => "email input uses HTML5 type",
+  "autocomplete=\"email\""              => "email autocomplete exists",
+  "data-ap-card-number"                 => "neutral payment card formatting exists",
+  "data-ap-filter"                      => "neutral table filtering exists",
+  "data-ap-command-panel"               => "neutral command palette exists",
+  "am-heatmap"                          => "schedule heatmap exists",
+  "data-ap-reveal"                      => "neutral timeline reveal exists",
+  "data-ap-chat-form"                   => "neutral chat form exists",
+  "data-ap-live-search"                 => "neutral live search exists",
+  "data-ap-carousel"                    => "neutral carousel exists",
+  "data-ap-tabs"                        => "neutral tabs exist",
+  "data-ap-dialog-open"                 => "neutral dialog opener helper exists",
+  "data-component=\"command-palette\""  => "command palette component is promoted",
   "data-component=\"schedule-heatmap\"" => "schedule heatmap component is promoted",
-  "data-component=\"timeline\"" => "timeline component is promoted",
-  "data-component=\"tabs\"" => "tabs component is promoted",
-  "data-component=\"carousel\"" => "carousel component is promoted",
-  "data-component=\"dialog\"" => "dialog component is promoted",
-  "data-component=\"payment-form\"" => "payment form component is promoted",
-  "data-component=\"auth-form\"" => "auth form component is promoted",
-  "data-component=\"theme-switcher\"" => "theme switcher component is promoted",
-  "data-component=\"pricing-card\"" => "pricing card component is promoted",
-  "data-component=\"field\"" => "field component is promoted",
+  "data-component=\"timeline\""         => "timeline component is promoted",
+  "data-component=\"tabs\""             => "tabs component is promoted",
+  "data-component=\"carousel\""         => "carousel component is promoted",
+  "data-component=\"dialog\""           => "dialog component is promoted",
+  "data-component=\"payment-form\""     => "payment form component is promoted",
+  "data-component=\"auth-form\""        => "auth form component is promoted",
+  "data-component=\"theme-switcher\""   => "theme switcher component is promoted",
+  "data-component=\"pricing-card\""     => "pricing card component is promoted",
+  "data-component=\"field\""            => "field component is promoted",
 }.each do |needle, label|
   assert(label, runtime_free_html.includes?(needle), failures)
 end
@@ -177,10 +177,10 @@ end
 assert("Bootstrap-shaped canonical classes absent: #{canonical_class_hits.map(&.["match"].as_s).join(", ")}", canonical_class_hits.empty?, failures)
 
 canonical_class_audit = {
-  "generated_pages_scanned" => PAGES.keys,
-  "runtime_stripped" => true,
-  "forbidden_class_families" => forbidden_class_patterns.keys,
-  "hits" => canonical_class_hits,
+  "generated_pages_scanned"      => PAGES.keys,
+  "runtime_stripped"             => true,
+  "forbidden_class_families"     => forbidden_class_patterns.keys,
+  "hits"                         => canonical_class_hits,
   "legacy_noncanonical_examples" => [
     "src/generators/brand_kit.cr",
     "examples/interactive_app.cr",
@@ -190,7 +190,7 @@ canonical_class_audit = {
     "output/shop.html",
   ],
   "migration_note" => "docs/web-design-system/migration.md",
-  "passed" => canonical_class_hits.empty?,
+  "passed"         => canonical_class_hits.empty?,
 }
 
 unless canonical_class_hits.empty?

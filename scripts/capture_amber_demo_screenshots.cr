@@ -5,17 +5,17 @@ require "http/web_socket"
 require "json"
 require "uri"
 
-ROOT         = File.expand_path("..", __DIR__)
-ARTIFACT_DIR = File.join(ROOT, "test-results/web-design-system")
+ROOT                = File.expand_path("..", __DIR__)
+ARTIFACT_DIR        = File.join(ROOT, "test-results/web-design-system")
 LEGACY_ARTIFACT_DIR = File.join(ROOT, "test-results/amber-design-system")
-REPORT_FILE  = File.join(ARTIFACT_DIR, "browser-audit.json")
-CONTRAST_FILE = File.join(ARTIFACT_DIR, "contrast-report.json")
-CONTRAST_CSV  = File.join(ARTIFACT_DIR, "contrast-report.csv")
+REPORT_FILE         = File.join(ARTIFACT_DIR, "browser-audit.json")
+CONTRAST_FILE       = File.join(ARTIFACT_DIR, "contrast-report.json")
+CONTRAST_CSV        = File.join(ARTIFACT_DIR, "contrast-report.csv")
 REDUCED_MOTION_FILE = File.join(ARTIFACT_DIR, "reduced-motion-report.json")
-KEYBOARD_FILE = File.join(ARTIFACT_DIR, "keyboard-traversal.json")
-TOUCH_TARGET_FILE = File.join(ARTIFACT_DIR, "touch-targets.json")
-AX_TREE_FILE = File.join(ARTIFACT_DIR, "accessibility-tree-report.json")
-PAGES        = {
+KEYBOARD_FILE       = File.join(ARTIFACT_DIR, "keyboard-traversal.json")
+TOUCH_TARGET_FILE   = File.join(ARTIFACT_DIR, "touch-targets.json")
+AX_TREE_FILE        = File.join(ARTIFACT_DIR, "accessibility-tree-report.json")
+PAGES               = {
   "overview"      => File.join(ROOT, "output/web-design-system-demo.html"),
   "pricing"       => File.join(ROOT, "output/web-design-system-pricing.html"),
   "forms"         => File.join(ROOT, "output/web-design-system-forms.html"),
@@ -480,9 +480,9 @@ begin
         }
       end
       keyboard_evidence << {
-        "case" => JSON::Any.new(item[:name]),
-        "page" => JSON::Any.new(item[:page]),
-        "theme" => JSON::Any.new(item[:theme]),
+        "case"        => JSON::Any.new(item[:name]),
+        "page"        => JSON::Any.new(item[:page]),
+        "theme"       => JSON::Any.new(item[:theme]),
         "focus_order" => common_result["focusOrder"],
       }
 
@@ -542,10 +542,10 @@ begin
         end
       end
       touch_target_evidence << {
-        "case" => JSON::Any.new(item[:name]),
-        "page" => JSON::Any.new(item[:page]),
-        "theme" => JSON::Any.new(item[:theme]),
-        "targets" => common_result["touchTargets"],
+        "case"          => JSON::Any.new(item[:name]),
+        "page"          => JSON::Any.new(item[:page]),
+        "theme"         => JSON::Any.new(item[:theme]),
+        "targets"       => common_result["touchTargets"],
         "small_targets" => common_result["smallTargets"],
       }
 
@@ -595,12 +595,12 @@ begin
           JS
         reduced_result["failures"].as_a.each { |failure| failures << "#{item[:name]} reduced motion failed: #{failure.as_s}" }
         reduced_motion_evidence << {
-          "case" => JSON::Any.new(item[:name]),
-          "page" => JSON::Any.new(item[:page]),
-          "theme" => JSON::Any.new(item[:theme]),
-          "surfaces" => reduced_result["surfaces"],
+          "case"      => JSON::Any.new(item[:name]),
+          "page"      => JSON::Any.new(item[:page]),
+          "theme"     => JSON::Any.new(item[:theme]),
+          "surfaces"  => reduced_result["surfaces"],
           "offenders" => reduced_result["offenders"],
-          "passed" => JSON::Any.new(reduced_result["failures"].as_a.empty?),
+          "passed"    => JSON::Any.new(reduced_result["failures"].as_a.empty?),
         }
       end
 
@@ -801,10 +801,10 @@ begin
             failures << "#{item[:name]} command palette synthetic tab escaped panel"
           end
           keyboard_evidence << {
-            "case" => JSON::Any.new("#{item[:name]} command-palette-open"),
-            "page" => JSON::Any.new("dashboard"),
-            "theme" => JSON::Any.new(item[:theme]),
-            "synthetic_tab_order" => JSON::Any.new([modal_before, modal_forward, modal_backward]),
+            "case"                 => JSON::Any.new("#{item[:name]} command-palette-open"),
+            "page"                 => JSON::Any.new("dashboard"),
+            "theme"                => JSON::Any.new(item[:theme]),
+            "synthetic_tab_order"  => JSON::Any.new([modal_before, modal_forward, modal_backward]),
             "synthetic_tab_passed" => JSON::Any.new(modal_forward["contained"].as_bool && modal_backward["contained"].as_bool),
           }
         end
@@ -944,10 +944,10 @@ begin
             failures << "#{item[:name]} dialog synthetic tab escaped dialog"
           end
           keyboard_evidence << {
-            "case" => JSON::Any.new("#{item[:name]} dialog-open"),
-            "page" => JSON::Any.new("patterns"),
-            "theme" => JSON::Any.new(item[:theme]),
-            "synthetic_tab_order" => JSON::Any.new([modal_before, modal_forward, modal_backward]),
+            "case"                 => JSON::Any.new("#{item[:name]} dialog-open"),
+            "page"                 => JSON::Any.new("patterns"),
+            "theme"                => JSON::Any.new(item[:theme]),
+            "synthetic_tab_order"  => JSON::Any.new([modal_before, modal_forward, modal_backward]),
             "synthetic_tab_passed" => JSON::Any.new(modal_forward["contained"].as_bool && modal_backward["contained"].as_bool),
           }
         end
@@ -1016,15 +1016,15 @@ begin
       end.first(220).map do |node|
         role = ax_value(node, "role")
         JSON::Any.new({
-          "role" => JSON::Any.new(role),
-          "name" => JSON::Any.new(ax_value(node, "name")),
-          "value" => JSON::Any.new(ax_value(node, "value")),
+          "role"        => JSON::Any.new(role),
+          "name"        => JSON::Any.new(ax_value(node, "name")),
+          "value"       => JSON::Any.new(ax_value(node, "value")),
           "description" => JSON::Any.new(ax_value(node, "description")),
-          "checked" => JSON::Any.new(ax_property(node, "checked") || ""),
-          "selected" => JSON::Any.new(ax_property(node, "selected") || ""),
-          "disabled" => JSON::Any.new(ax_property(node, "disabled") || ""),
-          "invalid" => JSON::Any.new(ax_property(node, "invalid") || ""),
-          "modal" => JSON::Any.new(ax_property(node, "modal") || ""),
+          "checked"     => JSON::Any.new(ax_property(node, "checked") || ""),
+          "selected"    => JSON::Any.new(ax_property(node, "selected") || ""),
+          "disabled"    => JSON::Any.new(ax_property(node, "disabled") || ""),
+          "invalid"     => JSON::Any.new(ax_property(node, "invalid") || ""),
+          "modal"       => JSON::Any.new(ax_property(node, "modal") || ""),
         })
       end
       role_counts = Hash(String, Int32).new(0)
@@ -1033,13 +1033,13 @@ begin
         role_counts[role] += 1 unless role.empty?
       end
       ax_tree_evidence << {
-        "case" => JSON::Any.new(item[:name]),
-        "page" => JSON::Any.new(item[:page]),
-        "theme" => JSON::Any.new(item[:theme]),
-        "source" => JSON::Any.new("Chrome DevTools Protocol Accessibility.getFullAXTree"),
-        "node_count" => JSON::Any.new(ax_nodes.size.to_i64),
-        "role_counts" => JSON::Any.new(role_counts.transform_values { |value| JSON::Any.new(value.to_i64) }),
-        "sampled_nodes" => JSON::Any.new(summarized_ax_nodes),
+        "case"             => JSON::Any.new(item[:name]),
+        "page"             => JSON::Any.new(item[:page]),
+        "theme"            => JSON::Any.new(item[:theme]),
+        "source"           => JSON::Any.new("Chrome DevTools Protocol Accessibility.getFullAXTree"),
+        "node_count"       => JSON::Any.new(ax_nodes.size.to_i64),
+        "role_counts"      => JSON::Any.new(role_counts.transform_values { |value| JSON::Any.new(value.to_i64) }),
+        "sampled_nodes"    => JSON::Any.new(summarized_ax_nodes),
         "unnamed_controls" => JSON::Any.new(unnamed_ax.map do |node|
           JSON::Any.new({
             "role" => JSON::Any.new(ax_value(node, "role")),
@@ -1068,7 +1068,7 @@ begin
   end
 
   viewport_summary = {
-    "total_screenshots" => JSON::Any.new(evidence.size.to_i64),
+    "total_screenshots"       => JSON::Any.new(evidence.size.to_i64),
     "desktop_light_dark_1440" => JSON::Any.new(evidence.count do |entry|
       name = entry["name"].as_s
       entry["width"].as_i == 1440 && (name == "desktop-light" || name == "desktop-dark" || name.includes?("-desktop-"))
@@ -1092,21 +1092,21 @@ begin
   }
 
   report = {
-    "screenshots" => evidence,
-    "viewport_summary" => viewport_summary,
-    "contrast_report" => CONTRAST_FILE,
-    "reduced_motion_report" => REDUCED_MOTION_FILE,
+    "screenshots"               => evidence,
+    "viewport_summary"          => viewport_summary,
+    "contrast_report"           => CONTRAST_FILE,
+    "reduced_motion_report"     => REDUCED_MOTION_FILE,
     "keyboard_traversal_report" => KEYBOARD_FILE,
-    "touch_target_report" => TOUCH_TARGET_FILE,
+    "touch_target_report"       => TOUCH_TARGET_FILE,
     "accessibility_tree_report" => AX_TREE_FILE,
-    "failures"    => failures,
-    "passed"      => failures.empty?,
+    "failures"                  => failures,
+    "passed"                    => failures.empty?,
   }
   File.write(REPORT_FILE, report.to_pretty_json)
   File.write(CONTRAST_FILE, {
-    "samples" => contrast_evidence,
+    "samples"  => contrast_evidence,
     "failures" => failures.select(&.includes?("contrast")),
-    "passed" => failures.none?(&.includes?("contrast")),
+    "passed"   => failures.none?(&.includes?("contrast")),
   }.to_pretty_json)
   File.write(CONTRAST_CSV, String.build do |io|
     io << "case,page,theme,label,ratio,minimum\n"
@@ -1116,7 +1116,7 @@ begin
     end
   end)
   File.write(REDUCED_MOTION_FILE, {
-    "cases" => reduced_motion_evidence,
+    "cases"            => reduced_motion_evidence,
     "surface_contract" => [
       "sticky-hover",
       "timeline-reveal",
@@ -1130,23 +1130,23 @@ begin
       "forms",
     ],
     "failures" => failures.select(&.includes?("reduced motion")),
-    "passed" => failures.none?(&.includes?("reduced motion")),
+    "passed"   => failures.none?(&.includes?("reduced motion")),
   }.to_pretty_json)
   File.write(AX_TREE_FILE, {
-    "source" => "Chrome DevTools Protocol Accessibility.getFullAXTree",
-    "cases" => ax_tree_evidence,
+    "source"   => "Chrome DevTools Protocol Accessibility.getFullAXTree",
+    "cases"    => ax_tree_evidence,
     "failures" => failures.select(&.includes?("accessibility tree")),
-    "passed" => failures.none?(&.includes?("accessibility tree")),
+    "passed"   => failures.none?(&.includes?("accessibility tree")),
   }.to_pretty_json)
   File.write(KEYBOARD_FILE, {
-    "cases" => keyboard_evidence,
+    "cases"    => keyboard_evidence,
     "failures" => failures.select { |failure| failure.includes?("tabindex") || failure.includes?("synthetic tab") },
-    "passed" => failures.none? { |failure| failure.includes?("tabindex") || failure.includes?("synthetic tab") },
+    "passed"   => failures.none? { |failure| failure.includes?("tabindex") || failure.includes?("synthetic tab") },
   }.to_pretty_json)
   File.write(TOUCH_TARGET_FILE, {
-    "cases" => touch_target_evidence,
+    "cases"    => touch_target_evidence,
     "failures" => failures.select { |failure| failure.includes?("touch targets") },
-    "passed" => failures.none? { |failure| failure.includes?("touch targets") },
+    "passed"   => failures.none? { |failure| failure.includes?("touch targets") },
   }.to_pretty_json)
   FileUtils.rm_rf(LEGACY_ARTIFACT_DIR)
   FileUtils.mkdir_p(File.dirname(LEGACY_ARTIFACT_DIR))
