@@ -8,9 +8,11 @@
 
 ## 1. Goal statement
 
-Unify the library's two parallel token systems (`src/ui/theme.cr` and `src/components/css/tokens/amber_theme.cr`) into one canonical `UI::DesignTokens` source of truth. Build three deterministic generators (web CSS, Apple Swift, Android XML) that emit from the same Crystal source. Replace every hard-coded color, spacing, type, radius, shadow and motion literal in the four renderer visit methods with a call into a token accessor. Add a `Brand` override surface that lets a consuming app override any leaf token without forking the defaults. Keep the existing `UI::Theme` and `Components::CSS::Tokens::Theme` types alive as adapters that read from the new model so existing call sites keep compiling.
+Unify the library's two parallel token systems (`src/ui/theme.cr` and `src/components/css/tokens/amber_theme.cr`) into one canonical `UI::DesignTokens` source of truth. Build two deterministic generators (web CSS, Apple Swift) that emit from the same Crystal source. Replace every hard-coded color, spacing, type, radius, shadow and motion literal in the **web, AppKit, and UIKit** renderer visit methods with a call into a token accessor. Add a `Brand` override surface that lets a consuming app override any leaf token without forking the defaults. Keep the existing `UI::Theme` and `Components::CSS::Tokens::Theme` types alive as adapters that read from the new model so existing call sites keep compiling — the Android renderer continues to read through that adapter unchanged.
 
 This is plumbing. The default Amber palette must look pixel-equivalent before and after, give or take rounding noise from OKLCH ↔ RGB conversion. No new visual design.
+
+> **Scope note (2026-05-20):** The `AndroidGenerator`, Android XML dist artifacts, and Android renderer literal-scrub are deferred to a follow-up phase per `../../handoff/phase-01-architect-scope-deferral-2026-05-20.md`. The `UI::DesignTokens` model below still carries Android-equivalent data (ARGB ints, `dp`/`sp` conversion helpers) so the deferred generator can read from the same source without revisiting Phase 1. Brand-identity color conformance is held to a visual-grade bar (ΔE2000 ≤ 1.0) at the five canonical comparison points — see Validator check #3 and the architect handoff above.
 
 ---
 
@@ -47,13 +49,13 @@ Phase 1 unifies two existing parallel token systems into one. Almost every input
 - `src/ui/renderers/web_renderer.cr` (lines 26–66) — existing `inject_theme_css`. The token generator's CSS output is what this method emits; the migration replaces ad-hoc hex literals with `var(--ap-*)` references.
 - `src/ui/renderers/appkit_renderer.cr` (lines 4565–4582) — `resolve_color` and `amber_brand_gold`. `amber_brand_gold` is **deleted**; `resolve_color` reads from the new token model.
 - `src/ui/renderers/uikit_renderer.cr` — mirror AppKit pattern.
-- `src/ui/renderers/android_renderer.cr` (lines 3129, 2167–2172, 2240–2254, 3308) — same migration. The glass-strength block at 2167–2172 is **owned by Phase 5**; do not touch it.
+- `src/ui/renderers/android_renderer.cr` — **not migrated in Phase 1.** Continues reading through `UI::Theme` (which now wraps `DesignTokens.default`); the renderer's literal-scrub is deferred per the scope note above. Glass-strength block at 2167–2172 is owned by Phase 5 either way.
 
 ### Crystal source you create
 
 - `src/ui/design_tokens.cr` — the new source-of-truth file.
-- `src/ui/design_tokens/generators/web_generator.cr`, `apple_generator.cr`, `android_generator.cr` — three generators.
-- `src/ui/design_tokens/dist/web_tokens.css`, `AssetPipelineTokens.swift`, `android/values{,-night}/colors.xml`, `android/values/dimens.xml`, `android/values/themes.xml` — deterministic generated output, committed to the repo.
+- `src/ui/design_tokens/generators/web_generator.cr`, `apple_generator.cr` — two generators. (`android_generator.cr` is deferred to a follow-up phase; do not create it here.)
+- `src/ui/design_tokens/dist/web_tokens.css`, `AssetPipelineTokens.swift` — deterministic generated output, committed to the repo. (Android XML dist artifacts are deferred.)
 - `scripts/regenerate_design_tokens.cr` — the regenerator script (driver for the three generators).
 - `samples/cross_platform/web/brand_cascade_demo.cr` — sample referenced by validator check #18 (cascade.web-changes-on-brand-override). Phase 1 commits this file so the validator has a concrete edit target.
 - `spec/ui/design_tokens_*_spec.cr` — per-aspect specs (conversion, default-match, brand-override-merge, cascade).
@@ -84,7 +86,7 @@ Phase 1 is the source of the **Tier 1 brand contract**. Every later phase reads 
 |---|---|
 | `src/ui/design_tokens.cr` (entire file) | `src/ui/theme.cr` (becomes adapter) |
 | `src/ui/design_tokens/generators/` (three files) | `src/components/css/tokens/amber_theme.cr` (becomes adapter) |
-| `src/ui/design_tokens/dist/` (six committed artifacts) | `src/ui/renderers/*_renderer.cr` (color/scale literals replaced by token reads) |
+| `src/ui/design_tokens/dist/` (two committed artifacts: `web_tokens.css`, `AssetPipelineTokens.swift`) | `src/ui/renderers/{web,appkit,uikit}_renderer.cr` (color/scale literals replaced by token reads; `android_renderer.cr` is untouched in this phase) |
 | `scripts/regenerate_design_tokens.cr` | `src/components/css/config/css_config.cr` (defaults imported by the new model) |
 | `samples/cross_platform/web/brand_cascade_demo.cr` | (none — sample is fresh) |
 
@@ -528,70 +530,9 @@ Mapping rules:
 - Font.Weight mapping: 100→.ultraLight, 200→.thin, 300→.light, 400→.regular, 450→.regular (rounds down), 500→.medium, 600→.semibold, 700→.bold, 800→.heavy, 900→.black.
 - Curves: `ease_standard` maps to `UnitCurve.easeInOut`; `ease_emphasized` round-trips the bezier 4-tuple exactly. `spring` is dropped on Apple (SwiftUI has its own `.spring()` and brand can't override the SwiftUI default through tokens in phase 1).
 
-### 4.3 `AndroidGenerator` → XML
+### 4.3 `AndroidGenerator` — **DEFERRED**
 
-File: `src/ui/design_tokens/generators/android_generator.cr`.
-Output paths (three files):
-
-- `src/ui/design_tokens/dist/android/values/colors.xml`
-- `src/ui/design_tokens/dist/android/values/dimens.xml`
-- `src/ui/design_tokens/dist/android/values/themes.xml`
-- and a sibling `values-night/colors.xml` for dark mode.
-
-```xml
-<!-- GENERATED. Do not edit by hand. -->
-<!-- values/colors.xml -->
-<resources>
-  <color name="ap_brand_primary">#FFD56E20</color>
-  <color name="ap_brand_primary_hover">#FFBB5817</color>
-  <color name="ap_brand_secondary">#FF3B5A82</color>
-  <!-- ... -->
-</resources>
-
-<!-- values-night/colors.xml: dark overrides only -->
-<resources>
-  <color name="ap_brand_primary">#FFFFAD33</color>
-  <!-- ... -->
-</resources>
-
-<!-- values/dimens.xml -->
-<resources>
-  <dimen name="ap_space_px">1dp</dimen>
-  <dimen name="ap_space_0">0dp</dimen>
-  <dimen name="ap_space_0_5">2dp</dimen>
-  <dimen name="ap_space_1">4dp</dimen>
-  <!-- ... -->
-  <dimen name="ap_radius_none">0dp</dimen>
-  <dimen name="ap_radius_sm">2dp</dimen>
-  <dimen name="ap_radius_md">6dp</dimen>
-  <!-- ... -->
-  <dimen name="ap_type_body_size">16sp</dimen>
-  <dimen name="ap_type_title_size">22sp</dimen>
-  <!-- ... -->
-  <integer name="ap_motion_duration_fast">150</integer>
-  <integer name="ap_motion_duration_base">240</integer>
-</resources>
-
-<!-- values/themes.xml -->
-<resources>
-  <style name="Theme.AssetPipeline" parent="Theme.Material3.DayNight">
-    <item name="colorPrimary">@color/ap_brand_primary</item>
-    <item name="colorOnPrimary">@color/ap_text_inverse</item>
-    <item name="colorSecondary">@color/ap_brand_secondary</item>
-    <item name="colorSurface">@color/ap_surface_panel</item>
-    <item name="colorOnSurface">@color/ap_text_primary</item>
-    <item name="colorOutline">@color/ap_border_default</item>
-    <item name="android:fontFamily">@string/ap_font_sans</item>
-  </style>
-</resources>
-```
-
-Naming rules:
-
-- All color resources prefixed `ap_`; underscored (`brand_primary`, not `brand-primary`) per Android resource convention.
-- ARGB hex (8 chars) with alpha first; dark variant lives only in `values-night/colors.xml` so it auto-swaps with system theme.
-- `dp`/`sp` are used: `dp` for space/radius/elevation; `sp` for type sizes; raw integer for motion durations in ms.
-- `themes.xml` maps the library's semantic roles onto Material 3 `Theme.Material3.DayNight` attributes so existing Android views inherit correctly.
+The Android XML generator is not built in this phase. See `../../handoff/phase-01-architect-scope-deferral-2026-05-20.md` for the rationale and the future-phase reference shape. The `UI::DesignTokens::Color#to_android_argb` helper still ships in §3 so the deferred generator has a stable conversion API to call.
 
 ---
 
@@ -627,12 +568,9 @@ Commit-sized chunks. Land them in order; do not bundle.
 **Rationale:** sets up phase 3.
 **Good output:** Swift file is byte-stable. Cross-checked manually: each color's RGB matches the OKLCH source bake within 1/255 per channel.
 
-### Step 5 — AndroidGenerator + dist files
+### Step 5 — *(deferred)* AndroidGenerator + dist files
 
-**Change:** add `src/ui/design_tokens/generators/android_generator.cr`. Extend the regen script.
-**Files touched:** generator file, `src/ui/design_tokens/dist/android/values/{colors,dimens,themes}.xml` and `values-night/colors.xml`.
-**Rationale:** completes the generator triple.
-**Good output:** XML files validate against the Android resources schema (a `crystal run scripts/regenerate_design_tokens.cr --validate` flag runs a lightweight well-formed XML check using `XML::Reader`).
+Skipped in this phase per the scope deferral. Step 6 follows directly. Renumbering is intentionally avoided so commit messages and validator references can quote the original step numbers — when you read "Step 11" below, treat it as also deferred.
 
 ### Step 6 — Adapter: `UI::Theme` reads from `DesignTokens`
 
@@ -667,18 +605,18 @@ Commit-sized chunks. Land them in order; do not bundle.
 **Change:** mirror Step 9 for `uikit_renderer.cr`.
 **Files touched:** `uikit_renderer.cr` only.
 
-### Step 11 — `AndroidRenderer` migration
+### Step 11 — *(deferred)* `AndroidRenderer` migration
 
-**Change:** in `src/ui/renderers/android_renderer.cr`, replace ARGB literals like `0xFF111111_u32` and `0xFFFF3B30_u32` with calls into `token_argb(:text_primary)` / `token_argb(:danger)`. Replace `theme_color_to_argb` with a thin wrapper that pulls from the active `DesignTokens::Tokens` instance. `@material_theme = UI::Theme.material_baseline` becomes a call that derives `UI::Theme` from `DesignTokens`.
-**Files touched:** `android_renderer.cr` only.
+Skipped per the scope deferral. `android_renderer.cr` continues to read brand decisions via the `UI::Theme` adapter (which now wraps `DesignTokens.default` thanks to Step 6) without any visit-method edits in this phase.
 
 ### Step 12 — Spec coverage for cascade + cascade demo sample
 
 **Change:** add `spec/ui/design_tokens_cascade_spec.cr` that uses a `TestBrand` overriding `brand_primary` to a sentinel color, then asserts:
 - `WebGenerator.generate(tokens)` includes the sentinel RGB.
 - `AppleGenerator.generate(tokens)` includes the sentinel RGB in `SwiftUI.Color(red: ...)`.
-- `AndroidGenerator.generate(tokens)` includes the sentinel ARGB hex.
 - A fake render of a `Button` through `WebRenderer` emits the sentinel via the brand-primary CSS variable.
+
+(The deferred Android generator would add a third assertion against `to_android_argb` output; that assertion lands with the future Android phase.)
 
 Additionally, create `samples/cross_platform/web/brand_cascade_demo.cr` — a minimal Crystal source that emits a single web page using brand-tokenized colors (a primary button, a panel surface, a link). The page must read its colors via `Tokens.default.with_brand(SentinelBrand.new)` so a validator can flip the sentinel and observe the cascade. This file is the path the validator will edit (and revert) in cascade checks 18–20.
 
@@ -726,7 +664,7 @@ Required specs:
 3. `spec/ui/design_tokens_brand_spec.cr` — single-field override, multi-field override, full-palette override, no-op brand. Assert immutability of `Tokens.default` after each test.
 4. `spec/ui/design_tokens/generators/web_generator_spec.cr` — output contains expected variable names; output is byte-stable across two calls; light and dark blocks both present.
 5. `spec/ui/design_tokens/generators/apple_generator_spec.cr` — output contains every color; SwiftUI.Color RGB triples within tolerance.
-6. `spec/ui/design_tokens/generators/android_generator_spec.cr` — every resource present; XML well-formed (use `XML.parse` and assert no exception); dark palette emitted only in `values-night/colors.xml`.
+6. *(deferred)* `spec/ui/design_tokens/generators/android_generator_spec.cr` — ships with the deferred Android phase.
 7. `spec/ui/design_tokens_cascade_spec.cr` — see Step 12.
 8. Update `spec/ui/theme_spec.cr` (if exists) to assert `Theme.design_system_default.primary.r` lies within 0.005 of the pre-migration value.
 
@@ -734,7 +672,8 @@ Required to keep green:
 - Full `crystal spec` suite from repo root.
 - `crystal build --no-codegen src/asset_pipeline.cr` for web build.
 - macOS sample build: `crystal build samples/cross_platform/macos_host/<showcase>.cr -Dmacos --no-codegen` if such a sample exists.
-- iOS / Android equivalents documented in `samples/cross_platform/` — `--no-codegen` is sufficient for this phase.
+- iOS equivalent documented in `samples/cross_platform/` — `--no-codegen` is sufficient for this phase.
+- Android sample (if documented in `samples/cross_platform/`) must still compile against the unchanged renderer + `UI::Theme` adapter. This is a regression guard, not a migration target.
 
 ---
 
@@ -742,14 +681,14 @@ Required to keep green:
 
 Phase 1 is done when all of the following hold:
 
-1. `src/ui/design_tokens.cr` and its sub-modules exist, are spec'd, and `Tokens.default` is the single canonical source for every Tier 1 value.
-2. Three generators emit deterministic, byte-stable output. The three dist files are checked into the repo.
-3. `UI::Theme` and `Components::CSS::Tokens::Theme` keep their public API but their values are derived from `Tokens.default`.
-4. Every renderer's visit methods are free of hard-coded brand color, brand radius, brand spacing, brand type-size, and brand motion literals. The only exceptions are documented Tier 2 platform-system references and class-(d) numeric literals with a comment.
-5. Defining a 5-line subclass of `Brand` that overrides `brand_primary` to a sentinel and rendering a sample view on each of web / macOS / iOS / Android shows the sentinel color on all four platforms.
+1. `src/ui/design_tokens.cr` and its sub-modules exist, are spec'd, and `Tokens.default` is the single canonical source for every Tier 1 value (including the Android-equivalent data the deferred generator will read).
+2. Two generators (`WebGenerator`, `AppleGenerator`) emit deterministic, byte-stable output. The two dist files are checked into the repo.
+3. `UI::Theme` and `Components::CSS::Tokens::Theme` keep their public API but their values are derived from `Tokens.default`. The Android renderer continues to read through `UI::Theme` unchanged.
+4. The **web, AppKit, and UIKit** renderers' visit methods are free of hard-coded brand color, brand radius, brand spacing, brand type-size, and brand motion literals. The only exceptions are documented Tier 2 platform-system references and class-(d) numeric literals with a comment. The Android renderer is exempt from this check in this phase.
+5. Defining a 5-line subclass of `Brand` that overrides `brand_primary` to a sentinel and rendering a sample view on **web and at least one Apple target (macOS or iOS)** shows the sentinel color. Android sentinel-cascade is deferred along with the generator.
 6. `crystal spec` from repo root passes with zero failures and zero new pending tests.
-7. All four sample app build commands succeed (`--no-codegen` is fine for this phase).
-8. A handoff message in `trust_pair_protocol.md` format is written, including commit hashes for steps 1–13 and a Deviations section if you diverged from this brief.
+7. The web entrypoint and the macOS / iOS sample app builds (`--no-codegen`) succeed. The Android sample must keep compiling against the unchanged renderer.
+8. A handoff message in `trust_pair_protocol.md` format is written, including commit hashes for steps 1–13 (acknowledging steps 5 and 11 are deferred — your handoff should note their absence rather than fabricating commits) and a Deviations section if you diverged from this brief.
 
 What is **not** in done:
 - Deleting `UI::Theme`. It stays as an adapter through phase 4 minimum.
