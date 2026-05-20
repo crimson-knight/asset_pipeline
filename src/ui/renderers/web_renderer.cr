@@ -2107,18 +2107,37 @@ module UI
           el.add_style("filter: blur(#{view.blur_radius}px)")
         end
 
-        # Size constraints
-        if min_w = view.minimum_width
-          el.add_style("min-width: #{min_w}px")
+        # Size constraints. `fluid_width` / `fluid_height` take precedence
+        # over the legacy `minimum_*` / `maximum_*` pair because clamp()
+        # already encodes the floor + ceiling. When only one channel is
+        # fluid, the other still falls back to the legacy min/max pair.
+        if fw = view.fluid_width
+          el.add_style("width: #{fw.to_css}")
+        else
+          if min_w = view.minimum_width
+            el.add_style("min-width: #{min_w}px")
+          end
+          if max_w = view.maximum_width
+            el.add_style("max-width: #{max_w}px")
+          end
         end
-        if min_h = view.minimum_height
-          el.add_style("min-height: #{min_h}px")
+
+        if fh = view.fluid_height
+          el.add_style("height: #{fh.to_css}")
+        else
+          if min_h = view.minimum_height
+            el.add_style("min-height: #{min_h}px")
+          end
+          if max_h = view.maximum_height
+            el.add_style("max-height: #{max_h}px")
+          end
         end
-        if max_w = view.maximum_width
-          el.add_style("max-width: #{max_w}px")
-        end
-        if max_h = view.maximum_height
-          el.add_style("max-height: #{max_h}px")
+
+        # Container query root: emit containment context so descendant rules
+        # of the form `@container <name> (...)` resolve against this box.
+        if cq_name = view.container_query_name
+          el.add_style("container-type: inline-size")
+          el.add_style("container-name: #{cq_name}")
         end
 
         # View ID -> HTML id
@@ -2245,6 +2264,32 @@ module UI
         else
           @root = el
         end
+      end
+
+      # Build a `clamp(min_px, ideal_vw, max_px)` literal from numeric pixel
+      # floor/ceiling and a vw curve. Used by widget visit methods to migrate
+      # away from hard-coded pixel sizing without surfacing UI::Fluid records
+      # on every internal style construction.
+      private def fluid_px(min : Number, ideal : Number, max : Number) : String
+        "clamp(#{min}px, #{ideal}vw, #{max}px)"
+      end
+
+      # Build a `clamp(floor_px, ideal_expr, ceiling_px)` literal where the
+      # ideal is a raw CSS expression (e.g., `"3vw"`, `"min(100%, 480px)"`)
+      # bracketed by pixel anchors.
+      private def fluid_with_floor(floor : Number, ideal : String, ceiling : Number) : String
+        "clamp(#{floor}px, #{ideal}, #{ceiling}px)"
+      end
+
+      # Emit a 44 x 44 CSS-pixel touch-target floor on the supplied element.
+      # The value is read from the active design tokens (Phase 1) so brand
+      # overrides cascade through. Call from the visit method of every
+      # interactive widget, on the *tappable* element (button / input /
+      # styled label / thumb), not a decorative wrapper.
+      private def enforce_touch_target(el : Components::Elements::HTMLElement)
+        min = @design_tokens.touch_target_minimum_px
+        el.add_style("min-width: #{min}px")
+        el.add_style("min-height: #{min}px")
       end
     end
   end
