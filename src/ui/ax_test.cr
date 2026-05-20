@@ -40,5 +40,6 @@ require "./ax_test/ax_ffi"
 require "./ax_test/ax_element"
 require "./ax_test/ax_app"
 require "./ax_test/ax_screenshot"
+require "./ax_test/ax_keys"
 
 {% end %}
