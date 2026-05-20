@@ -233,6 +233,252 @@ APSK_OVERRIDES_NEW(apsk_time_picker_overrides_new,       "APSKTimePickerOverride
 APSK_OVERRIDES_NEW(apsk_color_picker_overrides_new,      "APSKColorPickerOverrides")
 
 // ---------------------------------------------------------------------------
+// Group 3 overrides allocators (container widgets).
+// ---------------------------------------------------------------------------
+APSK_OVERRIDES_NEW(apsk_navigation_stack_overrides_new,      "APSKNavigationStackOverrides")
+APSK_OVERRIDES_NEW(apsk_navigation_link_overrides_new,       "APSKNavigationLinkOverrides")
+APSK_OVERRIDES_NEW(apsk_navigation_split_view_overrides_new, "APSKNavigationSplitViewOverrides")
+APSK_OVERRIDES_NEW(apsk_tab_view_overrides_new,              "APSKTabViewOverrides")
+APSK_OVERRIDES_NEW(apsk_sheet_overrides_new,                 "APSKSheetOverrides")
+APSK_OVERRIDES_NEW(apsk_popover_overrides_new,               "APSKPopoverOverrides")
+APSK_OVERRIDES_NEW(apsk_alert_overrides_new,                 "APSKAlertOverrides")
+APSK_OVERRIDES_NEW(apsk_confirmation_dialog_overrides_new,   "APSKConfirmationDialogOverrides")
+APSK_OVERRIDES_NEW(apsk_toolbar_overrides_new,               "APSKToolbarOverrides")
+APSK_OVERRIDES_NEW(apsk_form_overrides_new,                  "APSKFormOverrides")
+APSK_OVERRIDES_NEW(apsk_grid_overrides_new,                  "APSKGridOverrides")
+APSK_OVERRIDES_NEW(apsk_card_overrides_new,                  "APSKCardOverrides")
+APSK_OVERRIDES_NEW(apsk_surface_overrides_new,               "APSKSurfaceOverrides")
+APSK_OVERRIDES_NEW(apsk_menu_button_overrides_new,           "APSKMenuButtonOverrides")
+APSK_OVERRIDES_NEW(apsk_toggle_button_overrides_new,         "APSKToggleButtonOverrides")
+
+// ---------------------------------------------------------------------------
+// Array-field overrides setters. Each takes the overrides instance, the
+// setter selector name (with trailing colon), and a contiguous C array
+// of the matching element type. The C trampoline boxes the elements
+// into an NSArray<NSString*> / NSArray<NSNumber*> and dispatches the
+// setter via objc_msgSend.
+// ---------------------------------------------------------------------------
+
+void apsk_overrides_set_string_array(void *target, const char *setter_name,
+                                     const void *values_ptr, int count) {
+    if (target == NULL || setter_name == NULL || count < 0) return;
+    NSMutableArray<NSString *> *arr = [NSMutableArray arrayWithCapacity:count];
+    const char **strs = (const char **)values_ptr;
+    for (int i = 0; i < count; i++) {
+        const char *s = strs ? strs[i] : NULL;
+        [arr addObject:(s ? [NSString stringWithUTF8String:s] : @"")];
+    }
+    SEL sel = sel_registerName(setter_name);
+    ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, arr);
+}
+
+void apsk_overrides_set_int_array(void *target, const char *setter_name,
+                                  const long long *values_ptr, int count) {
+    if (target == NULL || setter_name == NULL || count < 0) return;
+    NSMutableArray<NSNumber *> *arr = [NSMutableArray arrayWithCapacity:count];
+    for (int i = 0; i < count; i++) {
+        long long v = values_ptr ? values_ptr[i] : 0;
+        [arr addObject:[NSNumber numberWithLongLong:v]];
+    }
+    SEL sel = sel_registerName(setter_name);
+    ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, arr);
+}
+
+void apsk_overrides_set_uint64_array(void *target, const char *setter_name,
+                                     const unsigned long long *values_ptr, int count) {
+    if (target == NULL || setter_name == NULL || count < 0) return;
+    NSMutableArray<NSNumber *> *arr = [NSMutableArray arrayWithCapacity:count];
+    for (int i = 0; i < count; i++) {
+        unsigned long long v = values_ptr ? values_ptr[i] : 0;
+        [arr addObject:[NSNumber numberWithUnsignedLongLong:v]];
+    }
+    SEL sel = sel_registerName(setter_name);
+    ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, arr);
+}
+
+void apsk_overrides_set_bool_array(void *target, const char *setter_name,
+                                   const int *values_ptr, int count) {
+    if (target == NULL || setter_name == NULL || count < 0) return;
+    NSMutableArray<NSNumber *> *arr = [NSMutableArray arrayWithCapacity:count];
+    for (int i = 0; i < count; i++) {
+        int v = values_ptr ? values_ptr[i] : 0;
+        [arr addObject:[NSNumber numberWithBool:(v != 0)]];
+    }
+    SEL sel = sel_registerName(setter_name);
+    ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, arr);
+}
+
+void apsk_overrides_set_int(void *target, const char *setter_name,
+                            long long value) {
+    if (target == NULL || setter_name == NULL) return;
+    SEL sel = sel_registerName(setter_name);
+    ((void (*)(id, SEL, NSInteger))objc_msgSend)(
+        (id)target, sel, (NSInteger)value);
+}
+
+// ---------------------------------------------------------------------------
+// Helper: build NSArray<APSKPlatformView*> from a C array of view
+// pointers. Used by every container facade trampoline below.
+// ---------------------------------------------------------------------------
+static NSArray *apsk_nsarray_from_views(const void *views_ptr, int count) {
+    if (views_ptr == NULL || count <= 0) return @[];
+    NSMutableArray *arr = [NSMutableArray arrayWithCapacity:count];
+    void *const *views = (void *const *)views_ptr;
+    for (int i = 0; i < count; i++) {
+        void *p = views[i];
+        if (p == NULL) continue;
+        [arr addObject:(__bridge id)p];
+    }
+    return arr;
+}
+
+// ---------------------------------------------------------------------------
+// Group 3 facade trampolines.
+// ---------------------------------------------------------------------------
+
+void *apsk_make_navigation_stack(const void *child_views, int child_count,
+                                 void *overrides) {
+    Class cls = objc_getClass("APSKNavigationStackFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeNavigationStackWithChildViews:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides);
+}
+
+void *apsk_make_navigation_link(const char *label, const void *child_views,
+                                int child_count, void *overrides) {
+    Class cls = objc_getClass("APSKNavigationLinkFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeNavigationLinkWithLabel:childViews:overrides:");
+    return ((id (*)(Class, SEL, id, id, id))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), children, (id)overrides);
+}
+
+void *apsk_make_navigation_split_view(const void *child_views, int child_count,
+                                      void *overrides) {
+    Class cls = objc_getClass("APSKNavigationSplitViewFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeNavigationSplitViewWithChildViews:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides);
+}
+
+void *apsk_make_tab_view(const void *child_views, int child_count,
+                        void *overrides) {
+    Class cls = objc_getClass("APSKTabViewFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeTabViewWithChildViews:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides);
+}
+
+void *apsk_make_sheet(const void *child_views, int child_count,
+                      void *overrides, unsigned long long dismiss_token) {
+    Class cls = objc_getClass("APSKSheetFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeSheetWithChildViews:overrides:dismissToken:");
+    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, children, (id)overrides, dismiss_token);
+}
+
+void *apsk_make_popover(const void *child_views, int child_count,
+                        void *overrides, unsigned long long dismiss_token) {
+    Class cls = objc_getClass("APSKPopoverFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makePopoverWithChildViews:overrides:dismissToken:");
+    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, children, (id)overrides, dismiss_token);
+}
+
+void *apsk_make_alert(const char *title, const char *message, void *overrides) {
+    Class cls = objc_getClass("APSKAlertFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeAlertWithTitle:message:overrides:");
+    return ((id (*)(Class, SEL, id, id, id))objc_msgSend)(
+        cls, sel, apsk_nsstring(title),
+        apsk_nsstring(message ? message : ""), (id)overrides);
+}
+
+void *apsk_make_confirmation_dialog(const char *title, const char *message,
+                                    void *overrides) {
+    Class cls = objc_getClass("APSKConfirmationDialogFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeConfirmationDialogWithTitle:message:overrides:");
+    return ((id (*)(Class, SEL, id, id, id))objc_msgSend)(
+        cls, sel, apsk_nsstring(title),
+        apsk_nsstring(message ? message : ""), (id)overrides);
+}
+
+void *apsk_make_toolbar(const void *child_views, int child_count,
+                        void *overrides) {
+    Class cls = objc_getClass("APSKToolbarFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeToolbarWithChildViews:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides);
+}
+
+void *apsk_make_form(const void *child_views, int child_count, void *overrides) {
+    Class cls = objc_getClass("APSKFormFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeFormWithChildViews:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides);
+}
+
+void *apsk_make_grid(const void *child_views, int child_count, void *overrides) {
+    Class cls = objc_getClass("APSKGridFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeGridWithChildViews:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides);
+}
+
+void *apsk_make_card(const void *child_views, int child_count, void *overrides) {
+    Class cls = objc_getClass("APSKCardFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeCardWithChildViews:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides);
+}
+
+void *apsk_make_surface(const void *child_views, int child_count, void *overrides) {
+    Class cls = objc_getClass("APSKSurfaceFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeSurfaceWithChildViews:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides);
+}
+
+void *apsk_make_menu_button(const char *label, void *overrides) {
+    Class cls = objc_getClass("APSKMenuButtonFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeMenuButtonWithLabel:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), (id)overrides);
+}
+
+void *apsk_make_toggle_button(const char *label, void *overrides,
+                              unsigned long long action_token) {
+    Class cls = objc_getClass("APSKToggleButtonFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeToggleButtonWithLabel:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), (id)overrides, action_token);
+}
+
+// ---------------------------------------------------------------------------
 // Helper: build an NSArray<NSString*> from a C array of UTF-8 strings.
 // Used by Picker / RadioGroup / SegmentedControl facades whose options are
 // arrays. The Crystal side passes a Void* that points to a contiguous block

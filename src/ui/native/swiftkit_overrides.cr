@@ -21,6 +21,21 @@ require "../views/picker"
 require "../views/date_picker"
 require "../views/time_picker"
 require "../views/color_picker"
+require "../views/navigation_stack"
+require "../views/navigation_link"
+require "../views/navigation_split_view"
+require "../views/tab_view"
+require "../views/sheet"
+require "../views/popover"
+require "../views/alert"
+require "../views/confirmation_dialog"
+require "../views/toolbar"
+require "../views/form"
+require "../views/grid"
+require "../views/card"
+require "../views/surface"
+require "../views/menu_button"
+require "../views/toggle_button"
 require "./swiftkit_bridge"
 
 module UI
@@ -66,6 +81,25 @@ module UI
         abstract def set_bool(target : String, setter : Symbol, value : Bool?)
         # Set an `NSString?` field. `nil` skips.
         abstract def set_string(target : String, setter : Symbol, value : String?)
+
+        # Group 3 array setters. Container widgets carry parallel arrays
+        # (tab labels / icons / tokens, form section field counts, etc.).
+        # Empty arrays are skipped.
+        def set_string_array(target : String, setter : Symbol, values : Array(String))
+        end
+
+        def set_int_array(target : String, setter : Symbol, values : Array(Int32))
+        end
+
+        def set_uint64_array(target : String, setter : Symbol, values : Array(UInt64))
+        end
+
+        def set_bool_array(target : String, setter : Symbol, values : Array(Bool))
+        end
+
+        # Scalar Int setter (selectedIndex etc.). nil skips.
+        def set_int(target : String, setter : Symbol, value : Int32?)
+        end
       end
 
       # Populate the common `APSKViewOverrides` fields from any `UI::View`.
@@ -319,6 +353,198 @@ module UI
         sender.set_bool(target, :setSupportsOpacity, view.supports_alpha ? true : nil)
       end
 
+      # ---------------------------------------------------------------
+      # Group 3 — navigation / surfaces / forms / menus.
+      # ---------------------------------------------------------------
+
+      def self.populate_navigation_stack(target : String, view : UI::NavigationStack, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_string(target, :setTitle, view.title)
+        sender.set_bool(target, :setLargeTitle, view.large_title ? true : nil)
+        sender.set_bool(target, :setShowsNavigationBar,
+          view.shows_navigation_bar ? nil : false)
+      end
+
+      def self.populate_navigation_link(target : String, view : UI::NavigationLink, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_string(target, :setIcon, view.icon)
+        sender.set_bool(target, :setShowsDisclosure,
+          view.shows_disclosure ? nil : false)
+      end
+
+      def self.populate_navigation_split_view(target : String, view : UI::NavigationSplitView, sender : Sender)
+        populate_view_common(target, view, sender)
+        sw = view.sidebar_width
+        sender.set_number(target, :setSidebarWidth, sw == 250.0 ? nil : sw)
+        cv = view.column_visibility
+        unless cv == :all
+          sender.set_string(target, :setColumnVisibility, cv.to_s)
+        end
+      end
+
+      def self.populate_tab_view(target : String, view : UI::TabView, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_color(target, :setSelectedTintColor, view.selected_tint_color)
+        unless view.bar_position == :bottom
+          sender.set_string(target, :setTabBarPosition, view.bar_position.to_s)
+        end
+        sender.set_bool(target, :setGlassBar, view.glass_bar ? nil : false)
+        # Always emit the parallel arrays so the facade can render tabItems.
+        sender.set_string_array(target, :setTabLabels, view.tabs.map(&.label))
+        sender.set_string_array(target, :setTabIcons, view.tabs.map { |t| t.icon || "" })
+        sender.set_int(target, :setSelectedIndex,
+          view.selected_index == 0 ? nil : view.selected_index)
+      end
+
+      def self.populate_sheet(target : String, view : UI::Sheet, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_bool(target, :setIsPresented, view.is_presented ? true : nil)
+        unless view.surface_style == :auto
+          sender.set_string(target, :setSurfaceStyle, view.surface_style.to_s)
+        end
+        # Detents — default is [:medium, :large]; only emit when changed.
+        default_detents = [:medium, :large]
+        unless view.detents == default_detents
+          sender.set_string_array(target, :setDetents, view.detents.map(&.to_s))
+        end
+        sender.set_bool(target, :setShowsDragIndicator,
+          view.shows_drag_indicator ? nil : false)
+      end
+
+      def self.populate_popover(target : String, view : UI::Popover, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_bool(target, :setIsPresented, view.is_presented ? true : nil)
+        unless view.arrow_edge == :bottom
+          sender.set_string(target, :setArrowEdge, view.arrow_edge.to_s)
+        end
+        sender.set_number(target, :setPreferredWidth, view.preferred_width)
+        sender.set_number(target, :setPreferredHeight, view.preferred_height)
+      end
+
+      def self.populate_alert(target : String, view : UI::Alert, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_string(target, :setTitle, view.title.empty? ? nil : view.title)
+        sender.set_string(target, :setMessage, view.message.empty? ? nil : view.message)
+        sender.set_bool(target, :setIsPresented, view.is_presented ? true : nil)
+        # Parallel button arrays — always emit when buttons present.
+        unless view.buttons.empty?
+          sender.set_string_array(target, :setButtonLabels, view.buttons.map(&.label))
+          sender.set_string_array(target, :setButtonStyles, view.buttons.map(&.style.to_s))
+          # Tokens registered by the visit method; populator can't see them.
+          # The visit method emits set_uint64_array itself after registering.
+        end
+      end
+
+      def self.populate_confirmation_dialog(target : String, view : UI::ConfirmationDialog, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_string(target, :setTitle, view.title.empty? ? nil : view.title)
+        sender.set_string(target, :setMessage, view.message.empty? ? nil : view.message)
+        sender.set_bool(target, :setIsPresented, view.is_presented ? true : nil)
+        unless view.confirm_label == "Confirm"
+          sender.set_string(target, :setConfirmLabel, view.confirm_label)
+        end
+        unless view.cancel_label == "Cancel"
+          sender.set_string(target, :setCancelLabel, view.cancel_label)
+        end
+        unless view.confirm_style == :default
+          sender.set_string(target, :setConfirmStyle, view.confirm_style.to_s)
+        end
+      end
+
+      def self.populate_toolbar(target : String, view : UI::Toolbar, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_string(target, :setTitle, view.title)
+        sender.set_bool(target, :setShowsTitle, view.shows_title ? nil : false)
+        unless view.items.empty?
+          sender.set_string_array(target, :setItemLabels, view.items.map(&.label))
+          sender.set_string_array(target, :setItemIcons, view.items.map { |i| i.icon || "" })
+          # Default all placements to "primary"; the visit method may
+          # override per-item if a richer placement model is wired later.
+          sender.set_string_array(target, :setItemPlacements,
+            view.items.map { |_| "primary" })
+        end
+      end
+
+      def self.populate_form(target : String, view : UI::Form, sender : Sender)
+        populate_view_common(target, view, sender)
+        unless view.sections.empty?
+          sender.set_string_array(target, :setSectionHeaders,
+            view.sections.map { |s| s.header || "" })
+          sender.set_string_array(target, :setSectionFooters,
+            view.sections.map { |s| s.footer || "" })
+          sender.set_int_array(target, :setSectionFieldCounts,
+            view.sections.map(&.fields.size))
+          # Flat array of all field labels across all sections.
+          all_labels = [] of String
+          view.sections.each do |s|
+            s.fields.each { |f| all_labels << f.label }
+          end
+          sender.set_string_array(target, :setSectionFieldLabels, all_labels)
+        end
+      end
+
+      def self.populate_grid(target : String, view : UI::Grid, sender : Sender)
+        populate_view_common(target, view, sender)
+        rs = view.row_spacing
+        sender.set_number(target, :setRowSpacing, rs == 8.0 ? nil : rs)
+        cs = view.column_spacing
+        sender.set_number(target, :setColumnSpacing, cs == 8.0 ? nil : cs)
+        unless view.alignment == UI::Alignment::Leading
+          sender.set_string(target, :setAlignment, view.alignment.to_s.downcase)
+        end
+        # Always emit per-row cell counts when children exist; facade
+        # slices the flat children array using these counts.
+        unless view.children.empty?
+          sender.set_int_array(target, :setRowCellCounts,
+            view.children.map(&.size))
+        end
+      end
+
+      def self.populate_card(target : String, view : UI::Card, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_string(target, :setTitle, view.title)
+        sender.set_bool(target, :setIsOutlined, view.is_outlined ? true : nil)
+        el = view.elevation
+        sender.set_number(target, :setElevation, el == 1.0 ? nil : el)
+        unless view.material == :secondary
+          sender.set_string(target, :setMaterial, view.material.to_s)
+        end
+      end
+
+      def self.populate_surface(target : String, view : UI::Surface, sender : Sender)
+        populate_view_common(target, view, sender)
+        el = view.elevation
+        sender.set_number(target, :setElevation, el == 0.0 ? nil : el)
+        te = view.tonal_elevation
+        sender.set_number(target, :setTonalElevation, te == 0.0 ? nil : te)
+        unless view.shape == :rectangle
+          sender.set_string(target, :setShape, view.shape.to_s)
+        end
+      end
+
+      def self.populate_menu_button(target : String, view : UI::MenuButton, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_string(target, :setIcon, view.icon)
+        sender.set_bool(target, :setIsPullDown, view.is_pull_down ? true : nil)
+        unless view.button_style == :default
+          sender.set_string(target, :setButtonStyle, view.button_style.to_s)
+        end
+        sender.set_int(target, :setSelectedIndex,
+          view.selected_index == 0 ? nil : view.selected_index)
+        unless view.items.empty?
+          sender.set_string_array(target, :setItemLabels, view.items.map(&.label))
+          sender.set_string_array(target, :setItemIcons, view.items.map { |i| i.icon || "" })
+          sender.set_bool_array(target, :setItemIsDestructive,
+            view.items.map(&.is_destructive))
+        end
+      end
+
+      def self.populate_toggle_button(target : String, view : UI::ToggleButton, sender : Sender)
+        populate_view_common(target, view, sender)
+        sender.set_string(target, :setIcon, view.icon)
+        sender.set_bool(target, :setIsSelected, view.is_selected ? true : nil)
+      end
+
       # Symbol-to-ObjC-selector helper. The Populator emits setter
       # symbols without a trailing colon (`:setStyle`,
       # `:setBackgroundColor`) because that's the shape the spec
@@ -390,6 +616,62 @@ module UI
           return if value.nil?
           LibSwiftKitBridge.apsk_overrides_set_string(
             @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe, value.to_unsafe,
+          )
+        end
+
+        def set_string_array(target : String, setter : Symbol, values : Array(String))
+          return if values.empty?
+          # Build a stable buffer of UInt8* pointers. Crystal's String#to_unsafe
+          # returns a pointer into the GC'd string body; the array itself must
+          # outlive the trampoline call, which it does because we hold @buf
+          # locally until apsk_overrides_set_string_array returns.
+          count = values.size
+          buf = Pointer(UInt8*).malloc(count.to_u64)
+          values.each_with_index { |s, i| buf[i] = s.to_unsafe }
+          LibSwiftKitBridge.apsk_overrides_set_string_array(
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe,
+            buf.as(Void*), count.to_i32,
+          )
+        end
+
+        def set_int_array(target : String, setter : Symbol, values : Array(Int32))
+          return if values.empty?
+          count = values.size
+          buf = Pointer(Int64).malloc(count.to_u64)
+          values.each_with_index { |v, i| buf[i] = v.to_i64 }
+          LibSwiftKitBridge.apsk_overrides_set_int_array(
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe,
+            buf, count.to_i32,
+          )
+        end
+
+        def set_uint64_array(target : String, setter : Symbol, values : Array(UInt64))
+          return if values.empty?
+          count = values.size
+          buf = Pointer(UInt64).malloc(count.to_u64)
+          values.each_with_index { |v, i| buf[i] = v }
+          LibSwiftKitBridge.apsk_overrides_set_uint64_array(
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe,
+            buf, count.to_i32,
+          )
+        end
+
+        def set_bool_array(target : String, setter : Symbol, values : Array(Bool))
+          return if values.empty?
+          count = values.size
+          buf = Pointer(Int32).malloc(count.to_u64)
+          values.each_with_index { |v, i| buf[i] = v ? 1 : 0 }
+          LibSwiftKitBridge.apsk_overrides_set_bool_array(
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe,
+            buf, count.to_i32,
+          )
+        end
+
+        def set_int(target : String, setter : Symbol, value : Int32?)
+          return if value.nil?
+          LibSwiftKitBridge.apsk_overrides_set_int(
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe,
+            value.to_i64,
           )
         end
       end

@@ -78,6 +78,23 @@
     fun apsk_time_picker_overrides_new : Void*
     fun apsk_color_picker_overrides_new : Void*
 
+    # ---- Group 3 overrides allocators (container widgets) -------------
+    fun apsk_navigation_stack_overrides_new : Void*
+    fun apsk_navigation_link_overrides_new : Void*
+    fun apsk_navigation_split_view_overrides_new : Void*
+    fun apsk_tab_view_overrides_new : Void*
+    fun apsk_sheet_overrides_new : Void*
+    fun apsk_popover_overrides_new : Void*
+    fun apsk_alert_overrides_new : Void*
+    fun apsk_confirmation_dialog_overrides_new : Void*
+    fun apsk_toolbar_overrides_new : Void*
+    fun apsk_form_overrides_new : Void*
+    fun apsk_grid_overrides_new : Void*
+    fun apsk_card_overrides_new : Void*
+    fun apsk_surface_overrides_new : Void*
+    fun apsk_menu_button_overrides_new : Void*
+    fun apsk_toggle_button_overrides_new : Void*
+
     # -------------------------------------------------------------------------
     # Overrides field setters. Each takes the `APSK*Overrides` pointer,
     # the ObjC setter selector NAME (e.g. "setBackgroundColor:") as a
@@ -95,6 +112,28 @@
     fun apsk_overrides_set_number(target : Void*, setter_name : UInt8*, value : Float64)
     fun apsk_overrides_set_bool(target : Void*, setter_name : UInt8*, value : Int32)
     fun apsk_overrides_set_string(target : Void*, setter_name : UInt8*, value : UInt8*)
+
+    # Group 3 array-field setters. Container widgets often need to set
+    # ObjC array properties (e.g. `tabLabels`, `itemTokens`, `rowCellCounts`)
+    # whose elements are NSStrings, NSNumbers (Int64), or NSNumber (Bool).
+    # The C trampolines box each element into an NSArray and call the
+    # named setter.
+    #
+    # `setter_name` is the ObjC setter selector NAME with trailing colon
+    # ("setTabLabels:"). `values_ptr` is a contiguous block of UTF-8
+    # `const char *` pointers for strings; an array of Int64 / Float64
+    # for numeric variants; an array of Int32 (0 / non-zero) for bools.
+    fun apsk_overrides_set_string_array(target : Void*, setter_name : UInt8*,
+                                        values_ptr : Void*, count : Int32)
+    fun apsk_overrides_set_int_array(target : Void*, setter_name : UInt8*,
+                                     values_ptr : Int64*, count : Int32)
+    fun apsk_overrides_set_uint64_array(target : Void*, setter_name : UInt8*,
+                                        values_ptr : UInt64*, count : Int32)
+    fun apsk_overrides_set_bool_array(target : Void*, setter_name : UInt8*,
+                                      values_ptr : Int32*, count : Int32)
+    # Setter for an `Int`-typed scalar property (used by selectedIndex on
+    # TabView / MenuButton facades).
+    fun apsk_overrides_set_int(target : Void*, setter_name : UInt8*, value : Int64)
 
     # -------------------------------------------------------------------------
     # Facade entry points. Each returns a +1 retained platform view
@@ -151,5 +190,40 @@
     fun apsk_make_color_picker(label : UInt8*, r : Float64, g : Float64,
                                b : Float64, a : Float64,
                                overrides : Void*, action_token : UInt64) : Void*
+
+    # ---- Group 3 facades (container widgets) -------------------------
+    # Each facade takes a `child_views` Void* (NULL when no children)
+    # pointing to a contiguous block of `Void*` platform-view pointers
+    # the Crystal renderer obtained from `render_detached`. The Swift
+    # facade wraps each pointer with `APSKHostedChild` and embeds them
+    # in the SwiftUI parent.
+    fun apsk_make_navigation_stack(child_views : Void*, child_count : Int32,
+                                   overrides : Void*) : Void*
+    fun apsk_make_navigation_link(label : UInt8*, child_views : Void*,
+                                  child_count : Int32, overrides : Void*) : Void*
+    fun apsk_make_navigation_split_view(child_views : Void*, child_count : Int32,
+                                        overrides : Void*) : Void*
+    fun apsk_make_tab_view(child_views : Void*, child_count : Int32,
+                           overrides : Void*) : Void*
+    fun apsk_make_sheet(child_views : Void*, child_count : Int32,
+                        overrides : Void*, dismiss_token : UInt64) : Void*
+    fun apsk_make_popover(child_views : Void*, child_count : Int32,
+                          overrides : Void*, dismiss_token : UInt64) : Void*
+    fun apsk_make_alert(title : UInt8*, message : UInt8*, overrides : Void*) : Void*
+    fun apsk_make_confirmation_dialog(title : UInt8*, message : UInt8*,
+                                      overrides : Void*) : Void*
+    fun apsk_make_toolbar(child_views : Void*, child_count : Int32,
+                          overrides : Void*) : Void*
+    fun apsk_make_form(child_views : Void*, child_count : Int32,
+                       overrides : Void*) : Void*
+    fun apsk_make_grid(child_views : Void*, child_count : Int32,
+                       overrides : Void*) : Void*
+    fun apsk_make_card(child_views : Void*, child_count : Int32,
+                       overrides : Void*) : Void*
+    fun apsk_make_surface(child_views : Void*, child_count : Int32,
+                          overrides : Void*) : Void*
+    fun apsk_make_menu_button(label : UInt8*, overrides : Void*) : Void*
+    fun apsk_make_toggle_button(label : UInt8*, overrides : Void*,
+                                action_token : UInt64) : Void*
   end
 {% end %}
