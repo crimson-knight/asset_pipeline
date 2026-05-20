@@ -255,7 +255,11 @@ module UI::AppKit
       # brand — HIG mandates destructive actions be visually distinct from
       # all other roles, and users rely on red as a universal danger signal.
       amber_gold = amber_brand_gold
-      ember_dark = LibObjCBridge.nscolor_rgba(0.165, 0.102, 0.031, 1.0) # #2A1A08
+      # Deep ember (#2A1A08) — legible foreground on Amber gold fill. Routes
+      # through the token system as the light-palette `text_primary` color so a
+      # brand override that customises both `brand_primary` and `text_primary`
+      # cascades into the on-brand foreground here.
+      ember_dark = token_nscolor(:text_primary, appearance: :light)
 
       # Style-driven bezel / border configuration.
       case view.style
@@ -292,7 +296,8 @@ module UI::AppKit
           unless layer.null?
             cg_fill = LibObjCBridge.objc_send(fill_color, sel("CGColor"))
             LibObjCBridge.objc_send_id(layer, sel("setBackgroundColor:"), cg_fill) unless cg_fill.null?
-            LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), 6.0)
+            # token_radius(:md) (6pt) — prominent button corner.
+            LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), token_radius(:md))
           end
         end
         unless fg_on_fill.null?
@@ -532,13 +537,16 @@ module UI::AppKit
           # Backdrop-mode: keep VStack transparent so NSVisualEffectView can blur
           # the backdrop NSImageView beneath. The live-window NSWindow provides the
           # appearance-correct surface; opaque fills here would block the glass compositor.
+          # Tier 2 platform default: fully-transparent fallback (alpha=0).
           LibObjCBridge.nscolor_rgba(0.0, 0.0, 0.0, 0.0)
         else
           # No backdrop — apply the dark-mode legibility fix (gaps.md iter-21).
+          # Tier 2 platform defaults: NSColor.windowBackgroundColor approximations
+          # for dark/light appearance in the offscreen capture path.
           dark_mode = (ENV["HIG_APPEARANCE"]? == "dark")
           dark_mode ?
-            LibObjCBridge.nscolor_rgba(0.12, 0.12, 0.12, 1.0) :
-            LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)
+            LibObjCBridge.nscolor_rgba(0.12, 0.12, 0.12, 1.0) : # Tier 2 dark
+            LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)      # Tier 2 light
         end
         unless bg_ns.null?
           cg_bg = LibObjCBridge.objc_send(bg_ns, sel("CGColor"))
@@ -1133,6 +1141,8 @@ module UI::AppKit
         selected_tint = if tc = view.selected_tint_color
                            LibObjCBridge.nscolor_rgba(tc.r, tc.g, tc.b, tc.a)
                          else
+                           # Tier 2 platform default: rgba(0.0, 0.478, 1.0, 1.0)
+                           # ≈ NSColor.systemBlue — tab bar default tint fallback.
                            LibObjCBridge.nscolor_rgba(0.0, 0.478, 1.0, 1.0)
                          end
         unselected_tint = LibObjCBridge.nscolor_label_secondary
@@ -1282,11 +1292,11 @@ module UI::AppKit
       # NSVisualEffectStateActive = 1
       LibObjCBridge.objc_send_long(effect, sel("setState:"), 1_i64)
 
-      # Rounded corners — ~12pt matches HIG alert card corner radius.
+      # Rounded corners — token_radius(:xl) (~12pt) matches HIG alert card corner.
       LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
       effect_layer = LibObjCBridge.objc_send(effect, sel("layer"))
       unless effect_layer.null?
-        LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), 12.0)
+        LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), token_radius(:xl))
         LibObjCBridge.objc_send_bool(effect_layer, sel("setMasksToBounds:"), 1)
       end
 
@@ -1342,6 +1352,8 @@ module UI::AppKit
         LibObjCBridge.objc_send_bool(msg_field, sel("setBezeled:"), 0)
         LibObjCBridge.objc_send_bool(msg_field, sel("setDrawsBackground:"), 0)
         LibObjCBridge.objc_send_bool(msg_field, sel("setSelectable:"), 0)
+        # Tier 2 platform default: 11pt = NSFont.smallSystemFontSize for alert
+        # informative-text style.
         msg_font = LibObjCBridge.nsfont_system(11.0)
         LibObjCBridge.objc_send_id(msg_field, sel("setFont:"), msg_font)
         LibObjCBridge.objc_send_long(msg_field, sel("setAlignment:"), 2_i64) # Center
@@ -1380,8 +1392,10 @@ module UI::AppKit
         # Role-aware font and color (matches visit(UI::Button) semantics).
         btn_font = case btn.style
                    when :cancel
-                     LibObjCBridge.nsfont_system_weight(13.0, 0.4) # Semibold w=0.4
+                     # Tier 2: 13pt = NSFont.systemFontSize, weight=0.4 (semibold).
+                     LibObjCBridge.nsfont_system_weight(13.0, 0.4)
                    else
+                     # Tier 2: 13pt = NSFont.systemFontSize (regular weight).
                      LibObjCBridge.nsfont_system(13.0)
                    end
         LibObjCBridge.objc_send_id(btn_ptr, sel("setFont:"), btn_font)
@@ -1526,8 +1540,10 @@ module UI::AppKit
       unless layer_ptr.null?
         dark_mode = (ENV["HIG_APPEARANCE"]? == "dark")
         bg_rgba = if dark_mode
+                    # Tier 2 platform default: NSColor.controlBackgroundColor dark.
                     LibObjCBridge.nscolor_rgba(0.11, 0.11, 0.11, 1.0)
                   else
+                    # Tier 2 platform default: NSColor.controlBackgroundColor light.
                     LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)
                   end
         unless bg_rgba.null?
@@ -1615,8 +1631,8 @@ module UI::AppKit
                 cg_card_bg = LibObjCBridge.objc_send(card_bg, sel("CGColor"))
                 LibObjCBridge.objc_send_void_id(card_layer, sel("setBackgroundColor:"), cg_card_bg) unless cg_card_bg.null?
               end
-              # Rounded corners -- ~10pt matching HIG InsetGrouped card radius.
-              LibObjCBridge.objc_send_1d(card_layer, sel("setCornerRadius:"), 10.0)
+              # token_radius(:card) (~10pt) matching HIG InsetGrouped card radius.
+              LibObjCBridge.objc_send_1d(card_layer, sel("setCornerRadius:"), token_radius(:card))
               # Hairline border.
               sep_gray : Float64 = dark_mode ? 0.35 : 0.78
               border_color = LibObjCBridge.nscolor_rgba(sep_gray, sep_gray, sep_gray, 1.0)
@@ -2342,12 +2358,13 @@ module UI::AppKit
         LibObjCBridge.objc_send_long(effect, sel("setState:"), 1_i64)
 
         # Rounded corners on the material layer itself.
-        # 16pt: Amber phi-scale "sheet" token. Action sheets are modal surfaces;
-        # 16pt (not 12pt) is the correct Amber token. June R5 fix.
+        # token_radius(:x2l) (16pt): Amber phi-scale "sheet" token. Action
+        # sheets are modal surfaces; 16pt (not 12pt) is the correct Amber
+        # token. June R5 fix.
         LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
         effect_layer = LibObjCBridge.objc_send(effect, sel("layer"))
         unless effect_layer.null?
-          LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), 16.0)
+          LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), token_radius(:x2l))
           LibObjCBridge.objc_send_bool(effect_layer, sel("setMasksToBounds:"), 1)
         end
 
@@ -2460,11 +2477,11 @@ module UI::AppKit
       # NSVisualEffectStateActive = 1 -- keep material live regardless of key state.
       LibObjCBridge.objc_send_long(effect, sel("setState:"), 1_i64)
 
-      # Rounded corners -- ~10pt matches NSPopover default corner radius on macOS.
+      # token_radius(:card) (~10pt) matches NSPopover default corner radius on macOS.
       LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
       effect_layer = LibObjCBridge.objc_send(effect, sel("layer"))
       unless effect_layer.null?
-        LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), 10.0)
+        LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), token_radius(:card))
         LibObjCBridge.objc_send_bool(effect_layer, sel("setMasksToBounds:"), 1)
       end
 
@@ -2609,8 +2626,8 @@ module UI::AppKit
 
       layer = LibObjCBridge.objc_send(ptr, sel("layer"))
       unless layer.null?
-        # ~10pt corner radius -- matches HIG grouped-container default.
-        LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), 10.0)
+        # token_radius(:card) (~10pt) -- matches HIG grouped-container default.
+        LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), token_radius(:card))
 
         # Background fill. layer.backgroundColor requires a baked CGColor.
         # Dynamic NSColor -> CGColor bakes the color at call time, before the
@@ -2630,15 +2647,20 @@ module UI::AppKit
         # surface as frosted glass. The border and corner radius remain.
         dark_mode = (ENV["HIG_APPEARANCE"]? == "dark")
         backdrop_mode = ENV["HIG_BACKDROP_PATH"]? && !ENV["HIG_BACKDROP_PATH"].to_s.empty?
+        # All four `nscolor_rgba` literals below are Tier 2 platform defaults —
+        # NSColor.controlBackgroundColor approximations. The translucent variants
+        # are the same color at 0.75 alpha for backdrop-mode card surfaces.
+        # Not brand decisions; track the system grouped-card chrome.
         bg_color = if backdrop_mode
-                     # Semi-transparent fill: 75% opaque so the card is readable
-                     # as a distinct surface but the backdrop bleeds through.
+                     # Tier 2: semi-transparent fill so the backdrop bleeds through.
                      dark_mode ?
                        LibObjCBridge.nscolor_rgba(0.12, 0.12, 0.14, 0.75) :
                        LibObjCBridge.nscolor_rgba(0.96, 0.96, 0.97, 0.75)
                    elsif dark_mode
+                     # Tier 2 platform default: NSColor.controlBackgroundColor dark.
                      LibObjCBridge.nscolor_rgba(0.145, 0.145, 0.145, 1.0)
                    else
+                     # Tier 2 platform default: NSColor.controlBackgroundColor light.
                      LibObjCBridge.nscolor_rgba(0.970, 0.970, 0.970, 1.0)
                    end
         unless bg_color.null?
@@ -2816,6 +2838,8 @@ module UI::AppKit
       LibObjCBridge.objc_send_bool(text_ptr, sel("setRichText:"), 1)
 
       # Font: use first span's font if present, else system body 17pt.
+      # Tier 2 platform default: 17pt = Apple HIG body label size on iOS;
+      # used on macOS RichText for parity with iOS rendering.
       first_font = view.spans.first?.try(&.font)
       font_ptr = first_font ? resolve_font(first_font) : LibObjCBridge.nsfont_system(17.0)
       LibObjCBridge.objc_send_id(text_ptr, sel("setFont:"), font_ptr) unless font_ptr.null?
@@ -2923,7 +2947,8 @@ module UI::AppKit
 
       effect_layer = LibObjCBridge.objc_send(effect, sel("layer"))
       unless effect_layer.null?
-        LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), 14.0)
+        # token_radius(:sheet) (14pt) — menu / sheet glass card corner.
+        LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), token_radius(:sheet))
         LibObjCBridge.objc_send_bool(effect_layer, sel("setMasksToBounds:"), 1)
         sep_color = LibObjCBridge.nscolor_separator
         unless sep_color.null?
@@ -2955,6 +2980,8 @@ module UI::AppKit
 
       red_cls = LibObjCBridge.objc_getClass("NSColor")
       destructive_color = LibObjCBridge.objc_send(red_cls, sel("systemRedColor"))
+      # Tier 2 platform default: rgba(1.0, 0.23, 0.19, 1.0) ≈ NSColor.systemRed
+      # — HIG-mandated destructive action color fallback when the class lookup fails.
       destructive_color = LibObjCBridge.nscolor_rgba(1.0, 0.23, 0.19, 1.0) if destructive_color.null?
 
       view.items.each do |entry|
@@ -2999,6 +3026,7 @@ module UI::AppKit
                        else
                          LibObjCBridge.nscolor_label_primary
                        end
+          # Tier 2 platform default: 13pt = NSFont.systemFontSize.
           text_font = LibObjCBridge.nsfont_system(13.0)
           LibObjCBridge.nsbutton_set_colored_title(row, row_title, text_color, text_font)
           LibObjCBridge.objc_send_bool(row, sel("setEnabled:"), entry.is_disabled ? 0 : 1)
@@ -3271,6 +3299,7 @@ module UI::AppKit
           LibObjCBridge.objc_send_bool(label, sel("setBezeled:"), 0)
           LibObjCBridge.objc_send_bool(label, sel("setDrawsBackground:"), 0)
           LibObjCBridge.objc_send_bool(label, sel("setSelectable:"), 0)
+          # Tier 2 platform default: 13pt = NSFont.systemFontSize (control label).
           LibObjCBridge.objc_send_id(label, sel("setFont:"), LibObjCBridge.nsfont_system(13.0))
           label_color = index == view.components.size - 1 ? LibObjCBridge.nscolor_label_primary : LibObjCBridge.nscolor_label_secondary
           LibObjCBridge.objc_send_id(label, sel("setTextColor:"), label_color) unless label_color.null?
@@ -3451,7 +3480,8 @@ module UI::AppKit
             pa_cg = LibObjCBridge.objc_send(pa_bg, sel("CGColor"))
             LibObjCBridge.objc_send_void_id(plot_layer, sel("setBackgroundColor:"), pa_cg) unless pa_cg.null?
           end
-          LibObjCBridge.objc_send_1d(plot_layer, sel("setCornerRadius:"), 8.0)
+          # token_radius(:lg) (8pt) — bar chart plot background corner.
+          LibObjCBridge.objc_send_1d(plot_layer, sel("setCornerRadius:"), token_radius(:lg))
         end
         LibObjCBridge.objc_constrain_size(plot_stack, chart_w - 16.0, plot_h + label_h + 4.0)
 
@@ -3496,8 +3526,8 @@ module UI::AppKit
               bar_cg = LibObjCBridge.objc_send(bar_col_ns, sel("CGColor"))
               LibObjCBridge.objc_send_void_id(bar_layer, sel("setBackgroundColor:"), bar_cg) unless bar_cg.null?
             end
-            # Rounded top corners ~4pt
-            LibObjCBridge.objc_send_1d(bar_layer, sel("setCornerRadius:"), 4.0)
+            # token_radius(:xs) (4pt) — individual bar corner.
+            LibObjCBridge.objc_send_1d(bar_layer, sel("setCornerRadius:"), token_radius(:xs))
           end
           LibObjCBridge.objc_send_id(col, sel("addArrangedSubview:"), bar_v)
 
@@ -3509,6 +3539,8 @@ module UI::AppKit
           LibObjCBridge.objc_send_bool(lbl_tf, sel("setBezeled:"), 0)
           LibObjCBridge.objc_send_bool(lbl_tf, sel("setDrawsBackground:"), 0)
           LibObjCBridge.objc_send_bool(lbl_tf, sel("setSelectable:"), 0)
+          # Tier 2 platform default: 10pt micro-label size for chart axis labels
+          # (smaller than the brand caption token, 12.5pt).
           lbl_font = LibObjCBridge.nsfont_system(10.0)
           LibObjCBridge.objc_send_id(lbl_tf, sel("setFont:"), lbl_font)
           lbl_color = LibObjCBridge.nscolor_rgba(lbl_gray, lbl_gray, lbl_gray, 1.0)
@@ -3537,7 +3569,8 @@ module UI::AppKit
             pa_cg = LibObjCBridge.objc_send(pa_bg, sel("CGColor"))
             LibObjCBridge.objc_send_void_id(plot_layer, sel("setBackgroundColor:"), pa_cg) unless pa_cg.null?
           end
-          LibObjCBridge.objc_send_1d(plot_layer, sel("setCornerRadius:"), 8.0)
+          # token_radius(:lg) (8pt) — line chart plot background corner.
+          LibObjCBridge.objc_send_1d(plot_layer, sel("setCornerRadius:"), token_radius(:lg))
         end
         LibObjCBridge.objc_constrain_size(plot_stack, chart_w - 16.0, plot_h + label_h + 4.0)
 
@@ -3602,6 +3635,8 @@ module UI::AppKit
           LibObjCBridge.objc_send_bool(lbl_tf, sel("setBezeled:"), 0)
           LibObjCBridge.objc_send_bool(lbl_tf, sel("setDrawsBackground:"), 0)
           LibObjCBridge.objc_send_bool(lbl_tf, sel("setSelectable:"), 0)
+          # Tier 2 platform default: 10pt micro-label size for chart axis labels
+          # (smaller than the brand caption token, 12.5pt).
           lbl_font = LibObjCBridge.nsfont_system(10.0)
           LibObjCBridge.objc_send_id(lbl_tf, sel("setFont:"), lbl_font)
           lbl_color = LibObjCBridge.nscolor_rgba(lbl_gray, lbl_gray, lbl_gray, 1.0)
@@ -3627,7 +3662,8 @@ module UI::AppKit
             pie_cg = LibObjCBridge.objc_send(pie_col, sel("CGColor"))
             LibObjCBridge.objc_send_void_id(pie_layer, sel("setBackgroundColor:"), pie_cg) unless pie_cg.null?
           end
-          LibObjCBridge.objc_send_1d(pie_layer, sel("setCornerRadius:"), 60.0)
+          # token_radius(:avatar_lg) (60pt) — pie chart circle (120pt diameter).
+          LibObjCBridge.objc_send_1d(pie_layer, sel("setCornerRadius:"), token_radius(:avatar_lg))
         end
         LibObjCBridge.objc_send_id(outer, sel("addArrangedSubview:"), pie_v)
       end
@@ -3789,15 +3825,11 @@ module UI::AppKit
     def visit(view : UI::ActivityView)
       # Amber gold tint — applied to all destination icon buttons, action icon
       # buttons, and the Cancel button so the ActivityView renders in the Amber
-      # brand accent rather than the default systemBlue.
-      # Light: #FFAD33  = rgba(1.0, 0.678, 0.2, 1.0)
-      # Dark:  #FFB84D  = rgba(1.0, 0.722, 0.302, 1.0)
-      # NSButton.contentTintColor routes the symbol rendering through the color
-      # (NSImage template rendering mode). Both dark and light use the light
-      # value here because NSButton.contentTintColor is appearance-adaptive when
-      # a dynamic NSColor is used; we approximate it with the light value which
-      # is visually correct for both appearances given the amber backdrop.
-      amber_gold = LibObjCBridge.nscolor_rgba(1.0, 0.678, 0.2, 1.0)
+      # brand accent rather than the default systemBlue. Routes through the
+      # token shim so a brand override on `design_tokens` cascades here too.
+      # NSButton.contentTintColor uses the light value for both appearances —
+      # the amber backdrop renders correctly under both.
+      amber_gold = amber_brand_gold
 
       # Outer glass container — sheet material approximates the iOS share sheet
       # surface on macOS and matches the known-good UI::Sheet glass path.
@@ -3808,7 +3840,8 @@ module UI::AppKit
       LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
       effect_layer = LibObjCBridge.objc_send(effect, sel("layer"))
       unless effect_layer.null?
-        LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), 16.0)
+        # token_radius(:x2l) (16pt) — large glass card (ActivityView) corner.
+        LibObjCBridge.objc_send_1d(effect_layer, sel("setCornerRadius:"), token_radius(:x2l))
         LibObjCBridge.objc_send_bool(effect_layer, sel("setMasksToBounds:"), 1)
       end
 
@@ -3845,7 +3878,8 @@ module UI::AppKit
         LibObjCBridge.objc_send_bool(thumb_view, sel("setWantsLayer:"), 1)
         tl = LibObjCBridge.objc_send(thumb_view, sel("layer"))
         unless tl.null?
-          LibObjCBridge.objc_send_1d(tl, sel("setCornerRadius:"), 8.0)
+          # token_radius(:lg) (8pt) — thumbnail image corner.
+          LibObjCBridge.objc_send_1d(tl, sel("setCornerRadius:"), token_radius(:lg))
           LibObjCBridge.objc_send_bool(tl, sel("setMasksToBounds:"), 1)
         end
         LibObjCBridge.objc_send_id(header_stack, sel("addArrangedSubview:"), thumb_view)
@@ -3876,6 +3910,7 @@ module UI::AppKit
         LibObjCBridge.objc_send_bool(sub_ptr, sel("setSelectable:"), 0)
         sub_str = LibObjCBridge.nsstring_from_cstr(sub.to_unsafe)
         LibObjCBridge.objc_send_id(sub_ptr, sel("setStringValue:"), sub_str)
+        # Tier 2 platform default: 13pt = NSFont.systemFontSize.
         sub_font = LibObjCBridge.nsfont_system(13.0)
         LibObjCBridge.objc_send_id(sub_ptr, sel("setFont:"), sub_font) unless sub_font.null?
         sec_color = LibObjCBridge.nscolor_label_secondary
@@ -3927,7 +3962,8 @@ module UI::AppKit
           # threshold for non-body SF Symbol icons).
           amber_cg = LibObjCBridge.objc_send(amber_gold, sel("CGColor"))
           LibObjCBridge.objc_send_id(tile_layer, sel("setBackgroundColor:"), amber_cg) unless amber_cg.null?
-          LibObjCBridge.objc_send_1d(tile_layer, sel("setCornerRadius:"), 8.0)
+          # token_radius(:lg) (8pt) — action tile corner.
+          LibObjCBridge.objc_send_1d(tile_layer, sel("setCornerRadius:"), token_radius(:lg))
           LibObjCBridge.objc_send_bool(tile_layer, sel("setMasksToBounds:"), 1)
         end
 
@@ -3965,6 +4001,7 @@ module UI::AppKit
         LibObjCBridge.objc_send_bool(lbl_ptr, sel("setSelectable:"), 0)
         lbl_str = LibObjCBridge.nsstring_from_cstr(dest.label.to_unsafe)
         LibObjCBridge.objc_send_id(lbl_ptr, sel("setStringValue:"), lbl_str)
+        # Tier 2 platform default: 11pt = NSFont.smallSystemFontSize.
         lbl_font = LibObjCBridge.nsfont_system(11.0)
         LibObjCBridge.objc_send_id(lbl_ptr, sel("setFont:"), lbl_font) unless lbl_font.null?
         lbl_color = LibObjCBridge.nscolor_label_secondary
@@ -4000,13 +4037,16 @@ module UI::AppKit
           LibObjCBridge.objc_send_bool(tile_stack, sel("setWantsLayer:"), 1)
           tl2 = LibObjCBridge.objc_send(tile_stack, sel("layer"))
           unless tl2.null?
-            LibObjCBridge.objc_send_1d(tl2, sel("setCornerRadius:"), 10.0)
+            # token_radius(:card) (10pt) — action tile corner.
+            LibObjCBridge.objc_send_1d(tl2, sel("setCornerRadius:"), token_radius(:card))
           end
 
           # Action icon: NSImageView with SF Symbol + contentTintColor amber gold.
           # NSImageView.contentTintColor reliably propagates through template rendering
           # mode, unlike NSButton.contentTintColor on bezelStyle=4 (rounded). A
           # transparent overlay NSButton handles hit-testing.
+          # Tier 2 platform default: rgba(1.0, 0.23, 0.19, 1.0) ≈ NSColor.systemRed
+          # — HIG-mandated destructive action tint.
           act_icon_tint = act.role == :destructive ? LibObjCBridge.nscolor_rgba(1.0, 0.23, 0.19, 1.0) : amber_gold
           act_iv = LibObjCBridge.nsimageview_make_symbol(act.icon_symbol.to_unsafe, act_icon_tint, 18.0)
           unless act_iv.null?
@@ -4023,9 +4063,12 @@ module UI::AppKit
           LibObjCBridge.objc_send_bool(act_lbl, sel("setSelectable:"), 0)
           act_str = LibObjCBridge.nsstring_from_cstr(act.label.to_unsafe)
           LibObjCBridge.objc_send_id(act_lbl, sel("setStringValue:"), act_str)
+          # Tier 2 platform default: 13pt = NSFont.systemFontSize action label.
           act_font = LibObjCBridge.nsfont_system(13.0)
           LibObjCBridge.objc_send_id(act_lbl, sel("setFont:"), act_font) unless act_font.null?
           if act.role == :destructive
+            # Tier 2 platform default: rgba(1.0, 0.23, 0.19, 1.0) ≈ NSColor.systemRed —
+            # HIG-mandated destructive action color.
             red_color = LibObjCBridge.nscolor_rgba(1.0, 0.23, 0.19, 1.0)
             LibObjCBridge.objc_send_id(act_lbl, sel("setTextColor:"), red_color)
           else
@@ -4153,6 +4196,7 @@ module UI::AppKit
       LibObjCBridge.objc_send_bool(title_field, sel("setSelectable:"), 0)
       title_ns = LibObjCBridge.nsstring_from_cstr(view.title.to_unsafe)
       LibObjCBridge.objc_send_id(title_field, sel("setStringValue:"), title_ns)
+      # Tier 2 platform default: 13pt = NSFont.systemFontSize.
       title_font = LibObjCBridge.nsfont_system(13.0)
       LibObjCBridge.objc_send_id(title_field, sel("setFont:"), title_font) unless title_font.null?
       lbl_color = LibObjCBridge.nscolor_label_primary
@@ -4227,7 +4271,8 @@ module UI::AppKit
       stroke_nscolor = if tc = view.tint_color
                          LibObjCBridge.nscolor_rgba(tc.r, tc.g, tc.b, 0.4)
                        else
-                         # Fallback: system blue at 40% opacity.
+                         # Tier 2 platform default: rgba(0.0, 0.478, 1.0, 0.4)
+                         # ≈ NSColor.systemBlue at 0.4 alpha — page-control fallback.
                          LibObjCBridge.nscolor_rgba(0.0, 0.478, 1.0, 0.4)
                        end
 
@@ -4338,7 +4383,7 @@ module UI::AppKit
         LibObjCBridge.objc_send_id(ptr, sel("setPlaceholderString:"), ph_str)
       end
 
-      # Font: system 13pt matches NSComboBox's default metric
+      # Tier 2 platform default: 13pt = NSFont.systemFontSize (NSComboBox default).
       font_ptr = LibObjCBridge.nsfont_system(13.0)
       LibObjCBridge.objc_send_id(ptr, sel("setFont:"), font_ptr)
 
@@ -4389,9 +4434,12 @@ module UI::AppKit
       LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 4.0)
 
       # Resolve tint color (system yellow default: R:1.0 G:0.8 B:0.0)
+      # Tier 2 platform default: rgba(1.0, 0.8, 0.0, 1.0) ≈ NSColor.systemYellow
+      # (rating-indicator fill).
       tint_ptr = if tc = view.tint_color
                    LibObjCBridge.nscolor_rgba(tc.r, tc.g, tc.b, tc.a)
                  else
+                   # Tier 2 platform default: rgba(1.0, 0.8, 0.0, 1.0) ≈ NSColor.systemYellow.
                    LibObjCBridge.nscolor_rgba(1.0, 0.8, 0.0, 1.0)
                  end
 
