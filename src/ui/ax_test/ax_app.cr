@@ -157,6 +157,31 @@ module UI::AXTest
       end
     end
 
+    # Screenshot just the rectangular bounds of `element` to `path` (PNG).
+    # Uses `screencapture -R x,y,w,h` to crop directly — no full-screen
+    # capture, no in-process image compositing.
+    #
+    # Returns true on success, false if the element has no readable
+    # bounds (no AXPosition/AXSize) or screencapture exits non-zero.
+    def screenshot_element(element : Element, path : String) : Bool
+      bounds = element.bounds_in_screen
+      return false unless bounds
+
+      dir = File.dirname(path)
+      Dir.mkdir_p(dir) unless Dir.exists?(dir)
+
+      x = bounds[:x].to_i32
+      y = bounds[:y].to_i32
+      w = bounds[:width].to_i32
+      h = bounds[:height].to_i32
+
+      # Width/height must be > 0 for screencapture.
+      return false if w <= 0 || h <= 0
+
+      status = Process.run("/usr/sbin/screencapture", ["-x", "-R", "#{x},#{y},#{w},#{h}", path])
+      status.success?
+    end
+
     # Query System Events via osascript for the position/size of a window
     # in this app by title. Returns {x, y, w, h} in screen points or nil.
     private def window_rect_via_system_events(title : String) : Tuple(Int32, Int32, Int32, Int32)?
