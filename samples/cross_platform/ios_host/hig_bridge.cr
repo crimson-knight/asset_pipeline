@@ -3000,17 +3000,20 @@ HTML
               ios_probe = UI::VStack.new(spacing: 16.0)
               ios_probe.alignment = UI::Alignment::Center
 
-              ios_tap = UI::Button.new("Tap me") { UI::Probes::TapProbe.increment }
+              ios_tap_counter = UI::Label.new(UI::Probes::TapProbe.current_text)
+              ios_tap_counter.test_id = "tap-probe-counter"
+              ios_tap_counter.accessibility_label = "tap-probe-counter"
+              ios_tap_counter.text_alignment = UI::Alignment::Center
+
+              ios_tap = UI::Button.new("Tap me") do
+                UI::Probes::TapProbe.increment
+                ios_tap_counter.text = UI::Probes::TapProbe.current_text
+              end
               ios_tap.test_id = "tap-probe-button"
               ios_tap.accessibility_label = "tap-probe-button"
               ios_tap.style = UI::ButtonStyle::Prominent
               ios_tap.minimum_height = 44.0
               ios_probe << ios_tap.as(UI::View)
-
-              ios_tap_counter = UI::Label.new(UI::Probes::TapProbe.current_text)
-              ios_tap_counter.test_id = "tap-probe-counter"
-              ios_tap_counter.accessibility_label = "tap-probe-counter"
-              ios_tap_counter.text_alignment = UI::Alignment::Center
               ios_probe << ios_tap_counter.as(UI::View)
 
               ios_probe.as(UI::View)
@@ -3018,17 +3021,18 @@ HTML
               ios_tv_probe = UI::VStack.new(spacing: 16.0)
               ios_tv_probe.alignment = UI::Alignment::Center
 
-              ios_toggle = UI::Toggle.new("Notify", UI::Probes::ToggleProbe.last_value) do |new_value|
-                UI::Probes::ToggleProbe.set(new_value)
-              end
-              ios_toggle.test_id = "toggle-probe-toggle"
-              ios_toggle.accessibility_label = "toggle-probe-toggle"
-              ios_tv_probe << ios_toggle.as(UI::View)
-
               ios_toggle_value = UI::Label.new(UI::Probes::ToggleProbe.current_text)
               ios_toggle_value.test_id = "toggle-probe-value"
               ios_toggle_value.accessibility_label = "toggle-probe-value"
               ios_toggle_value.text_alignment = UI::Alignment::Center
+
+              ios_toggle = UI::Toggle.new("Notify", UI::Probes::ToggleProbe.last_value) do |new_value|
+                UI::Probes::ToggleProbe.set(new_value)
+                ios_toggle_value.text = UI::Probes::ToggleProbe.current_text
+              end
+              ios_toggle.test_id = "toggle-probe-toggle"
+              ios_toggle.accessibility_label = "toggle-probe-toggle"
+              ios_tv_probe << ios_toggle.as(UI::View)
               ios_tv_probe << ios_toggle_value.as(UI::View)
 
               ios_tv_probe.as(UI::View)
@@ -3036,24 +3040,25 @@ HTML
               ios_sv_probe = UI::VStack.new(spacing: 16.0)
               ios_sv_probe.alignment = UI::Alignment::Center
 
+              ios_slider_value = UI::Label.new(UI::Probes::SliderProbe.current_text)
+              ios_slider_value.test_id = "slider-probe-value"
+              ios_slider_value.accessibility_label = "slider-probe-value"
+              ios_slider_value.text_alignment = UI::Alignment::Center
+
               ios_slider = UI::Slider.new(0.0, 1.0, UI::Probes::SliderProbe.last_value) do |new_value|
                 UI::Probes::SliderProbe.set(new_value)
+                ios_slider_value.text = UI::Probes::SliderProbe.current_text
               end
               ios_slider.test_id = "slider-probe-slider"
               ios_slider.accessibility_label = "slider-probe-slider"
               ios_slider.minimum_width = 280.0
               ios_sv_probe << ios_slider.as(UI::View)
-
-              ios_slider_value = UI::Label.new(UI::Probes::SliderProbe.current_text)
-              ios_slider_value.test_id = "slider-probe-value"
-              ios_slider_value.accessibility_label = "slider-probe-value"
-              ios_slider_value.text_alignment = UI::Alignment::Center
               ios_sv_probe << ios_slider_value.as(UI::View)
 
               ios_sv_probe.as(UI::View)
             when "phase-03-runtime-override-probe"
-              # BX5: SwiftUI hosting does not rebuild on Crystal property
-              # mutation in the Phase 3 bridge. See handoff blockers note.
+              # BX5: runtime background override now propagates via the
+              # reactive `background=` setter (Phase 3 Remediation 4).
               ios_ov_probe = UI::VStack.new(spacing: 16.0)
               ios_ov_probe.alignment = UI::Alignment::Center
 
@@ -3066,16 +3071,20 @@ HTML
               end
               ios_ov_probe << ios_target.as(UI::View)
 
-              ios_trigger = UI::Button.new("Make Red") { UI::Probes::RuntimeOverrideProbe.set_red }
-              ios_trigger.test_id = "make-red-trigger"
-              ios_trigger.accessibility_label = "make-red-trigger"
-              ios_trigger.minimum_height = 44.0
-              ios_ov_probe << ios_trigger.as(UI::View)
-
               ios_ov_state = UI::Label.new(UI::Probes::RuntimeOverrideProbe.current_text)
               ios_ov_state.test_id = "override-state"
               ios_ov_state.accessibility_label = "override-state"
               ios_ov_state.text_alignment = UI::Alignment::Center
+
+              ios_trigger = UI::Button.new("Make Red") do
+                UI::Probes::RuntimeOverrideProbe.set_red
+                ios_target.background = UI::Color.new(r: 1.0, g: 0.0, b: 0.0)
+                ios_ov_state.text = UI::Probes::RuntimeOverrideProbe.current_text
+              end
+              ios_trigger.test_id = "make-red-trigger"
+              ios_trigger.accessibility_label = "make-red-trigger"
+              ios_trigger.minimum_height = 44.0
+              ios_ov_probe << ios_trigger.as(UI::View)
               ios_ov_probe << ios_ov_state.as(UI::View)
 
               ios_ov_probe.as(UI::View)
@@ -3091,7 +3100,14 @@ HTML
               ios_row1.minimum_width = 280.0
               ios_form_stack << ios_row1.as(UI::View)
 
-              ios_row2 = UI::Button.new("Row 2") { UI::Probes::FormRowProbe.increment_row2 }
+              ios_form_counter = UI::Label.new(UI::Probes::FormRowProbe.current_text)
+              ios_form_counter.test_id = "form-row-2-counter"
+              ios_form_counter.accessibility_label = "form-row-2-counter"
+
+              ios_row2 = UI::Button.new("Row 2") do
+                UI::Probes::FormRowProbe.increment_row2
+                ios_form_counter.text = UI::Probes::FormRowProbe.current_text
+              end
               ios_row2.test_id = "form-row-2"
               ios_row2.accessibility_label = "form-row-2"
               ios_row2.minimum_height = 44.0
@@ -3104,10 +3120,6 @@ HTML
               ios_row3.minimum_height = 44.0
               ios_row3.minimum_width = 280.0
               ios_form_stack << ios_row3.as(UI::View)
-
-              ios_form_counter = UI::Label.new(UI::Probes::FormRowProbe.current_text)
-              ios_form_counter.test_id = "form-row-2-counter"
-              ios_form_counter.accessibility_label = "form-row-2-counter"
               ios_form_stack << ios_form_counter.as(UI::View)
 
               ios_form_stack.as(UI::View)

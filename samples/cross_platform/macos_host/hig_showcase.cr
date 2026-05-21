@@ -3789,70 +3789,82 @@ HTML
     # -------------------------------------------------------------------------
     when "phase-03-action-tap-probe"
       # BX1 / BX2: Button tap fires bound Crystal proc. The trigger Button is
-      # tagged test_id="tap-probe-button"; its on_tap increments TapProbe.
-      # The mirror Label shows the count at render time.
+      # tagged test_id="tap-probe-button"; its on_tap increments TapProbe
+      # AND writes the new value into the mirror Label via the reactive
+      # `text=` setter (Phase 3 Remediation 4). SwiftUI's APSKLabelState
+      # @Published field flips on the next main-queue tick and the hosted
+      # Text re-renders without a tree rebuild.
       probe_stack = UI::VStack.new(spacing: 16.0)
       probe_stack.alignment = UI::Alignment::Center
 
-      tap_button = UI::Button.new("Tap me") { UI::Probes::TapProbe.increment }
+      counter_label = UI::Label.new(UI::Probes::TapProbe.current_text)
+      counter_label.test_id = "tap-probe-counter"
+      # Intentionally NO accessibility_label override: the displayed text is
+      # what BX1/BX2 assert on, and SwiftUI Text propagates its content as
+      # the AXLabel/AXValue by default. Overriding accessibilityLabel here
+      # would shadow that content with the test_id string.
+      counter_label.text_alignment = UI::Alignment::Center
+
+      tap_button = UI::Button.new("Tap me") do
+        UI::Probes::TapProbe.increment
+        counter_label.text = UI::Probes::TapProbe.current_text
+      end
       tap_button.test_id = "tap-probe-button"
       tap_button.accessibility_label = "tap-probe-button"
       tap_button.style = UI::ButtonStyle::Prominent
       tap_button.minimum_height = 44.0
       probe_stack << tap_button.as(UI::View)
-
-      counter_label = UI::Label.new(UI::Probes::TapProbe.current_text)
-      counter_label.test_id = "tap-probe-counter"
-      counter_label.accessibility_label = "tap-probe-counter"
-      counter_label.text_alignment = UI::Alignment::Center
       probe_stack << counter_label.as(UI::View)
 
       probe_stack.as(UI::View)
     when "phase-03-toggle-value-probe"
-      # BX3: Toggle on_change writes Bool into ToggleProbe.last_value.
+      # BX3: Toggle on_change writes Bool into ToggleProbe.last_value AND
+      # updates the mirror Label via the reactive `text=` setter.
       probe_stack = UI::VStack.new(spacing: 16.0)
       probe_stack.alignment = UI::Alignment::Center
-
-      toggle = UI::Toggle.new("Notify", UI::Probes::ToggleProbe.last_value) do |new_value|
-        UI::Probes::ToggleProbe.set(new_value)
-      end
-      toggle.test_id = "toggle-probe-toggle"
-      toggle.accessibility_label = "toggle-probe-toggle"
-      probe_stack << toggle.as(UI::View)
 
       value_label = UI::Label.new(UI::Probes::ToggleProbe.current_text)
       value_label.test_id = "toggle-probe-value"
       value_label.accessibility_label = "toggle-probe-value"
       value_label.text_alignment = UI::Alignment::Center
+
+      toggle = UI::Toggle.new("Notify", UI::Probes::ToggleProbe.last_value) do |new_value|
+        UI::Probes::ToggleProbe.set(new_value)
+        value_label.text = UI::Probes::ToggleProbe.current_text
+      end
+      toggle.test_id = "toggle-probe-toggle"
+      toggle.accessibility_label = "toggle-probe-toggle"
+      probe_stack << toggle.as(UI::View)
       probe_stack << value_label.as(UI::View)
 
       probe_stack.as(UI::View)
     when "phase-03-slider-value-probe"
-      # BX4: Slider on_change writes Float64 into SliderProbe.last_value.
+      # BX4: Slider on_change writes Float64 into SliderProbe.last_value
+      # AND updates the mirror Label via the reactive `text=` setter.
       probe_stack = UI::VStack.new(spacing: 16.0)
       probe_stack.alignment = UI::Alignment::Center
-
-      slider = UI::Slider.new(0.0, 1.0, UI::Probes::SliderProbe.last_value) do |new_value|
-        UI::Probes::SliderProbe.set(new_value)
-      end
-      slider.test_id = "slider-probe-slider"
-      slider.accessibility_label = "slider-probe-slider"
-      slider.minimum_width = 280.0
-      probe_stack << slider.as(UI::View)
 
       value_label = UI::Label.new(UI::Probes::SliderProbe.current_text)
       value_label.test_id = "slider-probe-value"
       value_label.accessibility_label = "slider-probe-value"
       value_label.text_alignment = UI::Alignment::Center
+
+      slider = UI::Slider.new(0.0, 1.0, UI::Probes::SliderProbe.last_value) do |new_value|
+        UI::Probes::SliderProbe.set(new_value)
+        value_label.text = UI::Probes::SliderProbe.current_text
+      end
+      slider.test_id = "slider-probe-slider"
+      slider.accessibility_label = "slider-probe-slider"
+      slider.minimum_width = 280.0
+      probe_stack << slider.as(UI::View)
       probe_stack << value_label.as(UI::View)
 
       probe_stack.as(UI::View)
     when "phase-03-runtime-override-probe"
-      # BX5: Make-Red trigger mutates the target Button's background.
-      # NOTE: SwiftUI hosting does not respond to runtime property mutation
-      # in the current Phase 3 bridge — the mutation is held in the probe
-      # singleton and reflected on the NEXT render of this slug. See
-      # handoff/phase-03-remediation-3-blockers-2026-05-21.md.
+      # BX5: Make-Red trigger mutates the target Button's background AT
+      # RUNTIME via the reactive `background=` setter (Phase 3 Remediation
+      # 4). APSKButtonState.backgroundColor flips and SwiftUI re-renders
+      # the hosted Button without rebuilding the tree.
       probe_stack = UI::VStack.new(spacing: 16.0)
       probe_stack.alignment = UI::Alignment::Center
 
@@ -3865,16 +3877,20 @@ HTML
       end
       probe_stack << target_button.as(UI::View)
 
-      trigger_button = UI::Button.new("Make Red") { UI::Probes::RuntimeOverrideProbe.set_red }
-      trigger_button.test_id = "make-red-trigger"
-      trigger_button.accessibility_label = "make-red-trigger"
-      trigger_button.minimum_height = 44.0
-      probe_stack << trigger_button.as(UI::View)
-
       state_label = UI::Label.new(UI::Probes::RuntimeOverrideProbe.current_text)
       state_label.test_id = "override-state"
       state_label.accessibility_label = "override-state"
       state_label.text_alignment = UI::Alignment::Center
+
+      trigger_button = UI::Button.new("Make Red") do
+        UI::Probes::RuntimeOverrideProbe.set_red
+        target_button.background = UI::Color.new(r: 1.0, g: 0.0, b: 0.0)
+        state_label.text = UI::Probes::RuntimeOverrideProbe.current_text
+      end
+      trigger_button.test_id = "make-red-trigger"
+      trigger_button.accessibility_label = "make-red-trigger"
+      trigger_button.minimum_height = 44.0
+      probe_stack << trigger_button.as(UI::View)
       probe_stack << state_label.as(UI::View)
 
       probe_stack.as(UI::View)
@@ -3895,7 +3911,14 @@ HTML
       row1.minimum_width = 280.0
       form_stack << row1.as(UI::View)
 
-      row2 = UI::Button.new("Row 2") { UI::Probes::FormRowProbe.increment_row2 }
+      counter = UI::Label.new(UI::Probes::FormRowProbe.current_text)
+      counter.test_id = "form-row-2-counter"
+      counter.accessibility_label = "form-row-2-counter"
+
+      row2 = UI::Button.new("Row 2") do
+        UI::Probes::FormRowProbe.increment_row2
+        counter.text = UI::Probes::FormRowProbe.current_text
+      end
       row2.test_id = "form-row-2"
       row2.accessibility_label = "form-row-2"
       row2.minimum_height = 44.0
@@ -3909,9 +3932,6 @@ HTML
       row3.minimum_width = 280.0
       form_stack << row3.as(UI::View)
 
-      counter = UI::Label.new(UI::Probes::FormRowProbe.current_text)
-      counter.test_id = "form-row-2-counter"
-      counter.accessibility_label = "form-row-2-counter"
       form_stack << counter.as(UI::View)
 
       form_stack.as(UI::View)
