@@ -36,6 +36,7 @@ require "../views/card"
 require "../views/surface"
 require "../views/menu_button"
 require "../views/toggle_button"
+require "../views/list_view"
 require "../views/glass_background"
 require "./swiftkit_bridge"
 
@@ -547,6 +548,52 @@ module UI
         populate_view_common(target, view, sender)
         sender.set_string(target, :setIcon, view.icon)
         sender.set_bool(target, :setIsSelected, view.is_selected ? true : nil)
+      end
+
+      # `UI::ListView` (§6 #25). The Crystal side carries a sectioned list
+      # (`Array(Section)`) with optional headers / footers per section and
+      # a list-wide `ListStyle` enum. The Swift facade rebuilds the
+      # SwiftUI `List { Section { ... } }` hierarchy from a flat
+      # `childViews` array sliced by `setSectionItemCounts`.
+      #
+      # `selection_mode` is not a Crystal-side property today (verified
+      # against `src/ui/views/list_view.cr`); the facade therefore uses
+      # SwiftUI's default selection model. The `on_item_tap` Proc lives
+      # on the view itself and is wired by the renderer's visit method
+      # via callback-token registration (not through overrides).
+      def self.populate_list_view(target : String, view : UI::ListView, sender : Sender)
+        populate_view_common(target, view, sender)
+
+        # ListStyle: Plain is the type default. Map the enum to the
+        # camelCase facade key the Swift switch reads.
+        unless view.style == UI::ListStyle::Plain
+          key = case view.style
+                when UI::ListStyle::Inset        then "inset"
+                when UI::ListStyle::Grouped      then "grouped"
+                when UI::ListStyle::InsetGrouped then "insetGrouped"
+                when UI::ListStyle::Sidebar      then "sidebar"
+                else                                  view.style.to_s.downcase
+                end
+          sender.set_string(target, :setListStyle, key)
+        end
+
+        # Separators default to true (SwiftUI default). Only emit when
+        # the developer turned them off — the facade reads
+        # `showsSeparators == false` as "hide row separators."
+        unless view.shows_separators
+          sender.set_bool(target, :setShowsSeparators, false)
+        end
+
+        # Per-section parallel arrays. Always emit when sections present
+        # so the facade can slice the flat childViews back into sections.
+        unless view.sections.empty?
+          sender.set_string_array(target, :setSectionHeaders,
+            view.sections.map { |s| s.header || "" })
+          sender.set_string_array(target, :setSectionFooters,
+            view.sections.map { |s| s.footer || "" })
+          sender.set_int_array(target, :setSectionItemCounts,
+            view.sections.map { |s| s.items.size })
+        end
       end
 
       # ---------------------------------------------------------------
