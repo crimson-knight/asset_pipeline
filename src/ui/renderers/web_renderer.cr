@@ -2371,6 +2371,38 @@ module UI
         el.add_style("min-width: #{min}px")
         el.add_style("min-height: #{min}px")
       end
+
+      # Phase 4 — Tier 3 stub. UI::ActionSheet becomes iOS-only at Commit 4
+      # via a flag?(:ios) macro guard in src/ui/views/action_sheet.cr; this
+      # visitor exists only so the class can be referenced by the un-gated
+      # shell in Commit 1. The web rendering path is
+      # UI::ActionSheetWithWebFallback (see below).
+      def visit(view : UI::ActionSheet)
+        # On a real web build this branch is unreachable after Commit 4 —
+        # the class definition is replaced by a compile-time raise stub so
+        # UI::ActionSheet.new(...) is a compile error. We still need a
+        # visitor body for the interim un-gated build.
+        el = Components::Elements::Div.new
+        el.set_attribute("role", "dialog")
+        el.set_attribute("aria-modal", "true")
+        el.set_attribute("data-component", "action-sheet-stub")
+        el.add_style("display: none")
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      # Phase 4 — Tier 3 cross-platform companion. Final HTML structure and
+      # inlined CSS / JS land in Commit 2 + Commit 3; Commit 1 establishes the
+      # method so the class can be exercised.
+      def visit(view : UI::ActionSheetWithWebFallback)
+        el = Components::Elements::Div.new
+        el.set_attribute("role", "dialog")
+        el.set_attribute("aria-modal", "true")
+        el.set_attribute("data-component", "action-sheet-fallback")
+        el.set_attribute("data-presented", view.is_presented.to_s)
+        apply_common_styles(el, view)
+        push_element(el)
+      end
     end
   end
 end

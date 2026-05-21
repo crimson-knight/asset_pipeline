@@ -4475,6 +4475,34 @@
         emit(stack, "UIStackView[rating-indicator]")
       end
 
+      # Phase 4 — Tier 3. iOS rendering of `UI::ActionSheet`.
+      #
+      # The Phase 3 SwiftKit bridge currently exposes only a binary
+      # confirm/cancel `ConfirmationDialogFacade`. We route ActionSheet
+      # through it with a conservative mapping: the first non-cancel action
+      # becomes the confirm button (inheriting its `:destructive` style if
+      # set), the explicit cancel-style action (if any) becomes the cancel
+      # button, and any additional actions are dropped at render time.
+      # Commit 2 fleshes out the bridge call; for now this is a stub that
+      # emits a hidden UIView so the un-gated Commit 1 build compiles.
+      def visit(view : UI::ActionSheet)
+        v = alloc_init("UIView")
+        LibObjCBridge.objc_send_bool(v, sel("setHidden:"), 1)
+        apply_common_properties(v, view)
+        emit(v, "UIView[ActionSheet-stub]")
+      end
+
+      def visit(view : UI::ActionSheetWithWebFallback)
+        # On iOS the WithWebFallback delegates to the gated `UI::ActionSheet`
+        # via its `accept` override (see Commit 4). This visitor exists for
+        # the un-gated Commit 1 build only; after Commit 4 the iOS branch of
+        # the fallback class never calls `visitor.visit(self)`.
+        v = alloc_init("UIView")
+        LibObjCBridge.objc_send_bool(v, sel("setHidden:"), 1)
+        apply_common_properties(v, view)
+        emit(v, "UIView[ActionSheetWithWebFallback-delegated]")
+      end
+
       # ================================================================
       # Private helpers
       # ================================================================

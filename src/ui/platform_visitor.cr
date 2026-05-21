@@ -106,5 +106,13 @@ module UI
     abstract def visit(view : PageControl)
     abstract def visit(view : ComboBox)
     abstract def visit(view : RatingIndicator)
+
+    # Phase 4 — Tier 3 widgets and their cross-platform fallback siblings.
+    # `ActionSheet` itself is iOS-only after the Phase 4 gate ships, but the
+    # abstract declaration is unconditional so every renderer compiles its
+    # `visit` method on every target (the class body is gated, not the
+    # visitor surface).
+    abstract def visit(view : ActionSheet)
+    abstract def visit(view : ActionSheetWithWebFallback)
   end
 end

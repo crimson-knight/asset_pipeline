@@ -4399,6 +4399,27 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         emit(stack, "NSStackView[rating-indicator]")
       end
 
+      # Phase 4 — Tier 3 stub. After Commit 4 the UI::ActionSheet class is
+      # iOS-only (gated with flag?(:ios)), so this visitor becomes
+      # unreachable on macOS builds and can be removed at that time. The
+      # macOS application path for an action-sheet UX is
+      # UI::ActionSheetWithWebFallback, which on AppKit renders as a styled
+      # ConfirmationDialog modal.
+      def visit(view : UI::ActionSheet)
+        # Stub: emit a no-op NSView so the un-gated build compiles.
+        v = alloc_init("NSView")
+        apply_common_properties(v, view)
+        emit(v, "NSView[ActionSheet-stub]")
+      end
+
+      def visit(view : UI::ActionSheetWithWebFallback)
+        # Phase 4 — full implementation lands in Commit 2. For now route
+        # through a no-op view shaped like a ConfirmationDialog modal.
+        v = alloc_init("NSView")
+        apply_common_properties(v, view)
+        emit(v, "NSView[ActionSheetWithWebFallback-stub]")
+      end
+
       # ================================================================
       # Private helpers
       # ================================================================

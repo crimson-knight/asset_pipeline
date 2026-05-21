@@ -308,6 +308,14 @@ class TestVisitor < UI::PlatformVisitor
   def visit(view : UI::RatingIndicator)
     @visited << "RatingIndicator(#{view.value})"
   end
+
+  def visit(view : UI::ActionSheet)
+    @visited << "ActionSheet(#{view.title})"
+  end
+
+  def visit(view : UI::ActionSheetWithWebFallback)
+    @visited << "ActionSheetWithWebFallback(#{view.title})"
+  end
 end
 
 describe UI do

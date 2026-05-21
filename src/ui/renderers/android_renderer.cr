@@ -3112,6 +3112,28 @@ module UI::Android
       push_native(native, outer)
     end
 
+    # Phase 4 — Tier 3 stub. After Commit 4 `UI::ActionSheet` is gated to
+    # `flag?(:ios)`, so this visitor becomes unreachable on Android and can
+    # be removed. The Android path for an action-sheet UX is
+    # `UI::ActionSheetWithWebFallback` (rendered as a styled BottomSheet in
+    # Commit 2).
+    def visit(view : UI::ActionSheet)
+      view_ptr = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+      global_ptr = LibAndroidBridge.android_new_global_ref(@env, view_ptr)
+      handle = JNI.wrap_global(global_ptr, label: "View[ActionSheet-stub]")
+      native = NativeView.new(handle)
+      push_native(native, view_ptr)
+    end
+
+    def visit(view : UI::ActionSheetWithWebFallback)
+      # Phase 4 — Commit 2 wires the BottomSheet rendering. Stub for now.
+      view_ptr = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+      global_ptr = LibAndroidBridge.android_new_global_ref(@env, view_ptr)
+      handle = JNI.wrap_global(global_ptr, label: "View[ActionSheetWithWebFallback-stub]")
+      native = NativeView.new(handle)
+      push_native(native, view_ptr)
+    end
+
     # ================================================================
     # Private helpers
     # ================================================================
