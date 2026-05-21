@@ -79,6 +79,7 @@ private struct ToggleHost: View {
                         value: newValue ? 1.0 : 0.0
                     )
                 }
+                .contentShape(Rectangle())
         )
 
         switch overrides.toggleStyle {
