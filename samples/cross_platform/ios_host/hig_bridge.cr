@@ -25,6 +25,28 @@ module CrystalHIGHost::Bridge
   def self.initialize_runtime
     return if @@initialized
     GC.init
+    # iOS-specific: explicitly seed every probe singleton's class
+    # variables. Crystal's normal class-variable initialisation runs
+    # from `__crystal_main`, but the iOS embedding hides `_main` (via
+    # `ld -r -unexported_symbol _main` in build_crystal_lib.sh) and
+    # SwiftUI enters Crystal through `crystal_render_slug`, not through
+    # `__crystal_main`. Without this seeding,
+    # `UI::Probes::DismissProbe.@@last_reason : String = "none"`
+    # (and the other probe class variables) returns the zero-init
+    # value (nil) instead of "none", and `UI::Label.new(nil).text`
+    # later crashes at field load (KERN_INVALID_ADDRESS at 0x4).
+    # Root cause is documented in
+    # docs/initiative-cross-platform-ui/handoff/phase-03-remediation-9-bx3-bx8-rootcause.md;
+    # this is the smallest fix Codex approved at Pre-fix Checkpoint 3.
+    # The broader Crystal-iOS class-variable / class-constant init
+    # gap (STDERR, Float::Printer::Dragonbox, arbitrary user class
+    # vars) is acknowledged as out-of-scope here — see same doc.
+    UI::Probes::DismissProbe.reset
+    UI::Probes::ToggleProbe.reset
+    UI::Probes::SliderProbe.reset
+    UI::Probes::TapProbe.reset
+    UI::Probes::FormRowProbe.reset
+    UI::Probes::RuntimeOverrideProbe.reset
     @@initialized = true
   end
 
