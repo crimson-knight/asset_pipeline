@@ -19,12 +19,19 @@ enum CrystalBridge {
         return slug.withCString { ptr in
             guard let raw = crystal_render_slug(ptr) else { return nil }
             let view = Unmanaged<UIView>.fromOpaque(raw).takeRetainedValue()
+            // Tag the root as a container (NOT an accessibility element)
+            // so XCUITest can descend through it to discover the SwiftUI
+            // buttons / labels nested underneath. Setting
+            // `isAccessibilityElement = true` on a container collapses every
+            // descendant out of the AX tree, which is what made
+            // `app.buttons["tap-probe-button"]` undiscoverable in iter 5.
+            //
+            // XCUITest still finds the container via
+            // `app.otherElements["hig-component-root"]` because the
+            // identifier itself does not require `isAccessibilityElement`
+            // — element queries walk the view hierarchy by identifier.
             view.accessibilityIdentifier = "hig-component-root"
-            // Ensure the view is exposed as an accessibility element so
-            // XCUITest can locate it by identifier. Container views like
-            // UIStackView default to isAccessibilityElement=false.
-            view.isAccessibilityElement = true
-            view.accessibilityLabel = "HIG \(slug) root"
+            view.isAccessibilityElement = false
             return view
         }
     }

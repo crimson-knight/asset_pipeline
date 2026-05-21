@@ -3002,7 +3002,10 @@ HTML
 
               ios_tap_counter = UI::Label.new(UI::Probes::TapProbe.current_text)
               ios_tap_counter.test_id = "tap-probe-counter"
-              ios_tap_counter.accessibility_label = "tap-probe-counter"
+              # Deliberately NOT setting accessibility_label: on a SwiftUI Text
+              # the displayed text IS the AX label. Overriding it would
+              # shadow the digit content the XCUITest reads through
+              # `staticTexts["tap-probe-counter"].label`.
               ios_tap_counter.text_alignment = UI::Alignment::Center
 
               ios_tap = UI::Button.new("Tap me") do
@@ -3023,7 +3026,8 @@ HTML
 
               ios_toggle_value = UI::Label.new(UI::Probes::ToggleProbe.current_text)
               ios_toggle_value.test_id = "toggle-probe-value"
-              ios_toggle_value.accessibility_label = "toggle-probe-value"
+              # Reactive mirror label — leave accessibility_label unset so the
+              # SwiftUI Text exposes its content (true / false) as the AX label.
               ios_toggle_value.text_alignment = UI::Alignment::Center
 
               ios_toggle = UI::Toggle.new("Notify", UI::Probes::ToggleProbe.last_value) do |new_value|
@@ -3031,7 +3035,10 @@ HTML
                 ios_toggle_value.text = UI::Probes::ToggleProbe.current_text
               end
               ios_toggle.test_id = "toggle-probe-toggle"
-              ios_toggle.accessibility_label = "toggle-probe-toggle"
+              # Deliberately NOT setting accessibility_label: SwiftUI Toggle
+              # synthesizes its AX label from the "Notify" content; overriding
+              # would collapse the switch+label into a single element whose
+              # tap doesn't reach the underlying UISwitch.
               ios_tv_probe << ios_toggle.as(UI::View)
               ios_tv_probe << ios_toggle_value.as(UI::View)
 
@@ -3042,7 +3049,8 @@ HTML
 
               ios_slider_value = UI::Label.new(UI::Probes::SliderProbe.current_text)
               ios_slider_value.test_id = "slider-probe-value"
-              ios_slider_value.accessibility_label = "slider-probe-value"
+              # Reactive mirror label — leave accessibility_label unset so the
+              # SwiftUI Text exposes its numeric content as the AX label.
               ios_slider_value.text_alignment = UI::Alignment::Center
 
               ios_slider = UI::Slider.new(0.0, 1.0, UI::Probes::SliderProbe.last_value) do |new_value|
@@ -3050,7 +3058,8 @@ HTML
                 ios_slider_value.text = UI::Probes::SliderProbe.current_text
               end
               ios_slider.test_id = "slider-probe-slider"
-              ios_slider.accessibility_label = "slider-probe-slider"
+              # Deliberately NOT setting accessibility_label so the SwiftUI
+              # Slider's thumb/track adjustment surface stays addressable.
               ios_slider.minimum_width = 280.0
               ios_sv_probe << ios_slider.as(UI::View)
               ios_sv_probe << ios_slider_value.as(UI::View)
@@ -3073,7 +3082,8 @@ HTML
 
               ios_ov_state = UI::Label.new(UI::Probes::RuntimeOverrideProbe.current_text)
               ios_ov_state.test_id = "override-state"
-              ios_ov_state.accessibility_label = "override-state"
+              # Reactive mirror — leave label unset so the rendered text shows
+              # through as the SwiftUI accessibility label.
               ios_ov_state.text_alignment = UI::Alignment::Center
 
               ios_trigger = UI::Button.new("Make Red") do
@@ -3102,7 +3112,8 @@ HTML
 
               ios_form_counter = UI::Label.new(UI::Probes::FormRowProbe.current_text)
               ios_form_counter.test_id = "form-row-2-counter"
-              ios_form_counter.accessibility_label = "form-row-2-counter"
+              # Reactive mirror — leave label unset so the digit text shows
+              # through as the SwiftUI accessibility label.
 
               ios_row2 = UI::Button.new("Row 2") do
                 UI::Probes::FormRowProbe.increment_row2
@@ -3161,7 +3172,8 @@ HTML
 
               ios_sheet_reason = UI::Label.new(UI::Probes::DismissProbe.current_text)
               ios_sheet_reason.test_id = "dismiss-reason"
-              ios_sheet_reason.accessibility_label = "dismiss-reason"
+              # Reactive mirror — leave label unset so the displayed reason
+              # ("primary" / "cancel") shows through as the AX label.
               ios_sheet_probe << ios_sheet_reason.as(UI::View)
 
               ios_sheet_probe.as(UI::View)
