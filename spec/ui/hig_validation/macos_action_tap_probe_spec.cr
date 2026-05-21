@@ -10,12 +10,10 @@ require "../../../src/ui/ax_test"
 # Label by accessibility identifier, then drives three AXPress actions and
 # asserts the trigger remained reachable across the sequence.
 #
-# Note: SwiftUI hosting does not currently re-render the counter Label in
-# response to the Crystal-side TapProbe.increment. This spec verifies the
-# AXPress action dispatched to the SwiftUI Button (the bridge action path)
-# without asserting the visible label transition. See
-# handoff/phase-03-remediation-3-blockers-2026-05-21.md for the SwiftKit
-# reactive-label gap.
+# Phase 3 Remediation 4: the reactive bridge now propagates Crystal-side
+# `UI::Label#text=` mutations through to a SwiftUI re-render. This spec
+# asserts the counter label transitions across three taps ("0" -> "1" ->
+# "2" -> "3") in addition to the trigger remaining reachable.
 #
 # Run:
 #   crystal-alpha spec spec/ui/hig_validation/macos_action_tap_probe_spec.cr \
@@ -72,14 +70,33 @@ describe "Phase 3 BX2 — action tap probe (macOS)" do
       trigger.should_not be_nil
 
       if t = trigger
-        initial_value = counter.try(&.value) || ""
+        # SwiftUI Text in an NSHostingView exposes its content as either
+        # AXValue or AXLabel depending on the AppKit/SwiftUI build. Read
+        # both and pick whichever non-empty side carries the digit.
+        read_display = ->(elem : UI::AXTest::Element?) do
+          if e = elem
+            v = e.value
+            if v && !v.empty?
+              v
+            else
+              l = e.label
+              l && !l.empty? ? l : ""
+            end
+          else
+            ""
+          end
+        end
+
+        initial_value = read_display.call(counter)
         transitions << "initial=#{initial_value.inspect}"
+        initial_value.should eq("0")
 
         3.times do |i|
           t.click # AXPress
-          sleep(0.2.seconds)
-          v = counter.try(&.value) || ""
+          sleep(0.3.seconds) # allow the SwiftUI re-render to settle
+          v = read_display.call(counter)
           transitions << "after-tap-#{i + 1}=#{v.inspect}"
+          v.should eq((i + 1).to_s)
         end
 
         # The trigger must remain reachable after three presses.

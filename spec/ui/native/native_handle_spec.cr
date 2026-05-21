@@ -229,6 +229,34 @@ describe UI::NativeHandle do
     end
   end
 
+  describe "#state_handle (Phase 3 Remediation 4 reactive bridge)" do
+    it "defaults to nil" do
+      handle = UI::NativeHandle.new(mock_ptr, UI::ReleaseStrategy::Unowned)
+      handle.state_handle.should be_nil
+    end
+
+    it "stores and reads back an opaque pointer" do
+      handle = UI::NativeHandle.new(mock_ptr, UI::ReleaseStrategy::Unowned)
+      state_ptr = Pointer(Void).new(0xCAFE_u64)
+      handle.state_handle = state_ptr
+      handle.state_handle.should eq(state_ptr)
+    end
+
+    it "clears the state handle on release! (no double-free)" do
+      # Use Unowned strategy so release! is a no-op against the platform
+      # pointer; the state handle path is what we want to exercise.
+      # apsk_state_release is gated on macos/ios — on spec builds the
+      # release_state_handle! body falls through to a nil assign only.
+      handle = UI::NativeHandle.new(mock_ptr, UI::ReleaseStrategy::Unowned)
+      handle.state_handle = Pointer(Void).new(0xCAFE_u64)
+      handle.release!
+      handle.state_handle.should be_nil
+      # Idempotent: second release! is safe.
+      handle.release!
+      handle.state_handle.should be_nil
+    end
+  end
+
   describe "JNI factory" do
     it ".global creates a handle" do
       # On non-Android, this creates an Unowned handle as a placeholder.
