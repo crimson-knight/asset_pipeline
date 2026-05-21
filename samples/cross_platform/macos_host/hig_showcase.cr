@@ -18,6 +18,7 @@
 require "json"
 require "../../../src/ui"
 require "../../../src/ui/validation_scenes"
+require "../../../src/ui/probes"
 
 {% if flag?(:macos) %}
   SLUG          = ENV["HIG_SLUG"]? || ARGV[0]? || "buttons"
@@ -3777,6 +3778,249 @@ HTML
       rating_card.material = :secondary
       rating_card.accessibility_label = "Rating indicators study card"
       rating_card.as(UI::View)
+    # -------------------------------------------------------------------------
+    # Phase 3 Remediation 3 — Validation probe scenes.
+    #
+    # These slugs back the BX and V groups of
+    # docs/initiative-cross-platform-ui/phases/phase-03-swiftui-native-bridge/validation.md.
+    # Identifier strings (test_id) are fixed by the rubric and MUST NOT change
+    # without an explicit Architect adjudication — XCUITest / AXTest assertions
+    # bind to them literally.
+    # -------------------------------------------------------------------------
+    when "phase-03-action-tap-probe"
+      # BX1 / BX2: Button tap fires bound Crystal proc. The trigger Button is
+      # tagged test_id="tap-probe-button"; its on_tap increments TapProbe.
+      # The mirror Label shows the count at render time.
+      probe_stack = UI::VStack.new(spacing: 16.0)
+      probe_stack.alignment = UI::Alignment::Center
+
+      tap_button = UI::Button.new("Tap me") { UI::Probes::TapProbe.increment }
+      tap_button.test_id = "tap-probe-button"
+      tap_button.accessibility_label = "tap-probe-button"
+      tap_button.style = UI::ButtonStyle::Prominent
+      tap_button.minimum_height = 44.0
+      probe_stack << tap_button.as(UI::View)
+
+      counter_label = UI::Label.new(UI::Probes::TapProbe.current_text)
+      counter_label.test_id = "tap-probe-counter"
+      counter_label.accessibility_label = "tap-probe-counter"
+      counter_label.text_alignment = UI::Alignment::Center
+      probe_stack << counter_label.as(UI::View)
+
+      probe_stack.as(UI::View)
+    when "phase-03-toggle-value-probe"
+      # BX3: Toggle on_change writes Bool into ToggleProbe.last_value.
+      probe_stack = UI::VStack.new(spacing: 16.0)
+      probe_stack.alignment = UI::Alignment::Center
+
+      toggle = UI::Toggle.new("Notify", UI::Probes::ToggleProbe.last_value) do |new_value|
+        UI::Probes::ToggleProbe.set(new_value)
+      end
+      toggle.test_id = "toggle-probe-toggle"
+      toggle.accessibility_label = "toggle-probe-toggle"
+      probe_stack << toggle.as(UI::View)
+
+      value_label = UI::Label.new(UI::Probes::ToggleProbe.current_text)
+      value_label.test_id = "toggle-probe-value"
+      value_label.accessibility_label = "toggle-probe-value"
+      value_label.text_alignment = UI::Alignment::Center
+      probe_stack << value_label.as(UI::View)
+
+      probe_stack.as(UI::View)
+    when "phase-03-slider-value-probe"
+      # BX4: Slider on_change writes Float64 into SliderProbe.last_value.
+      probe_stack = UI::VStack.new(spacing: 16.0)
+      probe_stack.alignment = UI::Alignment::Center
+
+      slider = UI::Slider.new(0.0, 1.0, UI::Probes::SliderProbe.last_value) do |new_value|
+        UI::Probes::SliderProbe.set(new_value)
+      end
+      slider.test_id = "slider-probe-slider"
+      slider.accessibility_label = "slider-probe-slider"
+      slider.minimum_width = 280.0
+      probe_stack << slider.as(UI::View)
+
+      value_label = UI::Label.new(UI::Probes::SliderProbe.current_text)
+      value_label.test_id = "slider-probe-value"
+      value_label.accessibility_label = "slider-probe-value"
+      value_label.text_alignment = UI::Alignment::Center
+      probe_stack << value_label.as(UI::View)
+
+      probe_stack.as(UI::View)
+    when "phase-03-runtime-override-probe"
+      # BX5: Make-Red trigger mutates the target Button's background.
+      # NOTE: SwiftUI hosting does not respond to runtime property mutation
+      # in the current Phase 3 bridge — the mutation is held in the probe
+      # singleton and reflected on the NEXT render of this slug. See
+      # handoff/phase-03-remediation-3-blockers-2026-05-21.md.
+      probe_stack = UI::VStack.new(spacing: 16.0)
+      probe_stack.alignment = UI::Alignment::Center
+
+      target_button = UI::Button.new("Override target")
+      target_button.test_id = "override-target"
+      target_button.accessibility_label = "override-target"
+      target_button.minimum_height = 44.0
+      if UI::Probes::RuntimeOverrideProbe.target_red?
+        target_button.background = UI::Color.new(r: 1.0, g: 0.0, b: 0.0)
+      end
+      probe_stack << target_button.as(UI::View)
+
+      trigger_button = UI::Button.new("Make Red") { UI::Probes::RuntimeOverrideProbe.set_red }
+      trigger_button.test_id = "make-red-trigger"
+      trigger_button.accessibility_label = "make-red-trigger"
+      trigger_button.minimum_height = 44.0
+      probe_stack << trigger_button.as(UI::View)
+
+      state_label = UI::Label.new(UI::Probes::RuntimeOverrideProbe.current_text)
+      state_label.test_id = "override-state"
+      state_label.accessibility_label = "override-state"
+      state_label.text_alignment = UI::Alignment::Center
+      probe_stack << state_label.as(UI::View)
+
+      probe_stack.as(UI::View)
+    when "phase-03-form-nested-buttons"
+      # BX6 / BX7: Form with three Buttons; row 2 increments a counter.
+      # UI::Form holds Field records, not Buttons directly; the standard
+      # composition pattern is a VStack of HStack rows where the trailing
+      # column is the focal control. Each row's accessibility label maps
+      # one-to-one to the rubric identifiers.
+      form_stack = UI::VStack.new(spacing: 12.0)
+      form_stack.alignment = UI::Alignment::Leading
+      form_stack.minimum_width = 320.0
+
+      row1 = UI::Button.new("Row 1")
+      row1.test_id = "form-row-1"
+      row1.accessibility_label = "form-row-1"
+      row1.minimum_height = 44.0
+      row1.minimum_width = 280.0
+      form_stack << row1.as(UI::View)
+
+      row2 = UI::Button.new("Row 2") { UI::Probes::FormRowProbe.increment_row2 }
+      row2.test_id = "form-row-2"
+      row2.accessibility_label = "form-row-2"
+      row2.minimum_height = 44.0
+      row2.minimum_width = 280.0
+      form_stack << row2.as(UI::View)
+
+      row3 = UI::Button.new("Row 3")
+      row3.test_id = "form-row-3"
+      row3.accessibility_label = "form-row-3"
+      row3.minimum_height = 44.0
+      row3.minimum_width = 280.0
+      form_stack << row3.as(UI::View)
+
+      counter = UI::Label.new(UI::Probes::FormRowProbe.current_text)
+      counter.test_id = "form-row-2-counter"
+      counter.accessibility_label = "form-row-2-counter"
+      form_stack << counter.as(UI::View)
+
+      form_stack.as(UI::View)
+    when "phase-03-sheet-focus-return"
+      # BX8: Sheet dismiss returns focus to the trigger. The sheet content
+      # exposes primary + cancel buttons with the rubric-specified IDs.
+      # SwiftKit sheet presentation is currently inline — the sheet is built
+      # alongside the trigger so both are AX-discoverable for the test.
+      probe_stack = UI::VStack.new(spacing: 16.0)
+      probe_stack.alignment = UI::Alignment::Center
+
+      trigger = UI::Button.new("Open sheet") { }
+      trigger.test_id = "sheet-trigger"
+      trigger.accessibility_label = "sheet-trigger"
+      trigger.minimum_height = 44.0
+      probe_stack << trigger.as(UI::View)
+
+      sheet_content = UI::VStack.new(spacing: 12.0)
+      sheet_content.test_id = "sheet-content"
+      sheet_content.accessibility_label = "sheet-content"
+      sheet_content.padding = UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0)
+
+      sheet_title = UI::Label.new("Confirm action")
+      sheet_title.font = UI::Font.new(size: 15.0, weight: :semibold)
+      sheet_content << sheet_title.as(UI::View)
+
+      primary = UI::Button.new("Confirm", role: :default) { UI::Probes::DismissProbe.set("primary") }
+      primary.test_id = "sheet-primary"
+      primary.accessibility_label = "sheet-primary"
+      primary.style = UI::ButtonStyle::Prominent
+      primary.minimum_height = 44.0
+      sheet_content << primary.as(UI::View)
+
+      cancel = UI::Button.new("Cancel", role: :cancel) { UI::Probes::DismissProbe.set("cancel") }
+      cancel.test_id = "sheet-cancel"
+      cancel.accessibility_label = "sheet-cancel"
+      cancel.minimum_height = 44.0
+      sheet_content << cancel.as(UI::View)
+
+      sheet = UI::Sheet.new(sheet_content.as(UI::View), surface_style: :grouped_card)
+      sheet.accessibility_label = "sheet-surface"
+      probe_stack << sheet.as(UI::View)
+
+      reason = UI::Label.new(UI::Probes::DismissProbe.current_text)
+      reason.test_id = "dismiss-reason"
+      reason.accessibility_label = "dismiss-reason"
+      probe_stack << reason.as(UI::View)
+
+      probe_stack.as(UI::View)
+    when "phase-03-button-default"
+      # V1 / V2 / V10 / BX9: A single default Button labeled "Save".
+      btn = UI::Button.new("Save")
+      btn.test_id = "save"
+      btn.accessibility_label = "save"
+      btn.minimum_height = 44.0
+      btn.minimum_width = 100.0
+      btn.as(UI::View)
+    when "phase-03-button-background-override"
+      # V3: Button with explicit background override.
+      btn = UI::Button.new("Save")
+      btn.background = UI::Color.new(r: 1.0, g: 0.0, b: 0.0)
+      btn.test_id = "save"
+      btn.accessibility_label = "save"
+      btn.minimum_height = 44.0
+      btn.minimum_width = 100.0
+      btn.as(UI::View)
+    when "phase-03-button-square"
+      # V4: Button with corner_radius zero.
+      btn = UI::Button.new("Save")
+      btn.corner_radius = 0.0
+      btn.test_id = "save"
+      btn.accessibility_label = "save"
+      btn.minimum_height = 44.0
+      btn.minimum_width = 100.0
+      btn.as(UI::View)
+    when "phase-03-toggle-default"
+      # V5: A single default Toggle.
+      toggle = UI::Toggle.new("Notify", true)
+      toggle.test_id = "default-toggle"
+      toggle.accessibility_label = "default-toggle"
+      toggle.as(UI::View)
+    when "phase-03-card-default"
+      # V6: Default UI::Card exercises the GlassBackground cascade.
+      card_body = UI::VStack.new(spacing: 8.0)
+      card_body.padding = UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0)
+      card_title = UI::Label.new("Card Title")
+      card_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+      card_body << card_title.as(UI::View)
+      card_detail = UI::Label.new("This card uses the default GlassBackground cascade.")
+      card_body << card_detail.as(UI::View)
+
+      card = UI::Card.new(card_body.as(UI::View))
+      card.test_id = "default-card"
+      card.accessibility_label = "default-card"
+      card.minimum_width = 320.0
+      card.maximum_width = 320.0
+      card.as(UI::View)
+    when "phase-03-form-default"
+      # V8: Default UI::Form with a Toggle, TextField, and Picker.
+      form = UI::Form.new
+      section = form.add_section
+      section.fields << UI::Form::Field.new(label: "Notify", content: UI::Toggle.new(is_on: true).as(UI::View))
+      section.fields << UI::Form::Field.new(label: "Username", content: UI::TextField.new("seth").as(UI::View))
+      picker = UI::Picker.new(["Daily", "Weekly", "Monthly"], 0)
+      section.fields << UI::Form::Field.new(label: "Frequency", content: picker.as(UI::View))
+      form.test_id = "default-form"
+      form.accessibility_label = "default-form"
+      form.minimum_width = 360.0
+      form.as(UI::View)
     else
       UI::Label.new("Unknown slug: #{slug}")
     end
