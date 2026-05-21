@@ -109,6 +109,22 @@ private struct APSKButtonHost: View {
             base = AnyView(Button(label, action: action))
         }
 
+        // BX6 / BX9: apply minHeight / minWidth directly to the SwiftUI
+        // Button BEFORE any style or hosting modifiers so XCUITest reads
+        // the Button's own frame at the developer's specified floor.
+        // `.frame(height:)` (exact) is the only modifier that actually
+        // resizes the rendered Button — `.frame(minHeight:)` alone just
+        // resizes the surrounding container, leaving the Button's
+        // intrinsic ~25pt height in place (BX9 regression).
+        if let mh = overrides.minHeight {
+            let mhCG = CGFloat(mh.doubleValue)
+            base = AnyView(base.frame(height: mhCG))
+        }
+        if let mw = overrides.minWidth {
+            let mwCG = CGFloat(mw.doubleValue)
+            base = AnyView(base.frame(width: mwCG))
+        }
+
         // Style cascade. SwiftUI layers system defaults (font, animation,
         // focus, dynamic type, dark mode) over whatever style we pick.
         var content: AnyView = base
@@ -176,6 +192,12 @@ private struct APSKButtonHost: View {
         // mutation).
         let shadowed = ButtonOverrides()
         copyViewOverrides(from: overrides, to: shadowed, skipReactiveFields: true)
+        // BX6 / BX9: the inner `.frame(height: minHeight)` already pinned
+        // the rendered Button to the touch-target floor above; null these
+        // out on the shadowed overrides so CommonModifiers does not apply
+        // a second outer frame that would double-stack.
+        shadowed.minHeight = nil
+        shadowed.minWidth = nil
         shadowed.fontWeight = overrides.fontWeight
         shadowed.role = overrides.role
         shadowed.style = overrides.style

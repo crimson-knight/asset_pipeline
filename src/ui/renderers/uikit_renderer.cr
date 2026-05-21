@@ -198,10 +198,8 @@
         # Reactive path: state pointer is written back through out_state.
         state_slot = Pointer(Void).null.as(Void*)
         state_box = pointerof(state_slot)
-        # Capture `text` into a local so the Crystal GC keeps the String
-        # body alive across the FFI call. Going through `view.text.to_unsafe`
-        # inline produced a use-after-free window on iOS (BX8 crash) where
-        # `apsk_nsstring` saw a non-NULL but freed pointer.
+        # Pin `text` into a local before reaching for `to_unsafe` so the
+        # Crystal GC keeps the String body alive across the FFI call.
         text = view.text
         ptr = LibSwiftKitBridge.apsk_make_label_reactive(
           text.to_unsafe, overrides_ptr, state_box,
@@ -269,7 +267,7 @@
         #    through to a SwiftUI re-render via APSKButtonState.
         state_slot = Pointer(Void).null.as(Void*)
         state_box = pointerof(state_slot)
-        # See `visit(UI::Label)` for why we capture `label` locally.
+        # See `visit(UI::Label)` for the local-pin rationale.
         button_label = view.label
         ptr = LibSwiftKitBridge.apsk_make_button_reactive(
           button_label.to_unsafe, overrides_ptr, action_token, state_box,
@@ -283,6 +281,22 @@
           handle.state_handle = state_slot
           view.swiftkit_state_handle = state_slot
         end
+
+        # 5. Force UIKit-side minimum_height / minimum_width constraints
+        #    on the UIHostingController.view. SwiftUI's `.frame(minHeight:)`
+        #    only constrains the layout proposal; UIHostingController's
+        #    intrinsicContentSize keeps reporting the Button's natural
+        #    25.125pt body-text height and the parent UIStackView sizes
+        #    the host at that natural height — failing the BX9 / BX6 44pt
+        #    touch-target rubric. A UIKit Auto Layout >= constraint at the
+        #    host-view level pins the floor unambiguously.
+        if mh = view.minimum_height
+          LibObjCBridge.objc_constrain_minimum_height(ptr, mh)
+        end
+        if mw = view.minimum_width
+          LibObjCBridge.objc_constrain_minimum_width(ptr, mw)
+        end
+
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
 

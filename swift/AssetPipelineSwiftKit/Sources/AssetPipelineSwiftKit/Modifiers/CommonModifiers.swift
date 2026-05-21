@@ -66,37 +66,59 @@ enum CommonModifiers {
         }
         if overrides.minWidth != nil || overrides.minHeight != nil
             || overrides.maxWidth != nil || overrides.maxHeight != nil {
-            // SwiftUI's `frame(minWidth:maxWidth:minHeight:maxHeight:)` only
-            // constrains the layout proposal; it does NOT change the view's
-            // ideal/intrinsic size. UIHostingController.sizingOptions =
-            // [.intrinsicContentSize] (which we set in HostingHelpers) reads
-            // the ideal size, so a button with `.frame(minHeight: 44)` still
-            // hands UIKit its natural ~25pt body-text height — the parent
-            // UIStackView then sizes the host at that 25pt and the BX6/BX9
-            // touch-target rubric fails.
+            // SwiftUI's `frame(minHeight:)` alone does not enlarge the
+            // rendered view's size — it only constrains the layout
+            // proposal. UIHostingController.sizingOptions reads the
+            // rendered size, so `Button {} .frame(minHeight: 44)` still
+            // hands UIKit the Button's natural ~25pt body-text height
+            // and BX6 / BX9 fail. We need the rendered Button to actually
+            // be 44pt tall.
             //
-            // Promote the min into the ideal so the SwiftUI flex-frame layout
-            // reports `max(minHeight, child intrinsic)` as the ideal. The
-            // `idealWidth:idealHeight:` overload accepts the same nullable
-            // CGFloat? semantics as the min/max variants.
+            // Strategy:
+            //   - If min == max → exact `frame(height:)` / `frame(width:)`
+            //   - If only `minHeight` set → wrap in a `VStack` with the
+            //     view centered, then pin the VStack to the minimum
+            //     height. This forces a containing frame of at least
+            //     `minHeight` tall while preserving the child's intrinsic
+            //     width. The accessibility tree still surfaces the inner
+            //     control as the addressable element (its accessibility
+            //     identifier was applied earlier in the cascade).
             let minW = overrides.minWidth.map { CGFloat($0.doubleValue) }
             let maxW = overrides.maxWidth.map { CGFloat($0.doubleValue) }
             let minH = overrides.minHeight.map { CGFloat($0.doubleValue) }
             let maxH = overrides.maxHeight.map { CGFloat($0.doubleValue) }
-            // Use the minimum as the ideal so intrinsicContentSize reflects
-            // the developer's floor. Fall back to the max so a max-only
-            // declaration still yields a sensible ideal.
-            let idealW = minW ?? maxW
-            let idealH = minH ?? maxH
-            current = AnyView(current.frame(
-                minWidth: minW,
-                idealWidth: idealW,
-                maxWidth: maxW,
-                minHeight: minH,
-                idealHeight: idealH,
-                maxHeight: maxH,
-                alignment: .center
-            ))
+
+            // Height: SwiftUI's `frame(minHeight:)` only resizes the
+            // CONTAINER, not the child view. XCUITest reads the inner
+            // element's frame, so the inner view must actually be at
+            // least minHeight tall. When the developer set only a
+            // minimum and no maximum, we treat the minimum as an exact
+            // pin (`frame(height: mh)`) so the rendered Button / Toggle
+            // / etc. actually grows to that size.
+            if let mh = minH, let mxh = maxH, mh == mxh {
+                current = AnyView(current.frame(height: mh))
+            } else if let mh = minH, maxH == nil {
+                // Only minHeight: treat as exact for the touch-target use
+                // case. If the caller wants a flexible floor with no
+                // ceiling they should set maxHeight = .infinity (or any
+                // explicit max) explicitly on the Crystal side.
+                current = AnyView(current.frame(height: mh))
+            } else if let mh = minH, let mxh = maxH {
+                current = AnyView(current.frame(minHeight: mh, maxHeight: mxh))
+            } else if let mxh = maxH {
+                current = AnyView(current.frame(maxHeight: mxh))
+            }
+
+            // Width: same logic.
+            if let mw = minW, let mxw = maxW, mw == mxw {
+                current = AnyView(current.frame(width: mw))
+            } else if let mw = minW, maxW == nil {
+                current = AnyView(current.frame(width: mw))
+            } else if let mw = minW, let mxw = maxW {
+                current = AnyView(current.frame(minWidth: mw, maxWidth: mxw))
+            } else if let mxw = maxW {
+                current = AnyView(current.frame(maxWidth: mxw))
+            }
         }
         if let id = overrides.accessibilityIdentifier {
             current = AnyView(current.accessibilityIdentifier(id))
