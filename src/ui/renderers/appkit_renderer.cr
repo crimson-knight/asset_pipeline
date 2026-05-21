@@ -191,8 +191,11 @@
 
         state_slot = Pointer(Void).null.as(Void*)
         state_box = pointerof(state_slot)
+        # Capture `text` locally so the Crystal GC keeps the underlying
+        # String body alive across the FFI call.
+        text = view.text
         ptr = LibSwiftKitBridge.apsk_make_label_reactive(
-          view.text.to_unsafe, overrides_ptr, state_box,
+          text.to_unsafe, overrides_ptr, state_box,
         )
 
         handle = ObjC.owned(ptr, label: "NSHostingView[Label]")
@@ -259,8 +262,11 @@
         #    foreground_color, corner_radius) re-render through SwiftUI.
         state_slot = Pointer(Void).null.as(Void*)
         state_box = pointerof(state_slot)
+        # Capture `label` locally so the Crystal GC keeps the underlying
+        # String body alive across the FFI call.
+        button_label = view.label
         ptr = LibSwiftKitBridge.apsk_make_button_reactive(
-          view.label.to_unsafe, overrides_ptr, action_token, state_box,
+          button_label.to_unsafe, overrides_ptr, action_token, state_box,
         )
 
         # 4. Wrap and track. The NSHostingController is associated with the

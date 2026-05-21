@@ -32,9 +32,17 @@ extern SEL sel_registerName(const char *name);
 // Helpers
 // -----------------------------------------------------------------------------
 
+// Returns @"" (empty NSString) when the incoming C string pointer is
+// NULL. Returning `nil` was technically safe for the Crystal-bridged
+// `text: String` Swift signature on macOS, but on iOS the implicit
+// ObjC-to-Swift `String` bridge crashes when handed a `nil` NSString
+// (BX8 sheet-focus-return regression: EXC_BAD_ACCESS in
+// `_platform_strlen` from `+[NSString stringWithUTF8String:]`).
+// Coalescing here keeps every facade's `String` argument well-formed
+// without needing per-call-site fallbacks.
 static inline NSString *apsk_nsstring(const char *utf8) {
-    if (utf8 == NULL) return nil;
-    return [NSString stringWithUTF8String:utf8];
+    if (utf8 == NULL) return @"";
+    return [NSString stringWithUTF8String:utf8] ?: @"";
 }
 
 // Box a UInt64 token into an NSNumber so `@objc` method signatures that

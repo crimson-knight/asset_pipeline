@@ -198,8 +198,13 @@
         # Reactive path: state pointer is written back through out_state.
         state_slot = Pointer(Void).null.as(Void*)
         state_box = pointerof(state_slot)
+        # Capture `text` into a local so the Crystal GC keeps the String
+        # body alive across the FFI call. Going through `view.text.to_unsafe`
+        # inline produced a use-after-free window on iOS (BX8 crash) where
+        # `apsk_nsstring` saw a non-NULL but freed pointer.
+        text = view.text
         ptr = LibSwiftKitBridge.apsk_make_label_reactive(
-          view.text.to_unsafe, overrides_ptr, state_box,
+          text.to_unsafe, overrides_ptr, state_box,
         )
 
         LibObjCBridge.objc_send_bool(ptr, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
@@ -264,8 +269,10 @@
         #    through to a SwiftUI re-render via APSKButtonState.
         state_slot = Pointer(Void).null.as(Void*)
         state_box = pointerof(state_slot)
+        # See `visit(UI::Label)` for why we capture `label` locally.
+        button_label = view.label
         ptr = LibSwiftKitBridge.apsk_make_button_reactive(
-          view.label.to_unsafe, overrides_ptr, action_token, state_box,
+          button_label.to_unsafe, overrides_ptr, action_token, state_box,
         )
 
         # 4. Wrap and track. The UIHostingController is associated with the
