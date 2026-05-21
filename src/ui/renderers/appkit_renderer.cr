@@ -189,8 +189,19 @@
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_label(target_str, view, sender)
 
-        ptr = LibSwiftKitBridge.apsk_make_label(view.text.to_unsafe, overrides_ptr)
-        emit(ptr, "NSHostingView[Label]")
+        state_slot = Pointer(Void).null.as(Void*)
+        state_box = pointerof(state_slot)
+        ptr = LibSwiftKitBridge.apsk_make_label_reactive(
+          view.text.to_unsafe, overrides_ptr, state_box,
+        )
+
+        handle = ObjC.owned(ptr, label: "NSHostingView[Label]")
+        unless state_slot.null?
+          handle.state_handle = state_slot
+          view.swiftkit_state_handle = state_slot
+        end
+        native = NativeView.new(handle)
+        push_native(native)
       end
 
       # -----------------------------------------------------------------
@@ -244,14 +255,22 @@
         end
 
         # 3. Build the SwiftUI Button and hand the underlying NSView back.
-        ptr = LibSwiftKitBridge.apsk_make_button(
-          view.label.to_unsafe, overrides_ptr, action_token,
+        #    Reactive entry so Crystal-side property mutations (background,
+        #    foreground_color, corner_radius) re-render through SwiftUI.
+        state_slot = Pointer(Void).null.as(Void*)
+        state_box = pointerof(state_slot)
+        ptr = LibSwiftKitBridge.apsk_make_button_reactive(
+          view.label.to_unsafe, overrides_ptr, action_token, state_box,
         )
 
         # 4. Wrap and track. The NSHostingController is associated with the
         #    NSView via objc_setAssociatedObject inside HostingHelpers.host,
         #    so the controller's lifetime tracks the view's.
         handle = ObjC.owned(ptr, label: "NSHostingController[Button]")
+        unless state_slot.null?
+          handle.state_handle = state_slot
+          view.swiftkit_state_handle = state_slot
+        end
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
 
@@ -611,10 +630,17 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           end
         end
 
-        ptr = LibSwiftKitBridge.apsk_make_toggle(
-          view.label.to_unsafe, view.is_on ? 1 : 0, overrides_ptr, action_token,
+        state_slot = Pointer(Void).null.as(Void*)
+        state_box = pointerof(state_slot)
+        ptr = LibSwiftKitBridge.apsk_make_toggle_reactive(
+          view.label.to_unsafe, view.is_on ? 1 : 0, overrides_ptr,
+          action_token, state_box,
         )
         handle = ObjC.owned(ptr, label: "NSHostingView[Toggle]")
+        unless state_slot.null?
+          handle.state_handle = state_slot
+          view.swiftkit_state_handle = state_slot
+        end
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
         push_native(native)
@@ -694,10 +720,17 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           end
         end
 
-        ptr = LibSwiftKitBridge.apsk_make_slider(
-          view.value, view.minimum, view.maximum, overrides_ptr, action_token,
+        state_slot = Pointer(Void).null.as(Void*)
+        state_box = pointerof(state_slot)
+        ptr = LibSwiftKitBridge.apsk_make_slider_reactive(
+          view.value, view.minimum, view.maximum, overrides_ptr,
+          action_token, state_box,
         )
         handle = ObjC.owned(ptr, label: "NSHostingView[Slider]")
+        unless state_slot.null?
+          handle.state_handle = state_slot
+          view.swiftkit_state_handle = state_slot
+        end
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
         push_native(native)
