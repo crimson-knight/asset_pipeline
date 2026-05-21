@@ -62,7 +62,13 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
             path: "Tests/AssetPipelineSwiftKitTests",
-            exclude: ["SnapshotTests/README.md"]
+            // The `__Snapshots__/` baseline PNGs are read at runtime by
+            // swift-snapshot-testing through the source-relative path
+            // (`#file` lookup), so they live in the test bundle but
+            // they're not declared as Swift Package resources. Excluding
+            // the snapshot baseline directory keeps SwiftPM from emitting
+            // "unhandled file" warnings on every build.
+            exclude: ["SnapshotTests/__Snapshots__"]
         ),
     ]
 )
