@@ -151,6 +151,23 @@ module UI
     # Test identifier for automated UI testing, maps to native test attributes
     property test_id : String? = nil
 
+    # SwiftKit reactive-state opaque pointer (Phase 3 Remediation 4).
+    #
+    # Populated by the AppKit / UIKit renderer's visit method for views
+    # that participate in the reactive surface (today: `UI::Label`,
+    # `UI::Button`, `UI::Toggle`, `UI::Slider`). It mirrors the same
+    # pointer held on the underlying `NativeHandle` so Crystal-side widget
+    # mutators (e.g. `UI::Label#text=`) can dispatch through
+    # `LibSwiftKitBridge.apsk_*_set_*` without having to thread the
+    # `NativeHandle` back to user code. Nil for views that haven't been
+    # rendered yet, weren't rendered by a SwiftKit renderer (Web /
+    # Android), or aren't reactive widgets.
+    #
+    # Lifetime: the pointer is +1 retained on the Swift side. The
+    # `NativeHandle.release!` path drops the retain via
+    # `apsk_state_release`; the View doesn't need to participate.
+    property swiftkit_state_handle : Pointer(Void)? = nil
+
     # Chainable setter: set a fluid horizontal size. Accepts CSS-compatible
     # strings (e.g. `"60vw"`, `"20rem"`) or numeric pixel values, which are
     # emitted as `Npx`. Returns `self` so calls can be chained.

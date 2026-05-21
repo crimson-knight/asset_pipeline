@@ -1,5 +1,8 @@
 require "../view"
 require "../theme"
+{% if flag?(:macos) || flag?(:ios) %}
+  require "../native/swiftkit_bridge"
+{% end %}
 
 module UI
   # A read-only text label.
@@ -8,7 +11,24 @@ module UI
   # color, alignment, and line limit.
   class Label < View
     # The text content to display
-    property text : String
+    #
+    # Setting `text` after the renderer has emitted the SwiftUI hosting
+    # view propagates through the SwiftKit bridge: the matching
+    # `APSKLabelState.text` `@Published` field updates and SwiftUI
+    # re-renders the hosted `Text` without a tree rebuild. Setters issued
+    # before the view has been rendered are simply stored on the property;
+    # the next render seeds the reactive state from the new value.
+    getter text : String
+
+    def text=(new_text : String) : String
+      @text = new_text
+      {% if flag?(:macos) || flag?(:ios) %}
+        if sh = @swiftkit_state_handle
+          LibSwiftKitBridge.apsk_label_set_text(sh, new_text.to_unsafe)
+        end
+      {% end %}
+      new_text
+    end
 
     # Font specification for the label text
     property font : Font = Font.new

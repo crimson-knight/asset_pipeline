@@ -1,4 +1,7 @@
 require "../view"
+{% if flag?(:macos) || flag?(:ios) %}
+  require "../native/swiftkit_bridge"
+{% end %}
 
 module UI
   # Visual presentation style for UI::Button.
@@ -78,6 +81,59 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # ---- Phase 3 Remediation 4 reactive overrides ----------------------
+    #
+    # Override the three setters that the SwiftKit bridge can mutate at
+    # runtime so a property change after the renderer has emitted the
+    # SwiftUI hosting view propagates to a SwiftUI re-render of just the
+    # affected modifier. Setters issued before the view is rendered are
+    # plain property assignments — the next render seeds reactive state
+    # from the new value.
+    #
+    # `background` and `corner_radius` live on UI::View; the override
+    # delegates to a single helper so all three call-sites stay
+    # consistent.
+
+    def background=(new_color : Color?) : Color?
+      @background = new_color
+      {% if flag?(:macos) || flag?(:ios) %}
+        if sh = @swiftkit_state_handle
+          if c = new_color
+            LibSwiftKitBridge.apsk_button_set_background_color(sh, c.r, c.g, c.b, c.a)
+          else
+            LibSwiftKitBridge.apsk_button_clear_background_color(sh)
+          end
+        end
+      {% end %}
+      new_color
+    end
+
+    def foreground_color=(new_color : Color) : Color
+      @foreground_color = new_color
+      {% if flag?(:macos) || flag?(:ios) %}
+        if sh = @swiftkit_state_handle
+          LibSwiftKitBridge.apsk_button_set_foreground_color(
+            sh, new_color.r, new_color.g, new_color.b, new_color.a,
+          )
+        end
+      {% end %}
+      new_color
+    end
+
+    def corner_radius=(new_radius : Float64) : Float64
+      @corner_radius = new_radius
+      {% if flag?(:macos) || flag?(:ios) %}
+        if sh = @swiftkit_state_handle
+          if new_radius == 0.0
+            LibSwiftKitBridge.apsk_button_clear_corner_radius(sh)
+          else
+            LibSwiftKitBridge.apsk_button_set_corner_radius(sh, new_radius)
+          end
+        end
+      {% end %}
+      new_radius
     end
   end
 end

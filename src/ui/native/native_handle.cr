@@ -1,5 +1,8 @@
 require "./release_strategy"
 require "./lib_objc_runtime"
+{% if flag?(:macos) || flag?(:ios) %}
+  require "./swiftkit_bridge"
+{% end %}
 
 module UI
   # Wraps a raw `Void*` pointer to a platform-native object with explicit
@@ -43,6 +46,24 @@ module UI
     # Only used for diagnostics and leak tracking.
     getter label : String?
 
+    # Optional reactive-state pointer (Phase 3 Remediation 4).
+    #
+    # When the wrapped platform view was constructed through one of the
+    # `apsk_make_*_reactive` facade entry points, the Swift side allocates
+    # an `ObservableObject` state container (`APSKLabelState`,
+    # `APSKButtonState`, `BoolStorage`, `DoubleStorage`) and writes a +1
+    # retained opaque pointer here. The matching Crystal mutator method
+    # (`UI::Label#text=`, etc.) dispatches through this pointer to update
+    # the published value, which drives a SwiftUI re-render of the hosted
+    # subtree without rebuilding the view tree.
+    #
+    # `release!` drops the +1 retain via `apsk_state_release` so the state
+    # object's lifetime tracks the platform view's. Nil when the handle
+    # was built through the legacy non-reactive path or wraps a view that
+    # does not participate in the reactive surface (every widget today
+    # except Label / Button / Toggle / Slider).
+    property state_handle : Pointer(Void)? = nil
+
     def initialize(@ptr : Void*, @strategy : ReleaseStrategy, @label : String? = nil)
       {% if flag?(:ui_debug) %}
         UI::NativeHandleTracker.register(self)
@@ -59,6 +80,7 @@ module UI
       @released = true
       perform_release unless @ptr.null?
       @ptr = Pointer(Void).null
+      release_state_handle!
 
       {% if flag?(:ui_debug) %}
         UI::NativeHandleTracker.unregister(self)
@@ -95,6 +117,21 @@ module UI
       @released = true
       perform_release unless @ptr.null?
       @ptr = Pointer(Void).null
+      release_state_handle!
+    end
+
+    # Drop the +1 retain Swift placed on the reactive state object.
+    # Idempotent and NULL-safe. Compile-gated to the platforms where the
+    # SwiftKit bridge symbols actually link.
+    private def release_state_handle! : Nil
+      {% if flag?(:macos) || flag?(:ios) %}
+        if sh = @state_handle
+          @state_handle = nil
+          LibSwiftKitBridge.apsk_state_release(sh)
+        end
+      {% else %}
+        @state_handle = nil
+      {% end %}
     end
 
     # Performs the platform-specific release of the native pointer.

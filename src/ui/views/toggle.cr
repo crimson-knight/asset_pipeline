@@ -1,8 +1,26 @@
 require "../view"
+{% if flag?(:macos) || flag?(:ios) %}
+  require "../native/swiftkit_bridge"
+{% end %}
 
 module UI
   class Toggle < View
-    property is_on : Bool = false
+    getter is_on : Bool = false
+
+    # Reactive setter — programmatically flips a rendered SwiftUI Toggle
+    # without firing the `on_change` callback (Crystal initiated the
+    # mutation; firing the proc back at Crystal would loop). See
+    # `apsk_toggle_set_value` (Swift `@_cdecl`) for the SwiftKit-side
+    # implementation.
+    def is_on=(new_value : Bool) : Bool
+      @is_on = new_value
+      {% if flag?(:macos) || flag?(:ios) %}
+        if sh = @swiftkit_state_handle
+          LibSwiftKitBridge.apsk_toggle_set_value(sh, new_value ? 1 : 0)
+        end
+      {% end %}
+      new_value
+    end
     property label : String = ""
     property style : ToggleStyle = ToggleStyle::Switch
     property tint_color : Color? = nil
