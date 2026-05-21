@@ -28,6 +28,15 @@ targets:
         - -lhighost
         - -lgc
         - -liconv
+        # AssetPipelineSwiftKit static archive (Swift facade implementing
+        # APSK* classes referenced via objc_getClass in swiftkit_bridge.m).
+        # -force_load is REQUIRED: Apple's ld treats unreferenced ObjC
+        # classes inside .a archives as dead code by default, which would
+        # leave apsk_make_* / apsk_*_set_* trampolines unresolved. See
+        # the macOS Makefile MACOS_LINK_FLAGS comment for the same fix.
+        - -Wl,-force_load,$(PROJECT_DIR)/build/swiftkit_simulator.a
+        - -framework SwiftUI
+        - -framework Combine
         - -framework UIKit
         - -framework Foundation
         - -framework UserNotifications
