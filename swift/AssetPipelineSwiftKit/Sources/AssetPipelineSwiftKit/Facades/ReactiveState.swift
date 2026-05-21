@@ -91,6 +91,18 @@ public final class APSKButtonState: NSObject, ObservableObject {
 // callback — Crystal initiated the mutation, so re-firing the proc back
 // at Crystal would be a double-fire loop.
 
+// MARK: - Sheet (Phase 3 Remediation 10)
+
+@objc(APSKSheetState)
+public final class APSKSheetState: NSObject, ObservableObject {
+    @Published public var isPresented: Bool
+
+    public init(isPresented: Bool) {
+        self.isPresented = isPresented
+        super.init()
+    }
+}
+
 // MARK: - @_cdecl mutator functions
 //
 // Each mutator takes the opaque state pointer Crystal received from the
@@ -209,6 +221,17 @@ public func apskSliderSetValue(
     let state = Unmanaged<DoubleStorage>.fromOpaque(stateHandle)
         .takeUnretainedValue()
     apskMainAsync { state.setProgrammatically(value) }
+}
+
+@_cdecl("apsk_sheet_set_presented")
+public func apskSheetSetPresented(
+    _ stateHandle: UnsafeMutableRawPointer,
+    _ isPresented: Int32
+) {
+    let state = Unmanaged<APSKSheetState>.fromOpaque(stateHandle)
+        .takeUnretainedValue()
+    let newValue = (isPresented != 0)
+    apskMainAsync { state.isPresented = newValue }
 }
 
 // Release the +1 retain Crystal acquired when the state object was

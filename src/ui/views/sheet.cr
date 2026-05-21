@@ -1,9 +1,32 @@
 require "../view"
+{% if flag?(:macos) || flag?(:ios) %}
+  require "../native/swiftkit_bridge"
+{% end %}
 
 module UI
   class Sheet < View
     property content : View? = nil
-    property is_presented : Bool = false
+    getter is_presented : Bool = false
+
+    # Phase 3 Remediation 10 — reactive setter. Mirrors the
+    # `UI::Toggle#is_on=` pattern: setting `is_presented` after the
+    # renderer has emitted the SwiftKit hosting view dispatches
+    # through `apsk_sheet_set_presented`, which flips the
+    # `APSKSheetState.isPresented` `@Published` field and triggers a
+    # SwiftUI re-render that presents / dismisses the sheet via
+    # `.sheet(isPresented:)`. Setters issued before the view has been
+    # rendered are simply stored on the property; the next render
+    # seeds the reactive state from the new value.
+    def is_presented=(new_value : Bool) : Bool
+      @is_presented = new_value
+      {% if flag?(:macos) || flag?(:ios) %}
+        if sh = @swiftkit_state_handle
+          LibSwiftKitBridge.apsk_sheet_set_presented(sh, new_value ? 1 : 0)
+        end
+      {% end %}
+      new_value
+    end
+
     property shows_drag_indicator : Bool = true
     property detents : Array(Symbol) = [:medium, :large]  # :small, :medium, :large, :custom
     property selected_detent : Symbol = :medium

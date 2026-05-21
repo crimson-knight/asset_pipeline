@@ -339,11 +339,18 @@ final class Phase03BehaviorTests: XCTestCase {
     // -------------------------------------------------------------------
     // BX8 — Sheet dismiss returns focus
     //
-    // The Phase 3 sheet probe renders inline (not via .sheet()) so all
-    // content is in the AX tree from launch. Per rubric §BX8 we verify the
-    // documented anatomy (trigger, sheet-content, sheet-primary,
-    // sheet-cancel) is present, then exercise the primary action and
-    // assert the dismiss-reason mirror label transitions to "primary".
+    // Phase 3 Remediation 10 — the iOS sheet slug now uses SwiftUI's
+    // `.sheet(isPresented:)` driven by a reactive `APSKSheetState` that
+    // Crystal mutates via `apsk_sheet_set_presented`. Sheet content
+    // (sheet-content, sheet-primary, sheet-cancel) is only in the AX
+    // tree AFTER tapping `sheet-trigger`.
+    //
+    // Three dismiss paths exercised (rubric §BX8): primary, cancel, swipe.
+    // Backdrop is intentionally excluded — SwiftUI `.sheet(isPresented:)`
+    // does not dismiss on backdrop tap by default.
+    //
+    // After all three dismissals, sheet-trigger must remain discoverable
+    // (focus-return rubric).
     // -------------------------------------------------------------------
     func testBX8_sheetDismissReturnsFocus() throws {
         let app = launchHost(slug: "phase-03-sheet-focus-return")
@@ -351,30 +358,104 @@ final class Phase03BehaviorTests: XCTestCase {
         XCTAssertTrue(trigger.waitForExistence(timeout: 5),
                       "BX8: sheet-trigger must be discoverable")
 
-        XCTAssertTrue(app.buttons["sheet-primary"].exists,
-                      "BX8: sheet-primary must exist")
-        XCTAssertTrue(app.buttons["sheet-cancel"].exists,
-                      "BX8: sheet-cancel must exist")
+        // At launch the sheet is NOT presented; sheet content must be
+        // absent from the AX tree.
+        XCTAssertFalse(app.buttons["sheet-primary"].waitForExistence(timeout: 0.5),
+                       "BX8: sheet-primary must NOT exist before sheet is presented")
+        XCTAssertFalse(app.buttons["sheet-cancel"].exists,
+                       "BX8: sheet-cancel must NOT exist before sheet is presented")
 
         let reason = app.staticTexts["dismiss-reason"]
         XCTAssertTrue(reason.waitForExistence(timeout: 3),
                       "BX8: dismiss-reason mirror label must be present")
 
-        let before = readDisplay(reason)
-        attachScreenshot(app, name: "BX8-presented.png")
+        attachScreenshot(app, name: "BX8-initial.png")
 
-        app.buttons["sheet-primary"].tap()
-        Thread.sleep(forTimeInterval: 0.3)
+        var dismissMatrix: [[String: String]] = []
+
+        // Helper: tap sheet-trigger, wait for sheet content to enter AX tree.
+        let openSheet: () -> XCUIElement = {
+            trigger.tap()
+            let primary = app.buttons["sheet-primary"]
+            XCTAssertTrue(primary.waitForExistence(timeout: 5),
+                          "BX8: sheet-primary must appear after sheet-trigger tap")
+            return primary
+        }
+
+        // Helper: wait for absence of sheet-primary (sheet dismissed).
+        let waitSheetClosed: () -> Void = {
+            let pred = NSPredicate(format: "exists == false")
+            let exp = XCTNSPredicateExpectation(predicate: pred,
+                                                 object: app.buttons["sheet-primary"])
+            let result = XCTWaiter().wait(for: [exp], timeout: 5)
+            XCTAssertEqual(result, .completed,
+                           "BX8: sheet must dismiss within 5s")
+        }
+
+        // ---------- Path 1: primary button dismiss ----------
+        let primary = openSheet()
+        attachScreenshot(app, name: "BX8-presented-for-primary.png")
+        primary.tap()
+        waitSheetClosed()
+        Thread.sleep(forTimeInterval: 0.3)  // allow onDismiss closure + reactive Label mirror to flush
         let afterPrimary = readDisplay(reason)
+        dismissMatrix.append(["path": "primary", "reason": afterPrimary])
+        XCTAssertEqual(afterPrimary, "primary",
+                       "BX8: primary dismiss must set dismiss-reason to \"primary\" — got \"\(afterPrimary)\"")
         attachScreenshot(app, name: "BX8-after-primary.png")
 
-        attachJSON([
-            "before": before,
-            "after_primary": afterPrimary,
-        ], name: "BX8-dismiss-matrix.json")
+        // ---------- Path 2: cancel button dismiss ----------
+        _ = openSheet()
+        attachScreenshot(app, name: "BX8-presented-for-cancel.png")
+        app.buttons["sheet-cancel"].tap()
+        waitSheetClosed()
+        Thread.sleep(forTimeInterval: 0.3)
+        let afterCancel = readDisplay(reason)
+        dismissMatrix.append(["path": "cancel", "reason": afterCancel])
+        XCTAssertEqual(afterCancel, "cancel",
+                       "BX8: cancel dismiss must set dismiss-reason to \"cancel\" — got \"\(afterCancel)\"")
+        attachScreenshot(app, name: "BX8-after-cancel.png")
 
-        XCTAssertEqual(afterPrimary, "primary",
-                       "BX8: sheet-primary tap must set dismiss-reason to \"primary\" — got \"\(afterPrimary)\"")
+        // ---------- Path 3: swipe-down (interactive dismissal) ----------
+        _ = openSheet()
+        attachScreenshot(app, name: "BX8-presented-for-swipe.png")
+        // SwiftUI .sheet dismisses on an interactive drag from the sheet
+        // surface (or its grabber/drag-indicator at the top) downward
+        // off-screen. Targeting the sheet container — not a button
+        // inside it — avoids the inner control consuming the touch.
+        // The sheet appears as `app.sheets.firstMatch` (preferred) or
+        // a fall-through to the otherElement that hosts it.
+        let sheetSurface: XCUIElement = {
+            let s = app.sheets.firstMatch
+            return s.exists ? s : app.otherElements["sheet-content"]
+        }()
+        if sheetSurface.exists {
+            let start = sheetSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05))
+            let end = sheetSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
+                .withOffset(CGVector(dx: 0, dy: 400))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        } else {
+            // Fallback: drag from a screen point above mid-screen down off.
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1.0))
+                .withOffset(CGVector(dx: 0, dy: 200))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        waitSheetClosed()
+        Thread.sleep(forTimeInterval: 0.3)
+        let afterSwipe = readDisplay(reason)
+        dismissMatrix.append(["path": "swipe", "reason": afterSwipe])
+        XCTAssertEqual(afterSwipe, "swipe",
+                       "BX8: swipe dismiss must set dismiss-reason to \"swipe\" — got \"\(afterSwipe)\"")
+        attachScreenshot(app, name: "BX8-after-swipe.png")
+
+        attachJSON(dismissMatrix, name: "BX8-dismiss-matrix.json")
+
+        // ---------- Focus return: sheet-trigger must remain discoverable ----------
+        XCTAssertTrue(trigger.exists,
+                      "BX8: sheet-trigger must remain discoverable after all dismissals")
+        XCTAssertTrue(trigger.isHittable,
+                      "BX8: sheet-trigger must remain hittable after all dismissals")
     }
 
     // -------------------------------------------------------------------

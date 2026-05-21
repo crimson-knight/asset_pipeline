@@ -802,6 +802,22 @@ void *apsk_make_slider_reactive(double value, double minimum, double maximum,
         cls, sel, value, minimum, maximum, (id)overrides, action_token, out_state);
 }
 
+// Phase 3 Remediation 10 — reactive Sheet trampoline. Mirrors the static
+// apsk_make_sheet but writes a +1 retained `APSKSheetState` pointer
+// through `out_state` so Crystal can later flip presentation via
+// apsk_sheet_set_presented.
+void *apsk_make_sheet_reactive(const void *child_views, int child_count,
+                               void *overrides, unsigned long long dismiss_token,
+                               void **out_state) {
+    Class cls = objc_getClass("APSKSheetFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName(
+        "makeReactiveSheetWithChildViews:overrides:dismissToken:outState:");
+    return ((id (*)(Class, SEL, id, id, unsigned long long, void **))objc_msgSend)(
+        cls, sel, children, (id)overrides, dismiss_token, out_state);
+}
+
 // The `apsk_*_set_*` and `apsk_state_release` functions themselves are
 // emitted directly by Swift via `@_cdecl` (see ReactiveState.swift). They
 // are linked symbols on the AssetPipelineSwiftKit static library; Crystal

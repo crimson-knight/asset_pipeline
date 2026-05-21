@@ -3,8 +3,28 @@
 // Crystal hands ONE child: the sheet content. The facade renders an
 // invisible 1x1 host that owns the .sheet modifier; the modifier's
 // `isPresented` binding starts at the overrides value and is owned by
-// a `BoolStorage` so dismissing the sheet fires the dismiss action
-// token.
+// a published-state object so Crystal-side mutations of
+// `UI::Sheet#is_presented` reach SwiftUI without rebuilding the tree.
+//
+// Phase 3 Remediation 10 adds the reactive variant:
+//   makeReactiveSheet(..., outState:)
+// which retains an `APSKSheetState : ObservableObject` and writes the
+// +1 pointer through `outState`. Crystal stores it on
+// `NativeHandle#state_handle` + `UI::Sheet#swiftkit_state_handle` so
+// `sheet.is_presented = true` dispatches into
+// `apsk_sheet_set_presented`, which flips the published `isPresented`
+// on the main queue. SwiftUI observes via `@ObservedObject` on
+// SheetHost and the `.sheet(...)` modifier presents / dismisses.
+//
+// The legacy `makeSheet(...)` ABI is preserved as a shim that calls the
+// reactive entry with `outState = nil` so renderers / consumers that
+// haven't been migrated keep working.
+//
+// onDismiss closure fires `CallbackBridge.fire(token:value:)` for the
+// dismiss-token Crystal allocated. The Crystal-side handler
+// distinguishes button-driven dismissals (which already wrote the
+// reason via Probe) from interactive (swipe) dismissals via an
+// explicit-flag pattern — see DismissProbe.
 //
 // Default behavior (no overrides):
 //   - SwiftUI default presentation detents.
@@ -21,31 +41,41 @@ public class SheetFacade: NSObject {
         overrides: SheetOverrides,
         dismissToken: UInt64
     ) -> APSKPlatformView {
-        let isPresented = overrides.isPresented?.boolValue ?? false
-        let storage = BoolStorage(initial: isPresented, token: dismissToken)
-
-        let sheetBody: AnyView
-        if let first = childViews.first {
-            sheetBody = AnyView(APSKHostedChild(view: first))
-        } else {
-            sheetBody = AnyView(EmptyView())
-        }
-
-        var content: AnyView = AnyView(
-            Color.clear
-                .frame(width: 1, height: 1)
-                .sheet(isPresented: storage.binding, onDismiss: {
-                    CallbackBridge.fire(token: dismissToken, value: 0.0)
-                }) {
-                    applyDetents(sheetBody, overrides: overrides)
-                }
+        return makeReactiveSheet(
+            childViews: childViews,
+            overrides: overrides,
+            dismissToken: dismissToken,
+            outState: nil
         )
-
-        content = CommonModifiers.apply(content, overrides: overrides)
-        return HostingHelpers.host(SheetHost(storage: storage, content: content))
     }
 
-    private static func applyDetents(_ v: AnyView, overrides: SheetOverrides) -> AnyView {
+    @objc public static func makeReactiveSheet(
+        childViews: [APSKPlatformView],
+        overrides: SheetOverrides,
+        dismissToken: UInt64,
+        outState: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
+    ) -> APSKPlatformView {
+        let initialPresented = overrides.isPresented?.boolValue ?? false
+        let state = APSKSheetState(isPresented: initialPresented)
+
+        if let outState = outState {
+            outState.pointee = Unmanaged.passRetained(state).toOpaque()
+        }
+
+        let sheetChild: APSKPlatformView? = childViews.first
+        return HostingHelpers.host(
+            SheetHost(
+                state: state,
+                child: sheetChild,
+                overrides: overrides,
+                dismissToken: dismissToken
+            )
+        )
+    }
+
+    fileprivate static func applyDetents(
+        _ v: AnyView, overrides: SheetOverrides
+    ) -> AnyView {
         guard !overrides.detents.isEmpty else { return v }
         if #available(iOS 16.0, macOS 13.0, *) {
             #if canImport(UIKit)
@@ -66,8 +96,40 @@ public class SheetFacade: NSObject {
     }
 }
 
-private struct SheetHost<Content: View>: View {
-    @ObservedObject var storage: BoolStorage
-    let content: Content
-    var body: some View { content }
+// SheetHost owns the @ObservedObject reference to the published
+// presentation state. Building the .sheet(...) binding INSIDE the body
+// (not pre-built outside) means SwiftUI re-evaluates the modifier whenever
+// `state.isPresented` changes — that is what drives present/dismiss when
+// Crystal flips the value via `apsk_sheet_set_presented`.
+private struct SheetHost: View {
+    @ObservedObject var state: APSKSheetState
+    let child: APSKPlatformView?
+    let overrides: SheetOverrides
+    let dismissToken: UInt64
+
+    var body: some View {
+        let sheetBody: AnyView
+        if let child = child {
+            sheetBody = AnyView(APSKHostedChild(view: child))
+        } else {
+            sheetBody = AnyView(EmptyView())
+        }
+
+        var content: AnyView = AnyView(
+            Color.clear
+                .frame(width: 1, height: 1)
+                .sheet(isPresented: $state.isPresented, onDismiss: {
+                    // Always fire the dismiss-token callback. Crystal-side
+                    // explicit-flag (DismissProbe.handle_dismiss) decides
+                    // whether to record "swipe" or honour a previously
+                    // marked explicit reason.
+                    CallbackBridge.fire(token: dismissToken, value: 0.0)
+                }) {
+                    SheetFacade.applyDetents(sheetBody, overrides: overrides)
+                }
+        )
+
+        content = CommonModifiers.apply(content, overrides: overrides)
+        return content
+    }
 }

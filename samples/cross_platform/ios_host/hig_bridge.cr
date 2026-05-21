@@ -3157,10 +3157,33 @@ HTML
 
               ios_form_stack.as(UI::View)
             when "phase-03-sheet-focus-return"
+              # Phase 3 Remediation 10 — reactive Sheet bridge slug.
+              #
+              # Hoist `ios_sheet_v` BEFORE the trigger / primary / cancel
+              # button on_tap blocks so those blocks can capture it for
+              # `is_presented = true / false`. The content stack is wired
+              # AFTER the buttons (Sheet#content is a property, not a
+              # constructor argument, so this ordering works cleanly).
               ios_sheet_probe = UI::VStack.new(spacing: 16.0)
               ios_sheet_probe.alignment = UI::Alignment::Center
 
-              ios_sheet_trigger = UI::Button.new("Open sheet") { }
+              ios_sheet_v = UI::Sheet.new(nil, surface_style: :grouped_card)
+              ios_sheet_v.accessibility_label = "sheet-surface"
+
+              # Reactive mirror label for the dismiss reason. The Label
+              # is hoisted so the button blocks below can drive it via
+              # `text=` (which dispatches through APSKLabelState if the
+              # SwiftKit reactive bridge is active).
+              ios_sheet_reason = UI::Label.new(UI::Probes::DismissProbe.current_text)
+              ios_sheet_reason.test_id = "dismiss-reason"
+
+              ios_sheet_trigger = UI::Button.new("Open sheet") do
+                # Clear any stale dismiss reason from a previous open/close
+                # cycle so the next dismissal records its own reason cleanly.
+                UI::Probes::DismissProbe.reset
+                ios_sheet_reason.text = UI::Probes::DismissProbe.current_text
+                ios_sheet_v.is_presented = true
+              end
               ios_sheet_trigger.test_id = "sheet-trigger"
               ios_sheet_trigger.accessibility_label = "sheet-trigger"
               ios_sheet_trigger.minimum_height = 44.0
@@ -3175,27 +3198,46 @@ HTML
               ios_sheet_title.font = UI::Font.new(size: 15.0, weight: :semibold)
               ios_sheet_content << ios_sheet_title.as(UI::View)
 
-              ios_sheet_primary = UI::Button.new("Confirm", role: :default) { UI::Probes::DismissProbe.set("primary") }
+              ios_sheet_primary = UI::Button.new("Confirm", role: :default) do
+                # Mark the dismissal as an explicit-button action so the
+                # subsequent SwiftUI onDismiss (which fires after we flip
+                # is_presented = false) doesn't overwrite with "swipe".
+                UI::Probes::DismissProbe.mark_explicit("primary")
+                ios_sheet_reason.text = UI::Probes::DismissProbe.current_text
+                ios_sheet_v.is_presented = false
+              end
               ios_sheet_primary.test_id = "sheet-primary"
               ios_sheet_primary.accessibility_label = "sheet-primary"
               ios_sheet_primary.style = UI::ButtonStyle::Prominent
               ios_sheet_primary.minimum_height = 44.0
               ios_sheet_content << ios_sheet_primary.as(UI::View)
 
-              ios_sheet_cancel = UI::Button.new("Cancel", role: :cancel) { UI::Probes::DismissProbe.set("cancel") }
+              ios_sheet_cancel = UI::Button.new("Cancel", role: :cancel) do
+                UI::Probes::DismissProbe.mark_explicit("cancel")
+                ios_sheet_reason.text = UI::Probes::DismissProbe.current_text
+                ios_sheet_v.is_presented = false
+              end
               ios_sheet_cancel.test_id = "sheet-cancel"
               ios_sheet_cancel.accessibility_label = "sheet-cancel"
               ios_sheet_cancel.minimum_height = 44.0
               ios_sheet_content << ios_sheet_cancel.as(UI::View)
 
-              ios_sheet_v = UI::Sheet.new(ios_sheet_content.as(UI::View), surface_style: :grouped_card)
-              ios_sheet_v.accessibility_label = "sheet-surface"
-              ios_sheet_probe << ios_sheet_v.as(UI::View)
+              # Wire the content into the hoisted Sheet now that the
+              # children exist and the button on_tap blocks have closed
+              # over `ios_sheet_v`.
+              ios_sheet_v.content = ios_sheet_content.as(UI::View)
 
-              ios_sheet_reason = UI::Label.new(UI::Probes::DismissProbe.current_text)
-              ios_sheet_reason.test_id = "dismiss-reason"
-              # Reactive mirror — leave label unset so the displayed reason
-              # ("primary" / "cancel") shows through as the AX label.
+              # Sheet on_dismiss: SwiftUI fires this AFTER every
+              # dismissal (interactive swipe AND button-driven). The
+              # explicit-flag guard inside `handle_dismiss` ensures we
+              # only record "swipe" for interactive dismissals.
+              ios_sheet_v.on_dismiss = -> do
+                UI::Probes::DismissProbe.handle_dismiss
+                ios_sheet_reason.text = UI::Probes::DismissProbe.current_text
+                nil
+              end
+
+              ios_sheet_probe << ios_sheet_v.as(UI::View)
               ios_sheet_probe << ios_sheet_reason.as(UI::View)
 
               ios_sheet_probe.as(UI::View)

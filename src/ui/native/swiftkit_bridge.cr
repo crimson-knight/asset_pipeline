@@ -266,6 +266,15 @@
                                   overrides : Void*, action_token : UInt64,
                                   out_state : Void**) : Void*
 
+    # Phase 3 Remediation 10 — reactive Sheet facade entry. `out_state`
+    # receives a +1 retained `APSKSheetState*` so Crystal-side mutation
+    # of `UI::Sheet#is_presented` can flow through
+    # `apsk_sheet_set_presented` to flip the SwiftUI `.sheet(isPresented:)`
+    # binding without rebuilding the view tree.
+    fun apsk_make_sheet_reactive(child_views : Void*, child_count : Int32,
+                                 overrides : Void*, dismiss_token : UInt64,
+                                 out_state : Void**) : Void*
+
     # -------------------------------------------------------------------------
     # State mutators. Implemented directly in Swift via `@_cdecl` (see
     # `swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/
@@ -285,6 +294,8 @@
     fun apsk_button_clear_corner_radius(state : Void*)
     fun apsk_toggle_set_value(state : Void*, is_on : Int32)
     fun apsk_slider_set_value(state : Void*, value : Float64)
+    # Phase 3 Remediation 10 — Sheet presentation mutator.
+    fun apsk_sheet_set_presented(state : Void*, is_presented : Int32)
 
     # Drop the +1 retain Swift's `Unmanaged.passRetained` placed on the
     # state object inside the matching `apsk_make_*_reactive` call. Safe

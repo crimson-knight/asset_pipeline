@@ -2126,11 +2126,23 @@
         end
 
         child_buf = build_child_buffer(children_native)
-        ptr = LibSwiftKitBridge.apsk_make_sheet(
+
+        # Phase 3 Remediation 10 — call the reactive entry point so
+        # the Swift side returns the APSKSheetState pointer through
+        # `state_box`. Crystal stores it on `handle.state_handle` and
+        # `view.swiftkit_state_handle` so `UI::Sheet#is_presented=`
+        # can drive `.sheet(isPresented:)` after mount.
+        state_slot = Pointer(Void).null.as(Void*)
+        state_box = pointerof(state_slot)
+        ptr = LibSwiftKitBridge.apsk_make_sheet_reactive(
           child_buf.as(Void*), children_native.size.to_i32,
-          overrides_ptr, dismiss_token,
+          overrides_ptr, dismiss_token, state_box,
         )
         handle = ObjC.owned(ptr, label: "UIHostingView[Sheet]")
+        unless state_slot.null?
+          handle.state_handle = state_slot
+          view.swiftkit_state_handle = state_slot
+        end
         native = NativeView.new(handle)
         callback_ids.each { |id| native.track_callback_id(id) }
         children_native.each { |c| native.add_child(c) }
