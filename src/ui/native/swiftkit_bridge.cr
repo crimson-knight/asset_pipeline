@@ -94,6 +94,7 @@
     fun apsk_surface_overrides_new : Void*
     fun apsk_menu_button_overrides_new : Void*
     fun apsk_toggle_button_overrides_new : Void*
+    fun apsk_list_view_overrides_new : Void*
 
     # ---- Glass (P1 — the Phase 3 "headline visual differentiator") -----
     fun apsk_glass_background_overrides_new : Void*
@@ -228,6 +229,12 @@
     fun apsk_make_menu_button(label : UInt8*, overrides : Void*) : Void*
     fun apsk_make_toggle_button(label : UInt8*, overrides : Void*,
                                 action_token : UInt64) : Void*
+    # `UI::ListView` (§6 #25). The Crystal renderer flattens all section
+    # items into a single child-views array and emits `setSectionHeaders` /
+    # `setSectionFooters` / `setSectionItemCounts` on the overrides so the
+    # facade can slice items back into SwiftUI `Section`s.
+    fun apsk_make_list_view(child_views : Void*, child_count : Int32,
+                            overrides : Void*) : Void*
 
     # ---- Glass facade (P1) --------------------------------------------
     # `child_view` is a single platform-view pointer (the content the

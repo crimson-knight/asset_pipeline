@@ -250,6 +250,7 @@ APSK_OVERRIDES_NEW(apsk_card_overrides_new,                  "APSKCardOverrides"
 APSK_OVERRIDES_NEW(apsk_surface_overrides_new,               "APSKSurfaceOverrides")
 APSK_OVERRIDES_NEW(apsk_menu_button_overrides_new,           "APSKMenuButtonOverrides")
 APSK_OVERRIDES_NEW(apsk_toggle_button_overrides_new,         "APSKToggleButtonOverrides")
+APSK_OVERRIDES_NEW(apsk_list_view_overrides_new,             "APSKListViewOverrides")
 
 // ---------------------------------------------------------------------------
 // Glass (P1 — Phase 3 "headline visual differentiator").
@@ -481,6 +482,16 @@ void *apsk_make_toggle_button(const char *label, void *overrides,
     SEL sel = sel_registerName("makeToggleButtonWithLabel:overrides:actionToken:");
     return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(label), (id)overrides, action_token);
+}
+
+void *apsk_make_list_view(const void *child_views, int child_count,
+                          void *overrides) {
+    Class cls = objc_getClass("APSKListViewFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeListViewWithChildViews:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides);
 }
 
 // ---------------------------------------------------------------------------
