@@ -2483,14 +2483,19 @@ module UI
 
         root.add_child(panel)
 
-        # Inline CSS once per renderer instance — registration guard lives
-        # on @action_sheet_css_emitted so subsequent emissions for the
-        # same renderer just skip the style block.
+        # Inline CSS + JS once per renderer instance. The static script
+        # itself is idempotent (window.__apActionSheetInitialized) so even
+        # if multiple renderer instances coexist on a page, the behavior
+        # registers exactly once at runtime.
         unless @action_sheet_css_emitted
           @action_sheet_css_emitted = true
           style_block = Components::Elements::Style.new
           style_block << ACTION_SHEET_FALLBACK_CSS
           root.add_child(style_block)
+
+          script_block = Components::Elements::Script.new
+          script_block << ACTION_SHEET_FALLBACK_JS
+          root.add_child(script_block)
         end
 
         apply_common_styles(root, view)
@@ -2504,6 +2509,12 @@ module UI
       end
 
       @action_sheet_css_emitted : Bool = false
+
+      # Vanilla-JS bottom-sheet behavior. Source lives at
+      # src/ui/web/action_sheet_fallback.js and is inlined into the renderer
+      # binary at compile time so the rendered HTML is self-sufficient (no
+      # external <script src=...> required).
+      ACTION_SHEET_FALLBACK_JS = {{ read_file("#{__DIR__}/../web/action_sheet_fallback.js") }}
 
       ACTION_SHEET_FALLBACK_CSS = <<-CSS
       .ap-action-sheet { position: fixed; inset: 0; z-index: 1000; display: none; }

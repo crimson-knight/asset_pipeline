@@ -60,6 +60,23 @@ describe UI::ActionSheetWithWebFallback do
       html_open.should contain(%(data-presented="true"))
     end
 
+    it "inlines the vanilla-JS fallback script once per renderer" do
+      sheet = UI::ActionSheetWithWebFallback.new("Share", "")
+      sheet.add_action("Copy", style: :default)
+      r = UI::Web::Renderer.new
+      html = r.render(sheet)
+      html.should contain("__apActionSheetInitialized")
+      html.should contain("ap:action-sheet:dismiss")
+      html.should contain("ap:action-sheet:action")
+      html.should contain("ap-action-sheet__panel")
+
+      # Second emission from the same renderer must NOT re-inline the JS.
+      sheet2 = UI::ActionSheetWithWebFallback.new("Other", "")
+      r.render(sheet2)
+      second_emit = r.output
+      second_emit.scan("__apActionSheetInitialized").size.should eq(0)
+    end
+
     it "inlines static CSS once per renderer instance" do
       r = UI::Web::Renderer.new
       sheet1 = UI::ActionSheetWithWebFallback.new("A", "")
