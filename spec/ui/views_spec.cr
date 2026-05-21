@@ -309,9 +309,11 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "RatingIndicator(#{view.value})"
   end
 
-  def visit(view : UI::ActionSheet)
-    @visited << "ActionSheet(#{view.title})"
-  end
+  {% if flag?(:ios) %}
+    def visit(view : UI::ActionSheet)
+      @visited << "ActionSheet(#{view.title})"
+    end
+  {% end %}
 
   def visit(view : UI::ActionSheetWithWebFallback)
     @visited << "ActionSheetWithWebFallback(#{view.title})"

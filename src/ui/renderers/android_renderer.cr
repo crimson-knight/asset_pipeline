@@ -3112,18 +3112,11 @@ module UI::Android
       push_native(native, outer)
     end
 
-    # Phase 4 — Tier 3 stub. After Commit 4 `UI::ActionSheet` is gated to
-    # `flag?(:ios)`, so this visitor becomes unreachable on Android and can
-    # be removed. The Android path for an action-sheet UX is
-    # `UI::ActionSheetWithWebFallback` (rendered as a styled BottomSheet in
-    # Commit 2).
-    def visit(view : UI::ActionSheet)
-      view_ptr = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
-      global_ptr = LibAndroidBridge.android_new_global_ref(@env, view_ptr)
-      handle = JNI.wrap_global(global_ptr, label: "View[ActionSheet-stub]")
-      native = NativeView.new(handle)
-      push_native(native, view_ptr)
-    end
+    # Phase 4 — Tier 3. UI::ActionSheet is iOS-only via flag?(:ios) in
+    # src/ui/views/action_sheet.cr, so there is no Android visitor — the
+    # class itself does not exist on -Dandroid. Android applications use
+    # UI::ActionSheetWithWebFallback (below), which synthesizes a
+    # ConfirmationDialog and routes through the existing visitor.
 
     def visit(view : UI::ActionSheetWithWebFallback)
       # Android has a BottomSheetDialog widget but Phase 4 keeps fidelity

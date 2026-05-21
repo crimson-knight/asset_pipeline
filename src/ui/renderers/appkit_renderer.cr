@@ -4399,18 +4399,11 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         emit(stack, "NSStackView[rating-indicator]")
       end
 
-      # Phase 4 — Tier 3 stub. After Commit 4 the UI::ActionSheet class is
-      # iOS-only (gated with flag?(:ios)), so this visitor becomes
-      # unreachable on macOS builds and can be removed at that time. The
-      # macOS application path for an action-sheet UX is
-      # UI::ActionSheetWithWebFallback, which on AppKit renders as a styled
-      # ConfirmationDialog modal.
-      def visit(view : UI::ActionSheet)
-        # Stub: emit a no-op NSView so the un-gated build compiles.
-        v = alloc_init("NSView")
-        apply_common_properties(v, view)
-        emit(v, "NSView[ActionSheet-stub]")
-      end
+      # Phase 4 — Tier 3. UI::ActionSheet is iOS-only via flag?(:ios) in
+      # src/ui/views/action_sheet.cr, so there is no AppKit visitor — the
+      # class itself does not exist on -Dmacos. macOS applications use
+      # UI::ActionSheetWithWebFallback (below), which synthesizes a
+      # ConfirmationDialog and routes through the existing visitor.
 
       def visit(view : UI::ActionSheetWithWebFallback)
         # macOS lacks a native action-sheet idiom (HIG steers developers to

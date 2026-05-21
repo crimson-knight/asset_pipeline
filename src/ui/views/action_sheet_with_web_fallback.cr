@@ -1,22 +1,23 @@
 require "../view"
-require "./action_sheet"
+{% if flag?(:ios) %}
+  require "./action_sheet"
+{% end %}
 
-# NOTE (Phase 4 — un-gated shell). Commit 4 splits this into a conditional
-# delegate (iOS branch holds a UI::ActionSheet and forwards `accept`) and a
-# stand-alone fallback that runs visitor.visit(self) on every other target.
 module UI
-  # Cross-platform companion to the iOS-only `UI::ActionSheet`.
+  # Cross-platform companion to the iOS-only UI::ActionSheet.
   #
-  # On `-Dios`: holds a `UI::ActionSheet` instance and forwards `accept` so
-  # the iOS visitor renders the native sheet (currently via
-  # `ConfirmationDialogFacade`; see `UI::ActionSheet` for the N→2 mapping
-  # caveat).
+  # On -Dios: delegates to a held UI::ActionSheet instance, so the iOS
+  # visitor renders the native action sheet (currently via the
+  # ConfirmationDialogFacade; see ActionSheet docs for the N->2 caveat).
   #
   # On every other platform: renders directly. The web visitor produces a
-  # `role="dialog"` bottom-sheet with backdrop, focus trap, and
-  # escape-to-dismiss (see `src/ui/web/action_sheet_fallback.js`). The macOS
-  # and Android visitors render a styled modal panel (delegates to
-  # `ConfirmationDialog` semantics).
+  # role=dialog bottom-sheet with backdrop, focus trap, escape-to-dismiss,
+  # and a vanilla-JS event contract (see action_sheet_fallback.js). The
+  # macOS and Android visitors synthesize a UI::ConfirmationDialog and
+  # delegate to the existing visitor for those platforms.
+  #
+  # Both branches share the same public API so application code that uses
+  # this class is fully portable.
   class ActionSheetWithWebFallback < View
     record Action,
       label : String,
@@ -28,19 +29,44 @@ module UI
     property actions : Array(Action) = [] of Action
     property is_presented : Bool = false
 
-    def initialize(@title : String = "", @message : String = "")
-    end
+    {% if flag?(:ios) %}
+      @inner : UI::ActionSheet
 
-    def add_action(label : String, style : Symbol = :default, &block : -> Nil)
-      @actions << Action.new(label: label, style: style, action: block)
-    end
+      def initialize(@title : String = "", @message : String = "")
+        @inner = UI::ActionSheet.new(@title, @message)
+      end
 
-    def add_action(label : String, style : Symbol = :default)
-      @actions << Action.new(label: label, style: style)
-    end
+      def add_action(label : String, style : Symbol = :default, &block : -> Nil)
+        @actions << Action.new(label: label, style: style, action: block)
+        @inner.add_action(label, style, &block)
+      end
 
-    def accept(visitor : PlatformVisitor)
-      visitor.visit(self)
-    end
+      def add_action(label : String, style : Symbol = :default)
+        @actions << Action.new(label: label, style: style)
+        @inner.add_action(label, style)
+      end
+
+      def accept(visitor : PlatformVisitor)
+        @inner.title = @title
+        @inner.message = @message
+        @inner.is_presented = @is_presented
+        @inner.accept(visitor)
+      end
+    {% else %}
+      def initialize(@title : String = "", @message : String = "")
+      end
+
+      def add_action(label : String, style : Symbol = :default, &block : -> Nil)
+        @actions << Action.new(label: label, style: style, action: block)
+      end
+
+      def add_action(label : String, style : Symbol = :default)
+        @actions << Action.new(label: label, style: style)
+      end
+
+      def accept(visitor : PlatformVisitor)
+        visitor.visit(self)
+      end
+    {% end %}
   end
 end
