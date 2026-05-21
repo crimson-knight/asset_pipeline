@@ -13,6 +13,7 @@
 
 require "../../../src/ui"
 require "../../../src/ui/validation_scenes"
+require "../../../src/ui/probes"
 
 module CrystalHIGHost::Bridge
   @@initialized = false
@@ -2990,6 +2991,222 @@ HTML
               ios_ri_outer << ios_ri_row4.as(UI::View)
 
               centered_study_card(ios_ri_outer.as(UI::View), card_width: 320.0, content_padding: UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0))
+            # -----------------------------------------------------------------
+            # Phase 3 Remediation 3 — validation probe scenes.
+            # Identifiers track docs/initiative-cross-platform-ui/phases/
+            # phase-03-swiftui-native-bridge/validation.md §BX and §V exactly.
+            # -----------------------------------------------------------------
+            when "phase-03-action-tap-probe"
+              ios_probe = UI::VStack.new(spacing: 16.0)
+              ios_probe.alignment = UI::Alignment::Center
+
+              ios_tap = UI::Button.new("Tap me") { UI::Probes::TapProbe.increment }
+              ios_tap.test_id = "tap-probe-button"
+              ios_tap.accessibility_label = "tap-probe-button"
+              ios_tap.style = UI::ButtonStyle::Prominent
+              ios_tap.minimum_height = 44.0
+              ios_probe << ios_tap.as(UI::View)
+
+              ios_tap_counter = UI::Label.new(UI::Probes::TapProbe.current_text)
+              ios_tap_counter.test_id = "tap-probe-counter"
+              ios_tap_counter.accessibility_label = "tap-probe-counter"
+              ios_tap_counter.text_alignment = UI::Alignment::Center
+              ios_probe << ios_tap_counter.as(UI::View)
+
+              ios_probe.as(UI::View)
+            when "phase-03-toggle-value-probe"
+              ios_tv_probe = UI::VStack.new(spacing: 16.0)
+              ios_tv_probe.alignment = UI::Alignment::Center
+
+              ios_toggle = UI::Toggle.new("Notify", UI::Probes::ToggleProbe.last_value) do |new_value|
+                UI::Probes::ToggleProbe.set(new_value)
+              end
+              ios_toggle.test_id = "toggle-probe-toggle"
+              ios_toggle.accessibility_label = "toggle-probe-toggle"
+              ios_tv_probe << ios_toggle.as(UI::View)
+
+              ios_toggle_value = UI::Label.new(UI::Probes::ToggleProbe.current_text)
+              ios_toggle_value.test_id = "toggle-probe-value"
+              ios_toggle_value.accessibility_label = "toggle-probe-value"
+              ios_toggle_value.text_alignment = UI::Alignment::Center
+              ios_tv_probe << ios_toggle_value.as(UI::View)
+
+              ios_tv_probe.as(UI::View)
+            when "phase-03-slider-value-probe"
+              ios_sv_probe = UI::VStack.new(spacing: 16.0)
+              ios_sv_probe.alignment = UI::Alignment::Center
+
+              ios_slider = UI::Slider.new(0.0, 1.0, UI::Probes::SliderProbe.last_value) do |new_value|
+                UI::Probes::SliderProbe.set(new_value)
+              end
+              ios_slider.test_id = "slider-probe-slider"
+              ios_slider.accessibility_label = "slider-probe-slider"
+              ios_slider.minimum_width = 280.0
+              ios_sv_probe << ios_slider.as(UI::View)
+
+              ios_slider_value = UI::Label.new(UI::Probes::SliderProbe.current_text)
+              ios_slider_value.test_id = "slider-probe-value"
+              ios_slider_value.accessibility_label = "slider-probe-value"
+              ios_slider_value.text_alignment = UI::Alignment::Center
+              ios_sv_probe << ios_slider_value.as(UI::View)
+
+              ios_sv_probe.as(UI::View)
+            when "phase-03-runtime-override-probe"
+              # BX5: SwiftUI hosting does not rebuild on Crystal property
+              # mutation in the Phase 3 bridge. See handoff blockers note.
+              ios_ov_probe = UI::VStack.new(spacing: 16.0)
+              ios_ov_probe.alignment = UI::Alignment::Center
+
+              ios_target = UI::Button.new("Override target")
+              ios_target.test_id = "override-target"
+              ios_target.accessibility_label = "override-target"
+              ios_target.minimum_height = 44.0
+              if UI::Probes::RuntimeOverrideProbe.target_red?
+                ios_target.background = UI::Color.new(r: 1.0, g: 0.0, b: 0.0)
+              end
+              ios_ov_probe << ios_target.as(UI::View)
+
+              ios_trigger = UI::Button.new("Make Red") { UI::Probes::RuntimeOverrideProbe.set_red }
+              ios_trigger.test_id = "make-red-trigger"
+              ios_trigger.accessibility_label = "make-red-trigger"
+              ios_trigger.minimum_height = 44.0
+              ios_ov_probe << ios_trigger.as(UI::View)
+
+              ios_ov_state = UI::Label.new(UI::Probes::RuntimeOverrideProbe.current_text)
+              ios_ov_state.test_id = "override-state"
+              ios_ov_state.accessibility_label = "override-state"
+              ios_ov_state.text_alignment = UI::Alignment::Center
+              ios_ov_probe << ios_ov_state.as(UI::View)
+
+              ios_ov_probe.as(UI::View)
+            when "phase-03-form-nested-buttons"
+              ios_form_stack = UI::VStack.new(spacing: 12.0)
+              ios_form_stack.alignment = UI::Alignment::Leading
+              ios_form_stack.minimum_width = 320.0
+
+              ios_row1 = UI::Button.new("Row 1")
+              ios_row1.test_id = "form-row-1"
+              ios_row1.accessibility_label = "form-row-1"
+              ios_row1.minimum_height = 44.0
+              ios_row1.minimum_width = 280.0
+              ios_form_stack << ios_row1.as(UI::View)
+
+              ios_row2 = UI::Button.new("Row 2") { UI::Probes::FormRowProbe.increment_row2 }
+              ios_row2.test_id = "form-row-2"
+              ios_row2.accessibility_label = "form-row-2"
+              ios_row2.minimum_height = 44.0
+              ios_row2.minimum_width = 280.0
+              ios_form_stack << ios_row2.as(UI::View)
+
+              ios_row3 = UI::Button.new("Row 3")
+              ios_row3.test_id = "form-row-3"
+              ios_row3.accessibility_label = "form-row-3"
+              ios_row3.minimum_height = 44.0
+              ios_row3.minimum_width = 280.0
+              ios_form_stack << ios_row3.as(UI::View)
+
+              ios_form_counter = UI::Label.new(UI::Probes::FormRowProbe.current_text)
+              ios_form_counter.test_id = "form-row-2-counter"
+              ios_form_counter.accessibility_label = "form-row-2-counter"
+              ios_form_stack << ios_form_counter.as(UI::View)
+
+              ios_form_stack.as(UI::View)
+            when "phase-03-sheet-focus-return"
+              ios_sheet_probe = UI::VStack.new(spacing: 16.0)
+              ios_sheet_probe.alignment = UI::Alignment::Center
+
+              ios_sheet_trigger = UI::Button.new("Open sheet") { }
+              ios_sheet_trigger.test_id = "sheet-trigger"
+              ios_sheet_trigger.accessibility_label = "sheet-trigger"
+              ios_sheet_trigger.minimum_height = 44.0
+              ios_sheet_probe << ios_sheet_trigger.as(UI::View)
+
+              ios_sheet_content = UI::VStack.new(spacing: 12.0)
+              ios_sheet_content.test_id = "sheet-content"
+              ios_sheet_content.accessibility_label = "sheet-content"
+              ios_sheet_content.padding = UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0)
+
+              ios_sheet_title = UI::Label.new("Confirm action")
+              ios_sheet_title.font = UI::Font.new(size: 15.0, weight: :semibold)
+              ios_sheet_content << ios_sheet_title.as(UI::View)
+
+              ios_sheet_primary = UI::Button.new("Confirm", role: :default) { UI::Probes::DismissProbe.set("primary") }
+              ios_sheet_primary.test_id = "sheet-primary"
+              ios_sheet_primary.accessibility_label = "sheet-primary"
+              ios_sheet_primary.style = UI::ButtonStyle::Prominent
+              ios_sheet_primary.minimum_height = 44.0
+              ios_sheet_content << ios_sheet_primary.as(UI::View)
+
+              ios_sheet_cancel = UI::Button.new("Cancel", role: :cancel) { UI::Probes::DismissProbe.set("cancel") }
+              ios_sheet_cancel.test_id = "sheet-cancel"
+              ios_sheet_cancel.accessibility_label = "sheet-cancel"
+              ios_sheet_cancel.minimum_height = 44.0
+              ios_sheet_content << ios_sheet_cancel.as(UI::View)
+
+              ios_sheet_v = UI::Sheet.new(ios_sheet_content.as(UI::View), surface_style: :grouped_card)
+              ios_sheet_v.accessibility_label = "sheet-surface"
+              ios_sheet_probe << ios_sheet_v.as(UI::View)
+
+              ios_sheet_reason = UI::Label.new(UI::Probes::DismissProbe.current_text)
+              ios_sheet_reason.test_id = "dismiss-reason"
+              ios_sheet_reason.accessibility_label = "dismiss-reason"
+              ios_sheet_probe << ios_sheet_reason.as(UI::View)
+
+              ios_sheet_probe.as(UI::View)
+            when "phase-03-button-default"
+              ios_save = UI::Button.new("Save")
+              ios_save.test_id = "save"
+              ios_save.accessibility_label = "save"
+              ios_save.minimum_height = 44.0
+              ios_save.minimum_width = 100.0
+              ios_save.as(UI::View)
+            when "phase-03-button-background-override"
+              ios_red = UI::Button.new("Save")
+              ios_red.background = UI::Color.new(r: 1.0, g: 0.0, b: 0.0)
+              ios_red.test_id = "save"
+              ios_red.accessibility_label = "save"
+              ios_red.minimum_height = 44.0
+              ios_red.minimum_width = 100.0
+              ios_red.as(UI::View)
+            when "phase-03-button-square"
+              ios_sq = UI::Button.new("Save")
+              ios_sq.corner_radius = 0.0
+              ios_sq.test_id = "save"
+              ios_sq.accessibility_label = "save"
+              ios_sq.minimum_height = 44.0
+              ios_sq.minimum_width = 100.0
+              ios_sq.as(UI::View)
+            when "phase-03-toggle-default"
+              ios_def_toggle = UI::Toggle.new("Notify", true)
+              ios_def_toggle.test_id = "default-toggle"
+              ios_def_toggle.accessibility_label = "default-toggle"
+              ios_def_toggle.as(UI::View)
+            when "phase-03-card-default"
+              ios_card_body = UI::VStack.new(spacing: 8.0)
+              ios_card_body.padding = UI::EdgeInsets.new(top: 16.0, trailing: 16.0, bottom: 16.0, leading: 16.0)
+              ios_card_title = UI::Label.new("Card Title")
+              ios_card_title.font = UI::Font.new(size: 17.0, weight: :semibold)
+              ios_card_body << ios_card_title.as(UI::View)
+              ios_card_detail = UI::Label.new("This card uses the default GlassBackground cascade.")
+              ios_card_body << ios_card_detail.as(UI::View)
+
+              ios_def_card = UI::Card.new(ios_card_body.as(UI::View))
+              ios_def_card.test_id = "default-card"
+              ios_def_card.accessibility_label = "default-card"
+              ios_def_card.minimum_width = 320.0
+              ios_def_card.maximum_width = 320.0
+              ios_def_card.as(UI::View)
+            when "phase-03-form-default"
+              ios_def_form = UI::Form.new
+              ios_def_section = ios_def_form.add_section
+              ios_def_section.fields << UI::Form::Field.new(label: "Notify", content: UI::Toggle.new("", true).as(UI::View))
+              ios_def_section.fields << UI::Form::Field.new(label: "Username", content: UI::TextField.new("seth").as(UI::View))
+              ios_def_picker = UI::Picker.new(["Daily", "Weekly", "Monthly"], 0)
+              ios_def_section.fields << UI::Form::Field.new(label: "Frequency", content: ios_def_picker.as(UI::View))
+              ios_def_form.test_id = "default-form"
+              ios_def_form.accessibility_label = "default-form"
+              ios_def_form.minimum_width = 360.0
+              ios_def_form.as(UI::View)
             else                            UI::Label.new("Unknown slug: #{slug}").as(UI::View)
             end
     # For scene-wrapped slugs, return just the focal component (child) so the
