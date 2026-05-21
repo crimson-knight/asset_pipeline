@@ -737,3 +737,65 @@ void *apsk_make_color_picker(const char *label, double r, double g, double b,
         cls, sel, apsk_nsstring(label), r, g, b, a,
         (id)overrides, action_token);
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3 Remediation 4 — reactive `makeReactive*` trampolines.
+//
+// Each function mirrors the matching `apsk_make_*` above but writes the
+// allocated state pointer through `out_state`. The Crystal renderer
+// stores that pointer on the resulting `NativeHandle.state_handle` so
+// the matching widget-level mutator methods (`UI::Label#text=`, etc.)
+// can dispatch through the `apsk_*_set_*` @_cdecl helpers.
+//
+// `out_state` is permitted to be NULL — callers that don't want the
+// reactive path pay no overhead beyond the extra parameter.
+// ---------------------------------------------------------------------------
+
+void *apsk_make_label_reactive(const char *text, void *overrides,
+                               void **out_state) {
+    Class cls = objc_getClass("APSKLabelFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeReactiveLabelWithText:overrides:outState:");
+    return ((id (*)(Class, SEL, id, id, void **))objc_msgSend)(
+        cls, sel, apsk_nsstring(text), (id)overrides, out_state);
+}
+
+void *apsk_make_button_reactive(const char *label, void *overrides,
+                                unsigned long long action_token,
+                                void **out_state) {
+    Class cls = objc_getClass("APSKButtonFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName(
+        "makeReactiveButtonWithLabel:overrides:actionToken:outState:");
+    return ((id (*)(Class, SEL, id, id, unsigned long long, void **))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), (id)overrides, action_token, out_state);
+}
+
+void *apsk_make_toggle_reactive(const char *label, int is_on, void *overrides,
+                                unsigned long long action_token,
+                                void **out_state) {
+    Class cls = objc_getClass("APSKToggleFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName(
+        "makeReactiveToggleWithLabel:isOn:overrides:actionToken:outState:");
+    return ((id (*)(Class, SEL, id, BOOL, id, unsigned long long, void **))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), is_on != 0, (id)overrides,
+        action_token, out_state);
+}
+
+void *apsk_make_slider_reactive(double value, double minimum, double maximum,
+                                void *overrides, unsigned long long action_token,
+                                void **out_state) {
+    Class cls = objc_getClass("APSKSliderFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName(
+        "makeReactiveSliderWithValue:minimum:maximum:overrides:actionToken:outState:");
+    return ((id (*)(Class, SEL, double, double, double, id, unsigned long long, void **))objc_msgSend)(
+        cls, sel, value, minimum, maximum, (id)overrides, action_token, out_state);
+}
+
+// The `apsk_*_set_*` and `apsk_state_release` functions themselves are
+// emitted directly by Swift via `@_cdecl` (see ReactiveState.swift). They
+// are linked symbols on the AssetPipelineSwiftKit static library; Crystal
+// declares them in `LibSwiftKitBridge` and the linker resolves them
+// without any ObjC trampoline. No C wrappers required here.

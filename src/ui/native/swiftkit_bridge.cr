@@ -243,5 +243,52 @@
     # a single child because the SwiftUI `.glassEffect()` modifier
     # composes onto a single content view.
     fun apsk_make_glass_background(overrides : Void*, child_view : Void*) : Void*
+
+    # -------------------------------------------------------------------------
+    # Phase 3 Remediation 4 — reactive facade entry points.
+    #
+    # Each `apsk_make_*_reactive` mirrors the matching static `apsk_make_*`
+    # constructor but takes an extra `out_state : Void**`. The Swift facade
+    # writes a +1 retained pointer to an `ObservableObject` state through
+    # that out-parameter; Crystal stores it on `NativeHandle#state_handle`
+    # and later calls the mutator helpers below.
+    #
+    # `out_state` may be NULL; the facade then behaves identically to the
+    # legacy static path. Renderers always pass a non-NULL slot today.
+    # -------------------------------------------------------------------------
+    fun apsk_make_label_reactive(text : UInt8*, overrides : Void*,
+                                 out_state : Void**) : Void*
+    fun apsk_make_button_reactive(label : UInt8*, overrides : Void*,
+                                  action_token : UInt64, out_state : Void**) : Void*
+    fun apsk_make_toggle_reactive(label : UInt8*, is_on : Int32, overrides : Void*,
+                                  action_token : UInt64, out_state : Void**) : Void*
+    fun apsk_make_slider_reactive(value : Float64, minimum : Float64, maximum : Float64,
+                                  overrides : Void*, action_token : UInt64,
+                                  out_state : Void**) : Void*
+
+    # -------------------------------------------------------------------------
+    # State mutators. Implemented directly in Swift via `@_cdecl` (see
+    # `swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/
+    # ReactiveState.swift`). The Crystal-side widget mutators
+    # (`UI::Label#text=`, `UI::Button#background=`, etc.) dispatch here.
+    # -------------------------------------------------------------------------
+    fun apsk_label_set_text(state : Void*, text : UInt8*)
+    fun apsk_button_set_background_color(state : Void*,
+                                         r : Float64, g : Float64,
+                                         b : Float64, a : Float64)
+    fun apsk_button_clear_background_color(state : Void*)
+    fun apsk_button_set_foreground_color(state : Void*,
+                                         r : Float64, g : Float64,
+                                         b : Float64, a : Float64)
+    fun apsk_button_clear_foreground_color(state : Void*)
+    fun apsk_button_set_corner_radius(state : Void*, value : Float64)
+    fun apsk_button_clear_corner_radius(state : Void*)
+    fun apsk_toggle_set_value(state : Void*, is_on : Int32)
+    fun apsk_slider_set_value(state : Void*, value : Float64)
+
+    # Drop the +1 retain Swift's `Unmanaged.passRetained` placed on the
+    # state object inside the matching `apsk_make_*_reactive` call. Safe
+    # to call with NULL.
+    fun apsk_state_release(state : Void*)
   end
 {% end %}
