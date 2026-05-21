@@ -2391,18 +2391,187 @@ module UI
         push_element(el)
       end
 
-      # Phase 4 — Tier 3 cross-platform companion. Final HTML structure and
-      # inlined CSS / JS land in Commit 2 + Commit 3; Commit 1 establishes the
-      # method so the class can be exercised.
+      # Phase 4 — Tier 3 cross-platform companion. Renders a bottom-sheet
+      # styled to read as the native iOS action sheet, with backdrop,
+      # backdrop-tap-dismiss, swipe-handle affordance, optional cancel
+      # button, and full ARIA chrome (role=dialog, aria-modal=true,
+      # aria-labelledby, aria-describedby). The vanilla-JS focus trap,
+      # Escape-to-dismiss, and action dispatch land in Commit 3.
       def visit(view : UI::ActionSheetWithWebFallback)
-        el = Components::Elements::Div.new
-        el.set_attribute("role", "dialog")
-        el.set_attribute("aria-modal", "true")
-        el.set_attribute("data-component", "action-sheet-fallback")
-        el.set_attribute("data-presented", view.is_presented.to_s)
-        apply_common_styles(el, view)
-        push_element(el)
+        id = next_action_sheet_id
+        title_id = "ap-as-title-#{id}"
+        msg_id = "ap-as-msg-#{id}"
+
+        root = Components::Elements::Div.new
+        root.add_class("ap-action-sheet")
+        root.set_attribute("role", "dialog")
+        root.set_attribute("aria-modal", "true")
+        root.set_attribute("aria-labelledby", title_id)
+        root.set_attribute("aria-describedby", msg_id) unless view.message.empty?
+        root.set_attribute("data-presented", view.is_presented.to_s)
+        root.set_attribute("data-component", "action-sheet")
+        root.set_attribute("data-testid", "ap-action-sheet-#{id}")
+
+        backdrop = Components::Elements::Div.new
+        backdrop.add_class("ap-action-sheet__backdrop")
+        backdrop.set_attribute("data-ap-as-dismiss", "backdrop")
+        root.add_child(backdrop)
+
+        panel = Components::Elements::Div.new
+        panel.add_class("ap-action-sheet__panel")
+        panel.set_attribute("role", "document")
+        panel.set_attribute("tabindex", "-1")
+
+        handle_el = Components::Elements::Div.new
+        handle_el.add_class("ap-action-sheet__handle")
+        handle_el.set_attribute("aria-hidden", "true")
+        panel.add_child(handle_el)
+
+        h2 = Components::Elements::H2.new
+        h2.set_attribute("id", title_id)
+        h2.add_class("ap-action-sheet__title")
+        if view.title.empty?
+          # Hidden anchor for aria-labelledby when no visible title.
+          h2.set_attribute("hidden", "hidden")
+        else
+          h2 << view.title
+        end
+        panel.add_child(h2)
+
+        unless view.message.empty?
+          msg_el = Components::Elements::P.new
+          msg_el.set_attribute("id", msg_id)
+          msg_el.add_class("ap-action-sheet__message")
+          msg_el << view.message
+          panel.add_child(msg_el)
+        end
+
+        actions_list = Components::Elements::Ul.new
+        actions_list.add_class("ap-action-sheet__actions")
+        actions_list.set_attribute("role", "group")
+
+        cancel_pair : Tuple(Int32, UI::ActionSheetWithWebFallback::Action)? = nil
+        view.actions.each_with_index do |action, index|
+          if action.style == :cancel
+            cancel_pair ||= {index, action}
+            next
+          end
+
+          li = Components::Elements::Li.new
+          btn = Components::Elements::Button.new(type: "button")
+          btn.add_class("ap-action-sheet__action")
+          btn.add_class(action.style == :destructive ? "ap-action-sheet__action--destructive" : "ap-action-sheet__action--default")
+          btn.set_attribute("data-ap-as-action", index.to_s)
+          enforce_touch_target(btn)
+          btn << action.label
+          li.add_child(btn)
+          actions_list.add_child(li)
+        end
+        panel.add_child(actions_list)
+
+        if pair = cancel_pair
+          idx, action = pair
+          cancel_btn = Components::Elements::Button.new(type: "button")
+          cancel_btn.add_class("ap-action-sheet__action")
+          cancel_btn.add_class("ap-action-sheet__action--cancel")
+          cancel_btn.set_attribute("data-ap-as-action", idx.to_s)
+          cancel_btn.set_attribute("data-ap-as-dismiss", "cancel")
+          enforce_touch_target(cancel_btn)
+          cancel_btn << action.label
+          panel.add_child(cancel_btn)
+        end
+
+        root.add_child(panel)
+
+        # Inline CSS once per renderer instance — registration guard lives
+        # on @action_sheet_css_emitted so subsequent emissions for the
+        # same renderer just skip the style block.
+        unless @action_sheet_css_emitted
+          @action_sheet_css_emitted = true
+          style_block = Components::Elements::Style.new
+          style_block << ACTION_SHEET_FALLBACK_CSS
+          root.add_child(style_block)
+        end
+
+        apply_common_styles(root, view)
+        push_element(root)
       end
+
+      # Monotonic per-renderer counter for action-sheet element IDs.
+      private def next_action_sheet_id : Int32
+        @action_sheet_counter ||= 0
+        (@action_sheet_counter = @action_sheet_counter.not_nil! + 1)
+      end
+
+      @action_sheet_css_emitted : Bool = false
+
+      ACTION_SHEET_FALLBACK_CSS = <<-CSS
+      .ap-action-sheet { position: fixed; inset: 0; z-index: 1000; display: none; }
+      .ap-action-sheet[data-presented="true"] { display: block; }
+      .ap-action-sheet__backdrop {
+        position: absolute; inset: 0;
+        background: oklch(0.18 0.02 248 / 0.42);
+      }
+      .ap-action-sheet__panel {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        background: var(--ap-color-surface-panel);
+        color: var(--ap-color-text-primary);
+        border-radius: var(--ap-radius-panel) var(--ap-radius-panel) 0 0;
+        padding: 12px 16px env(safe-area-inset-bottom);
+        box-shadow: var(--ap-elevation-overlay);
+        transform: translateY(0);
+        transition: transform var(--ap-motion-duration-base) var(--ap-motion-ease-standard);
+        outline: none;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+      .ap-action-sheet[data-presented="false"] .ap-action-sheet__panel {
+        transform: translateY(100%);
+      }
+      .ap-action-sheet__handle {
+        width: 36px; height: 5px;
+        background: var(--ap-color-border-default);
+        border-radius: var(--ap-radius-pill);
+        margin: 0 auto 12px;
+      }
+      @media (min-width: 768px) {
+        .ap-action-sheet__panel {
+          left: 50%; right: auto; bottom: 50%;
+          transform: translate(-50%, 50%);
+          max-width: 420px; width: 90vw;
+          border-radius: var(--ap-radius-panel);
+        }
+        .ap-action-sheet[data-presented="false"] .ap-action-sheet__panel {
+          transform: translate(-50%, 50%) scale(0.96);
+          opacity: 0;
+        }
+        .ap-action-sheet__handle { display: none; }
+      }
+      .ap-action-sheet__title   { font-size: 17px; font-weight: 600; text-align: center; margin: 0 0 4px; }
+      .ap-action-sheet__message { font-size: 13px; color: var(--ap-color-text-secondary); text-align: center; margin: 0 0 16px; }
+      .ap-action-sheet__actions { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-direction: column; gap: 8px; }
+      .ap-action-sheet__action {
+        width: 100%;
+        padding: 12px 16px;
+        border: none; border-radius: var(--ap-radius-control);
+        background: var(--ap-color-surface-sunken);
+        color: var(--ap-color-brand-accent);
+        font-size: 17px;
+        cursor: pointer;
+        min-height: 44px;
+      }
+      .ap-action-sheet__action:focus-visible {
+        outline: 2px solid var(--ap-color-focus-ring);
+        outline-offset: 2px;
+      }
+      .ap-action-sheet__action--destructive { color: var(--ap-color-danger-text); }
+      .ap-action-sheet__action--cancel {
+        background: var(--ap-color-surface-panel);
+        font-weight: 600;
+        margin-top: 4px;
+        border: 1px solid var(--ap-color-border-default);
+      }
+      CSS
     end
   end
 end

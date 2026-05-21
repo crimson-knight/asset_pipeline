@@ -4413,11 +4413,26 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       end
 
       def visit(view : UI::ActionSheetWithWebFallback)
-        # Phase 4 — full implementation lands in Commit 2. For now route
-        # through a no-op view shaped like a ConfirmationDialog modal.
-        v = alloc_init("NSView")
-        apply_common_properties(v, view)
-        emit(v, "NSView[ActionSheetWithWebFallback-stub]")
+        # macOS lacks a native action-sheet idiom (HIG steers developers to
+        # NSAlert / modal sheets). We synthesize a UI::ConfirmationDialog
+        # from the first non-cancel + cancel pair and delegate to the
+        # existing visitor so the macOS rendering matches the rest of the
+        # ConfirmationDialog ecosystem. Multi-action fidelity is deferred
+        # to Phase 5 (multi-action SwiftKit facade).
+        primary = view.actions.find { |a| a.style != :cancel }
+        cancel = view.actions.find { |a| a.style == :cancel }
+        dialog = UI::ConfirmationDialog.new(view.title, view.message)
+        dialog.is_presented = view.is_presented
+        if primary
+          dialog.confirm_label = primary.label
+          dialog.confirm_style = primary.style == :destructive ? :destructive : :default
+          dialog.on_confirm = primary.action
+        end
+        if cancel
+          dialog.cancel_label = cancel.label
+          dialog.on_cancel = cancel.action
+        end
+        visit(dialog)
       end
 
       # ================================================================

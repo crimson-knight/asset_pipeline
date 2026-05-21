@@ -3126,12 +3126,24 @@ module UI::Android
     end
 
     def visit(view : UI::ActionSheetWithWebFallback)
-      # Phase 4 — Commit 2 wires the BottomSheet rendering. Stub for now.
-      view_ptr = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
-      global_ptr = LibAndroidBridge.android_new_global_ref(@env, view_ptr)
-      handle = JNI.wrap_global(global_ptr, label: "View[ActionSheetWithWebFallback-stub]")
-      native = NativeView.new(handle)
-      push_native(native, view_ptr)
+      # Android has a BottomSheetDialog widget but Phase 4 keeps fidelity
+      # high by synthesizing a UI::ConfirmationDialog (confirm + cancel)
+      # and routing through the existing visitor; Material 3 styling is
+      # already wired there. Multi-action BottomSheet is a Phase 5 follow.
+      primary = view.actions.find { |a| a.style != :cancel }
+      cancel = view.actions.find { |a| a.style == :cancel }
+      dialog = UI::ConfirmationDialog.new(view.title, view.message)
+      dialog.is_presented = view.is_presented
+      if primary
+        dialog.confirm_label = primary.label
+        dialog.confirm_style = primary.style == :destructive ? :destructive : :default
+        dialog.on_confirm = primary.action
+      end
+      if cancel
+        dialog.cancel_label = cancel.label
+        dialog.on_cancel = cancel.action
+      end
+      visit(dialog)
     end
 
     # ================================================================

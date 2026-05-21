@@ -4475,28 +4475,74 @@
         emit(stack, "UIStackView[rating-indicator]")
       end
 
-      # Phase 4 — Tier 3. iOS rendering of `UI::ActionSheet`.
+      # Phase 4 — Tier 3. iOS rendering of UI::ActionSheet.
       #
       # The Phase 3 SwiftKit bridge currently exposes only a binary
-      # confirm/cancel `ConfirmationDialogFacade`. We route ActionSheet
+      # confirm/cancel ConfirmationDialogFacade. We route ActionSheet
       # through it with a conservative mapping: the first non-cancel action
-      # becomes the confirm button (inheriting its `:destructive` style if
+      # becomes the confirm button (inheriting its :destructive style if
       # set), the explicit cancel-style action (if any) becomes the cancel
       # button, and any additional actions are dropped at render time.
-      # Commit 2 fleshes out the bridge call; for now this is a stub that
-      # emits a hidden UIView so the un-gated Commit 1 build compiles.
+      # Phase 5 will extend the SwiftKit bridge with a multi-action facade.
       def visit(view : UI::ActionSheet)
-        v = alloc_init("UIView")
-        LibObjCBridge.objc_send_bool(v, sel("setHidden:"), 1)
-        apply_common_properties(v, view)
-        emit(v, "UIView[ActionSheet-stub]")
+        overrides_ptr = LibSwiftKitBridge.apsk_confirmation_dialog_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+
+        # Replay common view properties through the existing populator path.
+        UI::Native::Populator.populate_view_common(target_str, view, sender)
+        sender.set_string(target_str, :setTitle,
+          view.title.empty? ? nil : view.title)
+        sender.set_string(target_str, :setMessage,
+          view.message.empty? ? nil : view.message)
+        sender.set_bool(target_str, :setIsPresented,
+          view.is_presented ? true : nil)
+
+        callback_ids = [] of UInt64
+
+        # Map first non-cancel action -> confirm button.
+        if primary = view.primary_action
+          sender.set_string(target_str, :setConfirmLabel, primary.label)
+          if primary.style == :destructive
+            sender.set_string(target_str, :setConfirmStyle, "destructive")
+          end
+          if action = primary.action
+            tok = UI::CallbackRegistry.register_action(&action)
+            callback_ids << tok
+            LibSwiftKitBridge.apsk_overrides_set_int(
+              overrides_ptr, "setConfirmToken:".to_unsafe, tok.to_i64,
+            )
+          end
+        end
+
+        # Map cancel-style action -> cancel button (when present).
+        if cancel = view.cancel_action
+          sender.set_string(target_str, :setCancelLabel, cancel.label)
+          if action = cancel.action
+            tok = UI::CallbackRegistry.register_action(&action)
+            callback_ids << tok
+            LibSwiftKitBridge.apsk_overrides_set_int(
+              overrides_ptr, "setCancelToken:".to_unsafe, tok.to_i64,
+            )
+          end
+        end
+
+        ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog(
+          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "UIHostingView[ActionSheet]")
+        native = NativeView.new(handle)
+        callback_ids.each { |id| native.track_callback_id(id) }
+        push_native(native)
       end
 
       def visit(view : UI::ActionSheetWithWebFallback)
-        # On iOS the WithWebFallback delegates to the gated `UI::ActionSheet`
-        # via its `accept` override (see Commit 4). This visitor exists for
-        # the un-gated Commit 1 build only; after Commit 4 the iOS branch of
-        # the fallback class never calls `visitor.visit(self)`.
+        # After Commit 4 the WithWebFallback's iOS branch holds a
+        # UI::ActionSheet and forwards accept(); this visitor exists for
+        # the un-gated Commit 1 build only. We render an empty container
+        # so the un-gated path remains harmless. Once the gate is in place
+        # the iOS branch of the fallback class never invokes
+        # visitor.visit(self).
         v = alloc_init("UIView")
         LibObjCBridge.objc_send_bool(v, sel("setHidden:"), 1)
         apply_common_properties(v, view)
