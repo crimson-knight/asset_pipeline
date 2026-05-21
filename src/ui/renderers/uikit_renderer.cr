@@ -1242,16 +1242,49 @@
       end
 
       # -----------------------------------------------------------------
-      # Visit: ListView -> UIStackView (vertical rows or row-of-rows grid)
+      # Visit: ListView -> SwiftUI `List { Section { ... } }` via
+      # APSKListViewFacade (UIHostingController on iOS).
       #
-      # Grid mode: wraps items into horizontal UIStackViews of `columns`
-      # width, then stacks those rows vertically. This approximates
-      # UICollectionView's flow layout without requiring a data-source
-      # delegate chain through the ObjC bridge in the validation renderer.
-      # Production use should prefer UI::ListView with layout: :grid which
-      # will map to a real UICollectionView via the production UIKit renderer.
+      # Items are flattened across all sections into a single child-views
+      # array; populator emits `setSectionItemCounts` so the facade can
+      # slice them back into SwiftUI `Section`s. List style (Plain /
+      # Inset / Grouped / InsetGrouped / Sidebar) flows through the
+      # populator as a string key the facade switches on.
+      #
+      # The legacy raw-UIStackView body is preserved as
+      # `_legacy_list_view` for diffing during this migration; it is no
+      # longer reached.
       # -----------------------------------------------------------------
       def visit(view : UI::ListView)
+        overrides_ptr = LibSwiftKitBridge.apsk_list_view_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_list_view(target_str, view, sender)
+
+        children_native = [] of NativeView
+        view.sections.each do |section|
+          section.items.each do |item|
+            if d = render_detached(item)
+              children_native << d
+            else
+              empty_ptr = alloc_init("UIView")
+              children_native << NativeView.new(ObjC.owned(empty_ptr, label: "UIView[list-empty]"))
+            end
+          end
+        end
+
+        child_buf = build_child_buffer(children_native)
+        ptr = LibSwiftKitBridge.apsk_make_list_view(
+          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
+        )
+        handle = ObjC.owned(ptr, label: "UIHostingView[ListView]")
+        native = NativeView.new(handle)
+        children_native.each { |c| native.add_child(c) }
+        push_native(native)
+      end
+
+      # Legacy UIKit ListView body, retained for reference.
+      private def _legacy_list_view(view : UI::ListView)
         outer_ptr = alloc_init("UIStackView")
 
         # UILayoutConstraintAxisVertical = 1
