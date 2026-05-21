@@ -47,7 +47,13 @@ public class ViewOverrides: NSObject {
     @objc public var maxWidth: NSNumber? = nil
     @objc public var maxHeight: NSNumber? = nil
     @objc public var accessibilityIdentifier: String? = nil
-    @objc public var accessibilityLabel: String? = nil
+    // Renamed from `accessibilityLabel` to avoid colliding with the
+    // `NSObject`-supplied `UIAccessibility.accessibilityLabel` selector on
+    // iOS slices, which produced the iter-1 "setter conflicts with
+    // superclass" compile error. The explicit `@objc(apskAccessibilityLabel)`
+    // pins the Objective-C selector so the Crystal Populator addresses an
+    // unambiguous setter (`setApskAccessibilityLabel:`).
+    @objc(apskAccessibilityLabel) public var apskAccessibilityLabel: String? = nil
 
     @objc public override init() { super.init() }
 }

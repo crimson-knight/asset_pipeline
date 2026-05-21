@@ -145,7 +145,10 @@ module UI
         sender.set_number(target, :setMaxHeight, view.maximum_height)
 
         sender.set_string(target, :setAccessibilityIdentifier, view.test_id)
-        sender.set_string(target, :setAccessibilityLabel, view.accessibility_label)
+        # Renamed selector — see ViewOverrides.swift. The accessor remains
+        # `apskAccessibilityLabel`; the setter is `setApskAccessibilityLabel:`.
+        # Avoids the iOS UIAccessibility.accessibilityLabel selector clash.
+        sender.set_string(target, :setApskAccessibilityLabel, view.accessibility_label)
       end
 
       # Populate an `APSKButtonOverrides` instance from a `UI::Button`.

@@ -24,9 +24,14 @@ public class DividerFacade: NSObject {
             // SwiftUI does not expose a public thickness modifier on
             // Divider; we approximate via a `Rectangle().frame(height:)`
             // fallback when an explicit thickness is requested.
+            //
+            // `Color(.separator)` (or `.fill(.separator)`) requires
+            // iOS 17 / macOS 14. The package targets iOS 16 / macOS 13
+            // so we fall back to a semantic secondary tone that tracks
+            // appearance correctly on both OSes.
             content = AnyView(
                 Rectangle()
-                    .fill(.separator)
+                    .fill(Color.secondary.opacity(0.3))
                     .frame(height: CGFloat(t.doubleValue))
             )
         }

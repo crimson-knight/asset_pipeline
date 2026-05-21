@@ -76,7 +76,7 @@ enum CommonModifiers {
         if let id = overrides.accessibilityIdentifier {
             current = AnyView(current.accessibilityIdentifier(id))
         }
-        if let lbl = overrides.accessibilityLabel {
+        if let lbl = overrides.apskAccessibilityLabel {
             current = AnyView(current.accessibilityLabel(Text(lbl)))
         }
         return current

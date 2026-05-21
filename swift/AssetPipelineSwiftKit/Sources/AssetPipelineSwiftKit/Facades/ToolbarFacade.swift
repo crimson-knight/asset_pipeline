@@ -28,37 +28,26 @@ public class ToolbarFacade: NSObject {
         // its content; the host itself is a 1x1 clear rect so the
         // toolbar visually attaches to the parent (a NavigationStack
         // root, typically).
+        //
+        // ToolbarFacade compile-error fix (iter-1 remediation): the
+        // toolbar body is built from `@ToolbarContentBuilder`-typed
+        // helpers. `ForEach { ToolbarItem(...) }` is only valid when the
+        // surrounding context is `@ToolbarContentBuilder` — inside a
+        // plain `@ViewBuilder` the compiler resolves `ToolbarItem` as a
+        // `View` candidate and fails. Splitting `toolbarContent(...)`
+        // out as a `some ToolbarContent`-returning helper keeps the
+        // result-builder context unambiguous.
         var content: AnyView = AnyView(
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .toolbar {
-                    // Toolbar items derived from override arrays (data-
-                    // driven). Custom-view children (childViews) are
-                    // appended as additional ToolbarItem entries with
-                    // the "primary" placement when present.
-                    ForEach(0..<labels.count, id: \.self) { idx in
-                        ToolbarItem(placement: placementFor(idx < placements.count ? placements[idx] : "primary")) {
-                            let label = labels[idx]
-                            let icon = idx < icons.count ? icons[idx] : ""
-                            let token = idx < tokens.count ? tokens[idx].uint64Value : 0
-                            Button(action: {
-                                CallbackBridge.fire(token: token, value: 0.0)
-                            }) {
-                                if !icon.isEmpty && !label.isEmpty {
-                                    Label(label, systemImage: icon)
-                                } else if !icon.isEmpty {
-                                    Image(systemName: icon)
-                                } else {
-                                    Text(label)
-                                }
-                            }
-                        }
-                    }
-                    ForEach(0..<childViews.count, id: \.self) { idx in
-                        ToolbarItem(placement: .primaryAction) {
-                            APSKHostedChild(view: childViews[idx])
-                        }
-                    }
+                    Self.toolbarContent(
+                        labels: labels,
+                        icons: icons,
+                        tokens: tokens,
+                        placements: placements,
+                        childViews: childViews
+                    )
                 }
         )
 
@@ -68,6 +57,57 @@ public class ToolbarFacade: NSObject {
 
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(content)
+    }
+
+    /// `@ToolbarContentBuilder`-typed helper. This is the key piece of the
+    /// iter-1 fix: keeping the toolbar items in their own result-builder
+    /// context means `ForEach`/`ToolbarItem` resolve through
+    /// `ToolbarContentBuilder` instead of `ViewBuilder`.
+    ///
+    /// Because `ForEach` adopting `ToolbarContent` is only available in
+    /// iOS 17+ / macOS 14+, and this package targets iOS 16 / macOS 13,
+    /// we wrap the dynamic data-driven items in a single
+    /// `ToolbarItemGroup(placement: .automatic)` whose `@ViewBuilder`
+    /// content is the natural home of the `ForEach`. The placement-
+    /// specific routing is handled by a second pre-rendered placement
+    /// (the first item's placement, since SwiftUI toolbars on iOS 16 do
+    /// not support per-item placement inside a single group — the
+    /// renderer-side populator already groups items by placement before
+    /// this facade is called).
+    @ToolbarContentBuilder
+    private static func toolbarContent(
+        labels: [String],
+        icons: [String],
+        tokens: [NSNumber],
+        placements: [String],
+        childViews: [APSKPlatformView]
+    ) -> some ToolbarContent {
+        // Resolve a single group placement from the first item — the
+        // populator emits a uniform placement array today; richer per-
+        // item placement support is gated on the iOS 17 minimum bump.
+        let groupPlacement: ToolbarItemPlacement = placements.first.map(placementFor) ?? .primaryAction
+
+        ToolbarItemGroup(placement: groupPlacement) {
+            ForEach(0..<labels.count, id: \.self) { idx in
+                let label = labels[idx]
+                let icon = idx < icons.count ? icons[idx] : ""
+                let token = idx < tokens.count ? tokens[idx].uint64Value : 0
+                Button(action: {
+                    CallbackBridge.fire(token: token, value: 0.0)
+                }) {
+                    if !icon.isEmpty && !label.isEmpty {
+                        Label(label, systemImage: icon)
+                    } else if !icon.isEmpty {
+                        Image(systemName: icon)
+                    } else {
+                        Text(label)
+                    }
+                }
+            }
+            ForEach(0..<childViews.count, id: \.self) { idx in
+                APSKHostedChild(view: childViews[idx])
+            }
+        }
     }
 
     private static func placementFor(_ s: String) -> ToolbarItemPlacement {

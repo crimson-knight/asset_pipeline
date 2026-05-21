@@ -62,7 +62,8 @@ describe UI::Native::Populator, "#populate_button" do
       FakeLibObjCBridge.refute_sent(:setMaxWidth)
       FakeLibObjCBridge.refute_sent(:setMaxHeight)
       FakeLibObjCBridge.refute_sent(:setAccessibilityIdentifier)
-      FakeLibObjCBridge.refute_sent(:setAccessibilityLabel)
+      # Renamed selector — see ViewOverrides.swift / swiftkit_overrides.cr.
+      FakeLibObjCBridge.refute_sent(:setApskAccessibilityLabel)
 
       # Button-specific defaults — role=:default, style=Default,
       # disabled=false, symbol=nil — all skipped.
