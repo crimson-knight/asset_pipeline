@@ -109,20 +109,22 @@ private struct APSKButtonHost: View {
             base = AnyView(Button(label, action: action))
         }
 
-        // BX6 / BX9: apply minHeight / minWidth directly to the SwiftUI
-        // Button BEFORE any style or hosting modifiers so XCUITest reads
-        // the Button's own frame at the developer's specified floor.
-        // `.frame(height:)` (exact) is the only modifier that actually
-        // resizes the rendered Button — `.frame(minHeight:)` alone just
-        // resizes the surrounding container, leaving the Button's
-        // intrinsic ~25pt height in place (BX9 regression).
+        // BX6 / BX9: apply minHeight/minWidth as exact frame() pins
+        // on the Button. SwiftUI's body-Button intrinsic is ~25pt; the
+        // `.frame(height:)` modifier widens the rendered Button (and
+        // its content-shape hit-test rect). Use `.contentShape` to also
+        // expand the AX hit rect so XCUITest's `frame.size` reads the
+        // touch-target floor rather than the natural body-text rect.
         if let mh = overrides.minHeight {
             let mhCG = CGFloat(mh.doubleValue)
-            base = AnyView(base.frame(height: mhCG))
+            base = AnyView(
+                base.frame(minHeight: mhCG)
+                    .contentShape(Rectangle())
+            )
         }
         if let mw = overrides.minWidth {
             let mwCG = CGFloat(mw.doubleValue)
-            base = AnyView(base.frame(width: mwCG))
+            base = AnyView(base.frame(minWidth: mwCG))
         }
 
         // Style cascade. SwiftUI layers system defaults (font, animation,
