@@ -36,6 +36,7 @@ require "../views/card"
 require "../views/surface"
 require "../views/menu_button"
 require "../views/toggle_button"
+require "../views/glass_background"
 require "./swiftkit_bridge"
 
 module UI
@@ -546,6 +547,35 @@ module UI
         populate_view_common(target, view, sender)
         sender.set_string(target, :setIcon, view.icon)
         sender.set_bool(target, :setIsSelected, view.is_selected ? true : nil)
+      end
+
+      # ---------------------------------------------------------------
+      # Glass — the Phase 3 "headline visual differentiator". On iOS 26 /
+      # macOS 26 the facade routes through `.glassEffect()` for real
+      # Liquid Glass; on pre-26 OSes it falls back to `.background(<Material>)`.
+      #
+      # `material` mirrors the Crystal `UI::GlassBackground.material`
+      # symbol (:regular | :thin | :ultra_thin | :thick | :chrome). The
+      # facade switch normalises camelCase keys (`ultraThin`) on the
+      # Swift side; we emit them in the same shape so the facade
+      # dispatch stays simple.
+      def self.populate_glass_background(target : String, view : UI::GlassBackground, sender : Sender)
+        populate_view_common(target, view, sender)
+
+        # Map Crystal Symbol -> Swift facade key. :regular is the type
+        # default; only emit when the developer chose a different material
+        # so the SwiftUI default ("regular" / Liquid Glass regular on iOS
+        # 26) stays in force.
+        unless view.material == :regular
+          key = case view.material
+                when :ultra_thin  then "ultraThin"
+                when :thin        then "thin"
+                when :thick       then "thick"
+                when :chrome      then "ultraThick" # closest Material analogue
+                else                   view.material.to_s
+                end
+          sender.set_string(target, :setMaterial, key)
+        end
       end
 
       # Symbol-to-ObjC-selector helper. The Populator emits setter

@@ -252,6 +252,11 @@ APSK_OVERRIDES_NEW(apsk_menu_button_overrides_new,           "APSKMenuButtonOver
 APSK_OVERRIDES_NEW(apsk_toggle_button_overrides_new,         "APSKToggleButtonOverrides")
 
 // ---------------------------------------------------------------------------
+// Glass (P1 — Phase 3 "headline visual differentiator").
+// ---------------------------------------------------------------------------
+APSK_OVERRIDES_NEW(apsk_glass_background_overrides_new,      "APSKGlassBackgroundOverrides")
+
+// ---------------------------------------------------------------------------
 // Array-field overrides setters. Each takes the overrides instance, the
 // setter selector name (with trailing colon), and a contiguous C array
 // of the matching element type. The C trampoline boxes the elements
@@ -476,6 +481,19 @@ void *apsk_make_toggle_button(const char *label, void *overrides,
     SEL sel = sel_registerName("makeToggleButtonWithLabel:overrides:actionToken:");
     return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(label), (id)overrides, action_token);
+}
+
+// ---------------------------------------------------------------------------
+// Glass facade trampoline. Phase 3 "headline visual differentiator" — the
+// Swift facade routes through `.glassEffect()` on iOS 26 / macOS 26 and
+// falls back to `.background(<Material>)` on the pre-26 OSes.
+// ---------------------------------------------------------------------------
+void *apsk_make_glass_background(void *overrides, void *child_view) {
+    Class cls = objc_getClass("APSKGlassBackgroundFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeGlassBackgroundWithOverrides:childView:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, (id)overrides, (id)child_view);
 }
 
 // ---------------------------------------------------------------------------

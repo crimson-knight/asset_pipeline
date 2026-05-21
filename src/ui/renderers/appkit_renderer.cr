@@ -2569,47 +2569,35 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       end
 
       # -----------------------------------------------------------------
-      # Visit: GlassBackground -> NSVisualEffectView
+      # Visit: GlassBackground -> SwiftUI .glassEffect() (iOS 26 / macOS 26)
+      # with `.background(<Material>)` fallback on pre-26 OSes.
+      #
+      # Phase 3 remediation: migrated to the populator + facade flow so
+      # the "headline visual differentiator" the Phase 3 README names
+      # (Liquid Glass on default Card/Sheet surfaces) is wired through
+      # the same default-detection cascade as every other widget.
       # -----------------------------------------------------------------
       def visit(view : UI::GlassBackground)
-        ptr = alloc_init("NSVisualEffectView")
+        overrides_ptr = LibSwiftKitBridge.apsk_glass_background_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_glass_background(target_str, view, sender)
 
-        # NSVisualEffectMaterial constants (macOS 10.14+):
-        #   Medium=1, Light=2, Titlebar=3, Selection=4, Menu=5,
-        #   Popover=6, Sidebar=7, HeaderView=10, Sheet=11, WindowBackground=12,
-        #   HUDWindow=13, FullScreenUI=15, Tooltip=17, ContentBackground=18,
-        #   UnderWindowBackground=21, UnderPageBackground=22
-        # NSVisualEffectMaterialSidebar (7) is the HIG-correct material for
-        # sidebar columns. It tracks appearance automatically and applies the
-        # translucent Liquid Glass sidebar surface.
-        material_val = case view.material
-                       when :ultra_thin then 9_i64  # NSVisualEffectMaterialUltraLight (closest)
-                       when :thin       then 2_i64  # NSVisualEffectMaterialLight
-                       when :regular    then 12_i64 # NSVisualEffectMaterialWindowBackground
-                       when :thick      then 1_i64  # NSVisualEffectMaterialMedium
-                       when :chrome     then 3_i64  # NSVisualEffectMaterialTitlebar
-                       when :sidebar    then 7_i64  # NSVisualEffectMaterialSidebar (HIG sidebar column)
-                       when :menu       then 5_i64  # NSVisualEffectMaterialMenu
-                       when :popover    then 6_i64  # NSVisualEffectMaterialPopover
-                       when :sheet      then 11_i64 # NSVisualEffectMaterialSheet
-                       else                  12_i64
-                       end
-        LibObjCBridge.objc_send_long(ptr, sel("setMaterial:"), material_val)
-
-        # NSVisualEffectBlendingModeWithinWindow = 1
-        LibObjCBridge.objc_send_long(ptr, sel("setBlendingMode:"), 1_i64)
-
-        apply_common_properties(ptr, view)
-
-        handle = ObjC.owned(ptr, label: "NSVisualEffectView")
-        native = NativeView.new(handle)
-
+        child_ptr = Pointer(Void).null
+        child_native : NativeView? = nil
         if content = view.content
-          push_stack(native, is_nsstack: false)
-          content.accept(self)
-          pop_stack
+          if d = render_detached(content)
+            child_native = d
+            child_ptr = d.handle.ptr!
+          end
         end
 
+        ptr = LibSwiftKitBridge.apsk_make_glass_background(overrides_ptr, child_ptr)
+        handle = ObjC.owned(ptr, label: "NSHostingView[GlassBackground]")
+        native = NativeView.new(handle)
+        if c = child_native
+          native.add_child(c)
+        end
         push_native(native)
       end
 

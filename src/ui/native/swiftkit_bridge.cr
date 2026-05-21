@@ -95,6 +95,9 @@
     fun apsk_menu_button_overrides_new : Void*
     fun apsk_toggle_button_overrides_new : Void*
 
+    # ---- Glass (P1 — the Phase 3 "headline visual differentiator") -----
+    fun apsk_glass_background_overrides_new : Void*
+
     # -------------------------------------------------------------------------
     # Overrides field setters. Each takes the `APSK*Overrides` pointer,
     # the ObjC setter selector NAME (e.g. "setBackgroundColor:") as a
@@ -225,5 +228,13 @@
     fun apsk_make_menu_button(label : UInt8*, overrides : Void*) : Void*
     fun apsk_make_toggle_button(label : UInt8*, overrides : Void*,
                                 action_token : UInt64) : Void*
+
+    # ---- Glass facade (P1) --------------------------------------------
+    # `child_view` is a single platform-view pointer (the content the
+    # glass material backs) or NULL for an empty glass card. Unlike the
+    # Group-3 container facades (which take a Void* + count), Glass takes
+    # a single child because the SwiftUI `.glassEffect()` modifier
+    # composes onto a single content view.
+    fun apsk_make_glass_background(overrides : Void*, child_view : Void*) : Void*
   end
 {% end %}

@@ -2550,53 +2550,35 @@
       end
 
       # -----------------------------------------------------------------
-      # Visit: GlassBackground -> UIVisualEffectView
+      # Visit: GlassBackground -> SwiftUI .glassEffect() (iOS 26+) /
+      # `.background(<Material>)` fallback on iOS 16..25.
+      #
+      # Phase 3 remediation: migrated to the populator + facade flow so
+      # the "headline visual differentiator" the Phase 3 README names
+      # (Liquid Glass on default Card/Sheet surfaces) is wired through
+      # the same default-detection cascade as every other widget.
       # -----------------------------------------------------------------
       def visit(view : UI::GlassBackground)
-        # UIBlurEffect.effectWithStyle:
-        blur_cls = LibObjCBridge.objc_getClass("UIBlurEffect")
+        overrides_ptr = LibSwiftKitBridge.apsk_glass_background_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_glass_background(target_str, view, sender)
 
-        # UIBlurEffectStyle: extraLight=0, light=1, dark=2, extraDark=3,
-        # regular=4 (iOS 10+), prominent=5, systemUltraThinMaterial=8,
-        # systemThinMaterial=9, systemMaterial=10, systemThickMaterial=11,
-        # systemChromeMaterial=12
-        # On iOS, sidebar material does not exist; map to systemMaterial (10)
-        # as the closest translucent surface that tracks appearance.
-        style_val = case view.material
-                    when :ultra_thin then 8_i64  # systemUltraThinMaterial
-                    when :thin       then 9_i64  # systemThinMaterial
-                    when :regular    then 10_i64 # systemMaterial
-                    when :thick      then 11_i64 # systemThickMaterial
-                    when :chrome     then 12_i64 # systemChromeMaterial
-                    when :sidebar    then 10_i64 # systemMaterial (no iOS sidebar material)
-                    when :menu       then 10_i64 # systemMaterial (closest to menu on iOS)
-                    when :popover    then 10_i64 # systemMaterial (closest to popover on iOS)
-                    when :sheet      then 10_i64 # systemMaterial (sheet blur on iOS)
-                    else                  10_i64
-                    end
-
-        blur_effect = LibObjCBridge.objc_send_long(blur_cls, sel("effectWithStyle:"), style_val)
-
-        effect_view_cls = LibObjCBridge.objc_getClass("UIVisualEffectView")
-        ptr = LibObjCBridge.objc_send(effect_view_cls, sel("alloc"))
-        ptr = LibObjCBridge.objc_send_id(ptr, sel("initWithEffect:"), blur_effect)
-
-        apply_common_properties(ptr, view)
-
-        handle = ObjC.owned(ptr, label: "UIVisualEffectView")
-        native = NativeView.new(handle)
-
+        child_ptr = Pointer(Void).null
+        child_native : NativeView? = nil
         if content = view.content
-          # UIVisualEffectView content view
-          content_view = LibObjCBridge.objc_send(ptr, sel("contentView"))
-          content_handle = ObjC.owned(content_view, label: "UIView[glass-content]")
-          content_native = NativeView.new(content_handle)
-          push_stack(content_native, is_uistack: false)
-          content.accept(self)
-          pop_stack
-          native.add_child(content_native)
+          if d = render_detached(content)
+            child_native = d
+            child_ptr = d.handle.ptr!
+          end
         end
 
+        ptr = LibSwiftKitBridge.apsk_make_glass_background(overrides_ptr, child_ptr)
+        handle = ObjC.owned(ptr, label: "UIHostingController[GlassBackground]")
+        native = NativeView.new(handle)
+        if c = child_native
+          native.add_child(c)
+        end
         push_native(native)
       end
 
