@@ -198,7 +198,7 @@ public func apskToggleSetValue(
     let state = Unmanaged<BoolStorage>.fromOpaque(stateHandle)
         .takeUnretainedValue()
     let newValue = (isOn != 0)
-    apskMainAsync { state.value = newValue }
+    apskMainAsync { state.setProgrammatically(newValue) }
 }
 
 @_cdecl("apsk_slider_set_value")
@@ -208,7 +208,7 @@ public func apskSliderSetValue(
 ) {
     let state = Unmanaged<DoubleStorage>.fromOpaque(stateHandle)
         .takeUnretainedValue()
-    apskMainAsync { state.value = value }
+    apskMainAsync { state.setProgrammatically(value) }
 }
 
 // Release the +1 retain Crystal acquired when the state object was

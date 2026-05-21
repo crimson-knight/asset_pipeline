@@ -36,23 +36,58 @@ public class SliderFacade: NSObject {
             outState.pointee = Unmanaged.passRetained(storage).toOpaque()
         }
 
-        let slider: AnyView
-        if let step = overrides.step, step.doubleValue > 0 {
-            slider = AnyView(
-                Slider(value: storage.binding, in: minimum...maximum, step: step.doubleValue)
+        return HostingHelpers.host(
+            SliderDoubleHost(
+                storage: storage,
+                overrides: overrides,
+                minimum: minimum,
+                maximum: maximum
             )
-        } else {
-            slider = AnyView(Slider(value: storage.binding, in: minimum...maximum))
-        }
-
-        var content: AnyView = slider
-        content = CommonModifiers.apply(content, overrides: overrides)
-        return HostingHelpers.host(DoubleHost(storage: storage, content: content))
+        )
     }
 }
 
+// Shared host kept for non-reactive Double-bound facades (Stepper, etc.)
+// that haven't been migrated to the SliderDoubleHost in-body pattern.
 struct DoubleHost<Content: View>: View {
     @ObservedObject var storage: DoubleStorage
     let content: Content
     var body: some View { content }
+}
+
+// Slider is now constructed inside the View body so its Binding tracks
+// the @ObservedObject. See ToggleFacade comments for the BX3 rationale.
+struct SliderDoubleHost: View {
+    @ObservedObject var storage: DoubleStorage
+    let overrides: SliderOverrides
+    let minimum: Double
+    let maximum: Double
+
+    var body: some View {
+        let slider: AnyView
+        if let step = overrides.step, step.doubleValue > 0 {
+            slider = AnyView(
+                Slider(
+                    value: $storage.value,
+                    in: minimum...maximum,
+                    step: step.doubleValue
+                )
+            )
+        } else {
+            slider = AnyView(
+                Slider(value: $storage.value, in: minimum...maximum)
+            )
+        }
+
+        let content = AnyView(
+            slider.onChange(of: storage.value) { newValue in
+                if storage.suppressNextFire {
+                    storage.suppressNextFire = false
+                    return
+                }
+                CallbackBridge.fire(token: storage.token, value: newValue)
+            }
+        )
+        return CommonModifiers.apply(content, overrides: overrides)
+    }
 }

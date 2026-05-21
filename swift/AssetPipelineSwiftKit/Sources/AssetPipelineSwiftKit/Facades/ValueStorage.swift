@@ -9,9 +9,22 @@ import Foundation
 final class BoolStorage: ObservableObject {
     @Published var value: Bool
     let token: UInt64
+    /// When true, `setProgrammatically(_:)` is updating `value` from a
+    /// Crystal-side `apsk_toggle_set_value` call. The facade's `.onChange`
+    /// callback uses this flag to suppress an outbound CallbackBridge.fire
+    /// — programmatic mutations are NOT user interactions and must not
+    /// re-fire the Crystal `on_change` handler.
+    var suppressNextFire: Bool = false
     init(initial: Bool, token: UInt64) {
         self.value = initial
         self.token = token
+    }
+    /// Crystal-driven programmatic mutation entry point. Sets `value`
+    /// while flagging the change so the facade's `.onChange` observer
+    /// skips its callback fire.
+    func setProgrammatically(_ newValue: Bool) {
+        suppressNextFire = true
+        value = newValue
     }
     var binding: Binding<Bool> {
         Binding(
@@ -27,9 +40,16 @@ final class BoolStorage: ObservableObject {
 final class DoubleStorage: ObservableObject {
     @Published var value: Double
     let token: UInt64
+    /// See BoolStorage.suppressNextFire — same semantics for sliders /
+    /// other Double-bound controls.
+    var suppressNextFire: Bool = false
     init(initial: Double, token: UInt64) {
         self.value = initial
         self.token = token
+    }
+    func setProgrammatically(_ newValue: Double) {
+        suppressNextFire = true
+        value = newValue
     }
     var binding: Binding<Double> {
         Binding(
