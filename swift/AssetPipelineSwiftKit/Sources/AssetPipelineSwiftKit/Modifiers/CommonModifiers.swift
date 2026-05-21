@@ -66,11 +66,36 @@ enum CommonModifiers {
         }
         if overrides.minWidth != nil || overrides.minHeight != nil
             || overrides.maxWidth != nil || overrides.maxHeight != nil {
+            // SwiftUI's `frame(minWidth:maxWidth:minHeight:maxHeight:)` only
+            // constrains the layout proposal; it does NOT change the view's
+            // ideal/intrinsic size. UIHostingController.sizingOptions =
+            // [.intrinsicContentSize] (which we set in HostingHelpers) reads
+            // the ideal size, so a button with `.frame(minHeight: 44)` still
+            // hands UIKit its natural ~25pt body-text height — the parent
+            // UIStackView then sizes the host at that 25pt and the BX6/BX9
+            // touch-target rubric fails.
+            //
+            // Promote the min into the ideal so the SwiftUI flex-frame layout
+            // reports `max(minHeight, child intrinsic)` as the ideal. The
+            // `idealWidth:idealHeight:` overload accepts the same nullable
+            // CGFloat? semantics as the min/max variants.
+            let minW = overrides.minWidth.map { CGFloat($0.doubleValue) }
+            let maxW = overrides.maxWidth.map { CGFloat($0.doubleValue) }
+            let minH = overrides.minHeight.map { CGFloat($0.doubleValue) }
+            let maxH = overrides.maxHeight.map { CGFloat($0.doubleValue) }
+            // Use the minimum as the ideal so intrinsicContentSize reflects
+            // the developer's floor. Fall back to the max so a max-only
+            // declaration still yields a sensible ideal.
+            let idealW = minW ?? maxW
+            let idealH = minH ?? maxH
             current = AnyView(current.frame(
-                minWidth: overrides.minWidth.map { CGFloat($0.doubleValue) },
-                maxWidth: overrides.maxWidth.map { CGFloat($0.doubleValue) },
-                minHeight: overrides.minHeight.map { CGFloat($0.doubleValue) },
-                maxHeight: overrides.maxHeight.map { CGFloat($0.doubleValue) }
+                minWidth: minW,
+                idealWidth: idealW,
+                maxWidth: maxW,
+                minHeight: minH,
+                idealHeight: idealH,
+                maxHeight: maxH,
+                alignment: .center
             ))
         }
         if let id = overrides.accessibilityIdentifier {
