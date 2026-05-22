@@ -1,35 +1,52 @@
 require "../../spec_helper"
 require "../../../src/ui/design_tokens"
 
-# Phase 5 probe placeholder — slug `ios.glass.material.default`.
+# Phase 5 v2 probe placeholder — slug `ios.glass.material.default`.
 #
-# Verifies per-material-step visual baseline on iOS. The body is `pending`
-# until Phase 6.5 ships the audit harness (visual diff + screenshot capture)
-# referenced from this slug. The AX identifier convention captured here is
-# the contract Phase 6.5 will hook into:
+# v2 update: this probe verifies per-AppleSemantic mapping on iOS via the
+# UIBlurEffectStyle approximation table. UIKit has no first-class semantic
+# materials, so each AppleSemantic role maps to a thickness-style
+# UIBlurEffect raw value documented in
+# `uikit_blur_effect_style_for_semantic`. SDK-verified raw values:
 #
-#   ap.glass.<step>.intensity_<intensity_x100>
+#   systemUltraThinMaterial = 6  (Menu)
+#   systemThinMaterial      = 7  (Sidebar)
+#   systemMaterial          = 8  (Popover, WindowBackground)
+#   systemThickMaterial     = 9  (Sheet)
+#   systemChromeMaterial    = 10 (HeaderView, HUDWindow, Titlebar)
 #
-# At default intensity 1.0 each step's identifier therefore reads
-# `ap.glass.ultra_thin.intensity_100`, `ap.glass.thin.intensity_100`, etc.
+# SystemResolved is the no-call sentinel — UIVisualEffectView built with
+# a nil UIBlurEffect renders without explicit blur.
 #
-# The pending assertion shape below documents what the Phase 6.5 harness
-# will verify once it runs.
-describe "Phase 5 probe: ios.glass.material.default" do
-  [:ultra_thin, :thin, :regular, :thick, :chrome].each do |step|
-    pending "renders SwiftUI Material `#{step}` at the per-step default blur" do
+# Pending bodies; Phase 6.5 harness work runs the assertions. AX
+# identifier convention: `ap.glass.semantic.<semantic_key>`.
+describe "Phase 5 v2 probe: ios.glass.material.default" do
+  [
+    UI::DesignTokens::AppleSemantic::Menu,
+    UI::DesignTokens::AppleSemantic::Popover,
+    UI::DesignTokens::AppleSemantic::Sidebar,
+    UI::DesignTokens::AppleSemantic::Sheet,
+    UI::DesignTokens::AppleSemantic::HeaderView,
+    UI::DesignTokens::AppleSemantic::WindowBackground,
+    UI::DesignTokens::AppleSemantic::HUDWindow,
+    UI::DesignTokens::AppleSemantic::Titlebar,
+    UI::DesignTokens::AppleSemantic::SystemResolved,
+  ].each do |semantic|
+    pending "renders the UIBlurEffectStyle approximation for AppleSemantic::#{semantic} on iOS" do
       # Expected shape (Phase 6.5 will implement):
-      #   tokens = UI::DesignTokens::Tokens.default
       #   app = UI::AXTest::App.launch(IOS_GLASS_FIXTURE_APP)
-      #   screen = app.window("Glass Material Default — #{step}")
-      #   elem = screen.find(identifier: "ap.glass.#{step}.intensity_100")
+      #   screen = app.window("Glass Material Default — #{semantic.to_key}")
+      #   elem = screen.find(identifier: "ap.glass.semantic.#{semantic.to_key}")
       #   elem.should_not be_nil
       #   captured = capture_render(elem)
-      #   captured.blur_radius.should be_close(
-      #     tokens.material.resolve(:#{step}).blur_radius, 0.5)
-      #   captured.material_enum.should eq("#{step}".to_apple_material_case)
-      #   app.screenshot("/tmp/p5-#{step}.png")
-      #   visual_diff("/tmp/p5-#{step}.png", "fixtures/p5-#{step}-baseline.png").should be_within_tolerance
+      #   if semantic.system_resolved?
+      #     # SystemResolved sentinel — UIVisualEffectView's underlying
+      #     # UIBlurEffect should be nil; Apple defaults apply.
+      #     captured.blur_effect_present.should be_false
+      #   else
+      #     captured.blur_effect_style.should eq(<SDK-verified raw integer>)
+      #   end
+      #   app.screenshot("/tmp/p5v2-ios-#{semantic.to_key}.png")
     end
   end
 end
