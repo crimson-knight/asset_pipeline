@@ -2644,10 +2644,14 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # the same default-detection cascade as every other widget.
       # -----------------------------------------------------------------
       def visit(view : UI::GlassBackground)
+        # Phase 5: resolve the Apple-quantized step from the active tokens.
+        # See uikit_renderer.cr#visit(UI::GlassBackground) for the contract.
+        apple_step = @design_tokens.material.apple_step(view.material)
+
         overrides_ptr = LibSwiftKitBridge.apsk_glass_background_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
         target_str = overrides_ptr.address.to_s(16)
-        UI::Native::Populator.populate_glass_background(target_str, view, sender)
+        UI::Native::Populator.populate_glass_background(target_str, view, sender, apple_step: apple_step)
 
         child_ptr = Pointer(Void).null
         child_native : NativeView? = nil

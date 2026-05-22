@@ -2661,10 +2661,18 @@
       # the same default-detection cascade as every other widget.
       # -----------------------------------------------------------------
       def visit(view : UI::GlassBackground)
+        # Phase 5: resolve the Apple-quantized step from the active tokens.
+        # SwiftUI's Material enum is discrete; brand `intensity` shifts the
+        # step picked for `:regular`-declared surfaces per the documented
+        # quantization table in brief.yml adapter_cardinality row 1.
+        # Per-view declared steps (`:thick`, `:thin`, etc.) are honored as
+        # the developer's intent and not remapped by intensity.
+        apple_step = @design_tokens.material.apple_step(view.material)
+
         overrides_ptr = LibSwiftKitBridge.apsk_glass_background_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
         target_str = overrides_ptr.address.to_s(16)
-        UI::Native::Populator.populate_glass_background(target_str, view, sender)
+        UI::Native::Populator.populate_glass_background(target_str, view, sender, apple_step: apple_step)
 
         child_ptr = Pointer(Void).null
         child_native : NativeView? = nil

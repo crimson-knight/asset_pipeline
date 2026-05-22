@@ -92,6 +92,30 @@ describe UI::Native::Populator, "#populate_glass_background" do
     end
   end
 
+  describe "Phase 5 apple_step quantization parameter" do
+    it "honors the explicit apple_step override on a :regular-declared view" do
+      view = UI::GlassBackground.new(material: :regular)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_glass_background(target, view, RecordingSender.new, apple_step: :thick)
+      FakeLibObjCBridge.assert_sent(:setMaterial, times: 1, args: [target, "thick"])
+    end
+
+    it "still emits the resolved key when intensity quantization keeps it at :regular but declared material differs" do
+      view = UI::GlassBackground.new(material: :thin)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      # Renderer-resolved apple_step normally matches declared step for non-:regular.
+      UI::Native::Populator.populate_glass_background(target, view, RecordingSender.new, apple_step: :thin)
+      FakeLibObjCBridge.assert_sent(:setMaterial, times: 1, args: [target, "thin"])
+    end
+
+    it "emits setMaterial: 'ultraThin' when brand intensity quantizes :regular down to :ultra_thin" do
+      view = UI::GlassBackground.new(material: :regular)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_glass_background(target, view, RecordingSender.new, apple_step: :ultra_thin)
+      FakeLibObjCBridge.assert_sent(:setMaterial, times: 1, args: [target, "ultraThin"])
+    end
+  end
+
   describe "common ViewOverrides cascade" do
     it "forwards corner_radius override to setCornerRadius:" do
       view = UI::GlassBackground.new

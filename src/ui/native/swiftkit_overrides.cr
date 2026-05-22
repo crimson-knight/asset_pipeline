@@ -606,20 +606,33 @@ module UI
       # facade switch normalises camelCase keys (`ultraThin`) on the
       # Swift side; we emit them in the same shape so the facade
       # dispatch stays simple.
-      def self.populate_glass_background(target : String, view : UI::GlassBackground, sender : Sender)
+      # Glass populator. `apple_step` is the Apple-quantized step Symbol the
+      # renderer has resolved via `tokens.material.apple_step(view.material)`.
+      # The populator emits the facade `setMaterial:` key derived from the
+      # resolved Symbol, not from `view.material` directly, so brand
+      # intensity overrides cascade onto the SwiftUI Material enum case per
+      # the Phase 5 brief's adapter_cardinality row 1 contract.
+      #
+      # `apple_step` defaults to `view.material` so spec-level callers that
+      # don't have a renderer can still exercise the populator without
+      # threading tokens through the test fixtures.
+      def self.populate_glass_background(target : String, view : UI::GlassBackground, sender : Sender, apple_step : Symbol = view.material)
         populate_view_common(target, view, sender)
 
-        # Map Crystal Symbol -> Swift facade key. :regular is the type
-        # default; only emit when the developer chose a different material
-        # so the SwiftUI default ("regular" / Liquid Glass regular on iOS
-        # 26) stays in force.
-        unless view.material == :regular
-          key = case view.material
+        # Map quantized Crystal Symbol -> Swift facade key. `:regular` is
+        # the SwiftUI default; we still emit when the resolved step IS
+        # :regular AND the view's declared material differs (brand
+        # quantization shifted the step), so the facade receives the
+        # resolved value rather than its own default.
+        emit = apple_step != :regular || view.material != :regular
+        if emit
+          key = case apple_step
                 when :ultra_thin  then "ultraThin"
                 when :thin        then "thin"
+                when :regular     then "regular"
                 when :thick       then "thick"
-                when :chrome      then "ultraThick" # closest Material analogue
-                else                   view.material.to_s
+                when :chrome      then "ultraThick" # closest SwiftUI Material analogue
+                else                   apple_step.to_s
                 end
           sender.set_string(target, :setMaterial, key)
         end
