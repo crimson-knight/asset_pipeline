@@ -289,10 +289,10 @@ repo_derived_facts:
     expected: "1"
     captured_at_sha: "f081205"
 
-  - fact: "iOS renderer UIVisualEffectView/UIBlurEffect references that Phase 5 v2 may touch (includes comments + code)"
+  - fact: "iOS renderer UIVisualEffectView/UIBlurEffect references that Phase 5 v2 may touch (includes comments + code) — Phase 5 v2 added the uikit_blur_effect_style_for_semantic helper + Category C tokenization, which added documentation comments referencing UIBlurEffectStyle types"
     query: "grep -cE 'UIVisualEffectView|UIBlurEffect' src/ui/renderers/uikit_renderer.cr | tr -d ' '"
-    expected: "60"
-    captured_at_sha: "f081205"
+    expected: "78"
+    captured_at_sha: "e2a4dab"
 
   - fact: "macOS renderer NSVisualEffectView references that Phase 5 v2 may touch (includes comments + code)"
     query: "grep -c 'NSVisualEffectView' src/ui/renderers/appkit_renderer.cr | tr -d ' '"
