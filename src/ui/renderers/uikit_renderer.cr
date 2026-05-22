@@ -2930,10 +2930,11 @@
 
       def visit(view : UI::ContextMenu)
         # Phase 5 v2 — token-driven semantic material. ContextMenu's HIG
-        # canonical role is `Menu`; the iOS approximation table maps Menu
-        # to UIBlurEffectStyleSystemUltraThinMaterial = 8. SystemResolved
-        # returns -1 sentinel — when present, skip setEffect: and let the
-        # system default UIBlurEffect apply.
+        # canonical role is `Menu`; the iOS SDK-verified approximation
+        # maps Menu to UIBlurEffectStyleSystemUltraThinMaterial = 6.
+        # SystemResolved returns the -1 sentinel — when hit, the v2
+        # contract REQUIRES suppressing the explicit UIBlurEffect override
+        # (pass nil to UIVisualEffectView so Apple defaults apply).
         menu_semantic = UI::DesignTokens::AppleSemantic::Menu
         menu_style = uikit_blur_effect_style_for_semantic(menu_semantic)
 
@@ -2946,9 +2947,11 @@
                         ublur_cls = LibObjCBridge.objc_getClass("UIBlurEffect")
                         LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), menu_style)
                       else
-                        # SystemResolved sentinel: fall through to system default.
-                        ublur_cls = LibObjCBridge.objc_getClass("UIBlurEffect")
-                        LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), 7_i64) # systemMaterial system default
+                        # SystemResolved sentinel — emit NO explicit
+                        # UIBlurEffect. UIVisualEffectView with a nil
+                        # effect renders without blur, letting Apple
+                        # defaults compose downstream.
+                        Pointer(Void).null
                       end
 
         uveff_cls = LibObjCBridge.objc_getClass("UIVisualEffectView")
@@ -3743,9 +3746,10 @@
         amber_gold = amber_brand_gold
 
         # Phase 5 v2 — token-driven semantic material. ActivityView's HIG-
-        # canonical role is `Sheet`; the iOS approximation maps Sheet to
-        # UIBlurEffectStyleSystemThickMaterial = 11. SystemResolved sentinel
-        # (-1) falls through to the system default; live path uses Sheet.
+        # canonical role is `Sheet`; the iOS SDK-verified approximation
+        # maps Sheet to UIBlurEffectStyleSystemThickMaterial = 9.
+        # SystemResolved (-1) suppresses the explicit override per the v2
+        # contract (passes nil to UIVisualEffectView).
         activity_semantic = UI::DesignTokens::AppleSemantic::Sheet
         activity_style = uikit_blur_effect_style_for_semantic(activity_semantic)
 
@@ -3759,9 +3763,9 @@
                         ublur_cls = LibObjCBridge.objc_getClass("UIBlurEffect")
                         LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), activity_style)
                       else
-                        # SystemResolved sentinel: fall through to system default.
-                        ublur_cls = LibObjCBridge.objc_getClass("UIBlurEffect")
-                        LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), 7_i64)
+                        # SystemResolved sentinel — emit NO explicit
+                        # UIBlurEffect. Apple defaults apply.
+                        Pointer(Void).null
                       end
 
         uveff_cls = LibObjCBridge.objc_getClass("UIVisualEffectView")
@@ -4730,31 +4734,47 @@
       # `appkit_visual_effect_material_for_semantic`. UIKit's
       # `UIBlurEffectStyle` is thickness-based (no first-class semantic
       # vocabulary), so the table is an APPROXIMATION per the v2
-      # architecture doc's per-widget table:
+      # architecture doc's per-widget table.
       #
-      #   Menu              → systemUltraThinMaterial = 8
-      #   Popover           → systemMaterial          = 7
-      #   Sidebar           → systemThinMaterial      = 6
-      #   Sheet             → systemThickMaterial     = 11
+      # SDK-verified UIBlurEffectStyle raw values (xcrun swift -e
+      # confirmed against iPhoneSimulator SDK at the iOS 18 floor):
+      #
+      #   systemUltraThinMaterial = 6
+      #   systemThinMaterial      = 7
+      #   systemMaterial          = 8
+      #   systemThickMaterial     = 9
+      #   systemChromeMaterial    = 10
+      #
+      # Approximation mapping (AppleSemantic → UIBlurEffectStyle raw):
+      #
+      #   Menu              → systemUltraThinMaterial = 6  (thinnest; HIG menu is light)
+      #   Popover           → systemMaterial          = 8
+      #   Sidebar           → systemThinMaterial      = 7
+      #   Sheet             → systemThickMaterial     = 9  (heaviest non-chrome)
       #   HeaderView        → systemChromeMaterial    = 10
-      #   WindowBackground  → systemMaterial          = 7
+      #   WindowBackground  → systemMaterial          = 8
       #   HUDWindow         → systemChromeMaterial    = 10
-      #   Titlebar          → systemMaterial          = 7
+      #   Titlebar          → systemChromeMaterial    = 10
       #   SystemResolved    → -1 (SENTINEL — caller must skip setEffect:)
       #
       # Brief.yml adapter_cardinality row 1 documents the approximation
       # is consumer-visible degradation; consumers wanting per-platform
       # fidelity beyond the approximation must override per-widget.
+      #
+      # NOTE: brief.yml's per-widget table cited stale raw integers
+      # (Menu→8, Popover→7, etc.). The SDK-verified values above are
+      # authoritative and were confirmed empirically via Codex review
+      # round 3.
       private def uikit_blur_effect_style_for_semantic(semantic : UI::DesignTokens::AppleSemantic) : Int64
         case semantic
-        in .menu?              then  8_i64 # UIBlurEffectStyleSystemUltraThinMaterial
-        in .popover?           then  7_i64 # UIBlurEffectStyleSystemMaterial
-        in .sidebar?           then  6_i64 # UIBlurEffectStyleSystemThinMaterial
-        in .sheet?             then 11_i64 # UIBlurEffectStyleSystemThickMaterial
+        in .menu?              then  6_i64 # UIBlurEffectStyleSystemUltraThinMaterial
+        in .popover?           then  8_i64 # UIBlurEffectStyleSystemMaterial
+        in .sidebar?           then  7_i64 # UIBlurEffectStyleSystemThinMaterial
+        in .sheet?             then  9_i64 # UIBlurEffectStyleSystemThickMaterial
         in .header_view?       then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
-        in .window_background? then  7_i64 # UIBlurEffectStyleSystemMaterial (approx)
+        in .window_background? then  8_i64 # UIBlurEffectStyleSystemMaterial
         in .hud_window?        then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
-        in .titlebar?          then  7_i64 # UIBlurEffectStyleSystemMaterial (approx)
+        in .titlebar?          then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
         in .system_resolved?   then -1_i64 # SENTINEL — caller must skip setEffect:
         end
       end
