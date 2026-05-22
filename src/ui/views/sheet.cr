@@ -43,6 +43,11 @@ module UI
     #   :plain        — no chrome; act as a bare container.
     property surface_style : Symbol = :auto
 
+    # Phase 5 v2 — Apple semantic material override for the sheet's
+    # presented background. nil = HIG-canonical :sheet (NSVisualEffectMaterialSheet
+    # on macOS; .thickMaterial via .presentationBackground on iOS 16.4+).
+    property material_semantic : Symbol? = nil
+
     def initialize(@content : View? = nil, *, @surface_style : Symbol = :auto)
     end
 

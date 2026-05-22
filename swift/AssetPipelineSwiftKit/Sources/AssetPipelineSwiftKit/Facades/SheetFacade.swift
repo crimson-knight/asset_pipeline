@@ -94,6 +94,24 @@ public class SheetFacade: NSObject {
         }
         return v
     }
+
+    // Phase 5 v2 — applies `.presentationBackground(<SwiftUI Material>)`
+    // to the sheet body using the resolved AppleSemantic from overrides.
+    // Default key is "sheet" → .thickMaterial; "system_resolved" or nil
+    // returns the body unchanged. iOS 16.4+ / macOS 13.3+ availability
+    // floor matches A1 spike compile-verification.
+    fileprivate static func applyPresentationBackground(
+        _ v: AnyView, overrides: SheetOverrides
+    ) -> AnyView {
+        let key: String = overrides.materialSemantic ?? "sheet"
+        if MaterialSemanticResolver.shouldSkipModifier(key) { return v }
+        if #available(iOS 16.4, macOS 13.3, *) {
+            if let mat = MaterialSemanticResolver.material(for: key) {
+                return AnyView(v.presentationBackground(mat))
+            }
+        }
+        return v
+    }
 }
 
 // SheetHost owns the @ObservedObject reference to the published
@@ -125,7 +143,14 @@ private struct SheetHost: View {
                     // marked explicit reason.
                     CallbackBridge.fire(token: dismissToken, value: 0.0)
                 }) {
-                    SheetFacade.applyDetents(sheetBody, overrides: overrides)
+                    // Phase 5 v2: apply .presentationBackground(Material)
+                    // (iOS 16.4+ / macOS 13.3+) inside the sheet body so
+                    // the presented modal carries the resolved material.
+                    // applyDetents stays in the chain for sheet sizing.
+                    SheetFacade.applyPresentationBackground(
+                        SheetFacade.applyDetents(sheetBody, overrides: overrides),
+                        overrides: overrides
+                    )
                 }
         )
 

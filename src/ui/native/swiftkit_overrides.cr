@@ -420,6 +420,12 @@ module UI
         end
         sender.set_bool(target, :setShowsDragIndicator,
           view.shows_drag_indicator ? nil : false)
+        # Phase 5 v2: forward AppleSemantic override (or HIG default :sheet)
+        # so the SwiftKit facade applies `.presentationBackground(.thickMaterial)`
+        # on the presented sheet body (iOS 16.4+ / macOS 13.3+).
+        ms = view.material_semantic
+        key = ms.nil? ? "sheet" : ms.to_s
+        sender.set_string(target, :setMaterialSemantic, key)
       end
 
       def self.populate_popover(target : String, view : UI::Popover, sender : Sender)
