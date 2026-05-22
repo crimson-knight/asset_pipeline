@@ -2661,13 +2661,11 @@
       # the same default-detection cascade as every other widget.
       # -----------------------------------------------------------------
       def visit(view : UI::GlassBackground)
-        # Phase 5: resolve the Apple-quantized step from the active tokens.
-        # SwiftUI's Material enum is discrete; brand `intensity` shifts the
-        # step picked for `:regular`-declared surfaces per the documented
-        # quantization table in brief.yml adapter_cardinality row 1.
-        # Per-view declared steps (`:thick`, `:thin`, etc.) are honored as
-        # the developer's intent and not remapped by intensity.
-        apple_step = @design_tokens.material.apple_step(view.material)
+        # Phase 5 v2: Apple material is the DECLARED step — brand
+        # intensity is advisory on Apple per I-10. Quantizer applies
+        # on web + Android; on Apple, declared step wins so consumers
+        # can rely on SwiftUI Material enum semantic stability.
+        apple_step = view.material
 
         overrides_ptr = LibSwiftKitBridge.apsk_glass_background_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
@@ -4772,9 +4770,9 @@
         in .sidebar?           then  7_i64 # UIBlurEffectStyleSystemThinMaterial
         in .sheet?             then  9_i64 # UIBlurEffectStyleSystemThickMaterial
         in .header_view?       then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
-        in .window_background? then  8_i64 # UIBlurEffectStyleSystemMaterial
+        in .window_background? then  8_i64 # UIBlurEffectStyleSystemMaterial (brief row 1)
         in .hud_window?        then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
-        in .titlebar?          then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
+        in .titlebar?          then  8_i64 # UIBlurEffectStyleSystemMaterial (brief row 1)
         in .system_resolved?   then -1_i64 # SENTINEL — caller must skip setEffect:
         end
       end

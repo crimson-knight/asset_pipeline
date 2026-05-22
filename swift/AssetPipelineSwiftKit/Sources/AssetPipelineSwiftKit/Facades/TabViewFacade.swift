@@ -49,19 +49,19 @@ public class TabViewFacade: NSObject {
             #endif
         }
 
-        // Phase 5 v2 — apply `.toolbarBackground(.bar, for: .automatic)` for
-        // the tab-bar chrome. Per architecture doc lines 88-89, .tabBar
+        // Phase 5 v2 — always apply `.toolbarBackground(.bar, for: .automatic)`
+        // for the tab-bar chrome per brief.yml I-1: "SystemResolved does NOT
+        // suppress TabView/Toolbar `.toolbarBackground(.bar, for: .automatic)`
+        // — that's the canonical SwiftUI bar chrome, separate from the
+        // setMaterial: surface." Per architecture doc lines 88-89, .tabBar
         // placement is iOS-only; .automatic is cross-platform-safe.
-        // SystemResolved is the HIG default — SwiftUI handles the bar
-        // chrome automatically. Only emit an explicit modifier when the
-        // caller overrides the AppleSemantic to a non-system role.
-        let materialKey: String = overrides.materialSemantic ?? "system_resolved"
-        if !MaterialSemanticResolver.shouldSkipModifier(materialKey) {
-            if #available(iOS 16.0, macOS 13.0, *) {
-                if let mat = MaterialSemanticResolver.material(for: materialKey) {
-                    content = AnyView(content.toolbarBackground(mat, for: .automatic))
-                }
-            }
+        //
+        // When the caller overrides materialSemantic to a non-system role,
+        // the resolved Material replaces .bar. Otherwise .bar is the default.
+        if #available(iOS 16.0, macOS 13.0, *) {
+            let materialKey: String = overrides.materialSemantic ?? "system_resolved"
+            let mat: Material = MaterialSemanticResolver.material(for: materialKey) ?? .bar
+            content = AnyView(content.toolbarBackground(mat, for: .automatic))
         }
 
         content = CommonModifiers.apply(content, overrides: overrides)

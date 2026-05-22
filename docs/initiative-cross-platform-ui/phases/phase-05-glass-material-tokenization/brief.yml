@@ -234,9 +234,9 @@ lower_layer_assumptions:
     verification: "which crystal-alpha || which crystal"
 
   - id: A3
-    claim: "GlassBackground references in src/ + samples/ post-Phase-5 number exactly 46 (binary files excluded) — the iter 1+2 implementation added references in samples + spec placeholders"
-    falsifier: "grep count differs from 46"
-    verification: "test \"$(grep -rEnI 'GlassBackground|glass_background' src/ samples/ | wc -l | tr -d ' ')\" = \"46\""
+    claim: "GlassBackground references in src/ + samples/ post-Phase-5 v2 number exactly 42 (binary files excluded) — v2 implementer's quantizer-model refactor removed some iter1 comment/code references that referenced the proportional-scaling model."
+    falsifier: "grep count differs from 42"
+    verification: "test \"$(grep -rEnI 'GlassBackground|glass_background' src/ samples/ | wc -l | tr -d ' ')\" = \"42\""
 
   - id: A4
     claim: "Web renderer post-Phase-5 has exactly 4 backdrop-filter occurrences (the standard + -webkit- prefix variants on each of the 2 touched call sites)"
@@ -269,10 +269,10 @@ lower_layer_assumptions:
     verification: "test \"$(grep -cE '_legacy_(tab_view|alert|navigation_split_view|toolbar|sheet|popover)' src/ui/renderers/appkit_renderer.cr | tr -d ' ')\" = \"6\""
 
 repo_derived_facts:
-  - fact: "GlassBackground usage count in src/ and samples/ (binary files excluded)"
+  - fact: "GlassBackground usage count in src/ and samples/ (binary files excluded) — Phase 5 v2 implementer-updated"
     query: "grep -rEnI 'GlassBackground|glass_background' src/ samples/ | wc -l | tr -d ' '"
-    expected: "46"
-    captured_at_sha: "f081205"
+    expected: "42"
+    captured_at_sha: "c871e31"
 
   - fact: "backdrop-filter emission count in web_renderer.cr"
     query: "grep -c 'backdrop-filter' src/ui/renderers/web_renderer.cr | tr -d ' '"

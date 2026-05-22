@@ -405,11 +405,12 @@ module UI
         sender.set_string_array(target, :setTabIcons, view.tabs.map { |t| t.icon || "" })
         sender.set_int(target, :setSelectedIndex,
           view.selected_index == 0 ? nil : view.selected_index)
-        # Phase 5 v2: HIG default is :system_resolved (SwiftUI handles bar
-        # chrome). Only emit when the caller overrides the AppleSemantic.
-        if ms = view.material_semantic
-          sender.set_string(target, :setMaterialSemantic, ms.to_s)
-        end
+        # Phase 5 v2: ALWAYS emit a materialSemantic key. Default is
+        # :system_resolved → SwiftUI .bar fallback inside the facade;
+        # explicit overrides flow through.
+        ms = view.material_semantic
+        sender.set_string(target, :setMaterialSemantic,
+          ms.nil? ? "system_resolved" : ms.to_s)
       end
 
       def self.populate_sheet(target : String, view : UI::Sheet, sender : Sender)
@@ -497,11 +498,12 @@ module UI
           sender.set_string_array(target, :setItemPlacements,
             view.items.map { |_| "primary" })
         end
-        # Phase 5 v2: HIG default is :system_resolved (SwiftUI handles bar
-        # chrome via `.toolbarBackground(.bar)`). Only emit when overridden.
-        if ms = view.material_semantic
-          sender.set_string(target, :setMaterialSemantic, ms.to_s)
-        end
+        # Phase 5 v2: ALWAYS emit a materialSemantic key. Default is
+        # :system_resolved → SwiftUI .bar fallback inside the facade;
+        # explicit overrides flow through.
+        ms = view.material_semantic
+        sender.set_string(target, :setMaterialSemantic,
+          ms.nil? ? "system_resolved" : ms.to_s)
       end
 
       def self.populate_form(target : String, view : UI::Form, sender : Sender)

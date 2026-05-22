@@ -2654,9 +2654,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # the same default-detection cascade as every other widget.
       # -----------------------------------------------------------------
       def visit(view : UI::GlassBackground)
-        # Phase 5: resolve the Apple-quantized step from the active tokens.
-        # See uikit_renderer.cr#visit(UI::GlassBackground) for the contract.
-        apple_step = @design_tokens.material.apple_step(view.material)
+        # Phase 5 v2: Apple material is the DECLARED step — brand
+        # intensity is advisory on Apple per I-10. The architecture's
+        # quantizer model applies on web + Android; on Apple, declared
+        # step wins so consumers can rely on SwiftUI Material enum
+        # semantic stability. The populator's `apple_step` parameter
+        # therefore receives `view.material` unchanged (NOT routed
+        # through `Material#apple_step` which would re-quantize via the
+        # v2 thickness_for_brand path).
+        apple_step = view.material
 
         overrides_ptr = LibSwiftKitBridge.apsk_glass_background_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
