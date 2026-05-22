@@ -2786,7 +2786,7 @@ HTML
               ios_path_sub.accessibility_label = "Current location label"
               ios_path_outer << ios_path_sub.as(UI::View)
 
-              ios_standard = UI::PathControl.new
+              ios_standard = UI::PathControlWithWebFallback.new
               ios_standard.minimum_width = 280.0
               ios_standard.maximum_width = 280.0
               ios_standard.accessibility_label = "Current export destination path"
@@ -2802,7 +2802,7 @@ HTML
               ios_path_hint.accessibility_label = "Recent locations label"
               ios_path_outer << ios_path_hint.as(UI::View)
 
-              ios_popup = UI::PathControl.new(style: UI::PathControlStyle::PopUp)
+              ios_popup = UI::PathControlWithWebFallback.new(style: UI::PathControlStyle::PopUp)
               ios_popup.minimum_width = 256.0
               ios_popup.maximum_width = 256.0
               ios_popup.accessibility_label = "Recent export locations path menu"
