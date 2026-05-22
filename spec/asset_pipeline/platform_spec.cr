@@ -1,5 +1,7 @@
 require "../spec_helper"
-require "../ui/views/action_sheet_compile_error_spec"
+
+# Phase04CompileCheck is loaded via spec/support/phase04_compile_check.cr
+# (autoloaded by spec_helper).
 
 describe AssetPipeline::Platform do
   it "has? evaluates to true for a matching flag" do

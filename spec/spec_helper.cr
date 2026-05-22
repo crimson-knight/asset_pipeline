@@ -2,6 +2,7 @@ require "spec"
 require "../src/asset_pipeline"
 require "./support/accessibility_matchers"
 require "./support/fake_lib_objc_bridge"
+require "./support/phase04_compile_check"
 
 include SpecSupport::AccessibilityMatchers
 

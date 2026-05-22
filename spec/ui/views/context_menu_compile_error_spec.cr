@@ -1,7 +1,7 @@
 require "../../spec_helper"
-require "./action_sheet_compile_error_spec"
 
-# Shares the Phase04CompileCheck helper module loaded above.
+# Phase04CompileCheck is loaded via spec/support/phase04_compile_check.cr
+# (autoloaded by spec_helper).
 
 describe "UI::ContextMenu (compile-time gate)" do
   it "raises a useful compile error on a non-Apple build" do
