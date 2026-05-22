@@ -4537,16 +4537,25 @@
       end
 
       def visit(view : UI::ActionSheetWithWebFallback)
-        # After Commit 4 the WithWebFallback's iOS branch holds a
-        # UI::ActionSheet and forwards accept(); this visitor exists for
-        # the un-gated Commit 1 build only. We render an empty container
-        # so the un-gated path remains harmless. Once the gate is in place
-        # the iOS branch of the fallback class never invokes
-        # visitor.visit(self).
+        # The WithWebFallback's iOS branch holds a UI::ActionSheet and
+        # forwards accept() to it, so this visitor is unreachable in
+        # practice on iOS. Emit an empty UIView for abstract-method
+        # coverage.
         v = alloc_init("UIView")
         LibObjCBridge.objc_send_bool(v, sel("setHidden:"), 1)
         apply_common_properties(v, view)
         emit(v, "UIView[ActionSheetWithWebFallback-delegated]")
+      end
+
+      def visit(view : UI::ContextMenuWithWebFallback)
+        # The WithWebFallback's iOS branch delegates to its inner
+        # UI::ContextMenu so this method is only invoked if the fallback
+        # was constructed directly. Emit a no-op UIView for abstract
+        # coverage.
+        v = alloc_init("UIView")
+        LibObjCBridge.objc_send_bool(v, sel("setHidden:"), 1)
+        apply_common_properties(v, view)
+        emit(v, "UIView[ContextMenuWithWebFallback-stub]")
       end
 
       # ================================================================

@@ -2224,18 +2224,23 @@ module UI::Android
       emit(btn, "Button[menu]")
     end
 
-    def visit(view : UI::ContextMenu)
+    # Phase 4 — Tier 3. UI::ContextMenu is Apple-family only (flag?(:macos)
+    # || flag?(:ios)); the class does not exist on -Dandroid, so no
+    # visitor for it. Android applications use
+    # UI::ContextMenuWithWebFallback (below), which renders as a
+    # LinearLayout dropdown (preserves the prior visitor shape).
+    def visit(view : UI::ContextMenuWithWebFallback)
       ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
       LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 1)
       apply_common_properties(ll, view)
 
       global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
-      handle = JNI.wrap_global(global_ll, label: "LinearLayout[context-menu]")
+      handle = JNI.wrap_global(global_ll, label: "LinearLayout[context-menu-fallback]")
       native = NativeView.new(handle)
 
       view.items.each do |entry|
         case entry
-        when UI::ContextMenu::Separator
+        when UI::ContextMenuWithWebFallback::Separator
           sep = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
           LibAndroidBridge.android_view_set_background_color(@env, sep, 0x2E3C3C43)
           sep_global = LibAndroidBridge.android_new_global_ref(@env, sep)
@@ -2243,7 +2248,7 @@ module UI::Android
           sep_native = NativeView.new(sep_handle)
           native.add_child(sep_native)
           LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, sep, -1, 1)
-        when UI::ContextMenu::Item
+        when UI::ContextMenuWithWebFallback::Item
           tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
           LibAndroidBridge.android_textview_set_text(@env, tv, entry.label.to_unsafe, entry.label.bytesize)
           color = if entry.is_destructive

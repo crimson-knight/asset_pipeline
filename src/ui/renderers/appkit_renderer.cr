@@ -4405,6 +4405,16 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # UI::ActionSheetWithWebFallback (below), which synthesizes a
       # ConfirmationDialog and routes through the existing visitor.
 
+      def visit(view : UI::ContextMenuWithWebFallback)
+        # On macOS, the WithWebFallback's accept() delegates to its
+        # inner UI::ContextMenu so this visitor is reachable only when
+        # the fallback was constructed directly (extremely rare). Emit
+        # a no-op NSView so the abstract method is satisfied.
+        v = alloc_init("NSView")
+        apply_common_properties(v, view)
+        emit(v, "NSView[ContextMenuWithWebFallback-stub]")
+      end
+
       def visit(view : UI::ActionSheetWithWebFallback)
         # macOS lacks a native action-sheet idiom (HIG steers developers to
         # NSAlert / modal sheets). We synthesize a UI::ConfirmationDialog

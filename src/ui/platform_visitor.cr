@@ -84,7 +84,9 @@ module UI
     abstract def visit(view : RichText)
     abstract def visit(view : LinkButton)
     abstract def visit(view : MenuButton)
-    abstract def visit(view : ContextMenu)
+    {% if flag?(:macos) || flag?(:ios) %}
+      abstract def visit(view : ContextMenu)
+    {% end %}
     abstract def visit(view : ToggleButton)
     abstract def visit(view : TextEditor)
     # P3 Stubs
@@ -116,5 +118,6 @@ module UI
       abstract def visit(view : ActionSheet)
     {% end %}
     abstract def visit(view : ActionSheetWithWebFallback)
+    abstract def visit(view : ContextMenuWithWebFallback)
   end
 end

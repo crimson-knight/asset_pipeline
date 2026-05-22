@@ -224,8 +224,14 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "MenuButton(#{view.label})"
   end
 
-  def visit(view : UI::ContextMenu)
-    @visited << "ContextMenu(#{view.items.size})"
+  {% if flag?(:macos) || flag?(:ios) %}
+    def visit(view : UI::ContextMenu)
+      @visited << "ContextMenu(#{view.items.size})"
+    end
+  {% end %}
+
+  def visit(view : UI::ContextMenuWithWebFallback)
+    @visited << "ContextMenuWithWebFallback(#{view.items.size})"
   end
 
   def visit(view : UI::ToggleButton)
@@ -1997,31 +2003,33 @@ describe UI::MenuButton do
   end
 end
 
-describe UI::ContextMenu do
-  it "builds ordered menu items and separators" do
-    menu = UI::ContextMenu.new
-    menu.add_item("Duplicate", icon: "square.on.square")
-    menu.add_separator
-    menu.add_item("Delete", icon: "trash", is_destructive: true)
+{% if flag?(:macos) || flag?(:ios) %}
+  describe UI::ContextMenu do
+    it "builds ordered menu items and separators" do
+      menu = UI::ContextMenu.new
+      menu.add_item("Duplicate", icon: "square.on.square")
+      menu.add_separator
+      menu.add_item("Delete", icon: "trash", is_destructive: true)
 
-    menu.items.size.should eq(3)
-    menu.items[0].should be_a(UI::ContextMenu::Item)
-    menu.items[1].should be_a(UI::ContextMenu::Separator)
-    destructive = menu.items[2].as(UI::ContextMenu::Item)
-    destructive.label.should eq("Delete")
-    destructive.is_destructive.should be_true
-  end
+      menu.items.size.should eq(3)
+      menu.items[0].should be_a(UI::ContextMenu::Item)
+      menu.items[1].should be_a(UI::ContextMenu::Separator)
+      destructive = menu.items[2].as(UI::ContextMenu::Item)
+      destructive.label.should eq("Delete")
+      destructive.is_destructive.should be_true
+    end
 
-  it "accepts visitor" do
-    v = TestVisitor.new
-    menu = UI::ContextMenu.new
-    menu.add_item("Share", icon: "square.and.arrow.up")
-    menu.add_separator
-    menu.add_item("Delete", icon: "trash", is_destructive: true)
-    menu.accept(v)
-    v.visited.should eq(["ContextMenu(3)"])
+    it "accepts visitor" do
+      v = TestVisitor.new
+      menu = UI::ContextMenu.new
+      menu.add_item("Share", icon: "square.and.arrow.up")
+      menu.add_separator
+      menu.add_item("Delete", icon: "trash", is_destructive: true)
+      menu.accept(v)
+      v.visited.should eq(["ContextMenu(3)"])
+    end
   end
-end
+{% end %}
 
 describe UI::ToggleButton do
   it "creates with defaults" do

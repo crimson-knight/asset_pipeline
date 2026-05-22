@@ -1523,45 +1523,133 @@ module UI
         end
       end
 
-      def visit(view : UI::ContextMenu)
-        el = Components::Elements::Div.new
-        el.set_attribute("role", "menu")
-        el.add_style("display: flex; flex-direction: column; min-width: #{fluid_px(200, 50, 280)}; padding: 8px; border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); background: var(--ap-color-surface-panel); box-shadow: var(--ap-elevation-floating)")
+      # Phase 4 — Tier 3. UI::ContextMenu is Apple-family only (flag?(:macos)
+      # || flag?(:ios)); on those builds the web renderer must still
+      # satisfy the abstract visit method (web renderer compiles on every
+      # target). The visitor is a no-op — the cross-platform web rendering
+      # path is UI::ContextMenuWithWebFallback (below).
+      {% if flag?(:macos) || flag?(:ios) %}
+        def visit(view : UI::ContextMenu)
+          el = Components::Elements::Div.new
+          el.set_attribute("role", "menu")
+          el.set_attribute("data-component", "context-menu-noop")
+          el.add_style("display: none")
+          apply_common_styles(el, view)
+          if parent = @element_stack.last?
+            parent.as(Components::Elements::ContainerElement).add_child(el)
+          else
+            @root = el
+          end
+        end
+      {% end %}
 
-        view.items.each do |entry|
+      # Web rendering of the cross-platform ContextMenu companion. Produces
+      # a host element with the trigger as a child and a hidden role=menu
+      # ul ready to be positioned by the vanilla-JS fallback.
+      def visit(view : UI::ContextMenuWithWebFallback)
+        host = Components::Elements::Div.new
+        host.set_attribute("data-ap-ctx-host", "true")
+        host.add_class("ap-ctx-menu-host")
+
+        menu = Components::Elements::Ul.new
+        menu.add_class("ap-ctx-menu")
+        menu.set_attribute("role", "menu")
+        menu.set_attribute("data-presented", "false")
+
+        view.items.each_with_index do |entry, index|
           case entry
-          when UI::ContextMenu::Separator
-            sep = Components::Elements::Div.new
-            sep.add_style("height: 1px; margin: 6px 0; background: var(--ap-color-border-subtle)")
-            el.add_child(sep)
-          when UI::ContextMenu::Item
-            row = Components::Elements::Div.new
-            row.set_attribute("role", "menuitem")
-            row.add_style("display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 10px; border-radius: 8px")
-            color = entry.is_destructive ? "var(--ap-color-danger-text)" : "var(--ap-color-text-primary)"
-            color = "var(--ap-color-text-muted)" if entry.is_disabled && !entry.is_destructive
-            row.add_style("color: #{color}")
+          when UI::ContextMenuWithWebFallback::Separator
+            sep = Components::Elements::Li.new
+            sep.set_attribute("role", "separator")
+            sep.add_class("ap-ctx-menu__separator")
+            menu.add_child(sep)
+          when UI::ContextMenuWithWebFallback::Item
+            li = Components::Elements::Li.new
+            li.set_attribute("role", "none")
+            btn = Components::Elements::Button.new(type: "button")
+            btn.set_attribute("role", "menuitem")
+            btn.add_class("ap-ctx-menu__item")
+            btn.add_class("ap-ctx-menu__item--destructive") if entry.is_destructive
+            if entry.is_disabled
+              btn.set_attribute("aria-disabled", "true")
+              btn.set_attribute("disabled", "disabled")
+            end
+            btn.set_attribute("data-ap-ctx-action", index.to_s)
             if icon = entry.icon
               icon_el = Components::Elements::Span.new
               icon_el.set_attribute("aria-hidden", "true")
-              icon_el.add_style("display: inline-flex; width: 16px; justify-content: center; opacity: 0.78")
               icon_el << icon
-              row.add_child(icon_el)
+              btn.add_child(icon_el)
             end
             label_el = Components::Elements::Span.new
             label_el << entry.label
-            row.add_child(label_el)
-            el.add_child(row)
+            btn.add_child(label_el)
+            li.add_child(btn)
+            menu.add_child(li)
           end
         end
 
-        apply_common_styles(el, view)
-        if parent = @element_stack.last?
-          parent.as(Components::Elements::ContainerElement).add_child(el)
-        else
-          @root = el
+        host.add_child(menu)
+
+        unless @context_menu_css_emitted
+          @context_menu_css_emitted = true
+          style_block = Components::Elements::Style.new
+          style_block << CONTEXT_MENU_FALLBACK_CSS
+          host.add_child(style_block)
+
+          script_block = Components::Elements::Script.new
+          script_block << CONTEXT_MENU_FALLBACK_JS
+          host.add_child(script_block)
         end
+
+        apply_common_styles(host, view)
+        push_element(host)
       end
+
+      @context_menu_css_emitted : Bool = false
+
+      CONTEXT_MENU_FALLBACK_CSS = <<-CSS
+      .ap-ctx-menu-host { position: relative; display: contents; }
+      .ap-ctx-menu {
+        position: fixed;
+        list-style: none; margin: 0; padding: 4px;
+        min-width: 200px;
+        background: var(--ap-color-surface-panel);
+        color: var(--ap-color-text-primary);
+        border: 1px solid var(--ap-color-border-subtle);
+        border-radius: var(--ap-radius-card);
+        box-shadow: var(--ap-elevation-floating);
+        z-index: 900;
+        display: none;
+      }
+      .ap-ctx-menu[data-presented="true"] { display: block; }
+      .ap-ctx-menu__item {
+        display: flex; align-items: center; gap: 8px;
+        width: 100%;
+        min-height: 32px; padding: 0 12px;
+        background: transparent; border: none;
+        color: inherit; font: inherit;
+        text-align: left; cursor: pointer;
+        border-radius: 6px;
+      }
+      .ap-ctx-menu__item:hover,
+      .ap-ctx-menu__item:focus-visible {
+        background: var(--ap-color-surface-hover);
+        outline: none;
+      }
+      .ap-ctx-menu__item--destructive { color: var(--ap-color-danger-text); }
+      .ap-ctx-menu__item[aria-disabled="true"] {
+        color: var(--ap-color-text-muted);
+        cursor: not-allowed;
+      }
+      .ap-ctx-menu__separator {
+        height: 1px;
+        margin: 4px 0;
+        background: var(--ap-color-border-subtle);
+      }
+      CSS
+
+      CONTEXT_MENU_FALLBACK_JS = {{ read_file("#{__DIR__}/../web/context_menu_fallback.js") }}
 
       def visit(view : UI::ToggleButton)
         el = Components::Elements::Button.new(type: "button")
