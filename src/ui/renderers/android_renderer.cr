@@ -3,6 +3,7 @@ require "../platform_visitor"
 require "../native/native_handle"
 require "../native/native_view"
 require "../native/callback_registry"
+require "../design_tokens"
 
 module UI::Android
   # Low-level JNI function bindings for Android view construction.
@@ -197,6 +198,14 @@ module UI::Android
     # --- Global reference management ---
     fun android_new_global_ref(env : Void*, local_ref : Void*) : Void*
     fun android_delete_global_ref(env : Void*, global_ref : Void*)
+
+    # --- Phase 5: Glass material ---
+    # Applies AssetPipelineGlassHelper.applyGlass(view, blurRadius,
+    # fallbackArgb). Helper internally chooses RenderEffect.createBlurEffect
+    # on API 31+ or alpha-fill on older devices. Returns 1 if real blur
+    # was applied, 0 if the fallback path ran (or the helper class is
+    # missing, which Phase 6.5's audit harness verifies separately).
+    fun android_view_apply_glass(env : Void*, view : Void*, blur_radius : Float32, fallback_argb : Int32) : Int32
   end
 
   # Renders a UI::View tree to native Android views via the JNI bridge.
@@ -257,6 +266,12 @@ module UI::Android
     # Required for every View constructor.
     @context : Void*
     @material_theme : UI::Theme
+
+    # Phase 5 — Glass material tokens. The renderer resolves
+    # `tokens.material.resolve(view.material)` inside
+    # `visit(UI::GlassBackground)` to drive both the API 31+ RenderEffect
+    # path and the alpha-fallback path.
+    property design_tokens : UI::DesignTokens::Tokens = UI::DesignTokens::Tokens.default
 
     # Returns the root NativeView produced by the last top-level visit.
     # Raises if no view has been visited yet.
@@ -2152,26 +2167,41 @@ module UI::Android
     end
 
     # -----------------------------------------------------------------
-    # Visit: GlassBackground -> android.widget.FrameLayout (blur placeholder)
+    # Visit: GlassBackground -> android.widget.FrameLayout + RenderEffect
     #
-    # Android doesn't have a built-in blur/frosted glass effect equivalent
-    # to UIVisualEffectView or NSVisualEffectView. We use a FrameLayout
-    # with a semi-transparent background as a structural placeholder.
-    # Production code would use a RenderEffect blur or a third-party library.
+    # Phase 5: tokenizes the previously hard-coded per-step alpha table.
+    # On API 31+, the host's `AssetPipelineGlassHelper.applyGlass` static
+    # helper applies `RenderEffect.createBlurEffect(radius, radius,
+    # TileMode.CLAMP)` where `radius = step.blur_radius * intensity`. On
+    # API < 31 (or when the helper class is not bundled), the helper
+    # falls back to `setBackgroundColor(fallbackArgb)` at the per-step
+    # opacity. Crystal-side resolution is uniform — only the JNI bridge
+    # branches on SDK version.
+    #
+    # Empirical verification (real RenderEffect render on a real device)
+    # is Phase 6.5's audit harness work per the Phase 5 brief.
     # -----------------------------------------------------------------
     def visit(view : UI::GlassBackground)
+      resolved = @design_tokens.material.resolve(view.material)
+
       fl = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
 
-      # Semi-transparent white background as visual approximation
-      alpha_int = case view.material
-                  when :ultra_thin then 0x33FFFFFF # 20% opacity
-                  when :thin       then 0x66FFFFFF # 40% opacity
-                  when :regular    then 0x99FFFFFF # 60% opacity
-                  when :thick      then 0xBBFFFFFF # 73% opacity
-                  when :chrome     then 0xDDFFFFFF # 87% opacity
-                  else                  0x99FFFFFF
-                  end
-      LibAndroidBridge.android_view_set_background_color(@env, fl, alpha_int.to_i32)
+      # Compose fallback ARGB: white tint (0xFFFFFF) at per-step opacity.
+      # Matches the previous hard-coded alpha-byte table when opacity is
+      # at the default values (0.20/0.40/0.60/0.73/0.87 -> 0x33/0x66/0x99/0xBB/0xDD).
+      alpha_byte = (resolved.opacity * 255.0).round.to_i.clamp(0, 255)
+      fallback_argb = ((alpha_byte.to_u32 << 24) | 0x00FFFFFF_u32).to_i32!
+
+      applied_real_blur = LibAndroidBridge.android_view_apply_glass(
+        @env, fl, resolved.blur_radius.to_f32, fallback_argb
+      )
+
+      # Defensive: if the helper class wasn't bundled (returns 0 even on
+      # API 31+), fall through to the legacy alpha background so the
+      # surface remains visually distinguishable.
+      if applied_real_blur == 0
+        LibAndroidBridge.android_view_set_background_color(@env, fl, fallback_argb)
+      end
 
       apply_common_properties(fl, view)
 

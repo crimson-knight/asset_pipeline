@@ -1471,3 +1471,33 @@ void android_delete_global_ref(void *env_ptr, void *global_ref) {
         (*env)->DeleteGlobalRef(env, (jobject)global_ref);
     }
 }
+
+// Phase 5 — Glass material RenderEffect bridge.
+//
+// Calls the host's AssetPipelineGlassHelper.applyGlass(view, blurRadius,
+// fallbackArgb) static helper. The helper itself decides API 31+ blur vs
+// alpha fill — Crystal-side resolution remains uniform. Returns 1 if a
+// real RenderEffect blur was applied, 0 if the fallback alpha was used or
+// the helper class could not be loaded (e.g., the consumer app did not
+// bundle the helper).
+int32_t android_view_apply_glass(void *env_ptr, void *view, float blur_radius, int32_t fallback_argb) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass helper_cls = (*env)->FindClass(env, "com/assetpipeline/glass/AssetPipelineGlassHelper");
+    if (!helper_cls) {
+        if ((*env)->ExceptionCheck(env)) {
+            (*env)->ExceptionClear(env);
+        }
+        return 0;
+    }
+    jmethodID apply = ap_get_static_method(env, helper_cls, "applyGlass", "(Landroid/view/View;FI)Z");
+    if (!apply) {
+        (*env)->DeleteLocalRef(env, helper_cls);
+        return 0;
+    }
+    jboolean result = (*env)->CallStaticBooleanMethod(env, helper_cls, apply,
+                                                     (jobject)view,
+                                                     (jfloat)blur_radius,
+                                                     (jint)fallback_argb);
+    (*env)->DeleteLocalRef(env, helper_cls);
+    return result ? 1 : 0;
+}
