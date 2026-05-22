@@ -1,4 +1,5 @@
 require "./design_tokens/conversion"
+require "./design_tokens/material"
 
 module UI
   # Unified design-token model. This is the single source of truth for all
@@ -490,6 +491,12 @@ module UI
       getter motion : MotionScale
       getter breakpoints : Breakpoints
 
+      # Glass material token branch (Phase 5). Carries the five
+      # `MaterialStep` values + an `intensity` scalar consumers re-render to
+      # observe — Phase 5 explicitly does NOT add a runtime mutator path
+      # (see I-2 `preserves` in the Phase 5 brief).
+      getter material : Material
+
       # Minimum interactive target size in CSS pixels. Phase 2 consumes this
       # to enforce WCAG 2.2 AA touch targets and to derive the lower bound
       # of `clamp()` expressions for tappable controls. Default 44.0 per
@@ -505,6 +512,7 @@ module UI
         @shadow : ShadowScale,
         @motion : MotionScale,
         @breakpoints : Breakpoints,
+        @material : Material = Defaults.material,
         @touch_target_minimum_px : Float64 = 44.0,
       )
       end
@@ -521,6 +529,7 @@ module UI
         shadow : ShadowScale = @shadow,
         motion : MotionScale = @motion,
         breakpoints : Breakpoints = @breakpoints,
+        material : Material = @material,
         touch_target_minimum_px : Float64 = @touch_target_minimum_px,
       ) : Tokens
         Tokens.new(
@@ -532,6 +541,7 @@ module UI
           shadow: shadow,
           motion: motion,
           breakpoints: breakpoints,
+          material: material,
           touch_target_minimum_px: touch_target_minimum_px,
         )
       end
@@ -673,6 +683,7 @@ module UI
           shadow: Defaults.shadow_scale,
           motion: Defaults.motion_scale,
           breakpoints: Defaults.breakpoints,
+          material: Defaults.material,
           touch_target_minimum_px: 44.0,
         )
       end
@@ -698,6 +709,7 @@ module UI
           shadow: override_shadow(base.shadow),
           motion: override_motion(base.motion),
           breakpoints: override_breakpoints(base.breakpoints),
+          material: override_material(base.material),
           touch_target_minimum_px: override_touch_target_minimum_px(base.touch_target_minimum_px),
         )
       end
@@ -732,6 +744,14 @@ module UI
 
       protected def override_breakpoints(scale : Breakpoints) : Breakpoints
         scale
+      end
+
+      # Phase 5: brand override hook for the `Material` token branch.
+      # Subclasses return a new `Material` (typically via `material.copy_with(...)`)
+      # to scale glass intensity uniformly across all renderers, or override
+      # individual `MaterialStep` fields for finer control.
+      protected def override_material(material : Material) : Material
+        material
       end
 
       protected def override_touch_target_minimum_px(value : Float64) : Float64
@@ -935,6 +955,24 @@ module UI
           lg: 1024.0,
           xl: 1280.0,
           x2l: 1536.0,
+        )
+      end
+
+      # Phase 5 — glass material defaults.
+      #
+      # Per-step values calibrated to preserve every renderer's existing
+      # visual behavior at `intensity == 1.0`. Brands override these via
+      # `Brand#override_material(material)` returning a new `Material` (use
+      # the auto-generated record `copy_with` to mutate just the fields the
+      # brand cares about).
+      def material : Material
+        Material.new(
+          ultra_thin: MaterialStep.new(blur_radius: 10.0, opacity: 0.20, saturation: 1.05, luminance: 0.0),
+          thin: MaterialStep.new(blur_radius: 20.0, opacity: 0.40, saturation: 1.10, luminance: 0.0),
+          regular: MaterialStep.new(blur_radius: 30.0, opacity: 0.60, saturation: 1.15, luminance: 0.0),
+          thick: MaterialStep.new(blur_radius: 40.0, opacity: 0.73, saturation: 1.20, luminance: 0.0),
+          chrome: MaterialStep.new(blur_radius: 50.0, opacity: 0.87, saturation: 1.25, luminance: 0.0),
+          intensity: 1.0,
         )
       end
     end
