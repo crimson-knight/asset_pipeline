@@ -1,16 +1,17 @@
 {
-  "check_id": "fallback.action-sheet-axe-clean",
-  "page": "samples/cross_platform/web/dist/phase04_action_sheet_demo.html",
+  "check_id": "fallback.path-control-axe-clean",
+  "page": "samples/cross_platform/web/dist/phase04_path_control_demo.html",
   "selectors": [
-    ".ap-action-sheet[data-presented=true]"
+    "nav[aria-label=Breadcrumb]",
+    "ol > li",
+    "[aria-current=page]"
   ],
   "cdp_methods": [
     "Runtime.evaluate (axe-core 4.10.2)",
-    "Runtime.evaluate (axe.run)",
-    "Page.captureScreenshot"
+    "Runtime.evaluate (axe.run)"
   ],
   "trusted_input_trace": [
-    "click trigger (__phase4.open)",
+    "Page.navigate (file://)",
     "axe.run(document)"
   ],
   "expected_state": {
@@ -22,11 +23,11 @@
         "viewport": "1280-light",
         "scheme": "light",
         "audit_context": {
-          "action_sheet_presented": true,
+          "action_sheet_presented": false,
           "context_menu_presented": false,
           "context_menu_item_count": 0,
-          "breadcrumb_present": false,
-          "active_element_tag": "BUTTON"
+          "breadcrumb_present": true,
+          "active_element_tag": "BODY"
         },
         "violations": [],
         "incomplete": [],
@@ -36,11 +37,11 @@
         "viewport": "1280-dark",
         "scheme": "dark",
         "audit_context": {
-          "action_sheet_presented": true,
+          "action_sheet_presented": false,
           "context_menu_presented": false,
           "context_menu_item_count": 0,
-          "breadcrumb_present": false,
-          "active_element_tag": "BUTTON"
+          "breadcrumb_present": true,
+          "active_element_tag": "BODY"
         },
         "violations": [],
         "incomplete": [],
@@ -50,11 +51,11 @@
         "viewport": "375-light",
         "scheme": "light",
         "audit_context": {
-          "action_sheet_presented": true,
+          "action_sheet_presented": false,
           "context_menu_presented": false,
           "context_menu_item_count": 0,
-          "breadcrumb_present": false,
-          "active_element_tag": "BUTTON"
+          "breadcrumb_present": true,
+          "active_element_tag": "BODY"
         },
         "violations": [],
         "incomplete": [],
@@ -64,11 +65,11 @@
         "viewport": "375-dark",
         "scheme": "dark",
         "audit_context": {
-          "action_sheet_presented": true,
+          "action_sheet_presented": false,
           "context_menu_presented": false,
           "context_menu_item_count": 0,
-          "breadcrumb_present": false,
-          "active_element_tag": "BUTTON"
+          "breadcrumb_present": true,
+          "active_element_tag": "BODY"
         },
         "violations": [],
         "incomplete": [],
@@ -79,10 +80,10 @@
   },
   "pass": true,
   "artifacts": [
-    "docs/initiative-cross-platform-ui/handoff/phase-04-r1-evidence-2026-05-21/screenshots/phase04_action_sheet_demo-1280-light.png",
-    "docs/initiative-cross-platform-ui/handoff/phase-04-r1-evidence-2026-05-21/screenshots/phase04_action_sheet_demo-1280-dark.png",
-    "docs/initiative-cross-platform-ui/handoff/phase-04-r1-evidence-2026-05-21/screenshots/phase04_action_sheet_demo-375-light.png",
-    "docs/initiative-cross-platform-ui/handoff/phase-04-r1-evidence-2026-05-21/screenshots/phase04_action_sheet_demo-375-dark.png",
-    "audits/fallback.action-sheet-axe-clean.json"
+    "docs/initiative-cross-platform-ui/handoff/phase-04-r1-evidence-2026-05-21/screenshots/phase04_path_control_demo-1280-light.png",
+    "docs/initiative-cross-platform-ui/handoff/phase-04-r1-evidence-2026-05-21/screenshots/phase04_path_control_demo-1280-dark.png",
+    "docs/initiative-cross-platform-ui/handoff/phase-04-r1-evidence-2026-05-21/screenshots/phase04_path_control_demo-375-light.png",
+    "docs/initiative-cross-platform-ui/handoff/phase-04-r1-evidence-2026-05-21/screenshots/phase04_path_control_demo-375-dark.png",
+    "audits/fallback.path-control-axe-clean.json"
   ]
 }
