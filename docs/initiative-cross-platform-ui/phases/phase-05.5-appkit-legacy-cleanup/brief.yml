@@ -222,30 +222,36 @@ lower_layer_assumptions:
     verification: "test \"$(grep -cE 'apsk_make_(tab_view|alert|navigation_split_view|toolbar|sheet_reactive|popover)' src/ui/renderers/uikit_renderer.cr | tr -d ' ')\" = \"6\""
 
 repo_derived_facts:
-  - fact: "AppKit `_legacy_*` Category B method count (pre-cleanup state at HEAD)"
+  # Phase 5.5 facts capture POST-implementation state (commit b6875b9
+  # deleted all 12 dead-code _legacy_* methods atomically). Pre-cleanup
+  # at SHA 09ff914 the _legacy_* counts were each 6; the cross-platform
+  # total was 12. Post-cleanup at b6875b9 those drop to 0 / 0 / 0 per the
+  # Phase 5.5 contract. Facade counts are unchanged at 6 / 6 (no facade
+  # regression).
+  - fact: "AppKit `_legacy_*` Category B method count (post-cleanup; pre-cleanup was 6)"
     query: "grep -cE 'def _legacy_(tab_view|alert|navigation_split_view|toolbar|sheet|popover)' src/ui/renderers/appkit_renderer.cr | tr -d ' '"
-    expected: "6"
-    captured_at_sha: "09ff914"
+    expected: "0"
+    captured_at_sha: "b6875b9"
 
-  - fact: "UIKit `_legacy_*` Category B method count (pre-cleanup state at HEAD)"
+  - fact: "UIKit `_legacy_*` Category B method count (post-cleanup; pre-cleanup was 6)"
     query: "grep -cE 'def _legacy_(tab_view|alert|navigation_split_view|toolbar|sheet|popover)' src/ui/renderers/uikit_renderer.cr | tr -d ' '"
-    expected: "6"
-    captured_at_sha: "09ff914"
+    expected: "0"
+    captured_at_sha: "b6875b9"
 
-  - fact: "AppKit Category B facade call-site count (must remain 6 post-cleanup)"
+  - fact: "AppKit Category B facade call-site count (must remain 6 across cleanup — no facade regression)"
     query: "grep -cE 'apsk_make_(tab_view|alert|navigation_split_view|toolbar|sheet|popover)' src/ui/renderers/appkit_renderer.cr | tr -d ' '"
     expected: "6"
-    captured_at_sha: "09ff914"
+    captured_at_sha: "b6875b9"
 
-  - fact: "UIKit Category B facade call-site count (must remain 6 post-cleanup; UIKit uses sheet_reactive)"
+  - fact: "UIKit Category B facade call-site count (must remain 6 across cleanup; UIKit uses sheet_reactive)"
     query: "grep -cE 'apsk_make_(tab_view|alert|navigation_split_view|toolbar|sheet_reactive|popover)' src/ui/renderers/uikit_renderer.cr | tr -d ' '"
     expected: "6"
-    captured_at_sha: "09ff914"
+    captured_at_sha: "b6875b9"
 
-  - fact: "Total cross-platform `_legacy_*` Category B method count across both renderers (pre-cleanup target: 12; post-cleanup target: 0)"
+  - fact: "Total cross-platform `_legacy_*` Category B method count across both renderers (post-cleanup; pre-cleanup was 12)"
     query: "grep -cE 'def _legacy_(tab_view|alert|navigation_split_view|toolbar|sheet|popover)' src/ui/renderers/appkit_renderer.cr src/ui/renderers/uikit_renderer.cr | awk -F: '{s+=$2} END {print s}' | tr -d ' '"
-    expected: "12"
-    captured_at_sha: "09ff914"
+    expected: "0"
+    captured_at_sha: "b6875b9"
 
 pre_dispatch_validation:
   script_path: "scripts/validate_phase_brief.cr"
