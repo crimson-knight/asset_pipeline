@@ -18,9 +18,28 @@ public class NavigationSplitViewFacade: NSObject {
         // The Crystal side always supplies exactly 3 entries; null slots
         // are passed as freshly-allocated platform views holding nothing
         // (an empty NSView/UIView). Treat any entry as renderable.
-        let sidebar: AnyView = childViews.indices.contains(0)
+        //
+        // Phase 5 v2: the sidebar pane gets a SwiftUI Material background
+        // resolved from `materialSemantic` (default :sidebar →
+        // .regularMaterial). The content + detail panes are left at
+        // SwiftUI defaults per architecture doc lines 100-102 (sidebar pane
+        // only). On iOS 26+ / macOS 26+ Liquid Glass path, the system
+        // resolves material strength automatically.
+        let materialKey: String = overrides.materialSemantic ?? "sidebar"
+        let sidebarBase: AnyView = childViews.indices.contains(0)
             ? AnyView(APSKHostedChild(view: childViews[0]))
             : AnyView(EmptyView())
+        let sidebar: AnyView = {
+            if MaterialSemanticResolver.shouldSkipModifier(materialKey) {
+                return sidebarBase
+            }
+            if #available(iOS 15.0, macOS 12.0, *) {
+                if let mat = MaterialSemanticResolver.material(for: materialKey) {
+                    return AnyView(sidebarBase.background(mat))
+                }
+            }
+            return sidebarBase
+        }()
         let mid: AnyView = childViews.indices.contains(1)
             ? AnyView(APSKHostedChild(view: childViews[1]))
             : AnyView(EmptyView())

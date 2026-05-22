@@ -9,6 +9,14 @@ module UI
     property shows_sidebar : Bool = true
     property column_visibility : Symbol = :all # :all, :double_column, :detail_only
 
+    # Phase 5 v2 — Apple semantic material override for the sidebar pane.
+    # nil = use the HIG-canonical default (:sidebar). Callers pass the
+    # `UI::DesignTokens::AppleSemantic#to_key` Symbol form (e.g.
+    # `:sidebar`, `:menu`, `:system_resolved`); the renderer's populator
+    # forwards the stringified key to the SwiftKit facade which resolves
+    # it to a SwiftUI Material via `MaterialSemanticResolver`.
+    property material_semantic : Symbol? = nil
+
     def initialize(@sidebar : View? = nil, @content : View? = nil, @detail : View? = nil)
       # Default container-query root: the split view's sidebar/content
       # ratio depends on its own width, not the viewport. Naming it

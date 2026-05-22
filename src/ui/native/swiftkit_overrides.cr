@@ -385,6 +385,12 @@ module UI
         unless cv == :all
           sender.set_string(target, :setColumnVisibility, cv.to_s)
         end
+        # Phase 5 v2: forward AppleSemantic override (or HIG default :sidebar)
+        # so the SwiftKit facade applies `.background(<Material>)` on the
+        # sidebar pane VStack only.
+        ms = view.material_semantic
+        key = ms.nil? ? "sidebar" : ms.to_s
+        sender.set_string(target, :setMaterialSemantic, key)
       end
 
       def self.populate_tab_view(target : String, view : UI::TabView, sender : Sender)
