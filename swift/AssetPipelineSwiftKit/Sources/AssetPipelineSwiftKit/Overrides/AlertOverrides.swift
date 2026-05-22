@@ -22,6 +22,11 @@ public class AlertOverrides: ViewOverrides {
     @objc public var buttonLabels: [String] = []
     @objc public var buttonStyles: [String] = []
     @objc public var buttonTokens: [NSNumber] = []
+    // Phase 5 v2 — Apple semantic material key. nil → use the per-widget
+    // HIG default ("system_resolved" — SwiftUI .alert is system-drawn;
+    // this field is preserved for cross-platform symmetry but has no
+    // visible effect on the active .alert path).
+    @objc public var materialSemantic: String? = nil
 
     @objc public override init() { super.init() }
 }

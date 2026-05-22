@@ -34,22 +34,45 @@ public class PopoverFacade: NSObject {
         default:         arrow = .bottom
         }
 
+        // Phase 5 v2 — resolve AppleSemantic key (default "popover")
+        // for the popover body's .presentationBackground(<Material>)
+        // (iOS 16.4+ / macOS 13.3+ per A1 spike).
+        let materialKey: String = overrides.materialSemantic ?? "popover"
+
         var content: AnyView = AnyView(
             Color.clear
                 .frame(width: 1, height: 1)
                 .popover(isPresented: storage.binding, arrowEdge: arrow) {
-                    Group {
-                        body
-                    }
-                    .frame(
-                        minWidth: overrides.preferredWidth.map { CGFloat($0.doubleValue) },
-                        minHeight: overrides.preferredHeight.map { CGFloat($0.doubleValue) }
+                    let popoverBody = AnyView(
+                        Group {
+                            body
+                        }
+                        .frame(
+                            minWidth: overrides.preferredWidth.map { CGFloat($0.doubleValue) },
+                            minHeight: overrides.preferredHeight.map { CGFloat($0.doubleValue) }
+                        )
                     )
+                    PopoverFacade.applyPresentationBackground(popoverBody, key: materialKey)
                 }
         )
 
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(PopoverHost(storage: storage, content: content))
+    }
+
+    // Phase 5 v2 — applies `.presentationBackground(<SwiftUI Material>)`
+    // to the popover body. Default key = "popover" → .regularMaterial;
+    // "system_resolved" / nil returns the body unchanged.
+    fileprivate static func applyPresentationBackground(
+        _ v: AnyView, key: String
+    ) -> AnyView {
+        if MaterialSemanticResolver.shouldSkipModifier(key) { return v }
+        if #available(iOS 16.4, macOS 13.3, *) {
+            if let mat = MaterialSemanticResolver.material(for: key) {
+                return AnyView(v.presentationBackground(mat))
+            }
+        }
+        return v
     }
 }
 

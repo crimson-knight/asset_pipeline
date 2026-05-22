@@ -43,6 +43,12 @@ module UI
     # :top    -- macOS toolbar-style; bar appears above content.
     property bar_position : Symbol = :bottom
 
+    # Phase 5 v2 — Apple semantic material override. nil = HIG-canonical
+    # default :system_resolved (SwiftUI's `.toolbarBackground(.bar, for:)`
+    # handles tab-bar chrome; AppleSemantic does NOT suppress that). To
+    # apply a custom material, set this to a non-default semantic role.
+    property material_semantic : Symbol? = nil
+
     def initialize(@tabs : Array(Tab) = [] of Tab, @selected_index : Int32 = 0)
     end
 

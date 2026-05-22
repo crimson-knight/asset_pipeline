@@ -9,6 +9,11 @@ module UI
     property preferred_height : Float64? = nil
     property on_dismiss : Proc(Nil)? = nil
 
+    # Phase 5 v2 — Apple semantic material override. nil = HIG-canonical
+    # default :popover (NSVisualEffectMaterialPopover on macOS,
+    # .regularMaterial via .presentationBackground on iOS 16.4+).
+    property material_semantic : Symbol? = nil
+
     def initialize(@content : View? = nil, @arrow_edge : Symbol = :bottom)
     end
 

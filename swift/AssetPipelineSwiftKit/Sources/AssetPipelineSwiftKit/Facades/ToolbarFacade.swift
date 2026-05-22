@@ -55,6 +55,20 @@ public class ToolbarFacade: NSObject {
             content = AnyView(content.navigationTitle(title))
         }
 
+        // Phase 5 v2 — apply `.toolbarBackground(.bar, for: .automatic)`.
+        // Per architecture doc lines 91-92, .navigationBar placement is
+        // iOS-only; .automatic is cross-platform-safe. SystemResolved is
+        // the HIG default (SwiftUI handles bar chrome); explicit
+        // AppleSemantic overrides flow through the resolver.
+        let materialKey: String = overrides.materialSemantic ?? "system_resolved"
+        if !MaterialSemanticResolver.shouldSkipModifier(materialKey) {
+            if #available(iOS 16.0, macOS 13.0, *) {
+                if let mat = MaterialSemanticResolver.material(for: materialKey) {
+                    content = AnyView(content.toolbarBackground(mat, for: .automatic))
+                }
+            }
+        }
+
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(content)
     }

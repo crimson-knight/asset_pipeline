@@ -22,6 +22,9 @@ public class ToolbarOverrides: ViewOverrides {
     @objc public var itemIcons: [String] = []
     @objc public var itemTokens: [NSNumber] = []
     @objc public var itemPlacements: [String] = []
+    // Phase 5 v2 — Apple semantic material key. nil → use the per-widget
+    // HIG default ("system_resolved" — SwiftUI bar chrome handles it).
+    @objc public var materialSemantic: String? = nil
 
     @objc public override init() { super.init() }
 }

@@ -22,6 +22,9 @@ public class TabViewOverrides: ViewOverrides {
     @objc public var tabLabels: [String] = []
     @objc public var tabIcons: [String] = []
     @objc public var selectedIndex: Int = 0
+    // Phase 5 v2 — Apple semantic material key. nil → use the per-widget
+    // HIG default ("system_resolved" — SwiftUI bar chrome handles it).
+    @objc public var materialSemantic: String? = nil
 
     @objc public override init() { super.init() }
 }

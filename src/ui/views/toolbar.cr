@@ -12,6 +12,11 @@ module UI
     property title : String? = nil
     property shows_title : Bool = true
 
+    # Phase 5 v2 — Apple semantic material override. nil = HIG-canonical
+    # default :system_resolved (SwiftUI's `.toolbarBackground(.bar, for:)`
+    # handles toolbar chrome).
+    property material_semantic : Symbol? = nil
+
     def initialize(@title : String? = nil)
     end
 

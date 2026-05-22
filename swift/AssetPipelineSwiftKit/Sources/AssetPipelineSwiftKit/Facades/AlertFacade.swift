@@ -3,6 +3,16 @@
 // Alert content is entirely data-driven (title, message, button list).
 // No child views are needed — the buttons come from the
 // AlertOverrides parallel arrays.
+//
+// Phase 5 v2: per the v2 architecture's per-widget defaults table
+// (lines 89, 99), Alert is `SystemResolved` — SwiftUI `.alert` is
+// system-drawn and Apple HIG explicitly recommends letting the system
+// handle alert chrome. AlertOverrides carries a `materialSemantic`
+// field for cross-platform symmetry (and so spec-level recording asserts
+// can verify the populator emits it consistently), but the facade body
+// does NOT apply any `.background` / `.presentationBackground` modifier
+// — the field is intentionally inert on the active SwiftUI `.alert`
+// path. This is the architecture-correct behavior, not an omission.
 
 import SwiftUI
 import Foundation

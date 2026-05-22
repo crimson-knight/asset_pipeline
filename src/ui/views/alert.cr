@@ -21,6 +21,14 @@ module UI
     # Whether the alert is currently presented
     property is_presented : Bool = false
 
+    # Phase 5 v2 — Apple semantic material override. nil = HIG-canonical
+    # default :system_resolved (SwiftUI `.alert` is system-drawn; Apple
+    # explicitly recommends letting the system handle alert chrome).
+    # Setting this has no visible effect on the active SwiftUI `.alert`
+    # path; preserved for cross-platform symmetry with the other Category
+    # B widgets' material override surface.
+    property material_semantic : Symbol? = nil
+
     def initialize(@title : String, @message : String = "")
     end
 

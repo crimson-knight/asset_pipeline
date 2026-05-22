@@ -405,6 +405,11 @@ module UI
         sender.set_string_array(target, :setTabIcons, view.tabs.map { |t| t.icon || "" })
         sender.set_int(target, :setSelectedIndex,
           view.selected_index == 0 ? nil : view.selected_index)
+        # Phase 5 v2: HIG default is :system_resolved (SwiftUI handles bar
+        # chrome). Only emit when the caller overrides the AppleSemantic.
+        if ms = view.material_semantic
+          sender.set_string(target, :setMaterialSemantic, ms.to_s)
+        end
       end
 
       def self.populate_sheet(target : String, view : UI::Sheet, sender : Sender)
@@ -436,6 +441,11 @@ module UI
         end
         sender.set_number(target, :setPreferredWidth, view.preferred_width)
         sender.set_number(target, :setPreferredHeight, view.preferred_height)
+        # Phase 5 v2: HIG default is :popover; the facade applies
+        # `.presentationBackground(.regularMaterial)` on iOS 16.4+ / macOS 13.3+.
+        ms = view.material_semantic
+        key = ms.nil? ? "popover" : ms.to_s
+        sender.set_string(target, :setMaterialSemantic, key)
       end
 
       def self.populate_alert(target : String, view : UI::Alert, sender : Sender)
@@ -449,6 +459,13 @@ module UI
           sender.set_string_array(target, :setButtonStyles, view.buttons.map(&.style.to_s))
           # Tokens registered by the visit method; populator can't see them.
           # The visit method emits set_uint64_array itself after registering.
+        end
+        # Phase 5 v2: HIG default is :system_resolved (SwiftUI .alert is
+        # system-drawn). Only emit when the caller overrides — preserved for
+        # cross-platform symmetry with the other Category B widgets'
+        # material override surface; field is inert on the .alert path.
+        if ms = view.material_semantic
+          sender.set_string(target, :setMaterialSemantic, ms.to_s)
         end
       end
 
@@ -479,6 +496,11 @@ module UI
           # override per-item if a richer placement model is wired later.
           sender.set_string_array(target, :setItemPlacements,
             view.items.map { |_| "primary" })
+        end
+        # Phase 5 v2: HIG default is :system_resolved (SwiftUI handles bar
+        # chrome via `.toolbarBackground(.bar)`). Only emit when overridden.
+        if ms = view.material_semantic
+          sender.set_string(target, :setMaterialSemantic, ms.to_s)
         end
       end
 
