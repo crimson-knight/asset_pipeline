@@ -2929,14 +2929,26 @@
       end
 
       def visit(view : UI::ContextMenu)
+        # Phase 5 v2 — token-driven semantic material. ContextMenu's HIG
+        # canonical role is `Menu`; the iOS approximation table maps Menu
+        # to UIBlurEffectStyleSystemUltraThinMaterial = 8. SystemResolved
+        # returns -1 sentinel — when present, skip setEffect: and let the
+        # system default UIBlurEffect apply.
+        menu_semantic = UI::DesignTokens::AppleSemantic::Menu
+        menu_style = uikit_blur_effect_style_for_semantic(menu_semantic)
+
         glass_cls = LibObjCBridge.objc_getClass("UIGlassEffect")
         blur_effect = if !glass_cls.null?
                         LibObjCBridge.objc_send(
                           LibObjCBridge.objc_send(glass_cls, sel("alloc")),
                           sel("init"))
-                      else
+                      elsif menu_style != -1_i64
                         ublur_cls = LibObjCBridge.objc_getClass("UIBlurEffect")
-                        LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), 11_i64)
+                        LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), menu_style)
+                      else
+                        # SystemResolved sentinel: fall through to system default.
+                        ublur_cls = LibObjCBridge.objc_getClass("UIBlurEffect")
+                        LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), 7_i64) # systemMaterial system default
                       end
 
         uveff_cls = LibObjCBridge.objc_getClass("UIVisualEffectView")
@@ -3730,15 +3742,26 @@
         # UIButton.tintColor routes template-mode SF Symbol images through the color.
         amber_gold = amber_brand_gold
 
+        # Phase 5 v2 — token-driven semantic material. ActivityView's HIG-
+        # canonical role is `Sheet`; the iOS approximation maps Sheet to
+        # UIBlurEffectStyleSystemThickMaterial = 11. SystemResolved sentinel
+        # (-1) falls through to the system default; live path uses Sheet.
+        activity_semantic = UI::DesignTokens::AppleSemantic::Sheet
+        activity_style = uikit_blur_effect_style_for_semantic(activity_semantic)
+
         # Build the glass surface effect (same pattern as visit(UI::Sheet)).
         glass_cls = LibObjCBridge.objc_getClass("UIGlassEffect")
         blur_effect = if !glass_cls.null?
                         LibObjCBridge.objc_send(
                           LibObjCBridge.objc_send(glass_cls, sel("alloc")),
                           sel("init"))
-                      else
+                      elsif activity_style != -1_i64
                         ublur_cls = LibObjCBridge.objc_getClass("UIBlurEffect")
-                        LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), 11_i64)
+                        LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), activity_style)
+                      else
+                        # SystemResolved sentinel: fall through to system default.
+                        ublur_cls = LibObjCBridge.objc_getClass("UIBlurEffect")
+                        LibObjCBridge.objc_send_long(ublur_cls, sel("effectWithStyle:"), 7_i64)
                       end
 
         uveff_cls = LibObjCBridge.objc_getClass("UIVisualEffectView")
@@ -4701,6 +4724,39 @@
       # Token-driven radius in points (rem * 16).
       private def token_radius(key : Symbol) : Float64
         (@design_tokens.radius.lookup(key) || @design_tokens.radius.md) * 16.0
+      end
+
+      # Phase 5 v2 — iOS sibling of AppKit's
+      # `appkit_visual_effect_material_for_semantic`. UIKit's
+      # `UIBlurEffectStyle` is thickness-based (no first-class semantic
+      # vocabulary), so the table is an APPROXIMATION per the v2
+      # architecture doc's per-widget table:
+      #
+      #   Menu              → systemUltraThinMaterial = 8
+      #   Popover           → systemMaterial          = 7
+      #   Sidebar           → systemThinMaterial      = 6
+      #   Sheet             → systemThickMaterial     = 11
+      #   HeaderView        → systemChromeMaterial    = 10
+      #   WindowBackground  → systemMaterial          = 7
+      #   HUDWindow         → systemChromeMaterial    = 10
+      #   Titlebar          → systemMaterial          = 7
+      #   SystemResolved    → -1 (SENTINEL — caller must skip setEffect:)
+      #
+      # Brief.yml adapter_cardinality row 1 documents the approximation
+      # is consumer-visible degradation; consumers wanting per-platform
+      # fidelity beyond the approximation must override per-widget.
+      private def uikit_blur_effect_style_for_semantic(semantic : UI::DesignTokens::AppleSemantic) : Int64
+        case semantic
+        in .menu?              then  8_i64 # UIBlurEffectStyleSystemUltraThinMaterial
+        in .popover?           then  7_i64 # UIBlurEffectStyleSystemMaterial
+        in .sidebar?           then  6_i64 # UIBlurEffectStyleSystemThinMaterial
+        in .sheet?             then 11_i64 # UIBlurEffectStyleSystemThickMaterial
+        in .header_view?       then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
+        in .window_background? then  7_i64 # UIBlurEffectStyleSystemMaterial (approx)
+        in .hud_window?        then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
+        in .titlebar?          then  7_i64 # UIBlurEffectStyleSystemMaterial (approx)
+        in .system_resolved?   then -1_i64 # SENTINEL — caller must skip setEffect:
+        end
       end
 
       # Apply common View base-class properties to a raw UIKit view pointer.

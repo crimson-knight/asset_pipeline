@@ -2819,17 +2819,18 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       end
 
       def visit(view : UI::ContextMenu)
-        # Token-driven material via the AppKit-semantic `:menu` key —
-        # `NSVisualEffectMaterialMenu` has no SwiftUI Material enum
-        # analogue, so we route through the AppKit-private semantic
-        # extension to the translation table. `apple_step(:menu)`
-        # returns `:menu` unchanged (only `:regular` is quantized by
-        # intensity); the translation table maps `:menu` to 5
-        # (byte-identical to the pre-Phase-5 raw constant).
-        menu_step = @design_tokens.material.apple_step(:menu)
-        menu_material = appkit_visual_effect_material(menu_step)
+        # Phase 5 v2 — token-driven semantic material. ContextMenu's HIG-
+        # canonical role is `Menu` (NSVisualEffectMaterialMenu = 5).
+        # Brand intensity is ADVISORY on Apple semantic surfaces (the
+        # AppleSemantic axis is role-based, not intensity-scaled).
+        # `SystemResolved` returns the 0 sentinel — skip setMaterial: in
+        # that branch.
+        menu_semantic = UI::DesignTokens::AppleSemantic::Menu
+        menu_material = appkit_visual_effect_material_for_semantic(menu_semantic)
         effect = alloc_init("NSVisualEffectView")
-        LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), menu_material) # :menu -> NSVisualEffectMaterialMenu (5)
+        if menu_material != 0_i64
+          LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), menu_material) # Menu -> 5
+        end
         LibObjCBridge.objc_send_long(effect, sel("setBlendingMode:"), 1_i64) # WithinWindow
         LibObjCBridge.objc_send_long(effect, sel("setState:"), 1_i64)        # Active
         LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
@@ -3757,17 +3758,17 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         # the amber backdrop renders correctly under both.
         amber_gold = amber_brand_gold
 
-        # Outer glass container — sheet material approximates the iOS share sheet
-        # surface on macOS and matches the known-good UI::Sheet glass path.
-        # Token-driven material. Declared step `:thick` quantizes through
-        # `apple_step` unchanged (developer intent wins for non-`:regular`
-        # declared steps per material.cr L77-91); the translation table
-        # maps `:thick` to NSVisualEffectMaterialSheet (11), byte-identical
-        # to the pre-Phase-5 raw integer.
-        activity_step = @design_tokens.material.apple_step(:thick)
-        activity_material = appkit_visual_effect_material(activity_step)
+        # Phase 5 v2 — token-driven semantic material. ActivityView's HIG-
+        # canonical role is `Sheet` (NSVisualEffectMaterialSheet = 11) per
+        # the v2 architecture per-widget defaults table. Brand intensity is
+        # ADVISORY on Apple semantic surfaces — AppleSemantic is role-
+        # based, not intensity-scaled. SystemResolved returns 0 sentinel.
+        activity_semantic = UI::DesignTokens::AppleSemantic::Sheet
+        activity_material = appkit_visual_effect_material_for_semantic(activity_semantic)
         effect = alloc_init("NSVisualEffectView")
-        LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), activity_material) # :thick -> NSVisualEffectMaterialSheet (11)
+        if activity_material != 0_i64
+          LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), activity_material) # Sheet -> 11
+        end
         LibObjCBridge.objc_send_long(effect, sel("setBlendingMode:"), 1_i64) # WithinWindow
         LibObjCBridge.objc_send_long(effect, sel("setState:"), 1_i64)        # Active
         LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
@@ -4698,14 +4699,50 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # the exact marker comment on the line directly above. Phase 5
       # validation.md check #22 greps for that marker. Do not add this
       # marker anywhere else in the codebase.
-      private def appkit_visual_effect_material(step : Symbol) : Int64
+      # Phase 5 v2 — renamed from `appkit_visual_effect_material(step : Symbol)`
+      # to take the v2 `AppleSemantic` enum directly. Maps each semantic to
+      # the matching `NSVisualEffectMaterial` integer.
+      #
+      # `SystemResolved` returns `0_i64` as a SENTINEL — the caller is
+      # responsible for checking the result and skipping `setMaterial:` when
+      # it's zero. Zero is not a valid NSVisualEffectMaterial (the smallest
+      # valid is `NSVisualEffectMaterialTitlebar = 3`), so this is an
+      # unambiguous "do not emit" signal. The two active call sites
+      # (`visit(UI::ContextMenu)`, `visit(UI::ActivityView)`) and the inline
+      # sidebar effect inside `visit(UI::NavigationSplitView)` always pass a
+      # concrete non-SystemResolved semantic for their HIG-canonical
+      # defaults, so the sentinel branch is reached only when a consumer
+      # explicitly overrides to `:system_resolved`.
+      private def appkit_visual_effect_material_for_semantic(semantic : UI::DesignTokens::AppleSemantic) : Int64
         # AppKit material translation table — only allowed hard-coded glass switch
-        case step
-        when :thin  then  7_i64 # NSVisualEffectMaterialSidebar (NavigationSplitView sidebar)
-        when :thick then 11_i64 # NSVisualEffectMaterialSheet (ActivityView)
-        when :menu  then  5_i64 # NSVisualEffectMaterialMenu (ContextMenu, AppKit-semantic; no SwiftUI analogue)
-        else             10_i64 # NSVisualEffectMaterialHeaderView (safe modern default)
+        case semantic
+        in .menu?              then  5_i64 # NSVisualEffectMaterialMenu
+        in .popover?           then  6_i64 # NSVisualEffectMaterialPopover
+        in .sidebar?           then  7_i64 # NSVisualEffectMaterialSidebar
+        in .header_view?       then 10_i64 # NSVisualEffectMaterialHeaderView
+        in .sheet?             then 11_i64 # NSVisualEffectMaterialSheet
+        in .window_background? then 12_i64 # NSVisualEffectMaterialWindowBackground
+        in .hud_window?        then 13_i64 # NSVisualEffectMaterialHUDWindow
+        in .titlebar?          then  3_i64 # NSVisualEffectMaterialTitlebar
+        in .system_resolved?   then  0_i64 # SENTINEL — caller must skip setMaterial:
         end
+      end
+
+      # Phase 5 v2 — legacy Symbol-shim. Preserves the pre-v2
+      # `appkit_visual_effect_material(:foo)` callsite shape used by the
+      # 6 `_legacy_*` methods (Phase 5.5 cleanup target). Maps the legacy
+      # thickness-style symbols to the closest v2 AppleSemantic and
+      # delegates. The active dispatch path uses the semantic helper
+      # directly; this shim exists only so the legacy bodies still
+      # compile until Phase 5.5 deletes them.
+      private def appkit_visual_effect_material(step : Symbol) : Int64
+        semantic = case step
+                   when :thin  then UI::DesignTokens::AppleSemantic::Sidebar
+                   when :thick then UI::DesignTokens::AppleSemantic::Sheet
+                   when :menu  then UI::DesignTokens::AppleSemantic::Menu
+                   else             UI::DesignTokens::AppleSemantic::HeaderView
+                   end
+        appkit_visual_effect_material_for_semantic(semantic)
       end
 
       # Apply common View base-class properties to a raw AppKit view pointer.
