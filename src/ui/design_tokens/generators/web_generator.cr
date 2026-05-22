@@ -58,16 +58,22 @@ module UI
         io << "}\n"
       end
 
-      # Phase 5: glass material custom properties.
+      # Phase 5 v2: glass material custom properties.
       #
-      # `--ap-material-intensity` is the brand-declaration-time scalar (default
-      # 1.0). Per-step blur radii are emitted as `calc()` expressions referencing
-      # the intensity custom property so a brand-overridden Tokens instance
-      # produces an entirely different CSS bundle with no per-call-site math.
-      # Opacity and saturation are not scaled by intensity per the documented
-      # adapter_cardinality contract (brief.yml row 2).
+      # Per the v2 architecture's quantizer model (brief.yml adapter_cardinality
+      # row 2), the per-step `blur_radius` / `opacity` constants apply directly
+      # for whichever step the renderer picks via `Material#resolve(...)`.
+      # Intensity is consumed by the Crystal-side quantizer to select the
+      # EFFECTIVE step; it no longer scales the emitted CSS values via
+      # `calc()`. The `--ap-material-intensity` custom property is preserved
+      # for diagnostic / consumer-introspection use but is not multiplied
+      # into the per-step blur radii.
+      #
+      # This is the documented behavior change from iter1's proportional
+      # scaling: same intensity input space, but the output space is now 5
+      # discrete steps (quantizer model) instead of a continuous blur radius.
       private def emit_material_vars(io : IO, material : Material, indent : String) : Nil
-        io << "#{indent}/* glass material — Phase 5 */\n"
+        io << "#{indent}/* glass material — Phase 5 v2 (quantizer model) */\n"
         # Clamp to the brief.yml-declared `[0.0, 2.0]` intensity range.
         intensity_clamped = material.intensity.clamp(0.0, 2.0)
         io << "#{indent}--ap-material-intensity: #{format_number(intensity_clamped)};\n"
@@ -79,10 +85,10 @@ module UI
       end
 
       private def emit_material_step_vars(io : IO, name : String, step : MaterialStep, indent : String) : Nil
-        # Blur radius scales with intensity via calc(); fallback to "1"
-        # via the var() default so static-CSS consumers without the
-        # intensity declaration still resolve a sensible value.
-        io << "#{indent}--ap-material-blur-#{name}: calc(#{format_px(step.blur_radius)} * var(--ap-material-intensity, 1));\n"
+        # Blur radius is the step's predefined constant — no intensity scaling.
+        # The renderer picks WHICH step's vars to reference via the v2 quantizer
+        # (see `Material#resolve` in src/ui/design_tokens/material.cr).
+        io << "#{indent}--ap-material-blur-#{name}: #{format_px(step.blur_radius)};\n"
         io << "#{indent}--ap-material-opacity-#{name}: #{format_number(step.opacity)};\n"
         io << "#{indent}--ap-material-saturation-#{name}: #{format_number(step.saturation)};\n"
       end

@@ -1402,12 +1402,16 @@ module UI
       def visit(view : UI::GlassBackground)
         el = Components::Elements::Div.new
 
-        # Phase 5: glass material is tokenized. The inline style references
-        # the per-step `--ap-material-*` custom properties the WebGenerator
-        # emits on `:root` (which themselves resolve `blur` via
-        # `calc(<base>px * var(--ap-material-intensity, 1))`). The
-        # `ap-glass--<step>` class binds to the `@supports` fallback rule.
-        step_key = material_css_step_key(view.material)
+        # Phase 5 v2: glass material follows the quantizer model. Brand
+        # intensity selects the EFFECTIVE ThicknessStep via
+        # `material.resolve(declared).name`; the inline style + class
+        # suffix key off the effective step (NOT the declared step). The
+        # WebGenerator emits per-step `--ap-material-*` constants without
+        # intensity scaling — the renderer's effective-step selection is
+        # the entire mechanism by which brand intensity reaches the
+        # rendered CSS. See brief.yml adapter_cardinality row 2.
+        resolved = @design_tokens.material.resolve(view.material)
+        step_key = material_css_step_key(resolved.name)
         el.add_class("ap-glass")
         el.add_class("ap-glass--#{step_key}")
         el.add_style(
@@ -2014,14 +2018,18 @@ module UI
       # Web rendering: popover-style card with all four zones.
       def visit(view : UI::ActivityView)
         el = Components::Elements::Div.new
-        # Phase 5: ActivityView's translucent surface is tokenized to the
-        # `:thin` material step. Inline style references `var(--ap-material-*)`
-        # for both backdrop-filter and the opacity-driven color-mix
-        # background, so brand intensity AND the @supports fallback both
-        # cascade through the single token source of truth.
+        # Phase 5 v2: ActivityView's translucent surface picks the EFFECTIVE
+        # thickness step via the v2 quantizer. HIG-canonical declared step
+        # is `:thick` (matches the iOS/macOS Apple semantic `Sheet` and the
+        # SwiftUI `.thickMaterial` analogue). Inline style references the
+        # `--ap-material-*` constants for the effective step so both the
+        # backdrop-filter live path and the @supports color-mix fallback
+        # cascade. See brief.yml adapter_cardinality row 2.
+        activity_resolved = @design_tokens.material.resolve(:thick)
+        activity_key = material_css_step_key(activity_resolved.name)
         el.add_class("ap-glass")
-        el.add_class("ap-glass--thin")
-        el.add_style("background: color-mix(in oklch, var(--ap-color-surface-panel) calc(var(--ap-material-opacity-thin) * 100%), transparent); backdrop-filter: blur(var(--ap-material-blur-thin)) saturate(var(--ap-material-saturation-thin)); -webkit-backdrop-filter: blur(var(--ap-material-blur-thin)) saturate(var(--ap-material-saturation-thin)); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-panel); box-shadow: var(--ap-elevation-overlay); color: var(--ap-color-text-primary); padding: #{fluid_px(12, 3, 16)}; max-width: #{fluid_px(280, 92, 480)}; display: flex; flex-direction: column; gap: 12px")
+        el.add_class("ap-glass--#{activity_key}")
+        el.add_style("background: color-mix(in oklch, var(--ap-color-surface-panel) calc(var(--ap-material-opacity-#{activity_key}) * 100%), transparent); backdrop-filter: blur(var(--ap-material-blur-#{activity_key})) saturate(var(--ap-material-saturation-#{activity_key})); -webkit-backdrop-filter: blur(var(--ap-material-blur-#{activity_key})) saturate(var(--ap-material-saturation-#{activity_key})); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-panel); box-shadow: var(--ap-elevation-overlay); color: var(--ap-color-text-primary); padding: #{fluid_px(12, 3, 16)}; max-width: #{fluid_px(280, 92, 480)}; display: flex; flex-direction: column; gap: 12px")
         el.set_attribute("role", "dialog")
         el.set_attribute("aria-label", view.title)
 

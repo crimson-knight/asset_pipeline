@@ -152,21 +152,21 @@
   --ap-bp-xl: 1280px;
   --ap-bp-2xl: 1536px;
 
-  /* glass material — Phase 5 */
+  /* glass material — Phase 5 v2 (quantizer model) */
   --ap-material-intensity: 1;
-  --ap-material-blur-ultra-thin: calc(10px * var(--ap-material-intensity, 1));
+  --ap-material-blur-ultra-thin: 10px;
   --ap-material-opacity-ultra-thin: 0.2;
   --ap-material-saturation-ultra-thin: 1.05;
-  --ap-material-blur-thin: calc(20px * var(--ap-material-intensity, 1));
+  --ap-material-blur-thin: 20px;
   --ap-material-opacity-thin: 0.4;
   --ap-material-saturation-thin: 1.1;
-  --ap-material-blur-regular: calc(30px * var(--ap-material-intensity, 1));
+  --ap-material-blur-regular: 30px;
   --ap-material-opacity-regular: 0.6;
   --ap-material-saturation-regular: 1.15;
-  --ap-material-blur-thick: calc(40px * var(--ap-material-intensity, 1));
+  --ap-material-blur-thick: 40px;
   --ap-material-opacity-thick: 0.73;
   --ap-material-saturation-thick: 1.2;
-  --ap-material-blur-chrome: calc(50px * var(--ap-material-intensity, 1));
+  --ap-material-blur-chrome: 50px;
   --ap-material-opacity-chrome: 0.87;
   --ap-material-saturation-chrome: 1.25;
 

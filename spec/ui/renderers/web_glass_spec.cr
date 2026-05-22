@@ -35,11 +35,16 @@ describe "UI::Web::Renderer GlassBackground (Phase 5 tokenization)" do
     css.should contain(".ap-glass--ultra-thin")
   end
 
-  it "emits --ap-material-intensity scaled blur via calc()" do
+  it "emits --ap-material-intensity for diagnostic introspection and the per-step blur as the predefined constant" do
+    # Phase 5 v2: web emits the per-step blur as the predefined constant
+    # (NO calc() against intensity). Intensity now affects the rendered
+    # output via the Crystal-side quantizer selecting WHICH step's vars
+    # the renderer references, not via CSS multiplication.
     renderer = UI::Web::Renderer.new
     css = renderer.inject_theme_css
     css.should contain("--ap-material-intensity: 1")
-    css.should contain("--ap-material-blur-regular: calc(30px * var(--ap-material-intensity, 1))")
+    css.should contain("--ap-material-blur-regular: 30px")
+    css.should_not contain("--ap-material-blur-regular: calc")
   end
 
   it "cascades brand override of intensity into the generated CSS" do
@@ -47,6 +52,26 @@ describe "UI::Web::Renderer GlassBackground (Phase 5 tokenization)" do
     renderer.design_tokens = UI::DesignTokens::Tokens.default.with_brand(BoostedGlassWebSpecBrand.new)
     css = renderer.inject_theme_css
     css.should contain("--ap-material-intensity: 1.3")
+  end
+
+  it "Phase 5 v2 quantizer: declared :thick at intensity 1.3 quantizes to chrome (effective step's CSS class)" do
+    # baseline(:thick)=1.5; 1.5 * 1.3 = 1.95 -> >= 1.8 -> Chrome bucket.
+    renderer = UI::Web::Renderer.new
+    renderer.design_tokens = UI::DesignTokens::Tokens.default.with_brand(BoostedGlassWebSpecBrand.new)
+    view = UI::GlassBackground.new(material: :thick)
+    view.accept(renderer)
+    html = renderer.output
+    html.should contain("ap-glass ap-glass--chrome")
+    html.should contain("var(--ap-material-blur-chrome)")
+    html.should_not contain("ap-glass--thick")
+  end
+
+  it "Phase 5 v2 quantizer: declared :regular at default intensity stays :regular" do
+    renderer = UI::Web::Renderer.new
+    view = UI::GlassBackground.new(material: :regular)
+    view.accept(renderer)
+    html = renderer.output
+    html.should contain("ap-glass ap-glass--regular")
   end
 end
 

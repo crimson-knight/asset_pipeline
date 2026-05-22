@@ -2169,14 +2169,15 @@ module UI::Android
     # -----------------------------------------------------------------
     # Visit: GlassBackground -> android.widget.FrameLayout + RenderEffect
     #
-    # Phase 5: tokenizes the previously hard-coded per-step alpha table.
-    # On API 31+, the host's `AssetPipelineGlassHelper.applyGlass` static
-    # helper applies `RenderEffect.createBlurEffect(radius, radius,
-    # TileMode.CLAMP)` where `radius = step.blur_radius * intensity`. On
-    # API < 31 (or when the helper class is not bundled), the helper
-    # falls back to `setBackgroundColor(fallbackArgb)` at the per-step
-    # opacity. Crystal-side resolution is uniform — only the JNI bridge
-    # branches on SDK version.
+    # Phase 5 v2: tokenized via the quantizer model. Brand intensity
+    # selects the EFFECTIVE ThicknessStep through `Material#resolve(...)`;
+    # the effective step's PREDEFINED `blur_radius` drives RenderEffect
+    # on API 31+, and the effective step's PREDEFINED `opacity` drives
+    # the FrameLayout alpha fallback on API < 31. This replaces iter1's
+    # proportional `step.blur_radius * intensity` scaling — the call
+    # site here is unchanged because v2's `resolve()` returns the
+    # quantizer's effective step's predefined values directly. See
+    # brief.yml adapter_cardinality row 3.
     #
     # Empirical verification (real RenderEffect render on a real device)
     # is Phase 6.5's audit harness work per the Phase 5 brief.
