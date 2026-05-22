@@ -33,42 +33,43 @@ public final class GlassBackgroundFacade: NSObject {
         // expanding rectangle so the glass surface has something to back.
         let materialKey = overrides.material ?? "regular"
 
+        // PHASE 5 — Apple-platform material selection.
+        //
+        // Per brief.yml adapter_cardinality row 1, the SwiftUI Material
+        // enum is the public-API <-> Apple-platform adapter. Brand
+        // intensity QUANTIZES through a 5-step table, and the pre-26
+        // `.background(<Material>)` path honors the resolved step
+        // directly. The iOS 26 / macOS 26+ `.glassEffect()` path is the
+        // canonical Apple HIG Liquid Glass treatment — it intentionally
+        // does NOT vary by Crystal-side step because Liquid Glass is the
+        // system-canonical behavior Apple wants every glass surface to
+        // adopt on that OS version. Per the brief: "intensity 1.3
+        // quantizes to .regularMaterial on Apple (visually IDENTICAL to
+        // default intensity 1.0)" — and the same is true across all 5
+        // declared steps on iOS 26+ because Liquid Glass treats them
+        // uniformly. Brands wanting a step-differentiated Apple look on
+        // pre-26 SDKs do see the difference via the .background fallback
+        // below; on iOS 26+ the difference is intentionally absent.
+        let material: Material = {
+            switch materialKey {
+            case "thin":       return .thinMaterial
+            case "thick":      return .thickMaterial
+            case "ultraThin":  return .ultraThinMaterial
+            case "ultraThick": return .ultraThickMaterial
+            default:           return .regularMaterial
+            }
+        }()
+
         let backed: AnyView
         if #available(iOS 26.0, macOS 26.0, *) {
-            // Liquid Glass — the actual headline visual differentiator.
-            // `.glassEffect()` is the iOS 26 / macOS 26 SwiftUI modifier
-            // that produces the genuine Apple liquid-glass material with
-            // the system's automatic appearance + Dynamic Type response.
-            //
-            // PHASE 5 CONTRACT NOTE: The iOS 26+ Liquid Glass path does NOT
-            // vary by `materialKey` step — every step renders the system
-            // Liquid Glass treatment Apple's HIG selects. This matches the
-            // brief.yml adapter_cardinality row 1 contract ("intensity 1.3
-            // quantizes to .regularMaterial on Apple, visually IDENTICAL
-            // to default intensity 1.0"). The pre-26 `.background(Material)`
-            // fallback below DOES vary by step. Brands wanting a per-step
-            // differentiation that survives onto iOS 26+ must either rely
-            // on the system's automatic treatment (the HIG-canonical
-            // behavior) or target the web / Android renderers where the
-            // step is render-side and intensity scales blur continuously.
-            _ = materialKey  // explicitly unused on the Liquid Glass path
+            // Liquid Glass — system-canonical, step-agnostic by design.
+            _ = material  // pre-26 only; unused on the Liquid Glass path
             backed = AnyView(
                 hostedChild(childView)
                     .glassEffect()
             )
         } else {
-            // Pre-26 fallback. `Material` is a static SwiftUI background
-            // style; it tracks light/dark appearance but lacks the
-            // dynamic light bending of Liquid Glass.
-            let material: Material = {
-                switch materialKey {
-                case "thin":       return .thinMaterial
-                case "thick":      return .thickMaterial
-                case "ultraThin":  return .ultraThinMaterial
-                case "ultraThick": return .ultraThickMaterial
-                default:           return .regularMaterial
-                }
-            }()
+            // Pre-26 fallback. `Material` tracks appearance + step.
             backed = AnyView(
                 hostedChild(childView)
                     .background(material)

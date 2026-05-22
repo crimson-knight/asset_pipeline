@@ -2014,13 +2014,14 @@ module UI
       # Web rendering: popover-style card with all four zones.
       def visit(view : UI::ActivityView)
         el = Components::Elements::Div.new
-        # Phase 5: ActivityView's translucent header inherits the tokenized
-        # `:thin` material — the existing hard-coded 20px blur matched the
-        # `:thin` step's default. Class hook lets the `@supports` fallback
-        # bind to a sensible step too.
+        # Phase 5: ActivityView's translucent surface is tokenized to the
+        # `:thin` material step. Inline style references `var(--ap-material-*)`
+        # for both backdrop-filter and the opacity-driven color-mix
+        # background, so brand intensity AND the @supports fallback both
+        # cascade through the single token source of truth.
         el.add_class("ap-glass")
         el.add_class("ap-glass--thin")
-        el.add_style("background: color-mix(in oklch, var(--ap-color-surface-panel) 86%, transparent); backdrop-filter: blur(var(--ap-material-blur-thin)) saturate(var(--ap-material-saturation-thin)); -webkit-backdrop-filter: blur(var(--ap-material-blur-thin)) saturate(var(--ap-material-saturation-thin)); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-panel); box-shadow: var(--ap-elevation-overlay); color: var(--ap-color-text-primary); padding: #{fluid_px(12, 3, 16)}; max-width: #{fluid_px(280, 92, 480)}; display: flex; flex-direction: column; gap: 12px")
+        el.add_style("background: color-mix(in oklch, var(--ap-color-surface-panel) calc(var(--ap-material-opacity-thin) * 100%), transparent); backdrop-filter: blur(var(--ap-material-blur-thin)) saturate(var(--ap-material-saturation-thin)); -webkit-backdrop-filter: blur(var(--ap-material-blur-thin)) saturate(var(--ap-material-saturation-thin)); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-panel); box-shadow: var(--ap-elevation-overlay); color: var(--ap-color-text-primary); padding: #{fluid_px(12, 3, 16)}; max-width: #{fluid_px(280, 92, 480)}; display: flex; flex-direction: column; gap: 12px")
         el.set_attribute("role", "dialog")
         el.set_attribute("aria-label", view.title)
 

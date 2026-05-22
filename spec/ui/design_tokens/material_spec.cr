@@ -39,11 +39,16 @@ describe UI::DesignTokens::Material do
       m.resolve(:regular).blur_radius.should eq(15.0)
     end
 
-    it "clamps intensity to [0.1, 3.0]" do
+    it "clamps intensity to the brief.yml [0.0, 2.0] range" do
+      # Lower bound preserves 0.0 -> 0 blur (panel fully transparent).
       m_low = UI::DesignTokens::Defaults.material.copy_with(intensity: 0.0)
-      m_low.resolve(:regular).blur_radius.should eq(3.0)
+      m_low.resolve(:regular).blur_radius.should eq(0.0)
+      # Negative values clamp to 0.
+      m_neg = UI::DesignTokens::Defaults.material.copy_with(intensity: -1.0)
+      m_neg.resolve(:regular).blur_radius.should eq(0.0)
+      # Above 2.0 clamps to 2.0 -> 60.0 blur for regular default.
       m_high = UI::DesignTokens::Defaults.material.copy_with(intensity: 10.0)
-      m_high.resolve(:regular).blur_radius.should eq(90.0)
+      m_high.resolve(:regular).blur_radius.should eq(60.0)
     end
 
     it "does NOT scale opacity, saturation, or luminance" do
@@ -71,24 +76,34 @@ describe UI::DesignTokens::Material do
     end
 
     it "quantizes :regular declared step through the documented table" do
-      # Per Phase 5 brief.yml adapter_cardinality row 1.
+      # Per Phase 5 brief.yml adapter_cardinality row 1 worked examples.
       base = UI::DesignTokens::Defaults.material
       base.copy_with(intensity: 0.2).apple_step(:regular).should eq(:ultra_thin)
       base.copy_with(intensity: 0.5).apple_step(:regular).should eq(:thin)
       base.copy_with(intensity: 1.0).apple_step(:regular).should eq(:regular)
-      base.copy_with(intensity: 1.3).apple_step(:regular).should eq(:regular)
+      base.copy_with(intensity: 1.3).apple_step(:regular).should eq(:regular)  # brief worked example
       base.copy_with(intensity: 1.5).apple_step(:regular).should eq(:thick)
+      base.copy_with(intensity: 1.8).apple_step(:regular).should eq(:chrome)   # brief "1.8+"
       base.copy_with(intensity: 2.0).apple_step(:regular).should eq(:chrome)
     end
 
-    it "pins boundary semantics at 1.8 (Crystal first-match inclusive ranges)" do
-      # Documented boundary: 1.8 -> :thick (matched by ..1.8 first).
-      # Anything strictly > 1.8 -> :chrome. Pin the boundary so a future
-      # Crystal range-semantics change surfaces as a spec failure.
+    it "pins boundary semantics matching brief.yml worked-example + 1.8+ notation" do
+      # Brief.yml row 1: "intensity 1.3 quantizes to .regularMaterial" AND
+      # "1.8+ -> .chromeMaterial". The implementation honors the worked
+      # example (1.3 -> :regular) by using inclusive upper bounds on the
+      # first three buckets, and the inclusive lower bound `>= 1.8` for
+      # the chrome bucket per the brief's `1.8+` notation.
       base = UI::DesignTokens::Defaults.material
-      base.copy_with(intensity: 1.8).apple_step(:regular).should eq(:thick)
-      base.copy_with(intensity: 1.81).apple_step(:regular).should eq(:chrome)
+      # 1.3 worked example
       base.copy_with(intensity: 1.3).apple_step(:regular).should eq(:regular)
+      # 1.8+ chrome boundary
+      base.copy_with(intensity: 1.8).apple_step(:regular).should eq(:chrome)
+      base.copy_with(intensity: 1.79).apple_step(:regular).should eq(:thick)
+      # Other shared endpoints: inclusive on the lower bucket per
+      # the worked-example pattern (0.3 -> :ultra_thin since 0.3 is the
+      # documented upper edge of that bucket).
+      base.copy_with(intensity: 0.3).apple_step(:regular).should eq(:ultra_thin)
+      base.copy_with(intensity: 0.7).apple_step(:regular).should eq(:thin)
       base.copy_with(intensity: 1.301).apple_step(:regular).should eq(:thick)
     end
   end

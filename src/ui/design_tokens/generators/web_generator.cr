@@ -68,7 +68,8 @@ module UI
       # adapter_cardinality contract (brief.yml row 2).
       private def emit_material_vars(io : IO, material : Material, indent : String) : Nil
         io << "#{indent}/* glass material — Phase 5 */\n"
-        intensity_clamped = material.intensity.clamp(0.1, 3.0)
+        # Clamp to the brief.yml-declared `[0.0, 2.0]` intensity range.
+        intensity_clamped = material.intensity.clamp(0.0, 2.0)
         io << "#{indent}--ap-material-intensity: #{format_number(intensity_clamped)};\n"
         emit_material_step_vars(io, "ultra-thin", material.ultra_thin, indent)
         emit_material_step_vars(io, "thin", material.thin, indent)

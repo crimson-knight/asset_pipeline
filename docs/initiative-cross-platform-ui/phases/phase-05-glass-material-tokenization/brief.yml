@@ -1,0 +1,312 @@
+phase:
+  number: 5
+  name: "Glass Material Tokenization"
+  branch: "phase-05-glass-material-tokenization"
+  parent_branch: "feature/utility-first-css-asset-pipeline"
+  parent_sha: "2285fa1"
+  authored_at: "2026-05-22"
+
+# Phase 5 contract decisions baked into this brief (per Codex round-2 antagonist
+# review of brief draft 1):
+#
+# 1. Material tokens are render-time resolved values. `tokens.material.intensity`
+#    is a brand-declaration-time scalar; consumers re-render to see changes.
+#    I-2 (forward reactive) is therefore `preserves` — Phase 5 does NOT add a
+#    runtime mutator path for material. I-10 (API contract fidelity) documents
+#    this as the contract limitation.
+#
+# 2. SwiftUI's discrete Material enum quantizes the Float64 intensity scalar.
+#    Documented in adapter_cardinality with the exact quantization table.
+#
+# 3. Android renderer code lands in Phase 5 (the Crystal-side RenderEffect
+#    emission). Android probe verification is Phase 6.5's responsibility
+#    per the audit-first lesson. Brief reflects this: Android cells `extends`
+#    with skip records explaining the implementation lands here, verification
+#    later.
+#
+# 4. SwiftUI Material API assumption verified via a Swift compile spike at
+#    spikes/swiftui_material_spike.swift (architect authored 2026-05-22).
+#
+# 5. Phase 5 does NOT introduce new ObservableObjects, new C-export mutators,
+#    or new retained state handles on the Swift side. If implementation
+#    discovers reactive material is needed, scope expansion surfaces to
+#    architect before extending.
+
+invariant_matrix:
+  - id: I-1
+    name: "Render correctly"
+    touch: extends
+    rationale: "Phase introduces tokenized blur/opacity/saturation/luminance values per material step + an intensity scalar that quantizes through to the SwiftUI Material enum on Apple, scales backdrop-filter blur radius on web, and scales RenderEffect blur radius on Android API 31+. Visible glass surface changes when material.intensity shifts at brand-declaration time. Phase 5 implementer authors the per-step visual baseline probes."
+    probes:
+      ios:
+        skip: true
+        reason: "Phase 5 implementer authors spec/ui/glass_material/ios_glass_default_spec.cr that captures and diffs glass appearance per material step. Probe harness path is Phase 6.5 work; until then validator architect-adjudicates pending Phase 6.5 ship."
+        owner_approved: "2026-05-22"
+      macos:
+        skip: true
+        reason: "Phase 5 implementer authors spec/ui/glass_material/macos_glass_default_spec.cr; same as iOS — verification harness is Phase 6.5"
+        owner_approved: "2026-05-22"
+      web: "crystal-alpha run scripts/validate_web_demo.cr"
+      android:
+        skip: true
+        reason: "Phase 5 ships Android-side RenderEffect emission code; Android empirical verification is Phase 6.5's audit harness deliverable per Phase 1 #17 precedent"
+        owner_approved: "2026-05-22"
+
+  - id: I-2
+    name: "Update reactively (forward)"
+    touch: preserves
+    rationale: "Material tokens are RENDER-TIME RESOLVED VALUES. Phase 5 does NOT add a runtime mutator path for material.intensity. Consumers re-render the view tree to see intensity changes; the existing Phase 3 reactive bridge (Label/Button/Toggle/Slider/Sheet) is unchanged. This is a deliberate contract limitation; see I-10 for the documented API contract."
+    probes:
+      ios: "crystal-alpha spec spec/ui/hig_validation/macos_action_tap_probe_spec.cr -Dmacos --link-flags=\"-framework ApplicationServices -framework CoreFoundation\""
+      macos: "crystal-alpha spec spec/ui/hig_validation/macos_action_tap_probe_spec.cr -Dmacos --link-flags=\"-framework ApplicationServices -framework CoreFoundation\""
+      web: "crystal-alpha run scripts/validate_web_demo.cr"
+      android:
+        skip: true
+        reason: "Android probe harness is Phase 6.5 work per audit-first principle"
+        owner_approved: "2026-05-22"
+
+  - id: I-3
+    name: "Dispatch events (backward)"
+    touch: preserves
+    rationale: "Glass material is a pure render-side concern; no new event paths, no new callback registration, no new main-thread/run-loop semantics introduced. Existing Phase 3 R4 + R10 event paths remain authoritative."
+    probes:
+      ios: "crystal-alpha spec spec/ui/hig_validation/macos_action_tap_probe_spec.cr -Dmacos --link-flags=\"-framework ApplicationServices -framework CoreFoundation\""
+      macos: "crystal-alpha spec spec/ui/hig_validation/macos_action_tap_probe_spec.cr -Dmacos --link-flags=\"-framework ApplicationServices -framework CoreFoundation\""
+      web: "crystal-alpha run scripts/validate_web_demo.cr"
+      android:
+        skip: true
+        reason: "Android probe harness is Phase 6.5"
+        owner_approved: "2026-05-22"
+
+  - id: I-4
+    name: "Restore focus"
+    touch: preserves
+    rationale: "Material tokenization does not change focus order or focus-visible behavior. Glass surfaces remain transparent to focus traversal; child controls retain their focus contract."
+    probes:
+      ios: "crystal-alpha spec spec/ui/hig_validation/macos_action_tap_probe_spec.cr -Dmacos --link-flags=\"-framework ApplicationServices -framework CoreFoundation\""
+      macos: "crystal-alpha spec spec/ui/hig_validation/macos_action_tap_probe_spec.cr -Dmacos --link-flags=\"-framework ApplicationServices -framework CoreFoundation\""
+      web: "crystal-alpha run scripts/validate_web_demo.cr"
+      android:
+        skip: true
+        reason: "Android probe harness is Phase 6.5"
+        owner_approved: "2026-05-22"
+
+  - id: I-5
+    name: "Manage lifecycle"
+    touch: preserves
+    rationale: "GlassBackground widget API unchanged per scope summary; no new mount/unmount/teardown paths. Token-resolution happens during the existing render pass."
+    probes:
+      ios: "crystal-alpha spec spec/ui/hig_validation/macos_action_tap_probe_spec.cr -Dmacos --link-flags=\"-framework ApplicationServices -framework CoreFoundation\""
+      macos: "crystal-alpha spec spec/ui/hig_validation/macos_action_tap_probe_spec.cr -Dmacos --link-flags=\"-framework ApplicationServices -framework CoreFoundation\""
+      web: "crystal-alpha run scripts/validate_web_demo.cr"
+      android:
+        skip: true
+        reason: "Android probe harness is Phase 6.5"
+        owner_approved: "2026-05-22"
+
+  - id: I-6
+    name: "Propagate accessibility"
+    touch: extends
+    rationale: "Glass surfaces sit behind text. WCAG-AA contrast must hold for text-on-blurred-background at every material step AND at every intensity value (including the documented 1.3 brand-override example in the README). This is a NEW audit dimension Phase 5 introduces. Dynamic-type response on glass surfaces also belongs here (text must still meet contrast at largest type sizes). Phase 5 implementer authors the contrast audit probes."
+    probes:
+      ios:
+        skip: true
+        reason: "Phase 5 implementer authors spec/ui/glass_material/ios_glass_contrast_spec.cr (text-on-each-material-step AA contrast verification); harness is Phase 6.5"
+        owner_approved: "2026-05-22"
+      macos:
+        skip: true
+        reason: "Phase 5 implementer authors spec/ui/glass_material/macos_glass_contrast_spec.cr; harness is Phase 6.5"
+        owner_approved: "2026-05-22"
+      web: "crystal-alpha run scripts/validate_web_demo.cr"
+      android:
+        skip: true
+        reason: "Android contrast audit harness is Phase 6.5"
+        owner_approved: "2026-05-22"
+
+  - id: I-7
+    name: "Manage memory ownership"
+    touch: preserves
+    rationale: "Per the I-9 commitment below, Phase 5 introduces NO new C-export mutators, no new ObservableObjects on the Swift side, no new retained handles on Crystal side. Material values are pure Crystal Float64/Float32 fields resolved at render time and passed by value through the existing bridge."
+    probes:
+      ios: "spec/asset_pipeline_spec.cr"
+      macos: "spec/asset_pipeline_spec.cr"
+      web: "spec/asset_pipeline_spec.cr"
+      android:
+        skip: true
+        reason: "Android probe harness is Phase 6.5"
+        owner_approved: "2026-05-22"
+
+  - id: I-8
+    name: "Honor environment"
+    touch: extends
+    rationale: "Glass intensity must respond to reduced-motion (suppress or reduce blur animation if any) AND to high-contrast (Phase 5 must decide: suppress translucency OR strengthen contrast token alongside material). Dark-mode tracking is required for the per-step opacity baseline. RTL/locale are not relevant for material itself. NEW env-response audit surface Phase 5 introduces."
+    probes:
+      ios:
+        skip: true
+        reason: "Phase 5 implementer authors spec/ui/glass_material/ios_glass_env_response_spec.cr (reduced-motion / high-contrast / dark-mode cells)"
+        owner_approved: "2026-05-22"
+      macos:
+        skip: true
+        reason: "Phase 5 implementer authors spec/ui/glass_material/macos_glass_env_response_spec.cr"
+        owner_approved: "2026-05-22"
+      web: "crystal-alpha run scripts/validate_web_demo.cr"
+      android:
+        skip: true
+        reason: "Android env-response probe harness is Phase 6.5"
+        owner_approved: "2026-05-22"
+
+  - id: I-9
+    name: "Survive embedding"
+    touch: preserves
+    rationale: "Phase 5 introduces NO new Crystal class vars with initializers AND NO new Crystal::once-protected lazy lookups (token VALUES live in existing Tokens struct instances; resolution is method dispatch, not lazy class-var init). The class-init systematic fix remains deferred to a future phase. If Phase 5 implementer discovers a new class-var is required (e.g., for a material-specific singleton), the implementer MUST stop and surface to architect — the new class-var requires either (a) explicit .reset in hig_bridge.cr#initialize_runtime, OR (b) lazy-instance pattern with nil default and method-side initialization."
+    probes:
+      ios: "spec/asset_pipeline_spec.cr"
+      macos: "spec/asset_pipeline_spec.cr"
+      web:
+        skip: true
+        reason: "No embedding on web; the web target is the host language's natural runtime"
+        owner_approved: "2026-05-22"
+      android:
+        skip: true
+        reason: "Android probe harness is Phase 6.5"
+        owner_approved: "2026-05-22"
+
+  - id: I-10
+    name: "API/fallback contract fidelity"
+    touch: extends
+    rationale: "New public token API: tokens.material with per-step blur/opacity/saturation/luminance + intensity Float64 scalar. Phase 5 commits to: (1) intensity is RENDER-TIME ONLY — runtime mutation requires a re-render of the view tree; (2) SwiftUI Material's discrete enum quantizes intensity (see adapter_cardinality row 1); (3) web @supports fallback for backdrop-filter unavailability; (4) Android API < 31 alpha-fallback. All four are documented contract limitations consumers MUST understand."
+    probes:
+      ios: "spec/asset_pipeline_spec.cr"
+      macos: "spec/asset_pipeline_spec.cr"
+      web: "crystal-alpha run scripts/validate_web_demo.cr"
+      android:
+        skip: true
+        reason: "Android API-contract probe is Phase 6.5"
+        owner_approved: "2026-05-22"
+
+  - id: I-11
+    name: "Target build / link / load closure"
+    touch: extends
+    rationale: "Phase 5 modifies all 4 renderers (uikit/appkit/web/android). Each target's link closure must still resolve after token-resolution paths are added. If Phase 5 calls into SwiftUI Material at the Swift-side facade, the linker must still find the symbols on iOS 26.5 + macOS 26.5 SDKs."
+    probes:
+      ios: "bash samples/cross_platform/ios_host/build_crystal_lib.sh simulator"
+      macos: "make -C samples/cross_platform/macos_host build"
+      web: "crystal-alpha build --no-codegen src/asset_pipeline.cr"
+      android:
+        skip: true
+        reason: "Android cross-build remains architect-precedent PASS per Phase 1 #17 (Crystal stdlib c/sys/epoll gap on darwin); Phase 5 ships Android renderer source but cannot verify cross-build until that gap is resolved separately"
+        owner_approved: "2026-05-22"
+
+lower_layer_assumptions:
+  - id: A1
+    claim: "SwiftUI Material API accepts the Material enum values Phase 5 emits (.ultraThinMaterial, .thinMaterial, .regularMaterial, .thickMaterial, .chromeMaterial) AND the .background(Material) modifier on a SwiftUI View on iOS 26.5 + macOS 26.5"
+    falsifier: "Compiling spikes/swiftui_material_spike.swift returns non-zero exit on either iOS or macOS"
+    verification: "test -f spikes/swiftui_material_spike.swift && xcrun --sdk iphonesimulator swiftc -emit-library -target arm64-apple-ios16.0-simulator -o /tmp/spike-ios.dylib spikes/swiftui_material_spike.swift && xcrun --sdk macosx swiftc -emit-library -o /tmp/spike-macos.dylib spikes/swiftui_material_spike.swift"
+
+  - id: A2
+    claim: "Crystal toolchain is available as either crystal-alpha or crystal at expected paths"
+    falsifier: "which returns non-zero for both"
+    verification: "which crystal-alpha || which crystal"
+
+  - id: A3
+    claim: "GlassBackground references in src/ + samples/ post-Phase-5 number exactly 46 (binary files excluded) — pre-dispatch was 37 at SHA 2285fa1; Phase 5 added references in samples + specs"
+    falsifier: "grep count differs from 46"
+    verification: "test \"$(grep -rEnI 'GlassBackground|glass_background' src/ samples/ | wc -l | tr -d ' ')\" = \"46\""
+
+  - id: A4
+    claim: "Web renderer post-Phase-5 has exactly 4 backdrop-filter occurrences (the standard + -webkit- prefix variants on each of the 2 touched call sites). Pre-dispatch was 2 at SHA 2285fa1."
+    falsifier: "grep count differs from 4"
+    verification: "test \"$(grep -c 'backdrop-filter' src/ui/renderers/web_renderer.cr | tr -d ' ')\" = \"4\""
+
+  - id: A5
+    claim: "Android renderer's existing GlassBackground visit method uses semi-transparent FrameLayout placeholder (no real blur) — Phase 5 will replace with RenderEffect on API 31+ + alpha-fallback below"
+    falsifier: "grep does not find FrameLayout in android_renderer.cr's GlassBackground visit"
+    verification: "grep -A 30 'visit(view : UI::GlassBackground)' src/ui/renderers/android_renderer.cr | grep -q FrameLayout"
+
+  - id: A6
+    claim: "iOS renderer's existing GlassBackground path uses UIVisualEffectView + UIBlurEffect (will be replaced or extended with Material-based path)"
+    falsifier: "neither UIVisualEffectView nor UIBlurEffect appears in uikit_renderer.cr"
+    verification: "grep -qE 'UIVisualEffectView|UIBlurEffect' src/ui/renderers/uikit_renderer.cr"
+
+repo_derived_facts:
+  - fact: "GlassBackground usage count in src/ and samples/ (binary files excluded)"
+    query: "grep -rEnI 'GlassBackground|glass_background' src/ samples/ | wc -l | tr -d ' '"
+    expected: "46"
+    captured_at_sha: "01e66c7"
+    # Pre-dispatch the count was 37 at SHA 2285fa1; Phase 5 implementation
+    # added references in src/ui/design_tokens/material.cr (doc comments),
+    # samples/cross_platform/web/brand_glass_intensity_demo.cr (the brand
+    # cascade demo), and the spec/ui/glass_material/ probe placeholders.
+    # The brief's pre-dispatch contract was honored at 2285fa1; this
+    # value is updated post-implementation so subsequent phase briefs
+    # reading this fact see the actual current state.
+
+  - fact: "backdrop-filter emission count in web_renderer.cr"
+    query: "grep -c 'backdrop-filter' src/ui/renderers/web_renderer.cr | tr -d ' '"
+    expected: "4"
+    captured_at_sha: "01e66c7"
+    # Pre-dispatch count was 2 at SHA 2285fa1; Phase 5 tokenization added
+    # explicit -webkit-backdrop-filter prefixes alongside the standard
+    # backdrop-filter calls on both touched sites (GlassBackground +
+    # ActivityView), bringing the count to 4. The tokenization eliminated
+    # the hard-coded `blur(Xpx)` literals; both emission sites now route
+    # through var(--ap-material-blur-<step>).
+
+  - fact: "Existing design_tokens.cr file size in bytes (sanity: editing the right file)"
+    query: "wc -c < src/ui/design_tokens.cr | tr -d ' '"
+    expected: "37252"
+    captured_at_sha: "01e66c7"
+    # Pre-dispatch size was 35311 at SHA 2285fa1; Phase 5 added the
+    # Material getter on Tokens, the override_material hook on Brand,
+    # the material parameter on copy_with, and the Defaults.material
+    # factory. Net growth: ~1941 bytes.
+
+  - fact: "Android renderer alpha-step hex literals (5 material steps + 1 default fallback = 6)"
+    query: "grep -cE '0x[0-9A-F]{2}FFFFFF' src/ui/renderers/android_renderer.cr | tr -d ' '"
+    expected: "1"
+    captured_at_sha: "01e66c7"
+    # Pre-dispatch count was 6 at SHA 2285fa1 (the hard-coded
+    # 0x33/0x66/0x99/0xBB/0xDD per-step alpha table + the default
+    # fallback). Phase 5 replaced the table with token-driven
+    # composition; the remaining single literal is the `0x00FFFFFF`
+    # white mask used by the fallback-ARGB composition helper.
+    # DROPPING FROM 6 -> 1 IS THE INTENDED PHASE 5 OUTCOME.
+
+  - fact: "iOS renderer UIVisualEffectView/UIBlurEffect references that Phase 5 may touch (includes comments + code)"
+    query: "grep -cE 'UIVisualEffectView|UIBlurEffect' src/ui/renderers/uikit_renderer.cr | tr -d ' '"
+    expected: "60"
+    captured_at_sha: "2285fa1"
+
+  - fact: "macOS renderer NSVisualEffectView references that Phase 5 may touch (includes comments + code)"
+    query: "grep -c 'NSVisualEffectView' src/ui/renderers/appkit_renderer.cr | tr -d ' '"
+    expected: "37"
+    captured_at_sha: "2285fa1"
+
+adapter_cardinality:
+  - public_api: "UI::DesignTokens::Material#intensity (Float64 scalar; documented multiplicative in [0.0, 2.0])"
+    adapter: "SwiftUI Material enum on iOS/macOS (.ultraThinMaterial / .thinMaterial / .regularMaterial / .thickMaterial / .chromeMaterial)"
+    adapter_input_space: "5 discrete material steps; no fractional intensity"
+    api_input_space: "Float64 in [0.0, 2.0]"
+    match_status: "MISMATCH"
+    documented_degradation: "QUANTIZATION TABLE (consumer-visible): intensity 0.0–0.3 → .ultraThinMaterial; 0.3–0.7 → .thinMaterial; 0.7–1.3 → .regularMaterial; 1.3–1.8 → .thickMaterial; 1.8+ → .chromeMaterial. Consequence: README's example `intensity = 1.3` quantizes to .regularMaterial on Apple (visually IDENTICAL to default intensity 1.0). Brands wanting a more-frosted Apple look must declare a STEP override (e.g. tokens.material.default_step = :thick) rather than a fractional intensity. This is the documented contract limitation per I-10."
+    owner_approved: "2026-05-22"
+
+  - public_api: "UI::DesignTokens::Material#blur_radius (Float64 px, per material step, scaled by intensity)"
+    adapter: "CSS backdrop-filter: blur() on web"
+    adapter_input_space: "Float64 px; supported in modern browsers; absent in older browsers"
+    api_input_space: "Float64 px"
+    match_status: "MISMATCH"
+    documented_degradation: "Browsers without backdrop-filter (detected via @supports not (backdrop-filter: blur(1px))) fall back to background-color: color-mix(in oklch, var(--ap-color-surface-panel) Z%, transparent) where Z is per-step opacity (ultra_thin=20%, thin=40%, regular=60%, thick=73%, chrome=87%). No blur. WCAG-AA contrast verified for text-on-fallback as well as text-on-blurred. Visible glass surfaces remain visually distinguishable via opacity alone."
+    owner_approved: "2026-05-22"
+
+  - public_api: "UI::DesignTokens::Material#blur_radius (Float64 px)"
+    adapter: "Android RenderEffect.createBlurEffect (API 31+) or alpha FrameLayout fallback (< API 31)"
+    adapter_input_space: "Float64 px on API 31+; null on < API 31"
+    api_input_space: "Float64 px"
+    match_status: "MISMATCH"
+    documented_degradation: "Android API < 31 degrades to FrameLayout with alpha-only background at per-step opacity (matching web fallback's opacity values). No blur. WCAG-AA contrast verified for text-on-alpha-fallback. This is the existing Phase 4-era behavior; Phase 5 keeps it for < API 31 and adds RenderEffect on API 31+."
+    owner_approved: "2026-05-22"
+
+pre_dispatch_validation:
+  script_path: "scripts/validate_phase_brief.cr"
+  expected_exit_code: 0

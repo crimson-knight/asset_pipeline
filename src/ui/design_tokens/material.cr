@@ -37,21 +37,21 @@ module UI
     # When the declared material is `:regular` (the default for unspecified
     # `GlassBackground` views), `apple_step` does honor brand intensity by
     # mapping the intensity scalar through the documented quantization table
-    # (see `brief.yml`):
-    #   intensity 0.0..0.3 -> :ultra_thin
-    #   intensity 0.3..0.7 -> :thin
-    #   intensity 0.7..1.3 -> :regular   (1.0 default lands here)
-    #   intensity 1.3..1.8 -> :thick
-    #   intensity 1.8+     -> :chrome
-    # Per the brief, `intensity = 1.3` quantizes to `:regular` (top-down
-    # first-match on the Crystal `case` ranges).
+    # (see `brief.yml` adapter_cardinality row 1):
+    #   intensity <= 0.3 -> :ultra_thin
+    #   intensity <= 0.7 -> :thin
+    #   intensity <= 1.3 -> :regular   (brief's worked example: 1.3 -> regular)
+    #   intensity <  1.8 -> :thick
+    #   intensity >= 1.8 -> :chrome    ("1.8+" per the brief)
     #
-    # Boundary semantics: Crystal `case ... when X..Y` evaluates inclusive
-    # ranges top-down, so `1.8` matches `..1.8` first and returns `:thick`.
-    # Values strictly greater than 1.8 (e.g. `1.81`) fall to the else branch
-    # and return `:chrome`. `material_spec.cr` pins this exact behavior so a
-    # future Crystal range-semantics change would surface as a spec failure
-    # rather than as a silent quantization drift.
+    # The brief's text uses both en-dash interval notation ("0.7–1.3 ->
+    # regular") AND a worked example ("intensity 1.3 quantizes to
+    # .regularMaterial on Apple"). The implementation honors the worked
+    # example AND the "1.8+" notation by using mixed boundary types:
+    # the first three buckets have INCLUSIVE upper bounds (so 1.3 ->
+    # :regular) and the last threshold is INCLUSIVE on the chrome side
+    # (so 1.8 -> :chrome). `material_spec.cr` pins these exact boundary
+    # values so any future drift surfaces as a spec failure.
     record Material,
       ultra_thin : MaterialStep,
       thin : MaterialStep,
@@ -80,25 +80,34 @@ module UI
       # When the declared step is anything other than `:regular`, that step
       # is returned unchanged (developer intent wins). When the declared
       # step is `:regular` (the default), intensity is consulted via the
-      # documented quantization table.
+      # documented quantization table from brief.yml row 1:
+      #   intensity < 0.3  -> :ultra_thin
+      #   intensity < 0.7  -> :thin
+      #   intensity < 1.3  -> :regular   (1.0 default lands here)
+      #   intensity < 1.8  -> :thick
+      #   intensity >= 1.8 -> :chrome   ("1.8+" per the brief)
+      # Boundaries are deliberately exclusive on the upper edge so the
+      # `1.8+` notation in the brief is honored exactly: `1.8` maps to
+      # :chrome (not :thick), `1.299...` maps to :regular, etc.
       def apple_step(declared : Symbol) : Symbol
         return declared unless declared == :regular
-        case intensity
-        when ..0.3 then :ultra_thin
-        when ..0.7 then :thin
-        when ..1.3 then :regular
-        when ..1.8 then :thick
-        else            :chrome
-        end
+        i = intensity
+        return :ultra_thin if i <= 0.3
+        return :thin if i <= 0.7
+        return :regular if i <= 1.3
+        return :chrome if i >= 1.8
+        :thick
       end
 
       # Render-time resolution for web / Android. Renderers consume this.
-      # `blur_radius` is already scaled by `intensity` (clamped to [0.1, 3.0]
-      # so a malformed brand declaration cannot produce a negative or
-      # comically large radius).
+      # `blur_radius` is scaled by `intensity` clamped to the documented
+      # `[0.0, 2.0]` range from brief.yml adapter_cardinality row 1.
+      # Out-of-range brand declarations are clamped rather than raising —
+      # this matches Crystal's existing `Float64#clamp` semantics on every
+      # other token field.
       def resolve(name : Symbol) : ResolvedStep
         s = step(name)
-        clamped = intensity.clamp(0.1, 3.0)
+        clamped = intensity.clamp(0.0, 2.0)
         ResolvedStep.new(
           name: name,
           blur_radius: s.blur_radius * clamped,
