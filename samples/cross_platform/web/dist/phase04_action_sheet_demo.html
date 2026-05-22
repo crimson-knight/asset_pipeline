@@ -385,7 +385,14 @@ body { padding: 16px; }
   padding: 12px 16px;
   border: none; border-radius: var(--ap-radius-control);
   background: var(--ap-color-surface-sunken);
-  color: var(--ap-color-brand-accent);
+  /* Phase 4 R2: brand-accent on surface-sunken measured 1.92:1 in
+   * light mode (WCAG-AA fails 4.5:1 for 17px normal text). The
+   * cancel action inherits this color over surface-panel (#fff),
+   * measured 2.27:1. Swapping to brand-primary lifts both surfaces
+   * to >= 5.05:1 (sunken) and >= 5.78:1 (panel) in light mode and
+   * >= 8.72:1 in dark mode, while preserving the "interactive CTA"
+   * semantic affordance. */
+  color: var(--ap-color-brand-primary);
   font-size: 17px;
   cursor: pointer;
   min-height: 44px;
