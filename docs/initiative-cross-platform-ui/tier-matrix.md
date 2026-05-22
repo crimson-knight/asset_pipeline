@@ -111,20 +111,29 @@ bridge gives them their Apple polish.
 | VideoPlayer | `src/ui/views/video_player.cr` | — | |
 | WebViewComponent | `src/ui/views/web_view.cr` | — | |
 
-## Tier 3 — Platform-only (4 widgets)
+## Tier 3 — Platform-only (3 gated classes + 3 cross-platform companions)
 
-These have **no honest cross-platform analog**. Building them without
-the right `-D` flag is a compile error (via a `macro new` that fires
-`{% raise %}` at the call site). An explicit `*WithWebFallback`
-sibling class is provided for every Tier 3 widget so application code
-can target both the native chrome and a credible cross-platform
-fallback.
+The 3 Tier 3 widgets below have **no honest cross-platform analog**.
+Building them without the right `-D` flag is a compile error (via a
+`macro new` that fires `{% raise %}` at the call site). An explicit
+`*WithWebFallback` sibling class is provided for every Tier 3 widget
+so application code can target both the native chrome and a credible
+cross-platform fallback.
 
-| Widget | Source file | Required flag | With-web-fallback class | Notes |
+| Gated widget | Source file | Required flag | With-web-fallback class | Notes |
 |---|---|---|---|---|
 | ActionSheet | `src/ui/views/action_sheet.cr` | `:ios` | `ActionSheetWithWebFallback` | New in Phase 4. SwiftUI `.confirmationDialog` on iOS via `ConfirmationDialogFacade`. Current iOS routing degrades multi-action to {first non-cancel, cancel}; Phase 5 will add a multi-action SwiftKit facade. |
-| ContextMenu | `src/ui/views/context_menu.cr` | `:macos` or `:ios` | `ContextMenuWithWebFallback` | Right-click / long-press menu. Vanilla-JS positioned dropdown on web with arrow-key nav, Escape close, click-outside dismiss. |
+| ContextMenu | `src/ui/views/context_menu.cr` | `:macos` or `:ios` | `ContextMenuWithWebFallback` | Right-click / long-press menu. Vanilla-JS positioned dropdown on web with arrow-key nav, Tab/Shift+Tab focus trap, Escape close, click-outside dismiss, Shift+F10 / ContextMenu key open. |
 | PathControl | `src/ui/views/path_control.cr` | `:macos` | `PathControlWithWebFallback` | NSPathControl is macOS-only. Web fallback emits a semantic `<nav aria-label="Breadcrumb"><ol>...</ol></nav>` with `aria-current="page"` on the leaf. |
+
+Cross-platform companion classes (Tier-2-behavior on the target where
+the gated class exists, full local rendering everywhere else):
+
+| Companion | Source file | Required flag | Notes |
+|---|---|---|---|
+| ActionSheetWithWebFallback | `src/ui/views/action_sheet_with_web_fallback.cr` | none | Delegates to UI::ActionSheet on iOS; renders a bottom-sheet on web; synthesises a UI::ConfirmationDialog on macOS / Android. |
+| ContextMenuWithWebFallback | `src/ui/views/context_menu_with_web_fallback.cr` | none | Delegates to UI::ContextMenu on Apple-family targets; renders a positioned vanilla-JS dropdown on web; renders a LinearLayout on Android. Carries an optional `trigger : View?` that the renderer emits as the host's first child so the fallback JS can bind contextmenu / Shift+F10 listeners. |
+| PathControlWithWebFallback | `src/ui/views/path_control_with_web_fallback.cr` | none | Delegates to UI::PathControl on macOS; renders a semantic breadcrumb everywhere else. |
 
 `UI::PathControlStyle` (enum) remains universal so non-macOS callers
 can still annotate their `PathControlWithWebFallback` instances.
@@ -145,7 +154,14 @@ itself gated to Apple-family targets because it references the Tier 3
 ## Change log
 
 * **2026-05-21** — Phase 4 created the initial classification.
-  17 Tier 1, 54 Tier 2, 3 Tier 3 (existing) + 1 Tier 3 (`ActionSheet`,
-  new in Phase 4) = 75 widget classifications total (74 source files +
-  1 new file). Codex Checkpoint 1 moved `confirmation_dialog`,
-  `icon_button`, `link_button`, and `snackbar` from Tier 1 to Tier 2.
+  17 Tier 1, 54 Tier 2, 3 Tier 3 (gated classes: `ActionSheet`,
+  `ContextMenu`, `PathControl`) + 3 cross-platform companions
+  (`ActionSheetWithWebFallback`, `ContextMenuWithWebFallback`,
+  `PathControlWithWebFallback`). Total source files in
+  `src/ui/views/`: 78 (74 pre-Phase-4 + 4 new: `action_sheet.cr`,
+  `action_sheet_with_web_fallback.cr`,
+  `context_menu_with_web_fallback.cr`,
+  `path_control_with_web_fallback.cr`). Codex Checkpoint 1 moved
+  `confirmation_dialog`, `icon_button`, `link_button`, and `snackbar`
+  from Tier 1 to Tier 2. Codex Checkpoint 4 added the WithWebFallback
+  companion table.

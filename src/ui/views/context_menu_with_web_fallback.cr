@@ -27,10 +27,17 @@ module UI
 
     property items : Array(Entry) = [] of Entry
 
+    # Optional trigger view rendered as a child of the menu host so the
+    # web fallback's vanilla-JS contextmenu / Shift+F10 handlers have an
+    # element to bind to. When nil, the menu is still rendered (and can
+    # be toggled programmatically by setting data-presented), but no
+    # trigger is wired automatically.
+    property trigger : View? = nil
+
     {% if flag?(:macos) || flag?(:ios) %}
       @inner : UI::ContextMenu
 
-      def initialize
+      def initialize(@trigger : View? = nil)
         @inner = UI::ContextMenu.new
       end
 
@@ -60,7 +67,7 @@ module UI
         @inner.accept(visitor)
       end
     {% else %}
-      def initialize
+      def initialize(@trigger : View? = nil)
       end
 
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false, &block : -> Nil)

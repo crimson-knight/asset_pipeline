@@ -1551,6 +1551,17 @@ module UI
         host.set_attribute("data-ap-ctx-host", "true")
         host.add_class("ap-ctx-menu-host")
 
+        # Render the trigger first so the fallback JS finds it as the
+        # first non-menu, non-style/script child of the host. When the
+        # developer didn't pass a trigger, we render no trigger and the
+        # JS attaches nothing automatically (the developer remains
+        # responsible for toggling data-presented on the menu element).
+        if trigger = view.trigger
+          @element_stack.push(host)
+          trigger.accept(self)
+          @element_stack.pop
+        end
+
         menu = Components::Elements::Ul.new
         menu.add_class("ap-ctx-menu")
         menu.set_attribute("role", "menu")

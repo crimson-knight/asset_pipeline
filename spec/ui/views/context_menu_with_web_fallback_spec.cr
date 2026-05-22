@@ -50,5 +50,17 @@ describe UI::ContextMenuWithWebFallback do
       html = UI::Web::Renderer.new.render(menu)
       html.should contain(%(aria-disabled="true"))
     end
+
+    it "renders an optional trigger as a child of the host" do
+      trigger = UI::Button.new("Right-click me")
+      menu = UI::ContextMenuWithWebFallback.new(trigger: trigger)
+      menu.add_item("Edit")
+      html = UI::Web::Renderer.new.render(menu)
+      # The trigger appears before the menu in DOM order so the JS
+      # `findTrigger(host)` walk lands on it first.
+      trigger_idx = html.index("Right-click me").not_nil!
+      menu_idx = html.index(%(role="menu")).not_nil!
+      trigger_idx.should be < menu_idx
+    end
   end
 end
