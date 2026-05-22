@@ -1823,9 +1823,19 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         if view.shows_sidebar
           if sidebar = view.sidebar
             # --- Liquid Glass sidebar column ---
-            # NSVisualEffectMaterialSidebar = 7. Tracks light/dark appearance.
+            # Token-driven material. Declared step `:thin` quantizes
+            # through `apple_step` unchanged (developer intent wins for
+            # non-`:regular` declared steps per material.cr L77-91),
+            # then maps to NSVisualEffectMaterialSidebar (7) via the
+            # AppKit translation table — same byte-identical integer the
+            # pre-Phase-5 code emitted. Brand intensity does NOT shift
+            # this surface (declared step wins). Routing through the
+            # token cascade keeps NavigationSplitView consistent with the
+            # rest of the glass surfaces under brand override flow.
+            sidebar_step = @design_tokens.material.apple_step(:thin)
+            sidebar_material = appkit_visual_effect_material(sidebar_step)
             sidebar_effect = alloc_init("NSVisualEffectView")
-            LibObjCBridge.objc_send_long(sidebar_effect, sel("setMaterial:"), 7_i64)
+            LibObjCBridge.objc_send_long(sidebar_effect, sel("setMaterial:"), sidebar_material)
             # NSVisualEffectBlendingModeWithinWindow = 1
             LibObjCBridge.objc_send_long(sidebar_effect, sel("setBlendingMode:"), 1_i64)
             # NSVisualEffectStateActive = 1
@@ -2809,8 +2819,17 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       end
 
       def visit(view : UI::ContextMenu)
+        # Token-driven material via the AppKit-semantic `:menu` key —
+        # `NSVisualEffectMaterialMenu` has no SwiftUI Material enum
+        # analogue, so we route through the AppKit-private semantic
+        # extension to the translation table. `apple_step(:menu)`
+        # returns `:menu` unchanged (only `:regular` is quantized by
+        # intensity); the translation table maps `:menu` to 5
+        # (byte-identical to the pre-Phase-5 raw constant).
+        menu_step = @design_tokens.material.apple_step(:menu)
+        menu_material = appkit_visual_effect_material(menu_step)
         effect = alloc_init("NSVisualEffectView")
-        LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), 5_i64)     # NSVisualEffectMaterialMenu
+        LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), menu_material) # :menu -> NSVisualEffectMaterialMenu (5)
         LibObjCBridge.objc_send_long(effect, sel("setBlendingMode:"), 1_i64) # WithinWindow
         LibObjCBridge.objc_send_long(effect, sel("setState:"), 1_i64)        # Active
         LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
@@ -3740,8 +3759,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         # Outer glass container — sheet material approximates the iOS share sheet
         # surface on macOS and matches the known-good UI::Sheet glass path.
+        # Token-driven material. Declared step `:thick` quantizes through
+        # `apple_step` unchanged (developer intent wins for non-`:regular`
+        # declared steps per material.cr L77-91); the translation table
+        # maps `:thick` to NSVisualEffectMaterialSheet (11), byte-identical
+        # to the pre-Phase-5 raw integer.
+        activity_step = @design_tokens.material.apple_step(:thick)
+        activity_material = appkit_visual_effect_material(activity_step)
         effect = alloc_init("NSVisualEffectView")
-        LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), 11_i64)    # NSVisualEffectMaterialSheet
+        LibObjCBridge.objc_send_long(effect, sel("setMaterial:"), activity_material) # :thick -> NSVisualEffectMaterialSheet (11)
         LibObjCBridge.objc_send_long(effect, sel("setBlendingMode:"), 1_i64) # WithinWindow
         LibObjCBridge.objc_send_long(effect, sel("setState:"), 1_i64)        # Active
         LibObjCBridge.objc_send_bool(effect, sel("setWantsLayer:"), 1)
@@ -4637,6 +4663,49 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Token-driven radius in points (rem * 16).
       private def token_radius(key : Symbol) : Float64
         (@design_tokens.radius.lookup(key) || @design_tokens.radius.md) * 16.0
+      end
+
+      # Resolve a Phase-5 Material step Symbol to its NSVisualEffectMaterial
+      # integer constant for the direct-AppKit visit paths that bypass the
+      # SwiftKit facade (NavigationSplitView legacy sidebar, ContextMenu,
+      # ActivityView).
+      #
+      # Scope is intentionally narrow: only the step Symbols actually
+      # consumed by those call sites are mapped here. Expanding this
+      # table requires re-validating each new Symbol against Apple's
+      # NSVisualEffectMaterial semantics; implementation.md L562 sketches
+      # a UIKit-constant <-> AppKit-constant translation that this helper
+      # does NOT implement (Phase 5 shipped the SwiftKit facade path
+      # instead, so the integer translation table the doc envisioned was
+      # never built).
+      #
+      # The portable Material steps (`:thin`, `:thick`) match the
+      # cross-platform token scale. `:menu` is an **AppKit platform
+      # surface semantic** — a renderer-private key for
+      # `NSVisualEffectMaterialMenu` (no SwiftUI Material enum analogue).
+      # `:menu` must NOT be advertised as part of the portable Material
+      # token contract; it exists only so `UI::ContextMenu` can have its
+      # HIG-correct native material while routing through the brand
+      # cascade infrastructure.
+      #
+      # Unknown / unhandled Symbols fall through to `NSVisualEffectMaterialHeaderView`
+      # (10), a safe modern default. Adding new Symbols requires:
+      #   (a) verifying the Apple NSVisualEffectMaterial semantics,
+      #   (b) updating the call site + comment to declare the choice.
+      #
+      # Per Phase 5 implementation.md (lines 226-237), this case/switch is
+      # the ONE allowed hard-coded glass switch in the file and must carry
+      # the exact marker comment on the line directly above. Phase 5
+      # validation.md check #22 greps for that marker. Do not add this
+      # marker anywhere else in the codebase.
+      private def appkit_visual_effect_material(step : Symbol) : Int64
+        # AppKit material translation table — only allowed hard-coded glass switch
+        case step
+        when :thin  then  7_i64 # NSVisualEffectMaterialSidebar (NavigationSplitView sidebar)
+        when :thick then 11_i64 # NSVisualEffectMaterialSheet (ActivityView)
+        when :menu  then  5_i64 # NSVisualEffectMaterialMenu (ContextMenu, AppKit-semantic; no SwiftUI analogue)
+        else             10_i64 # NSVisualEffectMaterialHeaderView (safe modern default)
+        end
       end
 
       # Apply common View base-class properties to a raw AppKit view pointer.
