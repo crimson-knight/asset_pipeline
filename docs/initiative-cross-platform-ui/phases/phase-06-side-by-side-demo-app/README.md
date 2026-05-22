@@ -1,9 +1,13 @@
 # Phase 6 — Side-by-Side Demo App
 
 **Tier:** Composition of Tier 1/2/3
-**Depends on:** Phases 1–5 (everything they build must be in place for the demo to be representative)
-**Blocks:** Phase 7 (visual regression baselines require this app to exist)
+**Depends on:** Phases 1–5 (everything they build must be in place for the demo to be representative) **AND Phase 6.5** (the audit harness Phase 6's Implementer must use during development per the audit-first lesson in `handoff/planning-retrospective-2026-05-22.md` Principle 6)
+**Blocks:** Phase 7 (CI integration of the audit infrastructure Phase 6.5 ships)
 **Estimated remediation budget:** 1 loop
+
+> **2026-05-22 update:** Phase 6 was originally scoped to run before Phase 7. The planning retrospective surfaced this as conflicting with the audit-first lesson — Phase 6 would have repeated Phase 3's pattern of shipping then chasing gate-time regressions. Phase 6.5 was inserted to ship reusable audit infrastructure BEFORE Phase 6 begins; Phase 6's Implementer runs that harness during development. Phase 7's scope was narrowed to "integrate Phase 6.5's harness into CI."
+>
+> **Brief authoring constraint:** Phase 6's brief MUST be authored as YAML against `schemas/phase_brief.schema.json` and pass `scripts/validate_phase_brief.cr` before dispatch.
 
 ---
 

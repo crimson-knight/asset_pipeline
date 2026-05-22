@@ -1,9 +1,13 @@
-# Phase 7 — Accessibility & Visual Verification Automation
+# Phase 7 — CI Integration for Accessibility & Visual Verification
 
 **Tier:** Infrastructure
-**Depends on:** Phase 6 (demo app must exist to baseline)
+**Depends on:** Phase 6.5 (audit harness must exist to wrap into CI) AND Phase 6 (demo app must exist to baseline against)
 **Blocks:** Initiative sign-off
 **Estimated remediation budget:** 1 loop
+
+> **2026-05-22 SCOPE NARROWED:** This phase originally read "build audit infrastructure + integrate into CI." Per the planning retrospective (`handoff/planning-retrospective-2026-05-22.md` Principle 6), shipping audit infrastructure AFTER the work it audits is the failure mode that drove Phase 3's 10-remediation cost. Phase 6.5 was inserted to ship the reusable audit harness BEFORE Phase 6 begins. **Phase 7's scope is now strictly "CI integration"** — wrap Phase 6.5's existing harness into GitHub Actions / equivalent workflow that runs on every PR. The original "build the harness" scope is now in Phase 6.5.
+>
+> **Brief authoring constraint:** Phase 7's brief MUST be authored as YAML against `schemas/phase_brief.schema.json` and pass `scripts/validate_phase_brief.cr` before dispatch. The pre_dispatch_validation script_path must reference an existing script.
 
 ---
 
@@ -19,35 +23,29 @@ This phase establishes the automated verification floor:
 
 After this phase, the initiative is shippable.
 
-## Scope summary
+## Scope summary (NARROWED 2026-05-22)
 
-In scope:
+In scope (CI integration of Phase 6.5's existing harness — NOT infrastructure-building):
 
-- Visual regression infrastructure:
-  - Baseline screenshots for every demo screen × platform × viewport × color scheme captured and committed under `test-results/initiative-demo-baselines/`.
-  - A `scripts/diff_demo_screenshots.cr` (or extension of existing audit scripts) that:
-    - Re-captures screenshots
-    - Diffs each against baseline using a pixel-tolerance algorithm (e.g., 1% pixel difference threshold)
-    - Reports failures with side-by-side images
-- Accessibility audits:
-  - Web: extend `scripts/axe_web_demo_audit.cr` and `scripts/ibm_web_demo_audit.cr` to cover the initiative demo pages.
-  - iOS: a test target in the iOS sample app that runs XCUITest accessibility checks against the demo screens (focus order, accessibility labels present, dynamic type respected).
-  - macOS: an `AXUIElement` walk of the demo screens verifying every interactive element has an accessibility role + label.
-- CI configuration:
-  - GitHub Actions workflow (or extension of existing) that runs on PRs to `feature/utility-first-css-asset-pipeline`:
-    - Build the demo on web, macOS, iOS
-    - Run visual regression
-    - Run accessibility audits
-    - Fail the check if any audit reports a violation (configurable severity threshold)
-- Documentation:
-  - `docs/initiative-cross-platform-ui/verification-runbook.md` explaining how to update baselines after an intentional visual change.
-  - Update `CLAUDE.md` to point future agents at the verification runbook.
+- **GitHub Actions workflow** (or equivalent) at `.github/workflows/initiative-cross-platform-ui.yml` that runs on PRs to `feature/utility-first-css-asset-pipeline`:
+  - Invokes Phase 6.5's pre-existing audit harness (`scripts/audit_harness.cr` or equivalent path shipped by Phase 6.5) to run visual regression + accessibility audits.
+  - Builds the demo on web, macOS, iOS (Android per its own gating from the cross-platform compile policy).
+  - Fails the check if any audit reports a violation above a configured severity threshold.
+- **Baseline commit** for the demo Phase 6 ships (PNG snapshots per screen × platform × viewport × color scheme committed under `test-results/initiative-demo-baselines/`). Phase 6.5 provides the capture command; Phase 7 calls it from CI and commits the initial PNG set.
+- **Verification runbook** at `docs/initiative-cross-platform-ui/verification-runbook.md` explaining how to update baselines after an intentional visual change (re-run Phase 6.5's regenerate command + commit new PNGs).
+- **CLAUDE.md pointer** to the runbook + the audit-harness scripts Phase 6.5 ships.
 
-Out of scope:
+Explicitly out of scope (moved to Phase 6.5):
+
+- **Authoring the audit harness itself** — Phase 6.5's deliverable. Phase 7 does not author `scripts/audit_harness.cr`, `scripts/diff_demo_screenshots.cr`, axe-core/IBM drivers, AXUIElement walkers, or XCUITest target authoring. Phase 7 calls them.
+- **Designing the visual diff algorithm or pixel tolerance** — Phase 6.5's deliverable.
+- **AXTest / XCUITest pattern library** — Phase 6.5's deliverable.
+
+Other out-of-scope (unchanged):
 
 - Performance regression testing (FPS, render time). Possible future phase.
 - User testing / qualitative research. This phase is about machine-checkable invariants.
-- Fixing audit failures discovered during baselining — those become bugs to fix, but the bug fixing itself is not phase 7 work. Phase 7 establishes the floor; the work of staying above the floor is permanent.
+- Fixing audit failures discovered during baselining — those become bugs to fix, but the bug fixing itself is not phase 7 work. Phase 7 establishes the CI gate; the work of staying above the gate is permanent.
 
 ## Acceptance summary
 

@@ -66,6 +66,11 @@ Detailed checks in `validation.md`.
 
 ## Briefing documents
 
+- **Phase Brief (YAML, validator-enforced):** `brief.yml` — passes `crystal run scripts/validate_phase_brief.cr -- phases/phase-05-glass-material-tokenization/brief.yml` (exit 0 mandatory before dispatch). Declares all 11 invariant cells, lower-layer assumptions about SwiftUI Material API + backdrop-filter support + Android RenderEffect, repo-derived facts (37 GlassBackground references, 2 backdrop-filter sites in web_renderer.cr, 35311-byte design_tokens.cr), and 3 adapter cardinality MISMATCH rows for SwiftUI's discrete material enum, web `@supports` fallback, and Android < API 31 fallback. Architect-authored 2026-05-22 per `handoff/planning-retrospective-2026-05-22.md` Phase Brief Template.
 - Implementer: `implementation.md`
 - Validator: `validation.md`
 - Universal: `../../rubric/implementation_criteria.md`, `../../rubric/validation_criteria.md`
+
+## Class-init prerequisite (per stock-taking 2026-05-22)
+
+Phase 5 introduces token VALUES held in existing `Tokens` struct instances, NOT new Crystal class variables with initializers. Per `memory/project_crystal_ios_class_init_gap.md`, this means Phase 5 should NOT trigger the iOS class-init silent-nil pattern. If the Implementer discovers they need a new class var on iOS-bound code, **stop and surface to architect** — class-init systematic fix is deferred to a future phase, but per-feature workarounds (explicit `.reset` in `hig_bridge.cr#initialize_runtime`) must be applied for any new singleton state.
