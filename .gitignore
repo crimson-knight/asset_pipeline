@@ -33,3 +33,7 @@ samples/cross_platform/macos_host/*.o
 swift/AssetPipelineSwiftKit/.build/
 swift/AssetPipelineSwiftKit/.swiftpm/
 swift/AssetPipelineSwiftKit/Package.resolved
+
+# Phase 4 R1: vendored CDP audit JS (axe-core, IBM accessibility-checker-engine)
+# is fetched on first harness run and cached under vendor/cdp/. Not committed.
+/vendor/cdp/
