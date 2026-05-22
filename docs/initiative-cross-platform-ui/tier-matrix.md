@@ -47,7 +47,7 @@ platform unit conventions) on every target.
 | VStack | `src/ui/views/vstack.cr` |
 | ZStack | `src/ui/views/zstack.cr` |
 
-## Tier 2 — Platform default (54 widgets)
+## Tier 2 — Platform default (55 widgets)
 
 These have a meaningful semantic on every platform; their visual
 treatment shifts based on the renderer. No gating; Phase 3's SwiftUI
@@ -154,7 +154,7 @@ itself gated to Apple-family targets because it references the Tier 3
 ## Change log
 
 * **2026-05-21** — Phase 4 created the initial classification.
-  17 Tier 1, 54 Tier 2, 3 Tier 3 (gated classes: `ActionSheet`,
+  17 Tier 1, 55 Tier 2, 3 Tier 3 (gated classes: `ActionSheet`,
   `ContextMenu`, `PathControl`) + 3 cross-platform companions
   (`ActionSheetWithWebFallback`, `ContextMenuWithWebFallback`,
   `PathControlWithWebFallback`). Total source files in
