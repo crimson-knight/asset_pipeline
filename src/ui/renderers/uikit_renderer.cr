@@ -4752,7 +4752,7 @@
       #   HeaderView        → systemChromeMaterial    = 10
       #   WindowBackground  → systemMaterial          = 8
       #   HUDWindow         → systemChromeMaterial    = 10
-      #   Titlebar          → systemChromeMaterial    = 10
+      #   Titlebar          → systemMaterial          = 8  (brief row 1)
       #   SystemResolved    → -1 (SENTINEL — caller must skip setEffect:)
       #
       # Brief.yml adapter_cardinality row 1 documents the approximation

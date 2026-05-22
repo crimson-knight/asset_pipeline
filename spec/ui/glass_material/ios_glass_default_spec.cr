@@ -11,9 +11,9 @@ require "../../../src/ui/design_tokens"
 #
 #   systemUltraThinMaterial = 6  (Menu)
 #   systemThinMaterial      = 7  (Sidebar)
-#   systemMaterial          = 8  (Popover, WindowBackground)
+#   systemMaterial          = 8  (Popover, WindowBackground, Titlebar)
 #   systemThickMaterial     = 9  (Sheet)
-#   systemChromeMaterial    = 10 (HeaderView, HUDWindow, Titlebar)
+#   systemChromeMaterial    = 10 (HeaderView, HUDWindow)
 #
 # SystemResolved is the no-call sentinel — UIVisualEffectView built with
 # a nil UIBlurEffect renders without explicit blur.
