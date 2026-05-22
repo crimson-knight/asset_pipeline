@@ -63,10 +63,20 @@ public class PopoverFacade: NSObject {
     // Phase 5 v2 — applies `.presentationBackground(<SwiftUI Material>)`
     // to the popover body. Default key = "popover" → .regularMaterial;
     // "system_resolved" / nil returns the body unchanged.
+    //
+    // Phase 5 v2 Rem1 — iOS 26+ / macOS 26+ Liquid Glass path: per
+    // architecture doc lines 117 + 119-120, the 26+ SDKs swap the pre-26
+    // `.presentationBackground(<Material>)` for `.glassEffect()`. Shape
+    // choice (same as SheetFacade): `.glassEffect()` is a content-view
+    // modifier, so we wrap the popover body itself rather than chaining
+    // `.presentationBackground`. Mirrors GlassBackgroundFacade.swift:64-70.
     fileprivate static func applyPresentationBackground(
         _ v: AnyView, key: String
     ) -> AnyView {
         if MaterialSemanticResolver.shouldSkipModifier(key) { return v }
+        if #available(iOS 26.0, macOS 26.0, *) {
+            return AnyView(v.glassEffect())
+        }
         if #available(iOS 16.4, macOS 13.3, *) {
             if let mat = MaterialSemanticResolver.material(for: key) {
                 return AnyView(v.presentationBackground(mat))

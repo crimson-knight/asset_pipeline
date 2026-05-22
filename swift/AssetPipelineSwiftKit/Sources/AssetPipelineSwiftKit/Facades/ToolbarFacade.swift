@@ -60,7 +60,15 @@ public class ToolbarFacade: NSObject {
         // suppress this — it's canonical SwiftUI bar chrome, separate from
         // the setMaterial: surface. Per architecture doc lines 91-92,
         // .navigationBar placement is iOS-only; .automatic is cross-platform-safe.
-        if #available(iOS 16.0, macOS 13.0, *) {
+        //
+        // Phase 5 v2 Rem1 — iOS 26+ / macOS 26+ Liquid Glass path: per
+        // architecture doc lines 117 + 119-120, the 26+ SDKs swap the pre-26
+        // `.toolbarBackground(...)` for `.glassEffect()`. Advisory only on
+        // this path — system-resolved regardless of semantic + intensity.
+        // Mirrors GlassBackgroundFacade.swift:64-70.
+        if #available(iOS 26.0, macOS 26.0, *) {
+            content = AnyView(content.glassEffect())
+        } else if #available(iOS 16.0, macOS 13.0, *) {
             let materialKey: String = overrides.materialSemantic ?? "system_resolved"
             let mat: Material = MaterialSemanticResolver.material(for: materialKey) ?? .bar
             content = AnyView(content.toolbarBackground(mat, for: .automatic))

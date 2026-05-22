@@ -100,11 +100,23 @@ public class SheetFacade: NSObject {
     // Default key is "sheet" → .thickMaterial; "system_resolved" or nil
     // returns the body unchanged. iOS 16.4+ / macOS 13.3+ availability
     // floor matches A1 spike compile-verification.
+    //
+    // Phase 5 v2 Rem1 — iOS 26+ / macOS 26+ Liquid Glass path: per
+    // architecture doc lines 117 + 119-120, the 26+ SDKs swap the pre-26
+    // `.presentationBackground(<Material>)` for `.glassEffect()`. Shape
+    // choice: `.glassEffect()` is a content-view modifier (not a
+    // presentation-modifier), so on 26+ we wrap the sheet body view itself
+    // with `.glassEffect()` rather than chaining `.presentationBackground`.
+    // This mirrors the GlassBackgroundFacade.swift:64-70 reference pattern.
+    // SystemResolved still suppresses (no modifier on either branch).
     fileprivate static func applyPresentationBackground(
         _ v: AnyView, overrides: SheetOverrides
     ) -> AnyView {
         let key: String = overrides.materialSemantic ?? "sheet"
         if MaterialSemanticResolver.shouldSkipModifier(key) { return v }
+        if #available(iOS 26.0, macOS 26.0, *) {
+            return AnyView(v.glassEffect())
+        }
         if #available(iOS 16.4, macOS 13.3, *) {
             if let mat = MaterialSemanticResolver.material(for: key) {
                 return AnyView(v.presentationBackground(mat))

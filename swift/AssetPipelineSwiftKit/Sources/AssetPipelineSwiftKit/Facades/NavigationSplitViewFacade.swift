@@ -29,9 +29,20 @@ public class NavigationSplitViewFacade: NSObject {
         let sidebarBase: AnyView = childViews.indices.contains(0)
             ? AnyView(APSKHostedChild(view: childViews[0]))
             : AnyView(EmptyView())
+        // Phase 5 v2 Rem1 — sidebar-pane-only material gate (architecture
+        // doc line 90: "only the sidebar pane gets material … the content +
+        // detail panes remain system-default"). On iOS 26+ / macOS 26+ the
+        // sidebar pane swaps `.background(<Material>)` for `.glassEffect()`
+        // per architecture doc lines 117 + 119-120 — Liquid Glass is
+        // advisory-only / system-resolved regardless of semantic. Scoping is
+        // PRESERVED: only `sidebarBase` is wrapped; `mid` + `detail` are
+        // unchanged.
         let sidebar: AnyView = {
             if MaterialSemanticResolver.shouldSkipModifier(materialKey) {
                 return sidebarBase
+            }
+            if #available(iOS 26.0, macOS 26.0, *) {
+                return AnyView(sidebarBase.glassEffect())
             }
             if #available(iOS 15.0, macOS 12.0, *) {
                 if let mat = MaterialSemanticResolver.material(for: materialKey) {

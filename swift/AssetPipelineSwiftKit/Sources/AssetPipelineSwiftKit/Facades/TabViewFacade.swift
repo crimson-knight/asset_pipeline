@@ -58,7 +58,16 @@ public class TabViewFacade: NSObject {
         //
         // When the caller overrides materialSemantic to a non-system role,
         // the resolved Material replaces .bar. Otherwise .bar is the default.
-        if #available(iOS 16.0, macOS 13.0, *) {
+        //
+        // Phase 5 v2 Rem1 — iOS 26+ / macOS 26+ Liquid Glass path: per
+        // architecture doc lines 117 + 119-120, the 26+ SDKs swap the pre-26
+        // per-widget modifier for `.glassEffect()`. `.glassEffect()` is
+        // advisory only on this path — the system resolves material strength
+        // regardless of the AppleSemantic + intensity inputs. This mirrors
+        // the GlassBackgroundFacade.swift:64-70 reference pattern.
+        if #available(iOS 26.0, macOS 26.0, *) {
+            content = AnyView(content.glassEffect())
+        } else if #available(iOS 16.0, macOS 13.0, *) {
             let materialKey: String = overrides.materialSemantic ?? "system_resolved"
             let mat: Material = MaterialSemanticResolver.material(for: materialKey) ?? .bar
             content = AnyView(content.toolbarBackground(mat, for: .automatic))
