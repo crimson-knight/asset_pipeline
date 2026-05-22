@@ -73,22 +73,61 @@
     items[next].focus();
   }
 
+  // Skip elements that can never be triggers (per-host inline <style>,
+  // <script>, and the menu itself).
+  function isTriggerCandidate(el) {
+    if (el.classList.contains('ap-ctx-menu')) return false;
+    var tag = el.tagName;
+    if (tag === 'STYLE' || tag === 'SCRIPT' || tag === 'TEMPLATE') return false;
+    return true;
+  }
+
+  function findTrigger(host) {
+    var children = Array.prototype.slice.call(host.children);
+    for (var i = 0; i < children.length; i++) {
+      if (isTriggerCandidate(children[i])) return children[i];
+    }
+    return null;
+  }
+
+  // Tab/Shift+Tab focus trap inside an open menu.
+  function trapFocus(e, menu) {
+    if (e.key !== 'Tab') return;
+    var items = itemsOf(menu);
+    if (items.length === 0) { e.preventDefault(); return; }
+    var first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  }
+
   function attach(host) {
     if (host.__apBound) return;
     host.__apBound = true;
 
-    var children = Array.prototype.slice.call(host.children);
-    var trigger = null;
-    for (var i = 0; i < children.length; i++) {
-      if (!children[i].classList.contains('ap-ctx-menu')) {
-        trigger = children[i]; break;
-      }
-    }
+    var trigger = findTrigger(host);
     if (!trigger) return;
 
     trigger.addEventListener('contextmenu', function (e) {
       e.preventDefault();
       open(host, e.clientX, e.clientY);
+    });
+
+    // Keyboard open path: Shift+F10 + the dedicated ContextMenu key
+    // (both common assistive-tech contracts). Browsers usually synthesize
+    // a `contextmenu` event for these, but binding explicitly is safer
+    // — especially when the trigger is not focused at the moment of the
+    // press. Open at the trigger's center so the menu lands somewhere
+    // sensible.
+    trigger.addEventListener('keydown', function (e) {
+      var isShiftF10 = e.shiftKey && e.key === 'F10';
+      var isContextKey = e.key === 'ContextMenu';
+      if (!isShiftF10 && !isContextKey) return;
+      e.preventDefault();
+      var r = trigger.getBoundingClientRect();
+      open(host, r.left + r.width / 2, r.top + r.height / 2);
     });
 
     var pressTimer = null;
@@ -121,6 +160,7 @@
         case 'ArrowUp':   e.preventDefault(); moveFocus(menu, 'prev'); break;
         case 'Home':      e.preventDefault(); moveFocus(menu, 'first'); break;
         case 'End':       e.preventDefault(); moveFocus(menu, 'last');  break;
+        case 'Tab':       trapFocus(e, menu); break;
         case 'Enter':
         case ' ':         e.preventDefault();
           if (document.activeElement) document.activeElement.click();
