@@ -5,8 +5,10 @@ require "../view"
     # Tier 3 — iOS-only. Use UI::ActionSheetWithWebFallback to render on
     # web (or anywhere a cross-platform fallback is acceptable).
     #
-    # Builds with -Dios. On every other target, naming this class is a
-    # compile-time error (see `action_sheet_gate_stub.cr`).
+    # Builds with -Dios. On every other target, constructing this class
+    # (`UI::ActionSheet.new(...)`) is a compile-time error; pure type
+    # references and `.allocate` still compile (the constructor macro
+    # is the gate). See _gate_stubs/action_sheet.cr.
     #
     # iOS rendering currently routes through SwiftKit's ConfirmationDialogFacade
     # which exposes a binary confirm/cancel surface; ActionSheet with more
