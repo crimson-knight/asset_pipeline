@@ -2588,7 +2588,12 @@ module UI
 
         actions_list = Components::Elements::Ul.new
         actions_list.add_class("ap-action-sheet__actions")
-        actions_list.set_attribute("role", "group")
+        # Phase 4 R2: do NOT set role="group" on the <ul>. Doing so strips
+        # the element's implicit role="list", which orphans the <li>
+        # children and triggers axe-core's `listitem` rule. The outer
+        # action-sheet container already exposes role="dialog" +
+        # aria-modal="true"; the <ul>'s implicit list semantics are
+        # sufficient and correct for the action list.
 
         cancel_pair : Tuple(Int32, UI::ActionSheetWithWebFallback::Action)? = nil
         view.actions.each_with_index do |action, index|
