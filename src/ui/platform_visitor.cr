@@ -96,7 +96,9 @@ module UI
     abstract def visit(view : Capsule)
     abstract def visit(view : Canvas)
     abstract def visit(view : PathView)
-    abstract def visit(view : PathControl)
+    {% if flag?(:macos) %}
+      abstract def visit(view : PathControl)
+    {% end %}
     abstract def visit(view : MapView)
     abstract def visit(view : ChartView)
     abstract def visit(view : WebViewComponent)
@@ -119,5 +121,6 @@ module UI
     {% end %}
     abstract def visit(view : ActionSheetWithWebFallback)
     abstract def visit(view : ContextMenuWithWebFallback)
+    abstract def visit(view : PathControlWithWebFallback)
   end
 end

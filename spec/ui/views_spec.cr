@@ -267,8 +267,14 @@ class TestVisitor < UI::PlatformVisitor
     @visited << "PathView"
   end
 
-  def visit(view : UI::PathControl)
-    @visited << "PathControl(#{view.path_string})"
+  {% if flag?(:macos) %}
+    def visit(view : UI::PathControl)
+      @visited << "PathControl(#{view.path_string})"
+    end
+  {% end %}
+
+  def visit(view : UI::PathControlWithWebFallback)
+    @visited << "PathControlWithWebFallback(#{view.path_string})"
   end
 
   def visit(view : UI::MapView)
@@ -2383,33 +2389,35 @@ describe UI::PathView do
   end
 end
 
-describe UI::PathControl do
-  it "builds a filesystem path string from components" do
-    control = UI::PathControl.new
-    control.add_component("Users", icon: "folder")
-    control.add_component("amber", icon: "person")
-    control.add_component("Drafts", icon: "doc")
+{% if flag?(:macos) %}
+  describe UI::PathControl do
+    it "builds a filesystem path string from components" do
+      control = UI::PathControl.new
+      control.add_component("Users", icon: "folder")
+      control.add_component("amber", icon: "person")
+      control.add_component("Drafts", icon: "doc")
 
-    control.path_string.should eq("/Users/amber/Drafts")
-    control.style.should eq(UI::PathControlStyle::Standard)
-    control.is_editable.should be_false
-  end
+      control.path_string.should eq("/Users/amber/Drafts")
+      control.style.should eq(UI::PathControlStyle::Standard)
+      control.is_editable.should be_false
+    end
 
-  it "supports popup style" do
-    control = UI::PathControl.new(style: UI::PathControlStyle::PopUp)
-    control.add_component("Assets", icon: "folder")
-    control.style.should eq(UI::PathControlStyle::PopUp)
-  end
+    it "supports popup style" do
+      control = UI::PathControl.new(style: UI::PathControlStyle::PopUp)
+      control.add_component("Assets", icon: "folder")
+      control.style.should eq(UI::PathControlStyle::PopUp)
+    end
 
-  it "accepts visitor" do
-    v = TestVisitor.new
-    control = UI::PathControl.new
-    control.add_component("Library", icon: "folder")
-    control.add_component("Design", icon: "paintbrush")
-    control.accept(v)
-    v.visited.should eq(["PathControl(/Library/Design)"])
+    it "accepts visitor" do
+      v = TestVisitor.new
+      control = UI::PathControl.new
+      control.add_component("Library", icon: "folder")
+      control.add_component("Design", icon: "paintbrush")
+      control.accept(v)
+      v.visited.should eq(["PathControl(/Library/Design)"])
+    end
   end
-end
+{% end %}
 
 describe UI::OutlineView do
   it "stores hierarchical nodes" do

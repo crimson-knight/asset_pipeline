@@ -1785,43 +1785,85 @@ module UI
         push_element(el)
       end
 
-      def visit(view : UI::PathControl)
-        el = Components::Elements::Div.new
-        el.add_style("display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); background: var(--ap-color-surface-panel)")
+      # Phase 4 — Tier 3. UI::PathControl is macOS-only (flag?(:macos)); on
+      # -Dmacos builds the web renderer still compiles and must satisfy
+      # the abstract method, so a no-op visitor lives here. The
+      # cross-platform web rendering path is UI::PathControlWithWebFallback.
+      {% if flag?(:macos) %}
+        def visit(view : UI::PathControl)
+          el = Components::Elements::Div.new
+          el.set_attribute("data-component", "path-control-noop")
+          el.add_style("display: none")
+          apply_common_styles(el, view)
+          push_element(el)
+        end
+      {% end %}
+
+      # Cross-platform breadcrumb rendering. Emits a semantic
+      # `<nav aria-label="Breadcrumb"><ol>...</ol></nav>` with the current
+      # leaf marked aria-current="page" — a notable improvement on the
+      # `>`-separated string the previous visitor produced.
+      def visit(view : UI::PathControlWithWebFallback)
+        nav = Components::Elements::Nav.new
+        nav.set_attribute("aria-label", "Breadcrumb")
+        nav.add_style("display: inline-flex; align-items: center; padding: 6px 10px; border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-card); background: var(--ap-color-surface-panel)")
+
+        ol = Components::Elements::Ol.new
+        ol.add_style("list-style: none; margin: 0; padding: 0; display: inline-flex; align-items: center; gap: 6px")
 
         view.components.each_with_index do |component, index|
-          segment = Components::Elements::Span.new
-          segment.add_style("display: inline-flex; align-items: center; gap: 4px; color: var(--ap-color-text-primary)")
+          li = Components::Elements::Li.new
+          li.add_style("display: inline-flex; align-items: center; gap: 4px")
+
+          last = index == view.components.size - 1
+          inner_wrapper : Components::Elements::HTMLElement
+          if url = component.url
+            anchor = Components::Elements::A.new
+            anchor.set_attribute("href", url)
+            anchor.add_style("color: var(--ap-color-text-link); text-decoration: none")
+            anchor.set_attribute("aria-current", "page") if last
+            inner_wrapper = anchor
+          else
+            span = Components::Elements::Span.new
+            span.add_style("color: var(--ap-color-text-primary)")
+            span.set_attribute("aria-current", "page") if last
+            inner_wrapper = span
+          end
+
           if icon = component.icon
             icon_el = Components::Elements::Span.new
             icon_el.set_attribute("aria-hidden", "true")
             icon_el << icon
-            segment.add_child(icon_el)
+            inner_wrapper.as(Components::Elements::ContainerElement).add_child(icon_el)
           end
           name_el = Components::Elements::Span.new
           name_el << component.name
-          segment.add_child(name_el)
-          el.add_child(segment)
+          inner_wrapper.as(Components::Elements::ContainerElement).add_child(name_el)
+          li.add_child(inner_wrapper)
+          ol.add_child(li)
 
-          next if index == view.components.size - 1
-
-          chevron = Components::Elements::Span.new
-          chevron.set_attribute("aria-hidden", "true")
-          chevron.add_style("color: var(--ap-color-text-muted)")
-          chevron << ">"
-          el.add_child(chevron)
+          unless last
+            sep = Components::Elements::Li.new
+            sep.set_attribute("aria-hidden", "true")
+            sep.add_style("color: var(--ap-color-text-muted)")
+            sep << "/"
+            ol.add_child(sep)
+          end
         end
 
         if view.style == UI::PathControlStyle::PopUp
           popup = Components::Elements::Span.new
           popup.set_attribute("aria-hidden", "true")
-          popup.add_style("margin-left: 2px; color: var(--ap-color-text-muted)")
+          popup.add_style("margin-left: 6px; color: var(--ap-color-text-muted)")
           popup << "v"
-          el.add_child(popup)
+          nav.add_child(ol)
+          nav.add_child(popup)
+        else
+          nav.add_child(ol)
         end
 
-        apply_common_styles(el, view)
-        push_element(el)
+        apply_common_styles(nav, view)
+        push_element(nav)
       end
 
       def visit(view : UI::MapView)

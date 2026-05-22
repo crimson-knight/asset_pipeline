@@ -3258,94 +3258,6 @@
         emit(ptr, "UIView[path]")
       end
 
-      def visit(view : UI::PathControl)
-        stack = alloc_init("UIStackView")
-        LibObjCBridge.objc_send_long(stack, sel("setAxis:"), 0_i64)
-        LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 6.0)
-        LibObjCBridge.objc_send_long(stack, sel("setAlignment:"), 3_i64)
-
-        outer_handle = ObjC.owned(stack, label: "UIStackView[path-control]")
-        outer_native = NativeView.new(outer_handle)
-
-        image_cls = LibObjCBridge.objc_getClass("UIImage")
-        view.components.each_with_index do |component, index|
-          segment = alloc_init("UIStackView")
-          LibObjCBridge.objc_send_long(segment, sel("setAxis:"), 0_i64)
-          LibObjCBridge.objc_send_1d(segment, sel("setSpacing:"), 4.0)
-          LibObjCBridge.objc_send_long(segment, sel("setAlignment:"), 3_i64)
-
-          segment_handle = ObjC.owned(segment, label: "UIStackView[path-control-segment]")
-          segment_native = NativeView.new(segment_handle)
-          outer_native.add_child(segment_native)
-
-          if icon = component.icon
-            icon_ns = LibObjCBridge.nsstring_from_cstr(icon.to_unsafe)
-            image = LibObjCBridge.objc_send_id(image_cls, sel("systemImageNamed:"), icon_ns)
-            unless image.null?
-              icon_view = alloc_init("UIImageView")
-              LibObjCBridge.objc_send_id(icon_view, sel("setImage:"), image)
-              LibObjCBridge.objc_send_id(icon_view, sel("setTintColor:"), LibObjCBridge.nscolor_label_secondary)
-              LibObjCBridge.objc_constrain_size(icon_view, 16.0, 16.0)
-              icon_handle = ObjC.owned(icon_view, label: "UIImageView[path-control-icon]")
-              icon_native = NativeView.new(icon_handle)
-              segment_native.add_child(icon_native)
-              LibObjCBridge.objc_send_id(segment, sel("addArrangedSubview:"), icon_view)
-            end
-          end
-
-          label = alloc_init("UILabel")
-          label_str = LibObjCBridge.nsstring_from_cstr(component.name.to_unsafe)
-          LibObjCBridge.objc_send_id(label, sel("setText:"), label_str)
-          # Tier 2 platform default: 15pt = iOS path-control subheadline size.
-          LibObjCBridge.objc_send_id(label, sel("setFont:"), LibObjCBridge.nsfont_system(15.0))
-          color = index == view.components.size - 1 ? LibObjCBridge.nscolor_label_primary : LibObjCBridge.nscolor_label_secondary
-          LibObjCBridge.objc_send_id(label, sel("setTextColor:"), color) unless color.null?
-          label_handle = ObjC.owned(label, label: "UILabel[path-control-label]")
-          label_native = NativeView.new(label_handle)
-          segment_native.add_child(label_native)
-          LibObjCBridge.objc_send_id(segment, sel("addArrangedSubview:"), label)
-
-          LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), segment)
-
-          next if index == view.components.size - 1
-
-          chevron_name = LibObjCBridge.nsstring_from_cstr("chevron.right".to_unsafe)
-          chevron_img = LibObjCBridge.objc_send_id(image_cls, sel("systemImageNamed:"), chevron_name)
-          unless chevron_img.null?
-            chevron_view = alloc_init("UIImageView")
-            LibObjCBridge.objc_send_id(chevron_view, sel("setImage:"), chevron_img)
-            LibObjCBridge.objc_send_id(chevron_view, sel("setTintColor:"), LibObjCBridge.nscolor_label_tertiary)
-            LibObjCBridge.objc_constrain_size(chevron_view, 10.0, 10.0)
-            chevron_handle = ObjC.owned(chevron_view, label: "UIImageView[path-control-chevron]")
-            chevron_native = NativeView.new(chevron_handle)
-            outer_native.add_child(chevron_native)
-            LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), chevron_view)
-          end
-        end
-
-        if view.style == UI::PathControlStyle::PopUp
-          popup_name = LibObjCBridge.nsstring_from_cstr("chevron.up.chevron.down".to_unsafe)
-          popup_img = LibObjCBridge.objc_send_id(image_cls, sel("systemImageNamed:"), popup_name)
-          unless popup_img.null?
-            popup_view = alloc_init("UIImageView")
-            LibObjCBridge.objc_send_id(popup_view, sel("setImage:"), popup_img)
-            LibObjCBridge.objc_send_id(popup_view, sel("setTintColor:"), LibObjCBridge.nscolor_label_tertiary)
-            LibObjCBridge.objc_constrain_size(popup_view, 12.0, 12.0)
-            popup_handle = ObjC.owned(popup_view, label: "UIImageView[path-control-popup]")
-            popup_native = NativeView.new(popup_handle)
-            outer_native.add_child(popup_native)
-            LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), popup_view)
-          end
-        end
-
-        unless view.accessibility_label
-          ax_str = LibObjCBridge.nsstring_from_cstr("Path: #{view.path_string}".to_unsafe)
-          LibObjCBridge.objc_send_id(stack, sel("setAccessibilityLabel:"), ax_str)
-        end
-
-        apply_common_properties(stack, view)
-        push_native(outer_native)
-      end
 
       def visit(view : UI::MapView)
         span_delta = map_span_delta(view.zoom_level)
@@ -4556,6 +4468,53 @@
         LibObjCBridge.objc_send_bool(v, sel("setHidden:"), 1)
         apply_common_properties(v, view)
         emit(v, "UIView[ContextMenuWithWebFallback-stub]")
+      end
+
+      def visit(view : UI::PathControlWithWebFallback)
+        # iOS has no native NSPathControl analog. The WithWebFallback
+        # renders a horizontal breadcrumb UIStackView built from
+        # UILabels — a faithful port of the prior visit(view : UI::PathControl)
+        # that lived here.
+        stack = alloc_init("UIStackView")
+        LibObjCBridge.objc_send_long(stack, sel("setAxis:"), 0_i64)
+        LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 6.0)
+        LibObjCBridge.objc_send_long(stack, sel("setAlignment:"), 3_i64)
+
+        outer_handle = ObjC.owned(stack, label: "UIStackView[path-control-fallback]")
+        outer_native = NativeView.new(outer_handle)
+
+        view.components.each_with_index do |component, index|
+          label = alloc_init("UILabel")
+          label_str = LibObjCBridge.nsstring_from_cstr(component.name.to_unsafe)
+          LibObjCBridge.objc_send_id(label, sel("setText:"), label_str)
+          LibObjCBridge.objc_send_id(label, sel("setFont:"), LibObjCBridge.nsfont_system(15.0))
+          color = index == view.components.size - 1 ? LibObjCBridge.nscolor_label_primary : LibObjCBridge.nscolor_label_secondary
+          LibObjCBridge.objc_send_id(label, sel("setTextColor:"), color) unless color.null?
+          label_handle = ObjC.owned(label, label: "UILabel[path-control-segment]")
+          label_native = NativeView.new(label_handle)
+          outer_native.add_child(label_native)
+          LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), label)
+
+          next if index == view.components.size - 1
+          sep = alloc_init("UILabel")
+          sep_str = LibObjCBridge.nsstring_from_cstr("/".to_unsafe)
+          LibObjCBridge.objc_send_id(sep, sel("setText:"), sep_str)
+          LibObjCBridge.objc_send_id(sep, sel("setFont:"), LibObjCBridge.nsfont_system(15.0))
+          sep_color = LibObjCBridge.nscolor_label_tertiary
+          LibObjCBridge.objc_send_id(sep, sel("setTextColor:"), sep_color) unless sep_color.null?
+          sep_handle = ObjC.owned(sep, label: "UILabel[path-control-sep]")
+          sep_native = NativeView.new(sep_handle)
+          outer_native.add_child(sep_native)
+          LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), sep)
+        end
+
+        unless view.accessibility_label
+          ax_str = LibObjCBridge.nsstring_from_cstr("Path: #{view.path_string}".to_unsafe)
+          LibObjCBridge.objc_send_id(stack, sel("setAccessibilityLabel:"), ax_str)
+        end
+
+        apply_common_properties(stack, view)
+        push_native(outer_native)
       end
 
       # ================================================================

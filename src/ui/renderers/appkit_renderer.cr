@@ -4415,6 +4415,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         emit(v, "NSView[ContextMenuWithWebFallback-stub]")
       end
 
+      def visit(view : UI::PathControlWithWebFallback)
+        # On macOS the WithWebFallback delegates to its inner
+        # UI::PathControl; this visitor is unreachable in practice.
+        # Emit a no-op NSView for abstract-method coverage.
+        v = alloc_init("NSView")
+        apply_common_properties(v, view)
+        emit(v, "NSView[PathControlWithWebFallback-stub]")
+      end
+
       def visit(view : UI::ActionSheetWithWebFallback)
         # macOS lacks a native action-sheet idiom (HIG steers developers to
         # NSAlert / modal sheets). We synthesize a UI::ConfirmationDialog
