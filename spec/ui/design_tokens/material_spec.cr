@@ -80,6 +80,17 @@ describe UI::DesignTokens::Material do
       base.copy_with(intensity: 1.5).apple_step(:regular).should eq(:thick)
       base.copy_with(intensity: 2.0).apple_step(:regular).should eq(:chrome)
     end
+
+    it "pins boundary semantics at 1.8 (Crystal first-match inclusive ranges)" do
+      # Documented boundary: 1.8 -> :thick (matched by ..1.8 first).
+      # Anything strictly > 1.8 -> :chrome. Pin the boundary so a future
+      # Crystal range-semantics change surfaces as a spec failure.
+      base = UI::DesignTokens::Defaults.material
+      base.copy_with(intensity: 1.8).apple_step(:regular).should eq(:thick)
+      base.copy_with(intensity: 1.81).apple_step(:regular).should eq(:chrome)
+      base.copy_with(intensity: 1.3).apple_step(:regular).should eq(:regular)
+      base.copy_with(intensity: 1.301).apple_step(:regular).should eq(:thick)
+    end
   end
 
   describe "brand override cascade" do

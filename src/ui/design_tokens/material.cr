@@ -45,6 +45,13 @@ module UI
     #   intensity 1.8+     -> :chrome
     # Per the brief, `intensity = 1.3` quantizes to `:regular` (top-down
     # first-match on the Crystal `case` ranges).
+    #
+    # Boundary semantics: Crystal `case ... when X..Y` evaluates inclusive
+    # ranges top-down, so `1.8` matches `..1.8` first and returns `:thick`.
+    # Values strictly greater than 1.8 (e.g. `1.81`) fall to the else branch
+    # and return `:chrome`. `material_spec.cr` pins this exact behavior so a
+    # future Crystal range-semantics change would surface as a spec failure
+    # rather than as a silent quantization drift.
     record Material,
       ultra_thin : MaterialStep,
       thin : MaterialStep,

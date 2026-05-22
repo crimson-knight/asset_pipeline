@@ -36,9 +36,22 @@ public final class GlassBackgroundFacade: NSObject {
         let backed: AnyView
         if #available(iOS 26.0, macOS 26.0, *) {
             // Liquid Glass — the actual headline visual differentiator.
-            // `.glassEffect(_:in:)` is the iOS 26 / macOS 26 modifier
-            // (SwiftUICore) that produces the genuine Apple liquid-glass
-            // material with the system's automatic appearance handling.
+            // `.glassEffect()` is the iOS 26 / macOS 26 SwiftUI modifier
+            // that produces the genuine Apple liquid-glass material with
+            // the system's automatic appearance + Dynamic Type response.
+            //
+            // PHASE 5 CONTRACT NOTE: The iOS 26+ Liquid Glass path does NOT
+            // vary by `materialKey` step — every step renders the system
+            // Liquid Glass treatment Apple's HIG selects. This matches the
+            // brief.yml adapter_cardinality row 1 contract ("intensity 1.3
+            // quantizes to .regularMaterial on Apple, visually IDENTICAL
+            // to default intensity 1.0"). The pre-26 `.background(Material)`
+            // fallback below DOES vary by step. Brands wanting a per-step
+            // differentiation that survives onto iOS 26+ must either rely
+            // on the system's automatic treatment (the HIG-canonical
+            // behavior) or target the web / Android renderers where the
+            // step is render-side and intensity scales blur continuously.
+            _ = materialKey  // explicitly unused on the Liquid Glass path
             backed = AnyView(
                 hostedChild(childView)
                     .glassEffect()

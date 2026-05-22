@@ -326,9 +326,9 @@
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .ap-glass--ultra-thin { background: color-mix(in oklch, var(--ap-color-surface-panel) 90%, transparent); }
-  .ap-glass--thin       { background: color-mix(in oklch, var(--ap-color-surface-panel) 92%, transparent); }
-  .ap-glass--regular    { background: color-mix(in oklch, var(--ap-color-surface-panel) 94%, transparent); }
-  .ap-glass--thick      { background: color-mix(in oklch, var(--ap-color-surface-panel) 96%, transparent); }
-  .ap-glass--chrome     { background: color-mix(in oklch, var(--ap-color-surface-panel) 98%, transparent); }
+  .ap-glass--ultra-thin { background: color-mix(in oklch, var(--ap-color-surface-panel) calc(var(--ap-material-opacity-ultra-thin) * 100%), transparent); }
+  .ap-glass--thin { background: color-mix(in oklch, var(--ap-color-surface-panel) calc(var(--ap-material-opacity-thin) * 100%), transparent); }
+  .ap-glass--regular { background: color-mix(in oklch, var(--ap-color-surface-panel) calc(var(--ap-material-opacity-regular) * 100%), transparent); }
+  .ap-glass--thick { background: color-mix(in oklch, var(--ap-color-surface-panel) calc(var(--ap-material-opacity-thick) * 100%), transparent); }
+  .ap-glass--chrome { background: color-mix(in oklch, var(--ap-color-surface-panel) calc(var(--ap-material-opacity-chrome) * 100%), transparent); }
 }

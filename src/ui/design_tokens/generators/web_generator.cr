@@ -88,10 +88,15 @@ module UI
 
       # `@supports not (backdrop-filter)` fallback block. Browsers without
       # `backdrop-filter` (and without `-webkit-backdrop-filter`) get a
-      # solid-tinted panel at the documented per-step opacity. The fallback
-      # uses HIGH opacity (90..98%) on purpose — without backdrop blur, a
-      # low-opacity fill reads as transparent muddiness rather than as a
-      # glass surface.
+      # solid-tinted panel at the per-step opacity the active tokens
+      # declare, expressed via `var(--ap-material-opacity-<step>)` so
+      # brand overrides cascade into the fallback path too.
+      #
+      # Per Phase 5 brief.yml adapter_cardinality row 2: fallback uses
+      # the same Z% opacity per step as the live backdrop-filter path
+      # (ultra_thin=20, thin=40, regular=60, thick=73, chrome=87 at the
+      # default brand). WCAG-AA contrast is verified for both the
+      # blurred AND fallback paths.
       #
       # The fallback binds to the `.ap-glass--<step>` class names the web
       # renderer emits alongside the inline-style live path. Inline style
@@ -99,11 +104,9 @@ module UI
       # selector is purely for the fallback.
       private def emit_supports_fallback(io : IO, tokens : Tokens) : Nil
         io << "@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {\n"
-        io << "  .ap-glass--ultra-thin { background: color-mix(in oklch, var(--ap-color-surface-panel) 90%, transparent); }\n"
-        io << "  .ap-glass--thin       { background: color-mix(in oklch, var(--ap-color-surface-panel) 92%, transparent); }\n"
-        io << "  .ap-glass--regular    { background: color-mix(in oklch, var(--ap-color-surface-panel) 94%, transparent); }\n"
-        io << "  .ap-glass--thick      { background: color-mix(in oklch, var(--ap-color-surface-panel) 96%, transparent); }\n"
-        io << "  .ap-glass--chrome     { background: color-mix(in oklch, var(--ap-color-surface-panel) 98%, transparent); }\n"
+        %w[ultra-thin thin regular thick chrome].each do |step|
+          io << "  .ap-glass--#{step} { background: color-mix(in oklch, var(--ap-color-surface-panel) calc(var(--ap-material-opacity-#{step}) * 100%), transparent); }\n"
+        end
         io << "}\n"
       end
 
