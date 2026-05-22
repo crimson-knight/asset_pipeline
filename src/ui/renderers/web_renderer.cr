@@ -1401,15 +1401,21 @@ module UI
 
       def visit(view : UI::GlassBackground)
         el = Components::Elements::Div.new
-        blur = case view.material
-               when :ultra_thin then 10
-               when :thin       then 20
-               when :regular    then 30
-               when :thick      then 40
-               when :chrome     then 50
-               else                  30
-               end
-        el.add_style("backdrop-filter: blur(#{blur}px); -webkit-backdrop-filter: blur(#{blur}px); background: color-mix(in oklch, var(--ap-color-surface-panel) 72%, transparent); border-radius: inherit")
+
+        # Phase 5: glass material is tokenized. The inline style references
+        # the per-step `--ap-material-*` custom properties the WebGenerator
+        # emits on `:root` (which themselves resolve `blur` via
+        # `calc(<base>px * var(--ap-material-intensity, 1))`). The
+        # `ap-glass--<step>` class binds to the `@supports` fallback rule.
+        step_key = material_css_step_key(view.material)
+        el.add_class("ap-glass")
+        el.add_class("ap-glass--#{step_key}")
+        el.add_style(
+          "backdrop-filter: blur(var(--ap-material-blur-#{step_key})) saturate(var(--ap-material-saturation-#{step_key})); " \
+          "-webkit-backdrop-filter: blur(var(--ap-material-blur-#{step_key})) saturate(var(--ap-material-saturation-#{step_key})); " \
+          "background: color-mix(in oklch, var(--ap-color-surface-panel) calc(var(--ap-material-opacity-#{step_key}) * 100%), transparent); " \
+          "border-radius: inherit"
+        )
 
         if content = view.content
           @element_stack.push(el)
@@ -1422,6 +1428,19 @@ module UI
           parent.as(Components::Elements::ContainerElement).add_child(el)
         else
           @root = el
+        end
+      end
+
+      # Map a `GlassBackground#material` Symbol to the CSS class suffix /
+      # custom-property segment. Unknown symbols fall back to `regular`.
+      private def material_css_step_key(name : Symbol) : String
+        case name
+        when :ultra_thin then "ultra-thin"
+        when :thin       then "thin"
+        when :regular    then "regular"
+        when :thick      then "thick"
+        when :chrome     then "chrome"
+        else                  "regular"
         end
       end
 
@@ -1995,7 +2014,13 @@ module UI
       # Web rendering: popover-style card with all four zones.
       def visit(view : UI::ActivityView)
         el = Components::Elements::Div.new
-        el.add_style("background: color-mix(in oklch, var(--ap-color-surface-panel) 86%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-panel); box-shadow: var(--ap-elevation-overlay); color: var(--ap-color-text-primary); padding: #{fluid_px(12, 3, 16)}; max-width: #{fluid_px(280, 92, 480)}; display: flex; flex-direction: column; gap: 12px")
+        # Phase 5: ActivityView's translucent header inherits the tokenized
+        # `:thin` material — the existing hard-coded 20px blur matched the
+        # `:thin` step's default. Class hook lets the `@supports` fallback
+        # bind to a sensible step too.
+        el.add_class("ap-glass")
+        el.add_class("ap-glass--thin")
+        el.add_style("background: color-mix(in oklch, var(--ap-color-surface-panel) 86%, transparent); backdrop-filter: blur(var(--ap-material-blur-thin)) saturate(var(--ap-material-saturation-thin)); -webkit-backdrop-filter: blur(var(--ap-material-blur-thin)) saturate(var(--ap-material-saturation-thin)); border: 1px solid var(--ap-color-border-subtle); border-radius: var(--ap-radius-panel); box-shadow: var(--ap-elevation-overlay); color: var(--ap-color-text-primary); padding: #{fluid_px(12, 3, 16)}; max-width: #{fluid_px(280, 92, 480)}; display: flex; flex-direction: column; gap: 12px")
         el.set_attribute("role", "dialog")
         el.set_attribute("aria-label", view.title)
 

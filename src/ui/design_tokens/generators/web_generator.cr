@@ -30,6 +30,8 @@ module UI
           emit_data_theme(io, tokens, :light)
           io << "\n"
           emit_data_theme(io, tokens, :dark)
+          io << "\n"
+          emit_supports_fallback(io, tokens)
         end
       end
 
@@ -50,7 +52,58 @@ module UI
         io << "\n"
         emit_breakpoint_vars(io, tokens.breakpoints, indent: "  ")
         io << "\n"
+        emit_material_vars(io, tokens.material, indent: "  ")
+        io << "\n"
         io << "  --ap-touch-target-min: #{format_px(tokens.touch_target_minimum_px)};\n"
+        io << "}\n"
+      end
+
+      # Phase 5: glass material custom properties.
+      #
+      # `--ap-material-intensity` is the brand-declaration-time scalar (default
+      # 1.0). Per-step blur radii are emitted as `calc()` expressions referencing
+      # the intensity custom property so a brand-overridden Tokens instance
+      # produces an entirely different CSS bundle with no per-call-site math.
+      # Opacity and saturation are not scaled by intensity per the documented
+      # adapter_cardinality contract (brief.yml row 2).
+      private def emit_material_vars(io : IO, material : Material, indent : String) : Nil
+        io << "#{indent}/* glass material — Phase 5 */\n"
+        intensity_clamped = material.intensity.clamp(0.1, 3.0)
+        io << "#{indent}--ap-material-intensity: #{format_number(intensity_clamped)};\n"
+        emit_material_step_vars(io, "ultra-thin", material.ultra_thin, indent)
+        emit_material_step_vars(io, "thin", material.thin, indent)
+        emit_material_step_vars(io, "regular", material.regular, indent)
+        emit_material_step_vars(io, "thick", material.thick, indent)
+        emit_material_step_vars(io, "chrome", material.chrome, indent)
+      end
+
+      private def emit_material_step_vars(io : IO, name : String, step : MaterialStep, indent : String) : Nil
+        # Blur radius scales with intensity via calc(); fallback to "1"
+        # via the var() default so static-CSS consumers without the
+        # intensity declaration still resolve a sensible value.
+        io << "#{indent}--ap-material-blur-#{name}: calc(#{format_px(step.blur_radius)} * var(--ap-material-intensity, 1));\n"
+        io << "#{indent}--ap-material-opacity-#{name}: #{format_number(step.opacity)};\n"
+        io << "#{indent}--ap-material-saturation-#{name}: #{format_number(step.saturation)};\n"
+      end
+
+      # `@supports not (backdrop-filter)` fallback block. Browsers without
+      # `backdrop-filter` (and without `-webkit-backdrop-filter`) get a
+      # solid-tinted panel at the documented per-step opacity. The fallback
+      # uses HIGH opacity (90..98%) on purpose — without backdrop blur, a
+      # low-opacity fill reads as transparent muddiness rather than as a
+      # glass surface.
+      #
+      # The fallback binds to the `.ap-glass--<step>` class names the web
+      # renderer emits alongside the inline-style live path. Inline style
+      # still wins for browsers that support the live path; the class
+      # selector is purely for the fallback.
+      private def emit_supports_fallback(io : IO, tokens : Tokens) : Nil
+        io << "@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {\n"
+        io << "  .ap-glass--ultra-thin { background: color-mix(in oklch, var(--ap-color-surface-panel) 90%, transparent); }\n"
+        io << "  .ap-glass--thin       { background: color-mix(in oklch, var(--ap-color-surface-panel) 92%, transparent); }\n"
+        io << "  .ap-glass--regular    { background: color-mix(in oklch, var(--ap-color-surface-panel) 94%, transparent); }\n"
+        io << "  .ap-glass--thick      { background: color-mix(in oklch, var(--ap-color-surface-panel) 96%, transparent); }\n"
+        io << "  .ap-glass--chrome     { background: color-mix(in oklch, var(--ap-color-surface-panel) 98%, transparent); }\n"
         io << "}\n"
       end
 

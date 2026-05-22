@@ -152,6 +152,24 @@
   --ap-bp-xl: 1280px;
   --ap-bp-2xl: 1536px;
 
+  /* glass material — Phase 5 */
+  --ap-material-intensity: 1;
+  --ap-material-blur-ultra-thin: calc(10px * var(--ap-material-intensity, 1));
+  --ap-material-opacity-ultra-thin: 0.2;
+  --ap-material-saturation-ultra-thin: 1.05;
+  --ap-material-blur-thin: calc(20px * var(--ap-material-intensity, 1));
+  --ap-material-opacity-thin: 0.4;
+  --ap-material-saturation-thin: 1.1;
+  --ap-material-blur-regular: calc(30px * var(--ap-material-intensity, 1));
+  --ap-material-opacity-regular: 0.6;
+  --ap-material-saturation-regular: 1.15;
+  --ap-material-blur-thick: calc(40px * var(--ap-material-intensity, 1));
+  --ap-material-opacity-thick: 0.73;
+  --ap-material-saturation-thick: 1.2;
+  --ap-material-blur-chrome: calc(50px * var(--ap-material-intensity, 1));
+  --ap-material-opacity-chrome: 0.87;
+  --ap-material-saturation-chrome: 1.25;
+
   --ap-touch-target-min: 44px;
 }
 
@@ -305,4 +323,12 @@
   --ap-color-danger-rgb: 255 114 100;
   --ap-color-info: oklch(0.720 0.120 235.00);
   --ap-color-info-rgb: 76 176 229;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ap-glass--ultra-thin { background: color-mix(in oklch, var(--ap-color-surface-panel) 90%, transparent); }
+  .ap-glass--thin       { background: color-mix(in oklch, var(--ap-color-surface-panel) 92%, transparent); }
+  .ap-glass--regular    { background: color-mix(in oklch, var(--ap-color-surface-panel) 94%, transparent); }
+  .ap-glass--thick      { background: color-mix(in oklch, var(--ap-color-surface-panel) 96%, transparent); }
+  .ap-glass--chrome     { background: color-mix(in oklch, var(--ap-color-surface-panel) 98%, transparent); }
 }
