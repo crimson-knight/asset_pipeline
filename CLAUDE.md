@@ -106,6 +106,43 @@ Source files in `src/ui/views/`. Canonical core mapping:
 
 For the full cross-platform mapping (SwiftUI / UIKit / AppKit / Compose / Android View / HTML) see the `component-mapping-matrix` skill.
 
+## Tier model for cross-platform widgets
+
+Every widget in `src/ui/views/` falls into one of three tiers, documented
+canonically at
+[`docs/initiative-cross-platform-ui/tier-matrix.md`](docs/initiative-cross-platform-ui/tier-matrix.md):
+
+* **Tier 1 (Brand-universal)** — visual primitives and layout helpers
+  (`VStack`, `HStack`, `Card`, `Circle`, etc.). No platform-idiomatic
+  chrome; renders identically modulo platform unit conventions. No
+  gating required.
+* **Tier 2 (Platform default)** — universal API surface that platform
+  renderers map to the idiomatic native widget (`Button`, `Slider`,
+  `Sheet`, `Picker`, etc.). The Phase 3 SwiftUI facade gives them
+  Apple polish; the web renderer emits matching HTML. No gating.
+* **Tier 3 (Platform-only)** — widgets with no honest cross-platform
+  analog (`ActionSheet`, `ContextMenu`, `PathControl`). Each is wrapped
+  in a `{% if flag?(...) %}` macro guard so naming the class without
+  the right `-D` flag produces a compile-time error naming the missing
+  flag, the explicit `*WithWebFallback` companion class, and an example
+  guard. Every Tier 3 widget ships a `*WithWebFallback` sibling that
+  renders the native chrome on the supported platform and an accessible
+  fallback on every other target.
+
+When adding a Tier 3 widget, follow `src/ui/views/action_sheet.cr` as the
+template: gate the class definition with `{% if flag?(:ios) %}`, route the
+non-matching branch through a stub file in `src/ui/views/_gate_stubs/`
+(this prevents Crystal's macro engine from firing `{% raise %}` eagerly
+during outer-guard expansion), and ship a `*WithWebFallback` sibling for
+the cross-platform path. Document the new row in
+`docs/initiative-cross-platform-ui/tier-matrix.md` in the same commit.
+
+Use `AssetPipeline::Platform.requires(:ios) do ... end` in application
+code to gate platform-only logic; reserve raw `{% if flag?(:ios) %}` for
+library code under `src/ui/`. The `Platform.requires` macro produces the
+same actionable compile-time error format as the widget gates when the
+build is missing the required flag.
+
 ## Design tokens
 
 The canonical Tier 1 brand contract lives in `src/ui/design_tokens.cr`
