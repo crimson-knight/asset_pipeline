@@ -171,6 +171,7 @@ private struct APSKButtonHost: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 20)
                     .background(Capsule().fill(brandTeal))
+                    .buttonStyle(.plain)
             )
         case "tinted":
             content = AnyView(content
