@@ -67,9 +67,10 @@ APPEARANCES.each do |appearance|
     io << "[data-appearance=\"dark\"] { color-scheme: dark; }\n"
     io << "[data-appearance=\"light\"] { color-scheme: light; }\n"
     # The completed-row hide rule: when the doc has the
-    # `voyager-hide-completed` class, any todo row whose
-    # data-completed=true is hidden.
-    io << ".voyager-hide-completed [data-completed=\"true\"] { display: none !important; }\n"
+    # `voyager-hide-completed` class, any swipe-row marked with
+    # data-todo-completed="true" is hidden. The JS layer annotates
+    # each row based on the rendered checkmark icon ([x] vs [ ]).
+    io << ".voyager-hide-completed [data-todo-completed=\"true\"] { display: none !important; }\n"
     io << "</style>\n"
     io << "</head>\n"
     io << %(<body data-appearance="#{appearance}">) << '\n'
@@ -94,44 +95,45 @@ APPEARANCES.each do |appearance|
     setHideCompleted: function(value) {
       this.hideCompleted = !!value;
       document.documentElement.classList.toggle('voyager-hide-completed', this.hideCompleted);
-      // Update the chart counts in any visible Todos route. The
-      // server rendered the initial counts; we re-derive from the
-      // current DOM count of rows.
+      this.refreshTodosChrome();
+    },
+    // Recount visible rows + write the open/done counts back into
+    // the chart cells AND show/hide the filter banner. This is the
+    // direct DOM equivalent of the Crystal-side route rebuild.
+    refreshTodosChrome: function() {
       var rows = document.querySelectorAll('[data-component="swipe-action-row"][data-todo-completed]');
+      if (rows.length === 0) return; // not on the Todos route
       var open = 0, done = 0;
       rows.forEach(function(r) {
-        if (r.getAttribute('data-todo-completed') === 'true') done++; else open++;
+        // visible_todos semantics: when hideCompleted is on,
+        // completed rows are display:none — count only what would
+        // be rendered.
+        var isCompleted = r.getAttribute('data-todo-completed') === 'true';
+        if (window.VoyagerState.hideCompleted && isCompleted) return;
+        if (isCompleted) done++; else open++;
       });
-      var openEl = document.querySelector('[data-testid="voyager-count-open"], [data-test-id="voyager-count-open"]');
-      var doneEl = document.querySelector('[data-testid="voyager-count-done"], [data-test-id="voyager-count-done"]');
-      // The label values are inside <span>; find the count by id.
-      // (We rely on test_id attribute placement from the Crystal
-      // renderer; data-testid is the canonical attr the renderer
-      // emits.)
-      var openCount = document.querySelector('span[data-testid="voyager-count-open"]') || openEl;
-      var doneCount = document.querySelector('span[data-testid="voyager-count-done"]') || doneEl;
-      // The renderer emits test_id as `data-testid`. Look up by
-      // the span's text content rather than re-counting.
-      // Safe fallback: leave the server-rendered count when the
-      // DOM doesn't have data-todo-completed annotations.
+      var openEl = document.querySelector('span[data-testid="voyager-count-open"]');
+      var doneEl = document.querySelector('span[data-testid="voyager-count-done"]');
+      if (openEl) openEl.textContent = open;
+      if (doneEl) doneEl.textContent = done;
+
+      var banner = document.querySelector('[data-testid="voyager-todos-filter-banner"]');
       if (window.VoyagerState.hideCompleted) {
-        // banner: show
-        var banner = document.querySelector('[data-testid="voyager-todos-filter-banner"]');
         if (!banner) {
           var todoRoot = document.querySelector('[data-testid="voyager-todos-root"]');
-          if (todoRoot) {
+          if (todoRoot && todoRoot.children.length >= 2) {
             banner = document.createElement('div');
             banner.setAttribute('data-testid', 'voyager-todos-filter-banner');
             banner.textContent = 'Completed items hidden (toggle in Settings)';
             banner.style.fontSize = '13px';
             banner.style.color = 'var(--ap-color-text-tertiary)';
             banner.style.padding = '0 4px';
-            todoRoot.insertBefore(banner, todoRoot.firstChild.nextSibling.nextSibling);
+            // Insert after the chart row (index 1).
+            todoRoot.insertBefore(banner, todoRoot.children[2] || null);
           }
         }
-      } else {
-        var existing = document.querySelector('[data-testid="voyager-todos-filter-banner"]');
-        if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      } else if (banner && banner.parentNode) {
+        banner.parentNode.removeChild(banner);
       }
     }
   };
@@ -176,9 +178,9 @@ APPEARANCES.each do |appearance|
       });
     }
     // Annotate each row with its completion state from the
-    // rendered icon text so VoyagerState.setHideCompleted can hide
-    // them.
+    // rendered icon text so the hide rule + chart can resolve.
     document.querySelectorAll('[data-component="swipe-action-row"]').forEach(function(row) {
+      if (row.hasAttribute('data-todo-completed')) return;
       var icon = row.querySelector('.ap-swipe-row__content span');
       if (icon && icon.textContent.trim() === '[x]') {
         row.setAttribute('data-todo-completed', 'true');
@@ -186,11 +188,9 @@ APPEARANCES.each do |appearance|
         row.setAttribute('data-todo-completed', 'false');
       }
     });
-    // Re-apply the hide rule if it was on (state survives route
-    // changes).
-    if (window.VoyagerState.hideCompleted) {
-      window.VoyagerState.setHideCompleted(true);
-    }
+    // Re-apply the hide rule + chart sync. State survives across
+    // route changes — this is the litmus.
+    window.VoyagerState.refreshTodosChrome();
   }
   function bindAll() {
     bindSignIn();

@@ -69,10 +69,12 @@ describe "Voyager state-propagation litmus" do
     html.should contain "Completed items hidden"
   end
 
-  it "the chart counts reflect the FULL todo list even when filtered" do
-    # Decision: chart shows underlying data so the user can tell
-    # what's hidden. Open=3, Done=2 should remain even with
-    # hide_completed on.
+  it "the chart counts reflect the FILTERED list when hide_completed is on" do
+    # Decision (per Codex review of the litmus): the brief says
+    # "Todos list AND chart reflect" — so chart counts move when
+    # filtering. With hide_completed on + 2 completed hidden, the
+    # chart shows Open=3 / Done=0 (since the done items aren't in
+    # the visible_todos used for counting).
     state = Voyager::State.new
     state.hide_completed = true
     coord = UI::NavigationCoordinator.new(UI::NavigationCoordinator::Route.new(:todos))
@@ -82,7 +84,11 @@ describe "Voyager state-propagation litmus" do
     html = renderer.render(view)
 
     html.should contain "data-testid=\"voyager-count-open\">3"
-    html.should contain "data-testid=\"voyager-count-done\">2"
+    html.should contain "data-testid=\"voyager-count-done\">0"
+
+    # The underlying totals are still available via _total methods.
+    state.open_count_total.should eq 3
+    state.completed_count_total.should eq 2
   end
 
   it "Coordinator on_change fires the rebuild callback on pop" do

@@ -148,7 +148,11 @@ module Voyager
           params = {:id => todo.id.to_s} of Symbol => String
           coord.push(UI::NavigationCoordinator::Route.new(:todo_editor, params))
         },
-        on_tap_route: "voyager-todo-editor-#{todo.id}",
+        # Web routes to the static todo_editor fragment (web demo
+        # uses a fresh draft since per-todo params can't survive
+        # the static-site round trip without a server). Native
+        # targets honour the params via the on_tap Proc above.
+        on_tap_route: "voyager-todo-editor",
       )
       del_action = UI::SwipeAction.new(
         "Delete",

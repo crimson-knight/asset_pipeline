@@ -6,7 +6,7 @@
 # macOS (AppKit .app with NSWindow contentView swap), and iOS (UIKit
 # .app with SwiftUI @State trampoline).
 #
-# Routes (5):
+# Routes (4):
 #   :sign_in       -> SignInScreen
 #   :todos         -> TodosScreen
 #   :todo_editor   -> TodoEditorScreen (params: id => todo id, or "0")

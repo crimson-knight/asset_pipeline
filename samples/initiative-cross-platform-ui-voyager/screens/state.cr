@@ -62,11 +62,25 @@ module Voyager
       @todos.reject(&.completed)
     end
 
+    # Open count over the visible todos (so the chart reflects the
+    # filtered list when hide_completed is on — matches the brief's
+    # state-propagation litmus: "Todos list AND chart reflect"
+    # means the chart numbers move when filtering kicks in).
     def open_count : Int32
-      @todos.count { |t| !t.completed }
+      visible_todos.count { |t| !t.completed }
     end
 
     def completed_count : Int32
+      visible_todos.count(&.completed)
+    end
+
+    # Underlying counts (full list, regardless of filter) — exposed
+    # for callers that need the unfiltered totals.
+    def open_count_total : Int32
+      @todos.count { |t| !t.completed }
+    end
+
+    def completed_count_total : Int32
       @todos.count(&.completed)
     end
   end
