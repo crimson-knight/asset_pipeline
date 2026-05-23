@@ -2390,6 +2390,28 @@ module UI
           end
         end
 
+        # Phase 6.10 Rem 4 (Item 2D) — root_fill on web maps to
+        # `width: 100%; min-height: 100dvh`. `dvh` (dynamic viewport
+        # height) respects mobile browser address-bar resizing — newer
+        # iOS Safari / Chrome shrinks the visible viewport when the URL
+        # bar is visible and 100vh would overflow there.
+        #
+        # `box-sizing: border-box` is required so any padding the screen
+        # applies (Voyager screens all set `content_padding`) is included
+        # inside the 100% width rather than added to it. Without this,
+        # `width: 100% + padding-left + padding-right` overflows the
+        # viewport by exactly the padding pair under the browser's
+        # default content-box sizing.
+        if view.root_fill
+          unless view.fluid_width || view.minimum_width || view.maximum_width
+            el.add_style("width: 100%")
+            el.add_style("box-sizing: border-box")
+          end
+          unless view.fluid_height || view.minimum_height || view.maximum_height
+            el.add_style("min-height: 100dvh")
+          end
+        end
+
         # Container query root: emit containment context so descendant rules
         # of the form `@container <name> (...)` resolve against this box.
         if cq_name = view.container_query_name

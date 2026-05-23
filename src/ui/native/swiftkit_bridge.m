@@ -85,6 +85,11 @@ void apsk_runtime_initialize(void *trampoline) {
 // in `callback_registry.cr`.
 extern void ap_swiftkit_invoke_action(unsigned long long token, double value);
 
+// Phase 6.10 Rem 4 (Item 1) — string-valued trampoline counterpart.
+// Crystal emits `ap_swiftkit_invoke_action_string` in
+// `callback_registry.cr`.
+extern void ap_swiftkit_invoke_action_string(unsigned long long token, const char *value);
+
 // Convenience wrapper Crystal renderers actually call. Avoids the
 // Crystal-side gymnastics of producing an `@convention(c)`-compatible
 // function pointer from Crystal's `->fun(...)` syntax (which produces
@@ -93,6 +98,16 @@ extern void ap_swiftkit_invoke_action(unsigned long long token, double value);
 // `ap_swiftkit_invoke_action` natively — we just hand it over.
 void apsk_runtime_install_default_action_trampoline(void) {
     apsk_runtime_initialize((void *)&ap_swiftkit_invoke_action);
+
+    // Phase 6.10 Rem 4 (Item 1) — also install the string trampoline.
+    // The selector is `initializeWithStringTrampoline:` — Swift's
+    // `@objc static func initialize(stringTrampoline:)` synthesizes
+    // this name.
+    Class cls = objc_getClass("APSKRuntime");
+    if (cls == nil) return;
+    SEL sel = sel_registerName("initializeWithStringTrampoline:");
+    ((void (*)(Class, SEL, void *))objc_msgSend)(
+        cls, sel, (void *)&ap_swiftkit_invoke_action_string);
 }
 
 // Install (or replace) the brand tint colour applied to every SwiftUI

@@ -95,6 +95,19 @@
 
       # --- Section 5: CrystalActionDispatcher registration ---
       fun register_crystal_action_dispatcher : Void
+
+      # Phase 6.10 Rem 4 (Item 2B/2C) — runtime device-metrics queries
+      # (same wrappers as the UIKit renderer; macOS branch returns 0
+      # for safe-area insets and derives size class from window width).
+      fun objc_screen_width : Float64
+      fun objc_screen_height : Float64
+      fun objc_macos_screen_width : Float64
+      fun objc_safe_area_top : Float64
+      fun objc_safe_area_bottom : Float64
+      fun objc_safe_area_leading : Float64
+      fun objc_safe_area_trailing : Float64
+      fun objc_horizontal_size_class : Int32
+      fun objc_vertical_size_class : Int32
     end
 
     # Renders a UI::View tree to native AppKit views via the ObjC bridge.
@@ -145,6 +158,33 @@
         @stack = [] of NativeView
         @stack_is_nsstack = [] of Bool
         LibObjCBridge.register_crystal_action_dispatcher
+
+        # Phase 6.10 Rem 4 (Item 2B/2C) — install the runtime device-
+        # metrics provider so screens can query
+        # `UI::DesignTokens::DeviceMetrics.current` for the live screen
+        # bounds + size class. macOS has no safe-area concept, so
+        # `safe_area_*_pt` are always 0; size class is derived from the
+        # main window width (768pt threshold).
+        UI::DesignTokens::Device.install_provider do
+          UI::DesignTokens::DeviceMetrics.new(
+            screen_width_pt: LibObjCBridge.objc_macos_screen_width,
+            screen_height_pt: LibObjCBridge.objc_screen_height,
+            safe_area_top_pt: LibObjCBridge.objc_safe_area_top,
+            safe_area_bottom_pt: LibObjCBridge.objc_safe_area_bottom,
+            safe_area_leading_pt: LibObjCBridge.objc_safe_area_leading,
+            safe_area_trailing_pt: LibObjCBridge.objc_safe_area_trailing,
+            horizontal_size_class: size_class_from_int(LibObjCBridge.objc_horizontal_size_class),
+            vertical_size_class: size_class_from_int(LibObjCBridge.objc_vertical_size_class),
+          )
+        end
+      end
+
+      private def size_class_from_int(value : Int32) : UI::DesignTokens::SizeClass
+        case value
+        when 1 then UI::DesignTokens::SizeClass::Compact
+        when 2 then UI::DesignTokens::SizeClass::Regular
+        else        UI::DesignTokens::SizeClass::Unspecified
+        end
       end
 
       # Returns the root NativeView produced by the last top-level visit.
@@ -508,11 +548,13 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_text_field(target_str, view, sender)
 
+        # Phase 6.10 Rem 4 (Item 1) — string-typed on_change channel.
+        # See the matching uikit_renderer.cr fix for the rationale; the
+        # cross-platform TextFieldFacade fires both the legacy numeric
+        # length signal and the new `fireString` trampoline.
         action_token = 0_u64
         if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            change_handler.call("")
-          end
+          action_token = UI::CallbackRegistry.register_string(change_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_text_field(
@@ -4110,6 +4152,19 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         if min_h = view.minimum_height
           LibObjCBridge.objc_constrain_height(ptr, min_h)
+        end
+
+        # Phase 6.10 Rem 4 (Item 2D) — root_fill sizes to the live
+        # macOS window. The author opts a root view in via
+        # `view.root_fill = true`. macOS has no safe-area concept so
+        # the full screen width is used; the host window honors the
+        # constraint by setting the contentView to match.
+        if view.root_fill && view.minimum_width.nil? && view.maximum_width.nil?
+          metrics = UI::DesignTokens::DeviceMetrics.current
+          fill_width = metrics.content_width_pt
+          if fill_width > 0.0
+            LibObjCBridge.objc_constrain_width(ptr, fill_width)
+          end
         end
 
         # Accessibility label

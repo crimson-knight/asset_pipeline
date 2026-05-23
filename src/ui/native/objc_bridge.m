@@ -341,6 +341,209 @@ double objc_screen_width(void) {
 #endif
 }
 
+// Phase 6.10 Rem 4 (Item 2B/2C) — runtime device-metrics queries.
+//
+// These wrap the OS APIs the architect's brief mandates we use INSTEAD of
+// baking per-device dimensions into design tokens:
+//   iOS:   UIScreen.main.bounds + key window's safeAreaInsets + UITraitCollection
+//   macOS: NSScreen.mainScreen.frame
+//
+// Crystal callers query these on each render so a runtime resize / rotation
+// / size-class change always reads the live value.
+
+// Phase 6.10 Rem 4 Continuation (Codex P2 fix): on macOS, `root_fill`
+// must size to the active WINDOW's content area, not the physical
+// screen. Returning NSScreen.frame from these helpers produced root
+// views wider/taller than the host window, clipping the content and
+// breaking fluid-resize. We now query the key window's contentView
+// frame; we fall back to any visible window's content view, and only
+// then to the screen (so the helper still returns *something* during
+// app startup before any window is on screen — Crystal callers can
+// treat 0 as "unknown").
+//
+// On iOS the screen IS the window (modulo Slide Over / Split View
+// which we don't yet support), so we keep the existing UIScreen path.
+#if TARGET_OS_OSX
+static NSRect ap_macos_active_window_content_rect(void) {
+    NSWindow *win = [NSApp keyWindow];
+    if (!win) win = [NSApp mainWindow];
+    if (!win) {
+        for (NSWindow *w in [NSApp windows]) {
+            if (w.isVisible) { win = w; break; }
+        }
+    }
+    if (!win || !win.contentView) {
+        NSScreen *screen = [NSScreen mainScreen];
+        if (!screen) return NSMakeRect(0, 0, 0, 0);
+        return screen.frame;
+    }
+    return win.contentView.frame;
+}
+#endif
+
+double objc_screen_height(void) {
+#if TARGET_OS_OSX
+    return (double)ap_macos_active_window_content_rect().size.height;
+#else
+    return (double)[UIScreen mainScreen].bounds.size.height;
+#endif
+}
+
+double objc_macos_screen_width(void) {
+#if TARGET_OS_OSX
+    return (double)ap_macos_active_window_content_rect().size.width;
+#else
+    return 0.0;
+#endif
+}
+
+// Safe-area insets from the foreground key window. Returns 0 on macOS
+// (NSWindow has no safe-area concept — return 0 so callers can treat
+// the four insets uniformly).
+double objc_safe_area_top(void) {
+#if TARGET_OS_OSX
+    return 0.0;
+#else
+    UIWindow *win = nil;
+    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if (scene.activationState == UISceneActivationStateForegroundActive &&
+            [scene isKindOfClass:[UIWindowScene class]]) {
+            UIWindowScene *ws = (UIWindowScene *)scene;
+            for (UIWindow *w in ws.windows) {
+                if (w.isKeyWindow) { win = w; break; }
+            }
+            if (win) break;
+        }
+    }
+    if (!win) {
+        // Fallback: any visible window.
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
+                UIWindowScene *ws = (UIWindowScene *)scene;
+                if (ws.windows.count > 0) { win = ws.windows.firstObject; break; }
+            }
+        }
+    }
+    if (!win) return 0.0;
+    return (double)win.safeAreaInsets.top;
+#endif
+}
+
+double objc_safe_area_bottom(void) {
+#if TARGET_OS_OSX
+    return 0.0;
+#else
+    UIWindow *win = nil;
+    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if (scene.activationState == UISceneActivationStateForegroundActive &&
+            [scene isKindOfClass:[UIWindowScene class]]) {
+            UIWindowScene *ws = (UIWindowScene *)scene;
+            for (UIWindow *w in ws.windows) {
+                if (w.isKeyWindow) { win = w; break; }
+            }
+            if (win) break;
+        }
+    }
+    if (!win) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
+                UIWindowScene *ws = (UIWindowScene *)scene;
+                if (ws.windows.count > 0) { win = ws.windows.firstObject; break; }
+            }
+        }
+    }
+    if (!win) return 0.0;
+    return (double)win.safeAreaInsets.bottom;
+#endif
+}
+
+double objc_safe_area_leading(void) {
+#if TARGET_OS_OSX
+    return 0.0;
+#else
+    UIWindow *win = nil;
+    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if (scene.activationState == UISceneActivationStateForegroundActive &&
+            [scene isKindOfClass:[UIWindowScene class]]) {
+            UIWindowScene *ws = (UIWindowScene *)scene;
+            for (UIWindow *w in ws.windows) {
+                if (w.isKeyWindow) { win = w; break; }
+            }
+            if (win) break;
+        }
+    }
+    if (!win) return 0.0;
+    return (double)win.safeAreaInsets.left;
+#endif
+}
+
+double objc_safe_area_trailing(void) {
+#if TARGET_OS_OSX
+    return 0.0;
+#else
+    UIWindow *win = nil;
+    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if (scene.activationState == UISceneActivationStateForegroundActive &&
+            [scene isKindOfClass:[UIWindowScene class]]) {
+            UIWindowScene *ws = (UIWindowScene *)scene;
+            for (UIWindow *w in ws.windows) {
+                if (w.isKeyWindow) { win = w; break; }
+            }
+            if (win) break;
+        }
+    }
+    if (!win) return 0.0;
+    return (double)win.safeAreaInsets.right;
+#endif
+}
+
+// Size class. Returns: 0 = Unspecified, 1 = Compact, 2 = Regular.
+// On macOS we synthesize Compact / Regular from the main window's width
+// using the 768pt breakpoint (same threshold web uses for `md`).
+int32_t objc_horizontal_size_class(void) {
+#if TARGET_OS_OSX
+    NSWindow *win = [NSApp mainWindow];
+    if (!win) return 0;
+    return (win.frame.size.width >= 768.0) ? 2 : 1;
+#else
+    UIWindow *win = nil;
+    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if ([scene isKindOfClass:[UIWindowScene class]]) {
+            UIWindowScene *ws = (UIWindowScene *)scene;
+            if (ws.windows.count > 0) { win = ws.windows.firstObject; break; }
+        }
+    }
+    if (!win) return 0;
+    switch (win.traitCollection.horizontalSizeClass) {
+        case UIUserInterfaceSizeClassCompact: return 1;
+        case UIUserInterfaceSizeClassRegular: return 2;
+        default: return 0;
+    }
+#endif
+}
+
+int32_t objc_vertical_size_class(void) {
+#if TARGET_OS_OSX
+    NSWindow *win = [NSApp mainWindow];
+    if (!win) return 0;
+    return (win.frame.size.height >= 768.0) ? 2 : 1;
+#else
+    UIWindow *win = nil;
+    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if ([scene isKindOfClass:[UIWindowScene class]]) {
+            UIWindowScene *ws = (UIWindowScene *)scene;
+            if (ws.windows.count > 0) { win = ws.windows.firstObject; break; }
+        }
+    }
+    if (!win) return 0;
+    switch (win.traitCollection.verticalSizeClass) {
+        case UIUserInterfaceSizeClassCompact: return 1;
+        case UIUserInterfaceSizeClassRegular: return 2;
+        default: return 0;
+    }
+#endif
+}
+
 // Constrain child.widthAnchor = parent.widthAnchor at required priority.
 // Used to explicitly pin a UIStackView arranged subview's width to the
 // parent UIStackView's width, working around the case where UIStackView's
@@ -2626,26 +2829,21 @@ static void crystal_action_dispatcher_dispatch(id self, SEL _cmd, id sender) {
     }
 }
 
-// Phase 6.10 Remediation 2 — temporary interaction-proof logger.
+// Generic asset-pipeline interaction logger.
 //
 // STDERR.puts from Crystal does not reach the simulator's unified log
-// stream (`xcrun simctl spawn booted log stream`). To prove that taps
-// actually invoke the Crystal-side on_tap closure, this helper emits a
-// NUL-terminated C string via NSLog (which routes through Apple's
-// unified logging system). Logged with the
-// `[voyager-interaction-proof]` prefix so the captured log is trivially
-// grep-able from the remediation artifacts.
+// stream (`xcrun simctl spawn booted log stream`). This helper emits a
+// NUL-terminated C string via NSLog so user-action breadcrumbs (button
+// taps, etc.) reach the unified logging system from sample apps.
 //
-// Kept in objc_bridge.m (not a Voyager-only file) so the same compiled
-// .o supports both macOS host.cr and iOS bridge.cr without a per-target
-// wrapper. Crystal callers cease invoking this once interaction proof
-// is preserved (final commit removes the call sites).
+// Kept in objc_bridge.m (not a sample-only file) so the same compiled
+// .o supports both macOS and iOS hosts without a per-target wrapper.
 void ap_voyager_interaction_log(const char *msg) {
     if (msg == NULL) {
-        NSLog(@"[voyager-interaction-proof] <null>");
+        NSLog(@"[asset-pipeline] <null>");
         return;
     }
-    NSLog(@"[voyager-interaction-proof] %s", msg);
+    NSLog(@"[asset-pipeline] %s", msg);
 }
 
 // Registers the CrystalActionDispatcher ObjC class at runtime.

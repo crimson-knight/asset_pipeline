@@ -78,6 +78,14 @@
       fun objc_set_horizontal_fixed_priority(view : Void*) : Void
       fun uiscrollview_pin_content(scroll_view : Void*, content_view : Void*) : Void
       fun objc_screen_width : Float64
+      fun objc_screen_height : Float64
+      fun objc_macos_screen_width : Float64
+      fun objc_safe_area_top : Float64
+      fun objc_safe_area_bottom : Float64
+      fun objc_safe_area_leading : Float64
+      fun objc_safe_area_trailing : Float64
+      fun objc_horizontal_size_class : Int32
+      fun objc_vertical_size_class : Int32
       fun uislider_build_synthetic_track(value_fraction : Float64, filled_color : Void*, unfilled_color : Void*, slider_ptr : Void*) : Void*
       fun nsimageview_make_symbol(symbol_name : UInt8*, tint_color : Void*, size_pts : Float64) : Void*
       fun uiview_install_amber_gradient_layer(view : Void*) : Void
@@ -165,6 +173,35 @@
         @stack = [] of NativeView
         @stack_is_uistack = [] of Bool
         @label_preferred_max_layout_width_stack = [] of Float64
+
+        # Phase 6.10 Rem 4 (Item 2B/2C) — install the runtime device-
+        # metrics provider so screens can query `UI::DesignTokens::
+        # DeviceMetrics.current` for the live screen bounds, safe-area
+        # insets, and size class. The block is captured by reference so
+        # every call gets a fresh snapshot — critical on orientation
+        # change / multitasking resize.
+        UI::DesignTokens::Device.install_provider do
+          UI::DesignTokens::DeviceMetrics.new(
+            screen_width_pt: LibObjCBridge.objc_screen_width,
+            screen_height_pt: LibObjCBridge.objc_screen_height,
+            safe_area_top_pt: LibObjCBridge.objc_safe_area_top,
+            safe_area_bottom_pt: LibObjCBridge.objc_safe_area_bottom,
+            safe_area_leading_pt: LibObjCBridge.objc_safe_area_leading,
+            safe_area_trailing_pt: LibObjCBridge.objc_safe_area_trailing,
+            horizontal_size_class: size_class_from_int(LibObjCBridge.objc_horizontal_size_class),
+            vertical_size_class: size_class_from_int(LibObjCBridge.objc_vertical_size_class),
+          )
+        end
+      end
+
+      # Maps the C enum result (0/1/2) from `objc_horizontal_size_class`
+      # / `objc_vertical_size_class` into the Crystal `SizeClass` enum.
+      private def size_class_from_int(value : Int32) : UI::DesignTokens::SizeClass
+        case value
+        when 1 then UI::DesignTokens::SizeClass::Compact
+        when 2 then UI::DesignTokens::SizeClass::Regular
+        else        UI::DesignTokens::SizeClass::Unspecified
+        end
       end
 
       # Returns the root NativeView produced by the last top-level visit.
@@ -447,11 +484,19 @@
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_text_field(target_str, view, sender)
 
+        # Phase 6.10 Rem 4 (Item 1) — TextField on_change must receive
+        # the actual typed text, not just a "something changed" signal.
+        # Register a `Proc(String, Nil)` callback via
+        # `register_string`; the string trampoline
+        # `ap_swiftkit_invoke_action_string` resolves the token and
+        # calls the closure with the real text. The previous
+        # `register_action_with_value` path collapsed every char event
+        # to `change_handler.call("")` — breaking the Editor's
+        # `draft.title = value` propagation and shipping empty-title
+        # todos on Save.
         action_token = 0_u64
         if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            change_handler.call("")
-          end
+          action_token = UI::CallbackRegistry.register_string(change_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_text_field(
@@ -4195,6 +4240,27 @@
           end
           if mxw = max_w
             LibObjCBridge.objc_constrain_width(ptr, mxw)
+          end
+        end
+
+        # Phase 6.10 Rem 4 (Item 2D) — root_fill honors the current
+        # device's runtime screen bounds. The Crystal-side author sets
+        # `view.root_fill = true` (or chains `view.fill_screen!`) on
+        # the outermost root of a screen; the renderer pins this view's
+        # width to the live device screen width minus safe-area leading
+        # / trailing insets so the content always tracks the real
+        # device (iPhone 17 Pro = 402pt content; iPad Mini = 768pt
+        # content; etc).
+        #
+        # Crucially this does NOT bake a per-device number into tokens
+        # — `DeviceMetrics.current` queries `UIScreen.main.bounds` +
+        # `keyWindow.safeAreaInsets` at render time.
+        if view.root_fill && view.minimum_width.nil? && view.maximum_width.nil?
+          metrics = UI::DesignTokens::DeviceMetrics.current
+          fill_width = metrics.content_width_pt
+          if fill_width > 0.0
+            LibObjCBridge.objc_constrain_required_width(ptr, fill_width)
+            LibObjCBridge.objc_set_horizontal_fixed_priority(ptr)
           end
         end
 

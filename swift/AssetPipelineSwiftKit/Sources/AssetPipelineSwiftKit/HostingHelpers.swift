@@ -158,14 +158,6 @@ final class APSKAttachingHostingController: UIHostingController<AnyView> {
         if let parent = nextParentViewController() {
             parent.addChild(self)
             didMove(toParent: parent)
-            // Phase 6.10 Rem 3 — TEMP interaction-proof NSLog.
-            // Confirms each Crystal-produced UIHostingController
-            // successfully registers with the SwiftUI root host
-            // controller as a child VC (Path A precondition).
-            // Removed in the final Rem 3 commit alongside the
-            // matching marker in `CallbackBridge.fire`.
-            let parentDesc = String(describing: type(of: parent))
-            NSLog("[voyager-interaction-proof] HostingHelpers parent=\(parentDesc) controller=APSKAttachingHostingController")
         }
     }
 
