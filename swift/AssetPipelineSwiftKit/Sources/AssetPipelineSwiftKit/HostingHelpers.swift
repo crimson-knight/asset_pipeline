@@ -47,8 +47,10 @@ private var kHostingControllerKey: UInt8 = 0
 
 #if canImport(UIKit)
 /// Phase 6.10 Rem 3 (Path A) — UIHostingController subclass that hooks
-/// `viewDidMoveToWindow` to register itself as a child VC of the
-/// responder-chain's parent UIViewController.
+/// `viewDidLayoutSubviews` / `viewWillAppear` to register itself as a
+/// child VC of the responder-chain's parent UIViewController, and
+/// `viewWillDisappear` / deinit to undo the parenting when the hosted
+/// view leaves the hierarchy.
 ///
 /// Why this exists: SwiftUI's `Button` (and every other interactive
 /// SwiftUI control hosted via `UIHostingController`) wires its
@@ -62,12 +64,15 @@ private var kHostingControllerKey: UInt8 = 0
 /// 11+ XCUITest variants in Rem 2 (see
 /// `handoff/phase-06.10-remediation-2-codex-blocker.md`).
 ///
-/// Hook approach: override `viewWillAppear` / `viewDidLayoutSubviews`
-/// on the subclassed controller. `viewDidLayoutSubviews` is called
-/// every time the view's bounds change after being installed in a
-/// window; checking `view.window != nil` and `parent == nil` at the
-/// first invocation gives us the same semantics as a
-/// `didMoveToWindow` observer without the KVO unreliability.
+/// Hook approach: override `viewDidLayoutSubviews` /
+/// `viewWillAppear` on the subclassed controller — both fire after the
+/// hosted view enters a window, so a single guard
+/// (`parent == nil && view.window != nil`) covers all entry paths
+/// without the KVO unreliability of `view.window`. Detachment runs in
+/// `viewWillDisappear` and as a `deinit` belt-and-suspenders for the
+/// SwiftUI `.id(slug)` recreate path where the representable's view
+/// tree is discarded outside the normal VC lifecycle (Codex review 1,
+/// P2 #2).
 ///
 /// Generic parameter is bound to `AnyView` because every call site
 /// wraps its content in an `AnyView` at `HostingHelpers.host` entry.
@@ -83,6 +88,11 @@ final class APSKAttachingHostingController: UIHostingController<AnyView> {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         attachIfNeeded()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        detachIfNeeded()
     }
 
     override func didMove(toParent parent: UIViewController?) {
@@ -103,6 +113,33 @@ final class APSKAttachingHostingController: UIHostingController<AnyView> {
             // matching marker in `CallbackBridge.fire`.
             let parentDesc = String(describing: type(of: parent))
             NSLog("[voyager-interaction-proof] HostingHelpers parent=\(parentDesc) controller=APSKAttachingHostingController")
+        }
+    }
+
+    /// Symmetric undo of `attachIfNeeded()`. Called from
+    /// `viewWillDisappear` (normal VC-lifecycle path) and from `deinit`
+    /// (SwiftUI .id(slug) recreate path where the representable's view
+    /// tree is discarded outside the normal VC-disappear hook). Calling
+    /// `removeFromParent` when already detached is safe — UIKit just
+    /// no-ops it.
+    private func detachIfNeeded() {
+        guard parent != nil else { return }
+        willMove(toParent: nil)
+        removeFromParent()
+        parentedTo = nil
+    }
+
+    deinit {
+        // Belt-and-suspenders: when SwiftUI discards the
+        // UIViewRepresentable on .id(slug) reroute, ARC frees the
+        // hosting controller along with the hosted view. Make sure we
+        // exit the parent VC's children array even if viewWillDisappear
+        // never fired (it doesn't, for off-screen-recreated trees).
+        // Note: UIKit considers it safe to call `removeFromParent` from
+        // deinit; the parent is held weakly.
+        if parent != nil {
+            willMove(toParent: nil)
+            removeFromParent()
         }
     }
 

@@ -119,15 +119,27 @@ struct VoyagerHost: UIViewRepresentable {
 
         crystalRoot.translatesAutoresizingMaskIntoConstraints = false
         scroll.addSubview(crystalRoot)
+        // Phase 6.10 Rem 3 (Codex review 1, P2 #1): the width constraint
+        // between the Crystal root and the scroll's frameLayoutGuide
+        // must NOT be required priority. The Voyager screens emit a
+        // required `min_w == max_w == 340.0` constraint on their root
+        // VStack (UIKit renderer's `objc_constrain_*` helpers default
+        // to priority 1000). A second required width constraint here
+        // creates a conflict that Auto Layout resolves by breaking one
+        // unpredictably. Use `.defaultHigh` (priority 750) so the
+        // inner 340pt pin wins. The constraint's job is to prevent
+        // horizontal overflow when the Crystal root has no explicit
+        // width pin — high priority is sufficient because the scroll's
+        // contentLayoutGuide leading/trailing anchors already define
+        // the horizontal bounds.
+        let widthHint = crystalRoot.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor)
+        widthHint.priority = .defaultHigh
         NSLayoutConstraint.activate([
             crystalRoot.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
             crystalRoot.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
             crystalRoot.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
             crystalRoot.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
-            // Pin width to the scroll's frameLayoutGuide so horizontal
-            // overflow is impossible; vertical content grows naturally
-            // beyond the frame and the scroll view supplies the scroll.
-            crystalRoot.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
+            widthHint,
         ])
         return scroll
     }
