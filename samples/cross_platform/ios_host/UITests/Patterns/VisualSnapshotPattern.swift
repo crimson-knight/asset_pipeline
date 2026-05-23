@@ -17,10 +17,27 @@ enum VisualSnapshotPattern {
         testCase.attachElementScreenshot(element, name: name)
     }
 
+    /// Slug-aware capture that picks between full-screen and window-scoped
+    /// screenshot. Presentation components (action-sheets, activity-views)
+    /// need full-screen so the home-indicator region is included; all
+    /// others use window.screenshot() to drop SpringBoard chrome.
+    static func captureForSlug(app: XCUIApplication, slug: String) -> XCUIScreenshot {
+        let useFullScreen = (slug == "action-sheets" || slug == "activity-views")
+        let window = app.windows.firstMatch
+        return useFullScreen
+            ? XCUIScreen.main.screenshot()
+            : (window.exists ? window.screenshot() : XCUIScreen.main.screenshot())
+    }
+
     /// Run a HIGVisualTests-style capture loop. Reads HIG_SLUG +
-    /// HIG_APPEARANCE from the test process environment, launches the
-    /// host accordingly, and snapshots the screen.
-    static func runWorklistCapture(testCase: XCTestCase) {
+    /// HIG_APPEARANCE + HIG_BACKDROP_PATH from the test process
+    /// environment, launches the host via HostLaunchPattern, settles
+    /// 1.2s for UIVisualEffectView composition, captures the slug-aware
+    /// screenshot, and attaches it with name "<slug>-ios-<appearance>.png".
+    ///
+    /// Returns true if either accessibility root attached within 10s.
+    @discardableResult
+    static func runWorklistCapture(testCase: XCTestCase) -> Bool {
         let env = ProcessInfo.processInfo.environment
         let slug       = env["HIG_SLUG"]        ?? "buttons"
         let appearance = env["HIG_APPEARANCE"]  ?? "light"
@@ -35,12 +52,23 @@ enum VisualSnapshotPattern {
             slug: slug,
             appearance: appearance,
             extraEnv: extraEnv,
-            waitForRoot: true,
+            waitForRoot: false,
         )
 
-        // Settle: UIVisualEffectView materials need a beat to composite.
-        Thread.sleep(forTimeInterval: 0.8)
+        let crystalRoot = app.otherElements["hig-component-root"]
+        let hostRoot    = app.otherElements["hig-component-root-host"]
+        let anyRoot     = crystalRoot.waitForExistence(timeout: 10)
+                       || hostRoot.waitForExistence(timeout: 2)
 
-        testCase.attachScreenshot(app, name: "\(slug)-ios-\(appearance).png")
+        // 1.2s settle for UIVisualEffectView materials to composite
+        // against the backdrop; see Phase 0 fix comments in git history.
+        Thread.sleep(forTimeInterval: 1.2)
+
+        let screenshot = captureForSlug(app: app, slug: slug)
+        let att = XCTAttachment(screenshot: screenshot)
+        att.name = "\(slug)-ios-\(appearance).png"
+        att.lifetime = .keepAlways
+        testCase.add(att)
+        return anyRoot
     }
 }

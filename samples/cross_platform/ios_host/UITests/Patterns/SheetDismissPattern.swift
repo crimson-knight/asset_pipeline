@@ -2,7 +2,7 @@
 //
 // Extracts the BX8 sheet-dismiss machinery: open via trigger, wait for
 // content to enter AX tree, dismiss via primary / cancel / swipe paths,
-// capture the dismiss reason via a mirror Label.
+// and capture the dismiss reason via a mirror Label.
 
 import XCTest
 
@@ -46,5 +46,41 @@ enum SheetDismissPattern {
                 .withOffset(CGVector(dx: 0, dy: 200))
             start.press(forDuration: 0.05, thenDragTo: end)
         }
+    }
+
+    /// Full one-shot dismiss probe: opens the sheet, performs the named
+    /// dismiss action, waits for close, reads + asserts the dismiss-reason
+    /// mirror label. Returns a {path, reason} dict for evidence aggregation.
+    @discardableResult
+    static func runDismissPath(
+        app: XCUIApplication,
+        testCase: XCTestCase,
+        triggerId: String,
+        primaryId: String,
+        cancelId: String,
+        reasonLabelId: String,
+        path: String,                 // "primary" | "cancel" | "swipe"
+        expectedReason: String,
+        settleSeconds: TimeInterval = 0.3
+    ) -> [String: String] {
+        let primary = openSheet(app: app, triggerId: triggerId, primaryId: primaryId)
+        switch path {
+        case "primary":
+            primary.tap()
+        case "cancel":
+            app.buttons[cancelId].tap()
+        case "swipe":
+            swipeDismiss(app: app)
+        default:
+            XCTFail("SheetDismissPattern: unknown path \(path)")
+        }
+        waitSheetClosed(app: app, primaryId: primaryId)
+        Thread.sleep(forTimeInterval: settleSeconds)
+
+        let reason = app.staticTexts[reasonLabelId]
+        let observed = testCase.readDisplay(reason)
+        XCTAssertEqual(observed, expectedReason,
+                       "SheetDismissPattern: \(path) dismiss must set \(reasonLabelId) to \"\(expectedReason)\" — got \"\(observed)\"")
+        return ["path": path, "reason": observed]
     }
 }

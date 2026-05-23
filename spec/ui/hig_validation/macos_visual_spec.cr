@@ -71,45 +71,15 @@ describe "HIG macOS visual validation" do
           extra_env["HIG_BACKDROP_PATH"] = bp
         end
 
-        # The pattern's VisualBaselineProbe.run launches the host with
-        # HIG_SCREENSHOT_PATH and asserts the PNG materializes; we extend
-        # it with the optional HIG_BACKDROP_PATH via the env helper below.
-        #
-        # We replicate the deadline behavior here since worklist-mode runs
-        # many slugs serially and per-slug timeouts matter.
-        env = {
-          "HIG_SLUG"            => slug,
-          "HIG_SCREENSHOT_PATH" => out_path,
-          "HIG_APPEARANCE"      => appearance,
-        }.merge(extra_env)
-
-        process = Process.new(
-          SHOWCASE_BIN,
-          env: env,
-          output: Process::Redirect::Close,
-          error: Process::Redirect::Close,
+        status = AXTestPatterns::VisualBaselineProbe.run_with_deadline(
+          slug: slug,
+          appearance: appearance,
+          out_path: out_path,
+          extra_env: extra_env,
+          deadline_seconds: 5.0,
         )
 
-        deadline = Time.instant + 5.seconds
-        pid = process.pid
-        finished = false
-        until Time.instant >= deadline
-          unless Process.exists?(pid)
-            finished = true
-            break
-          end
-          sleep(0.1.seconds)
-        end
-
-        if finished
-          status = process.wait
-          status.success?.should be_true
-        else
-          process.terminate rescue nil
-          process.wait rescue nil
-          fail "host did not exit within 5s for slug=#{slug} appearance=#{appearance}"
-        end
-
+        status.success?.should be_true
         File.exists?(out_path).should be_true
         File.size(out_path).should be > 1000
       end

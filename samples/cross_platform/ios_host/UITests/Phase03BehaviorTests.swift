@@ -192,41 +192,21 @@ final class Phase03BehaviorTests: XCTestCase {
 
         var dismissMatrix: [[String: String]] = []
 
-        // Path 1: primary
-        let primary = SheetDismissPattern.openSheet(app: app, triggerId: "sheet-trigger", primaryId: "sheet-primary")
-        attachScreenshot(app, name: "BX8-presented-for-primary.png")
-        primary.tap()
-        SheetDismissPattern.waitSheetClosed(app: app, primaryId: "sheet-primary")
-        Thread.sleep(forTimeInterval: 0.3)
-        let afterPrimary = readDisplay(reason)
-        dismissMatrix.append(["path": "primary", "reason": afterPrimary])
-        XCTAssertEqual(afterPrimary, "primary",
-                       "BX8: primary dismiss must set dismiss-reason to \"primary\" — got \"\(afterPrimary)\"")
-        attachScreenshot(app, name: "BX8-after-primary.png")
-
-        // Path 2: cancel
-        _ = SheetDismissPattern.openSheet(app: app, triggerId: "sheet-trigger", primaryId: "sheet-primary")
-        attachScreenshot(app, name: "BX8-presented-for-cancel.png")
-        app.buttons["sheet-cancel"].tap()
-        SheetDismissPattern.waitSheetClosed(app: app, primaryId: "sheet-primary")
-        Thread.sleep(forTimeInterval: 0.3)
-        let afterCancel = readDisplay(reason)
-        dismissMatrix.append(["path": "cancel", "reason": afterCancel])
-        XCTAssertEqual(afterCancel, "cancel",
-                       "BX8: cancel dismiss must set dismiss-reason to \"cancel\" — got \"\(afterCancel)\"")
-        attachScreenshot(app, name: "BX8-after-cancel.png")
-
-        // Path 3: swipe
-        _ = SheetDismissPattern.openSheet(app: app, triggerId: "sheet-trigger", primaryId: "sheet-primary")
-        attachScreenshot(app, name: "BX8-presented-for-swipe.png")
-        SheetDismissPattern.swipeDismiss(app: app)
-        SheetDismissPattern.waitSheetClosed(app: app, primaryId: "sheet-primary")
-        Thread.sleep(forTimeInterval: 0.3)
-        let afterSwipe = readDisplay(reason)
-        dismissMatrix.append(["path": "swipe", "reason": afterSwipe])
-        XCTAssertEqual(afterSwipe, "swipe",
-                       "BX8: swipe dismiss must set dismiss-reason to \"swipe\" — got \"\(afterSwipe)\"")
-        attachScreenshot(app, name: "BX8-after-swipe.png")
+        for path in ["primary", "cancel", "swipe"] {
+            attachScreenshot(app, name: "BX8-presented-for-\(path).png")
+            let row = SheetDismissPattern.runDismissPath(
+                app: app,
+                testCase: self,
+                triggerId: "sheet-trigger",
+                primaryId: "sheet-primary",
+                cancelId: "sheet-cancel",
+                reasonLabelId: "dismiss-reason",
+                path: path,
+                expectedReason: path
+            )
+            dismissMatrix.append(row)
+            attachScreenshot(app, name: "BX8-after-\(path).png")
+        }
 
         attachJSON(dismissMatrix, name: "BX8-dismiss-matrix.json")
 

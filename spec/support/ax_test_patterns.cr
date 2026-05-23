@@ -178,7 +178,7 @@ module AXTestPatterns
 
     # Run the host with HIG_SCREENSHOT_PATH=<out> and assert the file exists.
     def run(*, slug : String, appearance : String = "light", out_path : String) : String
-      raise "bin/hig_showcase missing" unless File.exists?(HostLaunch::SHOWCASE_BIN)
+      raise "bin/hig_showcase missing" unless File.exists?(AXTestPatterns::SHOWCASE_BIN)
       File.delete(out_path) if File.exists?(out_path)
 
       env = {
@@ -187,7 +187,7 @@ module AXTestPatterns
         "HIG_SCREENSHOT_PATH" => out_path,
       }
       status = Process.run(
-        HostLaunch::SHOWCASE_BIN,
+        AXTestPatterns::SHOWCASE_BIN,
         env: env,
         output: Process::Redirect::Inherit,
         error: Process::Redirect::Inherit,
@@ -195,6 +195,60 @@ module AXTestPatterns
       raise "VisualBaselineProbe: host exit #{status.exit_code}" unless status.success?
       raise "VisualBaselineProbe: PNG missing at #{out_path}" unless File.exists?(out_path)
       out_path
+    end
+
+    # Run the host with HIG_SCREENSHOT_PATH=<out> under a wall-clock
+    # deadline (worklist-mode specs need this since some slugs may hang
+    # on backdrop composition). The host normally exits at ~0.6s via the
+    # self-snapshot path; we poll Process.exists? rather than block on
+    # .wait so we can enforce the deadline.
+    #
+    # Pass extra_env to forward HIG_BACKDROP_PATH or similar.
+    # Pass output_mode to suppress stdout (worklist mode) or inherit it
+    # (interactive mode).
+    def run_with_deadline(
+      *,
+      slug : String,
+      appearance : String = "light",
+      out_path : String,
+      extra_env : Hash(String, String) = {} of String => String,
+      deadline_seconds : Float64 = 5.0,
+      output_mode : Process::Stdio = Process::Redirect::Close,
+      error_mode : Process::Stdio = Process::Redirect::Close,
+    ) : Process::Status
+      File.delete(out_path) if File.exists?(out_path)
+
+      env = {
+        "HIG_SLUG"            => slug,
+        "HIG_APPEARANCE"      => appearance,
+        "HIG_SCREENSHOT_PATH" => out_path,
+      }.merge(extra_env)
+
+      process = Process.new(
+        AXTestPatterns::SHOWCASE_BIN,
+        env: env,
+        output: output_mode,
+        error: error_mode,
+      )
+
+      deadline = Time.instant + deadline_seconds.seconds
+      pid = process.pid
+      finished = false
+      until Time.instant >= deadline
+        unless Process.exists?(pid)
+          finished = true
+          break
+        end
+        sleep(0.1.seconds)
+      end
+
+      if finished
+        process.wait
+      else
+        process.terminate rescue nil
+        wait_status = process.wait rescue nil
+        raise "VisualBaselineProbe: host did not exit within #{deadline_seconds}s for slug=#{slug} appearance=#{appearance}"
+      end
     end
   end
 
