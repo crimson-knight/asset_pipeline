@@ -77,20 +77,22 @@ end
 def write_tolerance_sidecar(surface : String, slug : String, appearance : String)
   path = tolerance_path(surface, slug, appearance)
   return if File.exists?(path)
-  # Tolerance: 1% of total pixels may differ by up to ΔE 5. Calibrated
-  # for the Phase 6 quad-comparison artifacts: native renderers'
-  # antialiasing + glass-blur radius vary by ~1px between OS minor
-  # versions; web rasterizer drift between Chrome stable releases is
-  # similar in magnitude.
+  # Schema MUST match scripts/visual_diff.cr's Tolerance record —
+  # `pixel_diff_max` (Int64) + `channel_diff_max` (Int32). Earlier
+  # iterations used a documentary schema (max_pixel_diff_pct +
+  # max_delta_e) that visual_diff.cr does not parse, leaving the
+  # tolerance silently at strict-zero. ~5000 pixel allowance covers
+  # font-hinting / rasterizer drift across cache states on a 1440x1280
+  # baseline (~0.27% of total pixels).
   doc = <<-JSON
   {
+    "pixel_diff_max": 5000,
+    "channel_diff_max": 12,
     "surface": "#{surface}",
     "slug": "#{slug}",
     "appearance": "#{appearance}",
-    "max_pixel_diff_pct": 1.0,
-    "max_delta_e": 5.0,
     "created_phase": "phase-06",
-    "notes": "Phase 6 quad-comparison baseline. See scripts/capture_demo_quad.cr."
+    "notes": "Phase 6 quad-comparison baseline. Tolerance budget covers font-hinting / rasterizer drift across cache states."
   }
   JSON
   File.write(path, doc)
