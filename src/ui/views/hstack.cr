@@ -6,8 +6,14 @@ module UI
   # Children are laid out sequentially along the horizontal axis
   # with configurable spacing and alignment.
   class HStack < View
+    # The HIG-conformant default horizontal rhythm for adjacent
+    # controls. Mirrors `UI::VStack::DEFAULT_SPACING_PT` (12pt) for
+    # symmetry — controls in a row have the same air as rows in a
+    # column. See VStack for the Phase 6.10 Rem 1 rationale.
+    DEFAULT_SPACING_PT = 12.0
+
     # Spacing between children in points
-    property spacing : Float64 = 8.0
+    property spacing : Float64 = DEFAULT_SPACING_PT
 
     # Vertical alignment of children within the stack
     property alignment : Alignment = Alignment::Center
@@ -15,7 +21,7 @@ module UI
     # Ordered list of child views
     getter children : Array(View) = [] of View
 
-    def initialize(@spacing : Float64 = 8.0, @alignment : Alignment = Alignment::Center)
+    def initialize(@spacing : Float64 = DEFAULT_SPACING_PT, @alignment : Alignment = Alignment::Center)
     end
 
     # Append a child view. Returns self for chaining.

@@ -25,12 +25,34 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VoyagerHost(slug: slug)
-                .frame(maxWidth: .infinity, alignment: .top)
-                .accessibilityIdentifier("voyager-root-host")
+        // Phase 6.10 Rem 1 — full-screen fill, system background bleeds
+        // edge-to-edge (no black bars top/bottom), and the Crystal-rendered
+        // content sits inside the safe area with 16pt horizontal gutters.
+        //
+        // The fix needs all three pieces:
+        //   - `.background(...) ` extends the system background into the
+        //     status-bar / home-indicator region (kills black bars).
+        //   - `.ignoresSafeArea(edges: .vertical)` is applied to the
+        //     BACKGROUND ZStack so the colour bleeds, but the foreground
+        //     ScrollView stays inside the safe area so the navigation
+        //     chrome sits where iOS expects.
+        //   - `.padding(.horizontal, 16)` on the host gives every Crystal
+        //     screen the HIG default form gutter without having to add it
+        //     to every screen authoring file.
+        ZStack {
+            // Edge-to-edge background — system grouped background matches
+            // Form / List default and tracks light/dark automatically.
+            Color(UIColor.systemBackground)
+                .ignoresSafeArea()
+
+            ScrollView(.vertical, showsIndicators: false) {
+                VoyagerHost(slug: slug)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .padding(.horizontal, 16)
+                    .accessibilityIdentifier("voyager-root-host")
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onReceive(VoyagerBridge.routeChanged) { newSlug in
             if newSlug != slug {
                 slug = newSlug

@@ -189,10 +189,14 @@ describe UI::Web::Renderer do
       html.should contain("gap: 16.0px")
     end
 
-    it "applies default spacing of 8px" do
+    it "applies default spacing of 12px (HIG form rhythm)" do
+      # Phase 6.10 Rem 1: UI::VStack::DEFAULT_SPACING_PT raised from
+      # 8 to 12 to match the HIG-conformant form-row rhythm. App code
+      # without an explicit spacing argument gets the 12pt default
+      # everywhere (web + UIKit + AppKit).
       stack = UI::VStack.new
       html = render(stack)
-      html.should contain("gap: 8.0px")
+      html.should contain("gap: 12.0px")
     end
 
     it "renders children inside the div" do

@@ -400,7 +400,9 @@ describe UI do
 
     it "creates a VStack" do
       stack = UI::VStack.new
-      stack.spacing.should eq(8.0)
+      # Phase 6.10 Rem 1: default raised to 12pt (HIG form-row rhythm).
+      stack.spacing.should eq(UI::VStack::DEFAULT_SPACING_PT)
+      stack.spacing.should eq(12.0)
       stack.alignment.should eq(UI::Alignment::Center)
       stack.children.should be_empty
     end
