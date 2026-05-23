@@ -101,6 +101,11 @@ module Voyager
       root << completed_toggle.as(UI::View)
       root << actions.as(UI::View)
 
+      # Phase 6.10 Rem 3 (Item 3): framework default in VoyagerHost
+      # wraps the root in a UIScrollView when content overflows; see
+      # screens/todos.cr for the rationale. Editor sticks with the
+      # plain VStack root so the inner content_width pin + half-button
+      # math stay authoritative.
       root.as(UI::View)
     end
   end

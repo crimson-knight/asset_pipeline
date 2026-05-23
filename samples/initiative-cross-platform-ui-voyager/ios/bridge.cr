@@ -66,6 +66,37 @@
     def self.initialize_runtime
       return if @@initialized
       GC.init
+
+      # Phase 6.10 Rem 3 — iOS class-init gap: bootstrap the Crystal
+      # runtime subsystems that `__crystal_main`'s `init_runtime`
+      # normally calls but the iOS embedding skips (because
+      # `_main` is unexported in `build_crystal_lib.sh`).
+      #
+      # Without these three calls, any `Crystal::once`-guarded constant
+      # (e.g. `String::CHAR_TO_DIGIT` used by `String#to_i?`) walks an
+      # uninitialised `Thread::LinkedList(Fiber)` and SIGSEGVs at
+      # `Thread::LinkedList(Fiber)#push` (KERN_INVALID_ADDRESS at 0x18).
+      # Symptom in Rem 2: launching with
+      # `VOYAGER_ROOT_SLUG=voyager-todo-editor` crashed silently inside
+      # `Voyager.build_route` because the editor's
+      # `(route.params[:id]? || "0").to_i?` triggered a const_read.
+      # Crash trace preserved at
+      # `~/Library/Logs/DiagnosticReports/VoyagerDemo-2026-05-23-155642.ips`.
+      #
+      # See `src/crystal/main.cr#init_runtime` for the upstream
+      # invariant; the comment there reads:
+      #   "`__crystal_once` directly or indirectly depends on `Fiber`
+      #   and `Thread` so we explicitly initialize their class vars,
+      #   then init crystal/once".
+      #
+      # This is the systematic fix the
+      # `project_crystal_ios_class_init_gap` memory item flagged as
+      # "Phase 5+ should address this systematically: either patch the
+      # iOS embedding to explicitly call the missing init functions ..."
+      Thread.init
+      Fiber.init
+      Crystal::Once.init
+
       UI::Probes::DismissProbe.reset
       UI::Probes::ToggleProbe.reset
       UI::Probes::SliderProbe.reset

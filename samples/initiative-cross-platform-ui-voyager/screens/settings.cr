@@ -58,6 +58,13 @@ module Voyager
       root << hide_toggle.as(UI::View)
       root << back.as(UI::View)
 
+      # Phase 6.10 Rem 3 (Item 3): framework default in VoyagerHost
+      # wraps the root in a UIScrollView when content overflows; the
+      # screen does not need explicit UI::ScrollView wrapping for the
+      # iPhone 17 portrait happy-path. Leaving the root as a VStack so
+      # the AppKit and UIKit renderers both pin content_width=340
+      # without an extra scroll-view layer interfering with the inner
+      # stack's auto-layout.
       root.as(UI::View)
     end
   end

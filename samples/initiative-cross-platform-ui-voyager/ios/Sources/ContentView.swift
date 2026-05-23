@@ -30,35 +30,22 @@ struct ContentView: View {
         // `makeUIView` fresh each time. Without `.id(slug)`, SwiftUI
         // would only call `updateUIView` and reuse the existing UIView
         // wrapper — but VoyagerHost's `makeUIView` returns the Crystal
-        // UIView DIRECTLY (no container wrapper), so swapping content
-        // requires a new representable identity.
+        // UIView (or a UIScrollView wrapping it) directly, so swapping
+        // content requires a new representable identity.
         //
-        // Phase 6.10 Rem 2 — VoyagerHost without outer SwiftUI
-        // ScrollView, with `.accessibilityElement(children: .contain)`
-        // on the host to surface the embedded Crystal UIKit subtree
-        // through the SwiftUI -> UIKit representable boundary.
+        // Phase 6.10 Rem 3 (Item 3) — VoyagerHost now wraps the Crystal
+        // root in a UIKit `UIScrollView` (NOT a SwiftUI ScrollView) so
+        // overflowing content scrolls gracefully on iPhone 17 portrait
+        // while preserving the Item 2 AX-traversal win. UIScrollView is
+        // an UIKit-native AX element; XCUITest walks it transparently
+        // without `.contain` on a SwiftUI ScrollView (which collapsed
+        // the subtree in Rem 2). When the Crystal-side screen
+        // authoring uses its own UI::ScrollView (Layer B explicit
+        // opt-in), VoyagerHost detects the already-scrollable root and
+        // returns it as-is — no double scroll.
         //
-        // Why no outer ScrollView:
-        // Iter 2 tested both `.contain` on the inner host inside a
-        // SwiftUI ScrollView wrapper AND on the outer ScrollView.
-        // Both variants collapsed the AX subtree to an opaque
-        // ScrollView with no discoverable children, blocking
-        // `app.buttons["Sign in"]`. Without ScrollView, XCUI DOES
-        // resolve `app.buttons["Sign in"]` and
-        // `app.buttons["voyager-sign-in-submit"]` directly through
-        // `.contain` on the host.
-        //
-        // Tradeoff: very-tall screens cannot scroll on iPhone 17
-        // portrait. For Phase 6.10's 4-screen demo at iPhone 17
-        // portrait (393x852pt), all screens fit naturally with the
-        // 340pt content_width pin (verified via offscreen captures
-        // at handoff/phase-06.10-remediation-2-evidence/). When
-        // future screens require scrolling, use the Crystal-side
-        // `UI::ScrollView` view type — its UIKit renderer maps to a
-        // UIScrollView that preserves AX hierarchy.
-        //
-        // Open: tap-to-on_tap interaction (Item 1) — see
-        // handoff/phase-06.10-remediation-2-codex-blocker.md.
+        // Open: tap-to-on_tap interaction (Item 1) — addressed by the
+        // HostingHelpers Path A VC parenting fix shipped in Rem 3.
         VoyagerHost(slug: slug)
             .id(slug)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -93,14 +80,56 @@ struct VoyagerHost: UIViewRepresentable {
     let slug: String
 
     func makeUIView(context: Context) -> UIView {
-        if let view = VoyagerBridge.render(slug: slug) {
-            view.accessibilityIdentifier = "voyager-root-\(slug)"
-            return view
+        guard let crystalRoot = VoyagerBridge.render(slug: slug) else {
+            let fallback = UILabel()
+            fallback.text = "render failed: \(slug)"
+            fallback.accessibilityIdentifier = "voyager-root-fallback"
+            return fallback
         }
-        let fallback = UILabel()
-        fallback.text = "render failed: \(slug)"
-        fallback.accessibilityIdentifier = "voyager-root-fallback"
-        return fallback
+        crystalRoot.accessibilityIdentifier = "voyager-root-\(slug)"
+
+        // Phase 6.10 Rem 3 (Item 3 Layer A — framework default):
+        //
+        // If the Crystal-side screen already wraps its content in a
+        // UI::ScrollView (Layer B explicit override), the rendered root
+        // IS already a UIScrollView — return it unwrapped to avoid
+        // nested scrollviews.
+        if crystalRoot is UIScrollView {
+            return crystalRoot
+        }
+
+        // Otherwise wrap in a UIKit UIScrollView so any overflowing
+        // content scrolls vertically. UIKit (NOT SwiftUI) UIScrollView
+        // preserves the AX-tree traversal won in Rem 2 — XCUITest walks
+        // through it transparently. Constraints pin the Crystal root's
+        // edges to the scroll view's contentLayoutGuide and pin its
+        // width to frameLayoutGuide so only the vertical axis scrolls
+        // (mirrors the proven-working UIKit renderer's
+        // uiscrollview_pin_content pattern at
+        // `src/ui/renderers/uikit_renderer.cr#visit(ScrollView)`).
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.alwaysBounceVertical = true
+        scroll.alwaysBounceHorizontal = false
+        scroll.showsHorizontalScrollIndicator = false
+        // Re-use the same AX identifier the bare-root path uses so
+        // XCUITest selectors stay stable across the wrap / no-wrap
+        // branches.
+        scroll.accessibilityIdentifier = "voyager-root-\(slug)"
+
+        crystalRoot.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(crystalRoot)
+        NSLayoutConstraint.activate([
+            crystalRoot.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+            crystalRoot.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+            crystalRoot.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+            crystalRoot.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+            // Pin width to the scroll's frameLayoutGuide so horizontal
+            // overflow is impossible; vertical content grows naturally
+            // beyond the frame and the scroll view supplies the scroll.
+            crystalRoot.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
+        ])
+        return scroll
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {

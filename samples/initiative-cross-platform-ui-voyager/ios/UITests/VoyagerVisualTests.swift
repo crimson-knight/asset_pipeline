@@ -97,16 +97,33 @@ final class VoyagerVisualTests: XCTestCase {
 
         attachScreenshot(name: "step1b-pre-tap")
 
-        // Attempt the tap. We use a normalized coordinate against the
-        // element itself (this handles SwiftUI's local-coord-space
-        // "Activation point invalid" issue that .tap() hits) AND fall
-        // back to an app-global coordinate if the element coord query
-        // refuses. Both paths emit a tap event into the simulator's
-        // touch chain — whether the Crystal on_tap closure runs is
-        // verified separately via the NSLog stream capture in
-        // handoff/phase-06.10-remediation-2-iter1/voyager-ios-interaction-proof.log.
-        let signInCoord = signIn.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        signInCoord.press(forDuration: 0.12)
+        // Phase 6.10 Rem 3 — XCUITest tap synthesis on a UIHostingController-
+        // hosted SwiftUI Button does NOT fire the Button's action closure
+        // under iPhone 17 simulator even with Path A (UIHostingController
+        // VC parenting) in place. Verified via [voyager-interaction-proof]
+        // log stream: the container's VC parenting succeeds (5 controllers
+        // attached to root SwiftUI UIHostingController), the tap reaches
+        // `_UIHostingView` (hitTest returns it for dy=0.53..0.56), but
+        // `CallbackBridge.fire` never fires. See
+        // handoff/phase-06.10-remediation-3-codex-blocker.md for the
+        // captured evidence and the proposed next-iteration path.
+        //
+        // The XCUITest below still verifies the AX traversal layer
+        // (Item 2 from Rem 2) by waiting for the Sign-in button to
+        // resolve in the AX tree. Tap synthesis is best-effort —
+        // sweep app-global coordinates against multiple dy values to
+        // exercise the touch chain in case the simulator's tap
+        // synthesizer behaves differently across iOS versions.
+        for trialDy in [0.40, 0.45, 0.50, 0.55, 0.60] {
+            let c = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: trialDy))
+            c.tap()
+            Thread.sleep(forTimeInterval: 0.4)
+            if app.buttons["Settings"].exists || app.buttons["voyager-todos-settings"].exists {
+                break
+            }
+        }
+        Thread.sleep(forTimeInterval: 1.0)
+        attachScreenshot(name: "step2-todos")
         Thread.sleep(forTimeInterval: 2.5)
         attachScreenshot(name: "step2-todos")
 

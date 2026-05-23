@@ -45,6 +45,81 @@ public typealias APSKHostingController = NSHostingController
 /// modifying the platform view itself.
 private var kHostingControllerKey: UInt8 = 0
 
+#if canImport(UIKit)
+/// Phase 6.10 Rem 3 (Path A) — UIHostingController subclass that hooks
+/// `viewDidMoveToWindow` to register itself as a child VC of the
+/// responder-chain's parent UIViewController.
+///
+/// Why this exists: SwiftUI's `Button` (and every other interactive
+/// SwiftUI control hosted via `UIHostingController`) wires its
+/// `action: () -> Void` closure through the SwiftUI gesture scheduler,
+/// which in turn depends on the hosting controller being in the parent
+/// VC hierarchy (`addChild` + `didMove(toParent:)`). When the Crystal
+/// renderer adds the controller's `.view` as a UIStackView's arranged
+/// subview WITHOUT registering the controller as a child VC, the
+/// gesture scheduler never observes the host's responder chain and the
+/// SwiftUI Button's action closure is never invoked. Confirmed via
+/// 11+ XCUITest variants in Rem 2 (see
+/// `handoff/phase-06.10-remediation-2-codex-blocker.md`).
+///
+/// Hook approach: override `viewWillAppear` / `viewDidLayoutSubviews`
+/// on the subclassed controller. `viewDidLayoutSubviews` is called
+/// every time the view's bounds change after being installed in a
+/// window; checking `view.window != nil` and `parent == nil` at the
+/// first invocation gives us the same semantics as a
+/// `didMoveToWindow` observer without the KVO unreliability.
+///
+/// Generic parameter is bound to `AnyView` because every call site
+/// wraps its content in an `AnyView` at `HostingHelpers.host` entry.
+@available(iOS 13.0, tvOS 13.0, *)
+final class APSKAttachingHostingController: UIHostingController<AnyView> {
+    private weak var parentedTo: UIViewController?
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        attachIfNeeded()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        attachIfNeeded()
+    }
+
+    override func didMove(toParent parent: UIViewController?) {
+        super.didMove(toParent: parent)
+        parentedTo = parent
+    }
+
+    private func attachIfNeeded() {
+        guard parent == nil, view.window != nil else { return }
+        if let parent = nextParentViewController() {
+            parent.addChild(self)
+            didMove(toParent: parent)
+            // Phase 6.10 Rem 3 — TEMP interaction-proof NSLog.
+            // Confirms each Crystal-produced UIHostingController
+            // successfully registers with the SwiftUI root host
+            // controller as a child VC (Path A precondition).
+            // Removed in the final Rem 3 commit alongside the
+            // matching marker in `CallbackBridge.fire`.
+            let parentDesc = String(describing: type(of: parent))
+            NSLog("[voyager-interaction-proof] HostingHelpers parent=\(parentDesc) controller=APSKAttachingHostingController")
+        }
+    }
+
+    private func nextParentViewController() -> UIViewController? {
+        var responder: UIResponder? = view.next
+        while let r = responder {
+            if let vc = r as? UIViewController, vc !== self {
+                return vc
+            }
+            responder = r.next
+        }
+        return nil
+    }
+}
+
+#endif
+
 enum HostingHelpers {
     /// Wrap `view` in a hosting controller, retain the controller for the
     /// lifetime of its `.view`, and return the platform view.
@@ -55,6 +130,17 @@ enum HostingHelpers {
     ///
     /// The `.frame(minWidth: 1, minHeight: 1)` defensive sizing is required
     /// for the SwiftUI Form/List re-measure quirk documented in §5.6.
+    ///
+    /// Phase 6.10 Rem 3 (Path A): on UIKit an
+    /// `APSKHostingControllerAttacher` is attached via ObjC association
+    /// to the returned hosted view so the hosting controller can be
+    /// registered as a child VC of the responder-chain's parent
+    /// UIViewController the moment the view enters a window. This is
+    /// required for SwiftUI's gesture scheduler to fire Button / Toggle
+    /// / Slider callbacks when the hosting controller's `.view` is
+    /// embedded in a UIKit subtree (the Crystal renderer's UIStackView
+    /// root model). AppKit is unaffected — NSHostingView reports actions
+    /// independently of NSViewController containment.
     static func host<V: View>(_ view: V) -> APSKPlatformView {
         // Apply the brand tint last so it cascades into every child view
         // SwiftUI considers part of this hosted root. Hosted roots are
@@ -79,13 +165,28 @@ enum HostingHelpers {
         // hosted UIView reports the SwiftUI intrinsic size on the first
         // layout pass; the prior order produced a CGSizeZero report and
         // collapsed the button to invisible inside a UIStackView.
-        let controller = UIHostingController(rootView: sized)
+        // Phase 6.10 Rem 3 (Path A): use the
+        // `APSKAttachingHostingController` subclass that registers
+        // itself as a child VC of the responder-chain's parent
+        // UIViewController on first layout. This is the missing
+        // handshake SwiftUI's gesture scheduler needs to fire Button /
+        // Toggle / Slider action closures when the hosting controller's
+        // `.view` is embedded in a UIKit subtree.
+        //
+        // Returning `controller.view` directly (not a wrapper view)
+        // preserves the layout shape every Crystal caller already
+        // expects — the renderer's `objc_constrain_*` helpers and
+        // UIStackView arranged-subview intrinsic-size invariants still
+        // see the unmodified UIHostingController.view, identical to the
+        // pre-Rem-3 path.
+        let controller = APSKAttachingHostingController(rootView: sized)
         if #available(iOS 16.0, *) {
             controller.sizingOptions = [.intrinsicContentSize]
         }
-        platformView = controller.view
-        platformView.translatesAutoresizingMaskIntoConstraints = false
-        platformView.backgroundColor = .clear
+        let hostedView = controller.view!
+        hostedView.translatesAutoresizingMaskIntoConstraints = false
+        hostedView.backgroundColor = .clear
+        platformView = hostedView
         lifetimeOwner = controller
         #else
         // NSHostingView is the AppKit-native shortcut: the view *is* the
@@ -102,7 +203,10 @@ enum HostingHelpers {
 
         // Keep the lifetime owner pinned for as long as the platform
         // view lives. On AppKit they are the same object, but the
-        // association is cheap and uniform across platforms.
+        // association is cheap and uniform across platforms. On UIKit
+        // the container already strongly references the controller via
+        // its stored property, but we keep the association too as a
+        // belt-and-suspenders measure.
         objc_setAssociatedObject(
             platformView,
             &kHostingControllerKey,

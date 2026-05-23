@@ -123,6 +123,15 @@ module Voyager
       root << list_stack.as(UI::View)
       root << add_btn.as(UI::View)
 
+      # Phase 6.10 Rem 3 (Item 3): the framework default in VoyagerHost
+      # (ios/Sources/ContentView.swift) wraps this root in a UIKit
+      # UIScrollView when content overflows the viewport, preserving
+      # AX traversal. The screen author can opt into explicit
+      # UI::ScrollView wrapping here if they want a Crystal-controlled
+      # scroll container with knobs (indicators, bounce, axis), but the
+      # default-wrap covers the iPhone 17 portrait overflow case for
+      # Voyager. Leaving as-is for now so the framework path stays
+      # responsible.
       root.as(UI::View)
     end
 
