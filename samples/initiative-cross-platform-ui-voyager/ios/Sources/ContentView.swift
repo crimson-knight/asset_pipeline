@@ -41,53 +41,32 @@ struct ContentView: View {
         // requires a new representable identity. This mirrors the
         // Cascade pattern which doesn't need swaps (one slug per
         // launch) but Voyager needs swaps on every coord.push/pop.
-        // Phase 6.10 Rem 2 — keep the SwiftUI ScrollView wrapper so
-        // very-tall screens (Todos with many rows on a short device)
-        // remain reachable, and apply `.accessibilityElement(children:
-        // .contain)` on the embedded host so XCUITest can traverse
-        // the SwiftUI -> UIKit representable boundary.
+        // Phase 6.10 Rem 2 — VoyagerHost without outer SwiftUI
+        // ScrollView, with `.accessibilityElement(children: .contain)`
+        // on the host to surface the embedded Crystal UIKit subtree
+        // through the SwiftUI -> UIKit representable boundary.
         //
-        // Iter 1 found that the SwiftUI Button.action closure does
-        // NOT fire under XCUITest coordinate taps regardless of
-        // whether the outer ScrollView is present. The touch-
-        // routing bug is not ScrollView-caused; documented in the
-        // remediation-2 codex-blocker.
+        // Why no outer ScrollView:
+        // Iter 2 tested both `.contain` on the inner host inside a
+        // SwiftUI ScrollView wrapper AND on the outer ScrollView.
+        // Both variants collapsed the AX subtree to an opaque
+        // ScrollView with no discoverable children, blocking
+        // `app.buttons["Sign in"]`. Without ScrollView, XCUI DOES
+        // resolve `app.buttons["Sign in"]` and
+        // `app.buttons["voyager-sign-in-submit"]` directly through
+        // `.contain` on the host.
         //
-        // `.contain` on the host (NOT on the ScrollView) preserves
-        // the AX traversal verified in iter1: XCUITest's
-        // `app.buttons["Sign in"]` and
-        // `app.buttons["voyager-sign-in-submit"]` BOTH find the
-        // embedded Crystal-rendered UIButton, returning its frame.
-        // Phase 6.10 Rem 2 iter 2 — drop the outer SwiftUI ScrollView
-        // so AX traversal works.
+        // Tradeoff: very-tall screens cannot scroll on iPhone 17
+        // portrait. For Phase 6.10's 4-screen demo at iPhone 17
+        // portrait (393x852pt), all screens fit naturally with the
+        // 340pt content_width pin (verified via offscreen captures
+        // at handoff/phase-06.10-remediation-2-evidence/). When
+        // future screens require scrolling, use the Crystal-side
+        // `UI::ScrollView` view type — its UIKit renderer maps to a
+        // UIScrollView that preserves AX hierarchy.
         //
-        // iter 2 attempted both (a) `.accessibilityElement(children:
-        // .contain)` on the inner host inside ScrollView and (b) the
-        // same modifier on the outer ScrollView. BOTH variants
-        // collapsed the AX subtree to an opaque ScrollView with no
-        // discoverable children, blocking XCUI's
-        // `app.buttons["Sign in"]` queries.
-        //
-        // Without ScrollView wrapping (iter 1's verified setup), XCUI
-        // DOES find `app.buttons["Sign in"]` and
-        // `app.buttons["voyager-sign-in-submit"]` through
-        // `.accessibilityElement(children: .contain)` on the host.
-        //
-        // Tradeoff: very-tall screens (Todos with many rows) cannot
-        // scroll on iPhone 17 portrait. For the current 4-screen
-        // Voyager demo at iPhone 17 portrait (393x852pt), all
-        // screens fit naturally with the 340pt content_width pin
-        // (sign-in: ~5 rows, todos: 5 todos + header + chart +
-        // button, settings: title + explainer + toggle + button,
-        // editor: title + 3 fields + button row). Verified via the
-        // iter1 offscreen captures at handoff/phase-06.10-rem-2-iter1/.
-        //
-        // When the demo expands to require scrolling, the Crystal-
-        // side `UI::ScrollView` view type is the correct path
-        // (renderer maps to a UIScrollView that DOES preserve AX
-        // hierarchy). Adding `UI::ScrollView` at the screen authoring
-        // level is the long-term answer; for Phase 6.10 the 4 demo
-        // screens fit without scroll.
+        // Open: tap-to-on_tap interaction (Item 1) — see
+        // handoff/phase-06.10-remediation-2-codex-blocker.md.
         VoyagerHost(slug: slug)
             .id(slug)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
