@@ -45,6 +45,23 @@ module AuditHarness
   PLATFORMS  = %w[ios macos web android]
   INVARIANTS = (1..11).map { |n| "I-#{n}" }
 
+  # Phase 6 demo screen slug vocabulary. Per brief decision #7, these
+  # five slugs plus the meta-slug `demo-all` are routable through every
+  # invariant × platform probe cell.
+  DEMO_SCREEN_SLUGS = %w[
+    demo-sign-in
+    demo-dashboard
+    demo-detail
+    demo-settings
+    demo-tier-three
+  ]
+  DEMO_META_SLUG = "demo-all"
+
+  def self.expand_slug(slug : String?) : Array(String?)
+    return [slug] of String? unless slug == DEMO_META_SLUG
+    DEMO_SCREEN_SLUGS.map { |s| s.as(String?) }
+  end
+
   enum Status
     Pass
     Fail
@@ -604,6 +621,82 @@ module AuditHarness
   end
 
   # --------------------------------------------------------------------
+  # Phase 6 demo probes — visual-diff against the per-surface baseline
+  # tree at docs/initiative-cross-platform-ui/baselines/{surface}/.
+  #
+  # macOS: shell out to the cascade binary with HIG_SCREENSHOT_PATH set
+  # to a temp PNG, then magick-compare against the committed baseline.
+  # Light only by default; the brief's quad-comparison story produces
+  # both appearances via the capture script, but a single per-call
+  # probe defaults to light (the slug is the appearance-less form).
+  # --------------------------------------------------------------------
+  module DemoProbes
+    extend self
+
+    BASELINE_ROOT = File.join(REPO_ROOT, "docs/initiative-cross-platform-ui/baselines")
+    CASCADE_BIN   = File.join(REPO_ROOT, "samples/initiative-cross-platform-ui-demo/macos/bin/cascade")
+
+    def macos_visual(slug : String, appearance : String = "light") : Result
+      unless File.exists?(CASCADE_BIN)
+        return Result.new(
+          status: Status::Skip,
+          message: "Cascade macOS binary not built; run `make -C samples/initiative-cross-platform-ui-demo macos`.",
+        )
+      end
+      tmp = File.join(Dir.tempdir, "audit-demo-macos-#{slug}-#{appearance}.png")
+      File.delete(tmp) if File.exists?(tmp)
+      env = {
+        "DEMO_SLUG"           => slug,
+        "DEMO_APPEARANCE"     => appearance,
+        "HIG_APPEARANCE"      => appearance,
+        "HIG_SCREENSHOT_PATH" => tmp,
+      }
+      code, out_s, err_s = ShellRunner.run_capture([CASCADE_BIN], env: env)
+      if code != 0 || !File.exists?(tmp)
+        excerpt = ([out_s, err_s].join("\n").lines.last(8).join("\n"))
+        return Result.new(
+          status: Status::Fail,
+          message: "Cascade macOS capture failed: exit=#{code} snapshot_exists=#{File.exists?(tmp)}\n#{excerpt}",
+        )
+      end
+      baseline = File.join(BASELINE_ROOT, "macos", "#{slug}-#{appearance}.png")
+      unless File.exists?(baseline)
+        return Result.new(
+          status: Status::Skip,
+          message: "no baseline at #{baseline}; captured #{tmp}. Run scripts/capture_demo_quad.cr.",
+          artifacts: [tmp],
+        )
+      end
+      ShellRunner.run_as_probe(
+        ["crystal-alpha", "run", File.join(REPO_ROOT, "scripts/visual_diff.cr"), "--",
+         "--baseline", baseline, "--actual", tmp],
+        "Cascade macOS visual diff #{slug}/#{appearance}",
+      )
+    end
+
+    def web_visual(slug : String, appearance : String = "light") : Result
+      html_path = File.join(REPO_ROOT, "output/initiative-demo/#{slug}-#{appearance}.html")
+      unless File.exists?(html_path)
+        return Result.new(
+          status: Status::Skip,
+          message: "no demo HTML at #{html_path}; run `make -C samples/initiative-cross-platform-ui-demo web` to emit.",
+        )
+      end
+      # Surface convention: web-desktop. The web-mobile surface is
+      # captured by scripts/capture_demo_quad.cr; the harness's I-1
+      # probe defaults to web-desktop here.
+      baseline = File.join(BASELINE_ROOT, "web-desktop", "#{slug}-#{appearance}.png")
+      tmp = File.join(Dir.tempdir, "audit-demo-web-#{slug}-#{appearance}.png")
+      File.delete(tmp) if File.exists?(tmp)
+      probe = File.join(REPO_ROOT, "scripts/cdp_probes/screenshot_probe.cr")
+      cmd = ["crystal-alpha", "run", probe, "--",
+             "--slug", "#{slug}", "--out", tmp]
+      cmd.concat(["--baseline", baseline]) if File.exists?(baseline)
+      ShellRunner.run_as_probe(cmd, "Cascade web visual diff #{slug}/#{appearance}")
+    end
+  end
+
+  # --------------------------------------------------------------------
   # Probe implementations (modular, one module per invariant).
   # --------------------------------------------------------------------
 
@@ -614,6 +707,12 @@ module AuditHarness
 
       def macos(slug : String?) : Result
         slug ||= "phase-03-button-default"
+        # Phase 6 demo slugs route through the Cascade macOS host,
+        # not the HIG showcase. The Cascade binary's self-capture
+        # path mirrors the HIG_SCREENSHOT_PATH contract.
+        if AuditHarness::DEMO_SCREEN_SLUGS.includes?(slug)
+          return AuditHarness::DemoProbes.macos_visual(slug)
+        end
         # Capture fresh PNG via the macOS host's self-snapshot path.
         bin = File.join(REPO_ROOT, "samples/cross_platform/macos_host/bin/hig_showcase")
         unless File.exists?(bin)
@@ -676,6 +775,9 @@ module AuditHarness
 
       def web(slug : String?) : Result
         slug ||= "phase04_action_sheet_demo"
+        if AuditHarness::DEMO_SCREEN_SLUGS.includes?(slug)
+          return AuditHarness::DemoProbes.web_visual(slug)
+        end
         probe = File.join(REPO_ROOT, "scripts/cdp_probes/screenshot_probe.cr")
         unless File.exists?(probe)
           return Result.new(
@@ -1227,9 +1329,18 @@ module AuditHarness
         return 2
       end
 
-      result = cell.run(@slug)
-      emit(result, inv, plat, cell)
-      result.status.exit_code
+      # Phase 6 — `demo-all` expands into a sequence of per-screen
+      # invocations. Exit code is the worst (highest) of the per-screen
+      # results.
+      slugs = AuditHarness.expand_slug(@slug)
+      worst = 0
+      slugs.each do |s|
+        result = cell.run(s)
+        emit(result, inv, plat, cell, override_slug: s)
+        rc = result.status.exit_code
+        worst = rc if rc > worst
+      end
+      worst
     end
 
     private def list_matrix(registry : Registry)
@@ -1258,12 +1369,13 @@ module AuditHarness
       end
     end
 
-    private def emit(result : Result, inv : String, plat : String, cell : Cell)
+    private def emit(result : Result, inv : String, plat : String, cell : Cell, *, override_slug : String? = nil)
+      slug_for_emit = override_slug || @slug
       if @format == "json"
         payload = {
           "invariant" => inv,
           "platform"  => plat,
-          "slug"      => @slug,
+          "slug"      => slug_for_emit,
           "kind"      => cell.kind,
           "status"    => result.status.to_s,
           "message"   => result.message,
@@ -1272,7 +1384,7 @@ module AuditHarness
         }
         puts payload.to_json
       else
-        puts "[#{result.status}] #{inv}/#{plat}#{@slug ? "/" + @slug.to_s : ""} (#{result.duration_ms}ms)"
+        puts "[#{result.status}] #{inv}/#{plat}#{slug_for_emit ? "/" + slug_for_emit.to_s : ""} (#{result.duration_ms}ms)"
         puts "  #{result.message.gsub("\n", "\n  ")}"
         unless result.artifacts.empty?
           puts "  artifacts:"

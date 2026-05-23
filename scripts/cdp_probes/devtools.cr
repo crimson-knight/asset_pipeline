@@ -229,6 +229,9 @@ module CDPProbes
 
     DIST_DIRS = [
       File.join(REPO_ROOT, "samples/cross_platform/web/dist"),
+      # Phase 6 — demo screens live here, written by
+      # `crystal run samples/initiative-cross-platform-ui-demo/web/static_site.cr`.
+      File.join(REPO_ROOT, "output/initiative-demo"),
     ]
 
     def resolve(slug : String) : String
@@ -239,6 +242,10 @@ module CDPProbes
         slug + ".html",
         "phase04_#{slug}_demo.html",
         "phase04_#{slug}.html",
+        # Phase 6 demo slug — light-by-default; the harness can swap
+        # to the dark variant via a slug suffix.
+        "#{slug}-light.html",
+        "#{slug}-dark.html",
       ]
       DIST_DIRS.each do |dir|
         candidates.each do |c|
