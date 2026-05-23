@@ -74,9 +74,16 @@ module InitiativeDemo
       fields << email_field.as(UI::View)
       fields << password_field.as(UI::View)
 
-      # Primary button.
-      primary = UI::Button.new("Sign in")
-      primary.role = :primary
+      # Primary button. Use ButtonStyle::Prominent so SwiftUI applies
+      # `.buttonStyle(.borderedProminent)` on iOS / macOS — this is the
+      # filled brand-tint pill chrome HIG calls for on a primary CTA.
+      # Without it the SwiftUI default body-Button renders as bare text
+      # (Rem 3 baseline showed the Sign-in button as invisible on the
+      # white card). `role` stays `:default` because the action is
+      # non-destructive; the role enum doesn't accept `:primary` and the
+      # populator was previously emitting `setRole:` with the string
+      # "primary" which the Swift facade had no case for (no-op).
+      primary = UI::Button.new("Sign in", style: UI::ButtonStyle::Prominent)
       primary.accessibility_label = "Sign in to your account"
       primary.test_id = "demo-sign-in-submit"
       primary.minimum_width = content_width
