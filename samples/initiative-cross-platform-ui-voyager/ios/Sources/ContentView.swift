@@ -25,34 +25,29 @@ struct ContentView: View {
     }
 
     var body: some View {
-        // Phase 6.10 Rem 1 — full-screen fill, system background bleeds
-        // edge-to-edge (no black bars top/bottom), and the Crystal-rendered
-        // content sits inside the safe area with 16pt horizontal gutters.
+        // Pattern mirrors the proven-working Cascade ContentView
+        // (samples/initiative-cross-platform-ui-demo/ios/Sources/ContentView.swift).
+        // Wrap the Crystal-produced UIView in a vertical ScrollView so any
+        // screen taller than the iPhone portrait viewport remains reachable.
+        // The Crystal-side screen authoring includes its own root padding so
+        // inner gutters are honoured without extra Swift-side adornment.
         //
-        // The fix needs all three pieces:
-        //   - `.background(...) ` extends the system background into the
-        //     status-bar / home-indicator region (kills black bars).
-        //   - `.ignoresSafeArea(edges: .vertical)` is applied to the
-        //     BACKGROUND ZStack so the colour bleeds, but the foreground
-        //     ScrollView stays inside the safe area so the navigation
-        //     chrome sits where iOS expects.
-        //   - `.padding(.horizontal, 16)` on the host gives every Crystal
-        //     screen the HIG default form gutter without having to add it
-        //     to every screen authoring file.
-        ZStack {
-            // Edge-to-edge background — system grouped background matches
-            // Form / List default and tracks light/dark automatically.
-            Color(UIColor.systemBackground)
-                .ignoresSafeArea()
-
-            ScrollView(.vertical, showsIndicators: false) {
-                VoyagerHost(slug: slug)
-                    .frame(maxWidth: .infinity, alignment: .top)
-                    .padding(.horizontal, 16)
-                    .accessibilityIdentifier("voyager-root-host")
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // CRITICAL: `.id(slug)` forces SwiftUI to recreate the
+        // UIViewRepresentable when the slug changes, which calls
+        // `makeUIView` fresh each time. Without `.id(slug)`, SwiftUI
+        // would only call `updateUIView` and reuse the existing UIView
+        // wrapper — but VoyagerHost's `makeUIView` returns the Crystal
+        // UIView DIRECTLY (no container wrapper), so swapping content
+        // requires a new representable identity. This mirrors the
+        // Cascade pattern which doesn't need swaps (one slug per
+        // launch) but Voyager needs swaps on every coord.push/pop.
+        ScrollView(.vertical, showsIndicators: false) {
+            VoyagerHost(slug: slug)
+                .id(slug)
+                .frame(maxWidth: .infinity, alignment: .top)
+                .accessibilityIdentifier("voyager-root-host")
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onReceive(VoyagerBridge.routeChanged) { newSlug in
             if newSlug != slug {
                 slug = newSlug
@@ -67,55 +62,33 @@ struct ContentView: View {
     }
 }
 
-/// A persistent container UIView that hosts the Crystal-rendered view
-/// as its only subview. When `slug` changes, `updateUIView` rerenders
-/// from Crystal and swaps the child. SwiftUI's UIViewRepresentable
-/// contract is that `makeUIView` runs once per identity; `updateUIView`
-/// runs on every state change. Because we return a stable container,
-/// we have a place to swap children on slug changes.
+/// Bridges a Crystal-produced UIView into the SwiftUI tree.
+///
+/// Mirrors Cascade's CascadeHost — return the Crystal UIStackView root
+/// DIRECTLY so SwiftUI ScrollView reads its intrinsic content size
+/// correctly. Wrapping in an extra UIView container with edge-pinned
+/// constraints broke the intrinsic-size chain (the container had no
+/// intrinsicContentSize of its own, so SwiftUI ScrollView gave it 0
+/// height, which collapsed the inner UIStackView's arranged subviews).
+///
+/// Slug swaps are handled by `.id(slug)` on the SwiftUI side which
+/// forces a fresh `makeUIView` call each time the route changes.
 struct VoyagerHost: UIViewRepresentable {
     let slug: String
 
     func makeUIView(context: Context) -> UIView {
-        let container = UIView()
-        container.accessibilityIdentifier = "voyager-host-container"
-        installCrystalView(into: container, slug: slug)
-        return container
+        if let view = VoyagerBridge.render(slug: slug) {
+            view.accessibilityIdentifier = "voyager-root-\(slug)"
+            return view
+        }
+        let fallback = UILabel()
+        fallback.text = "render failed: \(slug)"
+        fallback.accessibilityIdentifier = "voyager-root-fallback"
+        return fallback
     }
 
-    func updateUIView(_ container: UIView, context: Context) {
-        let currentSlugTag = (container.accessibilityValue ?? "")
-        if currentSlugTag != slug {
-            installCrystalView(into: container, slug: slug)
-        }
-    }
-
-    private func installCrystalView(into container: UIView, slug: String) {
-        for sub in container.subviews { sub.removeFromSuperview() }
-        guard let fresh = VoyagerBridge.render(slug: slug) else {
-            let fallback = UILabel()
-            fallback.text = "render failed: \(slug)"
-            fallback.accessibilityIdentifier = "voyager-root-fallback"
-            fallback.translatesAutoresizingMaskIntoConstraints = false
-            container.addSubview(fallback)
-            NSLayoutConstraint.activate([
-                fallback.topAnchor.constraint(equalTo: container.topAnchor),
-                fallback.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-                fallback.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                fallback.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            ])
-            container.accessibilityValue = slug
-            return
-        }
-        fresh.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(fresh)
-        NSLayoutConstraint.activate([
-            fresh.topAnchor.constraint(equalTo: container.topAnchor),
-            fresh.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            fresh.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            fresh.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
-        container.accessibilityValue = slug
-        container.accessibilityIdentifier = "voyager-root-\(slug)"
+    func updateUIView(_ uiView: UIView, context: Context) {
+        // Stateless — slug changes recreate via `.id(slug)` on the
+        // SwiftUI side, which discards this representable.
     }
 }

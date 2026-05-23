@@ -11,6 +11,11 @@ module Voyager
     SLUG = "voyager-sign-in"
 
     def build(state : State, coord : UI::NavigationCoordinator) : UI::View
+      # Pattern mirrors samples/initiative-cross-platform-ui-demo/screens/sign_in.cr
+      # which is the proven-working layout (Phase 6 / 6.8 baselines): pin the
+      # root + form fields + primary button to an explicit content_width so
+      # SwiftUI's TextField / SecureField don't collapse to their intrinsic
+      # placeholder width inside the UIHostingController + UIStackView mix.
       content_width = 340.0
 
       root = UI::VStack.new(spacing: 24.0)
@@ -25,6 +30,7 @@ module Voyager
       wordmark.font = UI::Font.new(size: 34.0, weight: :bold)
       wordmark.text_color_role = UI::LabelRole::Primary
       wordmark.text_alignment = UI::Alignment::Center
+      wordmark.accessibility_label = "Voyager brand wordmark"
 
       subtitle = UI::Label.new("Sign in to manage your todos")
       subtitle.font = UI::Font.new(size: 15.0, weight: :regular)

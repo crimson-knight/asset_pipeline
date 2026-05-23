@@ -138,7 +138,16 @@
       initialize_runtime
       state = @@state.not_nil!
       coord = @@coord.not_nil!
-      renderer = @@renderer.not_nil!
+
+      # Phase 6.10 Rem 1 — fresh renderer per render call to match
+      # Cascade's proven-working pattern. Reusing a single renderer
+      # across slug changes produced inverted-order / collapsed-field
+      # layouts on iOS even though the same screen authoring rendered
+      # correctly with a fresh renderer. The exact root cause appears
+      # to be UIHostingController state inside SwiftKit facades; a new
+      # renderer instance defensively rebuilds every facade chain.
+      renderer = UI::UIKit::Renderer.new
+      renderer.design_tokens = Voyager.brand_tokens
 
       route = Voyager.route_for_slug(slug)
       # Keep the coordinator's idea of "current" in sync with what
