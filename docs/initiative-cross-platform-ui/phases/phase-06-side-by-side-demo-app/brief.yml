@@ -318,20 +318,25 @@ repo_derived_facts:
     expected: "81"
     captured_at_sha: "035f09e"
 
-  - fact: "Existing demo app directory at samples/initiative-cross-platform-ui-demo (must NOT exist at brief authoring; Phase 6 creates)"
+  # Post-impl facts capture the state Phase 6 SHIPPED. Pre-impl at
+  # SHA 035f09e all three of these directories/files did NOT exist;
+  # the architect amendment flips the expected values to match
+  # current HEAD 0d19dc0, where Phase 6's Implementer + 5 remediation
+  # cycles produced the demo app + quad-comparison + capture harness.
+  - fact: "Demo app directory at samples/initiative-cross-platform-ui-demo (post-Phase-6: exists)"
     query: "test -d samples/initiative-cross-platform-ui-demo && echo exists || echo missing"
-    expected: "missing"
-    captured_at_sha: "035f09e"
+    expected: "exists"
+    captured_at_sha: "0d19dc0"
 
-  - fact: "Existing quad-comparison output at output/initiative-demo/quad-comparison.html (must NOT exist at brief authoring; Phase 6 creates)"
+  - fact: "Quad-comparison output at output/initiative-demo/quad-comparison.html (post-Phase-6: exists)"
     query: "test -f output/initiative-demo/quad-comparison.html && echo exists || echo missing"
-    expected: "missing"
-    captured_at_sha: "035f09e"
+    expected: "exists"
+    captured_at_sha: "0d19dc0"
 
-  - fact: "Existing capture_demo_quad.cr script (must NOT exist at brief authoring; Phase 6 creates)"
+  - fact: "capture_demo_quad.cr script (post-Phase-6: exists)"
     query: "test -f scripts/capture_demo_quad.cr && echo exists || echo missing"
-    expected: "missing"
-    captured_at_sha: "035f09e"
+    expected: "exists"
+    captured_at_sha: "0d19dc0"
 
   - fact: "Phase 6.5 audit harness Crystal entry-point exists (Phase 6 depends on it)"
     query: "test -f scripts/audit_harness.cr && echo exists || echo missing"
