@@ -71,6 +71,13 @@ final class TextStorage: ObservableObject {
             get: { self.text },
             set: { newValue in
                 self.text = newValue
+                // Phase 6.10 Rem 4 (Item 1) — fire the string-valued
+                // trampoline so Crystal's `on_change` closure receives
+                // the actual typed text. The numeric `fire(token:value:)`
+                // call is retained as a length signal for callers that
+                // only need "something changed" — the trampoline is
+                // a no-op when no token-1-registered closure exists.
+                CallbackBridge.fireString(token: self.token, value: newValue)
                 CallbackBridge.fire(token: self.token, value: Double(newValue.count))
             }
         )

@@ -39,6 +39,19 @@ import Foundation
 /// helper exercises this path).
 private var actionTrampoline: (@convention(c) (UInt64, Double) -> Void)? = nil
 
+/// Phase 6.10 Rem 4 (Item 1) — string-valued trampoline for TextField /
+/// SecureField / TextArea / SearchField on_change events that need to
+/// dispatch the actual typed string (not just a length signal). Crystal
+/// exports `ap_swiftkit_invoke_action_string(token, c_string)`; Swift
+/// installs the pointer via `APSKRuntime.initialize(stringTrampoline:)`.
+///
+/// Without this, the previous on_change callback collapsed every char
+/// event to `value: Double(text.count)` — the Crystal-side
+/// `->(value : String) { ... }` closure never saw the actual text,
+/// breaking Save (the editor's `state.add_todo(draft.title, ...)`
+/// committed an empty title).
+private var stringTrampoline: (@convention(c) (UInt64, UnsafePointer<CChar>?) -> Void)? = nil
+
 /// Cached brand tint applied to every hosted SwiftUI root. `nil` means
 /// "use the system accent colour" (SwiftUI default behaviour). Stored as
 /// `SwiftUI.Color?` so `HostingHelpers.host(_:)` can splat it into a
@@ -63,6 +76,24 @@ public class APSKRuntime: NSObject {
             trampoline,
             to: (@convention(c) (UInt64, Double) -> Void).self
         )
+    }
+
+    /// Phase 6.10 Rem 4 — install the string-valued action trampoline.
+    /// Called by the Crystal runtime initializer alongside the
+    /// numeric `actionTrampoline:` installer. Pass `nil` (via a
+    /// separate clear method if needed) is intentionally not supported
+    /// — the runtime spec installs once at startup and never clears.
+    @objc public static func initialize(stringTrampoline trampoline: UnsafeRawPointer) {
+        stringTrampoline = unsafeBitCast(
+            trampoline,
+            to: (@convention(c) (UInt64, UnsafePointer<CChar>?) -> Void).self
+        )
+    }
+
+    /// Returns true once `initialize(stringTrampoline:)` has been
+    /// called. Used by the runtime spec.
+    @objc public static var isStringTrampolineInstalled: Bool {
+        stringTrampoline != nil
     }
 
     /// Install (or replace) the brand tint colour applied to every
@@ -126,13 +157,23 @@ enum CallbackBridge {
     /// trampoline has not been installed yet, the call is silently dropped
     /// rather than crashing — first-launch race protection.
     static func fire(token: UInt64, value: Double) {
-        // Phase 6.10 Rem 2 — temporary interaction-proof instrumentation.
-        // Removed in the final commit; kept here so we can trace the
-        // SwiftUI Button tap -> CallbackBridge -> Crystal chain via the
-        // unified log stream.
-        let installed = APSKRuntime.isActionTrampolineInstalled ? "YES" : "NO"
-        NSLog("[voyager-interaction-proof] CallbackBridge.fire token=\(token) value=\(value) trampolineInstalled=\(installed)")
         guard token != 0 else { return }
         actionTrampoline?(token, value)
+    }
+
+    /// Phase 6.10 Rem 4 (Item 1) — string-valued counterpart for
+    /// TextField / SecureField / TextArea / SearchField on_change
+    /// callbacks. Crystal receives the actual typed text (not just a
+    /// length signal), so closures like
+    /// `->(value : String) { draft.title = value }` work end-to-end.
+    ///
+    /// The Crystal side must handle UTF-8 encoded NUL-terminated
+    /// strings; Swift hands a pointer to the String's UTF-8 buffer
+    /// which is valid for the duration of the trampoline call only.
+    static func fireString(token: UInt64, value: String) {
+        guard token != 0 else { return }
+        value.withCString { ptr in
+            stringTrampoline?(token, ptr)
+        }
     }
 }

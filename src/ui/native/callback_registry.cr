@@ -52,6 +52,21 @@ fun ap_swiftkit_invoke_action(token : UInt64, value : Float64) : Void
   UI::CallbackRegistry.invoke_swiftkit(token, value)
 end
 
+# Phase 6.10 Rem 4 (Item 1) — string-valued SwiftKit action trampoline.
+#
+# Called by AssetPipelineSwiftKit's `CallbackBridge.fireString(token:value:)`
+# via the `@convention(c)` function pointer installed by
+# `APSKRuntime.initialize(stringTrampoline:)`. Receives a NUL-terminated
+# UTF-8 string that must be copied into a Crystal `String` before the
+# pointer becomes invalid (Swift's `value.withCString` keeps the buffer
+# alive only for the duration of the trampoline call).
+fun ap_swiftkit_invoke_action_string(token : UInt64, value : LibC::Char*) : Void
+  return if token == 0_u64
+  return if value.null?
+  text = String.new(value)
+  UI::CallbackRegistry.invoke_swiftkit_string(token, text)
+end
+
 # The Crystal-side address of `ap_swiftkit_invoke_action` is needed by
 # `apsk_runtime_initialize`. Producing it from Crystal is finicky —
 # `->ap_swiftkit_invoke_action(...).pointer` works at one optimisation
@@ -347,6 +362,16 @@ module UI
       if box = callbacks[token]?
         box.callback.call
       elsif box = float_callbacks[token]?
+        box.callback.call(value)
+      end
+    end
+
+    # Phase 6.10 Rem 4 (Item 1) — string-valued counterpart to
+    # `invoke_swiftkit`. Routes `Proc(String, Nil)` callbacks fired by
+    # AssetPipelineSwiftKit's string trampoline. Unknown tokens fall
+    # through silently — mirrors the float channel's policy.
+    def self.invoke_swiftkit_string(token : UInt64, value : String) : Nil
+      if box = string_callbacks[token]?
         box.callback.call(value)
       end
     end
