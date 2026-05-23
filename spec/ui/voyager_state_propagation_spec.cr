@@ -67,6 +67,11 @@ describe "Voyager state-propagation litmus" do
     html.should contain "data-testid=\"voyager-todo-row-4\""  # Read a book
     # Filter banner is now visible.
     html.should contain "Completed items hidden"
+    # The chart counts ALSO reflect the filter, in the SAME flow
+    # (push :settings → mutate → pop → rebuild :todos). Open=3,
+    # Done=0 (completed items aren't in visible_todos).
+    html.should contain "data-testid=\"voyager-count-open\">3"
+    html.should contain "data-testid=\"voyager-count-done\">0"
   end
 
   it "the chart counts reflect the FILTERED list when hide_completed is on" do
