@@ -1,0 +1,9 @@
+{
+  "surface": "web-mobile",
+  "slug": "demo-tier-three",
+  "appearance": "light",
+  "max_pixel_diff_pct": 1.0,
+  "max_delta_e": 5.0,
+  "created_phase": "phase-06",
+  "notes": "Phase 6 quad-comparison baseline. See scripts/capture_demo_quad.cr."
+}

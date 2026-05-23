@@ -164,16 +164,25 @@ module CDPProbes
         error: Process::Redirect::Close,
       )
 
-      # Wait for /json/version to be reachable.
+      # Wait for /json/version to be reachable. Chrome 149+ has a slower
+      # startup path (5-8s on cold cache) so the original 3s budget
+      # would race the DevTools listener. 200x100ms == 20s ceiling
+      # leaves headroom for the slowest path.
       client = HTTP::Client.new("127.0.0.1", port)
-      30.times do
+      ready = false
+      200.times do
         begin
-          client.exec("GET", "/json/version")
-          break
+          resp = client.exec("GET", "/json/version")
+          if resp.status.success?
+            ready = true
+            break
+          end
         rescue
-          sleep(0.1.seconds)
+          # connect refused; keep waiting.
         end
+        sleep(0.1.seconds)
       end
+      raise "Chrome DevTools never became ready on port #{port}" unless ready
 
       begin
         # Fresh target per session.

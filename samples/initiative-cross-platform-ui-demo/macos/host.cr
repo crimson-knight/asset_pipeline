@@ -76,7 +76,9 @@ require "../../../src/ui/renderers/appkit_renderer"
         LibWindowHelper.objc_close_capture_window(window)
         STDERR.puts "[cascade] screenshot rc=#{rc} -> #{screenshot_path}"
         gc_guard
-        exit(rc)
+        # window_helper.m returns 1 for success, 0 for failure.
+        # Translate to process exit code (0 success, 1 failure).
+        exit(rc == 1 ? 0 : 1)
       end
 
       # Interactive path — open a titled window on screen and run the
