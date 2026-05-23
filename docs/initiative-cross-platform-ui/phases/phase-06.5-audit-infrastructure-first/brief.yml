@@ -6,6 +6,46 @@ phase:
   parent_sha: "2e3e4fe"
   authored_at: "2026-05-22"
 
+# ---------------------------------------------------------------------------
+# AMENDMENT — Phase 6.5 Remediation 1 (2026-05-23)
+# ---------------------------------------------------------------------------
+# Architect review of the Implementer-landed commits d9b40b1..ace85c1 found
+# that the iOS probes for I-1..I-7 were artifact-presence proxies, not real
+# probes — exactly the "vacuous probe" pattern brief §5 was authored to
+# prevent. Remediation 1 replaced each of I-1..I-8 + I-11 iOS with a real
+# `xcodebuild test` invocation against `CrystalHIGHostUITests/<Class>/<Method>`
+# on a "platform=iOS Simulator,name=iPhone 17" destination (iPhone 15 sim
+# images on this Xcode install pair only with iOS 17.x runtimes, which fail
+# against the project's iOS 26 deployment target).
+#
+# The owner approved the >60s per-cell budget overrun on 2026-05-22 to
+# unblock real probes. Measured runtimes on a warm cache (2026-05-23,
+# Xcode 16, M-class host):
+#
+#   I-1 ios (HIGVisualTests/testRenderSlug):                ~48s
+#   I-3 ios (Phase03BehaviorTests/testBX3_toggleValueCallback): ~128s
+#   I-8 ios (Phase03BehaviorTests/testBX10_darkModeTintShift_dark): ~43s
+#   I-11 ios (build_crystal_lib.sh + xcodebuild build-for-testing): ~7s warm,
+#     ~90-300s cold (first build of a fresh DerivedData)
+#
+# Other cells (I-2, I-4, I-5, I-6, I-7) follow the same shape — each is a
+# single XCUITest invocation, runtime dominated by xcodebuild + simulator
+# boot. Expect 40-130s per cell warm, 60-300s cold. Run aggregate budget
+# (8 iOS cells) is ~6-15 minutes warm; this remains in scope for the Phase
+# 6.5 Validator pass at end of phase.
+#
+# Remediation 1 also regenerated `samples/cross_platform/ios_host/CrystalHIGHost.xcodeproj`
+# via `xcodegen generate` because the D4-extracted Patterns/*.swift files
+# were not referenced in the prior project — without this the test target
+# could not resolve `VisualSnapshotPattern`, `HostLaunchPattern`, etc.
+# The regenerated project is an infrastructure artifact (consumes the
+# checked-in `project.yml`), not a production-code change.
+#
+# Override hook: set `AUDIT_HARNESS_IOS_DESTINATION` to a different
+# `xcodebuild -destination` string (e.g. on a fresh Xcode install with a
+# newer device family). The harness reads it from ENV at load time.
+# ---------------------------------------------------------------------------
+
 # Phase 6.5 contract decisions baked into this brief. Authored after Phase 5
 # v2 PASS + Phase 5.5 PASS, per the planning retrospective's Principle 6
 # (audit-first). The retrospective lives at
