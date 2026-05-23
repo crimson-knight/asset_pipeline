@@ -124,7 +124,18 @@ private struct APSKButtonHost: View {
         }
         if let mw = overrides.minWidth {
             let mwCG = CGFloat(mw.doubleValue)
-            base = AnyView(base.frame(minWidth: mwCG))
+            // Phase 6.8 Fix 2: when min_w == max_w AND style is "prominent",
+            // SwiftUI's body-Button intrinsic width (especially with the
+            // Capsule.fill chrome from Fix 1) is narrower than the
+            // form's content pin. Use an EXACT width frame instead of
+            // .frame(minWidth:) so the prominent pill stretches to match
+            // the email/password field widths.
+            if let mxw = overrides.maxWidth, mw.doubleValue == mxw.doubleValue,
+               overrides.style == "prominent" {
+                base = AnyView(base.frame(width: mwCG))
+            } else {
+                base = AnyView(base.frame(minWidth: mwCG))
+            }
         }
 
         // Style cascade. SwiftUI layers system defaults (font, animation,
