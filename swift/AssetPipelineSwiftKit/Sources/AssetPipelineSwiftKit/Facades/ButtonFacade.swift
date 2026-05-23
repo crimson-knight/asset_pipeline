@@ -129,12 +129,30 @@ private struct APSKButtonHost: View {
 
         // Style cascade. SwiftUI layers system defaults (font, animation,
         // focus, dynamic type, dark mode) over whatever style we pick.
+        //
+        // Phase 6 Rem 3-completion fix for the iOS-light "invisible
+        // Sign-in button" Codex blocker: `.borderedProminent` does NOT
+        // render any chrome on iOS-light when no `.tint(...)` is active
+        // in the SwiftUI environment — each Crystal-produced Button is
+        // hosted in its own UIHostingController so the host app's
+        // SwiftUI `.tint(...)` cascade does not reach it. We force the
+        // accent on the Button itself so `.borderedProminent` resolves
+        // its fill against the system accent (`accentColor` —
+        // appearance-tracking, so this respects light / dark and any
+        // explicit accent override in the SwiftUI environment if one
+        // happens to be in scope). The `.tint` is only applied for
+        // `prominent` and `tinted`: `.bordered` and `.borderless` are
+        // already visible without an accent.
         var content: AnyView = base
         switch overrides.style {
         case "prominent":
-            content = AnyView(content.buttonStyle(.borderedProminent))
+            content = AnyView(content
+                .tint(.accentColor)
+                .buttonStyle(.borderedProminent))
         case "tinted":
-            content = AnyView(content.buttonStyle(.bordered))
+            content = AnyView(content
+                .tint(.accentColor)
+                .buttonStyle(.bordered))
         case "bordered":
             content = AnyView(content.buttonStyle(.bordered))
         case "borderless":
