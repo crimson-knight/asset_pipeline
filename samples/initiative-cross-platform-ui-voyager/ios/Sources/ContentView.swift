@@ -41,43 +41,53 @@ struct ContentView: View {
         // requires a new representable identity. This mirrors the
         // Cascade pattern which doesn't need swaps (one slug per
         // launch) but Voyager needs swaps on every coord.push/pop.
-        // Phase 6.10 Rem 2 — drop the outer SwiftUI ScrollView wrapper.
+        // Phase 6.10 Rem 2 — keep the SwiftUI ScrollView wrapper so
+        // very-tall screens (Todos with many rows on a short device)
+        // remain reachable, and apply `.accessibilityElement(children:
+        // .contain)` on the embedded host so XCUITest can traverse
+        // the SwiftUI -> UIKit representable boundary.
         //
-        // Rem 1 wrapped the host in a SwiftUI ScrollView so the form
-        // content could scroll on small viewports. But the SwiftUI
-        // ScrollView's UIScrollView swallows touches before they
-        // reach the embedded UIKit subtree on iOS 16+: a SwiftUI
-        // Button hosted inside a Crystal-rendered UIStackView (which
-        // sits inside the UIViewRepresentable's hosted UIView) is
-        // NOT recognized as a UIControl by the outer UIScrollView's
-        // gesture system, so taps are eaten by the pan recognizer
-        // (delaysContentTouches=YES is the UIScrollView default,
-        // and `canCancelContentTouches` cancels mid-press taps on
-        // anything that isn't a true UIControl subclass).
+        // Iter 1 found that the SwiftUI Button.action closure does
+        // NOT fire under XCUITest coordinate taps regardless of
+        // whether the outer ScrollView is present. The touch-
+        // routing bug is not ScrollView-caused; documented in the
+        // remediation-2 codex-blocker.
         //
-        // The Crystal-rendered root already includes its own
-        // UIScrollView (UI::ScrollView -> Crystal-side root has
-        // padding + intrinsic height) when scrolling is required.
-        // For the Voyager screens at iPhone 17 portrait (393x852pt)
-        // every screen fits without scroll once layout is correct,
-        // so removing the outer wrapper is safe.
+        // `.contain` on the host (NOT on the ScrollView) preserves
+        // the AX traversal verified in iter1: XCUITest's
+        // `app.buttons["Sign in"]` and
+        // `app.buttons["voyager-sign-in-submit"]` BOTH find the
+        // embedded Crystal-rendered UIButton, returning its frame.
+        // Phase 6.10 Rem 2 iter 2 — drop the outer SwiftUI ScrollView
+        // so AX traversal works.
         //
-        // `.accessibilityElement(children: .contain)` is preserved
-        // so the SwiftUI -> UIKit boundary still exposes Crystal
-        // UIView children to XCUITest's AX tree.
-        // Phase 6.10 Rem 2 — expose the UIView's AX subtree to
-        // XCUITest through the SwiftUI -> UIKit representable
-        // boundary. Without `.contain`, SwiftUI treats the
-        // representable as an opaque accessibility element and its
-        // hosted UIButtons / UITextFields are invisible to
-        // `app.buttons[...]` queries. Verified by the iter1 XCUITest
-        // failure log: the test was able to find Button by
-        // accessibilityLabel "Sign in" + accessibilityIdentifier
-        // `voyager-sign-in-submit` (frame `{{-20.0, 320.7}, {380.0,
-        // 40.3}}`), confirming `.contain` works for AX traversal.
-        // The remaining touch-routing issue (taps not firing the
-        // SwiftUI Button's action) is a separate iOS-host-level
-        // bug documented in the codex blocker note.
+        // iter 2 attempted both (a) `.accessibilityElement(children:
+        // .contain)` on the inner host inside ScrollView and (b) the
+        // same modifier on the outer ScrollView. BOTH variants
+        // collapsed the AX subtree to an opaque ScrollView with no
+        // discoverable children, blocking XCUI's
+        // `app.buttons["Sign in"]` queries.
+        //
+        // Without ScrollView wrapping (iter 1's verified setup), XCUI
+        // DOES find `app.buttons["Sign in"]` and
+        // `app.buttons["voyager-sign-in-submit"]` through
+        // `.accessibilityElement(children: .contain)` on the host.
+        //
+        // Tradeoff: very-tall screens (Todos with many rows) cannot
+        // scroll on iPhone 17 portrait. For the current 4-screen
+        // Voyager demo at iPhone 17 portrait (393x852pt), all
+        // screens fit naturally with the 340pt content_width pin
+        // (sign-in: ~5 rows, todos: 5 todos + header + chart +
+        // button, settings: title + explainer + toggle + button,
+        // editor: title + 3 fields + button row). Verified via the
+        // iter1 offscreen captures at handoff/phase-06.10-rem-2-iter1/.
+        //
+        // When the demo expands to require scrolling, the Crystal-
+        // side `UI::ScrollView` view type is the correct path
+        // (renderer maps to a UIScrollView that DOES preserve AX
+        // hierarchy). Adding `UI::ScrollView` at the screen authoring
+        // level is the long-term answer; for Phase 6.10 the 4 demo
+        // screens fit without scroll.
         VoyagerHost(slug: slug)
             .id(slug)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
