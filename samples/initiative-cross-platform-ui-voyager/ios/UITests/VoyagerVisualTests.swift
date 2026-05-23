@@ -62,29 +62,25 @@ final class VoyagerVisualTests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.5)
         attachScreenshot(name: "step1-sign-in")
 
-        // Step 2: tap Sign in (button label or accessibility) — Crystal
-        // wires the tap to coord.replace_root(:todos)
+        // Step 2: tap Sign in — Crystal wires the tap to coord.push(:todos)
         let signIn = app.buttons["Sign in"]
-        if signIn.waitForExistence(timeout: 5) {
-            signIn.tap()
-        }
-        Thread.sleep(forTimeInterval: 0.7)
+        XCTAssertTrue(signIn.waitForExistence(timeout: 5), "Sign in button not found on launch")
+        signIn.tap()
+        Thread.sleep(forTimeInterval: 1.0)
         attachScreenshot(name: "step2-todos")
 
         // Step 3: navigate to Settings via the settings link
         let settingsBtn = app.buttons["Settings"]
-        if settingsBtn.waitForExistence(timeout: 5) {
-            settingsBtn.tap()
-        }
-        Thread.sleep(forTimeInterval: 0.7)
+        XCTAssertTrue(settingsBtn.waitForExistence(timeout: 5), "Settings button not found on Todos screen — navigation from sign-in may have failed")
+        settingsBtn.tap()
+        Thread.sleep(forTimeInterval: 1.0)
         attachScreenshot(name: "step3-settings")
 
         // Step 4: back to Todos
-        let back = app.buttons["Back to Todos"]
-        if back.waitForExistence(timeout: 5) {
-            back.tap()
-        }
-        Thread.sleep(forTimeInterval: 0.7)
+        let back = app.buttons["Back to todos"]
+        XCTAssertTrue(back.waitForExistence(timeout: 5), "Back to todos button not found on Settings screen")
+        back.tap()
+        Thread.sleep(forTimeInterval: 1.0)
         attachScreenshot(name: "step4-back-to-todos")
     }
 

@@ -36,7 +36,7 @@ module Voyager
 
       settings_btn = UI::Button.new("Settings")
       settings_btn.role = :secondary
-      settings_btn.accessibility_label = "Open settings"
+      settings_btn.accessibility_label = "Settings"
       settings_btn.test_id = "voyager-todos-settings"
       settings_btn.on_tap = -> { coord.push(UI::NavigationCoordinator::Route.new(:settings)) }
 

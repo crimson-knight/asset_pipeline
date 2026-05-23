@@ -55,7 +55,9 @@ module Voyager
       fields << password.as(UI::View)
 
       submit = UI::Button.new("Sign in", style: UI::ButtonStyle::Prominent)
-      submit.accessibility_label = "Sign in to your account"
+      # accessibility_label matches the visible title so XCUITest / VoiceOver
+      # users can find the button by what they see/hear without disambiguation.
+      submit.accessibility_label = "Sign in"
       submit.test_id = "voyager-sign-in-submit"
       submit.minimum_width = content_width
       submit.maximum_width = content_width

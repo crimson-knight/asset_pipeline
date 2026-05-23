@@ -33,7 +33,7 @@ module Voyager
 
       back = UI::Button.new("Back to todos")
       back.role = :secondary
-      back.accessibility_label = "Return to the todos list"
+      back.accessibility_label = "Back to todos"
       back.test_id = "voyager-settings-back"
       back.on_tap = -> { coord.pop; nil }
 
