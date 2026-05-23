@@ -976,5 +976,179 @@ module UI
         )
       end
     end
+
+    # ----------------------------------------------------------------------
+    # Phase 6.10 Rem 4 (Item 2) — Device-aware utilities.
+    #
+    # Design intent: the library does NOT bake per-device dimensions
+    # (iPhone 17 Pro 402×874, iPhone 16 393×852, etc.) into tokens.
+    # Adding a new device would otherwise require a token-table refresh.
+    # Instead, runtime utilities query the OS for actual device bounds +
+    # safe-area insets + size class, and the design-token model exposes
+    # SEMANTIC names (compact/regular, top/bottom/leading/trailing) that
+    # renderers resolve at render time.
+    #
+    # See architect brief
+    # `docs/initiative-cross-platform-ui/phases/phase-06.10-navigable-crud-demo/remediation-4.md`
+    # section 2 for the full rationale.
+    # ----------------------------------------------------------------------
+
+    # A snapshot of the device's runtime layout metrics.
+    #
+    # Renderers populate this at render time by calling the appropriate
+    # OS API:
+    #
+    #   iOS:    UIScreen.main.bounds   + view.safeAreaInsets   + UITraitCollection
+    #   macOS:  NSScreen.mainScreen.frame                      + NSWindow size class
+    #   web:    window.innerWidth + window.innerHeight         + media query
+    #
+    # The Crystal-side screen author NEVER constructs one of these
+    # directly; they call `DeviceMetrics.current` (which delegates to the
+    # active renderer's runtime query) and read the semantic values.
+    record DeviceMetrics,
+      screen_width_pt : Float64,
+      screen_height_pt : Float64,
+      safe_area_top_pt : Float64,
+      safe_area_bottom_pt : Float64,
+      safe_area_leading_pt : Float64,
+      safe_area_trailing_pt : Float64,
+      horizontal_size_class : SizeClass,
+      vertical_size_class : SizeClass do
+      # Returns the current renderer-provided metrics snapshot.
+      # Convenience that delegates to `Device.current`.
+      def self.current : DeviceMetrics
+        Device.current
+      end
+
+      # Reset the installed provider to the spec-time fallback.
+      def self.reset_provider : Nil
+        Device.reset_provider
+      end
+      # The content rectangle (frame minus safe-area insets). Use this
+      # when laying out a sticky header / bottom action bar that must
+      # respect the Dynamic Island + home indicator.
+      def content_width_pt : Float64
+        screen_width_pt - safe_area_leading_pt - safe_area_trailing_pt
+      end
+
+      def content_height_pt : Float64
+        screen_height_pt - safe_area_top_pt - safe_area_bottom_pt
+      end
+
+      # `true` on iPhone portrait, an iPad Slide Over panel, a narrow
+      # macOS window. Authors branch layout on this to switch a 2-column
+      # split to a stacked single column.
+      def compact_horizontal? : Bool
+        horizontal_size_class.compact?
+      end
+
+      def regular_horizontal? : Bool
+        horizontal_size_class.regular?
+      end
+
+      def compact_vertical? : Bool
+        vertical_size_class.compact?
+      end
+
+      def regular_vertical? : Bool
+        vertical_size_class.regular?
+      end
+    end
+
+    # Apple-style size class.
+    #
+    # Matches `UIUserInterfaceSizeClass` semantics on iOS:
+    # `Compact` = roughly iPhone-portrait or iPad multi-tasking slide;
+    # `Regular` = full iPad portrait / landscape, macOS standard window;
+    # `Unspecified` = unknown / pre-layout.
+    #
+    # Web renderer maps from `min-width` media queries:
+    # `< 768px` → Compact, `>= 768px` → Regular.
+    #
+    # Macos renderer maps from `NSWindow.frame.size.width`:
+    # `< 768pt` → Compact, `>= 768pt` → Regular (same threshold as web).
+    enum SizeClass
+      Unspecified
+      Compact
+      Regular
+    end
+
+    # Access point for the live device metrics provider.
+    #
+    # `UI::DesignTokens::Device.current` returns the current
+    # `DeviceMetrics` snapshot by calling the renderer-installed
+    # provider; specs that want a deterministic value reset to the
+    # spec-time fallback via `Device.reset_provider`.
+    module Device
+      extend self
+
+      # The renderer-provided live device metrics. The active renderer
+      # (UIKit / AppKit / Web) installs a callable here during
+      # `Renderer#initialize`; until then, this returns a sensible
+      # "compact iPhone portrait" fallback so the screen builders can
+      # run inside `crystal spec` without a live screen.
+      #
+      # Authors call `UI::DesignTokens::DeviceMetrics.current` from a
+      # screen builder to read the device-aware values:
+      #
+      #   metrics = UI::DesignTokens::DeviceMetrics.current
+      #   top_pad = metrics.safe_area_top_pt
+      #   width   = metrics.compact_horizontal? ? 340.0 : 600.0
+      #
+      # The provider is a `Proc(DeviceMetrics)` so each call gets a
+      # fresh snapshot — important on macOS where the user can resize
+      # the window between renders.
+      @@provider : Proc(DeviceMetrics) = ->{
+        # Spec-time / web-SSR fallback: iPhone-portrait-ish bounds with
+        # ZERO safe-area insets. This is the path the web renderer hits
+        # before per-renderer provider installation (and the path
+        # `crystal spec` always hits). Baking iPhone safe-area numbers
+        # here leaks Dynamic-Island / home-indicator padding into web
+        # output and into specs running on non-iOS hosts (Codex Rem 4
+        # finding). The web renderer's CSS can still apply
+        # `env(safe-area-inset-*)` at the browser layer; the framework
+        # fallback must not impose iPhone-specific insets.
+        DeviceMetrics.new(
+          screen_width_pt: 390.0,
+          screen_height_pt: 844.0,
+          safe_area_top_pt: 0.0,
+          safe_area_bottom_pt: 0.0,
+          safe_area_leading_pt: 0.0,
+          safe_area_trailing_pt: 0.0,
+          horizontal_size_class: SizeClass::Compact,
+          vertical_size_class: SizeClass::Regular,
+        )
+      }
+
+      def current : DeviceMetrics
+        @@provider.call
+      end
+
+      # Renderer-only entry point. UIKit / AppKit / Web renderers call
+      # this once on initialize to wire up a live OS-querying provider.
+      # The block returns the current metrics on every call (so
+      # consumers get fresh values on window resize / orientation
+      # change).
+      def install_provider(&block : -> DeviceMetrics) : Nil
+        @@provider = block
+      end
+
+      # Reset to the spec-time fallback. Used by specs that need to
+      # restore deterministic metrics after a renderer install.
+      def reset_provider : Nil
+        @@provider = ->{
+          DeviceMetrics.new(
+            screen_width_pt: 390.0,
+            screen_height_pt: 844.0,
+            safe_area_top_pt: 0.0,
+            safe_area_bottom_pt: 0.0,
+            safe_area_leading_pt: 0.0,
+            safe_area_trailing_pt: 0.0,
+            horizontal_size_class: SizeClass::Compact,
+            vertical_size_class: SizeClass::Regular,
+          )
+        }
+      end
+    end
   end
 end

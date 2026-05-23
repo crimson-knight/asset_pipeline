@@ -151,6 +151,32 @@ module UI
     # Test identifier for automated UI testing, maps to native test attributes
     property test_id : String? = nil
 
+    # Phase 6.10 Rem 4 (Item 2D) — root-fill flag.
+    #
+    # When `true`, the renderer treats this view as a full-screen root
+    # and:
+    #   - iOS / macOS: pins the view's width to the device screen width
+    #     and lets its height grow to the screen height (or scroll if
+    #     content exceeds it). Replaces the brittle hardcoded
+    #     `content_width = 340.0` pattern.
+    #   - Web: emits `min-height: 100dvh` + `width: 100%` (CSS dvh
+    #     respects mobile address-bar resizing).
+    #
+    # Set via `view.root_fill = true` or the chainable shortcut
+    # `view.fill_screen!` (returns self for chaining).
+    #
+    # The renderer-side honoring is best-effort — a `root_fill` view
+    # nested deep inside another stack is still constrained by its
+    # parent's bounds. The intent is the OUTER root of an iOS / macOS
+    # screen.
+    property root_fill : Bool = false
+
+    # Chainable shortcut for `self.root_fill = true`. Returns self.
+    def fill_screen! : self
+      @root_fill = true
+      self
+    end
+
     # SwiftKit reactive-state opaque pointer (Phase 3 Remediation 4).
     #
     # Populated by the AppKit / UIKit renderer's visit method for views
