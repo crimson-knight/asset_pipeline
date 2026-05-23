@@ -2626,6 +2626,28 @@ static void crystal_action_dispatcher_dispatch(id self, SEL _cmd, id sender) {
     }
 }
 
+// Phase 6.10 Remediation 2 — temporary interaction-proof logger.
+//
+// STDERR.puts from Crystal does not reach the simulator's unified log
+// stream (`xcrun simctl spawn booted log stream`). To prove that taps
+// actually invoke the Crystal-side on_tap closure, this helper emits a
+// NUL-terminated C string via NSLog (which routes through Apple's
+// unified logging system). Logged with the
+// `[voyager-interaction-proof]` prefix so the captured log is trivially
+// grep-able from the remediation artifacts.
+//
+// Kept in objc_bridge.m (not a Voyager-only file) so the same compiled
+// .o supports both macOS host.cr and iOS bridge.cr without a per-target
+// wrapper. Crystal callers cease invoking this once interaction proof
+// is preserved (final commit removes the call sites).
+void ap_voyager_interaction_log(const char *msg) {
+    if (msg == NULL) {
+        NSLog(@"[voyager-interaction-proof] <null>");
+        return;
+    }
+    NSLog(@"[voyager-interaction-proof] %s", msg);
+}
+
 // Registers the CrystalActionDispatcher ObjC class at runtime.
 // Must be called once before the AppKit / UIKit renderer creates any buttons.
 void register_crystal_action_dispatcher(void) {

@@ -20,6 +20,34 @@
 require "../../src/ui"
 require "./brand"
 require "./screens/state"
+
+module Voyager
+  # PHASE 6.10 REM 2 TEMP — interaction-proof helper.
+  # On native Apple targets (macOS / iOS) we route through NSLog via
+  # the asset_pipeline ObjC bridge so the message reaches the unified
+  # log stream (`xcrun simctl spawn booted log stream` / `log stream`).
+  # In all other build contexts (web demo, `crystal spec` — neither
+  # links the ObjC bridge) it's a no-op so the host build keeps the
+  # bridge symbol but the spec / web build stays unaffected.
+  # Removed when proof artifacts at
+  # handoff/phase-06.10-remediation-2-interaction-proof-* are
+  # preserved.
+  {% if flag?(:macos) || flag?(:ios) %}
+    @[Link(framework: "Foundation")]
+    lib LibVoyagerInteractionLog
+      fun ap_voyager_interaction_log(msg : LibC::Char*) : Void
+    end
+
+    def self.log_interaction(msg : String) : Nil
+      LibVoyagerInteractionLog.ap_voyager_interaction_log(msg.to_unsafe)
+    end
+  {% else %}
+    def self.log_interaction(msg : String) : Nil
+      # No-op under web / spec builds: the ObjC bridge isn't linked.
+    end
+  {% end %}
+end
+
 require "./screens/sign_in"
 require "./screens/todos"
 require "./screens/todo_editor"

@@ -71,7 +71,18 @@ module Voyager
       # us from :sign_in → :todos, firing on_change, which the host
       # subscribes to (see web/static_site.cr + macos/host.cr +
       # ios/bridge.cr) to rebuild the visible root.
-      submit.on_tap = -> { coord.push(UI::NavigationCoordinator::Route.new(:todos)) }
+      #
+      # PHASE 6.10 REM 2 TEMP — interaction proof instrumentation.
+      # The STDERR.puts line below proves the tap chain (UIKit/AppKit
+      # touch -> SwiftKit action trampoline -> CallbackRegistry ->
+      # Crystal Proc) actually fires under hands-on hardware/sim
+      # tap. Removed in the final commit of remediation 2 once
+      # the captured log + screenshot proof is preserved at
+      # handoff/phase-06.10-remediation-2-interaction-proof-*.
+      submit.on_tap = -> {
+        Voyager.log_interaction("sign-in button tapped")
+        coord.push(UI::NavigationCoordinator::Route.new(:todos))
+      }
 
       root << wordmark.as(UI::View)
       root << subtitle.as(UI::View)

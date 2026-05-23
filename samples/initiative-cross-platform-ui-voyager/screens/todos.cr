@@ -18,15 +18,28 @@ module Voyager
     SLUG = "voyager-todos"
 
     def build(state : State, coord : UI::NavigationCoordinator) : UI::View
+      # Pin the root + every full-width child to an explicit
+      # content_width, matching the proven-working Sign-in pattern
+      # (see sign_in.cr). HStack-with-Spacer rows on iOS collapse
+      # to intrinsic content when no parent width constraint is
+      # present — pinning min_w==max_w on each row gives the inner
+      # Spacer a deterministic stretch axis and keeps trailing
+      # controls (Settings button, swipe Edit/Delete) visible.
+      content_width = 340.0
+
       root = UI::VStack.new(spacing: 16.0)
       root.alignment = UI::Alignment::Leading
       root.padding = UI::EdgeInsets.new(top: 24.0, trailing: 20.0, bottom: 24.0, leading: 20.0)
+      root.minimum_width = content_width
+      root.maximum_width = content_width
       root.accessibility_label = "Voyager todos screen"
       root.test_id = "voyager-todos-root"
 
       # Header row: title + settings link
       header = UI::HStack.new(spacing: 8.0)
       header.alignment = UI::Alignment::Center
+      header.minimum_width = content_width
+      header.maximum_width = content_width
 
       title = UI::Label.new("Todos")
       title.font = UI::Font.new(size: 28.0, weight: :bold)
@@ -38,7 +51,10 @@ module Voyager
       settings_btn.role = :secondary
       settings_btn.accessibility_label = "Settings"
       settings_btn.test_id = "voyager-todos-settings"
-      settings_btn.on_tap = -> { coord.push(UI::NavigationCoordinator::Route.new(:settings)) }
+      settings_btn.on_tap = -> {
+        Voyager.log_interaction("todos settings button tapped")
+        coord.push(UI::NavigationCoordinator::Route.new(:settings))
+      }
 
       header << title.as(UI::View)
       header << spacer.as(UI::View)
@@ -50,6 +66,8 @@ module Voyager
       # data even when the list is filtered.
       chart_row = UI::HStack.new(spacing: 16.0)
       chart_row.alignment = UI::Alignment::Center
+      chart_row.minimum_width = content_width
+      chart_row.maximum_width = content_width
 
       open_card = build_count_card("Open", state.open_count.to_s, :primary)
       completed_card = build_count_card("Done", state.completed_count.to_s, :secondary)
@@ -75,10 +93,12 @@ module Voyager
       # inline JS handles delete via setFragment dispatch.
       list_stack = UI::VStack.new(spacing: 8.0)
       list_stack.alignment = UI::Alignment::Leading
+      list_stack.minimum_width = content_width
+      list_stack.maximum_width = content_width
       list_stack.test_id = "voyager-todos-list"
 
       state.visible_todos.each do |todo|
-        list_stack << build_todo_row(todo, state, coord).as(UI::View)
+        list_stack << build_todo_row(todo, state, coord, content_width).as(UI::View)
       end
 
       # Add button — for the web demo this is a no-op in static HTML;
@@ -87,7 +107,10 @@ module Voyager
       add_btn = UI::Button.new("Add Todo", style: UI::ButtonStyle::Prominent)
       add_btn.accessibility_label = "Add a new todo"
       add_btn.test_id = "voyager-todos-add"
+      add_btn.minimum_width = content_width
+      add_btn.maximum_width = content_width
       add_btn.on_tap = -> {
+        Voyager.log_interaction("todos add button tapped")
         params = {:id => "0"} of Symbol => String
         coord.push(UI::NavigationCoordinator::Route.new(:todo_editor, params))
       }
@@ -123,7 +146,13 @@ module Voyager
       card.as(UI::View)
     end
 
-    private def build_todo_row(todo : Todo, state : State, coord : UI::NavigationCoordinator) : UI::View
+    private def build_todo_row(todo : Todo, state : State, coord : UI::NavigationCoordinator, content_width : Float64) : UI::View
+      # The inner content HStack stays unconstrained on width — the
+      # outer SwipeActionRow is the row pinned to the band, and its
+      # NSStackView/UIStackView host distributes the remaining width
+      # between the content and the trailing Edit/Delete buttons. If
+      # we pin the inner content to `content_width` it eats the
+      # trailing-button slot and the buttons collapse to zero width.
       content = UI::HStack.new(spacing: 12.0)
       content.alignment = UI::Alignment::Center
       content.padding = UI::EdgeInsets.new(top: 10.0, trailing: 12.0, bottom: 10.0, leading: 12.0)
@@ -141,6 +170,8 @@ module Voyager
 
       row = UI::SwipeActionRow.new(content.as(UI::View))
       row.accessibility_label = "Todo: #{todo.title}"
+      row.minimum_width = content_width
+      row.maximum_width = content_width
 
       edit_action = UI::SwipeAction.new(
         "Edit",

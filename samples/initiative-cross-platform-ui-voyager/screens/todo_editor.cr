@@ -15,11 +15,14 @@ module Voyager
       editing = state.find_todo(todo_id)
       draft = editing || Todo.new(id: 0, title: "", note: "")
 
-      content_width = 380.0
+      # Slightly tighter than sign-in to leave room for the Cancel/Save
+      # actions row without spilling off the iPhone 17 portrait viewport.
+      content_width = 340.0
       root = UI::VStack.new(spacing: 16.0)
       root.alignment = UI::Alignment::Leading
       root.padding = UI::EdgeInsets.new(top: 24.0, trailing: 20.0, bottom: 24.0, leading: 20.0)
       root.minimum_width = content_width
+      root.maximum_width = content_width
       root.accessibility_label = "Voyager todo editor"
       root.test_id = "voyager-todo-editor-root"
 
@@ -45,21 +48,38 @@ module Voyager
       completed_toggle = UI::Toggle.new(label: "Completed", is_on: draft.completed)
       completed_toggle.accessibility_label = "Mark as completed"
       completed_toggle.test_id = "voyager-todo-editor-completed"
+      completed_toggle.minimum_width = content_width
+      completed_toggle.maximum_width = content_width
       completed_toggle.on_change = ->(value : Bool) { draft.completed = value }
 
       actions = UI::HStack.new(spacing: 12.0)
       actions.alignment = UI::Alignment::Center
+      actions.minimum_width = content_width
+      actions.maximum_width = content_width
+
+      # Half-width buttons so the Cancel + Save row fills the
+      # content_width band without stretching to intrinsic-only labels.
+      half_button_width = (content_width - 12.0) / 2.0
 
       cancel = UI::Button.new("Cancel")
       cancel.role = :secondary
       cancel.accessibility_label = "Cancel and discard changes"
       cancel.test_id = "voyager-todo-editor-cancel"
-      cancel.on_tap = -> { coord.pop; nil }
+      cancel.minimum_width = half_button_width
+      cancel.maximum_width = half_button_width
+      cancel.on_tap = -> {
+        Voyager.log_interaction("todo-editor cancel tapped")
+        coord.pop
+        nil
+      }
 
       save = UI::Button.new("Save", style: UI::ButtonStyle::Prominent)
       save.accessibility_label = "Save todo"
       save.test_id = "voyager-todo-editor-save"
+      save.minimum_width = half_button_width
+      save.maximum_width = half_button_width
       save.on_tap = -> {
+        Voyager.log_interaction("todo-editor save tapped")
         if editing
           # Mutate existing in place — draft IS editing, so any
           # changes from on_change closures already applied.

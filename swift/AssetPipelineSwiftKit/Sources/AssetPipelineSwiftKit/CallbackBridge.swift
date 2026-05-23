@@ -126,6 +126,13 @@ enum CallbackBridge {
     /// trampoline has not been installed yet, the call is silently dropped
     /// rather than crashing — first-launch race protection.
     static func fire(token: UInt64, value: Double) {
+        // Phase 6.10 Rem 2 — temporary interaction-proof instrumentation.
+        // Removed in the final commit; kept here so we can trace the
+        // SwiftUI Button tap -> CallbackBridge -> Crystal chain via the
+        // unified log stream.
+        NSLog("[voyager-interaction-proof] CallbackBridge.fire token=%llu value=%f trampolineInstalled=%@",
+              token, value,
+              APSKRuntime.isActionTrampolineInstalled ? "YES" : "NO")
         guard token != 0 else { return }
         actionTrampoline?(token, value)
     }

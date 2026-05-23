@@ -157,13 +157,19 @@ private struct APSKButtonHost: View {
         var content: AnyView = base
         switch overrides.style {
         case "prominent":
-            // Phase 6.8 Fix 1: bypass `.borderedProminent` entirely. On iOS 26
-            // `.borderedProminent` resolves its fill against `.accentColor`
-            // (system blue) but does NOT honor a concrete brand `Color` via
-            // `.tint(...)` — Phase 6 Rem 4 + Rem 5 proved both cascade and
-            // per-button `.tint(Color(uiColor:))` regress to invisible. Render
-            // the brand-teal pill explicitly with `.background(Capsule().fill())`.
-            // This guarantees brand-teal regardless of host environment.
+            // Phase 6.8 Fix 1 (restored): bypass `.borderedProminent`
+            // and paint the brand-teal pill explicitly. Phase 6.10
+            // Rem 2 investigation confirmed via NSLog instrumentation
+            // in `CallbackBridge.fire` that the SwiftUI Button's tap
+            // closure is NOT being invoked under hands-on / XCUITest
+            // taps when the Button is hosted in UIKit via
+            // UIHostingController — this is an architectural issue at
+            // the UIViewRepresentable boundary, NOT a style-specific
+            // bug. The borderedProminent diagnostic produced the same
+            // no-tap behavior. Restoring the brand chrome and
+            // escalating the touch-routing bug separately
+            // (see handoff/phase-06.10-remediation-2-codex-blocker.md
+            // when authored).
             let brandTeal = Color(red: 0.012, green: 0.521, blue: 0.521)
             content = AnyView(
                 content
