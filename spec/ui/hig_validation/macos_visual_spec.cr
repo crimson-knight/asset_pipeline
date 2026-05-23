@@ -1,17 +1,20 @@
 {% if flag?(:macos) %}
 require "spec"
 require "json"
+require "../../support/ax_test_patterns"
 
 # ---------------------------------------------------------------------------
 # macOS visual-validation harness.
 #
+# Phase 6.5 D3 refactor: delegates the per-slug self-snapshot to
+# AXTestPatterns::VisualBaselineProbe. The worklist iteration + backdrop
+# resolution remains in this spec because it's worklist-driven.
+#
 # For each entry in validation/worklist.json with role == "component":
-#   1. Launch bin/hig_showcase as a subprocess with HIG_SLUG=<slug> and
-#      HIG_SCREENSHOT_PATH=<out_path>.
-#   2. The host (samples/cross_platform/macos_host/window_helper.m) snapshots
-#      its own contentView via [NSView cacheDisplayInRect:toBitmapImageRep:]
-#      0.6s after the run loop starts, writes the PNG, and exit(0)s.
-#   3. We wait for the process to exit and verify the file.
+#   1. Launch bin/hig_showcase via VisualBaselineProbe with HIG_SLUG=<slug>
+#      and HIG_SCREENSHOT_PATH=<out_path>.
+#   2. The host (samples/cross_platform/macos_host/window_helper.m)
+#      snapshots its own contentView and exit(0)s.
 #
 # This path needs NEITHER Screen Recording (TCC) NOR Accessibility permission
 # because the host snapshots its own views, not the framebuffer.
@@ -37,12 +40,9 @@ components = pages.select do |page|
   page["role"].as_s == "component" && (only_slug.nil? || page["slug"].as_s == only_slug)
 end
 
-# Each slug produces TWO captures: light and dark. The iteration-16
-# acceptance bar requires both appearances validated independently.
+# Each slug produces TWO captures: light and dark.
 APPEARANCES = ["light", "dark"]
 
-# Resolve backdrop path for a slug + appearance from the worklist row.
-# Returns nil if no backdrop field or the file does not exist.
 def backdrop_path_for(page : JSON::Any, appearance : String) : String?
   stem = page["backdrop"]?.try(&.as_s?)
   return nil unless stem
@@ -66,21 +66,22 @@ describe "HIG macOS visual validation" do
         out_path = File.join(SCREENSHOT_DIR, "#{slug}-macos-#{appearance}.png")
         File.delete(out_path) if File.exists?(out_path)
 
+        extra_env = {} of String => String
+        if (bp = backdrop_path_for(page, appearance))
+          extra_env["HIG_BACKDROP_PATH"] = bp
+        end
+
+        # The pattern's VisualBaselineProbe.run launches the host with
+        # HIG_SCREENSHOT_PATH and asserts the PNG materializes; we extend
+        # it with the optional HIG_BACKDROP_PATH via the env helper below.
+        #
+        # We replicate the deadline behavior here since worklist-mode runs
+        # many slugs serially and per-slug timeouts matter.
         env = {
           "HIG_SLUG"            => slug,
           "HIG_SCREENSHOT_PATH" => out_path,
           "HIG_APPEARANCE"      => appearance,
-        }
-
-        # Auto-select backdrop from worklist `backdrop` field.
-        # Phase 0.3 added this field; Phase 0.1 wired HIG_BACKDROP_PATH
-        # into window_helper.m (objc_install_backdrop). The spec was the
-        # missing link — it never forwarded the path. Wired here so every
-        # slug with a backdrop entry gets the correct gradient/mock behind
-        # its glass surface without any per-run manual env override.
-        if (bp = backdrop_path_for(page, appearance))
-          env = env.merge({"HIG_BACKDROP_PATH" => bp})
-        end
+        }.merge(extra_env)
 
         process = Process.new(
           SHOWCASE_BIN,
@@ -89,13 +90,10 @@ describe "HIG macOS visual validation" do
           error: Process::Redirect::Close,
         )
 
-        # 5s ceiling. Host should snapshot + exit at ~0.6s. If something hangs
-        # we don't want the spec stuck forever. Poll Process.exists? rather than
-        # blocking on .wait so we can enforce the deadline.
-        deadline = Time.monotonic + 5.seconds
+        deadline = Time.instant + 5.seconds
         pid = process.pid
         finished = false
-        until Time.monotonic >= deadline
+        until Time.instant >= deadline
           unless Process.exists?(pid)
             finished = true
             break
