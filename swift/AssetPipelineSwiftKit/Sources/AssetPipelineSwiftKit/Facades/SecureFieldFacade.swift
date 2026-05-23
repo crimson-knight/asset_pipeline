@@ -16,6 +16,10 @@ public class SecureFieldFacade: NSObject {
     ) -> APSKPlatformView {
         let storage = TextStorage(initial: initialText, token: actionToken)
         var content: AnyView = AnyView(SecureField(placeholder, text: storage.binding))
+        // Beauty-by-default border chrome — matches the TextFieldFacade
+        // change. Without this, the iOS default plain SecureField renders
+        // as a bare strip of placeholder text with no field affordance.
+        content = AnyView(content.textFieldStyle(.roundedBorder))
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(SecureStorageHost(storage: storage, content: content))
     }

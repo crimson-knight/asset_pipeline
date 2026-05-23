@@ -31,6 +31,14 @@ public class TextFieldFacade: NSObject {
 
         var content: AnyView = base
 
+        // Beauty-by-default: apply `.textFieldStyle(.roundedBorder)` so the
+        // field has visible chrome (rounded border + padding) on every
+        // platform. SwiftUI's iOS default is a plain TextField with no
+        // border — fine inside a Form, but not on a stand-alone sign-in
+        // surface where the user expects a recognisable field. Macros
+        // and per-widget style overrides will land in a follow-up.
+        content = AnyView(content.textFieldStyle(.roundedBorder))
+
         #if canImport(UIKit)
         if let kt = overrides.keyboardType {
             switch kt {
