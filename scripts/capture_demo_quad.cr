@@ -166,10 +166,19 @@ def capture_ios(slug : String, appearance : String)
     "-only-testing:CascadeDemoUITests/CascadeVisualTests/testRenderDemoSlug",
     "-derivedDataPath", derived_data,
   ]
+  # iOS UI tests run inside a separate `*-Runner.app` process; xcodebuild
+  # only forwards env vars to that runner if they are prefixed with
+  # `TEST_RUNNER_`. Without the prefix, `DEMO_APPEARANCE` lands in
+  # xcodebuild but never reaches the XCUITest target — causing the test
+  # to fall back to `"light"` for every appearance and producing only
+  # `<slug>-light` attachments (so dark captures silently miss).
   env = {
-    "DEMO_SLUG"       => slug,
-    "DEMO_APPEARANCE" => appearance,
-    "HIG_APPEARANCE"  => appearance,
+    "DEMO_SLUG"                   => slug,
+    "DEMO_APPEARANCE"             => appearance,
+    "HIG_APPEARANCE"              => appearance,
+    "TEST_RUNNER_DEMO_SLUG"       => slug,
+    "TEST_RUNNER_DEMO_APPEARANCE" => appearance,
+    "TEST_RUNNER_HIG_APPEARANCE"  => appearance,
   }
   status = Process.run(cmd[0], cmd[1..], env: env, output: STDOUT, error: STDERR)
   if status.exit_code != 0
@@ -185,24 +194,55 @@ def capture_ios(slug : String, appearance : String)
     return false
   end
   # Use xcrun xcresulttool to extract the attachment.
-  # Find attachments by name "<slug>-<appearance>" and copy to out_path.
-  tmp_json = File.tempname("xcresult-#{slug}.json")
-  Process.run("xcrun", ["xcresulttool", "get", "--legacy", "--format", "json", "--path", xcresult],
-    output: File.open(tmp_json, "w"))
+  # Xcode 16+ (iOS 26 toolchain) hides attachments behind nested refs:
+  #   ActionsInvocationRecord -> testsRef -> ActionTestPlanRunSummaries
+  #     -> ... -> ActionTestSummary (summaryRef) -> activitySummaries
+  #     -> attachments[].payloadRef -> binary
+  # We collect every ref id we see anywhere in the dump, fetch each as
+  # JSON, and scan the union for the attachment whose `name` matches
+  # `<slug>-<appearance>`. The previous regex only inspected the top
+  # JSON, which never contained the attachments.
+  expected = "#{slug}-#{appearance}"
   found = false
+
+  fetch_ref = ->(ref_id : String) : String do
+    io = IO::Memory.new
+    Process.run("xcrun", ["xcresulttool", "get", "--legacy", "--format", "json", "--path", xcresult, "--id", ref_id], output: io, error: Process::Redirect::Close)
+    io.to_s
+  end
+
+  fetch_root = -> : String do
+    io = IO::Memory.new
+    Process.run("xcrun", ["xcresulttool", "get", "--legacy", "--format", "json", "--path", xcresult], output: io, error: Process::Redirect::Close)
+    io.to_s
+  end
+
+  # Collect ids from a JSON blob: every `"id":{"_value":"…"}`.
+  collect_ids = ->(blob : String) : Array(String) do
+    blob.scan(/"id"\s*:\s*\{\s*(?:"_type"\s*:\s*\{[^}]*\}\s*,\s*)?"_value"\s*:\s*"([^"]+)"/).map { |m| m[1] }
+  end
+
   begin
-    txt = File.read(tmp_json)
-    expected = "#{slug}-#{appearance}"
-    # The xcresult attachment ref appears as {"_type":..., "filename":"..."} —
-    # find any occurrence by name + payloadRef id; then xcresulttool export.
-    if /"name"\s*:\s*\{\s*"_value"\s*:\s*"#{Regex.escape(expected)}"[\s\S]*?"payloadRef"\s*:\s*\{[\s\S]*?"id"\s*:\s*\{\s*"_value"\s*:\s*"([^"]+)"/.match(txt)
-      ref_id = $1
-      Process.run("xcrun", ["xcresulttool", "export", "--legacy", "--type", "file", "--path", xcresult, "--id", ref_id, "--output-path", out_path],
-        output: STDOUT, error: STDERR)
-      found = File.exists?(out_path) && File.size(out_path) > 0
+    seen = Set(String).new
+    queue = [] of String
+    root_txt = fetch_root.call
+    collect_ids.call(root_txt).each { |i| queue << i unless seen.includes?(i); seen << i }
+
+    # Pattern for the attachment record: name -> _value, then later
+    # payloadRef -> id -> _value. Allow optional _type before _value.
+    attachment_pattern = /"name"\s*:\s*\{\s*(?:"_type"\s*:\s*\{[^}]*\}\s*,\s*)?"_value"\s*:\s*"#{Regex.escape(expected)}"[\s\S]*?"payloadRef"\s*:\s*\{[\s\S]*?"id"\s*:\s*\{\s*(?:"_type"\s*:\s*\{[^}]*\}\s*,\s*)?"_value"\s*:\s*"([^"]+)"/
+
+    until queue.empty?
+      ref_id = queue.shift
+      blob = fetch_ref.call(ref_id)
+      if m = attachment_pattern.match(blob)
+        Process.run("xcrun", ["xcresulttool", "export", "--legacy", "--type", "file", "--path", xcresult, "--id", m[1], "--output-path", out_path],
+          output: STDOUT, error: STDERR)
+        found = File.exists?(out_path) && File.size(out_path) > 0
+        break if found
+      end
+      collect_ids.call(blob).each { |i| queue << i unless seen.includes?(i); seen << i }
     end
-  ensure
-    File.delete(tmp_json) if File.exists?(tmp_json)
   end
   FileUtils.rm_rf(derived_data) rescue nil
   if found
