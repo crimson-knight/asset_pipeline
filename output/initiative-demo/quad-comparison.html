@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cascade · quad-comparison</title>
+<style>
+body { font-family: -apple-system, system-ui, sans-serif; margin: 24px; line-height: 1.4; }
+h1 { margin-top: 0; }
+h2 { margin-top: 32px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { padding: 6px; text-align: center; vertical-align: top; border: 1px solid #eee; }
+th { background: #f7f7f7; font-weight: 600; font-size: 14px; }
+.surface-col { width: 25%; }
+.appearance-pair { display: flex; gap: 6px; justify-content: center; }
+.appearance-pair figure { margin: 0; flex: 1 1 0; }
+.appearance-pair figcaption { font-size: 11px; color: #666; }
+img { max-width: 100%; height: auto; border: 1px solid #ccc; }
+.missing { display: inline-block; width: 100%; height: 80px; line-height: 80px;
+          background: #fafafa; color: #999; font-size: 12px; font-style: italic; }
+</style></head>
+<body>
+<h1>Cascade — quad-comparison</h1>
+<p>Five demo screens rendered across four user-facing surfaces in light and dark appearance. The litmus question: can a reasonable reviewer see this is the same brand?</p>
+<h2>demo-sign-in</h2>
+<table>
+<thead>
+<tr><th class="surface-col">web-desktop</th><th class="surface-col">web-mobile</th><th class="surface-col">ios</th><th class="surface-col">macos</th></tr>
+</thead>
+<tbody>
+<tr><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-desktop/demo-sign-in-light.png" alt="demo-sign-in on web-desktop (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-desktop/demo-sign-in-dark.png" alt="demo-sign-in on web-desktop (dark)"><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-mobile/demo-sign-in-light.png" alt="demo-sign-in on web-mobile (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-mobile/demo-sign-in-dark.png" alt="demo-sign-in on web-mobile (dark)"><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><span class="missing">missing light</span><figcaption>light</figcaption></figure><figure><span class="missing">missing dark</span><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/macos/demo-sign-in-light.png" alt="demo-sign-in on macos (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/macos/demo-sign-in-dark.png" alt="demo-sign-in on macos (dark)"><figcaption>dark</figcaption></figure></div></td></tr>
+</tbody>
+</table>
+<h2>demo-dashboard</h2>
+<table>
+<thead>
+<tr><th class="surface-col">web-desktop</th><th class="surface-col">web-mobile</th><th class="surface-col">ios</th><th class="surface-col">macos</th></tr>
+</thead>
+<tbody>
+<tr><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-desktop/demo-dashboard-light.png" alt="demo-dashboard on web-desktop (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-desktop/demo-dashboard-dark.png" alt="demo-dashboard on web-desktop (dark)"><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-mobile/demo-dashboard-light.png" alt="demo-dashboard on web-mobile (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-mobile/demo-dashboard-dark.png" alt="demo-dashboard on web-mobile (dark)"><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><span class="missing">missing light</span><figcaption>light</figcaption></figure><figure><span class="missing">missing dark</span><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/macos/demo-dashboard-light.png" alt="demo-dashboard on macos (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/macos/demo-dashboard-dark.png" alt="demo-dashboard on macos (dark)"><figcaption>dark</figcaption></figure></div></td></tr>
+</tbody>
+</table>
+<h2>demo-detail</h2>
+<table>
+<thead>
+<tr><th class="surface-col">web-desktop</th><th class="surface-col">web-mobile</th><th class="surface-col">ios</th><th class="surface-col">macos</th></tr>
+</thead>
+<tbody>
+<tr><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-desktop/demo-detail-light.png" alt="demo-detail on web-desktop (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-desktop/demo-detail-dark.png" alt="demo-detail on web-desktop (dark)"><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-mobile/demo-detail-light.png" alt="demo-detail on web-mobile (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-mobile/demo-detail-dark.png" alt="demo-detail on web-mobile (dark)"><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><span class="missing">missing light</span><figcaption>light</figcaption></figure><figure><span class="missing">missing dark</span><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/macos/demo-detail-light.png" alt="demo-detail on macos (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/macos/demo-detail-dark.png" alt="demo-detail on macos (dark)"><figcaption>dark</figcaption></figure></div></td></tr>
+</tbody>
+</table>
+<h2>demo-settings</h2>
+<table>
+<thead>
+<tr><th class="surface-col">web-desktop</th><th class="surface-col">web-mobile</th><th class="surface-col">ios</th><th class="surface-col">macos</th></tr>
+</thead>
+<tbody>
+<tr><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-desktop/demo-settings-light.png" alt="demo-settings on web-desktop (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-desktop/demo-settings-dark.png" alt="demo-settings on web-desktop (dark)"><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-mobile/demo-settings-light.png" alt="demo-settings on web-mobile (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-mobile/demo-settings-dark.png" alt="demo-settings on web-mobile (dark)"><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><span class="missing">missing light</span><figcaption>light</figcaption></figure><figure><span class="missing">missing dark</span><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/macos/demo-settings-light.png" alt="demo-settings on macos (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/macos/demo-settings-dark.png" alt="demo-settings on macos (dark)"><figcaption>dark</figcaption></figure></div></td></tr>
+</tbody>
+</table>
+<h2>demo-tier-three</h2>
+<table>
+<thead>
+<tr><th class="surface-col">web-desktop</th><th class="surface-col">web-mobile</th><th class="surface-col">ios</th><th class="surface-col">macos</th></tr>
+</thead>
+<tbody>
+<tr><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-desktop/demo-tier-three-light.png" alt="demo-tier-three on web-desktop (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-desktop/demo-tier-three-dark.png" alt="demo-tier-three on web-desktop (dark)"><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-mobile/demo-tier-three-light.png" alt="demo-tier-three on web-mobile (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/web-mobile/demo-tier-three-dark.png" alt="demo-tier-three on web-mobile (dark)"><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><span class="missing">missing light</span><figcaption>light</figcaption></figure><figure><span class="missing">missing dark</span><figcaption>dark</figcaption></figure></div></td><td><div class="appearance-pair"><figure><img src="../../docs/initiative-cross-platform-ui/baselines/macos/demo-tier-three-light.png" alt="demo-tier-three on macos (light)"><figcaption>light</figcaption></figure><figure><img src="../../docs/initiative-cross-platform-ui/baselines/macos/demo-tier-three-dark.png" alt="demo-tier-three on macos (dark)"><figcaption>dark</figcaption></figure></div></td></tr>
+</tbody>
+</table>
+</body>
+</html>
