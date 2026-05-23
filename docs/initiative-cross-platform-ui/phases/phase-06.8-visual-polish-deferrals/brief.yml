@@ -252,15 +252,18 @@ lower_layer_assumptions:
     verification: "test -x /opt/homebrew/bin/magick && test -x /opt/homebrew/bin/compare"
 
 repo_derived_facts:
-  - fact: "ButtonFacade.swift line count (pre-impl baseline; sanity check Phase 6.8 doesn't bloat)"
+  # Post-impl: 3 fixes added 34 lines (283 → 317). Implementer discovered
+  # that :secondary arrives as a ROLE not a STYLE — Fix 3 is a post-switch
+  # role check rather than an added case, so style-case count remains 4.
+  - fact: "ButtonFacade.swift line count (post-Phase-6.8; +34 lines from 3 fixes)"
     query: "wc -l < swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/ButtonFacade.swift | tr -d ' '"
-    expected: "283"
-    captured_at_sha: "5b5a514"
+    expected: "317"
+    captured_at_sha: "3faab95"
 
-  - fact: "Number of style cases in ButtonFacade.swift (pre-impl; Phase 6.8 adds 'secondary' for total 5)"
+  - fact: "Number of style cases in ButtonFacade.swift (Fix 3 used a role check, not a style case — count unchanged at 4)"
     query: "grep -cE 'case \"(prominent|tinted|bordered|borderless|secondary)\":' swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/ButtonFacade.swift | tr -d ' '"
     expected: "4"
-    captured_at_sha: "5b5a514"
+    captured_at_sha: "3faab95"
 
   - fact: "Number of demo iOS baselines (pre-impl; Phase 6.8 re-captures sign-in only)"
     query: "ls docs/initiative-cross-platform-ui/baselines/ios/demo-*.png | wc -l | tr -d ' '"
