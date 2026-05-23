@@ -5,7 +5,7 @@ module InitiativeDemo
   #
   # State for each screen is a plain Crystal struct/class — settings
   # toggles, picker selections, navigation cursor, etc. The brand
-  # override pattern (InitiativeDemo::BRAND_TOKENS in brand.cr) is the
+  # override pattern (InitiativeDemo.brand_tokens in brand.cr) is the
   # ONLY module-level value; everything that mutates lives here.
   class State
     property current_screen : Symbol = :sign_in

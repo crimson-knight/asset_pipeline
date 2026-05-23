@@ -57,7 +57,16 @@ module InitiativeDemo
     end
   end
 
-  # Single shared Tokens with the demo brand baked in. All screens
-  # consume this via InitiativeDemo::BRAND_TOKENS.
-  BRAND_TOKENS = UI::DesignTokens::Tokens.default.with_brand(DemoBrand.new)
+  # Single shared Tokens with the demo brand baked in. Exposed as a
+  # method (not a constant) because module-level constant initializers
+  # don't fire under iOS embedding (the `ld -r -unexported_symbol _main`
+  # step in ios/build_crystal_lib.sh hides Crystal's `__crystal_main`,
+  # which is what triggers module constant initialization). The method
+  # builds fresh on each call; the cost is negligible (one struct
+  # allocation per render). See `samples/cross_platform/ios_host/hig_bridge.cr:25-50`
+  # for the canonical class-init gap workaround. Codex-confirmed
+  # root cause for the Phase 6 Rem 1 iOS crash investigation.
+  def self.brand_tokens : UI::DesignTokens::Tokens
+    UI::DesignTokens::Tokens.default.with_brand(DemoBrand.new)
+  end
 end

@@ -55,7 +55,7 @@ require "../../../src/ui/renderers/appkit_renderer"
     def self.run!
       focal = build_view_for(SLUG)
       renderer = UI::AppKit::Renderer.new
-      renderer.design_tokens = InitiativeDemo::BRAND_TOKENS
+      renderer.design_tokens = InitiativeDemo.brand_tokens
       native = renderer.render(focal)
       gc_guard = native
 

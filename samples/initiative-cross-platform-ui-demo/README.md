@@ -39,7 +39,7 @@ The Makefile mirrors the build patterns from `samples/cross_platform/`:
 ```
 samples/initiative-cross-platform-ui-demo/
   app.cr                # build_screen(slug) entry point used by every target
-  brand.cr              # InitiativeDemo::DemoBrand + BRAND_TOKENS
+  brand.cr              # InitiativeDemo::DemoBrand + .brand_tokens
   screens/              # one file per demo screen
     state.cr            # instance-scoped demo state (NO class vars)
     sign_in.cr

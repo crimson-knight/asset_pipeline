@@ -71,7 +71,7 @@ fun cascade_render(slug_ptr : LibC::Char*) : Void*
   slug = String.new(slug_ptr)
   view = CascadeBridge.build_view(slug)
   renderer = UI::UIKit::Renderer.new
-  renderer.design_tokens = InitiativeDemo::BRAND_TOKENS
+  renderer.design_tokens = InitiativeDemo.brand_tokens
   native = renderer.render(view)
   CascadeBridge.last_native = native
   native.handle.ptr!

@@ -5,7 +5,7 @@
 #   crystal run samples/initiative-cross-platform-ui-demo/web/static_site.cr
 #
 # Renders each screen via UI::Web::Renderer (which delegates to the
-# Components::Elements system) and pins the InitiativeDemo::BRAND_TOKENS
+# Components::Elements system) and pins InitiativeDemo.brand_tokens
 # on the renderer so every emitted page wears the deep-teal brand.
 
 require "../app"
@@ -24,7 +24,7 @@ InitiativeDemo::SLUGS.each do |slug|
     view = InitiativeDemo.build_screen(slug, state)
 
     renderer = UI::Web::Renderer.new
-    renderer.design_tokens = InitiativeDemo::BRAND_TOKENS
+    renderer.design_tokens = InitiativeDemo.brand_tokens
     title = "Cascade · #{slug}"
 
     body_html = renderer.render(view)
