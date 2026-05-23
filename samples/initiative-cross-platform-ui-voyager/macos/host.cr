@@ -44,8 +44,11 @@ require "../../../src/ui/renderers/appkit_renderer"
     WINDOW_WIDTH  = 880.0
     WINDOW_HEIGHT = 720.0
 
-    CAPTURE_WIDTH  = 720.0
-    CAPTURE_HEIGHT = 640.0
+    # Phase 6.10 Rem 4 cont. — env-overridable capture dimensions so
+    # the macOS resize evidence can be produced from a single binary
+    # by varying VOYAGER_CAPTURE_WIDTH / VOYAGER_CAPTURE_HEIGHT.
+    CAPTURE_WIDTH  = (ENV["VOYAGER_CAPTURE_WIDTH"]?.try(&.to_f?) || 720.0)
+    CAPTURE_HEIGHT = (ENV["VOYAGER_CAPTURE_HEIGHT"]?.try(&.to_f?) || 640.0)
 
     # GC-pinned references so the AppKit run loop doesn't collect the
     # Crystal-side state, coordinator, renderer, or active NativeView.
@@ -86,17 +89,24 @@ require "../../../src/ui/renderers/appkit_renderer"
       @@coord = coord
       @@renderer = renderer
 
-      # Build the initial view BEFORE creating the window so the window
-      # always has a content view installed at first paint.
-      initial_view = Voyager.build_route(state, coord, coord.current)
-      initial_native = renderer.render(initial_view)
-      @@active_native = initial_native
+      # Phase 6.10 Rem 4 continuation (Codex Item 3 PROGRESS): create
+      # the NSWindow BEFORE the initial build_route so the
+      # `DeviceMetrics.current` provider on AppKit can read the live
+      # window contentView frame on first paint. Previously the initial
+      # view rendered first and the macOS provider fell back to
+      # NSScreen.mainScreen.frame, which over-sized `root_fill` content
+      # for the actual window contentView. The visible bug at narrow
+      # widths was right-edge clipping.
 
       screenshot_path = ENV["VOYAGER_SCREENSHOT_PATH"]? || ENV["HIG_SCREENSHOT_PATH"]?
       if screenshot_path
         # Offscreen capture path — mirrors Cascade's offscreen capture.
-        title = "Voyager: #{ROOT_SLUG} (#{APPEARANCE}) capture"
+        # Create the capture window FIRST so DeviceMetrics reads its
+        # contentView frame, not the physical screen.
         window = LibWindowHelper.objc_create_capture_window(CAPTURE_WIDTH, CAPTURE_HEIGHT, APPEARANCE.to_unsafe)
+        initial_view = Voyager.build_route(state, coord, coord.current)
+        initial_native = renderer.render(initial_view)
+        @@active_native = initial_native
         LibWindowHelper.objc_install_content_view(window, initial_native.handle.ptr!)
         LibWindowHelper.objc_run_loop_for(0.4)
         rc = LibWindowHelper.objc_capture_view_offscreen(
@@ -113,6 +123,13 @@ require "../../../src/ui/renderers/appkit_renderer"
       set_content = LibObjCBridgeVoyager.sel_registerName("setContentView:".to_unsafe)
       @@window_ptr = window
       @@set_content_sel = set_content
+
+      # Now that the window exists, build_route can read the real
+      # contentView frame via the AppKit renderer's DeviceMetrics
+      # provider on its first call.
+      initial_view = Voyager.build_route(state, coord, coord.current)
+      initial_native = renderer.render(initial_view)
+      @@active_native = initial_native
 
       # Install the initial view via setContentView: before subscribing —
       # subsequent on_change fires reuse install_view().

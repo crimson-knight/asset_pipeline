@@ -14,10 +14,43 @@ import Combine
 /// any Crystal-rendered button can call `coord.push(...)`, which fires
 /// the on_change subscriber, which crosses into Swift via the C
 /// trampoline, which re-renders the view tree.
+///
+/// Phase 6.10 Rem 4 (Item 1 — Save-propagation fix):
+///
+/// Architect's hypothesis: returning from Editor → Todos via coord.pop
+/// goes slug "voyager-todos" → "voyager-todo-editor" → "voyager-todos".
+/// When the slug transitions BACK to "voyager-todos" the `.id(slug)`
+/// modifier does discard the existing representable and call
+/// `makeUIView` fresh — but if SwiftUI does any view caching by id, or
+/// if the slug change arrives in the same render pass that already
+/// reset, the new makeUIView call could end up returning a UIView
+/// built from a stale Crystal state snapshot.
+///
+/// Fix: include a monotonic `renderVersion` counter in the `.id()` so
+/// every `routeChanged` publish ALWAYS yields a fresh representable
+/// identity, even when the slug string is identical to a previous
+/// value. Combined with a properly-wired `updateUIView` that re-builds
+/// from Crystal (defensive — `.id` should already discard, but
+/// `updateUIView` becomes the safety net), the new todo always appears
+/// in the Todos list after Save → pop.
+///
+/// Phase 6.10 Rem 4 (Item 2A — full-screen fill):
+///
+/// The SwiftUI host now uses `.ignoresSafeArea(.all)` on the outer
+/// container so the Crystal-rendered content gets the full window
+/// (no SwiftUI safe-area padding leaving black bars at top + bottom on
+/// iPhone 17 Pro). Crystal-side screens that need to respect the
+/// Dynamic Island or home indicator query the runtime safe-area insets
+/// via the new `UI::DesignTokens::DeviceMetrics` utilities.
 struct ContentView: View {
     let initialSlug: String
 
     @State private var slug: String
+    /// Monotonic counter — bumped every time the Crystal coordinator
+    /// publishes a route change. Combined with `slug` in `.id()` so
+    /// even a same-slug republish (e.g. Editor → Todos return) forces
+    /// SwiftUI to discard + recreate the representable.
+    @State private var renderVersion: Int = 0
 
     init(initialSlug: String) {
         self.initialSlug = initialSlug
@@ -25,33 +58,33 @@ struct ContentView: View {
     }
 
     var body: some View {
-        // `.id(slug)` forces SwiftUI to recreate the
-        // UIViewRepresentable when the slug changes, which calls
-        // `makeUIView` fresh each time. Without `.id(slug)`, SwiftUI
-        // would only call `updateUIView` and reuse the existing UIView
-        // wrapper — but VoyagerHost's `makeUIView` returns the Crystal
-        // UIView (or a UIScrollView wrapping it) directly, so swapping
-        // content requires a new representable identity.
+        // Phase 6.10 Rem 4 Item 2A — full-screen fill:
         //
-        // Phase 6.10 Rem 3 (Item 3) — VoyagerHost now wraps the Crystal
-        // root in a UIKit `UIScrollView` (NOT a SwiftUI ScrollView) so
-        // overflowing content scrolls gracefully on iPhone 17 portrait
-        // while preserving the Item 2 AX-traversal win. UIScrollView is
-        // an UIKit-native AX element; XCUITest walks it transparently
-        // without `.contain` on a SwiftUI ScrollView (which collapsed
-        // the subtree in Rem 2). When the Crystal-side screen
-        // authoring uses its own UI::ScrollView (Layer B explicit
-        // opt-in), VoyagerHost detects the already-scrollable root and
-        // returns it as-is — no double scroll.
-        //
-        // Open: tap-to-on_tap interaction (Item 1) — addressed by the
-        // HostingHelpers Path A VC parenting fix shipped in Rem 3.
-        VoyagerHost(slug: slug)
-            .id(slug)
+        // The host UIViewRepresentable is given a frame of
+        // `.infinity × .infinity` and combined with `.ignoresSafeArea(.all)`
+        // so the UIKit content paints edge-to-edge from the very top of
+        // the screen (under the Dynamic Island) to the very bottom
+        // (under the home indicator). The Crystal screen builder
+        // queries `UI::DesignTokens::DeviceMetrics.current` and pads
+        // by `safe_area_top_pt` / `safe_area_bottom_pt` so visible
+        // controls stay clear of system chrome.
+        VoyagerHost(slug: slug, renderVersion: renderVersion)
+            // Phase 6.10 Rem 4 Item 1 — include renderVersion in the
+            // SwiftUI identity so route republishes always force a
+            // fresh `makeUIView` (defensive against the same-slug-
+            // return case where `.id(slug)` alone wouldn't change
+            // identity).
+            .id("\(slug)#\(renderVersion)")
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Color(UIColor.systemGroupedBackground))
+            .ignoresSafeArea(.all)
             .accessibilityIdentifier("voyager-root-host")
             .accessibilityElement(children: .contain)
         .onReceive(VoyagerBridge.routeChanged) { newSlug in
+            // Bump renderVersion FIRST so the new identity is in place
+            // BEFORE the slug update triggers re-evaluation; both
+            // changes coalesce into a single SwiftUI render pass.
+            renderVersion &+= 1
             if newSlug != slug {
                 slug = newSlug
             }
@@ -76,8 +109,16 @@ struct ContentView: View {
 ///
 /// Slug swaps are handled by `.id(slug)` on the SwiftUI side which
 /// forces a fresh `makeUIView` call each time the route changes.
+///
+/// Phase 6.10 Rem 4: `updateUIView` is now the SAFETY NET for the
+/// Save-propagation path. When the parent ContentView bumps
+/// `renderVersion` (every coordinator publish), the `.id()` should
+/// already discard + recreate the representable. But if SwiftUI ever
+/// elides the recreation, `updateUIView` defensively re-builds the
+/// Crystal content for the current slug and swaps it in place.
 struct VoyagerHost: UIViewRepresentable {
     let slug: String
+    let renderVersion: Int
 
     func makeUIView(context: Context) -> UIView {
         guard let crystalRoot = VoyagerBridge.render(slug: slug) else {
@@ -145,7 +186,54 @@ struct VoyagerHost: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
-        // Stateless — slug changes recreate via `.id(slug)` on the
-        // SwiftUI side, which discards this representable.
+        // Phase 6.10 Rem 4 Item 1 — safety net.
+        //
+        // Slug changes are normally handled by `.id("slug#renderVersion")`
+        // on the SwiftUI side, which discards this representable and
+        // calls `makeUIView` fresh. But if SwiftUI ever elides that
+        // recreation (e.g. same identity hash, or a coalesced update),
+        // we defensively re-build the Crystal content here so the
+        // user-visible UIView ALWAYS reflects the latest Crystal state.
+        //
+        // The owner's Rem 3 hand-test bug: Save → pop → Todos list does
+        // not show the new todo. Even if `.id()` discards reliably, the
+        // bug-proof posture is: always be ready to swap content on
+        // update, never assume identity-based discard alone.
+
+        // If the existing UIView is our UIScrollView wrap (from
+        // makeUIView), the Crystal root is the FIRST subview. Re-render
+        // and swap it. If the existing UIView is the Crystal root
+        // directly (already a UIScrollView), just replace the whole
+        // representable's hosted view — but UIViewRepresentable doesn't
+        // expose a `replaceRoot` API, so we mutate in place by removing
+        // all subviews + adding the freshly-rendered root.
+        guard let crystalRoot = VoyagerBridge.render(slug: slug) else {
+            return
+        }
+        crystalRoot.accessibilityIdentifier = "voyager-root-\(slug)"
+
+        if let scroll = uiView as? UIScrollView, scroll.accessibilityIdentifier == "voyager-root-\(slug)" || scroll.accessibilityIdentifier?.hasPrefix("voyager-root-") == true {
+            // Drop the old Crystal root subview(s); pin the new one.
+            for sub in scroll.subviews {
+                sub.removeFromSuperview()
+            }
+            crystalRoot.translatesAutoresizingMaskIntoConstraints = false
+            scroll.addSubview(crystalRoot)
+            let widthHint = crystalRoot.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor)
+            widthHint.priority = .defaultHigh
+            NSLayoutConstraint.activate([
+                crystalRoot.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+                crystalRoot.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+                crystalRoot.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+                crystalRoot.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+                widthHint,
+            ])
+            scroll.accessibilityIdentifier = "voyager-root-\(slug)"
+        } else {
+            // Crystal root is the representable's view directly — we
+            // can't swap the representable's hosted view from here, but
+            // the `.id()` bump on the parent side should already have
+            // discarded this representable and called makeUIView fresh.
+        }
     }
 }

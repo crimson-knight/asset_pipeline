@@ -18,20 +18,24 @@ module Voyager
     SLUG = "voyager-todos"
 
     def build(state : State, coord : UI::NavigationCoordinator) : UI::View
-      # Pin the root + every full-width child to an explicit
-      # content_width, matching the proven-working Sign-in pattern
-      # (see sign_in.cr). HStack-with-Spacer rows on iOS collapse
-      # to intrinsic content when no parent width constraint is
-      # present — pinning min_w==max_w on each row gives the inner
-      # Spacer a deterministic stretch axis and keeps trailing
-      # controls (Settings button, swipe Edit/Delete) visible.
-      content_width = 340.0
+      # Phase 6.10 Rem 4 (Item 2D/2E) — device-aware sizing.
+      #
+      # OUTER root uses `root_fill = true` so iOS / macOS / web sizes
+      # the container to the live device bounds. Inner full-width rows
+      # still carry an explicit `content_width` cap so HStack-with-
+      # Spacer rows don't collapse to intrinsic content on iOS.
+      metrics = UI::DesignTokens::DeviceMetrics.current
+      content_width = metrics.compact_horizontal? ? 340.0 : 480.0
 
       root = UI::VStack.new(spacing: 16.0)
+      root.root_fill = true
       root.alignment = UI::Alignment::Leading
-      root.padding = UI::EdgeInsets.new(top: 24.0, trailing: 20.0, bottom: 24.0, leading: 20.0)
-      root.minimum_width = content_width
-      root.maximum_width = content_width
+      root.padding = UI::EdgeInsets.new(
+        top: 24.0 + metrics.safe_area_top_pt,
+        trailing: 20.0 + metrics.safe_area_trailing_pt,
+        bottom: 24.0 + metrics.safe_area_bottom_pt,
+        leading: 20.0 + metrics.safe_area_leading_pt,
+      )
       root.accessibility_label = "Voyager todos screen"
       root.test_id = "voyager-todos-root"
 
@@ -97,7 +101,8 @@ module Voyager
       list_stack.maximum_width = content_width
       list_stack.test_id = "voyager-todos-list"
 
-      state.visible_todos.each do |todo|
+      visible = state.visible_todos
+      visible.each do |todo|
         list_stack << build_todo_row(todo, state, coord, content_width).as(UI::View)
       end
 

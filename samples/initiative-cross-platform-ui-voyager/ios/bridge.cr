@@ -62,6 +62,11 @@
     @@last_native : UI::NativeView? = nil
     @@current_slug_buf : Bytes? = nil
     @@swift_route_changed_cb : (LibC::Char* -> Void)? = nil
+    # Phase 6.10 Rem 4 — suppress the Swift route-changed callback
+    # during the initial coord/slug resync (see render_slug). Without
+    # this guard, replace_root → notify → Swift cb → render_slug →
+    # resync loop fires recursively.
+    @@suppress_route_changed = false
 
     def self.initialize_runtime
       return if @@initialized
@@ -128,7 +133,9 @@
         copy_slug_to_buf(slug)
         cb = @@swift_route_changed_cb
         buf = @@current_slug_buf
-        if !cb.nil? && !buf.nil?
+        if @@suppress_route_changed
+          # Initial resync — Swift callback intentionally suppressed.
+        elsif !cb.nil? && !buf.nil?
           cb.call(buf.to_unsafe.as(LibC::Char*))
         end
       end
@@ -181,20 +188,29 @@
       renderer.design_tokens = Voyager.brand_tokens
 
       route = Voyager.route_for_slug(slug)
-      # Keep the coordinator's idea of "current" in sync with what
-      # Swift is rendering. If Swift requested a slug that doesn't
-      # match the coord's current route (e.g. fresh launch + Swift
-      # decides to show :sign_in but the coord says :sign_in already
-      # — no-op), we replace_root only when truly mismatched AND we
-      # use a guard to avoid re-firing on_change while we're already
-      # responding to a route change.
-      if coord.current.id != route.id
-        # We use replace_root deliberately so we don't grow the stack
-        # on every Swift-driven re-render. The Crystal-side coord.push
-        # from inside button handlers is what builds the real
-        # navigation stack; this branch is only for the initial
-        # render path.
-        coord.replace_root(route) if @@swift_route_changed_cb.nil?
+      # Phase 6.10 Rem 4 (Item 1) — coord/slug sync invariant.
+      #
+      # When Swift launches with VOYAGER_ROOT_SLUG=voyager-todos, the
+      # Crystal coord is still at its constructor default (:sign_in).
+      # Without resync, the user's Save → coord.pop returns to
+      # :sign_in instead of :todos, and the new todo never gets
+      # visible because we land on the wrong screen.
+      #
+      # The previous logic only synced "if no Swift callback yet" —
+      # but the callback gets registered BEFORE the first render
+      # (VoyagerBridge.initialize() calls both routines), so the
+      # branch never fired and the coord stayed misaligned.
+      #
+      # New rule: if the coord is at depth=1 (just the constructor
+      # root) AND the requested slug doesn't match, treat this call as
+      # a first-time sync from the Swift launch arg — replace the
+      # root. Guard with `@@suppress_route_changed` so the resulting
+      # notify doesn't fire the Swift callback (which would loop us
+      # back into render_slug for the same slug we just synced).
+      if coord.current.id != route.id && coord.depth == 1
+        @@suppress_route_changed = true
+        coord.replace_root(route)
+        @@suppress_route_changed = false
       end
 
       view = Voyager.build_route(state, coord, route)

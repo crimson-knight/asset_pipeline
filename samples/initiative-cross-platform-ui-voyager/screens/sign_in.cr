@@ -11,18 +11,41 @@ module Voyager
     SLUG = "voyager-sign-in"
 
     def build(state : State, coord : UI::NavigationCoordinator) : UI::View
-      # Pattern mirrors samples/initiative-cross-platform-ui-demo/screens/sign_in.cr
-      # which is the proven-working layout (Phase 6 / 6.8 baselines): pin the
-      # root + form fields + primary button to an explicit content_width so
-      # SwiftUI's TextField / SecureField don't collapse to their intrinsic
-      # placeholder width inside the UIHostingController + UIStackView mix.
-      content_width = 340.0
+      # Phase 6.10 Rem 4 (Item 2D/2E + Item 3) — device-aware sizing.
+      #
+      # The OUTER root uses `root_fill = true` so iOS / macOS renderers
+      # size the screen to the live device bounds via
+      # `UI::DesignTokens::DeviceMetrics.current`. The inner fields still
+      # carry an explicit `content_width` cap so SwiftUI TextFields /
+      # SecureFields don't collapse to their placeholder intrinsic width
+      # inside the UIHostingController + UIStackView mix.
+      #
+      # Item 3 (off-screen Sign-in button frame) fix: the Sign-in button
+      # had `minimum_width = max_width = 340.0` on a centered VStack
+      # whose own width was ALSO pinned to 340. With the root pinned to
+      # 340 and aligned center inside a wider iPhone 17 Pro safe-area
+      # bounds (402pt content), the negative x-origin came from the
+      # SwiftUI ScrollView default-priority width-hint constraint
+      # racing the inner 340pt pin. Removing the outer width pin (now
+      # `root_fill`) lets UIKit auto-layout center the button cleanly
+      # within the live device width, and the inner cap stays at 340pt
+      # so the field column doesn't stretch to the edge on iPad.
+      metrics = UI::DesignTokens::DeviceMetrics.current
+      # Cap form-field width to 340pt on compact devices (iPhone
+      # portrait) and 400pt on regular (iPad portrait, landscape
+      # macOS). Authors override per-screen via the field's
+      # `minimum_width` / `maximum_width` props.
+      content_width = metrics.compact_horizontal? ? 340.0 : 400.0
 
       root = UI::VStack.new(spacing: 24.0)
+      root.root_fill = true
       root.alignment = UI::Alignment::Center
-      root.padding = UI::EdgeInsets.new(top: 48.0, trailing: 32.0, bottom: 48.0, leading: 32.0)
-      root.minimum_width = content_width
-      root.maximum_width = content_width
+      root.padding = UI::EdgeInsets.new(
+        top: 48.0 + metrics.safe_area_top_pt,
+        trailing: 32.0 + metrics.safe_area_trailing_pt,
+        bottom: 48.0 + metrics.safe_area_bottom_pt,
+        leading: 32.0 + metrics.safe_area_leading_pt,
+      )
       root.accessibility_label = "Voyager sign in screen"
       root.test_id = "voyager-sign-in-root"
 

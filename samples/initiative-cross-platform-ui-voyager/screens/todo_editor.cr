@@ -15,14 +15,21 @@ module Voyager
       editing = state.find_todo(todo_id)
       draft = editing || Todo.new(id: 0, title: "", note: "")
 
-      # Slightly tighter than sign-in to leave room for the Cancel/Save
-      # actions row without spilling off the iPhone 17 portrait viewport.
-      content_width = 340.0
+      # Phase 6.10 Rem 4 (Item 2D/2E) — device-aware sizing. Outer
+      # root_fill; inner fields still carry an explicit content_width
+      # cap so the Save+Cancel half-button math stays meaningful on
+      # all devices.
+      metrics = UI::DesignTokens::DeviceMetrics.current
+      content_width = metrics.compact_horizontal? ? 340.0 : 480.0
       root = UI::VStack.new(spacing: 16.0)
+      root.root_fill = true
       root.alignment = UI::Alignment::Leading
-      root.padding = UI::EdgeInsets.new(top: 24.0, trailing: 20.0, bottom: 24.0, leading: 20.0)
-      root.minimum_width = content_width
-      root.maximum_width = content_width
+      root.padding = UI::EdgeInsets.new(
+        top: 24.0 + metrics.safe_area_top_pt,
+        trailing: 20.0 + metrics.safe_area_trailing_pt,
+        bottom: 24.0 + metrics.safe_area_bottom_pt,
+        leading: 20.0 + metrics.safe_area_leading_pt,
+      )
       root.accessibility_label = "Voyager todo editor"
       root.test_id = "voyager-todo-editor-root"
 

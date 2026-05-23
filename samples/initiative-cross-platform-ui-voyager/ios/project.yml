@@ -14,6 +14,14 @@ targets:
     settings:
       GENERATE_INFOPLIST_FILE: YES
       PRODUCT_BUNDLE_IDENTIFIER: com.assetpipeline.voyager.VoyagerDemo
+      # Phase 6.10 Rem 4 (Item 2A) — INFOPLIST_KEY_UILaunchScreen_Generation
+      # tells Xcode's auto-generated Info.plist to emit a
+      # `UILaunchScreen` dictionary, which is the iOS 14+ recipe for
+      # signaling "this app uses the full device screen". Without it,
+      # iOS 26 letterboxes the app to a smaller frame with black bars
+      # above + below the safe area (the owner's Rem 3 hand-test
+      # complaint: "aspect ratio is clearly wrong").
+      INFOPLIST_KEY_UILaunchScreen_Generation: YES
       LIBRARY_SEARCH_PATHS:
         - $(PROJECT_DIR)/build
         - /tmp/crystal-cross-deps/ios-simulator/lib

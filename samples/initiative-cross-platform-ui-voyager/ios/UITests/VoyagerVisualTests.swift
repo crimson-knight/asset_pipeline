@@ -100,8 +100,8 @@ final class VoyagerVisualTests: XCTestCase {
         // Phase 6.10 Rem 3 — XCUITest tap synthesis on a UIHostingController-
         // hosted SwiftUI Button does NOT fire the Button's action closure
         // under iPhone 17 simulator even with Path A (UIHostingController
-        // VC parenting) in place. Verified via [voyager-interaction-proof]
-        // log stream: the container's VC parenting succeeds (5 controllers
+        // VC parenting) in place. Verified via the unified log
+        // stream: the container's VC parenting succeeds (5 controllers
         // attached to root SwiftUI UIHostingController), the tap reaches
         // `_UIHostingView` (hitTest returns it for dy=0.53..0.56), but
         // `CallbackBridge.fire` never fires. See
@@ -177,5 +177,74 @@ final class VoyagerVisualTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    /// Phase 6.10 Rem 4 Item 1 — Save-propagation proof.
+    ///
+    /// Launches at the Todos screen, snapshots the initial state,
+    /// drives an Add Todo → fill Title → Save flow, and snapshots
+    /// the Todos list afterward. The owner's complaint was that the
+    /// new todo doesn't appear in the list — the after-screenshot
+    /// must show one more row.
+    ///
+    /// Even when XCUITest tap synthesis doesn't drive SwiftUI Button
+    /// actions reliably, the underlying Save chain can be exercised
+    /// by `app.buttons["..."].tap()` via the SwiftUI button
+    /// accessibility trait (the AX path bypasses hit-testing).
+    func testSavePropagation() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-VoyagerRoot", "voyager-todos"]
+        app.launchEnvironment = [
+            "VOYAGER_ROOT_SLUG": "voyager-todos",
+        ]
+        app.launch()
+        Thread.sleep(forTimeInterval: 2.0)
+        attachScreenshot(name: "save-propagation-step1-todos-before")
+
+        // Tap Add Todo
+        var addBtn = app.buttons["Add a new todo"]
+        if !addBtn.waitForExistence(timeout: 5) {
+            addBtn = app.buttons["voyager-todos-add"]
+        }
+        if addBtn.waitForExistence(timeout: 3) {
+            addBtn.tap()
+            Thread.sleep(forTimeInterval: 1.5)
+        }
+        attachScreenshot(name: "save-propagation-step2-editor")
+
+        // Type a unique title so we can detect it in the after state.
+        let uniqueTitle = "Rem4-save-\(Int(Date().timeIntervalSince1970))"
+        let titleField = app.textFields["Todo title"]
+        if titleField.waitForExistence(timeout: 5) {
+            titleField.tap()
+            titleField.typeText(uniqueTitle)
+        }
+        attachScreenshot(name: "save-propagation-step3-typed")
+
+        // Tap Save
+        var saveBtn = app.buttons["Save todo"]
+        if !saveBtn.waitForExistence(timeout: 5) {
+            saveBtn = app.buttons["voyager-todo-editor-save"]
+        }
+        if saveBtn.waitForExistence(timeout: 3) {
+            saveBtn.tap()
+            Thread.sleep(forTimeInterval: 1.5)
+        }
+        attachScreenshot(name: "save-propagation-step4-todos-after")
+
+        // The new title should appear somewhere in the AX tree as a
+        // static text element (UI::Label inside SwipeActionRow).
+        // If save-propagation works end-to-end, this assertion passes.
+        // Phase 6.10 Rem 4 cont. (Codex P2 fix): assert the
+        // propagation so the test FAILS CI when the new row is
+        // missing — observational logging alone hid regressions.
+        let newRow = app.staticTexts[uniqueTitle]
+        let propagated = newRow.waitForExistence(timeout: 5)
+        XCTContext.runActivity(named: "save-propagation-newrow-found=\(propagated)") { _ in }
+        XCTAssertTrue(propagated,
+            "Save-propagation regression: the saved todo titled '\(uniqueTitle)' " +
+            "did not appear in the Todos list within 5s after Save. The " +
+            "Editor → coord.pop → Todos list re-render chain is broken " +
+            "(see Phase 6.10 Rem 4 brief Item 1).")
     }
 }
