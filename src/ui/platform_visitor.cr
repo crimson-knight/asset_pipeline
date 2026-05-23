@@ -122,5 +122,10 @@ module UI
     abstract def visit(view : ActionSheetWithWebFallback)
     abstract def visit(view : ContextMenuWithWebFallback)
     abstract def visit(view : PathControlWithWebFallback)
+
+    # Phase 6.10 — SwipeActionRow. iOS renders SwiftUI .swipeActions;
+    # macOS + desktop-web render visible trailing buttons; mobile-web
+    # renders touch-swipe-to-reveal panel.
+    abstract def visit(view : SwipeActionRow)
   end
 end

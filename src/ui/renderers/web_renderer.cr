@@ -2681,6 +2681,211 @@ module UI
         push_element(root)
       end
 
+      # Phase 6.10 — SwipeActionRow.
+      #
+      # Desktop-web: render the content + a visible trailing-actions
+      # HStack with one button per action. Same chrome the user expects
+      # in a desktop list row.
+      #
+      # Mobile-web (viewport < mobile_breakpoint_px): emit the same
+      # content + a hidden trailing-actions panel, plus inline JS
+      # touch-event handlers that translate the row on touchmove and
+      # reveal the panel when the user swipes left far enough.
+      #
+      # Both surfaces are emitted unconditionally; the JS shim hides
+      # the always-visible buttons on mobile and shows the
+      # swipe-revealable panel instead, and the converse on desktop.
+      # That keeps the HTML accessible to screen readers regardless
+      # of viewport.
+      def visit(view : UI::SwipeActionRow)
+        row_id = next_swipe_action_id
+        wrap = Components::Elements::Div.new
+        wrap.add_class("ap-swipe-row")
+        wrap.set_attribute("data-component", "swipe-action-row")
+        wrap.set_attribute("data-row-id", row_id.to_s)
+        wrap.set_attribute("data-mobile-breakpoint", view.mobile_breakpoint_px.to_s)
+
+        # Content cell — the primary row content. Rendered via the
+        # standard visit path so any UI::View is supported.
+        content_html = render_subview(view.content)
+        content_el = Components::Elements::Div.new
+        content_el.add_class("ap-swipe-row__content")
+        content_el.add_raw_html(content_html)
+        wrap.add_child(content_el)
+
+        # Trailing actions — visible HStack on desktop, revealed on
+        # mobile swipe.
+        if !view.trailing_actions.empty?
+          trailing = Components::Elements::Div.new
+          trailing.add_class("ap-swipe-row__trailing")
+          view.trailing_actions.each_with_index do |action, idx|
+            btn = Components::Elements::Button.new(type: "button")
+            btn << action.label
+            btn.add_class("ap-swipe-row__action")
+            btn.add_class("ap-swipe-row__action--destructive") if action.role == :destructive
+            btn.set_attribute("data-action-index", idx.to_s)
+            btn.set_attribute("data-action-role", action.role.to_s)
+            btn.set_attribute("data-action-edge", "trailing")
+            btn.set_attribute("aria-label", action.label)
+            trailing.add_child(btn)
+          end
+          wrap.add_child(trailing)
+        end
+
+        # Leading actions (less common — swipe right reveals them on
+        # iOS). Same chrome on web for consistency.
+        if !view.leading_actions.empty?
+          leading = Components::Elements::Div.new
+          leading.add_class("ap-swipe-row__leading")
+          view.leading_actions.each_with_index do |action, idx|
+            btn = Components::Elements::Button.new(type: "button")
+            btn << action.label
+            btn.add_class("ap-swipe-row__action")
+            btn.add_class("ap-swipe-row__action--destructive") if action.role == :destructive
+            btn.set_attribute("data-action-index", idx.to_s)
+            btn.set_attribute("data-action-role", action.role.to_s)
+            btn.set_attribute("data-action-edge", "leading")
+            btn.set_attribute("aria-label", action.label)
+            leading.add_child(btn)
+          end
+          wrap.add_child(leading)
+        end
+
+        # Emit CSS + JS once per renderer instance, attached to this
+        # row wrap so it's part of the rendered output regardless of
+        # nesting.
+        register_swipe_action_chrome(wrap) unless @swipe_action_chrome_emitted
+
+        apply_common_styles(wrap, view)
+        push_element(wrap)
+      end
+
+      @swipe_action_counter : Int32 = 0
+      @swipe_action_chrome_emitted : Bool = false
+
+      private def next_swipe_action_id : Int32
+        @swipe_action_counter += 1
+      end
+
+      # CSS + vanilla-JS for the swipe-action chrome. Emits a <style>
+      # block + a <script> with touch-event handlers that translate
+      # the row on swipe-left and reveal the trailing panel. The
+      # chrome <div> is appended into the current row wrapper so it
+      # travels with the rendered output regardless of nesting (a
+      # single SwipeActionRow at the root vs nested inside a VStack
+      # both emit the chrome exactly once per renderer instance).
+      private def register_swipe_action_chrome(wrap : Components::Elements::HTMLElement)
+        @swipe_action_chrome_emitted = true
+        chrome_div = Components::Elements::Div.new
+        chrome_div.set_attribute("data-component", "swipe-action-chrome")
+        chrome_div.set_attribute("hidden", "hidden")
+        chrome_div.add_raw_html(swipe_action_chrome_html)
+        wrap.as(Components::Elements::ContainerElement).add_child(chrome_div)
+      end
+
+      private def swipe_action_chrome_html : String
+        <<-HTML
+        <style>
+        .ap-swipe-row {
+          position: relative;
+          display: flex;
+          align-items: stretch;
+          overflow: hidden;
+          touch-action: pan-y;
+        }
+        .ap-swipe-row__content {
+          flex: 1;
+          min-width: 0;
+        }
+        .ap-swipe-row__trailing,
+        .ap-swipe-row__leading {
+          display: flex;
+          gap: 8px;
+          padding: 0 8px;
+          align-items: center;
+        }
+        .ap-swipe-row__action {
+          padding: 8px 14px;
+          border-radius: 8px;
+          border: 1px solid var(--ap-color-border-default);
+          background: var(--ap-color-surface-panel);
+          color: var(--ap-color-text-primary);
+          font: inherit;
+          cursor: pointer;
+          min-height: 44px;
+        }
+        .ap-swipe-row__action--destructive {
+          color: var(--ap-color-danger-text);
+          border-color: var(--ap-color-danger-text);
+        }
+        @media (max-width: 767px) {
+          .ap-swipe-row__trailing,
+          .ap-swipe-row__leading {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            opacity: 0;
+            transform: translateX(0);
+            transition: opacity 120ms ease, transform 120ms ease;
+            pointer-events: none;
+          }
+          .ap-swipe-row__trailing { right: 0; }
+          .ap-swipe-row__leading { left: 0; }
+          .ap-swipe-row[data-revealed="trailing"] .ap-swipe-row__trailing {
+            opacity: 1; transform: translateX(0); pointer-events: auto;
+          }
+          .ap-swipe-row[data-revealed="leading"] .ap-swipe-row__leading {
+            opacity: 1; transform: translateX(0); pointer-events: auto;
+          }
+          .ap-swipe-row[data-revealed="trailing"] .ap-swipe-row__content {
+            transform: translateX(-120px);
+            transition: transform 120ms ease;
+          }
+        }
+        </style>
+        <script>
+        (function() {
+          var REVEAL_THRESHOLD = 40; // px
+          function bind(row) {
+            if (row.dataset.swipeBound === '1') return;
+            row.dataset.swipeBound = '1';
+            var startX = null;
+            row.addEventListener('touchstart', function(e) {
+              startX = e.touches[0].clientX;
+            }, {passive: true});
+            row.addEventListener('touchmove', function(e) {
+              if (startX === null) return;
+              var dx = e.touches[0].clientX - startX;
+              if (dx < -REVEAL_THRESHOLD) row.setAttribute('data-revealed', 'trailing');
+              else if (dx > REVEAL_THRESHOLD) row.setAttribute('data-revealed', 'leading');
+            }, {passive: true});
+            row.addEventListener('touchend', function() { startX = null; });
+            // Tap outside the row resets reveal state.
+            document.addEventListener('click', function(e) {
+              if (!row.contains(e.target)) row.removeAttribute('data-revealed');
+            });
+          }
+          function bindAll() {
+            document.querySelectorAll('.ap-swipe-row').forEach(bind);
+          }
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bindAll);
+          } else {
+            bindAll();
+          }
+        })();
+        </script>
+        HTML
+      end
+
+      # Render `view` to HTML in a sub-renderer (preserves parent
+      # context). Used by SwipeActionRow to embed arbitrary content.
+      private def render_subview(view : UI::View) : String
+        sub = Renderer.new
+        sub.design_tokens = @design_tokens
+        sub.render(view)
+      end
+
       # Monotonic per-renderer counter for action-sheet element IDs.
       private def next_action_sheet_id : Int32
         @action_sheet_counter ||= 0

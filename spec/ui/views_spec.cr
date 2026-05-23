@@ -330,6 +330,10 @@ class TestVisitor < UI::PlatformVisitor
   def visit(view : UI::ActionSheetWithWebFallback)
     @visited << "ActionSheetWithWebFallback(#{view.title})"
   end
+
+  def visit(view : UI::SwipeActionRow)
+    @visited << "SwipeActionRow(trailing=#{view.trailing_actions.size},leading=#{view.leading_actions.size})"
+  end
 end
 
 describe UI do

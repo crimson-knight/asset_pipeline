@@ -3740,6 +3740,42 @@
         push_native(native)
       end
 
+      # Phase 6.10 — SwipeActionRow. Native swipe-to-reveal lives in
+      # SwiftUI .swipeActions(edge:), which requires a dedicated
+      # SwiftKit facade (deferred to a follow-up). The current impl
+      # renders the content + a visible trailing-actions UIStackView,
+      # giving consumers a working baseline today + the same API
+      # surface so the SwiftKit upgrade is drop-in later.
+      def visit(view : UI::SwipeActionRow)
+        outer = alloc_init("UIStackView")
+        LibObjCBridge.objc_send_long(outer, sel("setAxis:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(outer, sel("setSpacing:"), 8.0)
+        LibObjCBridge.objc_send_long(outer, sel("setAlignment:"), 3_i64) # center
+
+        outer_handle = ObjC.owned(outer, label: "UIStackView[SwipeActionRow]")
+        outer_native = NativeView.new(outer_handle)
+
+        # Content child
+        if content_native = render_detached(view.content)
+          LibObjCBridge.objc_send_id(outer, sel("addArrangedSubview:"), content_native.handle.ptr!)
+          outer_native.add_child(content_native)
+        end
+
+        # Trailing actions inline (HStack of UIButtons)
+        view.trailing_actions.each do |action|
+          btn = alloc_init("UIButton")
+          title_ns = LibObjCBridge.nsstring_from_cstr(action.label.to_unsafe)
+          LibObjCBridge.objc_send_id_long(btn, sel("setTitle:forState:"), title_ns, 0_i64)
+          apply_common_properties(btn, view)
+          LibObjCBridge.objc_send_id(outer, sel("addArrangedSubview:"), btn)
+          btn_handle = ObjC.owned(btn, label: "UIButton[SwipeAction:#{action.label}]")
+          outer_native.add_child(NativeView.new(btn_handle))
+        end
+
+        apply_common_properties(outer, view)
+        emit(outer, "UIStackView[SwipeActionRow]")
+      end
+
       def visit(view : UI::ActionSheetWithWebFallback)
         # The WithWebFallback's iOS branch holds a UI::ActionSheet and
         # forwards accept() to it, so this visitor is unreachable in

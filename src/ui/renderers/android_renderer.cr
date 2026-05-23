@@ -3145,6 +3145,13 @@ module UI::Android
       push_native(native, ll)
     end
 
+    # Phase 6.10 — SwipeActionRow stub. Android proper integration is
+    # deferred per the brief (Android cross-build remains
+    # architect-precedent PASS); render the content view only.
+    def visit(view : UI::SwipeActionRow)
+      view.content.accept(self)
+    end
+
     def visit(view : UI::ActionSheetWithWebFallback)
       # Android has a BottomSheetDialog widget but Phase 4 keeps fidelity
       # high by synthesizing a UI::ConfirmationDialog (confirm + cancel)

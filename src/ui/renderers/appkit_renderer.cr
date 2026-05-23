@@ -3737,6 +3737,37 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         emit(v, "NSView[PathControlWithWebFallback-stub]")
       end
 
+      # Phase 6.10 — SwipeActionRow. macOS HIG explicitly does NOT have
+      # swipe-to-reveal; the idiomatic equivalent is visible trailing
+      # buttons (NSTableView row actions are the closest analog and they
+      # too render as visible chrome on hover/select). We render an
+      # NSStackView with content + trailing-action NSButtons inline.
+      def visit(view : UI::SwipeActionRow)
+        ptr = alloc_init("NSStackView")
+        LibObjCBridge.objc_send_long(ptr, sel("setOrientation:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(ptr, sel("setSpacing:"), 8.0)
+
+        outer_handle = ObjC.owned(ptr, label: "NSStackView[SwipeActionRow]")
+        outer_native = NativeView.new(outer_handle)
+
+        if content_native = render_detached(view.content)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), content_native.handle.ptr!)
+          outer_native.add_child(content_native)
+        end
+
+        view.trailing_actions.each do |action|
+          btn = alloc_init("NSButton")
+          title_ns = LibObjCBridge.nsstring_from_cstr(action.label.to_unsafe)
+          LibObjCBridge.objc_send_id(btn, sel("setTitle:"), title_ns)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), btn)
+          btn_handle = ObjC.owned(btn, label: "NSButton[SwipeAction:#{action.label}]")
+          outer_native.add_child(NativeView.new(btn_handle))
+        end
+
+        apply_common_properties(ptr, view)
+        push_native(outer_native)
+      end
+
       def visit(view : UI::ActionSheetWithWebFallback)
         # macOS lacks a native action-sheet idiom (HIG steers developers to
         # NSAlert / modal sheets). We synthesize a UI::ConfirmationDialog
