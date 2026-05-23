@@ -25,22 +25,14 @@ struct ContentView: View {
     }
 
     var body: some View {
-        // Pattern mirrors the proven-working Cascade ContentView
-        // (samples/initiative-cross-platform-ui-demo/ios/Sources/ContentView.swift).
-        // Wrap the Crystal-produced UIView in a vertical ScrollView so any
-        // screen taller than the iPhone portrait viewport remains reachable.
-        // The Crystal-side screen authoring includes its own root padding so
-        // inner gutters are honoured without extra Swift-side adornment.
-        //
-        // CRITICAL: `.id(slug)` forces SwiftUI to recreate the
+        // `.id(slug)` forces SwiftUI to recreate the
         // UIViewRepresentable when the slug changes, which calls
         // `makeUIView` fresh each time. Without `.id(slug)`, SwiftUI
         // would only call `updateUIView` and reuse the existing UIView
         // wrapper — but VoyagerHost's `makeUIView` returns the Crystal
         // UIView DIRECTLY (no container wrapper), so swapping content
-        // requires a new representable identity. This mirrors the
-        // Cascade pattern which doesn't need swaps (one slug per
-        // launch) but Voyager needs swaps on every coord.push/pop.
+        // requires a new representable identity.
+        //
         // Phase 6.10 Rem 2 — VoyagerHost without outer SwiftUI
         // ScrollView, with `.accessibilityElement(children: .contain)`
         // on the host to surface the embedded Crystal UIKit subtree

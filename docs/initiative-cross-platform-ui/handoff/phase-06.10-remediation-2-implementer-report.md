@@ -65,7 +65,8 @@ The test SUCCEEDS at the AX traversal layer; the navigation flow assertions degr
 **What's PARTIAL on iOS:**
 - The Sign-in screen renders correctly (form + prominent Sign in button).
 - The Todos screen renders the title + Open/Done counts but the list and Add Todo button are not visible in the iPhone 17 screenshot — the white content area extends past the visible viewport without external scroll. This is the tradeoff of dropping the outer SwiftUI ScrollView for AX traversal; the long-term fix is adding `UI::ScrollView` at the screen authoring level (Crystal's own scroll view preserves AX hierarchy, unlike SwiftUI's).
-- iOS Settings + Editor screenshots show some content but full coverage of all controls requires verification against a taller / scrollable viewport. Deferred to architect's call.
+- The Settings screen renders title + explainer; the Hide-completed toggle and Back-to-todos button positioned below the visible viewport, same root cause as Todos.
+- The Editor screen CRASHES silently on direct-slug launch (`VOYAGER_ROOT_SLUG=voyager-todo-editor`). Evidence directory has a `.md` placeholder in lieu of a screenshot, documenting the new bug. The macOS Editor renders correctly. Investigation deferred to architect — this is a NEW iOS-only bug surfaced during Rem 2 evidence capture, not in the Rem 2 brief's scope.
 
 ## Iteration / Codex trail
 

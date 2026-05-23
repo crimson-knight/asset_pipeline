@@ -45,7 +45,7 @@ press), but it does not fire the SwiftUI Button's action.
 ### Confirmed working paths (Item 2 + Item 3 evidence)
 
 - **AX traversal works**: `app.buttons["Sign in"]` AND `app.buttons["voyager-sign-in-submit"]` both resolve to a discoverable XCUIElement on the iter 2 config (host with `.contain`, no outer ScrollView). The element's reported AX frame is `{{-20.0, 320.7}, {380.0, 40.3}}`.
-- **Layout works**: Offscreen iPhone 17 / macOS captures at `handoff/phase-06.10-remediation-2-evidence/` show Sign-in, Todos, Settings, and Editor screens with all controls visible.
+- **Layout works on macOS for all 4 screens** + on iOS for Sign-in. Offscreen captures at `handoff/phase-06.10-remediation-2-evidence/` show: macOS Sign-in, Todos, Settings, Editor all render with all controls visible; iOS Sign-in renders correctly; iOS Todos / Settings capture title + chart but list / Settings button / Add Todo / Back button positioned below the visible viewport (no outer SwiftUI ScrollView, see ContentView.swift); iOS Editor crashes silently on direct-slug launch (NEW bug, see the `.md` placeholder in the evidence dir for details).
 - **Crystal-side state propagation works**: The pre-existing `spec/ui/voyager_state_propagation_spec.cr` confirms that when Sign-in's on_tap closure runs, the coordinator correctly navigates and the rebuild fires. This is unrelated to the touch chain.
 
 ### Root cause hypothesis
