@@ -1047,19 +1047,33 @@ module AuditHarness
       end
 
       def ios(slug : String?) : Result
-        # iOS Crystal-lib build at libCrystalLib.a is the embedding proof.
-        artifact = File.join(REPO_ROOT, "samples/cross_platform/ios_host/build/crystal/libCrystalLib.a")
-        if File.exists?(artifact)
-          Result.new(
-            status: Status::Pass,
-            message: "iOS embedding artifact present at #{artifact}; existence proves Crystal-lib cross-build for iOS sim succeeded at last build.",
-          )
-        else
-          Result.new(
-            status: Status::Skip,
-            message: "iOS Crystal-lib not built yet (run samples/cross_platform/ios_host/build_crystal_lib.sh simulator). Cell routed.",
-          )
-        end
+        # Phase 6.5 Rem2: real xcodebuild test. Replaces the prior
+        # artifact-presence proxy (which checked a stale, never-emitted
+        # path under build/crystal/libCrystalLib.a — the build script
+        # actually writes build/libhighost.a, so the proxy silently
+        # short-circuited to SKIP). I-9 is the BX8/R9 class-init gap
+        # probe: verify Crystal-lib survives the embedded execution
+        # environment — class-var initializers, Crystal::once lookup
+        # tables, and lazy-static init that normally fire from _main
+        # must work under the iOS host (where Swift owns the entry
+        # point and _main never runs). testBX8_sheetDismissReturnsFocus
+        # is the canonical surface: it launches phase-03-sheet-focus-
+        # return, which presents/dismisses a UI::Sheet across three
+        # paths (primary, cancel, swipe). Sheet presentation drives
+        # the dismiss-callback registration path through
+        # samples/cross_platform/ios_host/hig_bridge.cr — the exact
+        # surface that exposed the R9 class-init gap (see
+        # memory/project_crystal_ios_class_init_gap.md). If Crystal-
+        # lib class-var init fails under embedding, the sheet trigger
+        # never registers, BX8 fails with sheet-trigger not
+        # discoverable, and I-9 reports the real failure with
+        # xcodebuild output. I-3 also drives BX8 but asserts focus
+        # return semantics; I-9 reuses the method per Rem2 brief
+        # guidance to observe class-init survival.
+        IOSXcodeProbe.run_test(
+          "Phase03BehaviorTests", "testBX8_sheetDismissReturnsFocus",
+          "iOS class-var init under embedding (BX8/R9 class-init gap surface)",
+        )
       end
     end
 
