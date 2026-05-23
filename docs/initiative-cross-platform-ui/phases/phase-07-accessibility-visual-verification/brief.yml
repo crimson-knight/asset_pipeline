@@ -250,14 +250,14 @@ lower_layer_assumptions:
     verification: "test -x /opt/homebrew/bin/magick && test -x /opt/homebrew/bin/compare"
 
   - id: A6
-    claim: "GitHub Actions workflow path does NOT yet exist (Phase 7 creates it)"
-    falsifier: "Workflow already exists"
-    verification: "test ! -f .github/workflows/initiative-cross-platform-ui.yml"
+    claim: "GitHub Actions workflow at .github/workflows/initiative-cross-platform-ui.yml exists (post-Phase-7 — flipped from pre-impl 'does NOT yet exist' after the Implementer landed Deliverable 1)"
+    falsifier: "Workflow missing"
+    verification: "test -f .github/workflows/initiative-cross-platform-ui.yml"
 
   - id: A7
-    claim: "Verification runbook does NOT yet exist (Phase 7 authors it)"
-    falsifier: "Runbook already exists"
-    verification: "test ! -f docs/initiative-cross-platform-ui/verification-runbook.md"
+    claim: "Verification runbook at docs/initiative-cross-platform-ui/verification-runbook.md exists (post-Phase-7 — flipped from pre-impl 'does NOT yet exist' after the Implementer landed Deliverable 2)"
+    falsifier: "Runbook missing"
+    verification: "test -f docs/initiative-cross-platform-ui/verification-runbook.md"
 
 repo_derived_facts:
   - fact: "Demo baseline PNG count across 4 surface directories"
