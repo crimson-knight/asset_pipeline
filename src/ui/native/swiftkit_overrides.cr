@@ -212,6 +212,41 @@ module UI
 
         nl = view.number_of_lines
         sender.set_number(target, :setNumberOfLines, nl == 0 ? nil : nl.to_f64)
+
+        # Font size + weight. The Crystal `UI::Font` type default is
+        # `Font.new(size: 17.0, weight: :regular)` — exactly SwiftUI's
+        # body default — so we only emit when the developer overrode
+        # one of those fields. Without this propagation the Crystal-side
+        # `font = Font.new(size: 34.0, weight: :bold)` value was being
+        # silently dropped and every Label rendered at SwiftUI body.
+        font = view.font
+        if font.size != 17.0
+          sender.set_number(target, :setFontSize, font.size)
+        end
+        if font.weight != :regular
+          sender.set_number(target, :setFontWeight,
+            swiftui_font_weight_rawvalue(font.weight).to_f64)
+        end
+      end
+
+      # Map a Crystal `UI::Font.weight` Symbol to the SwiftUI
+      # `Font.Weight` rawValue Int the Swift facade init reads. The
+      # mapping mirrors ButtonFacade.swift's private `Font.Weight`
+      # extension. ultraLight = -3, thin = -2, light = -1, regular = 0,
+      # medium = 1, semibold = 2, bold = 3, heavy = 4, black = 5.
+      def self.swiftui_font_weight_rawvalue(weight : Symbol) : Int32
+        case weight
+        when :ultra_light, :ultralight then -3
+        when :thin                     then -2
+        when :light                    then -1
+        when :regular                  then 0
+        when :medium                   then 1
+        when :semibold                 then 2
+        when :bold                     then 3
+        when :heavy                    then 4
+        when :black                    then 5
+        else                                0
+        end
       end
 
       def self.populate_image(target : String, view : UI::Image, sender : Sender)

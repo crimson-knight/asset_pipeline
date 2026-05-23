@@ -53,6 +53,9 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       FakeLibObjCBridge.refute_sent(:setTextAlignment)
       # number_of_lines default is 0 → no numberOfLines setter
       FakeLibObjCBridge.refute_sent(:setNumberOfLines)
+      # Font default is size:17 weight::regular → no font setters
+      FakeLibObjCBridge.refute_sent(:setFontSize)
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
     end
 
     it "emits setLabelRole when role is overridden" do
@@ -72,6 +75,18 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       UI::Native::Populator.populate_label(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setForegroundColor, times: 1,
         args: [target, "rgba(0.5,0.0,0.5,1.0)"])
+    end
+
+    it "emits setFontSize + setFontWeight when font is overridden" do
+      view = UI::Label.new("Cascade")
+      view.font = UI::Font.new(size: 34.0, weight: :bold)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1,
+        args: [target, "34.0"])
+      # :bold maps to SwiftUI Font.Weight rawValue 3.
+      FakeLibObjCBridge.assert_sent(:setFontWeight, times: 1,
+        args: [target, "3.0"])
     end
   end
 

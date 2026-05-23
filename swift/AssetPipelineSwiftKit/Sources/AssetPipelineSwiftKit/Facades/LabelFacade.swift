@@ -66,6 +66,29 @@ private struct APSKLabelHost: View {
     var body: some View {
         var content: AnyView = AnyView(Text(state.text))
 
+        // Font size + weight. Apply `.font(.system(size:weight:))` when
+        // a Crystal-side `UI::Font.size` / `UI::Font.weight` override
+        // surfaces. Without this the Crystal `Font` value was silently
+        // dropped on the floor and every Label rendered at SwiftUI's
+        // body default (~17pt regular), which is why the Phase 6
+        // sign-in "Cascade" wordmark looked identical in weight and
+        // size to the subtitle below it. The weight rawValue mapping
+        // mirrors ButtonOverrides' convention.
+        if let sz = overrides.fontSize, sz.doubleValue > 0 {
+            let weight: Font.Weight
+            if let w = overrides.fontWeight {
+                weight = Font.Weight(rawValue: w.intValue) ?? .regular
+            } else {
+                weight = .regular
+            }
+            content = AnyView(content.font(.system(size: CGFloat(sz.doubleValue), weight: weight)))
+        } else if let w = overrides.fontWeight {
+            // No explicit size but explicit weight — keep the body
+            // font and just override the weight via `.fontWeight()`.
+            let weight = Font.Weight(rawValue: w.intValue) ?? .regular
+            content = AnyView(content.fontWeight(weight))
+        }
+
         switch overrides.labelRole {
         case "primary":
             content = AnyView(content.foregroundStyle(.primary))
@@ -92,5 +115,26 @@ private struct APSKLabelHost: View {
 
         content = CommonModifiers.apply(content, overrides: overrides)
         return content
+    }
+}
+
+// Local `Font.Weight` rawValue init. Matches the convention used by
+// ButtonFacade.swift so Crystal's `populate_label` and `populate_button`
+// can emit the same integer rawValues for the same Crystal weight
+// Symbols.
+private extension Font.Weight {
+    init?(rawValue: Int) {
+        switch rawValue {
+        case -3: self = .ultraLight
+        case -2: self = .thin
+        case -1: self = .light
+        case 0: self = .regular
+        case 1: self = .medium
+        case 2: self = .semibold
+        case 3: self = .bold
+        case 4: self = .heavy
+        case 5: self = .black
+        default: return nil
+        }
     }
 }
