@@ -1,6 +1,38 @@
 import SwiftUI
 import UIKit
 
+// Phase 6 Rem 4 fix #1: brand-teal tint cascade.
+//
+// The Crystal-side `InitiativeDemo.brand_tokens` returns a `Tokens` with
+// brand_primary set to a deep teal (OKLCH 0.56, 0.13, 195 → sRGB
+// approximately (0.012, 0.521, 0.521)). At the Crystal renderer level,
+// `ensure_swiftkit_runtime!` installs the same colour via
+// `apsk_runtime_set_brand_tint` so every Crystal-hosted SwiftUI Button
+// inherits it through `HostingHelpers.host(_:)`'s `view.tint(...)`
+// wrapper.
+//
+// This top-level `.tint(...)` on `ContentView` mirrors that brand tint
+// at the host's outermost SwiftUI scope. Two reasons we apply it here in
+// addition to the Crystal-side runtime call:
+//
+//   1. It covers any SwiftUI surface the host introduces outside the
+//      embedded `CascadeHost` (a future "Settings" pane, a debug HUD,
+//      etc.) so the entire app reads brand-teal even before the first
+//      Crystal render call has set the runtime tint.
+//   2. It documents the brand intent in the Swift source tree so the
+//      iOS app reads as "brand-teal everywhere" without needing to
+//      trace through the Crystal runtime to see why.
+//
+// The colour value matches `brand.cr#BRAND_PRIMARY_LIGHT`. Hardcoded
+// rather than read from `AssetPipelineTokens.swift` because that dist
+// file ships the DEFAULT amber palette — the demo's teal lives in the
+// runtime tint, not the static dist.
+private let cascadeBrandPrimary = Color(.sRGB,
+                                        red: 0.012,
+                                        green: 0.521,
+                                        blue: 0.521,
+                                        opacity: 1.0)
+
 struct ContentView: View {
     let slug: String
 
@@ -19,6 +51,7 @@ struct ContentView: View {
                 .accessibilityIdentifier("cascade-root-host")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .tint(cascadeBrandPrimary)
     }
 }
 
