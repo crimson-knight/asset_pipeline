@@ -47,12 +47,20 @@
     # variables, but NO initializer side effects — explicit assignment
     # in initialize_runtime so the iOS class-init gap can't strand any
     # of these as nil.
+    # IMPORTANT: NONE of these class vars carry an initializer with side
+    # effects (no `= Bytes.new(64)`, no `= [] of ...`). The iOS class-init
+    # gap (see `project_crystal_ios_class_init_gap` memory) silently
+    # SKIPS class-var initializers when _main is hidden for Swift @main,
+    # so any allocation that should happen at module load must happen
+    # inside `initialize_runtime` (which we call explicitly from
+    # voyager_init). Nilable defaults (`= nil`) are safe — the
+    # underlying field is just a tagged nil pointer.
     @@initialized = false
     @@state : Voyager::State? = nil
     @@coord : UI::NavigationCoordinator? = nil
     @@renderer : UI::UIKit::Renderer? = nil
     @@last_native : UI::NativeView? = nil
-    @@current_slug_buf : Bytes = Bytes.new(64)
+    @@current_slug_buf : Bytes? = nil
     @@swift_route_changed_cb : (LibC::Char* -> Void)? = nil
 
     def self.initialize_runtime
@@ -64,6 +72,12 @@
       UI::Probes::TapProbe.reset
       UI::Probes::FormRowProbe.reset
       UI::Probes::RuntimeOverrideProbe.reset
+
+      # Allocate the slug buffer here (NOT as a class-var default) so the
+      # iOS class-init gap can't strand it as nil. 64 bytes accommodates
+      # the longest known Voyager slug (~"voyager-todo-editor" = 19) with
+      # huge headroom for future routes.
+      @@current_slug_buf = Bytes.new(64)
 
       state = Voyager::State.new
       coord = UI::NavigationCoordinator.new(
@@ -82,8 +96,9 @@
         slug = Voyager.slug_for_route_id(route.id)
         copy_slug_to_buf(slug)
         cb = @@swift_route_changed_cb
-        if !cb.nil?
-          cb.call(@@current_slug_buf.to_unsafe.as(LibC::Char*))
+        buf = @@current_slug_buf
+        if !cb.nil? && !buf.nil?
+          cb.call(buf.to_unsafe.as(LibC::Char*))
         end
       end
 
@@ -95,15 +110,17 @@
     end
 
     private def self.copy_slug_to_buf(slug : String) : Nil
+      buf = @@current_slug_buf
+      return if buf.nil? # initialize_runtime always allocates this; guard for safety
       bytes = slug.to_slice
-      n = Math.min(bytes.size, @@current_slug_buf.size - 1)
-      n.times { |i| @@current_slug_buf[i] = bytes[i] }
-      @@current_slug_buf[n] = 0_u8
+      n = Math.min(bytes.size, buf.size - 1)
+      n.times { |i| buf[i] = bytes[i] }
+      buf[n] = 0_u8
     end
 
     def self.current_slug_ptr : LibC::Char*
       initialize_runtime
-      @@current_slug_buf.to_unsafe.as(LibC::Char*)
+      @@current_slug_buf.not_nil!.to_unsafe.as(LibC::Char*)
     end
 
     def self.register_route_changed(cb : LibC::Char* -> Void) : Nil
