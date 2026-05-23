@@ -46,11 +46,64 @@ public typealias APSKHostingController = NSHostingController
 private var kHostingControllerKey: UInt8 = 0
 
 #if canImport(UIKit)
-/// Phase 6.10 Rem 3 (Path A) — UIHostingController subclass that hooks
-/// `viewDidLayoutSubviews` / `viewWillAppear` to register itself as a
-/// child VC of the responder-chain's parent UIViewController, and
-/// `viewWillDisappear` / deinit to undo the parenting when the hosted
-/// view leaves the hierarchy.
+/// Phase 6.10 Rem 3 (Path A) — UIView subclass that fires a callback
+/// every time its window membership changes. Used as a 0-sized,
+/// hidden subview of the SwiftUI hosting controller's `.view` so we
+/// observe `didMoveToWindow` reliably without giving up the SwiftUI
+/// rendering surface.
+///
+/// Rejected approaches (per Codex review 1 + 2):
+/// - `deinit` cleanup: the parent VC's `children` array retains its
+///   children until `removeFromParent()` runs, so ARC cannot reach
+///   `deinit` while the controller is still parented. `.id(slug)`
+///   reroute paths therefore leaked stale child controllers.
+/// - `view.window` KVO: empirically did not fire on iOS 26 simulator
+///   under the current SwiftUI hosting model.
+/// - Replacing the controller's `.view` with our own subclass via
+///   `loadView()`: breaks SwiftUI's render surface, the SwiftUI
+///   content stops drawing entirely.
+/// - `viewWillDisappear`-only detach: doesn't fire on `.id(slug)`
+///   discard — SwiftUI never asks the off-screen controller's view
+///   to disappear normally.
+///
+/// Accepted approach: insert a hidden 0pt × 0pt sentinel UIView as a
+/// subview of the hosting controller's `.view`. UIKit forwards
+/// `didMoveToWindow` to every subview when their ancestor view's
+/// window membership changes, so the sentinel reliably tracks
+/// window-add and window-remove events. The hosting controller's
+/// SwiftUI render surface is untouched.
+@available(iOS 13.0, tvOS 13.0, *)
+final class APSKHostingWindowSentinel: UIView {
+    /// Invoked every time this view's window membership changes
+    /// (either becoming non-nil or going nil).
+    var onWindowChange: ((UIWindow?) -> Void)?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        // Hidden + non-interactive so the sentinel never intercepts
+        // touches or appears in the AX tree.
+        isHidden = true
+        isUserInteractionEnabled = false
+        isAccessibilityElement = false
+        accessibilityElementsHidden = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        onWindowChange?(window)
+    }
+}
+
+/// Phase 6.10 Rem 3 (Path A) — UIHostingController subclass that
+/// installs an `APSKHostingWindowSentinel` as a hidden subview of its
+/// `.view` and uses the sentinel's `didMoveToWindow` callback to
+/// drive attach + detach against the responder-chain's parent
+/// UIViewController.
 ///
 /// Why this exists: SwiftUI's `Button` (and every other interactive
 /// SwiftUI control hosted via `UIHostingController`) wires its
@@ -64,40 +117,40 @@ private var kHostingControllerKey: UInt8 = 0
 /// 11+ XCUITest variants in Rem 2 (see
 /// `handoff/phase-06.10-remediation-2-codex-blocker.md`).
 ///
-/// Hook approach: override `viewDidLayoutSubviews` /
-/// `viewWillAppear` on the subclassed controller — both fire after the
-/// hosted view enters a window, so a single guard
-/// (`parent == nil && view.window != nil`) covers all entry paths
-/// without the KVO unreliability of `view.window`. Detachment runs in
-/// `viewWillDisappear` and as a `deinit` belt-and-suspenders for the
-/// SwiftUI `.id(slug)` recreate path where the representable's view
-/// tree is discarded outside the normal VC lifecycle (Codex review 1,
-/// P2 #2).
-///
 /// Generic parameter is bound to `AnyView` because every call site
 /// wraps its content in an `AnyView` at `HostingHelpers.host` entry.
 @available(iOS 13.0, tvOS 13.0, *)
 final class APSKAttachingHostingController: UIHostingController<AnyView> {
-    private weak var parentedTo: UIViewController?
+    private weak var sentinel: APSKHostingWindowSentinel?
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        attachIfNeeded()
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        installSentinel()
     }
 
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        attachIfNeeded()
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        detachIfNeeded()
-    }
-
-    override func didMove(toParent parent: UIViewController?) {
-        super.didMove(toParent: parent)
-        parentedTo = parent
+    private func installSentinel() {
+        guard sentinel == nil else { return }
+        let s = APSKHostingWindowSentinel(frame: .zero)
+        s.translatesAutoresizingMaskIntoConstraints = false
+        s.onWindowChange = { [weak self] window in
+            guard let self = self else { return }
+            if window != nil {
+                self.attachIfNeeded()
+            } else {
+                self.detachIfNeeded()
+            }
+        }
+        view.addSubview(s)
+        // 0pt × 0pt sentinel pinned at the host view's origin. UIKit
+        // still routes window-membership change events through it
+        // because subview lifecycle is independent of frame size.
+        NSLayoutConstraint.activate([
+            s.widthAnchor.constraint(equalToConstant: 0),
+            s.heightAnchor.constraint(equalToConstant: 0),
+            s.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            s.topAnchor.constraint(equalTo: view.topAnchor),
+        ])
+        sentinel = s
     }
 
     private func attachIfNeeded() {
@@ -116,31 +169,10 @@ final class APSKAttachingHostingController: UIHostingController<AnyView> {
         }
     }
 
-    /// Symmetric undo of `attachIfNeeded()`. Called from
-    /// `viewWillDisappear` (normal VC-lifecycle path) and from `deinit`
-    /// (SwiftUI .id(slug) recreate path where the representable's view
-    /// tree is discarded outside the normal VC-disappear hook). Calling
-    /// `removeFromParent` when already detached is safe — UIKit just
-    /// no-ops it.
     private func detachIfNeeded() {
         guard parent != nil else { return }
         willMove(toParent: nil)
         removeFromParent()
-        parentedTo = nil
-    }
-
-    deinit {
-        // Belt-and-suspenders: when SwiftUI discards the
-        // UIViewRepresentable on .id(slug) reroute, ARC frees the
-        // hosting controller along with the hosted view. Make sure we
-        // exit the parent VC's children array even if viewWillDisappear
-        // never fired (it doesn't, for off-screen-recreated trees).
-        // Note: UIKit considers it safe to call `removeFromParent` from
-        // deinit; the parent is held weakly.
-        if parent != nil {
-            willMove(toParent: nil)
-            removeFromParent()
-        }
     }
 
     private func nextParentViewController() -> UIViewController? {
