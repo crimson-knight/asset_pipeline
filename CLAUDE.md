@@ -316,3 +316,12 @@ crystal-alpha spec spec/ui/ -Dmacos --link-flags="-framework ApplicationServices
 crystal tool format --check     # Check formatting
 crystal run src/generators/brand_kit.cr  # Generate style guide
 ```
+
+## Cross-platform UI initiative CI
+
+PRs to `feature/utility-first-css-asset-pipeline` are gated by the
+audit workflow at `.github/workflows/initiative-cross-platform-ui.yml`.
+The gate runs Phase 6.5's audit harness against Phase 6/6.8/6.9's
+committed baselines. See
+`docs/initiative-cross-platform-ui/verification-runbook.md` for the
+refresh + debug runbook.
