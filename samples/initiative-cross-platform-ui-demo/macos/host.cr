@@ -32,6 +32,11 @@ require "../../../src/ui/renderers/appkit_renderer"
     fun objc_run_loop_for(seconds : Float64) : Void
   end
 
+  lib LibObjCBridgeCascade
+    fun objc_send_void_id(obj : Void*, sel : Void*, arg : Void*) : Void
+    fun sel_registerName(name : UInt8*) : Void*
+  end
+
   module CascadeHost
     def self.build_view_for(slug : String) : UI::View
       state = InitiativeDemo::State.new
@@ -63,7 +68,7 @@ require "../../../src/ui/renderers/appkit_renderer"
         # NSVisualEffectView blur degrades to a solid fill.
         title = "Cascade: #{SLUG} (#{APPEARANCE}) capture"
         window = LibWindowHelper.objc_create_capture_window(CAPTURE_WIDTH, CAPTURE_HEIGHT, APPEARANCE.to_unsafe)
-        LibWindowHelper.objc_install_content_view(window, native.to_unsafe)
+        LibWindowHelper.objc_install_content_view(window, native.handle.ptr!)
         LibWindowHelper.objc_run_loop_for(0.4) # settle layout
         rc = LibWindowHelper.objc_capture_view_offscreen(
           window, screenshot_path.to_unsafe, CAPTURE_WIDTH, CAPTURE_HEIGHT,
@@ -78,12 +83,8 @@ require "../../../src/ui/renderers/appkit_renderer"
       # AppKit run loop until the user quits the app.
       title_str = "Cascade: #{SLUG}"
       window = LibWindowHelper.hig_create_window(120.0, 120.0, WINDOW_WIDTH, WINDOW_HEIGHT, title_str.to_unsafe)
-      lib LibObjCBridge
-        fun objc_send_void_id(obj : Void*, sel : Void*, arg : Void*) : Void
-        fun sel_registerName(name : UInt8*) : Void*
-      end
-      set_content = LibObjCBridge.sel_registerName("setContentView:".to_unsafe)
-      LibObjCBridge.objc_send_void_id(window, set_content, native.to_unsafe)
+      set_content = LibObjCBridgeCascade.sel_registerName("setContentView:".to_unsafe)
+      LibObjCBridgeCascade.objc_send_void_id(window, set_content, native.handle.ptr!)
       LibWindowHelper.hig_run_app(window)
       gc_guard
     end
