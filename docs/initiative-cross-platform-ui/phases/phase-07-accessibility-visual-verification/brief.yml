@@ -285,15 +285,17 @@ repo_derived_facts:
     expected: "exists"
     captured_at_sha: "c93e7d7"
 
-  - fact: "Initiative workflow file at .github/workflows/initiative-cross-platform-ui.yml (must NOT exist pre-impl)"
+  - fact: "Initiative workflow file at .github/workflows/initiative-cross-platform-ui.yml (Phase 7 D1 — amended from missing -> exists post-impl)"
     query: "test -f .github/workflows/initiative-cross-platform-ui.yml && echo exists || echo missing"
-    expected: "missing"
+    expected: "exists"
     captured_at_sha: "c93e7d7"
+    amended_post_impl: true
 
-  - fact: "Verification runbook (must NOT exist pre-impl)"
+  - fact: "Verification runbook (Phase 7 D2 — amended from missing -> exists post-impl)"
     query: "test -f docs/initiative-cross-platform-ui/verification-runbook.md && echo exists || echo missing"
-    expected: "missing"
+    expected: "exists"
     captured_at_sha: "c93e7d7"
+    amended_post_impl: true
 
   - fact: "scripts/audit_harness_smoke.sh executable + present"
     query: "test -x scripts/audit_harness_smoke.sh && echo exists || echo missing"
