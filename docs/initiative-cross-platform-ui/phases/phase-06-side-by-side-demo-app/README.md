@@ -27,7 +27,7 @@ A small but representative product:
 2. **Dashboard (3-tab)** — TabView/TabBar. Tab 1: card grid of items. Tab 2: list with section headers. Tab 3: profile/settings form. Covers: navigation idioms, tab styling, card surfaces (glass where appropriate), list/grid layout responsiveness.
 3. **Detail view** — Triggered from card or list item. Hero image, title, description, action buttons. Covers: navigation push/pop, image scaling, multi-column layout on wide viewports.
 4. **Settings/form screen** — Toggles, picker, segmented control, slider, color picker, button row. Covers: form widgets, native platform pickers where applicable.
-5. **Tier 3 demo screen** — A screen that specifically uses platform-only widgets. Action sheet (iOS), context menu (macOS/iOS), haptic feedback (iOS). On web, the screen uses the explicit `*WithWebFallback` variants from phase 4.
+5. **Tier 3 demo screen** — A screen that specifically uses platform-only widgets. Action sheet (iOS), context menu (macOS/iOS), path control (macOS). On web, the screen uses the explicit `*WithWebFallback` variants from phase 4. (HapticFeedback was scoped out of Phase 4 and remains out of scope for Phase 6 — adding it would require shipping a new widget type. If the demo benefits from it, surface to architect to add a Phase 6.5 or 7 follow-up.)
 
 The screens are connected via a navigation stack. The flow is: sign-in → dashboard → (from card) detail; (from settings tab) settings; (from dashboard) tier-3 demo.
 
@@ -48,7 +48,7 @@ In scope:
   - On iOS simulator (iPhone 17 Pro)
   - On macOS (resizable: captured at wide and narrow)
   - In light and dark mode
-  - Produces a **quad-comparison HTML page** at `output/initiative-demo/quad-comparison.html` that shows all four platforms side-by-side per screen.
+  - Produces a **quad-comparison HTML page** at `output/initiative-demo/quad-comparison.html` that shows the four user-facing surfaces side-by-side per screen. The "quad" is: web-desktop (1280px), web-mobile (375px), iOS sim (iPhone 17), macOS host. Android consumers see the web target via the Tier-3 `*WithWebFallback` path — Android is NOT a fifth surface. See `brief.yml` decision #8 for full quad definition.
 - A README at `samples/initiative-cross-platform-ui-demo/README.md` explaining how to build and view the demo.
 
 Out of scope:
@@ -56,7 +56,7 @@ Out of scope:
 - Real-world content (the demo uses lorem-ipsum, placeholder images, no live data).
 - Auth/networking (sign-in is visual-only).
 - Animation polish beyond what Tier 2 defaults provide.
-- Visual regression baseline capture (phase 7).
+- Wrapping Phase 6.5's harness into GitHub Actions / CI (that's Phase 7). NOTE: capturing the NEW baseline PNGs for the demo screens IS in Phase 6's scope per the brief — Phase 6 invokes Phase 6.5's `regenerate_baselines.sh` to populate baselines/ as screens land (audit-first principle). Phase 7 then wraps the populated harness into CI.
 - Comparing the demo to existing per-component HIG studies. They serve different purposes; both are kept.
 
 ## Acceptance summary
