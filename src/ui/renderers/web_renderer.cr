@@ -2,6 +2,8 @@ require "../platform_visitor"
 require "../../components"
 require "../design_tokens"
 require "../design_tokens/generators/web_generator"
+require "json"
+require "html"
 
 module UI
   module Web
@@ -2716,39 +2718,11 @@ module UI
         # Trailing actions — visible HStack on desktop, revealed on
         # mobile swipe.
         if !view.trailing_actions.empty?
-          trailing = Components::Elements::Div.new
-          trailing.add_class("ap-swipe-row__trailing")
-          view.trailing_actions.each_with_index do |action, idx|
-            btn = Components::Elements::Button.new(type: "button")
-            btn << action.label
-            btn.add_class("ap-swipe-row__action")
-            btn.add_class("ap-swipe-row__action--destructive") if action.role == :destructive
-            btn.set_attribute("data-action-index", idx.to_s)
-            btn.set_attribute("data-action-role", action.role.to_s)
-            btn.set_attribute("data-action-edge", "trailing")
-            btn.set_attribute("aria-label", action.label)
-            trailing.add_child(btn)
-          end
-          wrap.add_child(trailing)
+          wrap.add_child(swipe_action_panel(view.trailing_actions, "trailing"))
         end
 
-        # Leading actions (less common — swipe right reveals them on
-        # iOS). Same chrome on web for consistency.
         if !view.leading_actions.empty?
-          leading = Components::Elements::Div.new
-          leading.add_class("ap-swipe-row__leading")
-          view.leading_actions.each_with_index do |action, idx|
-            btn = Components::Elements::Button.new(type: "button")
-            btn << action.label
-            btn.add_class("ap-swipe-row__action")
-            btn.add_class("ap-swipe-row__action--destructive") if action.role == :destructive
-            btn.set_attribute("data-action-index", idx.to_s)
-            btn.set_attribute("data-action-role", action.role.to_s)
-            btn.set_attribute("data-action-edge", "leading")
-            btn.set_attribute("aria-label", action.label)
-            leading.add_child(btn)
-          end
-          wrap.add_child(leading)
+          wrap.add_child(swipe_action_panel(view.leading_actions, "leading"))
         end
 
         # Emit CSS + JS once per renderer instance, attached to this
@@ -2765,6 +2739,38 @@ module UI
 
       private def next_swipe_action_id : Int32
         @swipe_action_counter += 1
+      end
+
+      # Build a leading/trailing action panel (HStack of buttons) for
+      # a SwipeActionRow. Buttons emit `data-on-tap-route` when the
+      # action carries a routing destination so the client-side
+      # UIRouteHost shim can dispatch (see register_swipe_action_chrome's
+      # JS — it listens for clicks on .ap-swipe-row__action and calls
+      # UIRouteHost.push when present).
+      private def swipe_action_panel(actions : Array(UI::SwipeAction), edge : String) : Components::Elements::Div
+        panel = Components::Elements::Div.new
+        panel.add_class("ap-swipe-row__#{edge}")
+        actions.each_with_index do |action, idx|
+          btn = Components::Elements::Button.new(type: "button")
+          btn << action.label
+          btn.add_class("ap-swipe-row__action")
+          btn.add_class("ap-swipe-row__action--destructive") if action.role == :destructive
+          btn.set_attribute("data-action-index", idx.to_s)
+          btn.set_attribute("data-action-role", action.role.to_s)
+          btn.set_attribute("data-action-edge", edge)
+          btn.set_attribute("aria-label", action.label)
+          if route = action.on_tap_route
+            btn.set_attribute("data-on-tap-route", route)
+          end
+          if action.on_tap
+            # Crystal Procs can't run client-side from static HTML,
+            # but mark the button so a downstream JS-bound demo can
+            # dispatch by index.
+            btn.set_attribute("data-has-callback", "1")
+          end
+          panel.add_child(btn)
+        end
+        panel
       end
 
       # CSS + vanilla-JS for the swipe-action chrome. Emits a <style>
@@ -2818,39 +2824,53 @@ module UI
           color: var(--ap-color-danger-text);
           border-color: var(--ap-color-danger-text);
         }
-        @media (max-width: 767px) {
-          .ap-swipe-row__trailing,
-          .ap-swipe-row__leading {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            opacity: 0;
-            transform: translateX(0);
-            transition: opacity 120ms ease, transform 120ms ease;
-            pointer-events: none;
-          }
-          .ap-swipe-row__trailing { right: 0; }
-          .ap-swipe-row__leading { left: 0; }
-          .ap-swipe-row[data-revealed="trailing"] .ap-swipe-row__trailing {
-            opacity: 1; transform: translateX(0); pointer-events: auto;
-          }
-          .ap-swipe-row[data-revealed="leading"] .ap-swipe-row__leading {
-            opacity: 1; transform: translateX(0); pointer-events: auto;
-          }
-          .ap-swipe-row[data-revealed="trailing"] .ap-swipe-row__content {
-            transform: translateX(-120px);
-            transition: transform 120ms ease;
-          }
+        /* mobile mode is toggled via class `ap-swipe-row--mobile`
+           which the JS shim adds when viewport width is below the
+           row's `data-mobile-breakpoint` value. CSS @media queries
+           can't take a variable, so we use a class-driven approach
+           and let JS resolve the breakpoint per-row. */
+        .ap-swipe-row--mobile .ap-swipe-row__trailing,
+        .ap-swipe-row--mobile .ap-swipe-row__leading {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          opacity: 0;
+          transform: translateX(0);
+          transition: opacity 120ms ease, transform 120ms ease;
+          pointer-events: none;
+        }
+        .ap-swipe-row--mobile .ap-swipe-row__trailing { right: 0; }
+        .ap-swipe-row--mobile .ap-swipe-row__leading { left: 0; }
+        .ap-swipe-row--mobile[data-revealed="trailing"] .ap-swipe-row__trailing {
+          opacity: 1; transform: translateX(0); pointer-events: auto;
+        }
+        .ap-swipe-row--mobile[data-revealed="leading"] .ap-swipe-row__leading {
+          opacity: 1; transform: translateX(0); pointer-events: auto;
+        }
+        .ap-swipe-row--mobile[data-revealed="trailing"] .ap-swipe-row__content {
+          transform: translateX(-120px);
+          transition: transform 120ms ease;
         }
         </style>
         <script>
         (function() {
           var REVEAL_THRESHOLD = 40; // px
+          function applyMobileClass(row) {
+            var bp = parseInt(row.getAttribute('data-mobile-breakpoint') || '768', 10);
+            if (window.innerWidth < bp) {
+              row.classList.add('ap-swipe-row--mobile');
+            } else {
+              row.classList.remove('ap-swipe-row--mobile');
+              row.removeAttribute('data-revealed');
+            }
+          }
           function bind(row) {
             if (row.dataset.swipeBound === '1') return;
             row.dataset.swipeBound = '1';
+            applyMobileClass(row);
             var startX = null;
             row.addEventListener('touchstart', function(e) {
+              if (!row.classList.contains('ap-swipe-row--mobile')) return;
               startX = e.touches[0].clientX;
             }, {passive: true});
             row.addEventListener('touchmove', function(e) {
@@ -2860,14 +2880,29 @@ module UI
               else if (dx > REVEAL_THRESHOLD) row.setAttribute('data-revealed', 'leading');
             }, {passive: true});
             row.addEventListener('touchend', function() { startX = null; });
-            // Tap outside the row resets reveal state.
-            document.addEventListener('click', function(e) {
-              if (!row.contains(e.target)) row.removeAttribute('data-revealed');
+            // Wire on_tap_route routing for any action button inside.
+            row.querySelectorAll('.ap-swipe-row__action').forEach(function(btn) {
+              btn.addEventListener('click', function(e) {
+                var route = btn.getAttribute('data-on-tap-route');
+                if (route && window.UIRouteHost && typeof window.UIRouteHost.push === 'function') {
+                  e.preventDefault();
+                  window.UIRouteHost.push(route);
+                }
+              });
             });
           }
           function bindAll() {
             document.querySelectorAll('.ap-swipe-row').forEach(bind);
           }
+          // Tap outside any row resets reveal state.
+          document.addEventListener('click', function(e) {
+            document.querySelectorAll('.ap-swipe-row[data-revealed]').forEach(function(row) {
+              if (!row.contains(e.target)) row.removeAttribute('data-revealed');
+            });
+          });
+          window.addEventListener('resize', function() {
+            document.querySelectorAll('.ap-swipe-row').forEach(applyMobileClass);
+          });
           if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', bindAll);
           } else {
@@ -3004,23 +3039,36 @@ module UI
       initial_route : String,
       route_change_announce_label : String = "Navigated to {route}",
     ) : String
+      # Build a fully JSON-encoded payload. JSON.build handles all
+      # the standard escapes (\, ", \n, \t, \r, control chars). We
+      # additionally post-process the encoded payload to neutralise
+      # `</script>` sequences — which the JSON spec doesn't escape
+      # but which would prematurely close the surrounding
+      # <script type="application/json"> block. Replacing `<` with
+      # `<` inside JSON string values is the standard mitigation
+      # (still valid JSON, won't terminate the script tag).
+      payload = JSON.build do |json|
+        json.object do
+          routes.each do |route_id, html|
+            json.field(route_id, html)
+          end
+        end
+      end
+      payload = payload.gsub("</", "<\\/").gsub("<!--", "<\\!--")
+
+      initial_route_attr = HTML.escape(initial_route)
+      initial_route_js = initial_route.inspect
+
       String.build do |io|
         # Route fragment data — embedded as JSON so the JS shim can
         # look up any fragment by id.
         io << %(<script type="application/json" id="ui-route-data">) << '\n'
-        io << "{\n"
-        routes.to_a.each_with_index do |(route_id, html), idx|
-          # Escape \, ", and newlines/tabs for embedding in JSON.
-          escaped = html.gsub('\\', "\\\\").gsub('"', "\\\"").gsub('\n', "\\n").gsub('\t', "\\t").gsub('\r', "\\r")
-          comma = idx == routes.size - 1 ? "" : ","
-          io << "  \"" << route_id << "\": \"" << escaped << "\"" << comma << '\n'
-        end
-        io << "}\n"
+        io << payload << '\n'
         io << "</script>\n"
 
         # The host element holding the visible route. innerHTML is the
         # rendered fragment for the initial route.
-        io << %(<div id="ui-route-host" role="main" aria-live="polite" data-route=") << initial_route << "\">\n"
+        io << %(<div id="ui-route-host" role="main" aria-live="polite" data-route=") << initial_route_attr << "\">\n"
         io << (routes[initial_route]? || "")
         io << "\n</div>\n"
 

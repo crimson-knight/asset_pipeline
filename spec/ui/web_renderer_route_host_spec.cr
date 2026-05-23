@@ -21,8 +21,12 @@ describe UI::Web do
       routes = {"a" => "<span>A</span>", "b" => "<span>B</span>"}
       out = UI::Web.render_route_host(routes, "a")
       out.should contain %(<script type="application/json" id="ui-route-data">)
-      out.should contain "\"a\": \"<span>A</span>\""
-      out.should contain "\"b\": \"<span>B</span>\""
+      # JSON encodes routes as a JSON object; `</` is escaped to
+      # `<\/` to prevent premature </script> termination, but the
+      # browser's JSON.parse decodes it back to `</span>` on the
+      # client. The encoded form is what the static HTML emits.
+      out.should contain "\"a\":\"<span>A<\\/span>\""
+      out.should contain "\"b\":\"<span>B<\\/span>\""
     end
 
     it "emits the JS shim with push/pop/replace/setFragment + hashchange + popstate" do
@@ -43,16 +47,26 @@ describe UI::Web do
     it "escapes embedded quotes and newlines safely in the JSON block" do
       routes = {"a" => %(<p class="x">line1\nline2</p>)}
       out = UI::Web.render_route_host(routes, "a")
-      # The JSON must escape the class attribute's quotes.
       out.should contain %(class=\\"x\\")
-      # And the newline must be encoded as \n in the JSON value.
       out.should contain "line1\\nline2"
-      # The raw newline must NOT appear inside the JSON value block
-      # (would break JSON parsing). Sanity-check by extracting the
-      # JSON line and verifying it does not contain a literal newline
-      # mid-value.
-      json_line = out[/"a":[^\n]+/]
-      json_line.should_not be_nil
+    end
+
+    it "neutralises </script> sequences inside the JSON data block" do
+      # If raw `</script>` reaches the JSON script body it would
+      # prematurely terminate it. The implementation rewrites `</`
+      # to `<\/` inside the JSON payload (still valid JSON; the
+      # browser's JSON.parse decodes it). Outside the script (in
+      # the host div's HTML body) `</script>` is harmless text and
+      # is left alone.
+      routes = {"a" => "<p>before</script>after</p>"}
+      out = UI::Web.render_route_host(routes, "a")
+      # Pluck the JSON data block body (between the opening
+      # <script ...> and the first </script>).
+      match = out.match(/<script type="application\/json"[^>]*>([\s\S]*?)<\/script>/)
+      match.should_not be_nil
+      body = match.not_nil![1]
+      body.should_not contain "</script>"
+      body.should contain "<\\/script>"
     end
 
     it "respects a custom aria-live announce template" do

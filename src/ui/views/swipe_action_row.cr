@@ -22,7 +22,19 @@ module UI
     property icon : String?
     property on_tap : Proc(Nil)?
 
-    def initialize(@label : String, @on_tap : Proc(Nil)? = nil, @role : Symbol = :default, @icon : String? = nil)
+    # Optional route id the web renderer wires to a client-side
+    # UIRouteHost.push() invocation. The static-site web target
+    # cannot invoke Crystal Procs client-side, so demos that need
+    # runtime swipe-button interactivity supply this string.
+    property on_tap_route : String?
+
+    def initialize(
+      @label : String,
+      @on_tap : Proc(Nil)? = nil,
+      @role : Symbol = :default,
+      @icon : String? = nil,
+      @on_tap_route : String? = nil,
+    )
     end
   end
 
