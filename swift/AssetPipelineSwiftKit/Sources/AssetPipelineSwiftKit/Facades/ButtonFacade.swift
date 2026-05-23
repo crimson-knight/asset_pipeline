@@ -187,6 +187,17 @@ private struct APSKButtonHost: View {
         if overrides.role == "cancel" {
             content = AnyView(content.fontWeight(.semibold))
         }
+        // Phase 6.8 Fix 3: map the `:secondary` role from the Crystal facade
+        // to SwiftUI's `.bordered` chrome. Used by social-row buttons
+        // (Apple / Google / Email) on the demo sign-in screen so they render
+        // with an outlined border instead of falling through to default flat
+        // text. Applied as a role check (not a style switch case) because
+        // `:secondary` arrives via `setRole`, not `setStyle`, in the bridge.
+        // Only override when no explicit style was provided so app code that
+        // sets a style alongside `:secondary` still wins.
+        if overrides.role == "secondary" && overrides.style == nil {
+            content = AnyView(content.buttonStyle(.bordered))
+        }
         if let weight = overrides.fontWeight {
             let resolved = Font.Weight(rawValue: weight.intValue) ?? .regular
             content = AnyView(content.fontWeight(resolved))
