@@ -265,14 +265,14 @@ lower_layer_assumptions:
     verification: "test \"$(wc -l < scripts/phase04_cdp_harness.cr | tr -d ' ')\" -ge \"500\""
 
   - id: A5
-    claim: "Phase 3 macOS AXTest specs exist at spec/ui/hig_validation/ — at least 3 specs totaling ≥ 300 lines — Phase 6.5 extracts patterns from them"
-    falsifier: "Fewer than 3 specs OR total line count < 300"
-    verification: "test \"$(wc -l spec/ui/hig_validation/*.cr | tail -1 | awk '{print $1}')\" -ge \"300\""
+    claim: "Phase 3 macOS AXTest specs exist at spec/ui/hig_validation/. Phase 6.5 D3 amended: after extraction the 3 spec files shrank to ~200 lines total; the extracted patterns live at spec/support/ax_test_patterns.cr (~300 lines)."
+    falsifier: "Fewer than 3 specs OR spec/support/ax_test_patterns.cr missing"
+    verification: "test \"$(ls spec/ui/hig_validation/*.cr | wc -l | tr -d ' ')\" -ge \"3\" && test -f spec/support/ax_test_patterns.cr"
 
   - id: A6
-    claim: "Phase 3 iOS XCUITest patterns exist at samples/cross_platform/ios_host/UITests/ — at least 2 swift files totaling ≥ 500 lines — Phase 6.5 extracts patterns from them"
-    falsifier: "Fewer than 2 swift files OR total line count < 500"
-    verification: "test \"$(wc -l samples/cross_platform/ios_host/UITests/*.swift | tail -1 | awk '{print $1}')\" -ge \"500\""
+    claim: "Phase 3 iOS XCUITest patterns exist at samples/cross_platform/ios_host/UITests/. Phase 6.5 D4 amended: after extraction the 2 spec files shrank to ~290 lines total; the extracted patterns live at samples/cross_platform/ios_host/UITests/Patterns/ (7 files)."
+    falsifier: "Fewer than 2 swift files OR Patterns/ directory missing"
+    verification: "test \"$(ls samples/cross_platform/ios_host/UITests/*.swift | wc -l | tr -d ' ')\" -ge \"2\" && test -d samples/cross_platform/ios_host/UITests/Patterns"
 
   - id: A7
     claim: "Phase 3 baseline directory exists at docs/initiative-cross-platform-ui/handoff/phase-03-baselines/ — Phase 6.5 migrates these baselines into the canonical baselines/ tree"
@@ -315,40 +315,40 @@ repo_derived_facts:
     expected: "3"
     captured_at_sha: "2e3e4fe"
 
-  - fact: "Macos AXTest total line count across all specs (extraction surface area)"
+  - fact: "Macos AXTest total line count across all specs (extraction surface area). Phase 6.5 D3 amended: line count dropped from 384 -> 202 after refactor to require spec/support/ax_test_patterns.cr; the extracted patterns themselves add ~250 lines under spec/support/."
     query: "wc -l spec/ui/hig_validation/*.cr | tail -1 | awk '{print $1}' | tr -d ' '"
-    expected: "384"
-    captured_at_sha: "2e3e4fe"
+    expected: "202"
+    captured_at_sha: "f852259"
 
-  - fact: "iOS XCUITest swift file count under samples/cross_platform/ios_host/UITests/"
+  - fact: "iOS XCUITest swift file count under samples/cross_platform/ios_host/UITests/. Phase 6.5 D4 amended: still 2 spec files; the 7 extracted Pattern files live under UITests/Patterns/ which the test files require."
     query: "ls samples/cross_platform/ios_host/UITests/*.swift | wc -l | tr -d ' '"
     expected: "2"
-    captured_at_sha: "2e3e4fe"
+    captured_at_sha: "f852259"
 
-  - fact: "iOS XCUITest total line count (extraction surface area)"
+  - fact: "iOS XCUITest total line count (extraction surface area). Phase 6.5 D4 amended: dropped from 611 -> 290 after refactor to delegate to UITests/Patterns/."
     query: "wc -l samples/cross_platform/ios_host/UITests/*.swift | tail -1 | awk '{print $1}' | tr -d ' '"
-    expected: "611"
-    captured_at_sha: "2e3e4fe"
+    expected: "290"
+    captured_at_sha: "f852259"
 
   - fact: "Phase 5 glass-material probe placeholder count (Phase 6.5 activates these via harness)"
     query: "ls spec/ui/glass_material/*.cr | wc -l | tr -d ' '"
     expected: "6"
     captured_at_sha: "2e3e4fe"
 
-  - fact: "Existing audit_harness.cr presence (must NOT exist at brief authoring; Phase 6.5 creates)"
+  - fact: "audit_harness.cr presence (Phase 6.5 D1 amended: now exists)"
     query: "test -f scripts/audit_harness.cr && echo exists || echo missing"
-    expected: "missing"
-    captured_at_sha: "2e3e4fe"
+    expected: "exists"
+    captured_at_sha: "f852259"
 
-  - fact: "Existing regenerate_baselines.sh presence (must NOT exist at brief authoring; Phase 6.5 creates)"
+  - fact: "regenerate_baselines.sh presence (Phase 6.5 D2 amended: now exists)"
     query: "test -f scripts/regenerate_baselines.sh && echo exists || echo missing"
-    expected: "missing"
-    captured_at_sha: "2e3e4fe"
+    expected: "exists"
+    captured_at_sha: "f852259"
 
-  - fact: "Existing canonical baselines/ directory presence (must NOT exist at brief authoring; Phase 6.5 creates)"
+  - fact: "Canonical baselines/ directory presence (Phase 6.5 D2 amended: now exists with migrated Phase 3 macOS PNGs)"
     query: "test -d docs/initiative-cross-platform-ui/baselines && echo exists || echo missing"
-    expected: "missing"
-    captured_at_sha: "2e3e4fe"
+    expected: "exists"
+    captured_at_sha: "f852259"
 
   - fact: "Phase 5 v2 PASS tag exists (Phase 6.5 depends on Phase 5 v2 + 5.5)"
     query: "git tag --list 'phase-05-v2-pass-2026-05-22' | head -1"
