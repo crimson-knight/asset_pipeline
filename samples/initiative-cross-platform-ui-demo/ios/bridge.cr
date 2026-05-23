@@ -18,6 +18,7 @@
 
 require "../app"
 require "../../../src/ui/renderers/uikit_renderer"
+require "../../../src/ui/probes"
 
 module CascadeBridge
   @@initialized = false
