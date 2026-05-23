@@ -2770,5 +2770,124 @@ module UI
       }
       CSS
     end
+
+    # ---------------------------------------------------------------
+    # Phase 6.10 D2 — coordinator-driven route host
+    # ---------------------------------------------------------------
+    #
+    # The web target is a single-page HTML doc with hash-route
+    # navigation. Each route's view tree is rendered once at build
+    # time + once per push/pop at runtime, in the browser, via a
+    # tiny vanilla-JS shim. The shim listens to hashchange + popstate
+    # and swaps the host element's innerHTML to the new route's
+    # pre-rendered HTML fragment.
+    #
+    # `render_route_host(routes)` emits:
+    #   1. The host `<div id="ui-route-host">…</div>` containing the
+    #      INITIAL route's fragment.
+    #   2. A `<script type="application/json" id="ui-route-data">…`
+    #      block carrying every route's pre-rendered HTML keyed by
+    #      route id.
+    #   3. A `<script>` that wires hashchange → DOM swap.
+    #
+    # `routes` is `Hash(String, String)` of route_id_str => prerendered_html.
+    # `initial_route` is the route shown before any hash navigation.
+    # `route_change_announce_label` is the aria-live announcement template
+    # (default "Navigated to {route}") used for I-6 a11y compliance.
+    def self.render_route_host(
+      routes : Hash(String, String),
+      initial_route : String,
+      route_change_announce_label : String = "Navigated to {route}",
+    ) : String
+      String.build do |io|
+        # Route fragment data — embedded as JSON so the JS shim can
+        # look up any fragment by id.
+        io << %(<script type="application/json" id="ui-route-data">) << '\n'
+        io << "{\n"
+        routes.to_a.each_with_index do |(route_id, html), idx|
+          # Escape \, ", and newlines/tabs for embedding in JSON.
+          escaped = html.gsub('\\', "\\\\").gsub('"', "\\\"").gsub('\n', "\\n").gsub('\t', "\\t").gsub('\r', "\\r")
+          comma = idx == routes.size - 1 ? "" : ","
+          io << "  \"" << route_id << "\": \"" << escaped << "\"" << comma << '\n'
+        end
+        io << "}\n"
+        io << "</script>\n"
+
+        # The host element holding the visible route. innerHTML is the
+        # rendered fragment for the initial route.
+        io << %(<div id="ui-route-host" role="main" aria-live="polite" data-route=") << initial_route << "\">\n"
+        io << (routes[initial_route]? || "")
+        io << "\n</div>\n"
+
+        # The aria-live announcer (separate element so it doesn't
+        # collide with the host content's a11y tree).
+        io << %(<div id="ui-route-announcer" aria-live="polite" aria-atomic="true" )
+        io << %(style="position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden;"></div>) << '\n'
+
+        # JS shim. Vanilla DOM API + hashchange + popstate. The
+        # NavigationCoordinator on the server side renders all routes
+        # at build time; the browser just swaps fragments. State
+        # mutations (e.g. Settings toggle) trigger a re-emit of the
+        # affected fragments via additional patches (Phase 6.10 D4
+        # uses inline JS to re-call the static fragment for the
+        # toggled route).
+        io << <<-JS
+<script>
+(function() {
+  var routes = JSON.parse(document.getElementById('ui-route-data').textContent);
+  var host = document.getElementById('ui-route-host');
+  var announcer = document.getElementById('ui-route-announcer');
+
+  function routeFromHash() {
+    var h = window.location.hash || '';
+    if (h.startsWith('#')) h = h.substring(1);
+    return h && routes[h] ? h : host.getAttribute('data-route');
+  }
+
+  function render(routeId, opts) {
+    opts = opts || {};
+    var html = routes[routeId];
+    if (typeof html !== 'string') return;
+    host.innerHTML = html;
+    host.setAttribute('data-route', routeId);
+    if (!opts.silent) {
+      announcer.textContent = #{route_change_announce_label.inspect}.replace('{route}', routeId);
+    }
+    if (opts.pushState) {
+      try { window.history.pushState({route: routeId}, '', '#' + routeId); } catch (e) {}
+    }
+  }
+
+  window.UIRouteHost = {
+    push: function(routeId) { render(routeId, {pushState: true}); },
+    pop: function(rootRoute) {
+      try { window.history.back(); } catch (e) {
+        if (rootRoute) render(rootRoute, {silent: false});
+      }
+    },
+    replace: function(routeId) {
+      render(routeId, {silent: false});
+      try { window.history.replaceState({route: routeId}, '', '#' + routeId); } catch (e) {}
+    },
+    setFragment: function(routeId, html) {
+      routes[routeId] = html;
+      if (host.getAttribute('data-route') === routeId) {
+        host.innerHTML = html;
+      }
+    },
+  };
+
+  window.addEventListener('hashchange', function() { render(routeFromHash(), {silent: false}); });
+  window.addEventListener('popstate', function() { render(routeFromHash(), {silent: false}); });
+
+  // If the initial hash names a route different from the data-route
+  // attribute, swap to it on load (so direct deep-links work).
+  var initial = routeFromHash();
+  if (initial !== host.getAttribute('data-route')) render(initial, {silent: true});
+})();
+</script>
+JS
+      end
+    end
   end
 end
