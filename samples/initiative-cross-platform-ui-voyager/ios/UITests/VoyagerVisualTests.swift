@@ -58,29 +58,50 @@ final class VoyagerVisualTests: XCTestCase {
         app.launchArguments = ["-VoyagerRoot", "voyager-sign-in"]
         app.launch()
 
-        // Step 1: sign-in screen
-        Thread.sleep(forTimeInterval: 0.5)
+        // Step 1: sign-in screen. Wait for the Crystal-rendered host
+        // to appear in the AX tree — SwiftUI's UIViewRepresentable
+        // doesn't surface its hosted UIView children until the first
+        // full layout pass completes (~2-3s on the iPhone 17 sim).
+        let host = app.otherElements["voyager-root-host"]
+        XCTAssertTrue(host.waitForExistence(timeout: 10),
+            "voyager-root-host not found after launch")
+        Thread.sleep(forTimeInterval: 1.5)
         attachScreenshot(name: "step1-sign-in")
 
-        // Step 2: tap Sign in — Crystal wires the tap to coord.push(:todos)
-        let signIn = app.buttons["Sign in"]
-        XCTAssertTrue(signIn.waitForExistence(timeout: 5), "Sign in button not found on launch")
+        // Step 2: tap Sign in — Crystal wires the tap to coord.push(:todos).
+        // The Crystal-rendered Button surfaces an XCUI button element via
+        // SwiftUI's .accessibilityLabel("Sign in"). If the query times
+        // out we fall back to the test_id identifier path.
+        var signIn = app.buttons["Sign in"]
+        if !signIn.waitForExistence(timeout: 5) {
+            signIn = app.buttons["voyager-sign-in-submit"]
+        }
+        XCTAssertTrue(signIn.waitForExistence(timeout: 5),
+            "Sign in button not found on launch")
         signIn.tap()
-        Thread.sleep(forTimeInterval: 1.0)
+        Thread.sleep(forTimeInterval: 1.5)
         attachScreenshot(name: "step2-todos")
 
-        // Step 3: navigate to Settings via the settings link
-        let settingsBtn = app.buttons["Settings"]
-        XCTAssertTrue(settingsBtn.waitForExistence(timeout: 5), "Settings button not found on Todos screen — navigation from sign-in may have failed")
+        // Step 3: navigate to Settings via the settings link.
+        var settingsBtn = app.buttons["Settings"]
+        if !settingsBtn.waitForExistence(timeout: 5) {
+            settingsBtn = app.buttons["voyager-todos-settings"]
+        }
+        XCTAssertTrue(settingsBtn.waitForExistence(timeout: 5),
+            "Settings button not found on Todos screen — navigation may have failed")
         settingsBtn.tap()
-        Thread.sleep(forTimeInterval: 1.0)
+        Thread.sleep(forTimeInterval: 1.5)
         attachScreenshot(name: "step3-settings")
 
-        // Step 4: back to Todos
-        let back = app.buttons["Back to todos"]
-        XCTAssertTrue(back.waitForExistence(timeout: 5), "Back to todos button not found on Settings screen")
+        // Step 4: back to Todos.
+        var back = app.buttons["Back to todos"]
+        if !back.waitForExistence(timeout: 5) {
+            back = app.buttons["voyager-settings-back"]
+        }
+        XCTAssertTrue(back.waitForExistence(timeout: 5),
+            "Back to todos button not found on Settings screen")
         back.tap()
-        Thread.sleep(forTimeInterval: 1.0)
+        Thread.sleep(forTimeInterval: 1.5)
         attachScreenshot(name: "step4-back-to-todos")
     }
 
