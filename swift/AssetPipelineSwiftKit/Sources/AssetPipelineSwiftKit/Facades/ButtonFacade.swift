@@ -122,7 +122,20 @@ private struct APSKButtonHost: View {
                     .contentShape(Rectangle())
             )
         }
-        if let mw = overrides.minWidth {
+        // Phase 6 Rem 4 fix #2: macOS Sign-in button ignored the 340pt
+        // content_width pin because SwiftUI's `.borderedProminent`
+        // intrinsic content size (label + horizontal padding) competed
+        // against `.frame(minWidth:)` and the intrinsic size won inside
+        // the NSHostingView. When `minWidth == maxWidth` the caller has
+        // expressed an EXACT width pin (340pt for both edges), so we
+        // apply `.frame(width:)` to force the rendered Button to that
+        // size. Falls back to the existing `.frame(minWidth:)` when only
+        // a lower bound was set (preserves the BX9 touch-target floor
+        // behavior).
+        if let mw = overrides.minWidth, let mxw = overrides.maxWidth,
+           mw.doubleValue == mxw.doubleValue {
+            base = AnyView(base.frame(width: CGFloat(mw.doubleValue)))
+        } else if let mw = overrides.minWidth {
             let mwCG = CGFloat(mw.doubleValue)
             base = AnyView(base.frame(minWidth: mwCG))
         }
@@ -130,35 +143,41 @@ private struct APSKButtonHost: View {
         // Style cascade. SwiftUI layers system defaults (font, animation,
         // focus, dynamic type, dark mode) over whatever style we pick.
         //
-        // Phase 6 Rem 3-completion fix for the iOS-light "invisible
-        // Sign-in button" Codex blocker: `.borderedProminent` does NOT
-        // render any chrome on iOS-light when no `.tint(...)` is active
-        // in the SwiftUI environment — each Crystal-produced Button is
-        // hosted in its own UIHostingController so the host app's
-        // SwiftUI `.tint(...)` cascade does not reach it. We force the
-        // accent on the Button itself so `.borderedProminent` resolves
-        // its fill against the system accent (`accentColor` —
-        // appearance-tracking, so this respects light / dark and any
-        // explicit accent override in the SwiftUI environment if one
-        // happens to be in scope). The `.tint` is only applied for
-        // `prominent` and `tinted`: `.bordered` and `.borderless` are
-        // already visible without an accent.
+        // Phase 6 Rem 4 fix #1: removed the per-button
+        // `.tint(.accentColor)` workaround added in fddcc71 (Rem 3-comp).
+        // That workaround pinned every borderedProminent button to the
+        // SYSTEM accent (iOS blue) because the inner `.tint(.accentColor)`
+        // overrode the outer brand tint that `HostingHelpers.host(_:)`
+        // applies via `view.tint(APSKRuntime.brandTint)`. The brand-tint
+        // cascade from `apsk_runtime_set_brand_tint` (called by every
+        // renderer's `ensure_swiftkit_runtime!`) reaches each Button via
+        // the HostingHelpers wrapper, so `.borderedProminent` now resolves
+        // its fill against `brand_primary` automatically.
+        //
+        // Phase 6 Rem 4 fix #3: the `:secondary` role used by the social-
+        // auth row buttons (Apple / Google / Email) now maps to SwiftUI's
+        // `.bordered` style — the canonical secondary chrome that adopts
+        // the brand tint via the same cascade.
         var content: AnyView = base
         switch overrides.style {
         case "prominent":
-            content = AnyView(content
-                .tint(.accentColor)
-                .buttonStyle(.borderedProminent))
+            content = AnyView(content.buttonStyle(.borderedProminent))
         case "tinted":
-            content = AnyView(content
-                .tint(.accentColor)
-                .buttonStyle(.bordered))
+            content = AnyView(content.buttonStyle(.bordered))
         case "bordered":
             content = AnyView(content.buttonStyle(.bordered))
         case "borderless":
             content = AnyView(content.buttonStyle(.borderless))
         default:
-            break
+            // No explicit style override. If the role is :secondary,
+            // map to `.bordered` so the social-auth row's outlined
+            // chrome reads as a brand-aware secondary CTA. Role
+            // `destructive` is handled at the `Button(role:)` init
+            // above; `cancel` only adds fontWeight below; default
+            // role falls through to SwiftUI's automatic style.
+            if overrides.role == "secondary" {
+                content = AnyView(content.buttonStyle(.bordered))
+            }
         }
 
         if overrides.role == "cancel" {
