@@ -24,6 +24,17 @@ public class LinkButtonFacade: NSObject {
                 CallbackBridge.fire(token: actionToken, value: 0)
             })
         }
+        // SwiftUI's `Link` defaults to `.foregroundStyle(.link)` (system
+        // blue) and does NOT follow the `.tint()` accent cascade, so a
+        // brand-tinted root still renders Link as system blue. Re-applying
+        // `.foregroundStyle(.tint)` here pulls Link back into the accent
+        // cascade — when the host has installed a brand tint via
+        // `APSKRuntime.setBrandTint(...)`, the Link text now renders in the
+        // brand colour. Plain Button (the empty-URL fallback) already
+        // follows the tint cascade, so this only meaningfully affects the
+        // Link branch — but applying it uniformly keeps the behaviour
+        // identical across both branches.
+        content = AnyView(content.foregroundStyle(.tint))
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(content)
     }
