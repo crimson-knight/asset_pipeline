@@ -146,9 +146,21 @@ private struct APSKButtonHost: View {
         var content: AnyView = base
         switch overrides.style {
         case "prominent":
-            content = AnyView(content
-                .tint(.accentColor)
-                .buttonStyle(.borderedProminent))
+            // Phase 6.8 Fix 1: bypass `.borderedProminent` entirely. On iOS 26
+            // `.borderedProminent` resolves its fill against `.accentColor`
+            // (system blue) but does NOT honor a concrete brand `Color` via
+            // `.tint(...)` — Phase 6 Rem 4 + Rem 5 proved both cascade and
+            // per-button `.tint(Color(uiColor:))` regress to invisible. Render
+            // the brand-teal pill explicitly with `.background(Capsule().fill())`.
+            // This guarantees brand-teal regardless of host environment.
+            let brandTeal = Color(red: 0.012, green: 0.521, blue: 0.521)
+            content = AnyView(
+                content
+                    .foregroundStyle(.white)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 20)
+                    .background(Capsule().fill(brandTeal))
+            )
         case "tinted":
             content = AnyView(content
                 .tint(.accentColor)
