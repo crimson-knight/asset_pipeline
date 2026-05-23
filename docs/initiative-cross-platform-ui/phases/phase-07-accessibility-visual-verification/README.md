@@ -31,7 +31,7 @@ In scope (CI integration of Phase 6.5's existing harness — NOT infrastructure-
   - Invokes Phase 6.5's pre-existing audit harness (`scripts/audit_harness.cr` or equivalent path shipped by Phase 6.5) to run visual regression + accessibility audits.
   - Builds the demo on web, macOS, iOS (Android per its own gating from the cross-platform compile policy).
   - Fails the check if any audit reports a violation above a configured severity threshold.
-- **Baseline commit** for the demo Phase 6 ships (PNG snapshots per screen × platform × viewport × color scheme committed under `test-results/initiative-demo-baselines/`). Phase 6.5 provides the capture command; Phase 7 calls it from CI and commits the initial PNG set.
+- **Baselines already exist** at `docs/initiative-cross-platform-ui/baselines/{ios,macos,web-desktop,web-mobile}/` — 40 PNGs committed by Phase 6 (sign-in/dashboard/detail/settings/tier-three × light/dark × 4 surfaces). Phase 7 CI workflow CONSUMES these baselines (read-only — workflow must NOT modify the working tree). Intentional baseline refresh after a deliberate UI change is performed via the verification runbook + Phase 6.5's `scripts/regenerate_baselines.sh` invoked locally by a developer, NOT by CI.
 - **Verification runbook** at `docs/initiative-cross-platform-ui/verification-runbook.md` explaining how to update baselines after an intentional visual change (re-run Phase 6.5's regenerate command + commit new PNGs).
 - **CLAUDE.md pointer** to the runbook + the audit-harness scripts Phase 6.5 ships.
 
