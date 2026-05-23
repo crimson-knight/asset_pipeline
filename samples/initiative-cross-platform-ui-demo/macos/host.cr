@@ -55,17 +55,6 @@ require "../../../src/ui/renderers/appkit_renderer"
     def self.run!
       focal = build_view_for(SLUG)
       renderer = UI::AppKit::Renderer.new
-      # Phase 6 Rem 4 fix #1: the demo brand_tokens has brand_primary
-      # set to a deep teal (OKLCH 0.56, 0.13, 195). Assigning to
-      # `renderer.design_tokens` causes `ensure_swiftkit_runtime!` (run
-      # at the top of `renderer.render`) to push that colour to
-      # `APSKRuntime.brandTint` via `apsk_runtime_set_brand_tint`. From
-      # there `HostingHelpers.host(_:)` in AssetPipelineSwiftKit wraps
-      # every per-button NSHostingView with `view.tint(brandTint)`, so
-      # `.buttonStyle(.borderedProminent)` resolves its fill against
-      # the brand teal. Unlike iOS, the macOS host has no outer SwiftUI
-      # scope; the brand cascade is exclusively driven by the runtime
-      # tint set here.
       renderer.design_tokens = InitiativeDemo.brand_tokens
       native = renderer.render(focal)
       gc_guard = native
