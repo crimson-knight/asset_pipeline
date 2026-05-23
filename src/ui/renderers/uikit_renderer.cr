@@ -4199,9 +4199,39 @@
         end
 
         # Accessibility label
+        #
+        # IMPORTANT (Phase 6.10 Rem 1): On UIKit, calling
+        # `setAccessibilityLabel:` on a plain UIView (UIStackView included)
+        # auto-promotes the view to `isAccessibilityElement = YES`, which
+        # MASKS every descendant from the AX tree. For containers (VStack /
+        # HStack / ZStack / ScrollView / NavigationStack / etc.) we want
+        # the label to act as a "section title" the screen reader announces
+        # AT the group, while the descendants stay individually navigable.
+        # The fix: explicitly clamp `isAccessibilityElement = NO` for
+        # container views and set it to YES for leaf controls. This mirrors
+        # UIKit's intrinsic behavior for UIControl subclasses (which default
+        # to YES) and UIView (which defaults to NO).
+        is_container = view.is_a?(UI::VStack) || view.is_a?(UI::HStack) ||
+                       view.is_a?(UI::ZStack) || view.is_a?(UI::ScrollView) ||
+                       view.is_a?(UI::NavigationStack) || view.is_a?(UI::NavigationLink) ||
+                       view.is_a?(UI::Form) || view.is_a?(UI::Grid) ||
+                       view.is_a?(UI::Card) || view.is_a?(UI::Surface)
         if a11y = view.accessibility_label
           a11y_str = LibObjCBridge.nsstring_from_cstr(a11y.to_unsafe)
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), a11y_str)
+          # If this is a container, force isAccessibilityElement = NO so
+          # children remain visible to the AX tree. Without this, the
+          # whole subtree collapses into a single opaque AX element with
+          # the container's label and XCUITest cannot find the leaves.
+          if is_container
+            LibObjCBridge.objc_send_bool(ptr, sel("setIsAccessibilityElement:"), 0)
+          end
+        elsif is_container
+          # Even without a label, defensively clamp to NO. UIStackView
+          # alone is fine (defaults to NO), but UIScrollView wraps a
+          # content view that some code paths may have promoted via a
+          # later setter — we want the consistent contract.
+          LibObjCBridge.objc_send_bool(ptr, sel("setIsAccessibilityElement:"), 0)
         end
 
         # Test identifier -> accessibilityIdentifier for automated UI testing

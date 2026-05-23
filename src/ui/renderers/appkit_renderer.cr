@@ -4113,9 +4113,29 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         end
 
         # Accessibility label
+        #
+        # IMPORTANT (Phase 6.10 Rem 1): On AppKit's NSAccessibility
+        # protocol, an NSView with a non-nil `accessibilityLabel` is
+        # exposed to VoiceOver as an opaque AX element by default. For
+        # containers (VStack / HStack / ZStack / ScrollView / etc.) we
+        # explicitly mark them as NOT accessibility elements so their
+        # descendants stay individually navigable. The label still
+        # surfaces via NSAccessibility's container query, but the
+        # element-with-label collapse that masks leaves on iOS is also
+        # a risk on macOS — explicit clamp removes ambiguity.
+        is_container = view.is_a?(UI::VStack) || view.is_a?(UI::HStack) ||
+                       view.is_a?(UI::ZStack) || view.is_a?(UI::ScrollView) ||
+                       view.is_a?(UI::NavigationStack) || view.is_a?(UI::NavigationLink) ||
+                       view.is_a?(UI::Form) || view.is_a?(UI::Grid) ||
+                       view.is_a?(UI::Card) || view.is_a?(UI::Surface)
         if a11y = view.accessibility_label
           a11y_str = LibObjCBridge.nsstring_from_cstr(a11y.to_unsafe)
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), a11y_str)
+          if is_container
+            LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElement:"), 0)
+          end
+        elsif is_container
+          LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElement:"), 0)
         end
 
         # Test identifier -> accessibilityIdentifier for automated UI testing
