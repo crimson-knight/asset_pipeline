@@ -354,18 +354,47 @@ module AuditHarness
 
       def macos(slug : String?) : Result
         slug ||= "phase-03-button-default"
-        spec = "spec/ui/hig_validation/macos_visual_spec.cr"
-        unless File.exists?(File.join(REPO_ROOT, spec))
-          return Result.new(status: Status::Error, message: "macos_visual_spec.cr missing")
+        # Capture fresh PNG via the macOS host's self-snapshot path.
+        bin = File.join(REPO_ROOT, "samples/cross_platform/macos_host/bin/hig_showcase")
+        unless File.exists?(bin)
+          return Result.new(
+            status: Status::Skip,
+            message: "macOS host binary not built; capture skipped. Run `make -C samples/cross_platform/macos_host build`.",
+          )
         end
-        env = {"HIG_ONLY" => slug.split("-").last? || slug}
+
+        appearance = "light"
+        tmp = File.join(Dir.tempdir, "audit-i1-#{slug}-#{appearance}.png")
+        File.delete(tmp) if File.exists?(tmp)
+
+        # 0.6s self-snapshot path (see macos_visual_spec.cr).
+        env = {
+          "HIG_SLUG"            => slug,
+          "HIG_APPEARANCE"      => appearance,
+          "HIG_SCREENSHOT_PATH" => tmp,
+        }
+        code, out_s, err_s = ShellRunner.run_capture([bin], env: env)
+        if code != 0 || !File.exists?(tmp)
+          excerpt = ([out_s, err_s].join("\n").lines.last(10).join("\n"))
+          return Result.new(
+            status: Status::Fail,
+            message: "macOS capture failed: exit=#{code}\n#{excerpt}",
+          )
+        end
+
+        baseline = File.join(REPO_ROOT, "docs/initiative-cross-platform-ui/baselines/macos/#{slug}-#{appearance}.png")
+        unless File.exists?(baseline)
+          return Result.new(
+            status: Status::Skip,
+            message: "no baseline at #{baseline}; capture succeeded at #{tmp}. Run regenerate_baselines.sh to seed.",
+            artifacts: [tmp],
+          )
+        end
+
         ShellRunner.run_as_probe(
-          [
-            "crystal-alpha", "spec", spec, "-Dmacos",
-            "--link-flags=-framework ApplicationServices -framework CoreFoundation",
-          ],
-          "macOS visual spec",
-          env: env,
+          ["crystal-alpha", "run", File.join(REPO_ROOT, "scripts/visual_diff.cr"), "--",
+           "--baseline", baseline, "--actual", tmp],
+          "macOS visual diff #{slug}/#{appearance}",
         )
       end
 

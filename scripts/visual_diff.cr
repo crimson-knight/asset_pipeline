@@ -102,17 +102,22 @@ module VisualDiff
 
     stderr_str = stderr_io.to_s.strip
     # `magick compare -metric AE` writes one of:
-    #   "0"              (identical)
-    #   "0 (0)"          (identical, with normalized)
-    #   "1.23456e+08"    (sub-1px scaled when -fuzz set)
-    #   "1.23456e+08 (...)" or "131892" etc.
-    # Parse the leading float (which may be scientific) and round to int.
-    pixels = if stderr_str =~ /^([-+0-9.eE]+)/
-      val = $1.to_f
-      val.nan? || val.infinite? ? -1_i64 : val.round.to_i64
-    else
-      -1_i64
-    end
+    #   "0"                 (identical, older ImageMagick)
+    #   "0 (0)"             (identical, newer ImageMagick — count + normalized)
+    #   "8.64354e+09 (131892)"   leading is channel-diff sum (per pixel,
+    #                            per channel, summed), parenthesized is the
+    #                            actual count of differing PIXELS.
+    # We always prefer the parenthesized pixel count when present, falling
+    # back to the leading number for older ImageMagick output.
+    pixels =
+      if stderr_str =~ /\((\d+)\)\s*$/
+        $1.to_i64
+      elsif stderr_str =~ /^([-+0-9.eE]+)/
+        val = $1.to_f
+        val.nan? || val.infinite? ? -1_i64 : val.round.to_i64
+      else
+        -1_i64
+      end
 
     if status.exit_code == 2 || pixels < 0
       return DiffResult.new(
