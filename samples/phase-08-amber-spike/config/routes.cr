@@ -7,8 +7,16 @@ Amber::Server.configure do
     plug Amber::Pipe::CSRF.new
   end
 
+  # Phase 8C — Amber router contribution from the unified `UI::App`
+  # declaration (see config/application.cr's `SpikeApp`). The
+  # `routes_for` macro expands at compile time to a sequence of
+  # `get`/`post` calls — one per `web_actions` entry on every screen
+  # registered by SpikeApp that declared web metadata.
+  #
+  # Manual `get`/`post` lines could still be added alongside the
+  # `routes_for` call if the app needs hand-rolled routes; the spike
+  # has none.
   routes :web do
-    get  "/",               SignInController, :index
-    post "/sign_in/submit", SignInController, :submit
+    UI::AmberIntegration.routes_for(SpikeApp)
   end
 end

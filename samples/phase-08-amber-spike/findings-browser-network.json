@@ -17,7 +17,7 @@
     "method": "Network.requestWillBeSent",
     "request_method": "POST",
     "url": "http://localhost:3000/sign_in/submit",
-    "post_data": "_csrf=aEPQMnrlHERTumslM_RMlw5is3QkeBOpCJHgOszY7n37w_0-v7uQolmMofRHY1OiV-2N1fPgO-6U5BHacJU2Ng%3D%3D&email=seth%40example.com&password=password123",
+    "post_data": "_csrf=lyyaiw37y-iUHI7bVHsXz_IkYGV9SgTDQXwmOpypHvrx9EXIbfWZxG_kKVStWrmAUoHAkp-oFJ_KIMbAfXphOQ%3D%3D&email=seth%40example.com&password=password123",
     "status": null
   },
   {
