@@ -3811,15 +3811,24 @@
         row_width = (view.maximum_width || view.minimum_width || 320.0).to_f
 
         # Build the content child (the inner HStack with Checkbox + title).
+        #
+        # Phase 6.11 iter-3 (Codex finding) — previously emitted a silent
+        # empty UIView when `render_detached` returned nil. That hid the
+        # row + its actions while still producing "something," masking
+        # bugs in the row construction path. The 14-row Todos behavior
+        # contract treats a missing row as a hard failure, so the visitor
+        # now raises `UI::RenderError` with the offending view labeled.
+        # Callers that genuinely need a recoverable path can wrap in
+        # begin/rescue UI::RenderError of their own.
         content_native = render_detached(view.content)
         unless content_native
-          # Defensive fallback: emit an empty UIView so the renderer
-          # produces SOMETHING for the row even when the content failed
-          # to render. Visible white row is preferable to a crash.
-          fallback = alloc_init("UIView")
-          apply_common_properties(fallback, view)
-          emit(fallback, "UIView[SwipeActionRow-empty]")
-          return
+          raise UI::RenderError.new(
+            "UIKit renderer: visit(UI::SwipeActionRow) could not render row " \
+            "content (#{view.content.class.name}); accessibility_label=" \
+            "#{view.accessibility_label.inspect}. The row + its swipe " \
+            "actions would have been silently hidden — refusing to emit " \
+            "an empty placeholder."
+          )
         end
 
         # Build each trailing-action child as a UI::Button. We retain a

@@ -735,17 +735,38 @@ void *make_swipe_reveal_row(void *content_view,
     stack.spacing = 0.0;
     [scroll addSubview:stack];
 
-    // Pin stack to contentLayoutGuide; height to frameLayoutGuide so the
-    // row's height is the actions' (or content's, whichever is taller) and
-    // the scroll view doesn't grow vertically.
+    // Pin stack to contentLayoutGuide. Phase 6.11 iter-3 (Option A) fix:
+    // the previous revision pinned `stack.heightAnchor` equal to
+    // `fg.heightAnchor` (the scroll view's frame height). That created a
+    // circular constraint — UIScrollView has no intrinsic content height,
+    // so its frame height depended on an outer layout pass that never
+    // received a definite size, leaving the row vertically ambiguous and
+    // causing collapse to zero height in the iPhone 17 Pro sim.
+    //
+    // The fix: derive height from the inner stack's intrinsic content
+    // (its arranged subviews each have intrinsic content size). Pin the
+    // scroll view's height greaterThanOrEqualTo the stack's height so the
+    // scroll view grows to match. Outer layout passes then see a definite
+    // intrinsic content size for the scroll view and place it correctly
+    // inside the parent UIStackView.
     UILayoutGuide *cg = scroll.contentLayoutGuide;
-    UILayoutGuide *fg = scroll.frameLayoutGuide;
+    NSLayoutConstraint *heightFloor =
+        [scroll.heightAnchor constraintGreaterThanOrEqualToAnchor:stack.heightAnchor];
+    heightFloor.priority = UILayoutPriorityRequired;
+    NSLayoutConstraint *heightEqual =
+        [scroll.heightAnchor constraintEqualToAnchor:stack.heightAnchor];
+    // Priority 999 (Required - 1): the equality drives the scroll view's
+    // intrinsic vertical placement under an outer UIStackView while
+    // leaving the floor constraint authoritative if the outer layout
+    // tries to compress below the inner stack's natural height.
+    heightEqual.priority = UILayoutPriorityRequired - 1;
     [NSLayoutConstraint activateConstraints:@[
         [stack.topAnchor constraintEqualToAnchor:cg.topAnchor],
         [stack.leadingAnchor constraintEqualToAnchor:cg.leadingAnchor],
         [stack.trailingAnchor constraintEqualToAnchor:cg.trailingAnchor],
         [stack.bottomAnchor constraintEqualToAnchor:cg.bottomAnchor],
-        [stack.heightAnchor constraintEqualToAnchor:fg.heightAnchor],
+        heightFloor,
+        heightEqual,
     ]];
 
     // Add the content view first; force its width to row_width so it

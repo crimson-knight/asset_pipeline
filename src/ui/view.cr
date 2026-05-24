@@ -1,4 +1,14 @@
 module UI
+  # Phase 6.11 iter-3 — Raised by a platform visitor when a child view
+  # cannot be rendered to its native handle. The previous behavior emitted
+  # a silent empty placeholder which masked bugs (notably the iOS
+  # `SwipeActionRow` content path during the swipe-reveal refactor). The
+  # explicit exception surfaces the failure immediately during development
+  # and lets call sites that genuinely need a recoverable path opt in via
+  # a `begin/rescue` of their own.
+  class RenderError < Exception
+  end
+
   # Alignment options for stack layouts
   enum Alignment
     Leading

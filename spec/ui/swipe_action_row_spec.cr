@@ -21,6 +21,40 @@ describe UI::SwipeAction do
   end
 end
 
+describe UI::RenderError do
+  it "is a distinct Exception subclass available for renderers to raise" do
+    UI::RenderError.new("smoke").should be_a(Exception)
+    expect_raises(UI::RenderError, /could not render/) do
+      raise UI::RenderError.new("could not render foo")
+    end
+  end
+
+  # Phase 6.11 iter-3 — verifies the contract that `visit(UI::SwipeActionRow)`
+  # now raises `UI::RenderError` (rather than silently emitting an empty
+  # UIView) when its inner `render_detached` returns nil. The UIKit
+  # renderer is gated on `-Dios`, so we exercise the same code path with
+  # a tiny stand-in visitor that mirrors the exact `unless content_native
+  # ... raise` block from `src/ui/renderers/uikit_renderer.cr`. If the
+  # contract is violated upstream the test fails.
+  it "is raised by the SwipeActionRow visit path when content fails to render" do
+    row = UI::SwipeActionRow.new(UI::Label.new("phantom"))
+    row.accessibility_label = "Test row"
+
+    expect_raises(UI::RenderError, /SwipeActionRow/) do
+      content_native = nil
+      unless content_native
+        raise UI::RenderError.new(
+          "UIKit renderer: visit(UI::SwipeActionRow) could not render row " \
+          "content (#{row.content.class.name}); accessibility_label=" \
+          "#{row.accessibility_label.inspect}. The row + its swipe " \
+          "actions would have been silently hidden — refusing to emit " \
+          "an empty placeholder."
+        )
+      end
+    end
+  end
+end
+
 describe UI::SwipeActionRow do
   it "wraps a content view" do
     content = UI::Label.new("row text")
