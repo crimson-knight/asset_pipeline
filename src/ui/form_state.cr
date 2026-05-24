@@ -100,9 +100,6 @@ module UI
     # `mount_screen`. The renderer (iter 3) reads them inside
     # `visit(UI::TextField)` / `visit(UI::SecureField)` to wire
     # mount-token-scoped on_change callbacks.
-    #
-    # Both are nilable + accessed via method (no class-var default
-    # initialisers — iOS gap safe per the iter 1 + 2 hardening).
 
     # `@@current` is nilable + accessed via method — iOS gap safe.
     # `@@current_mount_token` defaults to 0_i64 via a class-var
