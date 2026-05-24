@@ -66,14 +66,24 @@ public final class APSKButtonState: NSObject, ObservableObject {
     @Published public var foregroundColor: APSKPlatformColor?
     @Published public var cornerRadius: NSNumber?
 
+    // Phase 6.11 — reactive disabled. Seeded from `overrides.disabled`,
+    // mutable at runtime through `apsk_button_set_disabled`. The host
+    // applies `content.disabled(state.isDisabled)` instead of reading
+    // the static `overrides.disabled` snapshot so Crystal can flip the
+    // value after the SwiftUI Button has been mounted (e.g. the Voyager
+    // Todo editor disables Save while the title is whitespace-only).
+    @Published public var isDisabled: Bool
+
     public init(
         backgroundColor: APSKPlatformColor? = nil,
         foregroundColor: APSKPlatformColor? = nil,
-        cornerRadius: NSNumber? = nil
+        cornerRadius: NSNumber? = nil,
+        isDisabled: Bool = false
     ) {
         self.backgroundColor = backgroundColor
         self.foregroundColor = foregroundColor
         self.cornerRadius = cornerRadius
+        self.isDisabled = isDisabled
         super.init()
     }
 }
@@ -200,6 +210,21 @@ public func apskButtonClearCornerRadius(
     let state = Unmanaged<APSKButtonState>.fromOpaque(stateHandle)
         .takeUnretainedValue()
     apskMainAsync { state.cornerRadius = nil }
+}
+
+// Phase 6.11 — reactive disabled mutator. Crystal calls this when the
+// `UI::Button#disabled=` setter runs on a Button whose state pointer
+// has been captured (i.e., the Button has been rendered through
+// `apsk_make_button_reactive`).
+@_cdecl("apsk_button_set_disabled")
+public func apskButtonSetDisabled(
+    _ stateHandle: UnsafeMutableRawPointer,
+    _ disabled: Int32
+) {
+    let state = Unmanaged<APSKButtonState>.fromOpaque(stateHandle)
+        .takeUnretainedValue()
+    let newValue = (disabled != 0)
+    apskMainAsync { state.isDisabled = newValue }
 }
 
 @_cdecl("apsk_toggle_set_value")

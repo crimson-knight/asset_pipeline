@@ -28,6 +28,10 @@ public class LabelOverrides: ViewOverrides {
     @objc public var numberOfLines: NSNumber? = nil
     @objc public var fontSize: NSNumber? = nil
     @objc public var fontWeight: NSNumber? = nil
+    // Phase 6.11 — strikethrough toggle. nil = SwiftUI default (no
+    // strikethrough); `true` applies `.strikethrough(true)` so completed
+    // todo rows render with a HIG-correct line through the title.
+    @objc public var strikethrough: NSNumber? = nil
 
     @objc public override init() { super.init() }
 }

@@ -54,7 +54,8 @@ public class ButtonFacade: NSObject {
         let state = APSKButtonState(
             backgroundColor: overrides.backgroundColor,
             foregroundColor: overrides.foregroundColor,
-            cornerRadius: overrides.cornerRadius
+            cornerRadius: overrides.cornerRadius,
+            isDisabled: overrides.disabled?.boolValue ?? false
         )
 
         if let outState = outState {
@@ -209,7 +210,12 @@ private struct APSKButtonHost: View {
             let resolved = Font.Weight(rawValue: weight.intValue) ?? .regular
             content = AnyView(content.fontWeight(resolved))
         }
-        if let disabled = overrides.disabled, disabled.boolValue {
+        // Phase 6.11 — reactive disabled. Source of truth is the state
+        // object's `isDisabled` (seeded from `overrides.disabled` and
+        // mutable through `apsk_button_set_disabled`). Reading the
+        // observable property here gives SwiftUI the dependency edge
+        // needed to re-render the button when Crystal flips disabled.
+        if state.isDisabled {
             content = AnyView(content.disabled(true))
         }
 

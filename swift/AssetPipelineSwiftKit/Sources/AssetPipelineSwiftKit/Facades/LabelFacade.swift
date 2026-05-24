@@ -113,6 +113,12 @@ private struct APSKLabelHost: View {
             content = AnyView(content.lineLimit(n.intValue))
         }
 
+        // Phase 6.11 — strikethrough modifier. Applied last among the
+        // text-shaping modifiers so it observes the resolved font + color.
+        if let st = overrides.strikethrough, st.boolValue {
+            content = AnyView(content.strikethrough(true))
+        }
+
         content = CommonModifiers.apply(content, overrides: overrides)
         return content
     }
