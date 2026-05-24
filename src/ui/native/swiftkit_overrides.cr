@@ -227,6 +227,12 @@ module UI
           sender.set_number(target, :setFontWeight,
             swiftui_font_weight_rawvalue(font.weight).to_f64)
         end
+
+        # Phase 6.11 — strikethrough toggle. Emit only when set so the
+        # SwiftUI facade keeps its default (no strikethrough) untouched.
+        if view.strikethrough
+          sender.set_bool(target, :setStrikethrough, true)
+        end
       end
 
       # Map a Crystal `UI::Font.weight` Symbol to the SwiftUI

@@ -292,6 +292,10 @@
     fun apsk_button_clear_foreground_color(state : Void*)
     fun apsk_button_set_corner_radius(state : Void*, value : Float64)
     fun apsk_button_clear_corner_radius(state : Void*)
+    # Phase 6.11 — reactive disabled mutator (parallel to set_value /
+    # set_text). Crystal-side `UI::Button#disabled=` setter calls this
+    # when the SwiftKit state handle has been captured.
+    fun apsk_button_set_disabled(state : Void*, disabled : Int32)
     fun apsk_toggle_set_value(state : Void*, is_on : Int32)
     fun apsk_slider_set_value(state : Void*, value : Float64)
     # Phase 3 Remediation 10 — Sheet presentation mutator.

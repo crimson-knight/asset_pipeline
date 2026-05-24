@@ -696,6 +696,87 @@ void uiscrollview_pin_content(void *scroll_view, void *content_view) {
 #endif
 }
 
+// Phase 6.11 — swipe-reveal row factory for iOS.
+//
+// Builds a UIScrollView-based swipe row whose visible area equals the
+// supplied row_width. Layout:
+//
+//   contentSize.width  = row_width + actions_width  (horizontal scroll)
+//   contentSize.height = max(content_height, action_height)
+//   contentOffset.x    = 0    (initial — only content visible)
+//
+// User can pan-left to reveal the trailing actions area. The scroll view
+// uses isPagingEnabled = NO + bounces on so the user can flick back to
+// hide the actions. directionalLockEnabled = YES prevents diagonal panning.
+//
+// content_view + each action_view are added as subviews of an inner
+// horizontal UIStackView so Auto Layout sizes them naturally; the stack
+// view is then pinned to the scroll view's contentLayoutGuide.
+//
+// Returns the +1 retained UIScrollView pointer. macOS: returns NULL.
+void *make_swipe_reveal_row(void *content_view,
+                            void **action_views,
+                            int action_count,
+                            double row_width) {
+#if !TARGET_OS_OSX
+    UIScrollView *scroll = [[UIScrollView alloc] init];
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    scroll.showsHorizontalScrollIndicator = NO;
+    scroll.showsVerticalScrollIndicator = NO;
+    scroll.directionalLockEnabled = YES;
+    scroll.alwaysBounceHorizontal = YES;
+    scroll.bounces = YES;
+    scroll.decelerationRate = UIScrollViewDecelerationRateNormal;
+
+    UIStackView *stack = [[UIStackView alloc] init];
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    stack.axis = UILayoutConstraintAxisHorizontal;
+    stack.alignment = UIStackViewAlignmentFill;
+    stack.spacing = 0.0;
+    [scroll addSubview:stack];
+
+    // Pin stack to contentLayoutGuide; height to frameLayoutGuide so the
+    // row's height is the actions' (or content's, whichever is taller) and
+    // the scroll view doesn't grow vertically.
+    UILayoutGuide *cg = scroll.contentLayoutGuide;
+    UILayoutGuide *fg = scroll.frameLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [stack.topAnchor constraintEqualToAnchor:cg.topAnchor],
+        [stack.leadingAnchor constraintEqualToAnchor:cg.leadingAnchor],
+        [stack.trailingAnchor constraintEqualToAnchor:cg.trailingAnchor],
+        [stack.bottomAnchor constraintEqualToAnchor:cg.bottomAnchor],
+        [stack.heightAnchor constraintEqualToAnchor:fg.heightAnchor],
+    ]];
+
+    // Add the content view first; force its width to row_width so it
+    // occupies exactly the visible area.
+    UIView *cv = (UIView *)content_view;
+    cv.translatesAutoresizingMaskIntoConstraints = NO;
+    [stack addArrangedSubview:cv];
+    [cv.widthAnchor constraintEqualToConstant:row_width].active = YES;
+
+    // Add each action view next; each gets a sensible minimum width so
+    // the user can tap them comfortably (74pt is iOS Mail's approximate
+    // swipe-action width).
+    for (int i = 0; i < action_count; i++) {
+        UIView *av = (UIView *)action_views[i];
+        if (av == NULL) continue;
+        av.translatesAutoresizingMaskIntoConstraints = NO;
+        [stack addArrangedSubview:av];
+        [av.widthAnchor constraintGreaterThanOrEqualToConstant:74.0].active = YES;
+    }
+
+    // Pin the scroll view's intrinsic visible width to row_width so the
+    // outer layout sizes it correctly. Without this the scroll view would
+    // try to expand horizontally to its contentSize.
+    [scroll.widthAnchor constraintEqualToConstant:row_width].active = YES;
+
+    return (__bridge_retained void *)scroll;
+#else
+    return NULL;
+#endif
+}
+
 // Set a view as the documentView of an NSScrollView and wire Auto Layout
 // constraints so the document view fills the NSScrollView's width while
 // being free to grow vertically (enabling vertical scrolling).

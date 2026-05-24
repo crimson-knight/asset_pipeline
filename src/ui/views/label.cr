@@ -60,6 +60,14 @@ module UI
     # Other renderers may ignore it.
     property preferred_max_layout_width : Float64? = nil
 
+    # Phase 6.11 — strikethrough toggle. Renderers map to:
+    #   SwiftUI / UIKit / AppKit : `.strikethrough(true)`
+    #   Web                       : `text-decoration: line-through`
+    # Default `false` keeps existing labels visually unchanged. The
+    # Voyager Todos screen sets this `true` on a row's title label when
+    # the underlying todo is `completed`.
+    property strikethrough : Bool = false
+
     def initialize(@text : String)
     end
 

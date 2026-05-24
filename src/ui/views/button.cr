@@ -48,8 +48,28 @@ module UI
     # Foreground (label) color
     property foreground_color : Color = Color.new(r: 0.0, g: 0.478, b: 1.0)
 
-    # Whether the button is disabled (non-interactive)
-    property disabled : Bool = false
+    # Whether the button is disabled (non-interactive).
+    #
+    # Reactive: after the renderer has emitted the SwiftUI hosting view,
+    # mutating this property propagates through the SwiftKit bridge so
+    # SwiftUI re-renders the Button with `.disabled(true)` / `.disabled(false)`
+    # without a tree rebuild. Setters issued before the view has been
+    # rendered are plain property assignments — the next render seeds the
+    # reactive state from the new value. Phase 6.11 added the reactive
+    # path so the Voyager Todo editor can flip Save's disabled state as
+    # the user types (blank title → disabled; non-blank → enabled) without
+    # rebuilding the whole screen.
+    getter disabled : Bool = false
+
+    def disabled=(new_value : Bool) : Bool
+      @disabled = new_value
+      {% if flag?(:macos) || flag?(:ios) %}
+        if sh = @swiftkit_state_handle
+          LibSwiftKitBridge.apsk_button_set_disabled(sh, new_value ? 1 : 0)
+        end
+      {% end %}
+      new_value
+    end
 
     # Callback invoked when the button is tapped
     property on_tap : Proc(Nil)? = nil
