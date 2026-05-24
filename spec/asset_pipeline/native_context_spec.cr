@@ -1,6 +1,19 @@
 require "../spec_helper"
 require "../../src/asset_pipeline/native_context"
 
+# Iter-3 ships the real `UI::FormState` with mount-token bookkeeping.
+# For iter-2, the forward declaration's `to_h` stub returns {}. This
+# subclass overrides `to_h` so a spec can prove `ctx.params` reads
+# real form-state values without depending on iter-3's API surface.
+private class NativeContextSpecStubbedFormState < UI::FormState
+  def initialize(@values : Hash(String, String))
+  end
+
+  def to_h : Hash(String, String)
+    @values.dup
+  end
+end
+
 private def build_native_context(
   *,
   form_state : UI::FormState = UI::FormState.new,
@@ -86,6 +99,28 @@ describe UI::ScreenContext::Native do
     # action_params is NOT silently merged into ctx.params.
     ctx.params.has_key?("todo_id").should be_false
     ctx.action_params["todo_id"].should eq("42")
+  end
+
+  it "params reflects non-empty form_state values via to_h delegation" do
+    # Per Codex iter-2 review note: prove `ctx.params` surfaces form
+    # field values, AND that an action_params key with the same name
+    # does not silently override the form value. iter 3 ships the real
+    # FormState; here we subclass it with a deterministic to_h.
+    fs = NativeContextSpecStubbedFormState.new({
+      "email"    => "seth@example.com",
+      "password" => "secret",
+    })
+    ctx = build_native_context(
+      form_state: fs,
+      # Same key name as a form field — must NOT clobber.
+      action_params: {"email" => "FROM_BUTTON_NOT_FORM"},
+    )
+
+    ctx.params["email"].should eq("seth@example.com")
+    ctx.params["password"].should eq("secret")
+    ctx.action_params["email"].should eq("FROM_BUTTON_NOT_FORM")
+    # ctx.params does NOT contain the action_params key:
+    ctx.params.keys.should_not contain("FROM_BUTTON_NOT_FORM")
   end
 
   it "csrf_token is explicitly nil for native targets" do

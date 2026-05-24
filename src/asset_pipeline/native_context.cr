@@ -50,6 +50,7 @@ module UI
   # session; native uses `UI::Session::InProcess`.
   abstract class Session
     abstract def [](key : String) : String?
+    abstract def []?(key : String) : String?
     abstract def []=(key : String, value : String) : Nil
     abstract def to_h : Hash(String, String)
 
@@ -82,6 +83,7 @@ module UI
   # uses `UI::Flash::InProcess`.
   abstract class Flash
     abstract def [](key : String) : String?
+    abstract def []?(key : String) : String?
     abstract def []=(key : String, value : String) : Nil
     abstract def clear : Nil
     abstract def to_h : Hash(String, String)

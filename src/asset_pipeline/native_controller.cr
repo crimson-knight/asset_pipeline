@@ -119,27 +119,35 @@ module UI
     #   - return `nil` to continue to the action
     #   - return a `UI::ActionResult` to short-circuit (e.g. redirect)
     #
-    # Callbacks are stored on the subclass's `_before_actions` array.
-    # `macro inherited` ensures each subclass gets its OWN fresh array
-    # (rather than sharing one inherited from `UI::Controller`).
+    # iOS class-init gap handling: every `before_action` macro call
+    # emits a compile-time-named class method
+    # `_before_action_<method_name>_proc : Proc(...)`. The
+    # `_before_actions` accessor enumerates those methods (via
+    # `macro inherited` + `macro finished` — the same pattern
+    # UI::App uses for `bootstrap!`) and builds the callback list at
+    # call time. Method definitions are compile-time emitted, not
+    # class-load side effects, so they survive the iOS gap.
 
-    # Lazy accessor for the subclass-specific before_actions list. The
-    # `macro inherited` hook below installs a subclass-level
-    # `_before_actions` method that returns a nilable-allocated array.
-    # The base class's accessor returns an empty array (no callbacks
-    # at the abstract level).
+    # Abstract default — no callbacks registered.
     def self._before_actions : Array(Proc(UI::Controller, UI::ScreenContext::Native, UI::ActionResult?))
       [] of Proc(UI::Controller, UI::ScreenContext::Native, UI::ActionResult?)
     end
 
     macro inherited
-      # Per-subclass lazy-allocated callback list. Nilable class var +
-      # lazy accessor avoids the iOS class-init gap (see UI::App for
-      # the same pattern).
-      @@_before_actions : Array(Proc(UI::Controller, UI::ScreenContext::Native, UI::ActionResult?))? = nil
-
-      def self._before_actions : Array(Proc(UI::Controller, UI::ScreenContext::Native, UI::ActionResult?))
-        @@_before_actions ||= [] of Proc(UI::Controller, UI::ScreenContext::Native, UI::ActionResult?)
+      macro finished
+        # Generated per-subclass `_before_actions` that enumerates
+        # every `_before_action_*_proc` class method. Walks the
+        # subclass's class methods at compile time and emits the
+        # `<<` calls explicitly.
+        def self._before_actions : Array(Proc(UI::Controller, UI::ScreenContext::Native, UI::ActionResult?))
+          list = [] of Proc(UI::Controller, UI::ScreenContext::Native, UI::ActionResult?)
+          \{% for method in @type.class.methods %}
+            \{% if method.name.starts_with?("_before_action_") && method.name.ends_with?("_proc") %}
+              list << \{{method.name}}
+            \{% end %}
+          \{% end %}
+          list
+        end
       end
     end
 
@@ -152,13 +160,22 @@ module UI
     #       return nil if context.session["user_email"]?
     #       navigate_to(:sign_in)
     #     end
+    #
+    # Implementation: emits a compile-time class method
+    # `_before_action_<method_name>_proc` that builds and returns the
+    # callback proc on demand. `_before_actions` enumerates those
+    # methods to assemble the list. Compile-time method emission is
+    # gap-safe; the prior `@@_before_actions << ...` class-body side
+    # effect was not.
     macro before_action(method_name)
-      _before_actions << ->(ctrl : UI::Controller, ctx : UI::ScreenContext::Native) : UI::ActionResult? {
-        # `ctrl.as(self)` narrows the abstract callback signature back
-        # to the concrete controller so the named method is callable
-        # without the caller having to cast.
-        ctrl.as(self).{{method_name.id}}(ctx)
-      }
+      def self._before_action_{{method_name.id}}_proc : Proc(UI::Controller, UI::ScreenContext::Native, UI::ActionResult?)
+        ->(ctrl : UI::Controller, ctx : UI::ScreenContext::Native) : UI::ActionResult? {
+          # `ctrl.as(self)` narrows the abstract callback signature back
+          # to the concrete controller so the named method is callable
+          # without the caller having to cast.
+          ctrl.as(self).{{method_name.id}}(ctx)
+        }
+      end
     end
 
     class UnknownActionError < Exception
