@@ -1,19 +1,26 @@
-# Phase 6.10 — Voyager macOS host.
+# Phase 6.10 + Phase 8D.1 — Voyager macOS host.
 #
-# A NavigationCoordinator-driven AppKit app: builds the initial route's
-# view, installs it as the NSWindow contentView, then subscribes to
-# `coord.on_change` so that every push / pop / replace_root call
-# triggers a rebuild + setContentView swap. This is the macOS twin of
-# the iOS SwiftUI @State trampoline pattern.
+# Phase 6.10 shape: a NavigationCoordinator-driven AppKit app — initial
+# build, install as NSWindow contentView, subscribe to `coord.on_change`,
+# swap contentView on every push / pop / replace_root.
+#
+# Phase 8D.1 migration: user-intent callbacks now flow through
+# `UI::ActionDispatcher`. The host:
+#   1. Calls `VoyagerApp.bootstrap!` to register the 4 screens.
+#   2. Creates a `UI::NavigationCoordinator` + `UI::AppKit::Renderer` +
+#      session + flash + `UI::ActionDispatcher`.
+#   3. Assigns `Voyager.dispatcher = dispatcher` so screen callback
+#      closures route action refs through the dispatcher.
+#   4. Calls `dispatcher.mount_screen(coord.current)` to seed the
+#      mount-scoped FormState before the initial render.
+#   5. Subscribes to `coord.on_change` with a renderer-only callback
+#      that does NOT call mount_screen (per the brief's stack-policy
+#      contract + spike pattern — the dispatcher's translate_result
+#      already mounts before notify).
 #
 # Slug source: ENV["VOYAGER_ROOT_SLUG"] || ARGV[0] || "voyager-sign-in".
 # Set VOYAGER_ROOT_SLUG=voyager-todos to skip the auth flow during
 # manual verification.
-#
-# Build: `make -C samples/initiative-cross-platform-ui-voyager macos`.
-# That target compiles the asset_pipeline ObjC bridge, the
-# AssetPipelineSwiftKit Swift facade, and the reused window_helper.m
-# before `crystal-alpha build -Dmacos` links them together.
 
 require "../app"
 require "../../../src/ui/renderers/appkit_renderer"
@@ -23,11 +30,8 @@ require "../../../src/ui/renderers/appkit_renderer"
   APPEARANCE = ENV["VOYAGER_APPEARANCE"]? || ENV["HIG_APPEARANCE"]? || "light"
 
   # Window helper compiled into the binary at link time (see Makefile).
-  # Same window_helper.m the Cascade host uses — verbatim reuse.
   lib LibWindowHelper
     fun hig_create_window(x : Float64, y : Float64, w : Float64, h : Float64, title : UInt8*) : Void*
-    # Phase 6.12A — interactive window with explicit min-content-size
-    # + appearance pin. See window_helper.m for the full contract.
     fun hig_create_window_with_min(
       x : Float64, y : Float64, w : Float64, h : Float64,
       min_w : Float64, min_h : Float64,
@@ -48,82 +52,120 @@ require "../../../src/ui/renderers/appkit_renderer"
   end
 
   module VoyagerHost
-    # Phase 6.12A — content size is the brief's 880×640 default with a
-    # hard 480×400 floor enforced via setContentMinSize on the NSWindow.
-    # Both axes are resizable; the user can drag the window larger but
-    # not below the floor.
     WINDOW_WIDTH  = 880.0
     WINDOW_HEIGHT = 640.0
     MIN_WIDTH     = 480.0
     MIN_HEIGHT    = 400.0
 
-    # Phase 6.10 Rem 4 cont. — env-overridable capture dimensions so
-    # the macOS resize evidence can be produced from a single binary
-    # by varying VOYAGER_CAPTURE_WIDTH / VOYAGER_CAPTURE_HEIGHT.
     CAPTURE_WIDTH  = (ENV["VOYAGER_CAPTURE_WIDTH"]?.try(&.to_f?) || 720.0)
     CAPTURE_HEIGHT = (ENV["VOYAGER_CAPTURE_HEIGHT"]?.try(&.to_f?) || 640.0)
 
     # GC-pinned references so the AppKit run loop doesn't collect the
-    # Crystal-side state, coordinator, renderer, or active NativeView.
-    # Hosted as instance state on the module's singleton via @@ class
-    # vars only after explicit initialisation (no class-var initializers
-    # — per I-9 + the iOS class-init gap memory; on macOS the gap is
-    # absent but we keep the pattern symmetric across hosts).
-    @@state : Voyager::State? = nil
+    # Crystal-side state, coordinator, renderer, dispatcher, or active
+    # NativeView. NONE carry default initializers — explicit assignment
+    # in `run!` so the iOS class-init gap pattern is symmetric across
+    # hosts (macOS doesn't suffer the gap; we keep the discipline so the
+    # iOS bridge can lift this pattern in Phase 8D.2 unchanged).
     @@coord : UI::NavigationCoordinator? = nil
     @@renderer : UI::AppKit::Renderer? = nil
+    @@dispatcher : UI::ActionDispatcher? = nil
     @@window_ptr : Void* = Pointer(Void).null
     @@set_content_sel : Void* = Pointer(Void).null
     @@active_native : UI::NativeView? = nil
+    # Tracks whether we're on the capture-window pair (objc_install_content_view)
+    # or the regular NSWindow path (setContentView: via objc_send_void_id).
+    # Set in `run!` once the window is created.
+    @@is_capture_path : Bool = false
 
     def self.install_view(view : UI::View) : Nil
       renderer = @@renderer.not_nil!
       native = renderer.render(view)
-      @@active_native = native # pin the new tree
-      LibObjCBridgeVoyager.objc_send_void_id(@@window_ptr, @@set_content_sel, native.handle.ptr!)
+      @@active_native = native
+      if @@is_capture_path
+        LibWindowHelper.objc_install_content_view(@@window_ptr, native.handle.ptr!)
+      else
+        LibObjCBridgeVoyager.objc_send_void_id(
+          @@window_ptr, @@set_content_sel, native.handle.ptr!,
+        )
+      end
     end
 
+    # Render the route the dispatcher just mounted (FormState already
+    # swapped via translate_result's mount-before-notify ordering).
     def self.rebuild_for(route : UI::NavigationCoordinator::Route) : Nil
-      state = @@state.not_nil!
-      coord = @@coord.not_nil!
-      view = Voyager.build_route(state, coord, route)
+      dispatcher = @@dispatcher.not_nil!
+      reg = VoyagerApp.registration_for(route.id)
+      screen_class = reg.screen_class
+      if screen_class.nil?
+        placeholder = UI::Label.new("Unknown screen for route: #{route.id}")
+        placeholder.accessibility_label = "Unknown route"
+        install_view(placeholder.as(UI::View))
+        return
+      end
+
+      # Build a fresh ScreenContext::Native from the dispatcher's live
+      # FormState / session / flash / design_tokens / navigation. This
+      # is the proven Phase 8B spike pattern
+      # (samples/phase-08b-native-spike/src/spike_app.cr#rebuild_for).
+      # action_params is empty at render time — it only carries values
+      # during in-flight dispatches.
+      ctx = UI::ScreenContext::Native.new(
+        form_state: dispatcher.current_form_state,
+        session: dispatcher.session,
+        flash: dispatcher.flash,
+        design_tokens: dispatcher.design_tokens,
+        navigation: dispatcher.navigation,
+        action_params: {} of String => String,
+      )
+      view = screen_class.new.build(ctx)
       install_view(view)
     end
 
     def self.run!
-      state = Voyager::State.new
-      coord = UI::NavigationCoordinator.new(
-        Voyager.route_for_slug(ROOT_SLUG)
-      )
-      renderer = UI::AppKit::Renderer.new
-      # Phase 6.11 Item 1 — brand override removed. Voyager runs on
-      # `UI::DesignTokens::Tokens.default`, which the renderer already
-      # carries; setting `design_tokens` here would be a redundant
-      # reassignment to the same default.
+      # Phase 8D.1 — bootstrap registers all 4 screens. macOS doesn't
+      # suffer the iOS class-init gap but we keep the call symmetric
+      # with the spike + the iOS bridge (Phase 8D.2 will use the same
+      # call).
+      VoyagerApp.bootstrap!
 
-      @@state = state
+      # Seed the singleton state so screens that read `Voyager.state`
+      # see the same instance across all 4 routes.
+      Voyager.state = Voyager::State.new
+
+      coord = UI::NavigationCoordinator.new(Voyager.route_for_slug(ROOT_SLUG))
+      renderer = UI::AppKit::Renderer.new
+      session = UI::Session::InProcess.new
+      flash = UI::Flash::InProcess.new
+
+      dispatcher = UI::ActionDispatcher.new(
+        app: VoyagerApp,
+        navigation: coord,
+        session: session,
+        flash: flash,
+        design_tokens: UI::DesignTokens::Tokens.default,
+      )
+      # Initial mount — bumps the dispatcher's mount_token + seeds
+      # form_state from coord.current.params + swaps the renderer's
+      # wire-time FormState. Must happen BEFORE the first render so
+      # the TextField wire-time hook sees the new mount.
+      dispatcher.mount_screen(coord.current)
+
       @@coord = coord
       @@renderer = renderer
+      @@dispatcher = dispatcher
 
-      # Phase 6.10 Rem 4 continuation (Codex Item 3 PROGRESS): create
-      # the NSWindow BEFORE the initial build_route so the
-      # `DeviceMetrics.current` provider on AppKit can read the live
-      # window contentView frame on first paint. Previously the initial
-      # view rendered first and the macOS provider fell back to
-      # NSScreen.mainScreen.frame, which over-sized `root_fill` content
-      # for the actual window contentView. The visible bug at narrow
-      # widths was right-edge clipping.
+      # Phase 8D.1 — wire screens to dispatch through this host's
+      # dispatcher.
+      Voyager.dispatcher = dispatcher
 
       screenshot_path = ENV["VOYAGER_SCREENSHOT_PATH"]? || ENV["HIG_SCREENSHOT_PATH"]?
       if screenshot_path
-        # Offscreen capture path — mirrors Cascade's offscreen capture.
-        # Create the capture window FIRST so DeviceMetrics reads its
-        # contentView frame, not the physical screen.
+        # Offscreen capture path — capture window is a Void** pair.
         window = LibWindowHelper.objc_create_capture_window(CAPTURE_WIDTH, CAPTURE_HEIGHT, APPEARANCE.to_unsafe)
-        initial_view = Voyager.build_route(state, coord, coord.current)
-        initial_native = renderer.render(initial_view)
-        @@active_native = initial_native
-        LibWindowHelper.objc_install_content_view(window, initial_native.handle.ptr!)
+        @@window_ptr = window
+        @@is_capture_path = true
+
+        rebuild_for(coord.current)
         LibWindowHelper.objc_run_loop_for(0.4)
         rc = LibWindowHelper.objc_capture_view_offscreen(
           window, screenshot_path.to_unsafe, CAPTURE_WIDTH, CAPTURE_HEIGHT,
@@ -133,13 +175,8 @@ require "../../../src/ui/renderers/appkit_renderer"
         exit(rc == 1 ? 0 : 1)
       end
 
-      # Interactive path — open a titled window and run the AppKit loop.
+      # Interactive path — titled NSWindow + setContentView:.
       title_str = "Voyager"
-      # Phase 6.12A — appearance pin: when VOYAGER_APPEARANCE (or its
-      # HIG_APPEARANCE legacy alias) is explicitly set, push the value
-      # through to the NSWindow; otherwise pass NULL so the window
-      # follows the system appearance. Mirrors iOS SceneDelegate's
-      # VOYAGER_APPEARANCE contract.
       appearance_arg = if ENV["VOYAGER_APPEARANCE"]? || ENV["HIG_APPEARANCE"]?
                          APPEARANCE.to_unsafe
                        else
@@ -153,23 +190,17 @@ require "../../../src/ui/renderers/appkit_renderer"
       set_content = LibObjCBridgeVoyager.sel_registerName("setContentView:".to_unsafe)
       @@window_ptr = window
       @@set_content_sel = set_content
+      @@is_capture_path = false
 
-      # Now that the window exists, build_route can read the real
-      # contentView frame via the AppKit renderer's DeviceMetrics
-      # provider on its first call.
-      initial_view = Voyager.build_route(state, coord, coord.current)
-      initial_native = renderer.render(initial_view)
-      @@active_native = initial_native
+      # Initial render of the bootstrap route.
+      rebuild_for(coord.current)
 
-      # Install the initial view via setContentView: before subscribing —
-      # subsequent on_change fires reuse install_view().
-      LibObjCBridgeVoyager.objc_send_void_id(window, set_content, initial_native.handle.ptr!)
-
-      # The reactive substrate: every NavigationCoordinator mutation
-      # (push / pop / replace_root / pop_to_root) fires this callback
-      # with the new visible route. The host rebuilds the view from the
-      # SHARED state + the new route and swaps it in via setContentView:.
-      # This is the runtime-navigation invariant Phase 6.10 ships.
+      # The reactive substrate: every dispatcher-routed Navigate / Pop /
+      # ReplaceRoot fires `translate_result`, which calls mount_screen
+      # FIRST (swapping FormState.current under the new token) and THEN
+      # invokes the coord op that fires this on_change. The subscriber
+      # here only RENDERS — no mount_screen call. Per brief Item 4 +
+      # spike pattern.
       coord.on_change do |route|
         VoyagerHost.rebuild_for(route)
       end
