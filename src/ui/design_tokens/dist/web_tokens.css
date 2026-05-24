@@ -39,8 +39,8 @@
   --ap-color-border-default-rgb: 203 195 181;
   --ap-color-border-strong: oklch(0.620 0.040 75.00);
   --ap-color-border-strong-rgb: 149 131 108;
-  --ap-color-border-focus: oklch(0.660 0.150 50.00 / 0.58);
-  --ap-color-border-focus-rgb: 217 114 48;
+  --ap-color-border-focus: AccentColor;
+  /* --ap-color-border-focus-rgb omitted — SYSTEM_ACCENT has no fixed triple; use color-mix(in oklch, AccentColor X%, transparent) instead */
   --ap-color-success: oklch(0.470 0.120 155.00);
   --ap-color-success-rgb: 1 109 60;
   --ap-color-warning: oklch(0.580 0.150 75.00);
@@ -212,8 +212,8 @@
     --ap-color-border-default-rgb: 56 68 79;
     --ap-color-border-strong: oklch(0.520 0.030 248.00);
     --ap-color-border-strong-rgb: 92 107 122;
-    --ap-color-border-focus: oklch(0.750 0.140 58.00 / 0.62);
-    --ap-color-border-focus-rgb: 239 149 75;
+    --ap-color-border-focus: AccentColor;
+    /* --ap-color-border-focus-rgb omitted — SYSTEM_ACCENT has no fixed triple; use color-mix(in oklch, AccentColor X%, transparent) instead */
     --ap-color-success: oklch(0.720 0.140 153.00);
     --ap-color-success-rgb: 83 189 122;
     --ap-color-warning: oklch(0.800 0.150 78.00);
@@ -263,8 +263,8 @@
   --ap-color-border-default-rgb: 203 195 181;
   --ap-color-border-strong: oklch(0.620 0.040 75.00);
   --ap-color-border-strong-rgb: 149 131 108;
-  --ap-color-border-focus: oklch(0.660 0.150 50.00 / 0.58);
-  --ap-color-border-focus-rgb: 217 114 48;
+  --ap-color-border-focus: AccentColor;
+  /* --ap-color-border-focus-rgb omitted — SYSTEM_ACCENT has no fixed triple; use color-mix(in oklch, AccentColor X%, transparent) instead */
   --ap-color-success: oklch(0.470 0.120 155.00);
   --ap-color-success-rgb: 1 109 60;
   --ap-color-warning: oklch(0.580 0.150 75.00);
@@ -313,8 +313,8 @@
   --ap-color-border-default-rgb: 56 68 79;
   --ap-color-border-strong: oklch(0.520 0.030 248.00);
   --ap-color-border-strong-rgb: 92 107 122;
-  --ap-color-border-focus: oklch(0.750 0.140 58.00 / 0.62);
-  --ap-color-border-focus-rgb: 239 149 75;
+  --ap-color-border-focus: AccentColor;
+  /* --ap-color-border-focus-rgb omitted — SYSTEM_ACCENT has no fixed triple; use color-mix(in oklch, AccentColor X%, transparent) instead */
   --ap-color-success: oklch(0.720 0.140 153.00);
   --ap-color-success-rgb: 83 189 122;
   --ap-color-warning: oklch(0.800 0.150 78.00);

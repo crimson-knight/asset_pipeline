@@ -952,7 +952,15 @@ module UI
           border_subtle: Color.oklch(0.91, 0.014, 82.0),
           border_default: Color.oklch(0.82, 0.021, 82.0),
           border_strong: Color.oklch(0.62, 0.04, 75.0),
-          border_focus: Color.oklch(0.66, 0.15, 50.0, 0.58),
+          # Phase 6.12A — focus rings are platform-coherent on Apple
+          # (NSColor.keyboardFocusIndicatorColor cascades from the
+          # system accent on macOS; UIColor.tintColor on iOS). Pivoting
+          # to SYSTEM_ACCENT lets the focus ring match the active
+          # platform accent and respect a consumer's .with_brand
+          # cascade automatically. The original amber tint (0.66, 0.15,
+          # 50, alpha 0.58) is gone with the rest of the amber library
+          # default. Item 5 audit decision.
+          border_focus: Color::SYSTEM_ACCENT,
           success: Color.oklch(0.47, 0.12, 155.0),
           warning: Color.oklch(0.58, 0.15, 75.0),
           danger: Color.oklch(0.45, 0.18, 28.0),
@@ -982,7 +990,9 @@ module UI
           border_subtle: Color.oklch(0.31, 0.02, 248.0),
           border_default: Color.oklch(0.38, 0.025, 248.0),
           border_strong: Color.oklch(0.52, 0.03, 248.0),
-          border_focus: Color.oklch(0.75, 0.14, 58.0, 0.62),
+          # See `light_palette` for the Item 5 audit decision pivoting
+          # border_focus to SYSTEM_ACCENT.
+          border_focus: Color::SYSTEM_ACCENT,
           success: Color.oklch(0.72, 0.14, 153.0),
           warning: Color.oklch(0.80, 0.15, 78.0),
           danger: Color.oklch(0.72, 0.18, 28.0),

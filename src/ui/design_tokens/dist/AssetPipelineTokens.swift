@@ -22,7 +22,7 @@ public enum AssetPipelineTokens {
         public static let borderSubtle = SwiftUI.Color(.sRGB, red: 0.902, green: 0.881, blue: 0.844, opacity: 1.000)
         public static let borderDefault = SwiftUI.Color(.sRGB, red: 0.796, green: 0.765, blue: 0.711, opacity: 1.000)
         public static let borderStrong = SwiftUI.Color(.sRGB, red: 0.583, green: 0.514, blue: 0.422, opacity: 1.000)
-        public static let borderFocus = SwiftUI.Color(.sRGB, red: 0.850, green: 0.448, blue: 0.187, opacity: 0.580)
+        public static let borderFocus = SwiftUI.Color.accentColor
         public static let success = SwiftUI.Color(.sRGB, red: 0.002, green: 0.428, blue: 0.237, opacity: 1.000)
         public static let warning = SwiftUI.Color(.sRGB, red: 0.642, green: 0.431, blue: 0.005, opacity: 1.000)
         public static let danger = SwiftUI.Color(.sRGB, red: 0.634, green: 0.030, blue: 0.048, opacity: 1.000)
@@ -47,7 +47,7 @@ public enum AssetPipelineTokens {
             public static let borderSubtle = SwiftUI.Color(.sRGB, red: 0.159, green: 0.194, blue: 0.228, opacity: 1.000)
             public static let borderDefault = SwiftUI.Color(.sRGB, red: 0.220, green: 0.266, blue: 0.311, opacity: 1.000)
             public static let borderStrong = SwiftUI.Color(.sRGB, red: 0.359, green: 0.419, blue: 0.478, opacity: 1.000)
-            public static let borderFocus = SwiftUI.Color(.sRGB, red: 0.937, green: 0.586, blue: 0.293, opacity: 0.620)
+            public static let borderFocus = SwiftUI.Color.accentColor
             public static let success = SwiftUI.Color(.sRGB, red: 0.327, green: 0.743, blue: 0.477, opacity: 1.000)
             public static let warning = SwiftUI.Color(.sRGB, red: 0.949, green: 0.690, blue: 0.213, opacity: 1.000)
             public static let danger = SwiftUI.Color(.sRGB, red: 0.999, green: 0.449, blue: 0.393, opacity: 1.000)
