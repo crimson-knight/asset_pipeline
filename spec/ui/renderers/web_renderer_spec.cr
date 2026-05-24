@@ -782,4 +782,160 @@ describe UI::Web::Renderer do
       html.should contain("<span")
     end
   end
+
+  describe "UI::Form web POST semantics (Phase 8A Item 2)" do
+    it "without action: renders <div role=\"form\"> (no <form> wrapper)" do
+      form = UI::Form.new
+      form << UI::TextField.new(placeholder: "Email", name: "email")
+      html = render(form)
+      html.should_not contain("<form")
+      html.should contain("role=\"form\"")
+      html.should contain("name=\"email\"")
+    end
+
+    it "with action: renders <form action=\"...\" method=\"POST\"> wrapping children" do
+      form = UI::Form.new(action: "/sign_in/submit")
+      form << UI::TextField.new(placeholder: "Email", name: "email")
+      form << UI::Button.new("Sign in")
+      html = render(form)
+      html.should contain("<form")
+      html.should contain("action=\"/sign_in/submit\"")
+      html.should contain("method=\"POST\"")
+      html.should contain("name=\"email\"")
+    end
+
+    it "honors a custom method when provided" do
+      form = UI::Form.new(action: "/submit", method: "GET")
+      html = render(form)
+      html.should contain("method=\"GET\"")
+    end
+
+    it "normalizes the method to uppercase" do
+      form = UI::Form.new(action: "/submit", method: "post")
+      html = render(form)
+      html.should contain("method=\"POST\"")
+    end
+
+    it "injects a hidden _csrf input from the constructor csrf_token" do
+      form = UI::Form.new(action: "/submit", csrf_token: "TOKEN_ABC")
+      html = render(form)
+      html.should contain("type=\"hidden\"")
+      html.should contain("name=\"_csrf\"")
+      html.should contain("value=\"TOKEN_ABC\"")
+    end
+
+    it "falls back to RenderContext#csrf_token when Form#csrf_token is nil" do
+      form = UI::Form.new(action: "/submit")
+      renderer = UI::Web::Renderer.new
+      html = renderer.render(form, render_context: UI::RenderContext.new(csrf_token: "CTX_TOKEN"))
+      html.should contain("value=\"CTX_TOKEN\"")
+    end
+
+    it "Form#csrf_token wins over RenderContext#csrf_token" do
+      form = UI::Form.new(action: "/submit", csrf_token: "EXPLICIT")
+      renderer = UI::Web::Renderer.new
+      html = renderer.render(form, render_context: UI::RenderContext.new(csrf_token: "CTX"))
+      html.should contain("value=\"EXPLICIT\"")
+      html.should_not contain("value=\"CTX\"")
+    end
+
+    it "omits the hidden CSRF input when both sources are nil" do
+      form = UI::Form.new(action: "/submit")
+      html = render(form)
+      html.should_not contain("name=\"_csrf\"")
+    end
+
+    it "omits the hidden CSRF input when the token is an empty string" do
+      form = UI::Form.new(action: "/submit", csrf_token: "")
+      html = render(form)
+      html.should_not contain("name=\"_csrf\"")
+    end
+
+    it "auto-promotes the lone Button child to type=\"submit\" when action is set" do
+      form = UI::Form.new(action: "/submit")
+      form << UI::TextField.new(name: "email")
+      form << UI::Button.new("Sign in")
+      html = render(form)
+      html.should contain("type=\"submit\"")
+    end
+
+    it "does NOT auto-promote standalone (no action) forms" do
+      form = UI::Form.new
+      form << UI::Button.new("Standalone")
+      html = render(form)
+      html.should_not contain("type=\"submit\"")
+      html.should contain("type=\"button\"")
+    end
+
+    it "does NOT auto-promote when there are multiple Button children (no last-button magic)" do
+      form = UI::Form.new(action: "/submit")
+      form << UI::Button.new("Cancel")
+      form << UI::Button.new("Save")
+      html = render(form)
+      html.should_not contain("type=\"submit\"")
+    end
+
+    it "honors explicit type: Submit even when there are multiple Buttons" do
+      form = UI::Form.new(action: "/submit")
+      form << UI::Button.new("Cancel")
+      form << UI::Button.new("Save", type: UI::Button::Type::Submit)
+      html = render(form)
+      html.should contain("type=\"submit\"")
+    end
+
+    it "auto-promotion does NOT mutate the Button instance (shared-tree safety)" do
+      form = UI::Form.new(action: "/submit")
+      button = UI::Button.new("Sign in")
+      form << button
+      _ = render(form)
+      # The original button instance retains its declared type even
+      # though the rendered HTML promoted it to submit.
+      button.type.should eq(UI::Button::Type::Button)
+    end
+
+    it "auto-promotion does not leak across renders (renderer state reset)" do
+      promoted_form = UI::Form.new(action: "/a")
+      shared_button = UI::Button.new("Click")
+      promoted_form << shared_button
+      renderer = UI::Web::Renderer.new
+      renderer.render(promoted_form)
+
+      # Re-render the same button standalone — should NOT promote.
+      html = renderer.render(shared_button)
+      html.should contain("type=\"button\"")
+      html.should_not contain("type=\"submit\"")
+    end
+
+    it "renders both sectioned form fields and flat children together" do
+      form = UI::Form.new(action: "/submit")
+      section = form.add_section(header: "Account")
+      section.fields << UI::Form::Field.new(label: "Name", content: UI::TextField.new(placeholder: "Name", name: "name"))
+      form << UI::Button.new("Submit", type: UI::Button::Type::Submit)
+      html = render(form)
+      html.should contain("Account")
+      html.should contain("name=\"name\"")
+      html.should contain("type=\"submit\"")
+    end
+
+    it "the <<-append method returns self for chaining" do
+      form = UI::Form.new(action: "/submit")
+      returned = form << UI::TextField.new(name: "x")
+      returned.should be(form)
+    end
+  end
+
+  describe "UI::Form sectioned (legacy) rendering" do
+    it "preserves pre-Phase-8A sectioned rendering when action is nil" do
+      form = UI::Form.new
+      section = form.add_section(header: "Profile")
+      section.fields << UI::Form::Field.new(label: "Name", content: UI::TextField.new(placeholder: "Name"))
+      html = render(form)
+      html.should contain("role=\"form\"")
+      html.should contain("Profile")
+      html.should contain("placeholder=\"Name\"")
+      # Crucially: NO <form> wrapper element
+      html.should_not contain("<form ")
+      html.should_not contain("<form>")
+    end
+  end
 end

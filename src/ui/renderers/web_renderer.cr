@@ -36,6 +36,15 @@ module UI
       # author threading it through every Form construction.
       getter render_context : UI::RenderContext = UI::RenderContext.empty
 
+      # The button instance to render as `type="submit"` regardless of
+      # its declared `view.type`. Set ONLY by `visit(UI::Form)` when a
+      # form's lone Button child is eligible for auto-promotion.
+      # Reset to nil after the form visit completes so subsequent
+      # standalone button renders are unaffected. Identity comparison
+      # via `same?` ensures we promote only the specific instance, not
+      # buttons that happen to share `type == Type::Button`.
+      @auto_submit_button : UI::Button? = nil
+
       def initialize
         @element_stack = [] of Components::Elements::HTMLElement
         @root = nil
@@ -150,9 +159,14 @@ module UI
       def visit(view : UI::Button)
         # Phase 8A Item 5 — honor view.type so submit/reset buttons can
         # drive a `<form>` submission. Single-button-form auto-promotion
-        # happens inside `visit(UI::Form)` (Item 2); standalone buttons
-        # render with their declared type unchanged.
-        type_attr = case view.type
+        # is recorded as `@auto_submit_button` by `visit(UI::Form)` and
+        # checked via identity here, so a shared view tree rendered
+        # across requests is never mutated.
+        effective_type = view.type
+        if (auto = @auto_submit_button) && auto.same?(view)
+          effective_type = UI::Button::Type::Submit
+        end
+        type_attr = case effective_type
                     in UI::Button::Type::Submit then "submit"
                     in UI::Button::Type::Reset  then "reset"
                     in UI::Button::Type::Button then "button"
@@ -1093,62 +1107,130 @@ module UI
       end
 
       def visit(view : UI::Form)
+        # Phase 8A Item 2 — when `view.action` is non-nil, wrap the
+        # existing section/flat-children rendering in an HTML <form>
+        # element with method + action + injected CSRF hidden input.
+        # When action is nil the original (pre-Phase-8A) rendering is
+        # preserved exactly so native + non-form web usage are unchanged.
+        if view.action
+          render_web_form_wrapper(view)
+        else
+          render_web_form_unwrapped(view)
+        end
+      end
+
+      private def render_web_form_wrapper(view : UI::Form)
+        action = view.action.not_nil!
+        # Form element wraps the chrome div so the browser submits.
+        form_el = Components::Elements::Form.new
+        form_el.set_attribute("action", action)
+        form_el.set_attribute("method", view.method.upcase)
+        form_el.add_class("am-form")
+        form_el.set_attribute("data-component", "form")
+        form_el.set_attribute("data-layout", "auto")
+        form_el.add_style("display: flex; flex-direction: column; gap: 16px")
+        apply_common_styles(form_el, view)
+
+        # Inject the CSRF hidden input. Constructor-supplied wins over
+        # renderer-context-threaded.
+        csrf = view.csrf_token || @render_context.csrf_token
+        if csrf && !csrf.empty?
+          csrf_input = Components::Elements::Input.new
+          csrf_input.set_attribute("type", "hidden")
+          csrf_input.set_attribute("name", "_csrf")
+          csrf_input.set_attribute("value", csrf)
+          form_el.add_child(csrf_input)
+        end
+
+        # Compute single-button auto-promotion: a form with exactly one
+        # Button child whose type is the default Type::Button is
+        # rendered as `type="submit"` so a browser submits the form.
+        # Identity-tagged on the renderer; never mutates view.type.
+        @auto_submit_button = single_default_button_for_autopromote(view)
+
+        push_container(form_el) do
+          emit_form_sections(view)
+          # Flat children render inline AFTER section chrome so authors
+          # can mix grouped + flat content if needed.
+          view.children.each { |child| child.accept(self) }
+        end
+      ensure
+        @auto_submit_button = nil
+      end
+
+      private def render_web_form_unwrapped(view : UI::Form)
         el = Components::Elements::Div.new
         el.set_attribute("role", "form")
         el.add_class("am-form")
         el.set_attribute("data-component", "form")
-        # Opt the form into the container-query component CSS shipped via
-        # ComponentCSSRegistry. `data-layout="auto"` selects the layout-
-        # switching rules; consumers who want a fixed layout can override
-        # `data-layout` to a different value.
         el.set_attribute("data-layout", "auto")
         el.add_style("display: flex; flex-direction: column; gap: 16px")
-
         apply_common_styles(el, view)
 
         push_container(el) do
-          view.sections.each do |section|
-            section_el = Components::Elements::Div.new
-            section_el.add_style("display: flex; flex-direction: column; gap: 8px")
-
-            if header = section.header
-              header_el = Components::Elements::Span.new
-              header_el << header
-              header_el.add_style("font-size: 13px; font-weight: 600; color: var(--ap-color-text-muted); text-transform: uppercase; padding: 0 16px")
-              section_el.add_child(header_el)
-            end
-
-            section.fields.each do |field|
-              field_el = Components::Elements::Div.new
-              field_el.add_class("am-form-field")
-              field_el.add_style("display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--ap-color-surface-panel); border-bottom: 1px solid var(--ap-color-border-subtle)")
-
-              unless field.label.empty?
-                label_el = Components::Elements::Span.new
-                label_el << field.label
-                label_el.add_style("min-width: #{fluid_px(80, 22, 120)}; color: var(--ap-color-text-secondary)")
-                field_el.add_child(label_el)
-              end
-
-              if content = field.content
-                @element_stack.push(field_el)
-                content.accept(self)
-                @element_stack.pop
-              end
-
-              section_el.add_child(field_el)
-            end
-
-            if footer = section.footer
-              footer_el = Components::Elements::Span.new
-              footer_el << footer
-              footer_el.add_style("font-size: 12px; color: var(--ap-color-text-muted); padding: 4px 16px")
-              section_el.add_child(footer_el)
-            end
-
-            push_element(section_el)
-          end
+          emit_form_sections(view)
+          view.children.each { |child| child.accept(self) }
         end
+      end
+
+      private def emit_form_sections(view : UI::Form) : Nil
+        view.sections.each do |section|
+          section_el = Components::Elements::Div.new
+          section_el.add_style("display: flex; flex-direction: column; gap: 8px")
+
+          if header = section.header
+            header_el = Components::Elements::Span.new
+            header_el << header
+            header_el.add_style("font-size: 13px; font-weight: 600; color: var(--ap-color-text-muted); text-transform: uppercase; padding: 0 16px")
+            section_el.add_child(header_el)
+          end
+
+          section.fields.each do |field|
+            field_el = Components::Elements::Div.new
+            field_el.add_class("am-form-field")
+            field_el.add_style("display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--ap-color-surface-panel); border-bottom: 1px solid var(--ap-color-border-subtle)")
+
+            unless field.label.empty?
+              label_el = Components::Elements::Span.new
+              label_el << field.label
+              label_el.add_style("min-width: #{fluid_px(80, 22, 120)}; color: var(--ap-color-text-secondary)")
+              field_el.add_child(label_el)
+            end
+
+            if content = field.content
+              @element_stack.push(field_el)
+              content.accept(self)
+              @element_stack.pop
+            end
+
+            section_el.add_child(field_el)
+          end
+
+          if footer = section.footer
+            footer_el = Components::Elements::Span.new
+            footer_el << footer
+            footer_el.add_style("font-size: 12px; color: var(--ap-color-text-muted); padding: 4px 16px")
+            section_el.add_child(footer_el)
+          end
+
+          push_element(section_el)
+        end
+      end
+
+      # Returns the lone Button child eligible for auto-promotion to
+      # `Type::Submit`, or nil. A button is eligible iff:
+      #   1. It is the only `UI::Button` in `view.children` (flat list).
+      #   2. Its `type` is still the default `Type::Button` (author did
+      #      not explicitly opt to Submit or Reset).
+      # Section-content buttons are NOT counted — section grouping is
+      # an iOS-style construct and its submit semantics are out of
+      # scope for Phase 8A.
+      private def single_default_button_for_autopromote(view : UI::Form) : UI::Button?
+        buttons = view.children.select(UI::Button)
+        return nil unless buttons.size == 1
+        candidate = buttons.first
+        return nil unless candidate.type == UI::Button::Type::Button
+        candidate
       end
 
       def visit(view : UI::NavigationSplitView)
