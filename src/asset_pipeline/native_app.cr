@@ -48,6 +48,17 @@ module UI
   end
 
   abstract class App
+    # Phase 8C — raised by `UI::ActionDispatcher#dispatch` when an
+    # action resolves to a screen registration whose `controller_class`
+    # is nil (i.e. a screen that was registered as web-only and therefore
+    # has no native UI::Controller bound). Surfacing this as a typed
+    # exception keeps the native dispatch path honest: a native build
+    # that accidentally drives into a web-only screen fails loudly with
+    # the route_id and the screen's web binding in the message, rather
+    # than NoMethodError on .new of a nil class.
+    class WebOnlyScreenError < Exception
+    end
+
     # Registry of route_id => ScreenRegistration. The default-value
     # `class_getter` form would create the hash at module-load time —
     # which iOS embedding can silently skip. So we declare it nilable
@@ -76,10 +87,61 @@ module UI
     # A single registered screen. The dispatcher looks one up by
     # `route_id` to find which controller to construct + which screen
     # class to render.
+    #
+    # Phase 8C extensions (additive — Phase 8B callers still work):
+    #
+    #   * `controller_class` is now nilable. A web-only screen (no
+    #     native UI::Controller wired) registers with `controller_class:
+    #     nil`. `UI::ActionDispatcher#dispatch` raises `WebOnlyScreenError`
+    #     if it ever resolves a route to such a registration.
+    #   * `screen_class` is now nilable. A web-only screen need not
+    #     supply a `UI::Screen` subclass — the native dispatch path that
+    #     would consume it is already guarded by the same web-only error.
+    #   * `web_controller` carries an `Amber::Controller::Base` subclass
+    #     when the screen contributes web routes. Distinct from
+    #     `controller_class` because the web and native controller
+    #     hierarchies do not unify in Phase 8C (Phase 8A's parallel
+    #     architecture). Typed as `Class?` since Amber may not be loaded
+    #     when the asset_pipeline shard is compiled standalone.
+    #   * `web_path` is the route prefix used by `routes_for` to fill
+    #     in any action whose entry omits `path:`.
+    #   * `web_actions` is the array of NamedTuple-literal entries
+    #     `{verb: Symbol, action: Symbol, path: String?}` driving the
+    #     emitted Amber router calls. Kept as a NamedTuple-literal
+    #     array (not a Record) because Crystal's macro engine can walk
+    #     NamedTuple literals field-by-field; Record-construction Calls
+    #     would require Call.named_args AST extraction (Codex finding
+    #     #4 in `codex-critique-1-brief-8c.md`).
+    # Note on `web_controller_name : String?`:
+    #
+    # Crystal disallows `Class` in union types ("can't use Class in
+    # unions yet") AND `Class` cannot be used as an instance-variable
+    # type. The asset_pipeline shard also cannot require Amber (Amber
+    # is a peer dependency, not a transitive one), so we cannot type
+    # the field as `Amber::Controller::Base.class | Nil`.
+    #
+    # The pragmatic compromise: store the web controller's class NAME
+    # as a `String?` for introspection (so tests / runtime tooling can
+    # inspect "which Amber controller does this screen bind to?"), and
+    # interpolate the actual class reference DIRECTLY into the macro
+    # expansion in `routes_for` (which has the literal class AST node
+    # frozen in at outer-screen-macro expansion time). The class ref
+    # therefore never needs to be stored at runtime; it lives only in
+    # the compile-time macro body.
+    #
+    # `has_web?` is True iff `web_actions` is non-empty (post-default).
     record ScreenRegistration,
       route_id : Symbol,
-      controller_class : UI::Controller.class,
-      screen_class : UI::Screen.class
+      controller_class : UI::Controller.class | Nil,
+      screen_class : UI::Screen.class | Nil,
+      web_controller_name : String | Nil = nil,
+      web_path : String | Nil = nil,
+      web_actions : Array(NamedTuple(verb: Symbol, action: Symbol, path: String?)) = [] of NamedTuple(verb: Symbol, action: Symbol, path: String?) do
+      # True iff this registration contributes any Amber web routes.
+      def has_web? : Bool
+        !web_actions.empty?
+      end
+    end
 
     # Declare the initial route on launch.
     #
@@ -96,10 +158,110 @@ module UI
     # convention is `FooController` -> `FooScreen` (under the same
     # namespace).
     #
+    # Phase 8B form (still works in 8C):
+    #
     #     screen :sign_in, SignInController
     #     screen :detail,  DetailController, screen_class: CustomScreen
-    macro screen(route_id, controller, screen_class = nil)
-      {% screen_lookup = screen_class || (controller.stringify.gsub(/Controller$/, "Screen").id) %}
+    #
+    # Phase 8C — web-only or dual-target screens. The positional
+    # `controller` arg is optional (defaults to nil); the `*` separator
+    # forces all of `web_controller:` / `web_path:` / `web_actions:` /
+    # `screen_class:` to be passed by name so the macro never confuses
+    # the native UI::Controller class with the Amber::Controller::Base
+    # class:
+    #
+    #     # Web-only — no native side yet.
+    #     screen :sign_in,
+    #            web_controller: SignInController,
+    #            web_path: "/",
+    #            web_actions: [
+    #              {verb: :get,  action: :index},
+    #              {verb: :post, action: :submit, path: "/sign_in/submit"},
+    #            ]
+    #
+    #     # Dual-target — same class is the native AND web controller.
+    #     # (In the spike, SignInController is `< Amber::Controller::Base`
+    #     # only — Phase 8A's parallel-controllers shape. A future spike
+    #     # may show a native UI::Controller and Amber::Controller::Base
+    #     # passed separately.)
+    #     screen :todos, TodosController,
+    #            web_controller: TodosController,
+    #            web_path: "/todos"
+    #
+    #     # Web-only shortcut — bare web_path defaults web_actions to
+    #     # `[{verb: :get, action: :index, path: web_path}]`.
+    #     screen :about, web_controller: AboutController, web_path: "/about"
+    #
+    # Defaulting and validation (all enforced at macro-expansion time):
+    #
+    #   * If `controller`, `web_controller`, `web_path`, and `web_actions`
+    #     are all unset → `{% raise %}` (registration must declare at
+    #     least one side).
+    #   * If any web binding is set, `web_controller` MUST be set →
+    #     `{% raise %}` otherwise (`web_path` or `web_actions` without
+    #     a `web_controller` is meaningless).
+    #   * If `web_actions` is non-empty, every entry must either carry
+    #     its own `path:` OR `web_path` must be set as the default →
+    #     `{% raise %}` otherwise.
+    #   * If `web_actions` is empty AND `web_path` is set → default
+    #     `web_actions` to `[{verb: :get, action: :index, path: web_path}]`.
+    # Note on signature: the brief proposed a `*` kwarg-only separator
+    # before the new web kwargs, but Crystal macros cannot combine a
+    # `*` separator with a default value on a positional arg before it
+    # ("wrong number of arguments" at every call site that omits the
+    # positional). Without `*`, `web_controller` / `web_path` /
+    # `web_actions` / `screen_class` are still kwarg-by-default at the
+    # call site — passing them positionally would map to the wrong
+    # parameter slot AND fail downstream type checks (Class.class on a
+    # String value, etc.), so the foot-gun risk Codex flagged
+    # (Finding 5) is mitigated by Crystal's type system.
+    macro screen(route_id, controller = nil, web_controller = nil, web_path = nil, web_actions = nil, screen_class = nil)
+      # ---- Normalise web_actions to an ArrayLiteral. ----
+      {% web_actions_norm = web_actions || [] of Nil %}
+
+      # ---- Determine whether the screen has any web binding. ----
+      {% has_web = (web_controller != nil) || (web_path != nil) || (!web_actions_norm.empty?) %}
+      {% has_native = controller != nil %}
+
+      # ---- Validation 1: must declare at least one side. ----
+      {% if !has_native && !has_web %}
+        {% raise "UI::App.screen #{route_id} must declare at least one side: pass a native UI::Controller as the second positional arg, OR pass web_controller: ... (+ web_path: / web_actions:) as kwargs, OR both. See `UI::App.screen` doc comment." %}
+      {% end %}
+
+      # ---- Validation 2: any web binding implies web_controller. ----
+      {% if has_web && web_controller == nil %}
+        {% raise "UI::App.screen #{route_id} declares web_path or web_actions but no web_controller. The web_controller: kwarg must be set to an Amber::Controller::Base subclass that handles the emitted routes." %}
+      {% end %}
+
+      # ---- Default web_actions when only web_path is given. ----
+      {% if has_web && web_actions_norm.empty? && web_path != nil %}
+        {% web_actions_norm = [{verb: :get, action: :index, path: web_path}] %}
+      {% end %}
+
+      # ---- Validation 3: every web_actions entry must resolve to a path. ----
+      {% if has_web %}
+        {% for entry in web_actions_norm %}
+          {% if entry[:path] == nil && web_path == nil %}
+            {% raise "UI::App.screen #{route_id} web_actions entry #{entry} has no :path and the registration's web_path is nil. Either set web_path: as the default OR set path: on each entry." %}
+          {% end %}
+        {% end %}
+      {% end %}
+
+      # ---- screen_class resolution. ----
+      #
+      # Three cases:
+      #   (a) screen_class is explicitly passed -> use it.
+      #   (b) screen_class is omitted but a positional controller is
+      #       set -> derive `FooController -> FooScreen` (Phase 8B form).
+      #   (c) screen_class is omitted AND no controller -> nil (web-only,
+      #       no native screen tree expected).
+      {% if screen_class %}
+        {% screen_lookup = screen_class %}
+      {% elsif controller %}
+        {% screen_lookup = controller.stringify.gsub(/Controller$/, "Screen").id %}
+      {% else %}
+        {% screen_lookup = nil %}
+      {% end %}
 
       # Class-load side effect for the macOS / web happy path. The
       # `screens` accessor lazy-allocates if `@@screens` is nil. If the
@@ -109,6 +271,13 @@ module UI
         route_id: {{route_id}},
         controller_class: {{controller}},
         screen_class: {{screen_lookup}},
+        web_controller_name: {% if web_controller %}{{web_controller.stringify}}{% else %}nil{% end %},
+        web_path: {{web_path}},
+        web_actions: [
+          {% for entry in web_actions_norm %}
+            {verb: {{entry[:verb]}}, action: {{entry[:action]}}, path: {{entry[:path] || web_path}}.as(String?)},
+          {% end %}
+        ] of NamedTuple(verb: Symbol, action: Symbol, path: String?),
       )
 
       # Compile-time-emitted named class method. Crystal method
@@ -121,9 +290,46 @@ module UI
           route_id: {{route_id}},
           controller_class: {{controller}},
           screen_class: {{screen_lookup}},
+          web_controller_name: {% if web_controller %}{{web_controller.stringify}}{% else %}nil{% end %},
+          web_path: {{web_path}},
+          web_actions: [
+            {% for entry in web_actions_norm %}
+              {verb: {{entry[:verb]}}, action: {{entry[:action]}}, path: {{entry[:path] || web_path}}.as(String?)},
+            {% end %}
+          ] of NamedTuple(verb: Symbol, action: Symbol, path: String?),
         )
         nil
       end
+
+      # ---------------------------------------------------------------
+      # Phase 8C — twin emission: a marker class method PLUS a same-named
+      # class macro. UI::AmberIntegration.routes_for enumerates the
+      # marker methods at compile time (@type.class.methods) and emits
+      # the same-named macro calls per app subclass; Crystal's macro
+      # engine resolves them to the macro (not the method) at
+      # macro-expansion time. The macro body expands inside the
+      # consumer's routes :web do .. end block where Amber's get /
+      # post / put / patch / delete macros are the implicit DSL.
+      #
+      # Empirical verification: see
+      # docs/initiative-cross-platform-ui/phases/phase-08-ergonomic-mvc-api/codex-critique-1-brief-8c.md
+      # ("The proven mechanism" section).
+      #
+      # The marker + macro are emitted ONLY for screens with a web
+      # binding. Native-only screens produce no marker; routes_for
+      # silently skips them.
+      # ---------------------------------------------------------------
+      {% if has_web %}
+        def self._web_route_emit_{{route_id.id}} : Nil
+          nil
+        end
+
+        macro _web_route_emit_{{route_id.id}}
+          {% for entry in web_actions_norm %}
+            {{entry[:verb].id}} {{entry[:path] || web_path}}, {{web_controller}}, {{entry[:action]}}
+          {% end %}
+        end
+      {% end %}
     end
 
     # Optional: per-app design-token override block. The block receives

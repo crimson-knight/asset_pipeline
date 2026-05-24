@@ -157,7 +157,20 @@ module UI
       when Symbol
         # Current screen's controller, action_ref method.
         registration = @app.registration_for(@navigation.current.id)
-        controller = registration.controller_class.new
+        controller_class = registration.controller_class
+        # Phase 8C: a registration whose controller_class is nil is a
+        # web-only screen. Native dispatch into it is a programming
+        # error — fail loud rather than NoMethodError on nil.new.
+        if controller_class.nil?
+          raise UI::App::WebOnlyScreenError.new(
+            "UI::ActionDispatcher cannot dispatch native action " \
+            "#{action_ref.inspect} on route_id #{@navigation.current.id.inspect}: " \
+            "the registration has no native controller_class (web-only screen). " \
+            "web_controller_name=#{registration.web_controller_name.inspect} " \
+            "web_path=#{registration.web_path.inspect}"
+          )
+        end
+        controller = controller_class.new
         run_before_actions(controller, ctx) || controller.dispatch_action(action_ref, ctx)
       when Tuple(UI::Controller.class, Symbol)
         ctrl_class, action_method = action_ref

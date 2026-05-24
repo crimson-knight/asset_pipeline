@@ -149,6 +149,75 @@ module UI
     abstract def build(context : ScreenContext) : UI::View
   end
 
+  # Phase 8C — Amber-router contribution from `UI::App`.
+  #
+  # `UI::AmberIntegration.routes_for(SpikeApp)` expands inside an
+  # Amber `routes :web do ... end` block to a sequence of `get` / `post` /
+  # `put` / `patch` / `delete` calls — one per `web_actions` entry on
+  # every screen registered by `SpikeApp` that declared web metadata.
+  #
+  # # How it works
+  #
+  # Each `screen :id, ..., web_controller: X, web_path: "/x", web_actions: [...]`
+  # macro call emits TWO things on `UI::App` subclass:
+  #
+  #   1. A marker class method `def self._web_route_emit_<id> : Nil; nil; end`
+  #      — its only purpose is to be enumerable via `@type.class.methods`
+  #      at compile time.
+  #   2. A same-named class macro `macro _web_route_emit_<id>` whose body
+  #      is the unrolled `get`/`post` calls for the registration's
+  #      `web_actions` array.
+  #
+  # `routes_for(SpikeApp)` iterates the subclass's class methods at
+  # compile time, finds every `_web_route_emit_*` marker, and emits
+  # `SpikeApp._web_route_emit_<id>` for each one. Crystal's macro
+  # engine resolves those calls to the same-named macros (not the
+  # marker methods), and the macro bodies expand inline inside the
+  # `routes :web do ... end` block — where Amber's `router.draw ...
+  # do |with router yield|` makes `get` / `post` / etc resolve to the
+  # router DSL's `Amber::DSL::Router` macros.
+  #
+  # The mechanism is empirically verified in
+  # `docs/initiative-cross-platform-ui/phases/phase-08-ergonomic-mvc-api/codex-critique-1-brief-8c.md`
+  # (Codex session 019e5c01-6ddf-75e3-8940-e2f61bfd2cb5, "The proven
+  # mechanism" section).
+  #
+  # # When no screen has web metadata
+  #
+  # `routes_for(MyApp)` expands to nothing — no error, no warning. This
+  # supports native-first apps that gradually opt into web routes. The
+  # caller's `routes :web do ... end` block can still hold manual
+  # `get`/`post` lines alongside the `routes_for` call.
+  #
+  # # Example
+  #
+  #     class SpikeApp < UI::App
+  #       screen :sign_in,
+  #              web_controller: SignInController,
+  #              web_path: "/",
+  #              web_actions: [
+  #                {verb: :get,  action: :index},
+  #                {verb: :post, action: :submit, path: "/sign_in/submit"},
+  #              ]
+  #     end
+  #
+  #     # config/routes.cr
+  #     Amber::Server.configure do
+  #       routes :web do
+  #         UI::AmberIntegration.routes_for(SpikeApp)
+  #         # Plus any other manual Amber routes the app needs.
+  #       end
+  #     end
+  module AmberIntegration
+    macro routes_for(app_class)
+      {% for method in app_class.resolve.class.methods %}
+        {% if method.name.starts_with?("_web_route_emit_") %}
+          {{app_class}}.{{method.name.id}}
+        {% end %}
+      {% end %}
+    end
+  end
+
   # Controller mixin. Include in `ApplicationController` so every
   # controller in the app can call `compute_screen_html(ScreenClass)`
   # before `render("action.ecr")`.
