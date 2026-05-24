@@ -124,12 +124,16 @@ describe UI::DesignTokens::Tokens do
       t.colors_dark.to_h.size.should eq(23)
     end
 
-    it "matches the existing amber_theme.cr brand-primary OKLCH literal" do
+    it "resolves brand_primary to the Color::SYSTEM_ACCENT sentinel (post Phase 6.12A)" do
+      # Phase 6.12A library-identity pivot: the legacy amber OKLCH literal
+      # (`oklch(0.52 0.16 50)`) is gone from `Tokens.default`. The brand
+      # primary family resolves to `Color::SYSTEM_ACCENT` so the platform
+      # paints the OS-native accent. Consumers who want an opinionated
+      # brand colour subclass `UI::DesignTokens::Brand` and apply it via
+      # `Tokens.default.with_brand(...)`. See `phase-06.12a-cascade-preflight.md`.
       t = UI::DesignTokens::Tokens.default
-      bp = t.colors_light.brand_primary
-      bp.l.should eq(0.52)
-      bp.c.should eq(0.16)
-      bp.h.should eq(50.0)
+      t.colors_light.brand_primary.system_accent?.should be_true
+      t.colors_dark.brand_primary.system_accent?.should be_true
     end
 
     it "exposes touch_target_minimum_px = 44.0 by default" do

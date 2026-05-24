@@ -4,9 +4,9 @@ import SwiftUI
 public enum AssetPipelineTokens {
 
     public enum Color {
-        public static let brandPrimary = SwiftUI.Color(.sRGB, red: 0.645, green: 0.297, blue: 0.004, opacity: 1.000)
-        public static let brandPrimaryHover = SwiftUI.Color(.sRGB, red: 0.571, green: 0.246, blue: 0.000, opacity: 1.000)
-        public static let brandPrimaryActive = SwiftUI.Color(.sRGB, red: 0.463, green: 0.184, blue: 0.002, opacity: 1.000)
+        public static let brandPrimary = SwiftUI.Color.accentColor
+        public static let brandPrimaryHover = SwiftUI.Color.accentColor
+        public static let brandPrimaryActive = SwiftUI.Color.accentColor
         public static let brandSecondary = SwiftUI.Color(.sRGB, red: 0.189, green: 0.328, blue: 0.681, opacity: 1.000)
         public static let brandAccent = SwiftUI.Color(.sRGB, red: 0.002, green: 0.754, blue: 0.726, opacity: 1.000)
         public static let surfaceCanvas = SwiftUI.Color(.sRGB, red: 0.993, green: 0.979, blue: 0.955, opacity: 1.000)
@@ -29,9 +29,9 @@ public enum AssetPipelineTokens {
         public static let info = SwiftUI.Color(.sRGB, red: 0.010, green: 0.398, blue: 0.557, opacity: 1.000)
 
         public enum Dark {
-            public static let brandPrimary = SwiftUI.Color(.sRGB, red: 0.999, green: 0.611, blue: 0.279, opacity: 1.000)
-            public static let brandPrimaryHover = SwiftUI.Color(.sRGB, red: 0.999, green: 0.729, blue: 0.506, opacity: 1.000)
-            public static let brandPrimaryActive = SwiftUI.Color(.sRGB, red: 0.936, green: 0.478, blue: 0.008, opacity: 1.000)
+            public static let brandPrimary = SwiftUI.Color.accentColor
+            public static let brandPrimaryHover = SwiftUI.Color.accentColor
+            public static let brandPrimaryActive = SwiftUI.Color.accentColor
             public static let brandSecondary = SwiftUI.Color(.sRGB, red: 0.536, green: 0.675, blue: 0.981, opacity: 1.000)
             public static let brandAccent = SwiftUI.Color(.sRGB, red: 0.006, green: 0.853, blue: 0.821, opacity: 1.000)
             public static let surfaceCanvas = SwiftUI.Color(.sRGB, red: 0.022, green: 0.044, blue: 0.085, opacity: 1.000)

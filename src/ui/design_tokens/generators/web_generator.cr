@@ -137,7 +137,19 @@ module UI
         io << "#{indent}/* colors — canonical OKLCH plus baked RGB fallback */\n"
         palette.to_h.each do |name, color|
           io << "#{indent}--ap-color-#{name}: #{color.to_oklch_css};\n"
-          io << "#{indent}--ap-color-#{name}-rgb: #{color.to_rgb_triple_css};\n"
+          # Phase 6.12A library-identity pivot: SYSTEM_ACCENT has no honest
+          # paired RGB triple (the OS resolves the colour at paint time), so
+          # the `-rgb` variant is intentionally omitted. Consumer CSS that
+          # composed `rgba(var(--ap-color-X-rgb), 0.5)` for a default brand
+          # colour must either (a) accept the platform accent's full alpha
+          # via `color-mix(in oklch, AccentColor 50%, transparent)`, or (b)
+          # apply `Tokens.default.with_brand(...)` to materialise the brand
+          # to a fixed sRGB triple.
+          if color.system_accent?
+            io << "#{indent}/* --ap-color-#{name}-rgb omitted — SYSTEM_ACCENT has no fixed triple; use color-mix(in oklch, AccentColor X%, transparent) instead */\n"
+          else
+            io << "#{indent}--ap-color-#{name}-rgb: #{color.to_rgb_triple_css};\n"
+          end
         end
       end
 

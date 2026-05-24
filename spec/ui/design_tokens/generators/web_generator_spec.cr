@@ -18,9 +18,10 @@ describe UI::DesignTokens::WebGenerator do
 
     it "contains every canonical color variable" do
       output = UI::DesignTokens::WebGenerator.generate(UI::DesignTokens::Tokens.default)
+
+      # Both the canonical and `-rgb` paired variants must be present for
+      # opinionated library colours.
       [
-        "--ap-color-brand-primary",
-        "--ap-color-brand-primary-hover",
         "--ap-color-surface-canvas",
         "--ap-color-text-primary",
         "--ap-color-border-default",
@@ -29,6 +30,20 @@ describe UI::DesignTokens::WebGenerator do
       ].each do |name|
         output.should contain(name + ":")
         output.should contain(name + "-rgb:")
+      end
+
+      # Phase 6.12A library-identity pivot: the brand_primary family resolves
+      # to `Color::SYSTEM_ACCENT`. The canonical `--ap-color-brand-primary*`
+      # custom property is still emitted (as `AccentColor`) but the paired
+      # `-rgb` variant is intentionally omitted because the sentinel has
+      # no honest RGB triple. See web_generator.cr `emit_color_vars`.
+      [
+        "--ap-color-brand-primary",
+        "--ap-color-brand-primary-hover",
+        "--ap-color-brand-primary-active",
+      ].each do |name|
+        output.should contain(name + ": AccentColor;")
+        output.includes?(name + "-rgb:").should be_false
       end
     end
 

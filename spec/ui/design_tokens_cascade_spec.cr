@@ -52,10 +52,15 @@ describe "design-token cascade" do
   end
 
   it "the base Tokens.default is never mutated by a brand override" do
+    # Post Phase 6.12A: `Tokens.default.colors_light.brand_primary` is the
+    # `Color::SYSTEM_ACCENT` sentinel. The mutation-safety contract is
+    # identical regardless of representation: applying `.with_brand(...)`
+    # must NOT change the identity of the base palette's brand_primary.
     base = UI::DesignTokens::Tokens.default
-    pre_hex = base.colors_light.brand_primary.to_hex
+    pre = base.colors_light.brand_primary
     _ = base.with_brand(CascadeSentinelBrand.new)
-    base.colors_light.brand_primary.to_hex.should eq(pre_hex)
+    base.colors_light.brand_primary.should eq(pre)
+    base.colors_light.brand_primary.system_accent?.should be_true
   end
 
   describe "brand_cascade_demo sample" do

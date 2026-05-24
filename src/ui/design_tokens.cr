@@ -28,6 +28,16 @@ module UI
   # `MotionScale`, `Breakpoints` — taking keyword arguments matching the
   # record fields. `Tokens` itself is a class with its own `copy_with`.
   module DesignTokens
+    # Raised when an Android-specific serializer is asked to emit a value it
+    # cannot honestly represent (e.g., the platform-resolved `SYSTEM_ACCENT`
+    # sentinel has no fixed ARGB — the correct Android emission is the
+    # `?attr/colorPrimary` theme reference, which only the future Android
+    # XML/resource generator knows how to produce). Surfaces as a fail-loud
+    # signal that the deferred Android generator must be updated before
+    # consuming `SYSTEM_ACCENT`-bearing tokens.
+    class AndroidRendererNotImplemented < Exception
+    end
+
     # Canonical color.
     #
     # The OKLCH triple is the source of truth; the sRGB triple is the
@@ -36,6 +46,20 @@ module UI
     # leave OKLCH nil — that nil case is reserved for platform-system color
     # references that must not round-trip (e.g., a sentinel `NSColor.labelColor`
     # which the AppKit renderer resolves separately).
+    #
+    # ## Sentinel values
+    #
+    # `Color::SYSTEM_ACCENT` is a sentinel that means "resolve to the
+    # platform's native accent color at render time": `UIColor.tintColor` /
+    # the SwiftUI `.accentColor` cascade on iOS, `NSColor.controlAccentColor`
+    # on macOS, the CSS Color 4 `AccentColor` system keyword on web, and
+    # `?attr/colorPrimary` on Android. Renderers detect the sentinel via
+    # `Color#system_accent?` and route to the platform-native accent path
+    # instead of consuming the baked sRGB triple. Phase 6.12A introduced
+    # the sentinel as part of the library-identity pivot — `Tokens.default`
+    # brand_primary family resolves to system accent so consumers who do
+    # not call `.with_brand(...)` get Apple-HIG-correct system blue / mac
+    # control accent rather than an opinionated library palette colour.
     struct Color
       getter l : Float64?
       getter c : Float64?
@@ -45,6 +69,13 @@ module UI
       getter g : Float64
       getter b : Float64
 
+      # nil for normal colours; `:system_accent` for `Color::SYSTEM_ACCENT`.
+      # The ivar is intentionally narrow today (single sentinel kind) but
+      # the type is `Symbol?` so future sentinels (e.g. `:label`,
+      # `:system_background`) can join the same predicate-driven dispatch
+      # without a struct shape change.
+      getter sentinel : Symbol?
+
       def initialize(
         @l : Float64?,
         @c : Float64?,
@@ -53,7 +84,71 @@ module UI
         @g : Float64,
         @b : Float64,
         @alpha : Float64 = 1.0,
+        @sentinel : Symbol? = nil,
       )
+      end
+
+      # Sentinel meaning "platform-native accent color". See the struct-level
+      # docstring for renderer mapping. Constructed with zeroed sRGB / nil
+      # OKLCH because the bake is unused — every consumer must guard on
+      # `system_accent?` before reading r/g/b/alpha.
+      SYSTEM_ACCENT = new(
+        l: nil, c: nil, h: nil,
+        r: 0.0, g: 0.0, b: 0.0, alpha: 0.0,
+        sentinel: :system_accent,
+      )
+
+      # Predicate so renderers and generators can detect the sentinel
+      # without inspecting `@sentinel` directly.
+      def system_accent? : Bool
+        @sentinel == :system_accent
+      end
+
+      # CSS-context serialization. For `SYSTEM_ACCENT`, returns the CSS
+      # Color Module Level 4 system colour KEYWORD `AccentColor` (capitalised,
+      # no hyphen — distinct from the `accent-color` PROPERTY that styles
+      # form controls). Browsers resolve `AccentColor` to the OS's user-
+      # selected accent. For all other colours, returns the canonical
+      # `oklch(...)` form (the most expressive CSS representation).
+      def to_css : String
+        return "AccentColor" if system_accent?
+        to_oklch_css
+      end
+
+      # SwiftUI-context serialization. For `SYSTEM_ACCENT`, returns the
+      # SwiftUI environment accent `Color.accentColor`. For all other
+      # colours, returns the explicit sRGB `Color(...)` literal that
+      # `to_swift_color` produces.
+      def to_swift : String
+        return "Color.accentColor" if system_accent?
+        to_swift_color
+      end
+
+      # Equality includes the sentinel kind so `Color::SYSTEM_ACCENT` is
+      # not accidentally equal to a colour that happens to bake to all
+      # zeros (which would otherwise compare equal via the r/g/b/alpha
+      # fields). Two sentinels of the same kind are equal regardless of
+      # their (unused) bake.
+      def ==(other : Color) : Bool
+        return false unless @sentinel == other.@sentinel
+        if (s = @sentinel) && !s.nil?
+          return true
+        end
+        @r == other.@r && @g == other.@g && @b == other.@b &&
+          @alpha == other.@alpha && @l == other.@l && @c == other.@c &&
+          @h == other.@h
+      end
+
+      def to_s(io : IO) : Nil
+        case @sentinel
+        when :system_accent
+          io << "Color::SYSTEM_ACCENT"
+        else
+          io << "Color("
+          io << "oklch=" << to_oklch_css << ", "
+          io << "rgba=" << to_rgba_css
+          io << ")"
+        end
       end
 
       # Construct from an OKLCH triple. Lightness on [0, 1], chroma typically
@@ -102,7 +197,13 @@ module UI
       # CSS `oklch(L C H / alpha)` string. Component digits are formatted with
       # 3 decimal places for L/C and 2 for H so the generator output is
       # deterministic regardless of float printing quirks.
+      #
+      # `SYSTEM_ACCENT` returns the CSS Color 4 `AccentColor` keyword so the
+      # generated CSS dist file (`web_tokens.css`) lowers system-accent
+      # tokens to a single platform-resolved value rather than baking a
+      # specific sRGB triple.
       def to_oklch_css : String
+        return "AccentColor" if system_accent?
         if (lv = @l) && (cv = @c) && (hv = @h)
           base = "%.3f %.3f %.2f" % {lv, cv, hv}
           @alpha < 1.0 ? "oklch(#{base} / #{format_alpha})" : "oklch(#{base})"
@@ -112,7 +213,11 @@ module UI
       end
 
       # CSS `rgba(r, g, b, alpha)` string with integer 0..255 channels.
+      # `SYSTEM_ACCENT` returns the CSS Color 4 `AccentColor` keyword (an
+      # `rgba(0, 0, 0, 0)` literal would silently render fully transparent
+      # black — a worse failure mode than emitting the platform token).
       def to_rgba_css : String
+        return "AccentColor" if system_accent?
         ri = (@r * 255).round.to_i.clamp(0, 255)
         gi = (@g * 255).round.to_i.clamp(0, 255)
         bi = (@b * 255).round.to_i.clamp(0, 255)
@@ -124,16 +229,33 @@ module UI
       end
 
       # Generator-friendly "r g b" triple (space-separated 0..255 ints) for
-      # use inside CSS `rgb()` / `oklch()` paired tokens.
+      # use inside CSS `rgb()` / `oklch()` paired tokens. Raises for the
+      # `SYSTEM_ACCENT` sentinel — there is no honest channel triple to
+      # emit; callers must guard on `system_accent?` before composing a
+      # paired-token expression around this helper.
       def to_rgb_triple_css : String
+        if system_accent?
+          raise ArgumentError.new(
+            "Color::SYSTEM_ACCENT has no fixed RGB triple — use to_css " \
+            "(emits the `AccentColor` keyword) or guard on system_accent? " \
+            "before composing a paired oklch()/rgb() value."
+          )
+        end
         ri = (@r * 255).round.to_i.clamp(0, 255)
         gi = (@g * 255).round.to_i.clamp(0, 255)
         bi = (@b * 255).round.to_i.clamp(0, 255)
         "#{ri} #{gi} #{bi}"
       end
 
-      # "#rrggbb" or "#rrggbbaa" hex string.
+      # "#rrggbb" or "#rrggbbaa" hex string. Raises for `SYSTEM_ACCENT` —
+      # a hex literal cannot represent "resolve to the platform accent".
       def to_hex : String
+        if system_accent?
+          raise ArgumentError.new(
+            "Color::SYSTEM_ACCENT has no fixed hex value — it resolves " \
+            "to the platform-native accent at render time."
+          )
+        end
         ri = (@r * 255).round.to_i.clamp(0, 255)
         gi = (@g * 255).round.to_i.clamp(0, 255)
         bi = (@b * 255).round.to_i.clamp(0, 255)
@@ -146,14 +268,27 @@ module UI
         end
       end
 
-      # SwiftUI Color literal source.
+      # SwiftUI Color literal source. `SYSTEM_ACCENT` returns the SwiftUI
+      # environment accent `Color.accentColor` (the generated swift dist
+      # file reads `public static let brandPrimary = SwiftUI.Color.accentColor`,
+      # which is the SwiftUI cascade-friendly form).
       def to_swift_color : String
+        return "Color.accentColor" if system_accent?
         "Color(.sRGB, red: %.3f, green: %.3f, blue: %.3f, opacity: %.3f)" % {@r, @g, @b, @alpha}
       end
 
       # Packed 0xAARRGGBB ARGB int for Android (the deferred Android generator
       # consumes this through the Crystal model rather than computing it again).
+      # `SYSTEM_ACCENT` raises `AndroidRendererNotImplemented` — the honest
+      # Android emission is `?attr/colorPrimary`, not an ARGB literal, and
+      # that is the deferred Android generator's responsibility.
       def to_android_argb : Int32
+        if system_accent?
+          raise AndroidRendererNotImplemented.new(
+            "Cannot serialize Color::SYSTEM_ACCENT as Android ARGB. " \
+            "Use `?attr/colorPrimary` resource reference instead."
+          )
+        end
         ri = (@r * 255).round.to_i.clamp(0, 255)
         gi = (@g * 255).round.to_i.clamp(0, 255)
         bi = (@b * 255).round.to_i.clamp(0, 255)
@@ -162,7 +297,10 @@ module UI
       end
 
       # Returns a new Color with the given fields replaced (manual copy_with
-      # because Color is a struct, not a record).
+      # because Color is a struct, not a record). The `sentinel` field
+      # propagates by default so `SYSTEM_ACCENT.copy_with(alpha: 0.5)` stays
+      # a sentinel; callers that intend to materialise a sentinel into a
+      # concrete colour must pass `sentinel: nil` explicitly.
       def copy_with(
         l : Float64? = @l,
         c : Float64? = @c,
@@ -171,8 +309,9 @@ module UI
         g : Float64 = @g,
         b : Float64 = @b,
         alpha : Float64 = @alpha,
+        sentinel : Symbol? = @sentinel,
       ) : Color
-        Color.new(l: l, c: c, h: h, r: r, g: g, b: b, alpha: alpha)
+        Color.new(l: l, c: c, h: h, r: r, g: g, b: b, alpha: alpha, sentinel: sentinel)
       end
 
       private def format_alpha : String
@@ -770,10 +909,18 @@ module UI
       extend self
 
       def light_palette : ColorPalette
+        # Phase 6.12A library-identity pivot: brand_primary family resolves
+        # to the platform-native accent (`Color::SYSTEM_ACCENT`). Consumers
+        # who want an opinionated brand colour subclass `UI::DesignTokens::Brand`
+        # and call `Tokens.default.with_brand(...)` — see
+        # `samples/initiative-cross-platform-ui-demo/brand.cr` for the
+        # canonical pattern. `brand_secondary` / `brand_accent` remain
+        # opinionated library colours; the sentinel only applies to the
+        # primary accent family.
         ColorPalette.new(
-          brand_primary: Color.oklch(0.52, 0.16, 50.0),
-          brand_primary_hover: Color.oklch(0.47, 0.17, 48.0),
-          brand_primary_active: Color.oklch(0.40, 0.15, 46.0),
+          brand_primary: Color::SYSTEM_ACCENT,
+          brand_primary_hover: Color::SYSTEM_ACCENT,
+          brand_primary_active: Color::SYSTEM_ACCENT,
           brand_secondary: Color.oklch(0.47, 0.15, 265.0),
           brand_accent: Color.oklch(0.73, 0.15, 190.0),
           surface_canvas: Color.oklch(0.985, 0.009, 82.0),
@@ -798,10 +945,12 @@ module UI
       end
 
       def dark_palette : ColorPalette
+        # See `light_palette` for the Phase 6.12A library-identity pivot
+        # context — same sentinel applies to the dark brand primary family.
         ColorPalette.new(
-          brand_primary: Color.oklch(0.78, 0.17, 58.0),
-          brand_primary_hover: Color.oklch(0.84, 0.15, 60.0),
-          brand_primary_active: Color.oklch(0.70, 0.18, 54.0),
+          brand_primary: Color::SYSTEM_ACCENT,
+          brand_primary_hover: Color::SYSTEM_ACCENT,
+          brand_primary_active: Color::SYSTEM_ACCENT,
           brand_secondary: Color.oklch(0.75, 0.12, 265.0),
           brand_accent: Color.oklch(0.80, 0.14, 190.0),
           surface_canvas: Color.oklch(0.15, 0.025, 260.0),

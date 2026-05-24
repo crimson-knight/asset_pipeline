@@ -231,10 +231,18 @@ module Components
           }
 
           palettes = {
+            # The "amber" palette is the LEGACY semantic theme's named
+            # palette — it must remain literally amber regardless of what
+            # the unified-design-tokens `brand_primary` resolves to. After
+            # the Phase 6.12A library-identity pivot, `light["brand-primary"]`
+            # is `"AccentColor"` (the platform sentinel), which would
+            # poison this backward-compat palette. The OKLCH literals
+            # below mirror the original amber values that brand_primary
+            # used to carry pre-pivot.
             "amber" => Palette.new("amber", {
               "50"  => "oklch(0.98 0.018 78)",
-              "500" => light["brand-primary"],
-              "700" => light["brand-primary-active"],
+              "500" => "oklch(0.52 0.16 50)",
+              "700" => "oklch(0.40 0.15 46)",
             }),
             "slate" => Palette.new("slate", {
               "50"  => "oklch(0.985 0.003 248)",
