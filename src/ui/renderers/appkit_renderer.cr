@@ -60,6 +60,8 @@
       fun nscolor_label_quaternary : Void*
       fun nscolor_control_background : Void*
       fun nscolor_separator : Void*
+      # Phase 6.12A — NSColor.controlAccentColor for SYSTEM_ACCENT.
+      fun nscolor_control_accent : Void*
       fun nsfont_system(size : Float64) : Void*
       fun nsfont_bold_system(size : Float64) : Void*
       fun nsfont_system_weight(size : Float64, weight : Float64) : Void*
@@ -3973,10 +3975,20 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # `amber_brand_gold` previously hardcoded `#FFAD33` / `#FFB84D`; that
       # helper is gone — every caller now passes through here so a brand
       # override on `design_tokens` cascades through.
+      #
+      # Phase 6.12A — when the resolved colour is `Color::SYSTEM_ACCENT`
+      # the bridge returns `NSColor.controlAccentColor` (the live macOS
+      # system accent that follows the user's General > Accent choice and
+      # the active appearance automatically), not the sentinel's zeroed
+      # sRGB bake.
       private def token_nscolor(role : Symbol, appearance : Symbol = current_appearance) : Void*
         palette = appearance == :dark ? @design_tokens.colors_dark : @design_tokens.colors_light
         color = palette.lookup(role) || palette.brand_primary
-        LibObjCBridge.nscolor_rgba(color.r, color.g, color.b, color.alpha)
+        if color.system_accent?
+          LibObjCBridge.nscolor_control_accent
+        else
+          LibObjCBridge.nscolor_rgba(color.r, color.g, color.b, color.alpha)
+        end
       end
 
       # Deprecated shim: `amber_brand_gold` callers now resolve through the
@@ -4010,10 +4022,31 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           LibSwiftKitBridge.apsk_runtime_install_default_action_trampoline
           @swiftkit_action_trampoline_installed = true
         end
-        brand = @design_tokens.colors_light.brand_primary
-        LibSwiftKitBridge.apsk_runtime_set_brand_tint(
-          brand.r, brand.g, brand.b, brand.alpha,
-        )
+        apply_brand_tint(@design_tokens.colors_light.brand_primary)
+      end
+
+      # Phase 6.12A — pure routing of a brand colour to the SwiftKit
+      # runtime. Split out from `ensure_swiftkit_runtime!` as a unit-
+      # testable seam: spec uses `brand_tint_action(color)` to assert
+      # the decision (`:clear` vs `:set`); production routes the decision
+      # through `LibSwiftKitBridge`.
+      protected def apply_brand_tint(brand : UI::DesignTokens::Color) : Nil
+        case brand_tint_action(brand)
+        when :clear
+          LibSwiftKitBridge.apsk_runtime_clear_brand_tint
+        when :set
+          LibSwiftKitBridge.apsk_runtime_set_brand_tint(
+            brand.r, brand.g, brand.b, brand.alpha,
+          )
+        end
+      end
+
+      # Pure decision: `:clear` for the SYSTEM_ACCENT sentinel (lets
+      # SwiftUI's `.accentColor` cascade pick up `NSColor.controlAccentColor`);
+      # `:set` for any opinionated brand colour (Cascade's deep teal, a
+      # consumer brand override).
+      def brand_tint_action(brand : UI::DesignTokens::Color) : Symbol
+        brand.system_accent? ? :clear : :set
       end
 
       # Token-driven radius in points (rem * 16).

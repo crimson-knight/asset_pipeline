@@ -2,11 +2,20 @@ require "./design_tokens"
 require "../components/css/tokens/amber_theme"
 
 module UI
+  # Material-Design-3-flavoured RGBA bag used by `UI::Theme`.
+  #
+  # Phase 6.12A added `css_override` so a colour derived from a
+  # `UI::DesignTokens::Color` sentinel (e.g. `Color::SYSTEM_ACCENT`) can
+  # round-trip its platform-resolved token through the legacy MD3 CSS
+  # emitter rather than baking the sentinel's zeroed RGB into a literal
+  # `rgba(0, 0, 0, 0.0)`. The default `nil` keeps every existing call
+  # site unchanged.
   record ThemeColor,
     r : Float64,
     g : Float64,
     b : Float64,
-    a : Float64 = 1.0
+    a : Float64 = 1.0,
+    css_override : String? = nil
 
   # Semantic Apple label roles. Unlike `ThemeColor` (a baked RGBA value),
   # a `LabelRole` is a symbolic reference that the AppKit / UIKit renderers
@@ -238,10 +247,18 @@ module UI
     end
 
     private def self.theme_color_from(c : UI::DesignTokens::Color) : ThemeColor
-      ThemeColor.new(r: c.r, g: c.g, b: c.b, a: c.alpha)
+      # Phase 6.12A — preserve the platform-resolved CSS token when the
+      # source design-token is a sentinel (e.g. SYSTEM_ACCENT). Without
+      # this, the legacy MD3 CSS emitter would bake the sentinel's
+      # zeroed RGB into a literal `rgba(0, 0, 0, 0.0)`.
+      override = c.system_accent? ? c.to_css : nil
+      ThemeColor.new(r: c.r, g: c.g, b: c.b, a: c.alpha, css_override: override)
     end
 
     private def color_to_css(c : ThemeColor) : String
+      if over = c.css_override
+        return over
+      end
       r = (c.r * 255).round.to_i.clamp(0, 255)
       g = (c.g * 255).round.to_i.clamp(0, 255)
       b = (c.b * 255).round.to_i.clamp(0, 255)

@@ -254,6 +254,37 @@ void *nscolor_separator(void) {
 #endif
 }
 
+// Phase 6.12A — platform-native accent color resolver.
+//
+// macOS: NSColor.controlAccentColor (the live system accent that follows
+//   the user's General > Accent preference and the active appearance).
+// iOS:   UIColor.tintColor (the dynamic placeholder that resolves to the
+//   view hierarchy's tintColor at draw time — typically systemBlue when
+//   no override is installed). On iOS 15+ this is a valid class method.
+//
+// Returned to Crystal when a `UI::DesignTokens::Color::SYSTEM_ACCENT`
+// sentinel reaches `token_nscolor` in the AppKit / UIKit renderers
+// (Phase 6.12A library-identity pivot).
+void *nscolor_control_accent(void) {
+#if TARGET_OS_OSX
+    return [NSColor controlAccentColor];
+#else
+    return [UIColor tintColor];
+#endif
+}
+
+// iOS-only alias for the same accent path, exposed under the more
+// UIKit-idiomatic name. Keeps the UIKit-renderer call site reading
+// like the surrounding UIColor.* family. On macOS it falls back to
+// controlAccentColor for parity.
+void *uicolor_tint(void) {
+#if TARGET_OS_OSX
+    return [NSColor controlAccentColor];
+#else
+    return [UIColor tintColor];
+#endif
+}
+
 // [NSFont/UIFont systemFontOfSize:]
 void *nsfont_system(double size) {
 #if TARGET_OS_OSX
