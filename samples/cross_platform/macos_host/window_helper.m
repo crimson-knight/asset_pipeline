@@ -696,6 +696,53 @@ void *hig_create_window(double x, double y, double w, double h, const char *titl
     return (void *)win;
 }
 
+// Phase 6.12A — interactive window with content-min-size + appearance pinning.
+//
+// Identical to `hig_create_window` plus three additions:
+//   1. `setContentMinSize:` enforces a lower bound on the user-resizable
+//      content area (the brief requires 480×400 for Voyager).
+//   2. `appearance_name` is honoured when non-null: "dark" pins the window
+//      to NSAppearanceNameDarkAqua, "light" pins to NSAppearanceNameAqua.
+//      Any other value (or NULL) leaves the window following the system
+//      appearance — the same env-var-or-system contract iOS's
+//      SceneDelegate already uses.
+//   3. NSWindowStyleMaskMiniaturizable is added so the window behaves like
+//      a normal macOS app window (minimise to dock).
+//
+// Cascade keeps using `hig_create_window` verbatim; Voyager moves to this
+// new helper. Avoids modifying the existing helper's signature so neither
+// host regresses.
+void *hig_create_window_with_min(double x, double y, double w, double h,
+                                 double min_w, double min_h,
+                                 const char *title_cstr,
+                                 const char *appearance_name) {
+    NSRect frame = NSMakeRect(x, y, w, h);
+    NSUInteger style = NSWindowStyleMaskTitled
+                     | NSWindowStyleMaskClosable
+                     | NSWindowStyleMaskResizable
+                     | NSWindowStyleMaskMiniaturizable;
+    NSWindow *win = [[NSWindow alloc] initWithContentRect:frame
+                                                styleMask:style
+                                                  backing:NSBackingStoreBuffered
+                                                    defer:NO];
+    if (title_cstr) {
+        [win setTitle:[NSString stringWithUTF8String:title_cstr]];
+    }
+    [win setContentMinSize:NSMakeSize(min_w, min_h)];
+
+    if (appearance_name) {
+        if (strcmp(appearance_name, "dark") == 0) {
+            [win setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua]];
+        } else if (strcmp(appearance_name, "light") == 0) {
+            [win setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameAqua]];
+        }
+        // Any other appearance_name leaves the window following the system.
+    }
+
+    [win center];
+    return (void *)win;
+}
+
 // Snapshot the window using CGWindowListCreateImage (live compositor path).
 // This is the correct path for any window that contains NSVisualEffectView
 // (Liquid Glass) because the compositor blurs whatever is behind the window

@@ -26,6 +26,13 @@ require "../../../src/ui/renderers/appkit_renderer"
   # Same window_helper.m the Cascade host uses — verbatim reuse.
   lib LibWindowHelper
     fun hig_create_window(x : Float64, y : Float64, w : Float64, h : Float64, title : UInt8*) : Void*
+    # Phase 6.12A — interactive window with explicit min-content-size
+    # + appearance pin. See window_helper.m for the full contract.
+    fun hig_create_window_with_min(
+      x : Float64, y : Float64, w : Float64, h : Float64,
+      min_w : Float64, min_h : Float64,
+      title : UInt8*, appearance : UInt8*,
+    ) : Void*
     fun hig_run_app(window : Void*) : Void
     fun objc_create_capture_window(width : Float64, height : Float64, appearance : UInt8*) : Void*
     fun objc_install_content_view(window : Void*, content_view : Void*) : Void
@@ -41,8 +48,14 @@ require "../../../src/ui/renderers/appkit_renderer"
   end
 
   module VoyagerHost
+    # Phase 6.12A — content size is the brief's 880×640 default with a
+    # hard 480×400 floor enforced via setContentMinSize on the NSWindow.
+    # Both axes are resizable; the user can drag the window larger but
+    # not below the floor.
     WINDOW_WIDTH  = 880.0
-    WINDOW_HEIGHT = 720.0
+    WINDOW_HEIGHT = 640.0
+    MIN_WIDTH     = 480.0
+    MIN_HEIGHT    = 400.0
 
     # Phase 6.10 Rem 4 cont. — env-overridable capture dimensions so
     # the macOS resize evidence can be produced from a single binary
@@ -122,7 +135,21 @@ require "../../../src/ui/renderers/appkit_renderer"
 
       # Interactive path — open a titled window and run the AppKit loop.
       title_str = "Voyager"
-      window = LibWindowHelper.hig_create_window(120.0, 120.0, WINDOW_WIDTH, WINDOW_HEIGHT, title_str.to_unsafe)
+      # Phase 6.12A — appearance pin: when VOYAGER_APPEARANCE (or its
+      # HIG_APPEARANCE legacy alias) is explicitly set, push the value
+      # through to the NSWindow; otherwise pass NULL so the window
+      # follows the system appearance. Mirrors iOS SceneDelegate's
+      # VOYAGER_APPEARANCE contract.
+      appearance_arg = if ENV["VOYAGER_APPEARANCE"]? || ENV["HIG_APPEARANCE"]?
+                         APPEARANCE.to_unsafe
+                       else
+                         Pointer(UInt8).null
+                       end
+      window = LibWindowHelper.hig_create_window_with_min(
+        120.0, 120.0, WINDOW_WIDTH, WINDOW_HEIGHT,
+        MIN_WIDTH, MIN_HEIGHT,
+        title_str.to_unsafe, appearance_arg,
+      )
       set_content = LibObjCBridgeVoyager.sel_registerName("setContentView:".to_unsafe)
       @@window_ptr = window
       @@set_content_sel = set_content
