@@ -39,6 +39,24 @@ module UI
   # The `on_tap` proc is invoked when the button is activated.
   # Buttons can be disabled to prevent interaction.
   class Button < View
+    # HTML form-submission role for `UI::Button` on the web target.
+    # Native renderers (AppKit / UIKit) ignore this property —
+    # buttons are dispatched via `on_tap` on native.
+    #
+    # * `Button` — non-submitting; the default. Web emits `type="button"`.
+    # * `Submit` — submits the enclosing `<form>`. Web emits `type="submit"`.
+    # * `Reset`  — resets the enclosing `<form>`. Web emits `type="reset"`.
+    #
+    # `UI::Form` web-visit auto-promotes a single-button form's lone
+    # Button from `Type::Button` to `Type::Submit`. Multi-button forms
+    # MUST set `type: UI::Button::Type::Submit` explicitly on the
+    # intended submitter — no surprising "last button wins" convention.
+    enum Type
+      Button
+      Submit
+      Reset
+    end
+
     # The button's display label
     property label : String
 
@@ -91,11 +109,17 @@ module UI
     # names are silently skipped rather than crashing.
     property symbol : String? = nil
 
-    def initialize(@label : String, *, @role : Symbol = :default, @style : ButtonStyle = ButtonStyle::Default, @symbol : String? = nil)
+    # HTML form-submission role on the web target. See `UI::Button::Type`.
+    # Defaults to `Type::Button` (non-submitting). Set explicitly on the
+    # button intended to submit a `UI::Form` — multi-button forms do NOT
+    # auto-promote; only single-button forms do (see `UI::Form`).
+    property type : Type = Type::Button
+
+    def initialize(@label : String, *, @role : Symbol = :default, @style : ButtonStyle = ButtonStyle::Default, @symbol : String? = nil, @type : Type = Type::Button)
     end
 
     # Convenience constructor that accepts a tap handler block
-    def initialize(@label : String, *, @role : Symbol = :default, @style : ButtonStyle = ButtonStyle::Default, @symbol : String? = nil, &block : -> Nil)
+    def initialize(@label : String, *, @role : Symbol = :default, @style : ButtonStyle = ButtonStyle::Default, @symbol : String? = nil, @type : Type = Type::Button, &block : -> Nil)
       @on_tap = block
     end
 

@@ -148,7 +148,16 @@ module UI
       end
 
       def visit(view : UI::Button)
-        el = Components::Elements::Button.new(type: "button")
+        # Phase 8A Item 5 — honor view.type so submit/reset buttons can
+        # drive a `<form>` submission. Single-button-form auto-promotion
+        # happens inside `visit(UI::Form)` (Item 2); standalone buttons
+        # render with their declared type unchanged.
+        type_attr = case view.type
+                    in UI::Button::Type::Submit then "submit"
+                    in UI::Button::Type::Reset  then "reset"
+                    in UI::Button::Type::Button then "button"
+                    end
+        el = Components::Elements::Button.new(type: type_attr)
         el << view.label
         el.add_class(button_classes(view))
         el.set_attribute("data-component", "button")

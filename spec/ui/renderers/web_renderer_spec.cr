@@ -116,6 +116,33 @@ describe UI::Web::Renderer do
     end
   end
 
+  describe "Button type property" do
+    it "defaults to type=\"button\"" do
+      button = UI::Button.new("Click")
+      html = render(button)
+      html.should contain("type=\"button\"")
+    end
+
+    it "emits type=\"submit\" when explicitly set to Submit" do
+      button = UI::Button.new("Save", type: UI::Button::Type::Submit)
+      html = render(button)
+      html.should contain("type=\"submit\"")
+    end
+
+    it "emits type=\"reset\" when explicitly set to Reset" do
+      button = UI::Button.new("Clear", type: UI::Button::Type::Reset)
+      html = render(button)
+      html.should contain("type=\"reset\"")
+    end
+
+    it "type is mutable post-construction" do
+      button = UI::Button.new("Save")
+      button.type = UI::Button::Type::Submit
+      html = render(button)
+      html.should contain("type=\"submit\"")
+    end
+  end
+
   describe "Button" do
     it "renders to <button> with type=button" do
       button = UI::Button.new("Click Me")
