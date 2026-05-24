@@ -109,6 +109,19 @@
       UI::Probes::FormRowProbe.reset
       UI::Probes::RuntimeOverrideProbe.reset
 
+      # Phase 8D.1 — VoyagerApp.bootstrap! re-registers all 4 screen
+      # registrations through compile-time-emitted class methods. The
+      # `Voyager.build_route` compat shim looks up registrations via
+      # `VoyagerApp.registration_for(route.id)`; without this call, the
+      # iOS class-init gap could leave `@@screens` stranded as nil and
+      # the very first render_slug call would raise UnknownRouteError.
+      # See src/asset_pipeline/native_app.cr:33-37 for the gap rationale
+      # (this is the bridge entry path the framework docs reference).
+      # NOTE: this is the minimum-required-correctness fix for the
+      # Phase 8D.1 compat shim path. Full iOS migration to the
+      # ActionDispatcher is Phase 8D.2 scope.
+      VoyagerApp.bootstrap!
+
       # Allocate the slug buffer here (NOT as a class-var default) so the
       # iOS class-init gap can't strand it as nil. 64 bytes accommodates
       # the longest known Voyager slug (~"voyager-todo-editor" = 19) with

@@ -1,41 +1,25 @@
 module Voyager
   # Voyager — Sign In screen.
   #
-  # Email TextField + SecureField + Sign In button. On Sign In tap,
-  # coord.push(Route.new(:todos)) advances to the Todos screen. Email
-  # validation is a basic regex (display-only — the demo doesn't reject
-  # bad emails to keep the happy-path navigable in 3 clicks).
-  module SignInScreen
-    extend self
-
+  # Phase 8D.1: migrated from a module-level class with
+  # `build(state, coord)` to a `UI::Screen` subclass with
+  # `build(ctx : UI::ScreenContext) : UI::View`. User-intent callbacks
+  # route through `Voyager.dispatch(:action_name, action_params)` per
+  # the brief's action-ref convention; the controller layer
+  # (`SignInController`) interprets the actions and returns
+  # `UI::ActionResult` subtypes that the dispatcher translates into
+  # coordinator operations.
+  class SignInScreen < UI::Screen
     SLUG = "voyager-sign-in"
 
-    def build(state : State, coord : UI::NavigationCoordinator) : UI::View
+    def build(context : UI::ScreenContext) : UI::View
       # Phase 6.10 Rem 4 (Item 2D/2E + Item 3) — device-aware sizing.
-      #
-      # The OUTER root uses `root_fill = true` so iOS / macOS renderers
-      # size the screen to the live device bounds via
-      # `UI::DesignTokens::DeviceMetrics.current`. The inner fields still
-      # carry an explicit `content_width` cap so SwiftUI TextFields /
-      # SecureFields don't collapse to their placeholder intrinsic width
-      # inside the UIHostingController + UIStackView mix.
-      #
-      # Item 3 (off-screen Sign-in button frame) fix: the Sign-in button
-      # had `minimum_width = max_width = 340.0` on a centered VStack
-      # whose own width was ALSO pinned to 340. With the root pinned to
-      # 340 and aligned center inside a wider iPhone 17 Pro safe-area
-      # bounds (402pt content), the negative x-origin came from the
-      # SwiftUI ScrollView default-priority width-hint constraint
-      # racing the inner 340pt pin. Removing the outer width pin (now
-      # `root_fill`) lets UIKit auto-layout center the button cleanly
-      # within the live device width, and the inner cap stays at 340pt
-      # so the field column doesn't stretch to the edge on iPad.
+      # See screens/sign_in.cr pre-8D.1 history for the layout rationale
+      # (root_fill + content_width cap + safe-area aware padding).
       metrics = UI::DesignTokens::DeviceMetrics.current
-      # Cap form-field width to 340pt on compact devices (iPhone
-      # portrait) and 400pt on regular (iPad portrait, landscape
-      # macOS). Authors override per-screen via the field's
-      # `minimum_width` / `maximum_width` props.
       content_width = metrics.compact_horizontal? ? 340.0 : 400.0
+
+      state = Voyager.state
 
       root = UI::VStack.new(spacing: 24.0)
       root.root_fill = true
@@ -65,16 +49,26 @@ module Voyager
       fields.minimum_width = content_width
       fields.maximum_width = content_width
 
-      email = UI::TextField.new(placeholder: "Email")
+      # Phase 8D.1 — the renderer's wire-time TextField hook
+      # (UI::FormStateRendererHook.wrap_text_handler) reads
+      # UI::FormState.current and writes typed values into the
+      # dispatcher's per-mount FormState under the `name` key. Brief
+      # contract: SignInController#submit reads `ctx.form_state["email"]`
+      # and `ctx.form_state["password"]`.
+      email = UI::TextField.new(placeholder: "Email", name: "email")
       email.text = state.current_user
       email.accessibility_label = "Email address"
       email.test_id = "voyager-sign-in-email"
       email.keyboard_type = UI::KeyboardType::EmailAddress
       email.minimum_width = content_width
       email.maximum_width = content_width
+      # NOTE on `state.current_user`: this is a UX-courtesy mirror so the
+      # pre-populated email survives a re-render. The authoritative store
+      # for the dispatched submit is FormState (renderer-wired). We keep
+      # the side-write into state for the same UX as pre-8D.1.
       email.on_change = ->(value : String) { state.current_user = value }
 
-      password = UI::SecureField.new(placeholder: "Password")
+      password = UI::SecureField.new(placeholder: "Password", name: "password")
       password.accessibility_label = "Password"
       password.test_id = "voyager-sign-in-password"
       password.minimum_width = content_width
@@ -84,19 +78,13 @@ module Voyager
       fields << password.as(UI::View)
 
       submit = UI::Button.new("Sign in", style: UI::ButtonStyle::Prominent)
-      # accessibility_label matches the visible title so XCUITest / VoiceOver
-      # users can find the button by what they see/hear without disambiguation.
       submit.accessibility_label = "Sign in"
       submit.test_id = "voyager-sign-in-submit"
       submit.minimum_width = content_width
       submit.maximum_width = content_width
-      # The coordinator captures itself in the closure — push moves
-      # us from :sign_in → :todos, firing on_change, which the host
-      # subscribes to (see web/static_site.cr + macos/host.cr +
-      # ios/bridge.cr) to rebuild the visible root.
-      submit.on_tap = -> {
-        coord.push(UI::NavigationCoordinator::Route.new(:todos))
-      }
+      # Phase 8D.1 — Symbol action ref `:submit` routes to
+      # SignInController#submit per the brief's action-ref convention.
+      submit.on_tap = -> { Voyager.dispatch(:submit) }
 
       root << wordmark.as(UI::View)
       root << subtitle.as(UI::View)

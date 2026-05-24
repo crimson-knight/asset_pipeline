@@ -1,21 +1,18 @@
 module Voyager
   # Voyager — Settings screen.
   #
-  # Single "Hide completed" Toggle. This is the make-or-break state
-  # propagation litmus: toggle on, pop back to Todos, see the list +
-  # chart immediately reflect.
-  module SettingsScreen
-    extend self
-
+  # Phase 8D.1: migrated to `UI::Screen` subclass. Hide-completed toggle
+  # dispatches `:toggle_filter` (SettingsController flips
+  # `Voyager.state.hide_completed` and returns Rerender). Back link
+  # dispatches `:back` (Pop).
+  class SettingsScreen < UI::Screen
     SLUG = "voyager-settings"
 
-    def build(state : State, coord : UI::NavigationCoordinator) : UI::View
-      # Phase 6.10 Rem 4 (Item 2D/2E) — device-aware sizing. Outer
-      # uses root_fill; inner Toggle + Back button still pin to
-      # content_width so HStack children inside the Toggle facade
-      # receive a deterministic parent width on iOS.
+    def build(context : UI::ScreenContext) : UI::View
       metrics = UI::DesignTokens::DeviceMetrics.current
       content_width = metrics.compact_horizontal? ? 340.0 : 480.0
+
+      state = Voyager.state
 
       root = UI::VStack.new(spacing: 16.0)
       root.root_fill = true
@@ -42,9 +39,9 @@ module Voyager
       hide_toggle.test_id = "voyager-settings-hide-completed"
       hide_toggle.minimum_width = content_width
       hide_toggle.maximum_width = content_width
-      hide_toggle.on_change = ->(value : Bool) {
-        state.hide_completed = value
-      }
+      # Phase 8D.1 — :toggle_filter routes to SettingsController#toggle_filter
+      # which flips Voyager.state.hide_completed and returns Rerender.
+      hide_toggle.on_change = ->(_value : Bool) { Voyager.dispatch(:toggle_filter) }
 
       back = UI::Button.new("Back to todos")
       back.role = :secondary
@@ -52,23 +49,13 @@ module Voyager
       back.test_id = "voyager-settings-back"
       back.minimum_width = content_width
       back.maximum_width = content_width
-      back.on_tap = -> {
-        coord.pop
-        nil
-      }
+      back.on_tap = -> { Voyager.dispatch(:back) }
 
       root << title.as(UI::View)
       root << explainer.as(UI::View)
       root << hide_toggle.as(UI::View)
       root << back.as(UI::View)
 
-      # Phase 6.10 Rem 3 (Item 3): framework default in VoyagerHost
-      # wraps the root in a UIScrollView when content overflows; the
-      # screen does not need explicit UI::ScrollView wrapping for the
-      # iPhone 17 portrait happy-path. Leaving the root as a VStack so
-      # the AppKit and UIKit renderers both pin content_width=340
-      # without an extra scroll-view layer interfering with the inner
-      # stack's auto-layout.
       root.as(UI::View)
     end
   end

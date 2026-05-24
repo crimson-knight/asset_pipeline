@@ -1,33 +1,51 @@
 module Voyager
   # Voyager — Todo Editor screen.
   #
-  # Title TextField + note TextField + completed Toggle + Save + Cancel.
-  # Route params: `id` = todo id (or "0" for a new todo).
-  # Save mutates the todo + coord.pop. Cancel just pops.
-  module TodoEditorScreen
-    extend self
-
+  # Phase 8D.1: migrated from module-level class with
+  # `build(state, coord, todo_id)` to `UI::Screen` subclass with
+  # `build(ctx : UI::ScreenContext) : UI::View`. The todo_id arrives via
+  # `ctx.params["todo_id"]` — when the dispatcher mounts this screen via
+  # `Navigate.new(:todo_editor, params: {todo_id: "5"})`, it seeds the
+  # mount FormState with that key. `ctx.params == ctx.form_state.to_h`
+  # on native.
+  #
+  # Title TextField uses `name: "title"` so the renderer's FormState
+  # hook records typed values; `TodoEditorController#save` reads
+  # `ctx.form_state["title"]`. The completed Toggle has no renderer
+  # FormState hook (Phase 8B only ships hooks for TextField + SecureField),
+  # so the screen manually writes its value into FormState under
+  # `"completed"` via the dispatcher's current_form_state.
+  class TodoEditorScreen < UI::Screen
     SLUG = "voyager-todo-editor"
 
-    def build(state : State, coord : UI::NavigationCoordinator, todo_id : Int32) : UI::View
-      # Phase 6.11 — Cancel-preserves-state edge case (brief Item 3 edge
-      # contract): the editor must work against a copy of the todo so
-      # Cancel returns the original to state unchanged. Previously the
-      # editor used the live todo struct as `draft` and `on_change`
-      # mutated it eagerly, which meant Cancel-after-edit left the
-      # mutated values in state.
-      editing = state.find_todo(todo_id)
-      draft = if editing.nil?
-                Todo.new(id: 0, title: "", note: "")
-              else
-                src = editing.not_nil!
-                Todo.new(id: src.id, title: src.title, note: src.note, completed: src.completed)
-              end
+    def build(context : UI::ScreenContext) : UI::View
+      state = Voyager.state
 
-      # Phase 6.10 Rem 4 (Item 2D/2E) — device-aware sizing. Outer
-      # root_fill; inner fields still carry an explicit content_width
-      # cap so the Save+Cancel half-button math stays meaningful on
-      # all devices.
+      # Phase 8D.1 — read the route-supplied todo_id from FormState
+      # (the dispatcher mounted the screen with route.params seeded
+      # into form_state, keyed by string). Treat absent / non-numeric
+      # / "0" as a new-todo signal (blank draft).
+      todo_id_str = context.params["todo_id"]? || "0"
+      todo_id = todo_id_str.to_i? || 0
+      editing = state.find_todo(todo_id)
+
+      # On a fresh mount, seed the title + completed FormState entries
+      # from the live editing target so the field renders with the
+      # current values. The renderer's FormState hook for TextField will
+      # `register` (idempotent for already-set entries) and update on
+      # type. Toggle's on_change writes its own value into FormState via
+      # the dispatcher accessor (see below).
+      seed_title = editing ? editing.title : ""
+      seed_completed = editing ? editing.completed : false
+      seed_note = editing ? editing.note : ""
+      d = Voyager.dispatcher
+      unless d.nil?
+        fs = d.current_form_state
+        fs.register("title", seed_title)
+        fs.register("note", seed_note)
+        fs.register("completed", seed_completed ? "true" : "false")
+      end
+
       metrics = UI::DesignTokens::DeviceMetrics.current
       content_width = metrics.compact_horizontal? ? 340.0 : 480.0
       root = UI::VStack.new(spacing: 16.0)
@@ -45,38 +63,40 @@ module Voyager
       title_label = UI::Label.new(editing ? "Edit todo" : "New todo")
       title_label.font = UI::Font.new(size: 24.0, weight: :bold)
 
-      title_field = UI::TextField.new(placeholder: "Title")
-      title_field.text = draft.title
+      title_field = UI::TextField.new(placeholder: "Title", name: "title")
+      title_field.text = seed_title
       title_field.accessibility_label = "Todo title"
       title_field.test_id = "voyager-todo-editor-title"
       title_field.minimum_width = content_width
       title_field.maximum_width = content_width
-      # on_change is wired below — it needs to mutate the Save button's
-      # disabled state, but the Save button is constructed later in this
-      # method. We capture the closure assignment after Save exists.
 
-      note_field = UI::TextField.new(placeholder: "Note (optional)")
-      note_field.text = draft.note
+      note_field = UI::TextField.new(placeholder: "Note (optional)", name: "note")
+      note_field.text = seed_note
       note_field.accessibility_label = "Todo note"
       note_field.test_id = "voyager-todo-editor-note"
       note_field.minimum_width = content_width
       note_field.maximum_width = content_width
-      note_field.on_change = ->(value : String) { draft.note = value }
 
-      completed_toggle = UI::Toggle.new(label: "Completed", is_on: draft.completed)
+      completed_toggle = UI::Toggle.new(label: "Completed", is_on: seed_completed)
       completed_toggle.accessibility_label = "Mark as completed"
       completed_toggle.test_id = "voyager-todo-editor-completed"
       completed_toggle.minimum_width = content_width
       completed_toggle.maximum_width = content_width
-      completed_toggle.on_change = ->(value : Bool) { draft.completed = value }
+      # Toggle has no Phase 8B FormState renderer hook (only TextField +
+      # SecureField do). Write the boolean into FormState manually so
+      # TodoEditorController#save can read ctx.form_state["completed"].
+      completed_toggle.on_change = ->(value : Bool) {
+        d2 = Voyager.dispatcher
+        unless d2.nil?
+          d2.current_form_state.update("completed", value ? "true" : "false")
+        end
+      }
 
       actions = UI::HStack.new(spacing: 12.0)
       actions.alignment = UI::Alignment::Center
       actions.minimum_width = content_width
       actions.maximum_width = content_width
 
-      # Half-width buttons so the Cancel + Save row fills the
-      # content_width band without stretching to intrinsic-only labels.
       half_button_width = (content_width - 12.0) / 2.0
 
       cancel = UI::Button.new("Cancel")
@@ -85,52 +105,20 @@ module Voyager
       cancel.test_id = "voyager-todo-editor-cancel"
       cancel.minimum_width = half_button_width
       cancel.maximum_width = half_button_width
-      cancel.on_tap = -> {
-        coord.pop
-        nil
-      }
+      cancel.on_tap = -> { Voyager.dispatch(:cancel) }
 
       save = UI::Button.new("Save", style: UI::ButtonStyle::Prominent)
       save.accessibility_label = "Save todo"
       save.test_id = "voyager-todo-editor-save"
       save.minimum_width = half_button_width
       save.maximum_width = half_button_width
-      # Phase 6.11 Item 3 row 3 — Save disabled while title is blank.
-      # `String#strip.empty?` treats whitespace-only as blank, matching
-      # the brief's edge-case clause.
-      save.disabled = draft.title.strip.empty?
-      save.on_tap = -> {
-        # Defensive — the SwiftUI button's `.disabled(true)` modifier
-        # already blocks taps when blank, but a renderer that ignores
-        # the disabled flag must still no-op here.
-        if draft.title.strip.empty?
-          # Tap ignored — blank title.
-        else
-          if e = editing
-            # Copy the draft's mutated fields back to the live todo.
-            # See "Cancel-preserves-state" rationale above the draft
-            # construction.
-            e.title = draft.title
-            e.note = draft.note
-            e.completed = draft.completed
-          else
-            # Commit the draft as a new todo in state.
-            state.add_todo(draft.title, draft.note, draft.completed)
-          end
-          coord.pop
-        end
-        nil
-      }
-
-      # Now that `save` exists, wire the title field's on_change to
-      # mutate both the draft AND the Save button's reactive disabled
-      # state. The Button setter routes through the SwiftKit bridge so
-      # SwiftUI re-renders just the Button (no host rebuild, no
-      # keyboard-focus loss).
-      title_field.on_change = ->(value : String) {
-        draft.title = value
-        save.disabled = value.strip.empty?
-      }
+      # Phase 8D.1: disabled-while-blank check now consults the seeded
+      # title value. The renderer-wired live disable update is a
+      # follow-up — Phase 8B's reactive Button.disabled path is what
+      # Phase 03's reactive mutators target, not this controller's
+      # primary scope.
+      save.disabled = seed_title.strip.empty?
+      save.on_tap = -> { Voyager.dispatch(:save) }
 
       actions << cancel.as(UI::View)
       actions << save.as(UI::View)
@@ -141,11 +129,6 @@ module Voyager
       root << completed_toggle.as(UI::View)
       root << actions.as(UI::View)
 
-      # Phase 6.10 Rem 3 (Item 3): framework default in VoyagerHost
-      # wraps the root in a UIScrollView when content overflows; see
-      # screens/todos.cr for the rationale. Editor sticks with the
-      # plain VStack root so the inner content_width pin + half-button
-      # math stay authoritative.
       root.as(UI::View)
     end
   end

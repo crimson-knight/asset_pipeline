@@ -1,31 +1,19 @@
 module Voyager
   # Voyager — Todos screen.
   #
-  # Anatomy:
-  #   VStack
-  #     HStack [title="Todos", spacer, settings button]
-  #     HStack [chart-like row: open count + completed count]
-  #     ListView (or VStack of SwipeActionRow per visible todo)
-  #     Button "Add Todo"
-  #
-  # State propagation litmus: when Settings toggles hide_completed
-  # and pops, the host rebuilds THIS screen with state.visible_todos
-  # (which filters out completed ones) and the open/completed
-  # counts reflect the same.
-  module TodosScreen
-    extend self
-
+  # Phase 8D.1: migrated from module-level class with
+  # `build(state, coord)` to `UI::Screen` subclass with
+  # `build(ctx : UI::ScreenContext) : UI::View`. All callbacks route
+  # through `Voyager.dispatch(action_ref, action_params)` per the
+  # brief's action ref convention.
+  class TodosScreen < UI::Screen
     SLUG = "voyager-todos"
 
-    def build(state : State, coord : UI::NavigationCoordinator) : UI::View
-      # Phase 6.10 Rem 4 (Item 2D/2E) — device-aware sizing.
-      #
-      # OUTER root uses `root_fill = true` so iOS / macOS / web sizes
-      # the container to the live device bounds. Inner full-width rows
-      # still carry an explicit `content_width` cap so HStack-with-
-      # Spacer rows don't collapse to intrinsic content on iOS.
+    def build(context : UI::ScreenContext) : UI::View
       metrics = UI::DesignTokens::DeviceMetrics.current
       content_width = metrics.compact_horizontal? ? 340.0 : 480.0
+
+      state = Voyager.state
 
       root = UI::VStack.new(spacing: 16.0)
       root.root_fill = true
@@ -39,7 +27,6 @@ module Voyager
       root.accessibility_label = "Voyager todos screen"
       root.test_id = "voyager-todos-root"
 
-      # Header row: title + settings link
       header = UI::HStack.new(spacing: 8.0)
       header.alignment = UI::Alignment::Center
       header.minimum_width = content_width
@@ -55,36 +42,24 @@ module Voyager
       settings_btn.role = :secondary
       settings_btn.accessibility_label = "Settings"
       settings_btn.test_id = "voyager-todos-settings"
-      settings_btn.on_tap = -> {
-        coord.push(UI::NavigationCoordinator::Route.new(:settings))
-      }
+      # Phase 8D.1 — :open_settings routes to TodosController#open_settings
+      # which returns Navigate(:settings).
+      settings_btn.on_tap = -> { Voyager.dispatch(:open_settings) }
 
       header << title.as(UI::View)
       header << spacer.as(UI::View)
       header << settings_btn.as(UI::View)
 
-      # Chart-like row: open + completed counts. Reads state.open_count
-      # and state.completed_count, which always reflect the full todo
-      # list (NOT the filtered view) so the chart shows the underlying
-      # data even when the list is filtered.
       chart_row = UI::HStack.new(spacing: 16.0)
       chart_row.alignment = UI::Alignment::Center
       chart_row.minimum_width = content_width
       chart_row.maximum_width = content_width
 
-      # Phase 6.11 Item 3 rows 13-14 — chart counts always show the
-      # underlying totals (regardless of the filter). When filtering is
-      # ON the Done card visually dims to signal it's still tracking the
-      # hidden items. Open count is unaffected (filtering only hides
-      # completed rows, so open is whatever it is).
       open_card = build_count_card("Open", state.open_count_total.to_s, :primary, dimmed: false)
       completed_card = build_count_card("Done", state.completed_count_total.to_s, :secondary, dimmed: state.hide_completed)
       chart_row << open_card
       chart_row << completed_card
 
-      # Filter banner when hide_completed is on — gives the user a
-      # visible cue that the list is filtered. Helps the
-      # state-propagation litmus result be immediately legible.
       banner : UI::View? = nil
       if state.hide_completed
         b = UI::Label.new("Completed items hidden (toggle in Settings)")
@@ -94,11 +69,6 @@ module Voyager
         banner = b.as(UI::View)
       end
 
-      # The list itself — one SwipeActionRow per visible todo. Edit
-      # action navigates to the todo editor with the id in route
-      # params. Delete is harder to wire across pop without a Crystal
-      # callback fire from the web side; for now, the web demo's
-      # inline JS handles delete via setFragment dispatch.
       list_stack = UI::VStack.new(spacing: 8.0)
       list_stack.alignment = UI::Alignment::Leading
       list_stack.minimum_width = content_width
@@ -107,21 +77,17 @@ module Voyager
 
       visible = state.visible_todos
       visible.each do |todo|
-        list_stack << build_todo_row(todo, state, coord, content_width).as(UI::View)
+        list_stack << build_todo_row(todo, content_width).as(UI::View)
       end
 
-      # Add button — for the web demo this is a no-op in static HTML;
-      # interactive native targets push a fresh editor route with no
-      # id (signaling "create new").
       add_btn = UI::Button.new("Add Todo", style: UI::ButtonStyle::Prominent)
       add_btn.accessibility_label = "Add a new todo"
       add_btn.test_id = "voyager-todos-add"
       add_btn.minimum_width = content_width
       add_btn.maximum_width = content_width
-      add_btn.on_tap = -> {
-        params = {:id => "0"} of Symbol => String
-        coord.push(UI::NavigationCoordinator::Route.new(:todo_editor, params))
-      }
+      # Phase 8D.1 — :new_todo routes to TodosController#new_todo which
+      # returns Navigate(:todo_editor, params: {todo_id: "0"}).
+      add_btn.on_tap = -> { Voyager.dispatch(:new_todo) }
 
       root << header.as(UI::View)
       root << chart_row.as(UI::View)
@@ -131,15 +97,6 @@ module Voyager
       root << list_stack.as(UI::View)
       root << add_btn.as(UI::View)
 
-      # Phase 6.10 Rem 3 (Item 3): the framework default in VoyagerHost
-      # (ios/Sources/ContentView.swift) wraps this root in a UIKit
-      # UIScrollView when content overflows the viewport, preserving
-      # AX traversal. The screen author can opt into explicit
-      # UI::ScrollView wrapping here if they want a Crystal-controlled
-      # scroll container with knobs (indicators, bounce, axis), but the
-      # default-wrap covers the iPhone 17 portrait overflow case for
-      # Voyager. Leaving as-is for now so the framework path stays
-      # responsible.
       root.as(UI::View)
     end
 
@@ -151,9 +108,6 @@ module Voyager
 
       v = UI::Label.new(value)
       v.font = UI::Font.new(size: 32.0, weight: :bold)
-      # Dimmed counts use Tertiary role so filtered-state Done card
-      # visually softens against the surrounding chrome (per brief
-      # row 13 "shown but visually dimmed").
       v.text_color_role = if dimmed
                             UI::LabelRole::Tertiary
                           else
@@ -171,40 +125,23 @@ module Voyager
       card.as(UI::View)
     end
 
-    private def build_todo_row(todo : Todo, state : State, coord : UI::NavigationCoordinator, content_width : Float64) : UI::View
-      # The inner content HStack stays unconstrained on width — the
-      # outer SwipeActionRow is the row pinned to the band, and its
-      # NSStackView/UIStackView host distributes the remaining width
-      # between the content and the trailing Edit/Delete buttons. If
-      # we pin the inner content to `content_width` it eats the
-      # trailing-button slot and the buttons collapse to zero width.
+    private def build_todo_row(todo : Todo, content_width : Float64) : UI::View
       content = UI::HStack.new(spacing: 12.0)
       content.alignment = UI::Alignment::Center
       content.padding = UI::EdgeInsets.new(top: 10.0, trailing: 12.0, bottom: 10.0, leading: 12.0)
       content.test_id = "voyager-todo-row-#{todo.id}"
 
-      # Phase 6.11 Item 3 row 6 — leading checkbox is interactive.
-      # Tapping toggles the todo's completed flag, then re-publishes
-      # the current route on the coordinator so the host rebuilds
-      # the Todos screen. The rebuild repaints the title label with
-      # the completed-state styling (strikethrough-equivalent via
-      # text_color_role swap) and re-derives the chart counts.
       check = UI::Checkbox.new(label: "", is_checked: todo.completed)
       check.accessibility_label = todo.completed ? "Mark '#{todo.title}' as not done" : "Mark '#{todo.title}' as done"
       check.test_id = "voyager-todo-row-#{todo.id}-check"
-      check.on_change = ->(value : Bool) {
-        todo.completed = value
-        # Re-publish the current route so the host rebuilds. No stack
-        # change; the host's on_change subscriber repaints the Todos
-        # screen from the mutated state (title color + chart counts).
-        coord.republish
+      # Phase 8D.1 — :toggle_row dispatched with row identity in
+      # action_params. Controller mutates state + returns Rerender so
+      # the host rebuilds Todos with the new completed-state styling.
+      todo_id_str = todo.id.to_s
+      check.on_change = ->(_value : Bool) {
+        Voyager.dispatch(:toggle_row, {"todo_id" => todo_id_str})
       }
 
-      # Title — color role and strikethrough driven by completion state.
-      # The Phase 6.11 brief row 6 requires actual `.strikethrough` on
-      # completed rows (the SwiftUI Text `.strikethrough(true)` modifier,
-      # plumbed through `UI::Label#strikethrough`) and the color shift
-      # from `.label` to `.secondaryLabel`.
       title_label = UI::Label.new(todo.title)
       title_label.font = UI::Font.new(size: 16.0, weight: :semibold)
       title_label.text_color_role = todo.completed ? UI::LabelRole::Secondary : UI::LabelRole::Primary
@@ -219,25 +156,20 @@ module Voyager
       row.minimum_width = content_width
       row.maximum_width = content_width
 
+      # Phase 8D.1 — swipe actions carry row identity via action_params,
+      # which the dispatcher forwards into ctx.action_params on the
+      # controller's invocation.
       edit_action = UI::SwipeAction.new(
         "Edit",
         on_tap: -> {
-          params = {:id => todo.id.to_s} of Symbol => String
-          coord.push(UI::NavigationCoordinator::Route.new(:todo_editor, params))
+          Voyager.dispatch(:edit_row, {"todo_id" => todo_id_str})
         },
-        # Web routes to the static todo_editor fragment (web demo
-        # uses a fresh draft since per-todo params can't survive
-        # the static-site round trip without a server). Native
-        # targets honour the params via the on_tap Proc above.
         on_tap_route: "voyager-todo-editor",
       )
       del_action = UI::SwipeAction.new(
         "Delete",
         on_tap: -> {
-          state.delete_todo(todo.id)
-          # Re-publish the current route so the host rebuilds — same
-          # rationale as the checkbox on_change above.
-          coord.republish
+          Voyager.dispatch(:delete_row, {"todo_id" => todo_id_str})
         },
         role: :destructive,
       )

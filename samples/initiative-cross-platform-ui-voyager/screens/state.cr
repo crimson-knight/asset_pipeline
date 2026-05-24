@@ -84,4 +84,28 @@ module Voyager
       @todos.count(&.completed)
     end
   end
+
+  # Phase 8D.1 — Voyager.state module singleton.
+  #
+  # The new `UI::Screen` API hands screens a `ScreenContext::Native` and
+  # NO direct `state` reference. So Voyager screens reach into the
+  # process-wide `Voyager::State` via this accessor. macOS host sets it
+  # once in `VoyagerHost.run!`; the `Voyager.build_route` compat shim
+  # sets it on every call (so existing test specs that construct a fresh
+  # `state = Voyager::State.new` and pass it through the shim continue to
+  # exercise the same state-propagation contract).
+  #
+  # iOS class-init gap (see `project_crystal_ios_class_init_gap` memory):
+  # we deliberately AVOID a default-initialiser class var. The accessor
+  # lazy-allocates a default `State.new` on first read so even targets
+  # that skip module-load side effects work.
+  @@state : State? = nil
+
+  def self.state : State
+    @@state ||= State.new
+  end
+
+  def self.state=(new_state : State) : State
+    @@state = new_state
+  end
 end
