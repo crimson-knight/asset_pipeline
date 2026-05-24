@@ -119,8 +119,8 @@ describe UI::ScreenContext::Native do
     ctx.params["email"].should eq("seth@example.com")
     ctx.params["password"].should eq("secret")
     ctx.action_params["email"].should eq("FROM_BUTTON_NOT_FORM")
-    # ctx.params does NOT contain the action_params key:
-    ctx.params.keys.should_not contain("FROM_BUTTON_NOT_FORM")
+    # ctx.params contains EXACTLY the form-state keys (no action_params bleed).
+    ctx.params.keys.sort.should eq(["email", "password"])
   end
 
   it "csrf_token is explicitly nil for native targets" do
