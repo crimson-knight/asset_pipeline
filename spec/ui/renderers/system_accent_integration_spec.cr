@@ -36,59 +36,36 @@ private class OpinionatedTealBrand < UI::DesignTokens::Brand
   end
 end
 
-# Loading the AppKit / UIKit renderers requires platform flags. The
-# pure-decision predicate is the test seam: it lives on the renderer
-# class but doesn't touch any platform symbol. We require the renderer
-# files conditionally so the spec compiles on a non-flagged build (the
-# default crystal-spec invocation).
-{% if flag?(:macos) %}
-  require "../../../src/ui/renderers/appkit_renderer"
-
-  describe UI::AppKit::Renderer do
-    describe "#brand_tint_action" do
-      it "returns :clear for Color::SYSTEM_ACCENT (apsk_runtime_clear_brand_tint path)" do
-        renderer = UI::AppKit::Renderer.new
-        action = renderer.brand_tint_action(UI::DesignTokens::Color::SYSTEM_ACCENT)
-        action.should eq(:clear)
-      end
-
-      it "returns :set for an opinionated brand colour (apsk_runtime_set_brand_tint path)" do
-        renderer = UI::AppKit::Renderer.new
-        teal = UI::DesignTokens::Color.oklch(0.56, 0.13, 195.0)
-        renderer.brand_tint_action(teal).should eq(:set)
-      end
-
-      it "drives ensure_swiftkit_runtime! through the brand_primary on the active tokens" do
-        renderer = UI::AppKit::Renderer.new
-        # Tokens.default → sentinel → :clear branch.
-        renderer.brand_tint_action(renderer.design_tokens.colors_light.brand_primary).should eq(:clear)
-
-        # Apply an opinionated brand → :set branch.
-        renderer.design_tokens = UI::DesignTokens::Tokens.default.with_brand(OpinionatedTealBrand.new)
-        renderer.brand_tint_action(renderer.design_tokens.colors_light.brand_primary).should eq(:set)
-      end
-    end
+# Pure-decision test seam at the Color layer. The AppKit + UIKit
+# renderers' `apply_brand_tint(brand)` methods translate this value to
+# either `LibSwiftKitBridge.apsk_runtime_clear_brand_tint` or
+# `apsk_runtime_set_brand_tint(r, g, b, a)` — a 1:1 dispatch. By placing
+# the decision on `UI::DesignTokens::Color` we can prove the renderer
+# branch coverage without linking the native bridge (which is
+# necessary for any platform-gated build of this file).
+describe "UI::DesignTokens::Color#brand_tint_action (renderer test seam)" do
+  it "returns :clear for Color::SYSTEM_ACCENT" do
+    UI::DesignTokens::Color::SYSTEM_ACCENT.brand_tint_action.should eq(:clear)
   end
-{% end %}
 
-{% if flag?(:ios) %}
-  require "../../../src/ui/renderers/uikit_renderer"
-
-  describe UI::UIKit::Renderer do
-    describe "#brand_tint_action" do
-      it "returns :clear for Color::SYSTEM_ACCENT (apsk_runtime_clear_brand_tint path)" do
-        renderer = UI::UIKit::Renderer.new
-        renderer.brand_tint_action(UI::DesignTokens::Color::SYSTEM_ACCENT).should eq(:clear)
-      end
-
-      it "returns :set for an opinionated brand colour" do
-        renderer = UI::UIKit::Renderer.new
-        teal = UI::DesignTokens::Color.oklch(0.56, 0.13, 195.0)
-        renderer.brand_tint_action(teal).should eq(:set)
-      end
-    end
+  it "returns :set for an opinionated colour (deep teal)" do
+    teal = UI::DesignTokens::Color.oklch(0.56, 0.13, 195.0)
+    teal.brand_tint_action.should eq(:set)
   end
-{% end %}
+
+  it "returns :set for a hex literal opinionated colour" do
+    magenta = UI::DesignTokens::Color.hex("#ff00ff")
+    magenta.brand_tint_action.should eq(:set)
+  end
+
+  it "drives the Tokens.default → Tokens.default.with_brand transition" do
+    default_brand = UI::DesignTokens::Tokens.default.colors_light.brand_primary
+    default_brand.brand_tint_action.should eq(:clear)
+
+    branded = UI::DesignTokens::Tokens.default.with_brand(OpinionatedTealBrand.new)
+    branded.colors_light.brand_primary.brand_tint_action.should eq(:set)
+  end
+end
 
 # The Web + UI::Theme + Android paths are platform-flag-independent and
 # always run; they exercise the serialization layer that the renderers
@@ -139,5 +116,29 @@ describe "UI::DesignTokens::Color android integration" do
     # No raise; returns a packed ARGB int.
     argb = teal.to_android_argb
     argb.should_not eq(0)
+  end
+end
+
+# Direct cover for the ThemeColor sentinel-detection contract. The
+# Android renderer's `theme_color_to_argb` consults `css_override`
+# before packing RGBA — when set, it raises `AndroidRendererNotImplemented`
+# rather than emitting ARGB 0 (transparent black) for a sentinel-derived
+# ThemeColor. Verifying that contract without `-Dandroid` requires
+# proving the field shape; the Android-side raise is exercised by the
+# Voyager / Cascade build paths that import the renderer.
+describe UI::ThemeColor do
+  it "carries css_override when constructed from a sentinel UI::DesignTokens::Color" do
+    # Mirrors UI::Theme.theme_color_from(c) for the sentinel case.
+    sentinel = UI::DesignTokens::Color::SYSTEM_ACCENT
+    tc = UI::ThemeColor.new(
+      r: sentinel.r, g: sentinel.g, b: sentinel.b, a: sentinel.alpha,
+      css_override: sentinel.system_accent? ? sentinel.to_css : nil,
+    )
+    tc.css_override.should eq("AccentColor")
+  end
+
+  it "defaults css_override to nil for non-sentinel ThemeColor" do
+    tc = UI::ThemeColor.new(r: 0.5, g: 0.5, b: 0.5)
+    tc.css_override.should be_nil
   end
 end

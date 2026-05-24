@@ -3188,6 +3188,24 @@ module UI::Android
     end
 
     private def theme_color_to_argb(color : UI::ThemeColor) : Int32
+      # Phase 6.12A — fail loud when a sentinel-derived ThemeColor reaches
+      # the Android ARGB packer. The `css_override` field carries the
+      # platform-resolved CSS token (e.g. "AccentColor") for sentinel
+      # colours; the honest Android emission is `?attr/colorPrimary`, not
+      # a numeric ARGB. The deferred Android XML / resource generator
+      # must learn the resource-reference path before this raises in
+      # production. Until then, the Android renderer is intentionally
+      # incompatible with `Tokens.default` — consumers must apply
+      # `Tokens.default.with_brand(...)` to materialise a concrete brand.
+      if color.css_override
+        raise UI::DesignTokens::AndroidRendererNotImplemented.new(
+          "Cannot serialize a sentinel-derived ThemeColor (css_override=" \
+          "#{color.css_override.inspect}) as Android ARGB. Apply " \
+          "Tokens.default.with_brand(YourBrand.new) to materialise the " \
+          "brand colour, or update the Android renderer to emit a " \
+          "`?attr/colorPrimary` resource reference for sentinel roles."
+        )
+      end
       a = (color.a * 255.0).round.to_i.clamp(0, 255)
       r = (color.r * 255.0).round.to_i.clamp(0, 255)
       g = (color.g * 255.0).round.to_i.clamp(0, 255)

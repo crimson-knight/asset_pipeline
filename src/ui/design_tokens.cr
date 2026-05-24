@@ -104,6 +104,22 @@ module UI
         @sentinel == :system_accent
       end
 
+      # Phase 6.12A — pure decision the AppKit / UIKit renderers use to
+      # route a brand colour through `LibSwiftKitBridge`. Lives on Color
+      # (not on the renderer) so the assertion is testable without
+      # linking the native bridge. The renderers' `brand_tint_action`
+      # methods delegate here.
+      #
+      # Returns `:clear` for the SYSTEM_ACCENT sentinel — the renderer
+      # calls `apsk_runtime_clear_brand_tint` so SwiftUI's automatic
+      # `.accentColor` cascade resolves to the platform-native accent.
+      # Returns `:set` for any opinionated colour — the renderer calls
+      # `apsk_runtime_set_brand_tint(r, g, b, a)` with the baked sRGB
+      # triple, which propagates as a SwiftUI `.tint()` cascade.
+      def brand_tint_action : Symbol
+        system_accent? ? :clear : :set
+      end
+
       # CSS-context serialization. For `SYSTEM_ACCENT`, returns the CSS
       # Color Module Level 4 system colour KEYWORD `AccentColor` (capitalised,
       # no hyphen — distinct from the `accent-color` PROPERTY that styles

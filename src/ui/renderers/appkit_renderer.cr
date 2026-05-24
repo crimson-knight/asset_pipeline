@@ -4026,12 +4026,13 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       end
 
       # Phase 6.12A — pure routing of a brand colour to the SwiftKit
-      # runtime. Split out from `ensure_swiftkit_runtime!` as a unit-
-      # testable seam: spec uses `brand_tint_action(color)` to assert
-      # the decision (`:clear` vs `:set`); production routes the decision
-      # through `LibSwiftKitBridge`.
+      # runtime. The decision (`:clear` vs `:set`) lives on
+      # `UI::DesignTokens::Color#brand_tint_action` so it is unit-
+      # testable without linking the native bridge. This method is
+      # the production dispatch that translates the decision into the
+      # corresponding `LibSwiftKitBridge` C call.
       protected def apply_brand_tint(brand : UI::DesignTokens::Color) : Nil
-        case brand_tint_action(brand)
+        case brand.brand_tint_action
         when :clear
           LibSwiftKitBridge.apsk_runtime_clear_brand_tint
         when :set
@@ -4039,14 +4040,6 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
             brand.r, brand.g, brand.b, brand.alpha,
           )
         end
-      end
-
-      # Pure decision: `:clear` for the SYSTEM_ACCENT sentinel (lets
-      # SwiftUI's `.accentColor` cascade pick up `NSColor.controlAccentColor`);
-      # `:set` for any opinionated brand colour (Cascade's deep teal, a
-      # consumer brand override).
-      def brand_tint_action(brand : UI::DesignTokens::Color) : Symbol
-        brand.system_accent? ? :clear : :set
       end
 
       # Token-driven radius in points (rem * 16).
