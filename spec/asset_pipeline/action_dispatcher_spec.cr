@@ -249,21 +249,33 @@ describe UI::ActionDispatcher do
 
     it "Pop -> mount_screen + coord.pop (new mount visible to on_change)" do
       d = build_dispatcher
+      # Build up a stack [:sign_in, :todos]. Set session so the todos
+      # before_action doesn't redirect.
+      d.session["user_email"] = "seth@example.com"
       d.navigation.push(UI::NavigationCoordinator::Route.new(:todos))
       d.mount_screen(:todos)
       before_token = d.current_mount_token
+      before_depth = d.navigation.depth
 
       observed_tokens = [] of Int64
+      observed_route_ids = [] of Symbol
       d.navigation.on_change do |route|
         observed_tokens << UI::FormState.current_mount_token
+        observed_route_ids << route.id
       end
 
-      d.dispatch(:back)
+      # Use Tuple action_ref so the dispatcher routes to the
+      # SignInController (which defines :back) — avoids the
+      # TodosController before_action redirect.
+      d.dispatch({ActionDispatcherSpecSignInController, :back})
+
       d.navigation.current.id.should eq(:sign_in)
+      d.navigation.depth.should eq(before_depth - 1) # actually popped
       d.current_mount_token.should be > before_token
 
-      # Renderer's on_change subscriber saw the NEW mount token.
+      # Renderer's on_change subscriber saw the NEW (popped-to) mount.
       observed_tokens.first.should eq(d.current_mount_token)
+      observed_route_ids.first.should eq(:sign_in)
     end
 
     it "Pop at root is a no-op (no mount_screen, no error, no token bump)" do

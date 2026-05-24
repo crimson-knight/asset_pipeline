@@ -185,6 +185,15 @@ module UI
       # NEW mount's FormState, not the prior mount's. So we mount FIRST
       # (which bumps token + swaps `UI::FormState.current`) and THEN
       # invoke the coord mutation that fires the renderer.
+      #
+      # Reentrancy caveat (per Codex iter 4 rev 2 note): if an
+      # `on_change` subscriber synchronously dispatches another action
+      # (e.g. analytics that calls `coord.push` from inside its
+      # callback), the resulting nested notify will see a DIFFERENT
+      # FormState than this dispatch's subscribers. The supported
+      # contract is: `on_change` subscribers are renderer-only +
+      # non-reentrant. If an application needs reentrant subscribers,
+      # it must use a queue or defer to a later run loop tick.
       case result
       when UI::ActionResult::Navigate
         next_route = UI::NavigationCoordinator::Route.new(result.route_id, result.params)
