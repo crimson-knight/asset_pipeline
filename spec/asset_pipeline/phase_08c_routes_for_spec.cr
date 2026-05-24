@@ -238,6 +238,28 @@ describe "Phase 8C — UI::App.screen web-route extension" do
     combined.should contain("must declare at least one side")
   end
 
+  it "(e3 — codex rev-1) screen macro raises when web_controller is set on a NATIVE screen but no web routes" do
+    # Per Codex iter-1 rev-1 MINOR finding: the bare-web_controller
+    # foot-gun applies whether or not a native controller is also
+    # present. `screen :foo, NativeCtrl, web_controller: WebCtrl` (no
+    # web_path / web_actions) records a web_controller binding that
+    # never emits any routes — raise instead of silently no-op'ing.
+    fixture = File.expand_path("../fixtures/phase_08c_macro_raise/native_plus_web_controller_no_routes.cr", __DIR__)
+    File.exists?(fixture).should be_true
+
+    io_out = IO::Memory.new
+    io_err = IO::Memory.new
+    status = Process.run(
+      "crystal",
+      ["build", "--no-codegen", fixture],
+      output: io_out,
+      error: io_err,
+    )
+    combined = io_out.to_s + io_err.to_s
+    status.success?.should be_false
+    combined.should contain("web_controller but neither web_path nor web_actions")
+  end
+
   it "(e2 — codex revision) screen macro raises when web_controller is set but no web_path or web_actions" do
     # Per Codex iter-1 MINOR finding: tighten the macro so a bare
     # web_controller: kwarg (without a route description) raises

@@ -164,11 +164,18 @@ module UI
     #     screen :detail,  DetailController, screen_class: CustomScreen
     #
     # Phase 8C — web-only or dual-target screens. The positional
-    # `controller` arg is optional (defaults to nil); the `*` separator
-    # forces all of `web_controller:` / `web_path:` / `web_actions:` /
-    # `screen_class:` to be passed by name so the macro never confuses
-    # the native UI::Controller class with the Amber::Controller::Base
-    # class:
+    # `controller` arg is optional (defaults to nil); `screen_class` is
+    # the third positional (preserves Phase 8B's `screen :foo, FooCtrl,
+    # CustomScreen` form). The new web kwargs (`web_controller:`,
+    # `web_path:`, `web_actions:`) follow and are passed by name. The
+    # brief proposed a `*` kwarg-only separator before the web kwargs,
+    # but Crystal macros cannot combine `*,` with a default value on a
+    # positional arg before it — every call that omits the positional
+    # fails with "wrong number of arguments". Without the `*`, the
+    # web kwargs are kwarg-by-default at the call site (the kwarg name
+    # disambiguates from positional misuse) and the type system catches
+    # positional confusion downstream (Class refs for `web_controller`,
+    # `String` for `web_path`, `Array(NamedTuple)` for `web_actions`).
     #
     #     # Web-only — no native side yet.
     #     screen :sign_in,
@@ -234,18 +241,21 @@ module UI
       {% has_web_controller_only = web_controller != nil && !has_web_input %}
 
       # ---- Validation 1: must declare at least one side. ----
+      {% if !has_native && !has_web_input && !has_web_controller_only %}
+        {% raise "UI::App.screen #{route_id} must declare at least one side: pass a native UI::Controller as the second positional arg, OR pass web_controller: ... (+ web_path: / web_actions:) as kwargs, OR both. See `UI::App.screen` doc comment." %}
+      {% end %}
+
+      # ---- Validation 1b: bare web_controller is always a footgun. ----
       #
-      # A `web_controller` without web_path or web_actions is treated
-      # as "metadata only" — the registration exists for native side OR
-      # is just a placeholder. It's only valid if there IS a native
-      # controller; otherwise it's a bug (declares a web controller
-      # binding with no routes to emit AND no native dispatch path).
-      {% if !has_native && !has_web_input %}
-        {% if has_web_controller_only %}
-          {% raise "UI::App.screen #{route_id} sets web_controller but neither web_path nor web_actions. A web binding with no route description emits nothing — pass web_path: or web_actions: (or remove web_controller: and add a native UI::Controller positional)." %}
-        {% else %}
-          {% raise "UI::App.screen #{route_id} must declare at least one side: pass a native UI::Controller as the second positional arg, OR pass web_controller: ... (+ web_path: / web_actions:) as kwargs, OR both. See `UI::App.screen` doc comment." %}
-        {% end %}
+      # A `web_controller` kwarg with no `web_path` AND no `web_actions`
+      # records the binding in the ScreenRegistration but emits no
+      # route markers, so `routes_for` silently produces nothing for
+      # this screen. This is the same foot-gun whether or not a native
+      # controller is also present — the author wired a web binding
+      # that won't actually route anything. Raise in both cases.
+      # (Per Codex iter-1 rev-1 MINOR finding.)
+      {% if has_web_controller_only %}
+        {% raise "UI::App.screen #{route_id} sets web_controller but neither web_path nor web_actions. A web binding with no route description emits nothing — pass web_path: or web_actions: (or drop web_controller: if the screen is native-only)." %}
       {% end %}
 
       # ---- Validation 2: any web binding implies web_controller. ----
