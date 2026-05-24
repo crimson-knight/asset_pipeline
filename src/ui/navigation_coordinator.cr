@@ -99,6 +99,16 @@ module UI
       @on_change_callbacks.size
     end
 
+    # Phase 6.11 — re-publish the current route without mutating the
+    # stack. Useful when the visible screen's underlying state changed
+    # (e.g. the user toggled a Todo's completed flag in-row, or deleted
+    # a row) and the host needs to rebuild the same route from the new
+    # state. Equivalent semantics to push/pop of the same route, minus
+    # the stack churn.
+    def republish : Nil
+      notify
+    end
+
     private def notify : Nil
       current_route = current
       @on_change_callbacks.each { |cb| cb.call(current_route) }

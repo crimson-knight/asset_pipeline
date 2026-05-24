@@ -120,6 +120,13 @@ module UI
           el.add_style("display: -webkit-box; -webkit-line-clamp: #{view.number_of_lines}; -webkit-box-orient: vertical; overflow: hidden")
         end
 
+        # Phase 6.11 — strikethrough toggle. Equivalent to SwiftUI's
+        # `.strikethrough(true)` on UIKit / AppKit; on web we emit the
+        # standard CSS `text-decoration: line-through`.
+        if view.strikethrough
+          el.add_style("text-decoration: line-through")
+        end
+
         apply_common_styles(el, view)
         push_element(el)
       end

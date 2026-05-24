@@ -77,6 +77,11 @@
       fun objc_pin_child_to_layout_margins(parent : Void*, child : Void*) : Void
       fun objc_set_horizontal_fixed_priority(view : Void*) : Void
       fun uiscrollview_pin_content(scroll_view : Void*, content_view : Void*) : Void
+      # Phase 6.11 — swipe-reveal row factory. Builds a horizontal-scroll
+      # UIScrollView with [content | action₁ | action₂ ...] children where
+      # only `content` is visible initially; user pans left to reveal the
+      # actions. See `make_swipe_reveal_row` in objc_bridge.m.
+      fun make_swipe_reveal_row(content_view : Void*, action_views : Void**, action_count : Int32, row_width : Float64) : Void*
       fun objc_screen_width : Float64
       fun objc_screen_height : Float64
       fun objc_macos_screen_width : Float64
@@ -3785,40 +3790,75 @@
         push_native(native)
       end
 
-      # Phase 6.10 — SwipeActionRow. Native swipe-to-reveal lives in
-      # SwiftUI .swipeActions(edge:), which requires a dedicated
-      # SwiftKit facade (deferred to a follow-up). The current impl
-      # renders the content + a visible trailing-actions UIStackView,
-      # giving consumers a working baseline today + the same API
-      # surface so the SwiftKit upgrade is drop-in later.
+      # Phase 6.10 / 6.11 — SwipeActionRow.
+      #
+      # Phase 6.10 shipped an inline trailing-actions UIStackView (actions
+      # always visible). That satisfied the Crystal-side contract but did
+      # NOT give the iOS Mail-style swipe-to-reveal behavior the brief
+      # describes for the Voyager Todos screen.
+      #
+      # Phase 6.11 wires a horizontal UIScrollView built by the new
+      # `make_swipe_reveal_row` ObjC helper. Layout: only the row content
+      # is visible at rest; user pans left to reveal the trailing
+      # Edit/Delete actions. Each action is rendered through the standard
+      # UI::Button reactive path so taps fire through the CallbackRegistry.
+      #
+      # The row_width pin comes from `view.maximum_width` (or, if absent,
+      # `view.minimum_width`) — the screen authoring on Todos sets both
+      # to `content_width` so the visible row matches the surrounding
+      # column.
       def visit(view : UI::SwipeActionRow)
-        outer = alloc_init("UIStackView")
-        LibObjCBridge.objc_send_long(outer, sel("setAxis:"), 0_i64) # horizontal
-        LibObjCBridge.objc_send_1d(outer, sel("setSpacing:"), 8.0)
-        LibObjCBridge.objc_send_long(outer, sel("setAlignment:"), 3_i64) # center
+        row_width = (view.maximum_width || view.minimum_width || 320.0).to_f
 
-        outer_handle = ObjC.owned(outer, label: "UIStackView[SwipeActionRow]")
-        outer_native = NativeView.new(outer_handle)
-
-        # Content child
-        if content_native = render_detached(view.content)
-          LibObjCBridge.objc_send_id(outer, sel("addArrangedSubview:"), content_native.handle.ptr!)
-          outer_native.add_child(content_native)
+        # Build the content child (the inner HStack with Checkbox + title).
+        content_native = render_detached(view.content)
+        unless content_native
+          # Defensive fallback: emit an empty UIView so the renderer
+          # produces SOMETHING for the row even when the content failed
+          # to render. Visible white row is preferable to a crash.
+          fallback = alloc_init("UIView")
+          apply_common_properties(fallback, view)
+          emit(fallback, "UIView[SwipeActionRow-empty]")
+          return
         end
 
-        # Trailing actions inline (HStack of UIButtons)
+        # Build each trailing-action child as a UI::Button. We retain a
+        # reference to each NativeView so the CallbackRegistry IDs are
+        # tracked + released with the outer scroll view.
+        action_natives = [] of UI::NativeView
         view.trailing_actions.each do |action|
-          btn = alloc_init("UIButton")
-          title_ns = LibObjCBridge.nsstring_from_cstr(action.label.to_unsafe)
-          LibObjCBridge.objc_send_id_long(btn, sel("setTitle:forState:"), title_ns, 0_i64)
-          apply_common_properties(btn, view)
-          LibObjCBridge.objc_send_id(outer, sel("addArrangedSubview:"), btn)
-          btn_handle = ObjC.owned(btn, label: "UIButton[SwipeAction:#{action.label}]")
-          outer_native.add_child(NativeView.new(btn_handle))
+          inner = UI::Button.new(action.label, role: action.role, style: UI::ButtonStyle::Prominent)
+          inner.accessibility_label = action.label
+          if tap = action.on_tap
+            inner.on_tap = tap
+          end
+          if action_native = render_detached(inner.as(UI::View))
+            action_natives << action_native
+          end
         end
 
-        apply_common_properties(outer, view)
-        emit(outer, "UIStackView[SwipeActionRow]")
+        # Marshal the action view pointers into a Pointer(Void*) buffer
+        # so the ObjC helper can iterate them.
+        action_count = action_natives.size
+        action_buf = Pointer(Void*).malloc(action_count.to_u64) if action_count > 0
+        action_natives.each_with_index do |an, i|
+          action_buf.not_nil![i] = an.handle.ptr!
+        end
+
+        scroll_ptr = LibObjCBridge.make_swipe_reveal_row(
+          content_native.handle.ptr!,
+          action_count > 0 ? action_buf.not_nil!.as(Void**) : Pointer(Void*).null,
+          action_count.to_i32,
+          row_width,
+        )
+
+        outer_handle = ObjC.owned(scroll_ptr, label: "UIScrollView[SwipeActionRow]")
+        outer_native = NativeView.new(outer_handle)
+        outer_native.add_child(content_native)
+        action_natives.each { |an| outer_native.add_child(an) }
+
+        apply_common_properties(scroll_ptr, view)
+        push_native(outer_native)
       end
 
       def visit(view : UI::ActionSheetWithWebFallback)
