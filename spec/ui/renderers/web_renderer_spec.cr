@@ -906,6 +906,35 @@ describe UI::Web::Renderer do
       html.should_not contain("type=\"submit\"")
     end
 
+    it "auto-promotes a lone Button nested inside a VStack (entire-tree rule)" do
+      form = UI::Form.new(action: "/submit")
+      stack = UI::VStack.new
+      stack << UI::TextField.new(name: "email")
+      stack << UI::Button.new("Sign in")
+      form << stack
+      html = render(form)
+      html.should contain("type=\"submit\"")
+    end
+
+    it "does NOT auto-promote when one button is flat and another lives in a section field" do
+      form = UI::Form.new(action: "/submit")
+      section = form.add_section
+      section.fields << UI::Form::Field.new(label: "Action", content: UI::Button.new("Section btn"))
+      form << UI::Button.new("Flat btn")
+      html = render(form)
+      html.should_not contain("type=\"submit\"")
+    end
+
+    it "does NOT auto-promote when one button is flat and another is nested in a VStack" do
+      form = UI::Form.new(action: "/submit")
+      nested = UI::VStack.new
+      nested << UI::Button.new("Nested")
+      form << nested
+      form << UI::Button.new("Flat")
+      html = render(form)
+      html.should_not contain("type=\"submit\"")
+    end
+
     it "renders both sectioned form fields and flat children together" do
       form = UI::Form.new(action: "/submit")
       section = form.add_section(header: "Account")

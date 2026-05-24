@@ -1217,20 +1217,58 @@ module UI
         end
       end
 
-      # Returns the lone Button child eligible for auto-promotion to
+      # Returns the lone Button eligible for auto-promotion to
       # `Type::Submit`, or nil. A button is eligible iff:
-      #   1. It is the only `UI::Button` in `view.children` (flat list).
+      #   1. It is the only `UI::Button` in the ENTIRE form tree —
+      #      flat children, section field contents, AND any nested
+      #      container's recursive descendants. Per Phase 8A brief
+      #      Item 5: "Auto-promotion only happens when EXACTLY ONE
+      #      button child exists in the entire form tree."
       #   2. Its `type` is still the default `Type::Button` (author did
       #      not explicitly opt to Submit or Reset).
-      # Section-content buttons are NOT counted — section grouping is
-      # an iOS-style construct and its submit semantics are out of
-      # scope for Phase 8A.
+      # Author behavior: multi-button forms (cancel + save, etc.) must
+      # set `type: UI::Button::Type::Submit` explicitly on the intended
+      # submitter — no surprising "last button wins" convention.
       private def single_default_button_for_autopromote(view : UI::Form) : UI::Button?
-        buttons = view.children.select(UI::Button)
+        buttons = [] of UI::Button
+        collect_form_buttons(view, buttons)
         return nil unless buttons.size == 1
         candidate = buttons.first
         return nil unless candidate.type == UI::Button::Type::Button
         candidate
+      end
+
+      private def collect_form_buttons(form : UI::Form, buttons : Array(UI::Button)) : Nil
+        form.sections.each do |section|
+          section.fields.each do |field|
+            if content = field.content
+              collect_buttons_in_subtree(content, buttons)
+            end
+          end
+        end
+        form.children.each do |child|
+          collect_buttons_in_subtree(child, buttons)
+        end
+      end
+
+      private def collect_buttons_in_subtree(view : UI::View, buttons : Array(UI::Button)) : Nil
+        case view
+        when UI::Button
+          buttons << view
+        when UI::Form
+          # A nested form has its own auto-promotion lifecycle and
+          # MUST be excluded from the outer form's button budget.
+        when UI::VStack
+          view.children.each { |c| collect_buttons_in_subtree(c, buttons) }
+        when UI::HStack
+          view.children.each { |c| collect_buttons_in_subtree(c, buttons) }
+        when UI::ZStack
+          view.children.each { |c| collect_buttons_in_subtree(c, buttons) }
+        when UI::ScrollView
+          if content = view.content
+            collect_buttons_in_subtree(content, buttons)
+          end
+        end
       end
 
       def visit(view : UI::NavigationSplitView)
