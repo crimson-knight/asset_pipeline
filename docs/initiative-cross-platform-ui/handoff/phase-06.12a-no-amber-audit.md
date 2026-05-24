@@ -23,7 +23,12 @@ Per brief.md Item 5 (lines 299-327): after the library-identity pivot lands, reg
 
 ### String tokens (amber|orange|tan|peach)
 
-**Zero matches** across `src/ui/design_tokens/dist/` and `output/voyager-demo/`. The pivot removed every amber-named token from the generated outputs.
+The brief's literal regex `amber|orange|tan|peach` was run across `src/ui/design_tokens/dist/` and `output/voyager-demo/`.
+
+- **`amber` / `orange` / `peach`:** zero matches.
+- **`tan` matches:** non-zero, but every hit is a false positive — `tan` is a substring of `instant` (as in the motion token `duration_instant_ms` → emitted CSS / Swift names like `instant`). No `tan` colour-name token exists. Refined regex `\btan\b` confirms zero word-boundary matches.
+
+The pivot removed every amber/orange/peach-named token from the generated outputs.
 
 ### Amber RGB regex `rgb\([23][0-9]{2},.*[0-9]{2},.*[0-9]{1,2}\)`
 
@@ -51,6 +56,10 @@ Several non-brand tokens have hues in the warm range. Each is dispositioned indi
 | `surface_elevated` | `oklch(0.995 0.003 80)` | KEEP — same family, even lower chroma. | KEEP — `oklch(0.25 0.028 260)`. |
 | `surface_sunken` | `oklch(0.955 0.011 79)` | KEEP — chroma 0.011, near-neutral. | KEEP — `oklch(0.12 0.022 260)`. |
 | `text_inverse` | `oklch(0.99 0.003 80)` | KEEP — near-white for inverse text. Background tone. | KEEP — `oklch(0.18 0.018 248)` (cool dark). |
+| `text_primary` | `oklch(0.18 0.018 248)` (cool dark for legibility) | KEEP — cool blue-grey, not amber. | KEEP — dark mode: `oklch(0.95 0.006 80)` — chroma 0.006 is sub-perceptual, reads as off-white. The h=80° is the warm hue that legacy AppKit's `labelColor` (light) traditionally biases towards on macOS. Not amber-equivalent. |
+| `text_secondary` | `oklch(0.38 0.028 248)` (cool) | KEEP. | KEEP — dark: `oklch(0.78 0.015 85)` — chroma 0.015, warm-tone-low-chroma neutral. Same rationale as `text_primary` dark; reads as warm grey for hierarchy contrast against `text_primary`. Not amber-equivalent. |
+| `text_muted` | `oklch(0.52 0.025 248)` (cool) | KEEP. | KEEP — dark: `oklch(0.65 0.018 85)` — chroma 0.018, same warm-grey family one notch dimmer. Not amber-equivalent. |
+| `surface_inverse` (dark) | n/a in light bag | n/a | KEEP — dark palette: `oklch(0.95 0.006 80)` matches the dark `text_primary` literally (it's the "inverse" surface used when a light-tone surface is needed inside dark mode). Same chroma-0.006 sub-perceptual neutral; not amber. |
 | `border_subtle` | `oklch(0.91 0.014 82)` | KEEP — chroma 0.014, warm-grey hairline. | KEEP — `oklch(0.31 0.02 248)` (cool). |
 | `border_default` | `oklch(0.82 0.021 82)` | KEEP — warm-grey medium border. | KEEP — `oklch(0.38 0.025 248)`. |
 | `border_strong` | `oklch(0.62 0.04 75)` | KEEP — chroma 0.04, still in the warm-grey territory (not perceptually amber). Could be hue-neutralised in a future polish phase if the warm cast is unwanted, but it's not amber-equivalent. | KEEP — `oklch(0.52 0.03 248)` (cool). |
@@ -87,7 +96,7 @@ Justification: focus rings are platform-coherent on Apple. Apple's `NSColor.keyb
 
 ## Regenerator behaviour post-pivot
 
-`crystal run scripts/regenerate_design_tokens.cr` now reports 6 sentinel roles (was 6 before this audit — the count is the same because `border_focus` was already an internal symbol, and the report only counts distinct role names; light + dark border-focus each count, so the actual count went from 6 to 8):
+`crystal run scripts/regenerate_design_tokens.cr` now reports **8 sentinel roles** (was 6 before this audit; the 2 new roles are light + dark `border-focus`):
 
 ```
 [regenerate_design_tokens] android: skipped — Color::SYSTEM_ACCENT in 8 role(s):
