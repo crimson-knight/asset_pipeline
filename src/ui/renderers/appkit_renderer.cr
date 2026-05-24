@@ -1268,9 +1268,12 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         # Phase 8B iter 3 — same FormState-wiring pattern as TextField.
         # The legacy on_change for SecureField receives "" (the SwiftUI
-        # bridge doesn't yet carry the cleartext through), but the
-        # form_state update IS called with the input's current text
-        # via the helper, so the controller still sees the password.
+        # bridge doesn't yet carry the cleartext through). FormState
+        # therefore stores "" for the SecureField's name; the controller
+        # sees the empty string in ctx.params. Authors who need true
+        # password capture on macOS for Phase 8B should use a plain
+        # UI::TextField for now. A future SwiftKit bridge iteration
+        # will carry the typed cleartext through.
         wrapped_handler = UI::FormStateRendererHook.wrap_secure_handler(view)
         action_token = 0_u64
         if wrapped_handler

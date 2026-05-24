@@ -150,6 +150,81 @@ describe UI::FormState do
       fs_a["email"].should eq("")
       fs_b["email"]?.should be_nil
     end
+
+    it "stale wrapped handler ALSO suppresses the user's on_change (no side effects)" do
+      # Per Codex iter-3 finding: a stale fire must be a FULL no-op,
+      # not just a no-op against FormState. If the user's on_change
+      # had side effects (e.g. logging, analytics, validation), a
+      # stale fire would still trigger them under the prior shape.
+      UI::FormState.reset_renderer_hooks!
+      fs_a = UI::FormState.new(mount_token: 1_i64)
+      UI::FormState.current = fs_a
+      UI::FormState.current_mount_token = 1_i64
+
+      observed = [] of String
+      tf = UI::TextField.new(placeholder: "Email", name: "email")
+      tf.on_change = ->(v : String) { observed << v; nil }
+      wrapped = UI::FormStateRendererHook.wrap_text_handler(tf).not_nil!
+
+      # Live fire — both FormState AND user handler run.
+      wrapped.call("live")
+      fs_a["email"].should eq("live")
+      observed.should eq(["live"])
+
+      # Navigate away
+      UI::FormState.current = UI::FormState.new(mount_token: 2_i64)
+      UI::FormState.current_mount_token = 2_i64
+
+      # Stale fire — must NOT update FormState AND must NOT call user handler
+      wrapped.call("STALE")
+      fs_a["email"].should eq("live")            # FormState unchanged
+      observed.should eq(["live"])               # user handler did NOT run
+    end
+  end
+
+  describe "FormStateRendererHook.wrap_secure_handler" do
+    it "wraps SecureField on_change with FormState update + mount-token guard" do
+      UI::FormState.reset_renderer_hooks!
+      fs = UI::FormState.new(mount_token: 1_i64)
+      UI::FormState.current = fs
+      UI::FormState.current_mount_token = 1_i64
+
+      observed = [] of String
+      sf = UI::SecureField.new(placeholder: "Password", name: "password")
+      sf.on_change = ->(v : String) { observed << v; nil }
+
+      wrapped = UI::FormStateRendererHook.wrap_secure_handler(sf).not_nil!
+      wrapped.call("")  # Bridge fires with "" (current limitation)
+      fs["password"].should eq("")
+      observed.should eq([""])
+    end
+
+    it "stale SecureField wrapped handler is a FULL no-op" do
+      UI::FormState.reset_renderer_hooks!
+      fs_a = UI::FormState.new(mount_token: 1_i64)
+      UI::FormState.current = fs_a
+      UI::FormState.current_mount_token = 1_i64
+
+      observed = [] of String
+      sf = UI::SecureField.new(placeholder: "Password", name: "password")
+      sf.on_change = ->(v : String) { observed << v; nil }
+      wrapped = UI::FormStateRendererHook.wrap_secure_handler(sf).not_nil!
+
+      # Navigate
+      UI::FormState.current = UI::FormState.new(mount_token: 2_i64)
+      UI::FormState.current_mount_token = 2_i64
+
+      # Stale fire — FormState write + user handler both suppressed
+      wrapped.call("STALE_PASSWORD")
+      fs_a["password"].should eq("")     # was registered to "" at wire-time
+      observed.should be_empty
+    end
+
+    it "returns nil when SecureField has no name and no on_change" do
+      UI::FormState.reset_renderer_hooks!
+      sf = UI::SecureField.new(placeholder: "Password")
+      UI::FormStateRendererHook.wrap_secure_handler(sf).should be_nil
+    end
   end
 
   describe "stale-callback semantics (mount-token mismatch is a no-op)" do

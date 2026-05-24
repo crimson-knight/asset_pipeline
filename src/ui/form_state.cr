@@ -104,6 +104,16 @@ module UI
     # Both are nilable + accessed via method (no class-var default
     # initialisers — iOS gap safe per the iter 1 + 2 hardening).
 
+    # `@@current` is nilable + accessed via method — iOS gap safe.
+    # `@@current_mount_token` defaults to 0_i64 via a class-var
+    # initialiser. The dispatcher (iter 4) writes the real token on
+    # every screen mount BEFORE the renderer reads it, so 0_i64 is a
+    # benign sentinel — if the iOS gap silently skips the initialiser,
+    # the field is still 0_i64 (the same value the gap would strand
+    # numerics at), which makes the renderer's wire-time captured
+    # token compare equal to the live token only when nothing has
+    # navigated yet. A subsequent dispatcher.mount_screen call writes
+    # a non-zero token and the system is back in sync.
     @@current : UI::FormState? = nil
     @@current_mount_token : Int64 = 0_i64
 
@@ -161,12 +171,17 @@ module UI
         end
 
         ->(new_value : String) do
+          # Stale-fire guard: if the captured token doesn't match the
+          # dispatcher's CURRENT token, the entire callback is a no-op
+          # — including the user's on_change. Per Codex finding #3 on
+          # the brief: stale callbacks become no-ops, not "no-ops
+          # against FormState while still firing side effects."
           if captured_fs &&
              UI::FormState.current_mount_token == captured_token &&
              UI::FormState.current == captured_fs
             captured_fs.update(name, new_value)
+            user_handler.try(&.call(new_value))
           end
-          user_handler.try(&.call(new_value))
           nil
         end
       else
@@ -176,14 +191,13 @@ module UI
 
     # Wrap a SecureField's on_change. Same shape as `wrap_text_handler`
     # but typed for SecureField. The current SwiftKit bridge for
-    # SecureField fires with `""` (length-only signal); form_state will
-    # update with empty until a future iteration carries the
-    # cleartext. The wrap STILL writes the (empty) value to form_state
-    # so the registry has the key, and so the controller's
-    # `context.params["password"]?` returns `""` (consistent with the
-    # web target's behavior for an unfilled password). Authors who
-    # need true password capture on macOS for Phase 8B should use a
-    # plain TextField for now.
+    # SecureField does NOT carry the cleartext through to Crystal — the
+    # action token only signals "something changed" and the user's
+    # on_change is invoked with `""`. form_state.update therefore writes
+    # an empty string for the SecureField's name. Authors who need true
+    # password capture on macOS / iOS for Phase 8B should use a plain
+    # `UI::TextField` for now. A future SwiftKit bridge iteration will
+    # carry the actual typed password.
     def self.wrap_secure_handler(view : UI::SecureField) : Proc(String, Nil)?
       name = view.name
       user_handler = view.on_change
@@ -196,12 +210,14 @@ module UI
         end
 
         ->(new_value : String) do
+          # Same stale-fire guard as text handler: token mismatch =
+          # full no-op (FormState write AND user handler suppressed).
           if captured_fs &&
              UI::FormState.current_mount_token == captured_token &&
              UI::FormState.current == captured_fs
             captured_fs.update(name, new_value)
+            user_handler.try(&.call(new_value))
           end
-          user_handler.try(&.call(new_value))
           nil
         end
       else
