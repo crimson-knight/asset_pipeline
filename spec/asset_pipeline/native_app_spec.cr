@@ -125,9 +125,32 @@ describe UI::App do
     # methods — both halves survive the gap because methods exist at
     # compile time, not module-load time.
     original_keys = NativeAppSpecApp.screens.keys.dup
-    NativeAppSpecApp.bootstrap_simulate_ios_gap!
+    NativeAppSpecApp._strand_screens_registry_for_specs!
     NativeAppSpecApp.bootstrap!
     NativeAppSpecApp.screens.size.should eq(original_keys.size)
     original_keys.each { |k| NativeAppSpecApp.screens.has_key?(k).should be_true }
+  end
+
+  it "initial_route_id is method-emitted (compile-time code), not class-var default" do
+    # Phase 8B item 1 hardening: the iOS class-init gap can skip class-
+    # var default initialisers, but method definitions are compile-time
+    # emitted code. Confirm both the default and the override resolve
+    # via method dispatch rather than a class-var read — exercised by
+    # the override returning the symbol declared in the `initial_route`
+    # macro (which itself emits a method override).
+    NativeAppSpecApp.initial_route_id.should eq(:primary)
+    UI::App.initial_route_id.should eq(:_unset)
+  end
+
+  it "app_design_tokens is method-emitted and caches the override result" do
+    # Calling twice must return the SAME Tokens instance (cached via
+    # the @@app_design_tokens class-var) — proves the block doesn't
+    # re-run per call. The cache var itself starts nil; the lazy
+    # accessor populates it. iOS gap can strand the cache var as nil
+    # but the accessor's method body recomputes on demand.
+    a = NativeAppSpecBrandedApp.app_design_tokens
+    b = NativeAppSpecBrandedApp.app_design_tokens
+    a.should be(b)
+    a.touch_target_minimum_px.should eq(51.0)
   end
 end

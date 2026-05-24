@@ -64,7 +64,14 @@ module UI
     # The route_id chosen as the navigation root. Override via the
     # `initial_route` macro. Default `:_unset` is a sentinel that the
     # dispatcher's `launch_*` helper detects and raises against.
-    class_getter initial_route_id : Symbol = :_unset
+    #
+    # Implemented as a method (not a `class_getter ... = :_unset`)
+    # because class-var default initialisers are skipped under the iOS
+    # class-init gap; method bodies are compile-time code unaffected
+    # by the gap.
+    def self.initial_route_id : Symbol
+      :_unset
+    end
 
     # A single registered screen. The dispatcher looks one up by
     # `route_id` to find which controller to construct + which screen
@@ -80,7 +87,9 @@ module UI
     #       initial_route :sign_in
     #     end
     macro initial_route(route_id)
-      class_getter initial_route_id : Symbol = {{route_id}}
+      def self.initial_route_id : Symbol
+        {{route_id}}
+      end
     end
 
     # Register a screen with its controller. Screen class can be omitted —
@@ -131,19 +140,29 @@ module UI
     #       tokens.with_brand(AcmeBrand.new)
     #     end
     macro design_tokens(&block)
-      class_getter app_design_tokens : UI::DesignTokens::Tokens = begin
+      # Generate a subclass-specific override of `app_design_tokens`.
+      # The body is method code (compile-time emitted), so the iOS
+      # class-init gap can't skip it. We cache the result in a
+      # nilable class var with lazy allocation — each accessor call
+      # returns the same instance after the first.
+      @@app_design_tokens : UI::DesignTokens::Tokens? = nil
+
+      def self.app_design_tokens : UI::DesignTokens::Tokens
+        cached = @@app_design_tokens
+        return cached if cached
         block = ->({{block.args.first || "tokens".id}} : UI::DesignTokens::Tokens) : UI::DesignTokens::Tokens {
           {{block.body}}
         }
-        block.call(UI::DesignTokens::Tokens.default)
+        @@app_design_tokens = block.call(UI::DesignTokens::Tokens.default)
       end
     end
 
     # If the consumer did not declare `design_tokens do ... end`, this
-    # default getter returns the framework default. Subclasses that
-    # invoke the `design_tokens` macro shadow this with a class-getter
-    # whose initializer applies the block body.
-    class_getter app_design_tokens : UI::DesignTokens::Tokens = UI::DesignTokens::Tokens.default
+    # default method returns the framework default. Method body is
+    # compile-time emitted code, unaffected by the iOS class-init gap.
+    def self.app_design_tokens : UI::DesignTokens::Tokens
+      UI::DesignTokens::Tokens.default
+    end
 
     # Look up a screen registration by route_id. Raises
     # `UI::App::UnknownRouteError` with the list of known routes if the
@@ -165,12 +184,14 @@ module UI
       nil
     end
 
-    # Test helper: simulate the iOS class-init gap failure mode by
-    # forcing `@@screens` back to nil (the state the gap would
-    # produce if the class-var default initialiser never ran).
-    # Not part of the public surface — exposed only so the spec can
-    # prove `bootstrap!` recovers from a stranded-nil registry.
-    def self.bootstrap_simulate_ios_gap! : Nil
+    # :nodoc:
+    # Spec-only helper. Simulates the iOS class-init gap by forcing
+    # `@@screens` back to nil (the state the gap would produce if the
+    # class-var default initialiser never ran). Underscore-prefixed +
+    # `_for_specs!` suffix communicate that this is NOT part of the
+    # supported public API. Lives on `UI::App` rather than the spec
+    # file because `@@screens` is private to this class.
+    def self._strand_screens_registry_for_specs! : Nil
       @@screens = nil
       nil
     end
