@@ -102,17 +102,17 @@ Even with a `<form>` wrapper, inputs need `name="..."` attributes for the browse
 
 **Implication for Phase 8A:** add `name : String?` property to TextField + SecureField. Web renderer emits `name="..."` when set. UI::Form's child handling reads this property to know what to dispatch as the action's params.
 
-### Finding #7 — Web renderer doesn't emit `value=` from `text` property
+### Finding #7 — STALE (per Codex critique on this doc)
 
-The spike's controller pre-populates `email_field.text = email_value`. The rendered HTML has the placeholder but NO `value="..."` attribute. So after a failed submit, the user sees an empty field with the placeholder reappearing — losing what they typed.
+Initial observation was that the rendered HTML lacked `value="..."` after `tf.text = email_value`. Codex corrected: the current `UI::Web::Renderer` DOES emit `value=` for TextField + SecureField. The spike's empty observation was because on first GET (no params), `email_value` was the empty string, so no `value=` was emitted (correct behavior).
 
-**Implication for Phase 8A:** web renderer's TextField visit should emit `value="#{view.text}"` when `view.text` is non-empty. This is a 1-line fix to the renderer.
+**Implication for Phase 8A:** no implementation gap. Ship a regression spec covering value-emission with a non-empty TextField text property, but do NOT brief this as an open gap.
 
-### Finding #8 — CSRF token threading needs `UI::ScreenContext`-aware reading
+### Finding #8 — CSRF token threading via Amber's helper, NOT raw session
 
-The spike prototype's `UI::ScreenContext::Web` exposes `csrf_token : String?`. The `ScreenHelpers#csrf_token_value` private method reads it from `session["csrf.token"]?`. The spike confirmed Amber stores the CSRF token at the session key `"csrf.token"` and exposes the raw value in the meta tag via Amber's own `csrf_metatag` helper.
+The spike prototype's `ScreenHelpers#csrf_token_value` reads `session["csrf.token"]?` directly. **Codex critique on this doc corrected: this is insufficient.** Amber's CSRF pipe uses a persistent masked-token strategy where the raw session value isn't what should be sent as the form's `_csrf` field. Instead, the form should use Amber's own `csrf_token` / `csrf_tag` helpers (available on `Amber::Controller::Base` via `Helpers::CSRF`).
 
-**Implication for Phase 8A:** the CSRF token IS readable from the session via this key. The `UI::Form` widget on web should read `context.csrf_token` to emit the hidden input. The session key path (`"csrf.token"`) is Amber-specific but stable per `Amber::Pipe::CSRF` source.
+**Implication for Phase 8A:** the `UI::Form` widget's CSRF injection on web should call into Amber's CSRF helper API — likely by passing the helper output INTO the `UI::ScreenContext` rather than reading the raw session key. Phase 8A's brief must explicitly verify the spike's CSRF flow against Amber's masked-token strategy and use the framework's idiomatic API.
 
 ### Finding #9 — `params.to_h` returns Hash(String, Array(String))
 
@@ -140,7 +140,32 @@ The spike's `session_hash` checks `session.responds_to?(:to_h)` but Amber's sess
 
 ---
 
-## Recommended Phase 8A scope (post-spike)
+## Codex critique verdict on this doc
+
+```
+Verdict: APPROVE-DIRECTIONALLY-WITH-CORRECTIONS (functionally equivalent
+to REVISE-NARROWLY).
+
+#1, #2, #3, #5, #6, #9, #10 are grounded and appropriately narrow.
+#5/#6 are the core 8A blockers — without real form semantics, field
+names, submit behavior, and CSRF injection, the Amber demo only proves
+manual curl POST, not browser workflow.
+
+#7 is STALE — current UI::Web::Renderer already emits value=. Ship a
+regression spec, not an implementation gap.
+
+#8 is underspecified — reading raw session["csrf.token"] is not enough
+under Amber's persistent masked-token strategy. Use Amber's csrf_token
+/ csrf_tag helpers.
+
+Phase 8A should be web-only. Native FormState collection +
+routes_for(UI::App) are orthogonal — belong in 8B/8C.
+```
+
+Findings #7 + #8 corrected above. Phase 8A scope narrowed to web-only
+per Codex's recommendation.
+
+## Recommended Phase 8A scope (post-spike, Codex-corrected — WEB ONLY)
 
 Phase 8A's brief should now be much more concrete than design v2 suggested:
 
@@ -150,7 +175,7 @@ Phase 8A's brief should now be much more concrete than design v2 suggested:
 4. **Add `initial:` kwarg + correct `value=` emission to TextField + SecureField.** One-shot ergonomic improvement.
 5. **Mark Button as `submit_button` when child of `UI::Form`** OR add `type: :submit / :button / :reset` property to UI::Button.
 6. **Compile-time shim ECR generation** (per Codex finding #3 option B). The integration ships a macro that controllers mix in; the macro auto-generates the shim per action.
-7. **`UI::AmberIntegration.routes_for(UI::App)`** — for the native side's screen registry to also contribute web routes when Amber is in play. Out of scope for Phase 8A if it complicates; Phase 8B can introduce it.
+7. **MOVED TO 8B/8C per Codex:** `UI::AmberIntegration.routes_for(UI::App)` is orthogonal to the web-only Amber integration and belongs in 8B or 8C alongside the native side's screen registry.
 
 The spike is now a forcing function for Phase 8A: every item above is grounded in an empirical gap, not speculation.
 
