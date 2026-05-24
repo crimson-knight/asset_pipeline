@@ -198,18 +198,66 @@ describe "Phase 8C — UI::App.screen web-route extension" do
   # Acceptance (f) — registration with no native AND no web side.
   #
   # Both are macro-expansion-time {% raise %} guards. Crystal doesn't
-  # offer a `expect_macro_raises` API, so we verify by reading the
-  # macro source for the guard text. The guards are exercised in
-  # practice when an Implementer typos a registration.
+  # offer an `expect_macro_raises` API, so we shell out to `crystal
+  # build --no-codegen` on a fixture file that triggers each guard
+  # and assert the build fails with the expected diagnostic. This
+  # catches accidentally-relocated or unreachable guards (Codex iter-1
+  # finding) that a source-grep would miss.
   # ----------------------------------------------------------------
-  it "(e) screen macro source has a guard for web binding without web_controller" do
-    src = File.read(File.expand_path("../../src/asset_pipeline/native_app.cr", __DIR__))
-    src.should contain("declares web_path or web_actions but no web_controller")
+  it "(e) screen macro raises at compile time when web_path is declared without web_controller" do
+    fixture = File.expand_path("../fixtures/phase_08c_macro_raise/web_path_without_controller.cr", __DIR__)
+    File.exists?(fixture).should be_true
+
+    io_out = IO::Memory.new
+    io_err = IO::Memory.new
+    status = Process.run(
+      "crystal",
+      ["build", "--no-codegen", fixture],
+      output: io_out,
+      error: io_err,
+    )
+    combined = io_out.to_s + io_err.to_s
+    status.success?.should be_false
+    combined.should contain("declares web_path or web_actions but no web_controller")
   end
 
-  it "(f) screen macro source has a guard for a registration with no side declared" do
-    src = File.read(File.expand_path("../../src/asset_pipeline/native_app.cr", __DIR__))
-    src.should contain("must declare at least one side")
+  it "(f) screen macro raises at compile time when neither native nor web side is declared" do
+    fixture = File.expand_path("../fixtures/phase_08c_macro_raise/no_side.cr", __DIR__)
+    File.exists?(fixture).should be_true
+
+    io_out = IO::Memory.new
+    io_err = IO::Memory.new
+    status = Process.run(
+      "crystal",
+      ["build", "--no-codegen", fixture],
+      output: io_out,
+      error: io_err,
+    )
+    combined = io_out.to_s + io_err.to_s
+    status.success?.should be_false
+    combined.should contain("must declare at least one side")
+  end
+
+  it "(e2 — codex revision) screen macro raises when web_controller is set but no web_path or web_actions" do
+    # Per Codex iter-1 MINOR finding: tighten the macro so a bare
+    # web_controller: kwarg (without a route description) raises
+    # instead of silently producing a no-op registration. Catches the
+    # foot-gun where an author wires `web_controller: WebCtrl` and
+    # forgets the `web_path:` / `web_actions:` defaulting.
+    fixture = File.expand_path("../fixtures/phase_08c_macro_raise/web_controller_no_routes.cr", __DIR__)
+    File.exists?(fixture).should be_true
+
+    io_out = IO::Memory.new
+    io_err = IO::Memory.new
+    status = Process.run(
+      "crystal",
+      ["build", "--no-codegen", fixture],
+      output: io_out,
+      error: io_err,
+    )
+    combined = io_out.to_s + io_err.to_s
+    status.success?.should be_false
+    combined.should contain("web_controller but neither web_path nor web_actions")
   end
 end
 

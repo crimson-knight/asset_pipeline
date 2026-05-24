@@ -169,7 +169,14 @@ require "../../../src/asset_pipeline/action_dispatcher"
       d = @@dispatcher.not_nil!
 
       registration = SpikeApp.registration_for(route.id)
-      screen = registration.screen_class.new
+      # Phase 8C: screen_class is now nilable (web-only screens have no
+      # native screen class). Native dispatch only reaches this point
+      # for registrations where the macro guaranteed non-nil (positional
+      # controller + derived/explicit screen_class). Crash loud rather
+      # than silently fall through.
+      screen_class = registration.screen_class
+      raise "SpikeApp.rebuild_for: route #{route.id.inspect} has nil screen_class (web-only registration)" if screen_class.nil?
+      screen = screen_class.new
 
       ctx = UI::ScreenContext::Native.new(
         form_state: d.current_form_state,

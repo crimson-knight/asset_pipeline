@@ -209,34 +209,57 @@ module UI
     # before the new web kwargs, but Crystal macros cannot combine a
     # `*` separator with a default value on a positional arg before it
     # ("wrong number of arguments" at every call site that omits the
-    # positional). Without `*`, `web_controller` / `web_path` /
-    # `web_actions` / `screen_class` are still kwarg-by-default at the
-    # call site — passing them positionally would map to the wrong
-    # parameter slot AND fail downstream type checks (Class.class on a
-    # String value, etc.), so the foot-gun risk Codex flagged
-    # (Finding 5) is mitigated by Crystal's type system.
-    macro screen(route_id, controller = nil, web_controller = nil, web_path = nil, web_actions = nil, screen_class = nil)
+    # positional). To preserve Phase 8B's call shapes EXACTLY, the
+    # parameter order keeps `screen_class` as the third positional
+    # (immediately after `controller`) so old calls of the form
+    # `screen :foo, FooController, CustomScreen` continue to bind
+    # `CustomScreen` to `screen_class`. The new web kwargs follow.
+    # Codex iter-1 finding identified that re-ordering screen_class
+    # past the web kwargs silently re-bound the third positional —
+    # this reordering pins the legacy form.
+    macro screen(route_id, controller = nil, screen_class = nil, web_controller = nil, web_path = nil, web_actions = nil)
       # ---- Normalise web_actions to an ArrayLiteral. ----
       {% web_actions_norm = web_actions || [] of Nil %}
 
-      # ---- Determine whether the screen has any web binding. ----
-      {% has_web = (web_controller != nil) || (web_path != nil) || (!web_actions_norm.empty?) %}
+      # ---- Determine whether the screen contributes web routes. ----
+      #
+      # A registration contributes web routes iff it has a concrete
+      # route description: either an explicit web_path or a non-empty
+      # web_actions array. `web_controller` alone is NOT enough — it's
+      # just a target for routes that don't yet exist. The runtime
+      # `ScreenRegistration#has_web?` predicate uses the same rule
+      # (non-empty web_actions, post-default).
+      {% has_web_input = (web_path != nil) || (!web_actions_norm.empty?) %}
       {% has_native = controller != nil %}
+      {% has_web_controller_only = web_controller != nil && !has_web_input %}
 
       # ---- Validation 1: must declare at least one side. ----
-      {% if !has_native && !has_web %}
-        {% raise "UI::App.screen #{route_id} must declare at least one side: pass a native UI::Controller as the second positional arg, OR pass web_controller: ... (+ web_path: / web_actions:) as kwargs, OR both. See `UI::App.screen` doc comment." %}
+      #
+      # A `web_controller` without web_path or web_actions is treated
+      # as "metadata only" — the registration exists for native side OR
+      # is just a placeholder. It's only valid if there IS a native
+      # controller; otherwise it's a bug (declares a web controller
+      # binding with no routes to emit AND no native dispatch path).
+      {% if !has_native && !has_web_input %}
+        {% if has_web_controller_only %}
+          {% raise "UI::App.screen #{route_id} sets web_controller but neither web_path nor web_actions. A web binding with no route description emits nothing — pass web_path: or web_actions: (or remove web_controller: and add a native UI::Controller positional)." %}
+        {% else %}
+          {% raise "UI::App.screen #{route_id} must declare at least one side: pass a native UI::Controller as the second positional arg, OR pass web_controller: ... (+ web_path: / web_actions:) as kwargs, OR both. See `UI::App.screen` doc comment." %}
+        {% end %}
       {% end %}
 
       # ---- Validation 2: any web binding implies web_controller. ----
-      {% if has_web && web_controller == nil %}
+      {% if has_web_input && web_controller == nil %}
         {% raise "UI::App.screen #{route_id} declares web_path or web_actions but no web_controller. The web_controller: kwarg must be set to an Amber::Controller::Base subclass that handles the emitted routes." %}
       {% end %}
 
       # ---- Default web_actions when only web_path is given. ----
-      {% if has_web && web_actions_norm.empty? && web_path != nil %}
+      {% if has_web_input && web_actions_norm.empty? && web_path != nil %}
         {% web_actions_norm = [{verb: :get, action: :index, path: web_path}] %}
       {% end %}
+
+      # ---- has_web for downstream marker emission ----
+      {% has_web = has_web_input %}
 
       # ---- Validation 3: every web_actions entry must resolve to a path. ----
       {% if has_web %}
