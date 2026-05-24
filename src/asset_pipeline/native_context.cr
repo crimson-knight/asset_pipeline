@@ -27,24 +27,18 @@
 # need row-identity-only data read `action_params` separately. No
 # silent merge — the controller picks which to read based on the action.
 #
-# # Phase 8B doesn't ship UI::FormState yet — that lands in iter 3.
-#   This file forward-declares `UI::FormState` as an empty class so the
-#   `UI::ScreenContext::Native` constructor can take a parameter of
-#   that type. Iter 3 re-opens the class with the full implementation.
+# # UI::FormState lives in `src/ui/form_state.cr` (shipped iter 3 of
+#   Phase 8B). It sits under `src/ui/` (not `src/asset_pipeline/`)
+#   because the native renderers (which are in `src/ui/renderers/`)
+#   directly call `UI::FormState.current` from inside their visit
+#   methods. Keeping it in `src/ui/` keeps the dependency direction
+#   pointing the right way (ui → no asset_pipeline coupling).
 
 require "../ui"
+require "../ui/form_state"
 require "./amber_integration"
 
 module UI
-  # Forward declaration. Iter 3 ships the full `UI::FormState` with
-  # mount_token, register / update / to_h, etc. We define `to_h` here
-  # as an empty-hash stub so iter-2 callers (ScreenContext::Native#params)
-  # can call it; iter 3 re-opens this class with the real implementation.
-  class FormState
-    def to_h : Hash(String, String)
-      {} of String => String
-    end
-  end
 
   # Abstract per-app key / value store. Web concrete impls wrap Amber's
   # session; native uses `UI::Session::InProcess`.

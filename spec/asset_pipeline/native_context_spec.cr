@@ -6,11 +6,8 @@ require "../../src/asset_pipeline/native_context"
 # subclass overrides `to_h` so a spec can prove `ctx.params` reads
 # real form-state values without depending on iter-3's API surface.
 private class NativeContextSpecStubbedFormState < UI::FormState
-  def initialize(@values : Hash(String, String))
-  end
-
-  def to_h : Hash(String, String)
-    @values.dup
+  def initialize(values : Hash(String, String))
+    super(mount_token: 0_i64, initial: values)
   end
 end
 

@@ -554,9 +554,17 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         # See the matching uikit_renderer.cr fix for the rationale; the
         # cross-platform TextFieldFacade fires both the legacy numeric
         # length signal and the new `fireString` trampoline.
+        #
+        # Phase 8B iter 3 (Item 4) — FormState wiring. If the TextField
+        # has a non-empty `name` property, wrap the user's on_change so
+        # it ALSO calls `form_state.update(name, new_value)`. The
+        # wrapper captures the current FormState reference AND its
+        # mount token at wire-time; stale callbacks (fired after
+        # navigation away from this screen) are no-ops.
+        wrapped_handler = UI::FormStateRendererHook.wrap_text_handler(view)
         action_token = 0_u64
-        if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_string(change_handler)
+        if wrapped_handler
+          action_token = UI::CallbackRegistry.register_string(wrapped_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_text_field(
@@ -1258,10 +1266,16 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_secure_field(target_str, view, sender)
 
+        # Phase 8B iter 3 — same FormState-wiring pattern as TextField.
+        # The legacy on_change for SecureField receives "" (the SwiftUI
+        # bridge doesn't yet carry the cleartext through), but the
+        # form_state update IS called with the input's current text
+        # via the helper, so the controller still sees the password.
+        wrapped_handler = UI::FormStateRendererHook.wrap_secure_handler(view)
         action_token = 0_u64
-        if change_handler = view.on_change
+        if wrapped_handler
           action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            change_handler.call("")
+            wrapped_handler.call("")
           end
         end
 

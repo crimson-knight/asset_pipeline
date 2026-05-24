@@ -503,9 +503,13 @@
         # to `change_handler.call("")` — breaking the Editor's
         # `draft.title = value` propagation and shipping empty-title
         # todos on Save.
+        #
+        # Phase 8B iter 3 (Item 4) — FormState wiring. See the AppKit
+        # counterpart for the rationale.
+        wrapped_handler = UI::FormStateRendererHook.wrap_text_handler(view)
         action_token = 0_u64
-        if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_string(change_handler)
+        if wrapped_handler
+          action_token = UI::CallbackRegistry.register_string(wrapped_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_text_field(
@@ -1329,10 +1333,15 @@
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_secure_field(target_str, view, sender)
 
+        # Phase 8B iter 3 — same FormState-wiring pattern as TextField.
+        # The legacy on_change receives "" (the SwiftUI bridge doesn't
+        # yet carry the cleartext); FormState records that "" until a
+        # future iteration carries the typed password through.
+        wrapped_handler = UI::FormStateRendererHook.wrap_secure_handler(view)
         action_token = 0_u64
-        if change_handler = view.on_change
+        if wrapped_handler
           action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            change_handler.call("")
+            wrapped_handler.call("")
           end
         end
 

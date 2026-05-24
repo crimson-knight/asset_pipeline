@@ -1,5 +1,6 @@
 require "./ui/fluid"
 require "./ui/view"
+require "./ui/form_state"
 require "./ui/navigation_coordinator"
 require "./ui/app_shortcuts"
 require "./ui/live_activities"
