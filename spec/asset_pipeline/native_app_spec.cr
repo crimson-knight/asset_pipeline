@@ -50,14 +50,11 @@ private class NativeAppSpecBrandedApp < UI::App
   initial_route :primary
   screen :primary, NativeAppSpecController, screen_class: NativeAppSpecScreen
 
-  design_tokens do
-    # The macro body has a local `tokens` initialised to
-    # UI::DesignTokens::Tokens.default. Touching the variable
-    # proves the block body actually runs and the resulting
-    # value is wired into the class-getter. We avoid the internal
-    # tokens shape so the spec stays resilient to brand contract
-    # refactors.
-    tokens
+  design_tokens do |tokens|
+    # Override a single observable field with a sentinel value (51.0)
+    # so the spec can prove the block body actually ran and its result
+    # was wired into the class-getter.
+    tokens.copy_with(touch_target_minimum_px: 51.0)
   end
 end
 
@@ -98,8 +95,12 @@ describe UI::App do
     UI::App.initial_route_id.should eq(:_unset)
   end
 
-  it "exposes a Tokens instance via the design_tokens macro override" do
-    NativeAppSpecBrandedApp.app_design_tokens.should be_a(UI::DesignTokens::Tokens)
+  it "runs the design_tokens macro block and exposes the override via app_design_tokens" do
+    # The sentinel 51.0 in NativeAppSpecBrandedApp's design_tokens block
+    # is observable on app_design_tokens; the default (44.0) is what an
+    # un-overridden subclass returns.
+    NativeAppSpecBrandedApp.app_design_tokens.touch_target_minimum_px.should eq(51.0)
+    NativeAppSpecApp.app_design_tokens.touch_target_minimum_px.should eq(44.0)
   end
 
   it "bootstrap! is idempotent and re-registers every screen" do
