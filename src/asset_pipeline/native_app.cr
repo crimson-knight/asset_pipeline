@@ -48,9 +48,18 @@ module UI
   end
 
   abstract class App
-    # Registry of route_id => ScreenRegistration, populated by `screen`
-    # macros at class-load time.
-    class_getter screens : Hash(Symbol, UI::App::ScreenRegistration) = {} of Symbol => UI::App::ScreenRegistration
+    # Registry of route_id => ScreenRegistration. The default-value
+    # `class_getter` form would create the hash at module-load time —
+    # which iOS embedding can silently skip. So we declare it nilable
+    # and lazy-allocate via the `screens` accessor, which on first
+    # access creates the hash. `bootstrap!` also force-assigns a fresh
+    # hash to recover if the lazy-allocator's class-var write itself
+    # stranded under the iOS gap.
+    @@screens : Hash(Symbol, UI::App::ScreenRegistration)? = nil
+
+    def self.screens : Hash(Symbol, UI::App::ScreenRegistration)
+      @@screens ||= {} of Symbol => UI::App::ScreenRegistration
+    end
 
     # The route_id chosen as the navigation root. Override via the
     # `initial_route` macro. Default `:_unset` is a sentinel that the
@@ -83,10 +92,11 @@ module UI
     macro screen(route_id, controller, screen_class = nil)
       {% screen_lookup = screen_class || (controller.stringify.gsub(/Controller$/, "Screen").id) %}
 
-      # Class-load side effect for the macOS / web happy path. If the
-      # iOS class-init gap skips this write, `bootstrap!` re-runs the
-      # exact same registration via the generated method below.
-      @@screens[{{route_id}}] = UI::App::ScreenRegistration.new(
+      # Class-load side effect for the macOS / web happy path. The
+      # `screens` accessor lazy-allocates if `@@screens` is nil. If the
+      # iOS class-init gap skips this write entirely, `bootstrap!`
+      # re-runs the registration via the generated method below.
+      screens[{{route_id}}] = UI::App::ScreenRegistration.new(
         route_id: {{route_id}},
         controller_class: {{controller}},
         screen_class: {{screen_lookup}},
@@ -98,7 +108,7 @@ module UI
       # `_main`'s class-init pass. `bootstrap!` calls every such
       # method on the subclass.
       def self._bootstrap_screen_{{route_id.id}} : Nil
-        @@screens[{{route_id}}] = UI::App::ScreenRegistration.new(
+        screens[{{route_id}}] = UI::App::ScreenRegistration.new(
           route_id: {{route_id}},
           controller_class: {{controller}},
           screen_class: {{screen_lookup}},
@@ -139,9 +149,10 @@ module UI
     # `UI::App::UnknownRouteError` with the list of known routes if the
     # id is not registered.
     def self.registration_for(route_id : Symbol) : ScreenRegistration
-      @@screens[route_id]? || raise UI::App::UnknownRouteError.new(
+      registry = screens
+      registry[route_id]? || raise UI::App::UnknownRouteError.new(
         "No screen registered for route_id #{route_id.inspect}. " \
-        "Available routes: #{@@screens.keys.inspect}"
+        "Available routes: #{registry.keys.inspect}"
       )
     end
 
@@ -154,6 +165,16 @@ module UI
       nil
     end
 
+    # Test helper: simulate the iOS class-init gap failure mode by
+    # forcing `@@screens` back to nil (the state the gap would
+    # produce if the class-var default initialiser never ran).
+    # Not part of the public surface — exposed only so the spec can
+    # prove `bootstrap!` recovers from a stranded-nil registry.
+    def self.bootstrap_simulate_ios_gap! : Nil
+      @@screens = nil
+      nil
+    end
+
     # When any class subclasses `UI::App`, install a generated
     # `bootstrap!` whose body explicitly calls every `_bootstrap_screen_*`
     # method on the subclass. Wrapped in `macro finished` so the
@@ -163,6 +184,13 @@ module UI
     macro inherited
       macro finished
         def self.bootstrap! : Nil
+          # Force-assign a fresh registry hash. If the iOS class-init
+          # gap stranded `@@screens` as nil, this write recovers it.
+          # If `@@screens` is already populated (macOS / web happy path
+          # or a prior bootstrap! call), we still want to reset to a
+          # clean slate before re-registering — registrations are
+          # idempotent and the writes are deterministic.
+          @@screens = {} of Symbol => UI::App::ScreenRegistration
           \{% for method in @type.class.methods %}
             \{% if method.name.starts_with?("_bootstrap_screen_") %}
               \{{method.name}}

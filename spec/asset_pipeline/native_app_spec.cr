@@ -116,4 +116,18 @@ describe UI::App do
     NativeAppSpecApp.bootstrap!
     NativeAppSpecApp.screens.size.should eq(original_keys.size)
   end
+
+  it "bootstrap! recovers when @@screens is stranded as nil (iOS class-init gap simulation)" do
+    # Simulate the iOS class-init gap failure mode: the `@@screens`
+    # class-var default initialiser never ran, so the underlying var
+    # is nil. `bootstrap!` must allocate a fresh registry hash AND
+    # populate it from the compile-time-emitted `_bootstrap_screen_*`
+    # methods — both halves survive the gap because methods exist at
+    # compile time, not module-load time.
+    original_keys = NativeAppSpecApp.screens.keys.dup
+    NativeAppSpecApp.bootstrap_simulate_ios_gap!
+    NativeAppSpecApp.bootstrap!
+    NativeAppSpecApp.screens.size.should eq(original_keys.size)
+    original_keys.each { |k| NativeAppSpecApp.screens.has_key?(k).should be_true }
+  end
 end
