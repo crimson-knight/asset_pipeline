@@ -76,7 +76,7 @@ module UI
       # (currently just the CSRF token; see `UI::RenderContext`). The
       # context is reset to `RenderContext.empty` after rendering so
       # subsequent calls don't leak the previous request's state.
-      def render(view : UI::View, render_context : UI::RenderContext = UI::RenderContext.empty) : String
+      def render(view : UI::View, *, render_context : UI::RenderContext = UI::RenderContext.empty) : String
         @render_context = render_context
         view.accept(self)
         output
