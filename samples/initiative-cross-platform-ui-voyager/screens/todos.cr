@@ -72,8 +72,13 @@ module Voyager
       chart_row.minimum_width = content_width
       chart_row.maximum_width = content_width
 
-      open_card = build_count_card("Open", state.open_count.to_s, :primary)
-      completed_card = build_count_card("Done", state.completed_count.to_s, :secondary)
+      # Phase 6.11 Item 3 rows 13-14 — chart counts always show the
+      # underlying totals (regardless of the filter). When filtering is
+      # ON the Done card visually dims to signal it's still tracking the
+      # hidden items. Open count is unaffected (filtering only hides
+      # completed rows, so open is whatever it is).
+      open_card = build_count_card("Open", state.open_count_total.to_s, :primary, dimmed: false)
+      completed_card = build_count_card("Done", state.completed_count_total.to_s, :secondary, dimmed: state.hide_completed)
       chart_row << open_card
       chart_row << completed_card
 
@@ -138,7 +143,7 @@ module Voyager
       root.as(UI::View)
     end
 
-    private def build_count_card(label : String, value : String, tint : Symbol) : UI::View
+    private def build_count_card(label : String, value : String, tint : Symbol, dimmed : Bool = false) : UI::View
       card = UI::VStack.new(spacing: 4.0)
       card.alignment = UI::Alignment::Leading
       card.padding = UI::EdgeInsets.new(top: 12.0, trailing: 16.0, bottom: 12.0, leading: 16.0)
@@ -146,12 +151,20 @@ module Voyager
 
       v = UI::Label.new(value)
       v.font = UI::Font.new(size: 32.0, weight: :bold)
-      v.text_color_role = tint == :primary ? UI::LabelRole::Primary : UI::LabelRole::Secondary
+      # Dimmed counts use Tertiary role so filtered-state Done card
+      # visually softens against the surrounding chrome (per brief
+      # row 13 "shown but visually dimmed").
+      v.text_color_role = if dimmed
+                            UI::LabelRole::Tertiary
+                          else
+                            tint == :primary ? UI::LabelRole::Primary : UI::LabelRole::Secondary
+                          end
       v.test_id = "voyager-count-#{label.downcase}"
 
       l = UI::Label.new(label)
       l.font = UI::Font.new(size: 13.0, weight: :regular)
       l.text_color_role = UI::LabelRole::Tertiary
+      l.opacity = dimmed ? 0.6 : 1.0
 
       card << v.as(UI::View)
       card << l.as(UI::View)
@@ -170,14 +183,35 @@ module Voyager
       content.padding = UI::EdgeInsets.new(top: 10.0, trailing: 12.0, bottom: 10.0, leading: 12.0)
       content.test_id = "voyager-todo-row-#{todo.id}"
 
-      check_icon = UI::Label.new(todo.completed ? "[x]" : "[ ]")
-      check_icon.font = UI::Font.new(size: 17.0, weight: :regular)
+      # Phase 6.11 Item 3 row 6 — leading checkbox is interactive.
+      # Tapping toggles the todo's completed flag, then re-publishes
+      # the current route on the coordinator so the host rebuilds
+      # the Todos screen. The rebuild repaints the title label with
+      # the completed-state styling (strikethrough-equivalent via
+      # text_color_role swap) and re-derives the chart counts.
+      check = UI::Checkbox.new(label: "", is_checked: todo.completed)
+      check.accessibility_label = todo.completed ? "Mark '#{todo.title}' as not done" : "Mark '#{todo.title}' as done"
+      check.test_id = "voyager-todo-row-#{todo.id}-check"
+      check.on_change = ->(value : Bool) {
+        todo.completed = value
+        # Re-publish the current route so the host rebuilds. No stack
+        # change; the host's on_change subscriber repaints the Todos
+        # screen from the mutated state (title color + chart counts).
+        coord.republish
+      }
 
+      # Title — color role and strikethrough driven by completion state.
+      # The Phase 6.11 brief row 6 requires actual `.strikethrough` on
+      # completed rows (the SwiftUI Text `.strikethrough(true)` modifier,
+      # plumbed through `UI::Label#strikethrough`) and the color shift
+      # from `.label` to `.secondaryLabel`.
       title_label = UI::Label.new(todo.title)
       title_label.font = UI::Font.new(size: 16.0, weight: :semibold)
-      title_label.text_color_role = todo.completed ? UI::LabelRole::Tertiary : UI::LabelRole::Primary
+      title_label.text_color_role = todo.completed ? UI::LabelRole::Secondary : UI::LabelRole::Primary
+      title_label.strikethrough = todo.completed
+      title_label.test_id = "voyager-todo-row-#{todo.id}-title"
 
-      content << check_icon.as(UI::View)
+      content << check.as(UI::View)
       content << title_label.as(UI::View)
 
       row = UI::SwipeActionRow.new(content.as(UI::View))
@@ -199,7 +233,12 @@ module Voyager
       )
       del_action = UI::SwipeAction.new(
         "Delete",
-        on_tap: -> { state.delete_todo(todo.id) },
+        on_tap: -> {
+          state.delete_todo(todo.id)
+          # Re-publish the current route so the host rebuilds — same
+          # rationale as the checkbox on_change above.
+          coord.republish
+        },
         role: :destructive,
       )
 

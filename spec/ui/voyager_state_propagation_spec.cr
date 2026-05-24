@@ -67,19 +67,17 @@ describe "Voyager state-propagation litmus" do
     html.should contain "data-testid=\"voyager-todo-row-4\""  # Read a book
     # Filter banner is now visible.
     html.should contain "Completed items hidden"
-    # The chart counts ALSO reflect the filter, in the SAME flow
-    # (push :settings → mutate → pop → rebuild :todos). Open=3,
-    # Done=0 (completed items aren't in visible_todos).
+    # Phase 6.11 — the chart now shows underlying totals so the user
+    # always sees how many completed items are hidden. The Done card
+    # visually dims when filtering is on (per brief rows 13-14).
     html.should contain "data-testid=\"voyager-count-open\">3"
-    html.should contain "data-testid=\"voyager-count-done\">0"
+    html.should contain "data-testid=\"voyager-count-done\">2"
   end
 
-  it "the chart counts reflect the FILTERED list when hide_completed is on" do
-    # Decision (per Codex review of the litmus): the brief says
-    # "Todos list AND chart reflect" — so chart counts move when
-    # filtering. With hide_completed on + 2 completed hidden, the
-    # chart shows Open=3 / Done=0 (since the done items aren't in
-    # the visible_todos used for counting).
+  it "the chart counts show the underlying totals when hide_completed is on" do
+    # Phase 6.11 revision: per the 14-row contract, the chart shows
+    # Open + Done totals (independent of the filter) so the user can
+    # see how many items they've completed even while filtered.
     state = Voyager::State.new
     state.hide_completed = true
     coord = UI::NavigationCoordinator.new(UI::NavigationCoordinator::Route.new(:todos))
@@ -89,9 +87,9 @@ describe "Voyager state-propagation litmus" do
     html = renderer.render(view)
 
     html.should contain "data-testid=\"voyager-count-open\">3"
-    html.should contain "data-testid=\"voyager-count-done\">0"
+    html.should contain "data-testid=\"voyager-count-done\">2"
 
-    # The underlying totals are still available via _total methods.
+    # The underlying totals match.
     state.open_count_total.should eq 3
     state.completed_count_total.should eq 2
   end

@@ -10,10 +10,19 @@ module Voyager
     SLUG = "voyager-todo-editor"
 
     def build(state : State, coord : UI::NavigationCoordinator, todo_id : Int32) : UI::View
-      # If editing an existing todo, look it up; otherwise create a
-      # fresh draft Todo that Save will commit to state.
+      # Phase 6.11 — Cancel-preserves-state edge case (brief Item 3 edge
+      # contract): the editor must work against a copy of the todo so
+      # Cancel returns the original to state unchanged. Previously the
+      # editor used the live todo struct as `draft` and `on_change`
+      # mutated it eagerly, which meant Cancel-after-edit left the
+      # mutated values in state.
       editing = state.find_todo(todo_id)
-      draft = editing || Todo.new(id: 0, title: "", note: "")
+      draft = if editing.nil?
+                Todo.new(id: 0, title: "", note: "")
+              else
+                src = editing.not_nil!
+                Todo.new(id: src.id, title: src.title, note: src.note, completed: src.completed)
+              end
 
       # Phase 6.10 Rem 4 (Item 2D/2E) — device-aware sizing. Outer
       # root_fill; inner fields still carry an explicit content_width
@@ -42,7 +51,9 @@ module Voyager
       title_field.test_id = "voyager-todo-editor-title"
       title_field.minimum_width = content_width
       title_field.maximum_width = content_width
-      title_field.on_change = ->(value : String) { draft.title = value }
+      # on_change is wired below — it needs to mutate the Save button's
+      # disabled state, but the Save button is constructed later in this
+      # method. We capture the closure assignment after Save exists.
 
       note_field = UI::TextField.new(placeholder: "Note (optional)")
       note_field.text = draft.note
@@ -84,17 +95,41 @@ module Voyager
       save.test_id = "voyager-todo-editor-save"
       save.minimum_width = half_button_width
       save.maximum_width = half_button_width
+      # Phase 6.11 Item 3 row 3 — Save disabled while title is blank.
+      # `String#strip.empty?` treats whitespace-only as blank, matching
+      # the brief's edge-case clause.
+      save.disabled = draft.title.strip.empty?
       save.on_tap = -> {
-        if editing
-          # Mutate existing in place — draft IS editing, so any
-          # changes from on_change closures already applied.
-          # No-op here for clarity.
+        # Defensive — the SwiftUI button's `.disabled(true)` modifier
+        # already blocks taps when blank, but a renderer that ignores
+        # the disabled flag must still no-op here.
+        if draft.title.strip.empty?
+          # Tap ignored — blank title.
         else
-          # Commit the draft as a new todo in state.
-          state.add_todo(draft.title, draft.note, draft.completed)
+          if e = editing
+            # Copy the draft's mutated fields back to the live todo.
+            # See "Cancel-preserves-state" rationale above the draft
+            # construction.
+            e.title = draft.title
+            e.note = draft.note
+            e.completed = draft.completed
+          else
+            # Commit the draft as a new todo in state.
+            state.add_todo(draft.title, draft.note, draft.completed)
+          end
+          coord.pop
         end
-        coord.pop
         nil
+      }
+
+      # Now that `save` exists, wire the title field's on_change to
+      # mutate both the draft AND the Save button's reactive disabled
+      # state. The Button setter routes through the SwiftKit bridge so
+      # SwiftUI re-renders just the Button (no host rebuild, no
+      # keyboard-focus loss).
+      title_field.on_change = ->(value : String) {
+        draft.title = value
+        save.disabled = value.strip.empty?
       }
 
       actions << cancel.as(UI::View)
