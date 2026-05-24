@@ -22,12 +22,41 @@ public class TextFieldFacade: NSObject {
     ) -> APSKPlatformView {
         let storage = TextStorage(initial: initialText, token: actionToken)
 
-        let base: AnyView
-        if let secure = overrides.secureEntry, secure.boolValue {
-            base = AnyView(SecureField(placeholder, text: storage.binding))
-        } else {
-            base = AnyView(TextField(placeholder, text: storage.binding))
-        }
+        // Phase 6.11 Iter 4 — Item 2 (placeholder contrast).
+        //
+        // Apple's stock `TextField("Email", text: ...)` initialiser binds
+        // the placeholder to the `.placeholderText` semantic color, which
+        // on iOS resolves to `label @ 30% alpha`. Composited over the
+        // `.roundedBorder` style's white inner fill, that lands at
+        // ~1.7:1 contrast in light appearance and ~2.2:1 in dark — both
+        // fail WCAG 2.2 AA's 3:1 floor for UI text. Codex 3 measured this
+        // empirically on the Phase 6.11 Iter 3 captures.
+        //
+        // SwiftUI `TextField` and `SecureField` differ in how they apply
+        // colour to the `prompt:` Text — `TextField` honours an explicit
+        // `foregroundColor` literally (no opacity reduction), while
+        // `SecureField` ignores the colour and renders the prompt with
+        // the system `placeholderText` semantic (≈ label@30% alpha, which
+        // measures ~1.7:1 light / ~2.2:1 dark — failing WCAG AA's 3:1
+        // floor for UI text).
+        //
+        // To get a consistent ≥ 3:1 placeholder across both controls we
+        // sidestep the `prompt:` API entirely. `PromptOverlayField` (see
+        // below) wraps a TextField / SecureField with an empty SwiftUI
+        // placeholder + a leading-aligned overlay Text whose colour we
+        // control directly: `label @ 50% opacity`. That composites to
+        // ~127,127,127 on white (≈ 4.6:1) and ~127,127,127 on black
+        // (≈ 4.6:1) — comfortably above 3:1 in both appearances. The
+        // overlay only shows while the bound text is empty, so it
+        // behaves like the system placeholder for usability.
+        let secure = (overrides.secureEntry?.boolValue ?? false)
+        let base: AnyView = AnyView(
+            PromptOverlayField(
+                storage: storage,
+                placeholder: placeholder,
+                isSecure: secure
+            )
+        )
 
         var content: AnyView = base
 
@@ -88,4 +117,41 @@ private struct StorageHost<Content: View>: View {
     @ObservedObject var storage: TextStorage
     let content: Content
     var body: some View { content }
+}
+
+// Wraps a SwiftUI TextField / SecureField with a leading-aligned
+// overlay Text we control directly, so the visible placeholder reads
+// at ≥ 3:1 contrast against the field background in both light and
+// dark appearance (the SwiftUI defaults render at ~1.7:1 / ~2.2:1 —
+// see TextFieldFacade.makeTextField for the full investigation).
+//
+// `@ObservedObject var storage` is the reactivity edge that makes the
+// overlay disappear as soon as the bound text becomes non-empty.
+//
+// Module-internal so `SecureFieldFacade` can reuse the same overlay
+// recipe (it has its own facade because Crystal-side it's a distinct
+// `apsk_make_secure_field` C entry point with a separate overrides
+// type, but visually it needs the identical placeholder treatment).
+struct PromptOverlayField: View {
+    @ObservedObject var storage: TextStorage
+    let placeholder: String
+    let isSecure: Bool
+
+    var body: some View {
+        Group {
+            if isSecure {
+                SecureField("", text: storage.binding)
+            } else {
+                TextField("", text: storage.binding)
+            }
+        }
+        .overlay(alignment: .leading) {
+            if storage.text.isEmpty {
+                Text(placeholder)
+                    .foregroundStyle(Color.primary.opacity(0.5))
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
 }

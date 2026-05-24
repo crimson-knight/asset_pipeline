@@ -85,18 +85,35 @@ private struct APSKButtonHost: View {
 
         // Construct base view. Destructive role uses the SwiftUI role
         // initializer so the system applies its red emphasis treatment.
+        //
+        // Phase 6.11 Iter 4: when the call-site asks for a prominent button
+        // pinned to a fixed width (min_w == max_w — the standard form-column
+        // recipe), build the Button with an explicit label wrapped in a
+        // `.frame(maxWidth: .infinity)`. SwiftUI's `.borderedProminent`
+        // chrome sizes to the label's intrinsic width by default; pushing
+        // the label to expand horizontally is the canonical idiom for a
+        // stretched prominent button. The outer width pin (applied via
+        // `.frame(width:)` after the style cascade) caps the touch target.
+        let wantsStretchedProminent: Bool = {
+            guard overrides.style == "prominent" else { return false }
+            guard let mw = overrides.minWidth, let mxw = overrides.maxWidth else { return false }
+            return mw.doubleValue == mxw.doubleValue
+        }()
+
         var base: AnyView
         if overrides.role == "destructive" {
             if let symbol = overrides.symbolName {
                 base = AnyView(
                     Button(role: .destructive, action: action) {
                         Label(label, systemImage: symbol)
+                            .frame(maxWidth: wantsStretchedProminent ? .infinity : nil)
                     }
                 )
             } else {
                 base = AnyView(
                     Button(role: .destructive, action: action) {
                         Text(label)
+                            .frame(maxWidth: wantsStretchedProminent ? .infinity : nil)
                     }
                 )
             }
@@ -104,6 +121,13 @@ private struct APSKButtonHost: View {
             base = AnyView(
                 Button(action: action) {
                     Label(label, systemImage: symbol)
+                        .frame(maxWidth: wantsStretchedProminent ? .infinity : nil)
+                }
+            )
+        } else if wantsStretchedProminent {
+            base = AnyView(
+                Button(action: action) {
+                    Text(label).frame(maxWidth: .infinity)
                 }
             )
         } else {
@@ -125,16 +149,12 @@ private struct APSKButtonHost: View {
         }
         if let mw = overrides.minWidth {
             let mwCG = CGFloat(mw.doubleValue)
-            // Phase 6.8 Fix 2: when min_w == max_w AND style is "prominent",
-            // SwiftUI's body-Button intrinsic width (especially with the
-            // Capsule.fill chrome from Fix 1) is narrower than the
-            // form's content pin. Use an EXACT width frame instead of
-            // .frame(minWidth:) so the prominent pill stretches to match
-            // the email/password field widths.
-            if let mxw = overrides.maxWidth, mw.doubleValue == mxw.doubleValue,
-               overrides.style == "prominent" {
-                base = AnyView(base.frame(width: mwCG))
-            } else {
+            // Phase 6.11 Iter 4: the stretched-prominent recipe pushes the
+            // *label* to fill horizontally above; the outer width pin is
+            // applied AFTER the style cascade so the touch-target / a11y
+            // frame matches. For any other configuration, fall back to
+            // `.frame(minWidth:)` here.
+            if !wantsStretchedProminent {
                 base = AnyView(base.frame(minWidth: mwCG))
             }
         }
@@ -158,28 +178,36 @@ private struct APSKButtonHost: View {
         var content: AnyView = base
         switch overrides.style {
         case "prominent":
-            // Phase 6.8 Fix 1 (restored): bypass `.borderedProminent`
-            // and paint the brand-teal pill explicitly. Phase 6.10
-            // Rem 2 investigation confirmed via NSLog instrumentation
-            // in `CallbackBridge.fire` that the SwiftUI Button's tap
-            // closure is NOT being invoked under hands-on / XCUITest
-            // taps when the Button is hosted in UIKit via
-            // UIHostingController — this is an architectural issue at
-            // the UIViewRepresentable boundary, NOT a style-specific
-            // bug. The borderedProminent diagnostic produced the same
-            // no-tap behavior. Restoring the brand chrome and
-            // escalating the touch-routing bug separately
-            // (see handoff/phase-06.10-remediation-2-codex-blocker.md
-            // when authored).
-            let brandTeal = Color(red: 0.012, green: 0.521, blue: 0.521)
+            // Phase 6.11 Iter 4 — Item 1.
+            //
+            // The Phase 6.8 Fix 1 brand-teal Capsule hardcode is removed.
+            // That workaround was retained while Phase 6.10 Rem 2 was
+            // still investigating a SwiftUI Button tap-closure bug at the
+            // UIHostingController boundary. Phase 6.10 Path A (VC
+            // parenting) closed that bug architecturally, so a prominent
+            // button can now resolve through SwiftUI's stock
+            // `.borderedProminent` style and surface the system tint
+            // (default iOS system blue, or whatever `.tint(...)` happens
+            // to cascade into the hosting environment).
+            //
+            // `.controlSize(.large)` lifts the inner padding to the iOS
+            // "large prominent" floor (~50pt tall) so a pinned-width
+            // sign-in button reads as a primary action, not a chip.
             content = AnyView(
                 content
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 20)
-                    .background(Capsule().fill(brandTeal))
-                    .buttonStyle(.plain)
+                    .controlSize(.large)
+                    .buttonStyle(.borderedProminent)
             )
+            // Re-apply the form-column width after the style so the
+            // touch-target / a11y frame matches the surrounding field
+            // column. The inner `Text(label).frame(maxWidth: .infinity)`
+            // made the *content* stretch within the bordered prominent
+            // chrome; this outer pin caps the overall width to the form
+            // column.
+            if wantsStretchedProminent, let mw = overrides.minWidth {
+                let mwCG = CGFloat(mw.doubleValue)
+                content = AnyView(content.frame(width: mwCG))
+            }
         case "tinted":
             content = AnyView(content
                 .tint(.accentColor)
