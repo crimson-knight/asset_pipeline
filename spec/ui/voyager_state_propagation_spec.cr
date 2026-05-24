@@ -24,7 +24,7 @@ describe "Voyager state-propagation litmus" do
     view = Voyager.build_route(state, coord, coord.current)
 
     renderer = UI::Web::Renderer.new
-    renderer.design_tokens = Voyager.brand_tokens
+    # Phase 6.11 — brand override dropped; default tokens via renderer constructor.
     html = renderer.render(view)
 
     # All 5 seeded todos visible (3 open, 2 completed).
@@ -55,7 +55,7 @@ describe "Voyager state-propagation litmus" do
     # in its coordinator.on_change handler.
     view = Voyager.build_route(state, coord, coord.current)
     renderer = UI::Web::Renderer.new
-    renderer.design_tokens = Voyager.brand_tokens
+    # Phase 6.11 — brand override dropped; default tokens via renderer constructor.
     html = renderer.render(view)
 
     # The two completed todos must be GONE from the visible list.

@@ -83,7 +83,10 @@ require "../../../src/ui/renderers/appkit_renderer"
         Voyager.route_for_slug(ROOT_SLUG)
       )
       renderer = UI::AppKit::Renderer.new
-      renderer.design_tokens = Voyager.brand_tokens
+      # Phase 6.11 Item 1 — brand override removed. Voyager runs on
+      # `UI::DesignTokens::Tokens.default`, which the renderer already
+      # carries; setting `design_tokens` here would be a redundant
+      # reassignment to the same default.
 
       @@state = state
       @@coord = coord

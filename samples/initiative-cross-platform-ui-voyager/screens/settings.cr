@@ -43,7 +43,6 @@ module Voyager
       hide_toggle.minimum_width = content_width
       hide_toggle.maximum_width = content_width
       hide_toggle.on_change = ->(value : Bool) {
-        Voyager.log_interaction("settings hide-completed toggled to #{value}")
         state.hide_completed = value
       }
 
@@ -54,7 +53,6 @@ module Voyager
       back.minimum_width = content_width
       back.maximum_width = content_width
       back.on_tap = -> {
-        Voyager.log_interaction("settings back button tapped")
         coord.pop
         nil
       }

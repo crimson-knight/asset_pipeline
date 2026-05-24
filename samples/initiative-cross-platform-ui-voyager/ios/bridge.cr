@@ -120,7 +120,8 @@
         UI::NavigationCoordinator::Route.new(:sign_in)
       )
       renderer = UI::UIKit::Renderer.new
-      renderer.design_tokens = Voyager.brand_tokens
+      # Phase 6.11 Item 1 — brand override removed. Renderer carries
+      # `UI::DesignTokens::Tokens.default` already; no per-host override.
 
       # The reactive substrate: when ANY Crystal code (a tap handler
       # inside a rendered button, the sign-in submit, the settings
@@ -185,7 +186,8 @@
       # to be UIHostingController state inside SwiftKit facades; a new
       # renderer instance defensively rebuilds every facade chain.
       renderer = UI::UIKit::Renderer.new
-      renderer.design_tokens = Voyager.brand_tokens
+      # Phase 6.11 Item 1 — brand override removed. Renderer carries
+      # `UI::DesignTokens::Tokens.default` already; no per-host override.
 
       route = Voyager.route_for_slug(slug)
       # Phase 6.10 Rem 4 (Item 1) — coord/slug sync invariant.

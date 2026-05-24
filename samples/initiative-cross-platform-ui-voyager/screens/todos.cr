@@ -56,7 +56,6 @@ module Voyager
       settings_btn.accessibility_label = "Settings"
       settings_btn.test_id = "voyager-todos-settings"
       settings_btn.on_tap = -> {
-        Voyager.log_interaction("todos settings button tapped")
         coord.push(UI::NavigationCoordinator::Route.new(:settings))
       }
 
@@ -115,7 +114,6 @@ module Voyager
       add_btn.minimum_width = content_width
       add_btn.maximum_width = content_width
       add_btn.on_tap = -> {
-        Voyager.log_interaction("todos add button tapped")
         params = {:id => "0"} of Symbol => String
         coord.push(UI::NavigationCoordinator::Route.new(:todo_editor, params))
       }

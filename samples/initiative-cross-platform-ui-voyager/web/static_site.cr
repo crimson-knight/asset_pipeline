@@ -22,10 +22,11 @@ OUTPUT_DIR = ARGV[0]? || File.expand_path("../../../output/voyager-demo", __DIR_
 Dir.mkdir_p(OUTPUT_DIR)
 
 def render_route(slug : String, state : Voyager::State, coord : UI::NavigationCoordinator) : String
+  # Phase 6.11 Item 1 — brand override removed. Renderer carries
+  # `UI::DesignTokens::Tokens.default` already; no per-host override.
   route = Voyager.route_for_slug(slug)
   view = Voyager.build_route(state, coord, route)
   renderer = UI::Web::Renderer.new
-  renderer.design_tokens = Voyager.brand_tokens
   renderer.render(view)
 end
 
@@ -40,9 +41,8 @@ Voyager::SLUGS.each do |slug|
   routes[slug] = render_route(slug, state, coord)
 end
 
-# Pre-render the theme CSS once.
+# Pre-render the theme CSS once. Default tokens (no brand override).
 theme_renderer = UI::Web::Renderer.new
-theme_renderer.design_tokens = Voyager.brand_tokens
 theme_css = theme_renderer.inject_theme_css
 
 # Build the page. Body holds the route host (initial route =

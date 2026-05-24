@@ -75,7 +75,6 @@ module Voyager
       cancel.minimum_width = half_button_width
       cancel.maximum_width = half_button_width
       cancel.on_tap = -> {
-        Voyager.log_interaction("todo-editor cancel tapped")
         coord.pop
         nil
       }
@@ -86,7 +85,6 @@ module Voyager
       save.minimum_width = half_button_width
       save.maximum_width = half_button_width
       save.on_tap = -> {
-        Voyager.log_interaction("todo-editor save tapped")
         if editing
           # Mutate existing in place — draft IS editing, so any
           # changes from on_change closures already applied.
