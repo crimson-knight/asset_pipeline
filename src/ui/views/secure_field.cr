@@ -6,14 +6,17 @@ module UI
   class SecureField < View
     property text : String = ""
     property placeholder : String = ""
+    # Name attribute for web POST submission. See `UI::TextField#name`
+    # for the full doc.
+    property name : String? = nil
     property font : Font = Font.new
     property text_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
     property on_change : Proc(String, Nil)? = nil
 
-    def initialize(@placeholder : String = "")
+    def initialize(@placeholder : String = "", *, @name : String? = nil, @text : String = "")
     end
 
-    def initialize(@placeholder : String = "", &block : String -> Nil)
+    def initialize(@placeholder : String = "", *, @name : String? = nil, @text : String = "", &block : String -> Nil)
       @on_change = block
     end
 

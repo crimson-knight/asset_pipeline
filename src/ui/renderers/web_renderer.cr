@@ -278,6 +278,13 @@ module UI
           el.set_attribute("type", "text")
         end
 
+        # Name attribute — required for browser form POST submission
+        # when this field is inside a `<form>`. Emitted whenever the
+        # author set a name; never auto-derived from placeholder.
+        if (n = view.name) && !n.empty?
+          el.set_attribute("name", n)
+        end
+
         # Placeholder
         unless view.placeholder.empty?
           el.set_attribute("placeholder", view.placeholder)
@@ -833,6 +840,10 @@ module UI
       def visit(view : UI::SecureField)
         el = Components::Elements::Input.new
         el.set_attribute("type", "password")
+
+        if (n = view.name) && !n.empty?
+          el.set_attribute("name", n)
+        end
 
         unless view.placeholder.empty?
           el.set_attribute("placeholder", view.placeholder)

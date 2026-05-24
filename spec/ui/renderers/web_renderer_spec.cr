@@ -393,6 +393,70 @@ describe UI::Web::Renderer do
       html = render(field)
       html.should_not contain("</input>")
     end
+
+    # Phase 8A Item 3 — name attribute emission for web POST.
+    it "emits name=\"...\" when the name property is set" do
+      field = UI::TextField.new(placeholder: "Email", name: "email")
+      html = render(field)
+      html.should contain("name=\"email\"")
+    end
+
+    it "does not emit name= when name is nil (default)" do
+      field = UI::TextField.new("Search")
+      html = render(field)
+      html.should_not contain("name=")
+    end
+
+    it "does not emit name= when name is an empty string" do
+      field = UI::TextField.new
+      field.name = ""
+      html = render(field)
+      html.should_not contain("name=")
+    end
+
+    # Phase 8A Item 4 — text: kwarg pre-populates the value.
+    it "accepts text: kwarg and renders both value= and name= together" do
+      field = UI::TextField.new(placeholder: "Email", name: "email", text: "seth@example.com")
+      html = render(field)
+      html.should contain("name=\"email\"")
+      html.should contain("value=\"seth@example.com\"")
+    end
+
+    # Phase 8A regression spec — finding #7 confirmation that value=
+    # already emits on text setter (was claimed-stale by Codex).
+    it "value= emits when the text property is set after construction (regression of finding #7)" do
+      field = UI::TextField.new(placeholder: "Email")
+      field.text = "preset@example.com"
+      html = render(field)
+      html.should contain("value=\"preset@example.com\"")
+    end
+  end
+
+  describe "SecureField" do
+    it "renders type=\"password\"" do
+      field = UI::SecureField.new("Password")
+      html = render(field)
+      html.should contain("type=\"password\"")
+    end
+
+    it "emits name=\"...\" when name is set" do
+      field = UI::SecureField.new(placeholder: "Password", name: "password")
+      html = render(field)
+      html.should contain("name=\"password\"")
+    end
+
+    it "does not emit name= when name is nil (default)" do
+      field = UI::SecureField.new("Password")
+      html = render(field)
+      html.should_not contain("name=")
+    end
+
+    it "accepts text: kwarg and emits value=" do
+      field = UI::SecureField.new(placeholder: "Password", name: "password", text: "secret")
+      html = render(field)
+      html.should contain("value=\"secret\"")
+      html.should contain("name=\"password\"")
+    end
   end
 
   describe "ScrollView" do
