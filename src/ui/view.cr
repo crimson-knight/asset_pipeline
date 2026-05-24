@@ -9,6 +9,27 @@ module UI
   class RenderError < Exception
   end
 
+  # Phase 8A — Renderer-scoped per-request context threaded through
+  # `UI::Web::Renderer#render(view, render_context:)`. Carries values
+  # the web visit methods need but that don't belong on the view tree
+  # itself (e.g. the CSRF token for `UI::Form`'s hidden-input
+  # injection).
+  #
+  # Lives in the core `UI` namespace (rather than the Amber integration
+  # file) so the web renderer can read it without requiring the Amber
+  # integration to be loaded. Apps not using Amber simply pass a fresh
+  # `RenderContext.empty` or omit the argument.
+  struct RenderContext
+    getter csrf_token : String?
+
+    def initialize(@csrf_token : String? = nil)
+    end
+
+    def self.empty : RenderContext
+      new(csrf_token: nil)
+    end
+  end
+
   # Alignment options for stack layouts
   enum Alignment
     Leading

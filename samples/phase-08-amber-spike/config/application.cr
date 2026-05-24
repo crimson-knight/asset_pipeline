@@ -5,10 +5,12 @@
 
 require "amber"
 
-# Load the asset_pipeline Amber-integration helpers (prototype-grade,
-# living inside the spike directory until Phase 8A lifts them into
-# src/asset_pipeline/amber_integration.cr).
-require "../src/lib/asset_pipeline_amber_helpers"
+# Phase 8A: lifted helpers now live in the asset_pipeline shard at
+# `src/asset_pipeline/amber_integration.cr`. The spike requires the
+# production path directly; the old prototype helper at
+# `src/lib/asset_pipeline_amber_helpers.cr` is retained for diff
+# reference but no longer required.
+require "asset_pipeline/amber_integration"
 
 # Load the application code.
 require "../src/controllers/application_controller"

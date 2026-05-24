@@ -29,6 +29,13 @@ module UI
 
       property theme : UI::Theme? = nil
 
+      # Renderer-scoped context for the current `render` call. Set by
+      # `render(view, render_context:)` and reset to the empty value
+      # when no context is supplied. Read by `visit(UI::Form)` so the
+      # form's web visit can inject the request CSRF token without the
+      # author threading it through every Form construction.
+      getter render_context : UI::RenderContext = UI::RenderContext.empty
+
       def initialize
         @element_stack = [] of Components::Elements::HTMLElement
         @root = nil
@@ -63,9 +70,18 @@ module UI
       end
 
       # Convenience method: accept a view and return the HTML string.
-      def render(view : UI::View) : String
+      #
+      # `render_context:` carries request-bound values that the visit
+      # methods need but that don't belong on the view tree itself
+      # (currently just the CSRF token; see `UI::RenderContext`). The
+      # context is reset to `RenderContext.empty` after rendering so
+      # subsequent calls don't leak the previous request's state.
+      def render(view : UI::View, render_context : UI::RenderContext = UI::RenderContext.empty) : String
+        @render_context = render_context
         view.accept(self)
         output
+      ensure
+        @render_context = UI::RenderContext.empty
       end
 
       # Render `view` wrapped in a full HTML5 document. Always emits the
