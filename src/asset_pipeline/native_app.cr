@@ -15,12 +15,18 @@
 #       screen :detail,  DetailController, screen_class: DetailScreen
 #     end
 #
-# Per [[project_crystal_ios_class_init_gap]]: the `@@screens` class-var
-# is default-initialised. On iOS embedding the class-init pass may
-# silently skip, so iOS apps should call `MyApp.bootstrap!` (or invoke
-# any class-level method on the app class) early in their bridge entry
-# point to force the screen-registration macros to run before the
-# dispatcher reads them.
+# Per [[project_crystal_ios_class_init_gap]]: on iOS embedding the
+# class-init pass may silently skip the side-effecting macro bodies
+# that `screen` expands to. To mitigate, every `screen` macro call
+# ALSO appends an idempotent re-registration proc to
+# `@@_bootstrap_registrations`. iOS apps call `MyApp.bootstrap!` from
+# their bridge entry function (after `Thread.init / Fiber.init /
+# Crystal::Once.init`) which replays every registration. The proc
+# list is itself default-initialised — same gap risk in theory, but
+# the procs are class-load constants, and `bootstrap!` is invoked
+# explicitly so any nil-strand surfaces as a clear NilAssertionError
+# rather than a silent empty registry. macOS and web do not need to
+# call `bootstrap!`; the macro side effects fire normally there.
 
 require "../ui"
 require "./amber_integration"
@@ -38,6 +44,12 @@ module UI
     # Registry of route_id => ScreenRegistration, populated by `screen`
     # macros at class-load time.
     class_getter screens : Hash(Symbol, UI::App::ScreenRegistration) = {} of Symbol => UI::App::ScreenRegistration
+
+    # iOS escape hatch: an idempotent list of registration procs. Every
+    # `screen` macro appends one. Apps call `MyApp.bootstrap!` from
+    # their iOS bridge entry point to force re-registration in case
+    # the iOS class-init gap silently skipped the macro body.
+    class_getter _bootstrap_registrations : Array(Proc(Nil)) = [] of Proc(Nil)
 
     # The route_id chosen as the navigation root. Override via the
     # `initial_route` macro. Default `:_unset` is a sentinel that the
@@ -74,6 +86,14 @@ module UI
         controller_class: {{controller}},
         screen_class: {{screen_lookup}},
       )
+      @@_bootstrap_registrations << ->{
+        @@screens[{{route_id}}] = UI::App::ScreenRegistration.new(
+          route_id: {{route_id}},
+          controller_class: {{controller}},
+          screen_class: {{screen_lookup}},
+        )
+        nil
+      }
     end
 
     # Optional: per-app design-token override block. The block body
@@ -105,6 +125,16 @@ module UI
         "No screen registered for route_id #{route_id.inspect}. " \
         "Available routes: #{@@screens.keys.inspect}"
       )
+    end
+
+    # iOS escape hatch — idempotent. Replays every recorded `screen`
+    # macro registration. Calling on macOS/web is a harmless no-op
+    # (re-assigning the same registry entries). iOS apps must call
+    # this from their bridge entry function AFTER `Thread.init`,
+    # `Fiber.init`, and `Crystal::Once.init`.
+    def self.bootstrap! : Nil
+      @@_bootstrap_registrations.each(&.call)
+      nil
     end
 
     class UnknownRouteError < Exception
