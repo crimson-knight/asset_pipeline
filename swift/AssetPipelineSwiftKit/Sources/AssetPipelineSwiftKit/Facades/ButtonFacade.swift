@@ -193,11 +193,50 @@ private struct APSKButtonHost: View {
             // `.controlSize(.large)` lifts the inner padding to the iOS
             // "large prominent" floor (~50pt tall) so a pinned-width
             // sign-in button reads as a primary action, not a chip.
+            //
+            // Phase 6.12C — macOS divergence workaround.
+            //
+            // On macOS, SwiftUI's `.borderedProminent` ignores `.tint()`
+            // and always uses the system accent color. iOS does NOT have
+            // this divergence. Consumers like Cascade install a brand
+            // tint via `APSKRuntime.setBrandTint(...)`, which
+            // `HostingHelpers.host(_:)` then applies as `.tint(brand)`
+            // on the hosted root — that tint reaches `.bordered` /
+            // `.borderless` chrome (Forgot-password link goes teal) but
+            // NOT `.borderedProminent` chrome. To restore the brand
+            // promise on macOS we paint the prominent chrome from
+            // primitives via `APSKBrandProminentButtonStyle` (Capsule +
+            // white foreground + pressed/disabled state coverage). The
+            // style only activates when:
+            //   1. The build target is macOS.
+            //   2. A custom brand is installed
+            //      (`APSKRuntime.brandTint != nil`).
+            // When either condition is false (iOS, or macOS with
+            // SYSTEM_ACCENT / `Tokens.default`), the stock
+            // `.borderedProminent` chain runs unchanged so Voyager
+            // continues to render with the macOS system accent.
+            // See `handoff/phase-06.12c-probe-findings.md` for evidence.
+            #if os(macOS)
+            if let activeTint = APSKRuntime.brandTint {
+                content = AnyView(
+                    content.buttonStyle(
+                        APSKBrandProminentButtonStyle(tint: activeTint)
+                    )
+                )
+            } else {
+                content = AnyView(
+                    content
+                        .controlSize(.large)
+                        .buttonStyle(.borderedProminent)
+                )
+            }
+            #else
             content = AnyView(
                 content
                     .controlSize(.large)
                     .buttonStyle(.borderedProminent)
             )
+            #endif
             // Re-apply the form-column width after the style so the
             // touch-target / a11y frame matches the surrounding field
             // column. The inner `Text(label).frame(maxWidth: .infinity)`

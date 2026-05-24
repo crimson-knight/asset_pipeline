@@ -4035,10 +4035,24 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         case brand.brand_tint_action
         when :clear
           LibSwiftKitBridge.apsk_runtime_clear_brand_tint
+          # Phase 6.12C — Codex-requested assertion. Voyager (and any
+          # consumer using `Tokens.default` SYSTEM_ACCENT) reaches this
+          # branch, which is what keeps `APSKRuntime.brandTint == nil`
+          # and routes `ButtonFacade case "prominent"` through the stock
+          # `.borderedProminent` path instead of the new
+          # `APSKBrandProminentButtonStyle`. The log line is opt-in via
+          # the `APSK_BRAND_TINT_LOG` env var so it is silent in normal
+          # use but available for verification.
+          if ENV["APSK_BRAND_TINT_LOG"]?
+            STDERR.puts "[apsk] brand_tint=cleared (APSKRuntime.brandTint == nil)"
+          end
         when :set
           LibSwiftKitBridge.apsk_runtime_set_brand_tint(
             brand.r, brand.g, brand.b, brand.alpha,
           )
+          if ENV["APSK_BRAND_TINT_LOG"]?
+            STDERR.puts "[apsk] brand_tint=set r=#{brand.r} g=#{brand.g} b=#{brand.b}"
+          end
         end
       end
 
