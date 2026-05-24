@@ -184,17 +184,6 @@ module UI
       nil
     end
 
-    # :nodoc:
-    # Spec-only helper. Simulates the iOS class-init gap by forcing
-    # `@@screens` back to nil (the state the gap would produce if the
-    # class-var default initialiser never ran). Underscore-prefixed +
-    # `_for_specs!` suffix communicate that this is NOT part of the
-    # supported public API. Lives on `UI::App` rather than the spec
-    # file because `@@screens` is private to this class.
-    def self._strand_screens_registry_for_specs! : Nil
-      @@screens = nil
-      nil
-    end
 
     # When any class subclasses `UI::App`, install a generated
     # `bootstrap!` whose body explicitly calls every `_bootstrap_screen_*`

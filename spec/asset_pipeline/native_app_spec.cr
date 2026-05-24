@@ -1,6 +1,18 @@
 require "../spec_helper"
 require "../../src/asset_pipeline/native_app"
 
+# Spec-only reopening of UI::App. Provides a helper that strands the
+# private `@@screens` class-var back to nil so we can simulate the iOS
+# class-init gap failure mode and prove `bootstrap!` recovers from it.
+# Kept out of production code so the supported `UI::App` API surface
+# does not include a destructive registry-wipe method.
+abstract class UI::App
+  def self._strand_screens_registry_for_specs! : Nil
+    @@screens = nil
+    nil
+  end
+end
+
 # Stub screens + controllers used by the registration specs. The real
 # `UI::Controller` base class lands in `native_controller.cr` (iter 2);
 # the forward declaration in `native_app.cr` is enough for screen
