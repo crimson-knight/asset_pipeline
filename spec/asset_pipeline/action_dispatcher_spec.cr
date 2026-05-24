@@ -135,23 +135,33 @@ describe UI::ActionDispatcher do
   end
 
   describe "mount_screen" do
-    it "increments the mount token + allocates a new FormState" do
+    it "increments the mount token + allocates a new FormState (Route overload)" do
       d = build_dispatcher
-      d.mount_screen(:sign_in)
+      d.mount_screen(UI::NavigationCoordinator::Route.new(:sign_in))
       d.current_mount_token.should eq(1_i64)
       d.current_form_state.mount_token.should eq(1_i64)
 
-      d.mount_screen(:todos)
+      d.mount_screen(UI::NavigationCoordinator::Route.new(:todos))
       d.current_mount_token.should eq(2_i64)
       d.current_form_state.mount_token.should eq(2_i64)
     end
 
-    it "seeds the new FormState from coord.current.params" do
+    it "seeds the new FormState from the route's params" do
       d = build_dispatcher
-      # Push a route with params, then mount it
-      d.navigation.push(UI::NavigationCoordinator::Route.new(:todos, {:from => "spec"}))
-      d.mount_screen(:todos)
+      d.mount_screen(UI::NavigationCoordinator::Route.new(:todos, {:from => "spec"}))
       d.current_form_state["from"].should eq("spec")
+    end
+
+    it "Symbol overload asserts route_id matches coord.current.id" do
+      d = build_dispatcher
+      # coord.current is :sign_in
+      d.mount_screen(:sign_in)
+      d.current_mount_token.should eq(1_i64)
+
+      # Calling mount_screen with a mismatched id raises (caller bug).
+      expect_raises(Exception, /does not match coord.current.id/) do
+        d.mount_screen(:nonexistent)
+      end
     end
 
     it "updates UI::FormState.current + current_mount_token" do
@@ -184,7 +194,49 @@ describe UI::ActionDispatcher do
   end
 
   describe "translate_result" do
-    it "Navigate -> coord.push + mount_screen" do
+    it "Navigate -> mount_screen happens BEFORE coord.push notify (renderer sees new mount)" do
+      # Per Codex iter-4 finding #1: coord.push fires on_change
+      # synchronously. The renderer's wire-time read of
+      # UI::FormState.current MUST see the new mount's FormState, not
+      # the prior one. The dispatcher's invariant is "mount, then
+      # publish."
+      d = build_dispatcher
+      d.current_form_state.update("email", "seth@example.com")
+
+      observed_tokens = [] of Int64
+      observed_form_states_match = [] of Bool
+      d.navigation.on_change do |route|
+        observed_tokens << UI::FormState.current_mount_token
+        observed_form_states_match << (UI::FormState.current.try(&.mount_token) == d.current_mount_token)
+      end
+
+      d.dispatch(:submit)
+
+      # The on_change callback fired exactly once (for the Navigate push).
+      observed_tokens.size.should eq(1)
+      # And by the time it fired, FormState.current was ALREADY the new
+      # mount (token 1, not 0).
+      observed_tokens.first.should eq(1_i64)
+      observed_form_states_match.first.should be_true
+    end
+
+    it "Navigate also seeds the new FormState from route params" do
+      d = build_dispatcher
+      d.current_form_state.update("email", "seth@example.com")
+
+      observed_from = [] of String
+      d.navigation.on_change do |route|
+        # form_state for the new mount should already be seeded from
+        # the route's params (which we set in :submit -> :from=sign_in).
+        fs = UI::FormState.current
+        observed_from << (fs ? fs["from"] : "")
+      end
+
+      d.dispatch(:submit)
+      observed_from.first.should eq("sign_in")
+    end
+
+    it "Navigate updates coord state + session as expected" do
       d = build_dispatcher
       d.current_form_state.update("email", "seth@example.com")
       d.dispatch(:submit)
@@ -195,18 +247,26 @@ describe UI::ActionDispatcher do
       d.current_mount_token.should eq(1_i64)
     end
 
-    it "Pop -> coord.pop + mount_screen" do
+    it "Pop -> mount_screen + coord.pop (new mount visible to on_change)" do
       d = build_dispatcher
       d.navigation.push(UI::NavigationCoordinator::Route.new(:todos))
       d.mount_screen(:todos)
       before_token = d.current_mount_token
 
+      observed_tokens = [] of Int64
+      d.navigation.on_change do |route|
+        observed_tokens << UI::FormState.current_mount_token
+      end
+
       d.dispatch(:back)
       d.navigation.current.id.should eq(:sign_in)
       d.current_mount_token.should be > before_token
+
+      # Renderer's on_change subscriber saw the NEW mount token.
+      observed_tokens.first.should eq(d.current_mount_token)
     end
 
-    it "Pop at root is a no-op (no mount_screen, no error)" do
+    it "Pop at root is a no-op (no mount_screen, no error, no token bump)" do
       d = build_dispatcher
       before_token = d.current_mount_token
       d.dispatch(:back)
@@ -214,23 +274,38 @@ describe UI::ActionDispatcher do
       d.current_mount_token.should eq(before_token)
     end
 
-    it "ReplaceRoot -> coord.replace_root + mount_screen" do
+    it "Rerender -> mount_screen + coord.republish (token bump visible to on_change)" do
+      d = build_dispatcher
+      before_token = d.current_mount_token
+
+      observed_tokens = [] of Int64
+      d.navigation.on_change do |route|
+        observed_tokens << UI::FormState.current_mount_token
+      end
+
+      d.dispatch(:rerender)
+      d.current_mount_token.should be > before_token
+      observed_tokens.first.should eq(d.current_mount_token)
+    end
+
+    it "ReplaceRoot -> mount_screen + coord.replace_root (new mount visible to on_change)" do
       d = build_dispatcher
       d.navigation.push(UI::NavigationCoordinator::Route.new(:todos))
       d.mount_screen(:todos)
-      # Dispatch :reset on the current (todos) screen's controller — but
-      # :reset is defined on SignInController. Use Tuple action_ref instead:
+
+      observed_tokens = [] of Int64
+      observed_route_id = [] of Symbol
+      d.navigation.on_change do |route|
+        observed_tokens << UI::FormState.current_mount_token
+        observed_route_id << route.id
+      end
+
       d.dispatch({ActionDispatcherSpecSignInController, :reset})
 
       d.navigation.current.id.should eq(:sign_in)
       d.navigation.depth.should eq(1)
-    end
-
-    it "Rerender -> coord.republish + mount_screen (defensive token bump)" do
-      d = build_dispatcher
-      before_token = d.current_mount_token
-      d.dispatch(:rerender)
-      d.current_mount_token.should be > before_token
+      observed_tokens.first.should eq(d.current_mount_token)
+      observed_route_id.first.should eq(:sign_in)
     end
 
     it "RenderInline -> on_render_inline callback fires" do

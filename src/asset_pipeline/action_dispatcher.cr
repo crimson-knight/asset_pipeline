@@ -84,18 +84,38 @@ module UI
     # (e.g. a `:detail` route's `:id => "42"` ends up as
     # form_state["id"] == "42") — convenient for screens that need to
     # know which row they're showing without the controller pre-pop'ing.
-    def mount_screen(route_id : Symbol) : Nil
+    #
+    # The `route` argument is the route being mounted. The caller is
+    # responsible for ensuring that this matches what the coordinator
+    # will publish (the dispatcher's internal `translate_result` does
+    # mount-then-notify to guarantee the renderer's wire-time read of
+    # `UI::FormState.current` sees the NEW mount).
+    def mount_screen(route : UI::NavigationCoordinator::Route) : Nil
       @current_mount_token += 1
       @current_form_state = UI::FormState.new(mount_token: @current_mount_token)
 
-      # Seed from coord current-route params (string keys).
-      current_route = @navigation.current
-      current_route.params.each do |key, value|
+      # Seed from the route's params (string keys).
+      route.params.each do |key, value|
         @current_form_state.register(key.to_s, value)
       end
 
       sync_renderer_hooks
       nil
+    end
+
+    # Convenience overload that resolves the route from the coordinator
+    # (the route_id is asserted to match the coord's current route).
+    # Useful for `mount_screen(route_id)` callers that have already
+    # pushed the route onto the coord and want to mount based on it.
+    def mount_screen(route_id : Symbol) : Nil
+      current_route = @navigation.current
+      if current_route.id != route_id
+        raise "UI::ActionDispatcher#mount_screen(route_id): route_id " \
+              "#{route_id.inspect} does not match coord.current.id " \
+              "#{current_route.id.inspect}. Use mount_screen(route) overload " \
+              "to mount before push, or pass the live current id."
+      end
+      mount_screen(current_route)
     end
 
     # Resolve + dispatch an action_ref. Builds a fresh Native context
@@ -157,31 +177,40 @@ module UI
     end
 
     private def translate_result(result : UI::ActionResult) : Nil
+      # IMPORTANT ordering invariant (per Codex iter 4 finding #1):
+      # `NavigationCoordinator#push/#pop/#replace_root/#republish` notify
+      # subscribers SYNCHRONOUSLY inside the call. The renderer's
+      # `on_change` subscriber rebuilds the view tree during notify
+      # — and its wire-time read of `UI::FormState.current` MUST see the
+      # NEW mount's FormState, not the prior mount's. So we mount FIRST
+      # (which bumps token + swaps `UI::FormState.current`) and THEN
+      # invoke the coord mutation that fires the renderer.
       case result
       when UI::ActionResult::Navigate
-        @navigation.push(
-          UI::NavigationCoordinator::Route.new(result.route_id, result.params)
-        )
-        mount_screen(result.route_id)
+        next_route = UI::NavigationCoordinator::Route.new(result.route_id, result.params)
+        mount_screen(next_route)
+        @navigation.push(next_route)
       when UI::ActionResult::Pop
-        popped = @navigation.pop
-        if popped
-          mount_screen(@navigation.current.id)
+        # The route we are popping TO is the route below the top.
+        # Compute it before calling pop. If we're already at root,
+        # don't mount or pop — both no-op.
+        if @navigation.depth > 1
+          target_route = @navigation.routes[-2]
+          mount_screen(target_route)
+          @navigation.pop
         end
       when UI::ActionResult::Rerender
-        # `republish` re-fires the on_change callbacks with the same
-        # current route — the host rebuilds the view from the same
-        # state but the underlying mount is the same. We allocate a
-        # fresh FormState anyway so any in-flight stale-fire callbacks
-        # captured under the prior mount become no-ops (Codex finding
-        # #3 — defensive even on Rerender).
+        # Re-mount the SAME route so any in-flight stale-fire callbacks
+        # captured under the prior token become no-ops (defensive even
+        # on rerender). Then republish so the host rebuilds the view
+        # under the new mount.
+        current_route = @navigation.current
+        mount_screen(current_route)
         @navigation.republish
-        mount_screen(@navigation.current.id)
       when UI::ActionResult::ReplaceRoot
-        @navigation.replace_root(
-          UI::NavigationCoordinator::Route.new(result.route_id, result.params)
-        )
-        mount_screen(result.route_id)
+        next_route = UI::NavigationCoordinator::Route.new(result.route_id, result.params)
+        mount_screen(next_route)
+        @navigation.replace_root(next_route)
       when UI::ActionResult::RenderInline
         # Host-specific. Emit via on_render_inline if a callback is
         # bound; otherwise silently drop (the inline render result is
