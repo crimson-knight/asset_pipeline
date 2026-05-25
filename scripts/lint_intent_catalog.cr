@@ -27,6 +27,18 @@ require "file"
 
 CATALOG_PATH = "docs/initiative-cross-platform-ui/architecture/intent-catalog.md"
 
+# Phase 10-pre.2 markers: any row carrying the rename-audit marker is a violation
+# after 10-pre.2 closes. The marker was used by 10-pre.1 as a TODO bookmark for
+# the 10-pre.2 sweep; once 10-pre.2 lands, every such row must be reconciled.
+PENDING_RENAME_AUDIT_MARKER = "pending 10-pre.2 rename audit"
+
+# Phase 10-pre.2 Rule B: placeholder strings in a Class D `crystal_api_shape`
+# value are rejected (in addition to the literal sentinels already handled by
+# INVALID_LITERAL_VALUES). The list is intentionally small and high-signal —
+# bare ellipses inside a longer shape value are OK, only standalone occurrences
+# of these tokens are rejected.
+CLASS_D_SHAPE_PLACEHOLDERS = ["TBD", "...", "<TODO>"]
+
 REQUIRED_COMMON_FIELDS = [
   "intent_identifier_crystal",
   "primary_apple_name",
@@ -224,6 +236,26 @@ entries.each do |entry|
       if INVALID_LITERAL_VALUES.includes?(value)
         violations << "#{prefix} Class D #{field} has invalid sentinel value: #{value.inspect}"
       end
+    end
+
+    # 4a. Phase 10-pre.2 Rule B: Class D crystal_api_shape must be non-empty
+    # AND must not consist solely of a placeholder token. The substantive
+    # value carries the consumer-facing copy-paste example; placeholders
+    # defeat the whole purpose of Class D.
+    if shape = entry.fields["crystal_api_shape"]?
+      shape_value = shape.strip
+      if CLASS_D_SHAPE_PLACEHOLDERS.includes?(shape_value)
+        violations << "#{prefix} Class D crystal_api_shape is a placeholder token #{shape_value.inspect}; must contain a real Crystal expression"
+      end
+    end
+  end
+
+  # 4c. Phase 10-pre.2 Rule A: reject any field still carrying the rename-audit
+  # marker. After 10-pre.2 closes, the catalog must have no `# pending 10-pre.2
+  # rename audit` markers anywhere.
+  entry.fields.each do |field, value|
+    if value.includes?(PENDING_RENAME_AUDIT_MARKER)
+      violations << "#{prefix} field #{field} still carries `# #{PENDING_RENAME_AUDIT_MARKER}` marker; resolve and remove"
     end
   end
 
