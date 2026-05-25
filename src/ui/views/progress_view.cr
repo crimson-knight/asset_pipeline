@@ -1,3 +1,6 @@
+# Determinate progress bar / circle for known-duration work.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

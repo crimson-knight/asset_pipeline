@@ -1,3 +1,6 @@
+# Static image view loading from an asset or local URL.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

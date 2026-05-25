@@ -1,3 +1,6 @@
+# Collapsible disclosure section grouping related content under a toggle header.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

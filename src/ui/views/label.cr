@@ -1,3 +1,6 @@
+# Static text label with semantic typography and accessibility metadata.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 require "../theme"
 {% if flag?(:macos) || flag?(:ios) %}

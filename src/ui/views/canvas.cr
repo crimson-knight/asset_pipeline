@@ -1,3 +1,6 @@
+# Low-level drawing surface backed by the native platform 2D drawing API.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
@@ -29,6 +32,7 @@ module UI
     end_angle : Float64 = 0.0,
     color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
 
+  # Canvas — Low-level drawing surface backed by the native platform 2D drawing API.
   class Canvas < View
     property width : Float64 = 300.0
     property height : Float64 = 150.0

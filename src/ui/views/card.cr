@@ -1,6 +1,10 @@
+# Boxed surface that groups related content with optional title and elevation.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # Card — Boxed surface that groups related content with optional title and elevation.
   class Card < View
     property content : View? = nil
     property elevation : Float64 = 1.0

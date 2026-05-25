@@ -1,6 +1,10 @@
+# Read-only rich-text view supporting attributed runs and inline images.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # RichText — Read-only rich-text view supporting attributed runs and inline images.
   class RichText < View
     record Span,
       text : String = "",

@@ -1,3 +1,6 @@
+# Native chart view wrapping Swift Charts on Apple platforms and the equivalent on other targets.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
@@ -6,6 +9,7 @@ module UI
     value : Float64 = 0.0,
     color : Color? = nil
 
+  # ChartView — Native chart view wrapping Swift Charts on Apple platforms and the equivalent on other targets.
   class ChartView < View
     property chart_type : Symbol = :bar # :bar, :line, :pie
     property title : String = ""

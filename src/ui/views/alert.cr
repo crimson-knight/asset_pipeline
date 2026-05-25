@@ -1,3 +1,6 @@
+# Modal alert dialog used to confirm critical information or destructive actions.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

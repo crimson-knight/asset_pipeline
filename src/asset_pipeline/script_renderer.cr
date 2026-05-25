@@ -1,3 +1,6 @@
+# Renders `<script>` tags and import-map JSON for the FrontLoader.
+# Part of the asset_pipeline shard.
+
 require "./dependency_analyzer"
 
 module AssetPipeline

@@ -1,6 +1,10 @@
+# Native video playback view bridging to AVPlayerViewController on Apple platforms.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # VideoPlayer — Native video playback view bridging to AVPlayerViewController on Apple platforms.
   class VideoPlayer < View
     property url : String = ""
     property is_playing : Bool = false

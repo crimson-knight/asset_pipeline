@@ -1,3 +1,6 @@
+# Scrolling vertical list of rows with native idiomatic chrome.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

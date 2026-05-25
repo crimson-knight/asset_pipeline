@@ -1,3 +1,6 @@
+# Single-line text input that masks its contents (used for passwords).
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

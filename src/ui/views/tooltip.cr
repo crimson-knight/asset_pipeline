@@ -1,6 +1,10 @@
+# Hover / focus-driven tooltip overlay attached to a host view.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # Tooltip — Hover / focus-driven tooltip overlay attached to a host view.
   class Tooltip < View
     property text : String = ""
     property content : View? = nil

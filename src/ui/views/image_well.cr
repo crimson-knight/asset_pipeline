@@ -1,3 +1,6 @@
+# Drop-target image well control for accepting an image via drag-and-drop or click.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

@@ -1,3 +1,6 @@
+# Native share / activity sheet for exporting content to other apps.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

@@ -1,6 +1,10 @@
+# Single-line search input with platform-idiomatic clear and scope affordances.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # SearchField — Single-line search input with platform-idiomatic clear and scope affordances.
   class SearchField < View
     property text : String = ""
     property placeholder : String = "Search"

@@ -1,3 +1,6 @@
+# Vector path primitive driven by an explicit drawing command sequence.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
@@ -18,6 +21,7 @@ module UI
     control_x2 : Float64 = 0.0,
     control_y2 : Float64 = 0.0
 
+  # PathView — Vector path primitive driven by an explicit drawing command sequence.
   class PathView < View
     property segments : Array(PathSegment) = [] of PathSegment
     property fill_color : Color? = nil

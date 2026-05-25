@@ -1,6 +1,10 @@
+# Filled or stroked circular geometric primitive.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # Circle — Filled or stroked circular geometric primitive.
   class Circle < View
     property fill_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
     property stroke_color : Color? = nil

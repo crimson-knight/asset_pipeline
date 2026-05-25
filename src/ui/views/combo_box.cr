@@ -1,3 +1,6 @@
+# Text field with an associated drop-down list of suggestions.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

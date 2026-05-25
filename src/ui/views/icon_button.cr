@@ -1,3 +1,6 @@
+# Compact icon-only button used for toolbar and inline actions.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

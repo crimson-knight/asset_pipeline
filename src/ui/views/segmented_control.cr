@@ -1,6 +1,10 @@
+# Horizontal segmented selector for picking one option from a small set.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # SegmentedControl — Horizontal segmented selector for picking one option from a small set.
   class SegmentedControl < View
     property segments : Array(String) = [] of String
     property selected_index : Int32 = 0

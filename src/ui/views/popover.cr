@@ -1,6 +1,10 @@
+# Lightweight transient overlay anchored to a host view.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # Popover — Lightweight transient overlay anchored to a host view.
   class Popover < View
     property content : View? = nil
     property is_presented : Bool = false

@@ -1,3 +1,6 @@
+# Horizontal page-indicator dots commonly used under paged scroll views.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
