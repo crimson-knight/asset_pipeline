@@ -12,14 +12,14 @@ This matrix is small because Class A has 1 entry. As more Class A intents are id
 
 | Platform | Default widget | Status | Notes |
 |---|---|---|---|
-| iOS | `UI::SwipeActionRow` | ✅ shipped | `src/ui/views/swipe_action_row.cr`; UIKit renderer emits swipe gesture. |
-| iPadOS | `UI::SwipeActionRow` | ✅ shipped | Same as iOS. |
-| macOS | `UI::InlineActionRow` | ❌ missing | Currently `UI::SwipeActionRow` is used but AppKit renderer emits inline buttons anyway (`appkit_renderer.cr:3801`). The named widget should match the visual representation. **Backlog item B-001.** |
-| Android | `UI::SwipeActionRow` (stub) | ⚠️ partial | Android renderer is explicitly a stub at `android_renderer.cr:3148` — renders only the content view, defers proper `SwipeToDismissBox` integration to a future phase. **Backlog item B-035.** |
-| web_wide | `UI::InlineActionRow` | ❌ missing | Desktop web has no native swipe gesture. Inline trailing buttons (with hover affordance) are idiomatic. **Backlog item B-002.** |
-| web_narrow | `UI::SwipeActionRow` | ✅ shipped (web renderer) | Mobile web JS-driven swipe-reveal. |
+| iOS | `UI::SwipeActionRow` | ✅ shipped (trailing edge) | `src/ui/views/swipe_action_row.cr:19,64-65`; UIKit renderer emits swipe gesture via `make_swipe_reveal_row` (`src/ui/renderers/uikit_renderer.cr:3823-3870`). Trailing edge only; leading edge is a Phase 10B.1b target. |
+| iPadOS | `UI::SwipeActionRow` | ✅ shipped (trailing edge) | Same as iOS. |
+| macOS | `UI::InlineActionRow` | ❌ **MISSING — see backlog B-001 (P0)** | The named default class does not exist anywhere in `src/`. `UI::SwipeActionRow` is currently rendered as inline buttons on AppKit (`src/ui/renderers/appkit_renderer.cr:3801-3826`), but the named widget should match the visual representation. Phase 10B.1a delivers the class. |
+| Android | `UI::SwipeActionRow` (stub) | ⚠️ partial | Android renderer is explicitly a stub at `src/ui/renderers/android_renderer.cr:3148-3152` — renders only the content view, defers proper `SwipeToDismissBox` integration to Phase 10B.1c. **Backlog item B-035 (P1).** |
+| web_wide | `UI::InlineActionRow` | ❌ **MISSING — see backlog B-002 (P0)** | The named default class does not exist anywhere in `src/`. Desktop web has no native swipe gesture; inline trailing buttons (with hover affordance) are idiomatic. Phase 10B.1a delivers the class. |
+| web_narrow | `UI::SwipeActionRow` | ✅ shipped (web renderer) | Mobile web JS-driven swipe-reveal via `src/ui/renderers/web_renderer.cr:2887-2911`. Honors leading edge today (`web_renderer.cr:2909-2911`); native paths are trailing-only — see capability block trim in `intent-routing-candidates.md`. |
 
-**3/6 default translations shipped; 1/6 partial (Android stub); 2/6 missing.** See `intent-backlog.md` for B-001, B-002, B-035.
+**2/6 default translations shipped; 1/6 partial (Android stub); 2/6 MISSING (the Class A intent's named default class does not exist for macOS or web_wide); 1/6 shipped via SwipeActionRow as default.** See `intent-backlog.md` for B-001 (P0), B-002 (P0), B-035, B-036 (P0).
 
 ---
 
