@@ -1,5 +1,7 @@
 require "../spec_helper"
 require "../../src/asset_pipeline/native_app"
+require "../../src/asset_pipeline/native_context"
+require "../../src/asset_pipeline/native_controller"
 require "../../src/ui/intent"
 require "../../src/ui/intent_bootstrap"
 
