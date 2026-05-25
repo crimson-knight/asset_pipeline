@@ -31,8 +31,8 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **hig_page:** `gestures.md`, `accessibility.md`, `lists-and-tables.md`
 - **android_equivalent:** `SwipeToDismissBox` (Material 3); `swipeable` modifier (Compose Foundation)
 - **web_equivalent:** No native swipe affordance on desktop; mobile web uses CSS + JS gesture libraries OR inline buttons fallback
-- **coverage_today:** shipped on iOS/iPadOS/web (`UI::SwipeActionRow` at `src/ui/views/swipe_action_row.cr`); macOS uses AppKit inline buttons; Android renderer is a STUB (`android_renderer.cr:3148` — defers proper integration to a future phase)
-- **description:** Reveal trailing or leading actions on a list row via swipe gesture. HIG requires an alternate non-gesture path (button, custom action, keyboard shortcut) per `gestures.md:23,31` and `accessibility.md:134`. Materially different per platform: iOS swipe-reveal vs macOS inline trailing buttons (AppKit renders SwipeActionRow as inline buttons natively, per `appkit_renderer.cr:3801`).
+- **coverage_today:** partial on iOS/iPadOS/web (`src/ui/views/swipe_action_row.cr:64-65`; iOS swipe-reveal via `src/ui/renderers/uikit_renderer.cr:3823-3870`; web via `src/ui/renderers/web_renderer.cr:2887-2911`); macOS inline-button degradation (`src/ui/renderers/appkit_renderer.cr:3819-3826`); Android renderer is a STUB (`src/ui/renderers/android_renderer.cr:3148-3152` — defers proper integration to Phase 10B.1c) # caveats: trailing-edge only on iOS/macOS/Android; leading-edge honored only on web (`src/ui/renderers/web_renderer.cr:2909-2911`); destructive role honored on iOS + web; AppKit drops it. Capability block trimmed in 10-pre.1 — see intent-routing-candidates.md.
+- **description:** Reveal trailing or leading actions on a list row via swipe gesture. HIG requires an alternate non-gesture path (button, custom action, keyboard shortcut) per `gestures.md:23,31` and `accessibility.md:134`. Materially different per platform: iOS swipe-reveal vs macOS inline trailing buttons (AppKit renders SwipeActionRow as inline buttons natively, per `src/ui/renderers/appkit_renderer.cr:3801`).
 
 ---
 
@@ -50,7 +50,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **hig_page:** `accessibility.md`
 - **android_equivalent:** `contentDescription` (Compose) / `android:contentDescription` (Views)
 - **web_equivalent:** `aria-label` attribute
-- **coverage_today:** shipped (every `UI::View` exposes `accessibility_label : String`)
+- **coverage_today:** shipped (`src/ui/view.cr:132` — every `UI::View` exposes `property accessibility_label : String? = nil`)
 - **description:** Human-readable label exposed to assistive technologies (VoiceOver, TalkBack, screen readers). Required on every interactive widget per HIG accessibility guidance. Framework invariant: no interactive widget ships without a non-empty accessibility_label.
 
 ### `:accessibility_hint`
@@ -65,7 +65,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **hig_page:** `accessibility.md`
 - **android_equivalent:** Compose `Modifier.semantics { contentDescription = ... }` extended via `tooltip`
 - **web_equivalent:** `aria-describedby` referencing a description element
-- **coverage_today:** partial (some views; not universally exposed)
+- **coverage_today:** missing # was: partial (some views; not universally exposed). Phase 10-pre.1 audit: zero views expose any `accessibility_hint` property; scan of `src/ui/views/`, `src/ui/view.cr`, `src/ui/renderers/` returned no matches. Tracked by B-037 (10B.2a).
 - **description:** Brief description of what activating an element does. Distinct from label (which is the element's identity). HIG cautions against duplicating the label.
 
 ### `:accessibility_value`
@@ -80,7 +80,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **hig_page:** `accessibility.md`
 - **android_equivalent:** Compose `Modifier.semantics { stateDescription = ... }`
 - **web_equivalent:** `aria-valuenow` / `aria-valuetext`
-- **coverage_today:** partial
+- **coverage_today:** missing # was: partial. Phase 10-pre.1 audit: zero views expose any `accessibility_value` property; not present on `UI::View` base (`src/ui/view.cr`) and no per-view override. Tracked by B-037 (10B.2a).
 - **description:** Current value of a stateful control (slider position, toggle state, picker selection) for assistive tech.
 
 ### `:accessibility_action`
@@ -155,7 +155,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **hig_page:** `typography.md`, `accessibility.md`
 - **android_equivalent:** `sp` units; Material `Text` typography scaling
 - **web_equivalent:** `em` / `rem` units + browser zoom
-- **coverage_today:** partial (design tokens carry semantic font sizes; runtime scaling not yet wired)
+- **coverage_today:** partial (`src/ui/design_tokens.cr:537,643,1048` — `TypeScale` and `Tokens#type_scale` carry semantic font sizes; runtime scaling on `UI::View` not wired)
 - **description:** Scale text and layout in response to user's text-size preference. HIG: support at least the standard accessibility sizes.
 
 ### `:accessibility_increase_contrast`
@@ -200,7 +200,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **hig_page:** `voiceover.md`, `accessibility.md`
 - **android_equivalent:** TalkBack
 - **web_equivalent:** Screen reader compatibility via ARIA
-- **coverage_today:** partial (accessibility_label honors VoiceOver; full traits/value not exposed)
+- **coverage_today:** partial (`src/ui/view.cr:132` — `accessibility_label` carries through to VoiceOver; full traits/value/hint not exposed)
 - **description:** Full VoiceOver compatibility. Required: every interactive element discoverable, labeled, value-reported, action-equivalent for gestures.
 
 ### `:accessibility_switch_control`
@@ -251,7 +251,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **hig_page:** `accessibility.md:152`, `keyboards.md`
 - **android_equivalent:** `View.isFocusable`, `KeyEvent` handling
 - **web_equivalent:** `tabindex` attribute, native focus management
-- **coverage_today:** partial
+- **coverage_today:** partial (web `<button>` / `<input>` emitted by `src/ui/renderers/web_renderer.cr:159,294` are focusable by default; no Crystal-side helper on `UI::View` (`src/ui/view.cr:132` is the only AX-related property). Tracked by B-037 (10B.2a).)
 - **description:** Every interactive element reachable + activatable via keyboard alone. HIG calls this out explicitly: "Let people use the keyboard alone to navigate."
 
 ### `:accessibility_element`
@@ -338,7 +338,7 @@ Single Crystal API surface, different native implementation per platform. **NOT 
 - **hig_page:** `system-experiences.md` (sharing) — not the same as the broader "system experiences" collection
 - **android_equivalent:** `Intent.ACTION_SEND` + `Intent.createChooser`
 - **web_equivalent:** `navigator.share()` (Web Share API)
-- **coverage_today:** missing
+- **coverage_today:** shipped (`UI::ActivityView` wires native sharing through the renderers: iOS `src/ui/renderers/uikit_renderer.cr:3408` → `src/ui/native/objc_bridge.m:2216-2245` presenting `UIActivityViewController`; macOS `src/ui/renderers/appkit_renderer.cr:3417` → `src/ui/native/objc_bridge.m:2148-2214` presenting `NSSharingServicePicker`; Android `src/ui/renderers/android_renderer.cr:2871` → `src/ui/native/android_bridge.c:1045` invoking `Intent.ACTION_SEND` via `android_context_start_share_chooser`; web visitor renders inline share affordances) # 2026-05-25 correction: original audit false-negative (`phase-10-pre-catalog-freshness-2026-05-25.md` correction block); re-audit confirmed in `phase-10-pre-1-class-c-reaudit-2026-05-25.md`. B-026 closed by 10-pre.1.
 - **description:** Open the system share UI to send content to other apps/services. SwiftUI canonical name is `ShareLink`; Crystal identifier is the snake_case form.
 
 ### `:copyable`
@@ -479,7 +479,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `lists-and-tables.md`
 - **android_equivalent:** `LazyColumn` (Compose), `RecyclerView` (Views)
 - **web_equivalent:** `<ul>` / `<ol>` / `<table>` HTML
-- **coverage_today:** partial (`UI::List` exists via VStack composition; native List view not directly modeled)
+- **coverage_today:** partial (`src/ui/views/list_view.cr:5,13,37` — actual class is `UI::ListView` with `sections : Array(Section)`; renderers visit at `src/ui/renderers/uikit_renderer.cr:1064`, `src/ui/renderers/appkit_renderer.cr:1067`, `src/ui/renderers/web_renderer.cr:811`, `src/ui/renderers/android_renderer.cr:1243`) # pending 10-pre.2 rename audit: catalog `crystal_api_shape` cites `UI::List` + `<<` operator; actual class is `UI::ListView` with `sections:` keyword. Caveat: composition is "real native List visitor," not VStack fallback as previously stated.
 - **crystal_api_shape:** `list = UI::List.new; list << row_for(item) for each item`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Vertically-scrolling collection of rows with native row management (separators, selection, swipe actions, reorder support).
@@ -496,7 +496,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `lists-and-tables.md`
 - **android_equivalent:** Compose `HorizontalDivider`
 - **web_equivalent:** CSS `border-bottom` on list items
-- **coverage_today:** partial (via per-renderer CSS/native styling)
+- **coverage_today:** partial (`src/ui/views/list_view.cr:32` — `ListView#shows_separators : Bool` is list-level, not per-row; honored by `src/ui/renderers/uikit_renderer.cr:1235`, `src/ui/renderers/appkit_renderer.cr:1216-1229`) # pending 10-pre.2 rename audit: catalog `crystal_api_shape` shows per-row `:visible | :hidden`; actual surface is list-wide boolean. Per-row override missing.
 - **crystal_api_shape:** `row.list_row_separator = :visible | :hidden`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Show or hide the separator line between list rows.
@@ -632,7 +632,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `lists-and-tables.md`
 - **android_equivalent:** `SwipeToDismiss` callback
 - **web_equivalent:** Delete button per row
-- **coverage_today:** partial (via `UI::SwipeActionRow` trailing actions; standalone `on_delete` not exposed)
+- **coverage_today:** partial (via `UI::SwipeActionRow` trailing actions; `src/ui/views/swipe_action_row.cr:65` — `trailing_actions : Array(SwipeAction)`; standalone `on_delete` on `UI::ListView` not exposed)
 - **crystal_api_shape:** `list.on_delete = ->(indices : IndexSet) { state.delete_todos(indices) }`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Handler for row deletion. Independent of `:swipe_actions` — `:on_delete` is the deletion callback; the framework decides how to expose deletion (swipe-action on mobile, Delete key on macOS, button on web). Apps that want explicit affordance control use `:swipe_actions` with custom destructive actions instead.
@@ -649,7 +649,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `sheets.md`
 - **android_equivalent:** Material `ModalBottomSheet`
 - **web_equivalent:** Modal dialog overlay (CSS + JS)
-- **coverage_today:** shipped (`UI::Sheet`)
+- **coverage_today:** shipped (`src/ui/views/sheet.cr:7` — `class Sheet < View`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:1659`, `src/ui/renderers/appkit_renderer.cr:1638`, `src/ui/renderers/web_renderer.cr:1354`, `src/ui/renderers/android_renderer.cr:1840`) # pending 10-pre.2 rename audit: catalog `crystal_api_shape` cites `sheet.present(from: parent)`; actual `Sheet#initialize` (`src/ui/views/sheet.cr:51`) takes `(content, *, surface_style)` and `SheetPresenter#present` (`src/ui/views/sheet.cr:66`) takes no arguments.
 - **crystal_api_shape:** `sheet = UI::Sheet.new(content); sheet.present(from: parent)`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Present content as a modal sheet anchored to bottom (iOS) or floating (macOS).
@@ -683,7 +683,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `popovers.md`
 - **android_equivalent:** Material `DropdownMenu` (functional analog)
 - **web_equivalent:** CSS-positioned floating element OR HTML `<dialog popover>`
-- **coverage_today:** shipped (`UI::Popover`)
+- **coverage_today:** shipped (`src/ui/views/popover.cr:4` — `class Popover < View`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:1723`, `src/ui/renderers/appkit_renderer.cr:1697`, `src/ui/renderers/web_renderer.cr:1390`, `src/ui/renderers/android_renderer.cr:1907`)
 - **crystal_api_shape:** `popover = UI::Popover.new(content); popover.present(from: anchor_view)`
 - **platforms:** ipados, macos, web_wide; iOS+web_narrow fall back to sheet
 - **description:** Transient floating panel anchored to a source view. iPad/macOS only — on iPhone falls back to sheet.
@@ -717,7 +717,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `alerts.md`
 - **android_equivalent:** Material `AlertDialog`
 - **web_equivalent:** HTML `<dialog>` or framework modal
-- **coverage_today:** shipped (`UI::Alert`)
+- **coverage_today:** shipped (`src/ui/views/alert.cr:5` — `class Alert < View`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:951`, `src/ui/renderers/appkit_renderer.cr:970`, `src/ui/renderers/web_renderer.cr:713`, `src/ui/renderers/android_renderer.cr:1046`)
 - **crystal_api_shape:** `alert = UI::Alert.new(title: "Delete?", actions: [...]); alert.present`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Critical attention modal requiring user decision. Sparing use per HIG.
@@ -734,7 +734,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `action-sheets.md`
 - **android_equivalent:** Material `AlertDialog` with destructive style OR `ModalBottomSheet`
 - **web_equivalent:** Modal with action buttons
-- **coverage_today:** shipped (`UI::ConfirmationDialog`)
+- **coverage_today:** shipped (`src/ui/views/confirmation_dialog.cr:4` — `class ConfirmationDialog < View`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:1758`, `src/ui/renderers/appkit_renderer.cr:1733`, `src/ui/renderers/web_renderer.cr:1418`, `src/ui/renderers/android_renderer.cr:1984`)
 - **crystal_api_shape:** `dialog = UI::ConfirmationDialog.new(title: "Delete?", actions: [...]); dialog.present`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Sheet-style confirmation for destructive or significant actions. Distinct from alert: confirmation dialogs let the user choose among multiple paths; alerts inform.
@@ -802,7 +802,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `toolbars.md`
 - **android_equivalent:** Material `TopAppBar`
 - **web_equivalent:** Header HTML + buttons
-- **coverage_today:** shipped (`UI::Toolbar`)
+- **coverage_today:** shipped (`src/ui/views/toolbar.cr:4` — `class Toolbar < View`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:1628`, `src/ui/renderers/appkit_renderer.cr:1603`, `src/ui/renderers/web_renderer.cr:1324`, `src/ui/renderers/android_renderer.cr:1818`) # pending 10-pre.2 rename audit: catalog `crystal_api_shape` cites `UI::Toolbar.new(items: [...])`; actual `Toolbar#initialize` (`src/ui/views/toolbar.cr:20`) is `new(@title : String? = nil)` with items added via `add_item(id:, label:, icon:, &block)` (`src/ui/views/toolbar.cr:23`).
 - **crystal_api_shape:** `screen.toolbar = UI::Toolbar.new(items: [...])`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Persistent action surface bound to a screen.
@@ -819,7 +819,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `toolbars.md`
 - **android_equivalent:** Material `TopAppBar` action slot
 - **web_equivalent:** Button in header
-- **coverage_today:** shipped (`UI::ToolbarItem`)
+- **coverage_today:** shipped (`src/ui/views/toolbar.cr:5` — `record ToolbarItem` nested in `Toolbar`; populated via `Toolbar#add_item` at `src/ui/views/toolbar.cr:23,27`; rendered inside `visit(Toolbar)` paths cited above) # pending 10-pre.2 rename audit: catalog `crystal_api_shape` cites `toolbar << UI::ToolbarItem.new(label:, on_tap:)`; actual record field is `action : Proc(Nil)?` (no `on_tap`) and `Toolbar` has no `<<` operator.
 - **crystal_api_shape:** `toolbar << UI::ToolbarItem.new(label: "Save", on_tap: ->{...})`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Individual action within a toolbar.
@@ -853,7 +853,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `toolbars.md`
 - **android_equivalent:** —
 - **web_equivalent:** Layout via CSS
-- **coverage_today:** partial
+- **coverage_today:** missing # was: partial (Phase 10-pre.1 audit: `record ToolbarItem` in `src/ui/views/toolbar.cr:5-9` has no `placement` field; renderers do not honor semantic placement — only a single linear `items` array is emitted in `visit(UI::Toolbar)`).
 - **crystal_api_shape:** `item.placement = :navigation_bar_leading`
 - **platforms:** ios, ipados, macos
 - **description:** Semantic placement of a toolbar item. Renderers honor placement to map to the platform's idiomatic location.
@@ -955,7 +955,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `navigation-bars.md`
 - **android_equivalent:** Compose `Navigation` host
 - **web_equivalent:** Browser URL stack + framework router
-- **coverage_today:** shipped (`UI::NavigationStack` via `UI::NavigationCoordinator`)
+- **coverage_today:** shipped (`src/ui/views/navigation_stack.cr:10` — `class NavigationStack < View`; coordinator at `src/ui/navigation_coordinator.cr:30,38-39,59-67`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:779`, `src/ui/renderers/appkit_renderer.cr:800`, `src/ui/renderers/web_renderer.cr:530`, `src/ui/renderers/android_renderer.cr:946`)
 - **crystal_api_shape:** `coord = UI::NavigationCoordinator.new(initial_route); coord.push(...)`
 - **platforms:** ios, ipados, android, web_wide, web_narrow
 - **description:** Stack-based forward/back navigation (push/pop semantics).
@@ -972,7 +972,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `split-views.md`
 - **android_equivalent:** Custom two-pane layout (foldable)
 - **web_equivalent:** CSS grid sidebar + main
-- **coverage_today:** partial
+- **coverage_today:** partial (`src/ui/views/navigation_split_view.cr:4-10` — `class NavigationSplitView < View` with `sidebar`, `content`, `detail`, `sidebar_width`, `column_visibility`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:1576`, `src/ui/renderers/appkit_renderer.cr:1547`, `src/ui/renderers/web_renderer.cr:1274`, `src/ui/renderers/android_renderer.cr:1782`. Compact-collapse to stack not yet implemented at the renderer level.)
 - **crystal_api_shape:** `screen = UI::NavigationSplitView.new(sidebar:, detail:)`
 - **platforms:** ipados, macos, web_wide
 - **description:** Two- or three-pane navigation (sidebar + content + optional inspector). On compact platforms, collapses to a stack. **Why not Class A:** the framework already exposes `UI::NavigationStack` and `UI::NavigationSplitView` as separate widgets; authors pick which one based on their layout intent, and the compact-collapse is renderer-internal (the split-view widget itself doesn't change classes on iPhone — it collapses its panes). If a future phase determines authors need the framework to AUTO-PICK between Stack and SplitView per platform without naming the widget, that's a Class A candidate.
@@ -989,7 +989,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `navigation-bars.md`
 - **android_equivalent:** `NavController.navigate`
 - **web_equivalent:** `<a href="...">` link triggering router
-- **coverage_today:** partial (via `Voyager.dispatch(:open_X)` controller actions)
+- **coverage_today:** partial (`src/ui/views/navigation_link.cr:10-21` — `class NavigationLink < View` with `label`, `destination : View`, `icon`, `shows_disclosure`; route-driven `Voyager.dispatch(:open_X)` integration is implemented per-app, not on the link type itself)
 - **crystal_api_shape:** `link = UI::NavigationLink.new(label: "Settings", route_id: :settings)`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Tappable element that pushes onto the navigation stack.
@@ -1006,7 +1006,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `navigation-bars.md`
 - **android_equivalent:** `composable("route") { ... }` in Compose Navigation
 - **web_equivalent:** Router route definition
-- **coverage_today:** shipped (via `UI::App.screen` macro)
+- **coverage_today:** shipped (`src/asset_pipeline/native_app.cr:227` — `macro screen(route_id, controller = nil, screen_class = nil, web_controller = nil, web_path = nil, web_actions = nil)` registers route→destination on `UI::App` subclasses)
 - **crystal_api_shape:** `screen :foo, FooController`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Declarative mapping of a route value to a destination view. Powers value-driven navigation.
@@ -1023,7 +1023,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `navigation-bars.md`
 - **android_equivalent:** Compose `NavController.currentBackStack`
 - **web_equivalent:** Browser history API
-- **coverage_today:** shipped (via `UI::NavigationCoordinator.routes`)
+- **coverage_today:** shipped (`src/ui/navigation_coordinator.cr:38-39` — `getter routes : Array(Route)` on `UI::NavigationCoordinator`; mutators at `src/ui/navigation_coordinator.cr:59-67`)
 - **crystal_api_shape:** `coord.routes  # Array(Route)`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Programmatic representation of the navigation stack — read or rewrite to deep-link.
@@ -1040,7 +1040,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `pickers.md`
 - **android_equivalent:** Material `ExposedDropdownMenuBox`
 - **web_equivalent:** `<select>` element
-- **coverage_today:** partial
+- **coverage_today:** partial (`src/ui/views/picker.cr:16` — `property style : PickerStyle = PickerStyle::Menu`; enum `PickerStyle` defined at `src/ui/view.cr:66`; visitors at `src/ui/renderers/uikit_renderer.cr:1000`, `src/ui/renderers/appkit_renderer.cr:1003`, `src/ui/renderers/web_renderer.cr:748`, `src/ui/renderers/android_renderer.cr:1106-1108`) # pending 10-pre.2 rename audit: catalog `crystal_api_shape` says `picker_style = :menu`; actual property is `style : PickerStyle` (enum, not symbol).
 - **crystal_api_shape:** `picker.picker_style = :menu`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Picker as a dropdown menu. Compact; suitable for 3-10 options.
@@ -1057,7 +1057,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `segmented-controls.md`
 - **android_equivalent:** Material `SegmentedButton`
 - **web_equivalent:** Radio group styled as segments
-- **coverage_today:** shipped (`UI::SegmentedControl`)
+- **coverage_today:** shipped (`src/ui/views/segmented_control.cr:4-7` — `class SegmentedControl < View` with `segments`, `selected_index`, `on_change`; visitors at `src/ui/renderers/uikit_renderer.cr:1381`, `src/ui/renderers/appkit_renderer.cr:1323`, `src/ui/renderers/web_renderer.cr:924`, `src/ui/renderers/android_renderer.cr:1408`)
 - **crystal_api_shape:** `picker.picker_style = :segmented`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Picker as a horizontal segmented control. 2-5 options; mutually exclusive.
@@ -1125,7 +1125,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `date-pickers.md`
 - **android_equivalent:** Material `DatePicker` modal
 - **web_equivalent:** `<input type="date">`
-- **coverage_today:** partial (`UI::DatePicker`)
+- **coverage_today:** partial (`src/ui/views/date_picker.cr:4-10` — `class DatePicker < View` with `selected_date`, `mode`, `minimum_date`, `maximum_date`, `on_change`; visitors at `src/ui/renderers/uikit_renderer.cr:1408`, `src/ui/renderers/appkit_renderer.cr:1353`, `src/ui/renderers/web_renderer.cr:957`, `src/ui/renderers/android_renderer.cr:1456`. No `date_picker_style` switch — only one rendering mode per platform today.)
 - **crystal_api_shape:** `picker.date_picker_style = :compact`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Compact field showing the value; tap/click to open calendar popover.
@@ -1176,7 +1176,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `pull-down-buttons.md`, `menus.md`
 - **android_equivalent:** Material `DropdownMenu`
 - **web_equivalent:** Custom dropdown OR HTML `<menu>` element
-- **coverage_today:** shipped (`UI::MenuButton`)
+- **coverage_today:** shipped (`src/ui/views/menu_button.cr:22-53` — `class MenuButton < View` with `label`, `icon`, `items : Array(MenuItem)`, `is_pull_down`, `button_style`; `add_item(label:, icon:, is_destructive:, &block)` API; visitors at `src/ui/renderers/uikit_renderer.cr:2122`, `src/ui/renderers/appkit_renderer.cr:2133`, `src/ui/renderers/web_renderer.cr:1680`, `src/ui/renderers/android_renderer.cr:2250`) # pending 10-pre.2 rename audit: catalog claims `UI::Menu` (with `<<` operator); actual class is `UI::MenuButton` with `add_item` factory.
 - **crystal_api_shape:** `menu = UI::Menu.new(label: "More") << ...`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Anchored dropdown menu of actions, usually triggered by a button.
@@ -1193,7 +1193,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `menus.md`
 - **android_equivalent:** Compose `DropdownMenu`
 - **web_equivalent:** Custom dropdown menu
-- **coverage_today:** partial (used internally by `UI::MenuButton`)
+- **coverage_today:** partial (`src/ui/views/menu_button.cr:23-35` — `record MenuItem` nested in `UI::MenuButton`; consumed inside the `MenuButton` visitors cited above. No top-level `UI::UIMenu` class — items live on the button.)
 - **crystal_api_shape:** `menu = UI::UIMenu.new(title: "Actions", children: [ui_action1, ui_action2])`
 - **platforms:** ios, ipados
 - **description:** UIKit's first-class menu type. Composed of `UIAction`s. Often constructed for context menus and button-attached menus.
@@ -1210,7 +1210,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `menus.md`
 - **android_equivalent:** Compose `DropdownMenuItem`
 - **web_equivalent:** `<button>` inside menu
-- **coverage_today:** partial
+- **coverage_today:** partial (`src/ui/views/menu_button.cr:23-35` — `MenuItem` carries `label`, `icon`, `is_destructive`, `action : Proc(Nil)?`; analogous to UIAction but scoped to MenuButton. No standalone `UI::UIAction` class.)
 - **crystal_api_shape:** `action = UI::UIAction.new(title: "Delete", handler: ->{...})`
 - **platforms:** ios, ipados
 - **description:** UIKit's first-class menu item. Encodes title, image, attributes (destructive, hidden, disabled), and handler.
@@ -1227,7 +1227,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `menus.md`
 - **android_equivalent:** Compose `combinedClickable(onLongClick:)` opening `DropdownMenu`
 - **web_equivalent:** `contextmenu` event + custom menu
-- **coverage_today:** shipped (`UI::ContextMenu` + `UI::ContextMenuWithWebFallback`)
+- **coverage_today:** shipped (`src/ui/views/context_menu.cr:10` — `class ContextMenu < View` (iOS-gated); `src/ui/views/context_menu_with_web_fallback.cr:15` — cross-platform wrapper; visitors at `src/ui/renderers/appkit_renderer.cr:2164,3782`, `src/ui/renderers/web_renderer.cr:1720,1737`, `src/ui/renderers/android_renderer.cr:2263`) # pending 10-pre.2 rename audit: catalog `crystal_api_shape` cites `UI::ContextMenu.new(items:)`; actual `ContextMenu#initialize` takes no args, items added via `add_item(label:, icon:, is_destructive:, is_disabled:, &block)` (`src/ui/views/context_menu.cr:28`).
 - **crystal_api_shape:** `view.context_menu = UI::ContextMenu.new(items: [...])`
 - **platforms:** ios (long-press), ipados (long-press + pointer right-click), macos (right-click), android (long-press), web_wide (right-click), web_narrow (long-press)
 - **description:** Long-press / right-click action palette on an element. Triggered by the platform's idiomatic gesture.
@@ -1465,7 +1465,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `gestures.md`
 - **android_equivalent:** `Modifier.clickable`
 - **web_equivalent:** `click` event
-- **coverage_today:** shipped (`view.on_tap = ...`)
+- **coverage_today:** partial (`on_tap` exists on `src/ui/views/button.cr:93`, `src/ui/views/icon_button.cr:22`, `src/ui/views/link_button.cr:8`, and on `SwipeAction` at `src/ui/views/swipe_action_row.cr:23`; **NOT** on base `UI::View` (`src/ui/view.cr` carries no `on_tap` property)) # caveats: framework-wide tap-gesture surface is missing — clicks must be wired to a button-family widget today. Tracked by B-037-adjacent work; full surface deferred to 10B.
 - **crystal_api_shape:** `view.on_tap = -> { ... }`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Tap or click handler.
