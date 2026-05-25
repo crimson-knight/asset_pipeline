@@ -46,6 +46,12 @@ require "./controllers/todos_controller"
 require "./controllers/todo_editor_controller"
 require "./controllers/settings_controller"
 
+# Phase 8D.3b — sample-local capture-scenario registry. No-op unless
+# `VOYAGER_CAPTURE_SCENARIO` is set; the iOS bridge and macOS host both
+# read that env var after constructing the dispatcher and call
+# `Voyager::CaptureScenarios.apply` to walk into the target visual state.
+require "./capture_scenarios"
+
 module Voyager
   SLUGS = ["voyager-sign-in", "voyager-todos", "voyager-todo-editor", "voyager-settings"]
 

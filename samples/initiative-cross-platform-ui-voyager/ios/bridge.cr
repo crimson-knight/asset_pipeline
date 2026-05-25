@@ -148,6 +148,16 @@
       @@flash = result.flash
       @@dispatcher = result.dispatcher
 
+      # Phase 8D.3b — capture-scenario hook. When the host launches with
+      # VOYAGER_CAPTURE_SCENARIO set (XCUITest's launchEnvironment per the
+      # capture-matrix test method), walk state + coord + dispatcher into
+      # the target visual end state BEFORE the slug buf gets seeded
+      # (below) so voyager_current_slug reflects the scenario-walked
+      # route.id. No-op when the env var is unset.
+      if scenario = ENV["VOYAGER_CAPTURE_SCENARIO"]?
+        Voyager::CaptureScenarios.apply(scenario, result.state, result.coord, result.dispatcher)
+      end
+
       # The reactive substrate: when any dispatcher-routed Navigate /
       # Pop / ReplaceRoot fires `translate_result`, the dispatcher
       # calls mount_screen FIRST (swapping FormState.current under the

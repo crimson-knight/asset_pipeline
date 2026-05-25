@@ -158,6 +158,15 @@ require "../../../src/ui/renderers/appkit_renderer"
       # dispatcher.
       Voyager.dispatcher = dispatcher
 
+      # Phase 8D.3b — capture-scenario hook. When the host launches with
+      # VOYAGER_CAPTURE_SCENARIO set (driven by bin/capture_voyager_macos.sh),
+      # walk state + coord + dispatcher into the target visual end state
+      # BEFORE rebuild_for(coord.current) is called (either the capture
+      # branch below or the interactive branch). No-op when unset.
+      if scenario = ENV["VOYAGER_CAPTURE_SCENARIO"]?
+        Voyager::CaptureScenarios.apply(scenario, Voyager.state, coord, dispatcher)
+      end
+
       screenshot_path = ENV["VOYAGER_SCREENSHOT_PATH"]? || ENV["HIG_SCREENSHOT_PATH"]?
       if screenshot_path
         # Offscreen capture path — capture window is a Void** pair.

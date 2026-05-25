@@ -220,6 +220,110 @@ final class VoyagerVisualTests: XCTestCase {
         }
     }
 
+    /// Phase 8D.3b — 14-row capture matrix.
+    ///
+    /// Loops through 14 scenarios x 2 appearances = 28 PNGs. For each
+    /// iteration: fresh app launch with `VOYAGER_CAPTURE_SCENARIO` +
+    /// `VOYAGER_ROOT_SLUG` + `VOYAGER_APPEARANCE` in `launchEnvironment`
+    /// (the proven-working pattern from prior tests), poll for a
+    /// scenario-specific AX element via `waitForExistence`, capture
+    /// `XCUIScreen.main.screenshot()`, and write the PNG to
+    /// `VOYAGER_CAPTURE_EVIDENCE_DIR`.
+    ///
+    /// The PNG paths follow `voyager-<scenario>-<appearance>.png`. The
+    /// test asserts each PNG is > 10KB so silent empty-write failures
+    /// don't pass.
+    ///
+    /// Row 07 iOS caveat (Codex HIGH 3): `UI::SwipeActionRow` has no
+    /// force-revealed setter. iOS row-07 captures the row AT REST. The
+    /// README documents the limitation. Hand-test gate verifies the
+    /// live swipe gesture.
+    func testCaptureMatrix() throws {
+        let evidenceDir = ProcessInfo.processInfo.environment["VOYAGER_CAPTURE_EVIDENCE_DIR"]
+            ?? FileManager.default.currentDirectoryPath + "/voyager-captures"
+        do {
+            try FileManager.default.createDirectory(
+                atPath: evidenceDir,
+                withIntermediateDirectories: true
+            )
+        } catch {
+            XCTFail("Failed to create evidence dir \(evidenceDir): \(error)")
+            return
+        }
+
+        // (scenario id, launch slug, AX hint to poll for after launch).
+        // Slugs MUST match Voyager::CaptureScenarios::SCENARIO_TO_SLUG
+        // — Codex BLOCKER 1: launch slug must equal scenario's final
+        // coord.current.id so depth-1 resync is a no-op.
+        let scenarios: [(id: String, slug: String, axHint: String)] = [
+            ("row-01-sign-in",               "voyager-sign-in",     "Sign in"),
+            ("row-02-todos-launch",          "voyager-todos",       "voyager-todos-add"),
+            ("row-03-editor-empty",          "voyager-todo-editor", "voyager-todo-editor-save"),
+            ("row-04-editor-prefilled",      "voyager-todo-editor", "voyager-todo-editor-save"),
+            ("row-05-todos-after-save",      "voyager-todos",       "voyager-todos-add"),
+            ("row-06-todos-row-completed",   "voyager-todos",       "voyager-todos-add"),
+            ("row-07-todos-swipe-row",       "voyager-todos",       "voyager-todos-add"),
+            ("row-08-editor-edit-prefilled", "voyager-todo-editor", "voyager-todo-editor-save"),
+            ("row-09-todos-after-edit",      "voyager-todos",       "voyager-todos-add"),
+            ("row-10-todos-after-delete",    "voyager-todos",       "voyager-todos-add"),
+            ("row-11-settings-default",      "voyager-settings",    "voyager-settings-hide-completed"),
+            ("row-12-settings-toggled",      "voyager-settings",    "voyager-settings-hide-completed"),
+            ("row-13-todos-filtered",        "voyager-todos",       "voyager-todos-add"),
+            ("row-14-todos-unfiltered",      "voyager-todos",       "voyager-todos-add"),
+        ]
+
+        for scenario in scenarios {
+            for appearance in ["light", "dark"] {
+                let app = XCUIApplication()
+                app.launchEnvironment = [
+                    "VOYAGER_CAPTURE_SCENARIO": scenario.id,
+                    "VOYAGER_ROOT_SLUG":        scenario.slug,
+                    "VOYAGER_APPEARANCE":       appearance,
+                    "HIG_APPEARANCE":           appearance,
+                ]
+                app.launch()
+
+                // Poll for either an AX-identifier match OR a button-label
+                // match. Some hints are test_ids (which surface as AX
+                // identifiers); others are user-facing labels.
+                let identifierMatch = app.descendants(matching: .any)[scenario.axHint]
+                let buttonMatch     = app.buttons[scenario.axHint]
+                let found = identifierMatch.waitForExistence(timeout: 12)
+                         || buttonMatch.waitForExistence(timeout: 2)
+                XCTAssertTrue(
+                    found,
+                    "Scenario \(scenario.id) (\(appearance)) failed to reach " +
+                    "AX hint '\(scenario.axHint)' within 12s. Crystal-side scenario " +
+                    "walk may have left coord at a different route than the launch slug."
+                )
+
+                // Brief settle so any reactive button-disabled updates land.
+                Thread.sleep(forTimeInterval: 0.6)
+
+                let snapshot = XCUIScreen.main.screenshot()
+                let pngData = snapshot.pngRepresentation
+                let outPath = "\(evidenceDir)/voyager-\(scenario.id)-\(appearance).png"
+                let outUrl  = URL(fileURLWithPath: outPath)
+                do {
+                    try pngData.write(to: outUrl, options: .atomic)
+                } catch {
+                    XCTFail("Failed to write PNG \(outPath): \(error)")
+                }
+
+                // File-size sanity (PNG should easily clear 10KB on iPhone screen).
+                let attrs = (try? FileManager.default.attributesOfItem(atPath: outPath)) ?? [:]
+                let size = (attrs[.size] as? NSNumber)?.intValue ?? 0
+                XCTAssertGreaterThan(
+                    size, 10_000,
+                    "PNG for \(scenario.id) (\(appearance)) is \(size) bytes " +
+                    "(<10KB). Silent empty-write failure?"
+                )
+
+                app.terminate()
+            }
+        }
+    }
+
     private func attachScreenshot(name: String) {
         let snapshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: snapshot)
