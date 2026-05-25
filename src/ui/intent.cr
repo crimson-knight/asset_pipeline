@@ -45,7 +45,7 @@ module UI
     def self.resolve(
       intent_id : Symbol,
       context : UI::ScreenContext,
-      screen_class : UI::Screen.class? = nil,
+      screen_class : (UI::Screen.class)? = nil,
     ) : UI::View.class
       widget = UI::Intent::Registry.resolve_for(intent_id, context, screen_class: screen_class)
       return widget if widget

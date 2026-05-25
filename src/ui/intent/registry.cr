@@ -121,7 +121,7 @@ module UI
 
       # Lookup the default widget for the (intent_id, platform) pair.
       # Returns `nil` if no default is registered.
-      def self.default_for(intent_id : Symbol, platform : Symbol) : UI::View.class?
+      def self.default_for(intent_id : Symbol, platform : Symbol) : (UI::View.class)?
         @@defaults[{intent_id, platform}]?
       end
 
@@ -279,8 +279,8 @@ module UI
       def self.resolve_for(
         intent_id : Symbol,
         context : UI::ScreenContext,
-        screen_class : UI::Screen.class? = nil,
-      ) : UI::View.class?
+        screen_class : (UI::Screen.class)? = nil,
+      ) : (UI::View.class)?
         if screen_class && (hit = @@screen_overrides[{screen_class, intent_id}]?)
           return hit
         end
