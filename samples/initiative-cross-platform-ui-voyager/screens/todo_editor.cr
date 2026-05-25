@@ -112,13 +112,29 @@ module Voyager
       save.test_id = "voyager-todo-editor-save"
       save.minimum_width = half_button_width
       save.maximum_width = half_button_width
-      # Phase 8D.1: disabled-while-blank check now consults the seeded
-      # title value. The renderer-wired live disable update is a
-      # follow-up — Phase 8B's reactive Button.disabled path is what
-      # Phase 03's reactive mutators target, not this controller's
-      # primary scope.
+      # Initial disabled state mirrors the seeded title's blank-ness;
+      # the live update path is wired by the on_change closure below.
       save.disabled = seed_title.strip.empty?
       save.on_tap = -> { Voyager.dispatch(:save) }
+
+      # Phase 8D.3a — Save-enabled-on-type wiring.
+      #
+      # View-local affordance: `save.disabled` mirrors title-emptiness
+      # on every keystroke. `UI::Button#disabled=` is reactive (see
+      # `src/ui/views/button.cr` — propagates through SwiftKit's
+      # `apsk_button_set_disabled` so SwiftUI re-renders without a tree
+      # rebuild), so a closure assignment is sufficient.
+      #
+      # Composition with the renderer's FormState hook: the UIKit /
+      # AppKit renderer's `visit(UI::TextField)` wraps this proc via
+      # `UI::FormStateRendererHook.wrap_text_handler`, which runs
+      # `captured_fs.update("title", new_value)` FIRST (domain state),
+      # then invokes this closure (view-local affordance). Both writes
+      # happen on every keystroke. App/domain state still flows through
+      # FormState; this closure only governs the visible affordance.
+      title_field.on_change = ->(value : String) {
+        save.disabled = value.strip.empty?
+      }
 
       actions << cancel.as(UI::View)
       actions << save.as(UI::View)

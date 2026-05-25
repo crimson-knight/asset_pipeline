@@ -28,10 +28,10 @@ module Voyager
       note = context.form_state.values["note"]? || ""
       completed = context.form_state.values["completed"]? == "true"
 
-      # Save with blank title is a controller-level no-op. The view
-      # disables the Save button while blank as the primary UX, but a
-      # renderer that ignores the disabled flag would still post a
-      # dispatch — we defensively pop without mutating.
+      # Defensive fallback: with Phase 8D.3a's title-field on_change closure,
+      # save.disabled is true while title is blank, so this branch is
+      # unreachable from the UI. Kept for safety against renderer
+      # implementations that ignore disabled state.
       if title.empty?
         return UI::ActionResult::Pop.new
       end

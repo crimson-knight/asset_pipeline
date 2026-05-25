@@ -1,8 +1,6 @@
-# Phase 6.10 + Phase 8D.1 — Voyager demo app.
+# Voyager demo app — unified UI::App / UI::Controller / UI::ActionDispatcher.
 #
-# A navigable Todos CRUD demo, refactored in Phase 8D.1 to use the
-# unified Phase 8B UI::App + UI::Controller + UI::ActionDispatcher
-# architecture. The screens are now `UI::Screen` subclasses with
+# A navigable Todos CRUD demo. Screens are `UI::Screen` subclasses with
 # `build(ctx : UI::ScreenContext) : UI::View`; their callbacks dispatch
 # action refs through `Voyager.dispatch(:action_name, action_params)`,
 # which routes to the controller layer (one controller per route).
@@ -13,15 +11,21 @@
 #   :todo_editor   -> TodoEditorScreen / TodoEditorController
 #   :settings      -> SettingsScreen   / SettingsController
 #
-# Phase 8D.1 keeps `Voyager.build_route(state, coord, route)` alive as
-# a temporary COMPATIBILITY SHIM so iOS bridge.cr + web/static_site.cr
-# continue to compile + run unchanged. Phase 8D.2 will migrate iOS to
-# the dispatcher and may drop the shim; Phase 8D.3 evaluates the web
-# dependency. The shim constructs a minimal ScreenContext::Native (no
-# dispatcher attached) so user-intent callbacks become no-ops in the
-# shim path — that matches today's web (static HTML + JS) and iOS
-# (Swift-driven re-render via voyager_render) flows, which do NOT
-# expect Crystal callbacks to do navigation work.
+# Native targets (macOS + iOS) drive screens through the dispatcher;
+# the iOS bridge migrated in Phase 8D.2 and now dispatches actions
+# through `UI::ActionDispatcher` (see `ios/bridge.cr`).
+#
+# `Voyager.build_route(state, coord, route)` survives as the permanent
+# entry point for the static-site web target (`web/static_site.cr`) —
+# the only caller post-8D.2. See
+# `docs/initiative-cross-platform-ui/architecture/web-target-position.md`
+# for the architectural rationale (Voyager web is deliberately
+# static-site, not a full-server dispatcher path; the Amber spike in
+# `samples/phase-08-amber-spike/` proves the dispatcher web target on
+# a different sample). The shim constructs a minimal
+# ScreenContext::Native (no dispatcher attached) so user-intent
+# callbacks become no-ops on the static-site path — static HTML + JS
+# handles navigation client-side.
 
 require "../../src/ui"
 require "../../src/asset_pipeline/native_app"
@@ -45,17 +49,16 @@ require "./controllers/settings_controller"
 module Voyager
   SLUGS = ["voyager-sign-in", "voyager-todos", "voyager-todo-editor", "voyager-settings"]
 
-  # Phase 8D.1 — host-set dispatcher.
+  # Host-set dispatcher.
   #
-  # macOS host (and 8D.2 iOS host) constructs a `UI::ActionDispatcher`
-  # and assigns it here so screen callback closures can route action
-  # refs through `Voyager.dispatch(:submit)` /
+  # macOS and iOS hosts each construct a `UI::ActionDispatcher` and
+  # assign it here so screen callback closures can route action refs
+  # through `Voyager.dispatch(:submit)` /
   # `Voyager.dispatch(:edit_row, {"todo_id" => "5"})` without each
-  # screen capturing a dispatcher reference. The compat shim
-  # (`Voyager.build_route`) leaves this nil — the static-site web path
-  # and iOS render-on-demand path don't dispatch; user-intent callbacks
-  # on those targets become no-ops (web uses JS for nav; iOS bridge is
-  # migrated in Phase 8D.2).
+  # screen capturing a dispatcher reference. The static-site web entry
+  # point (`Voyager.build_route`) leaves this nil — the static HTML +
+  # JS path handles navigation client-side, so user-intent callbacks
+  # become no-ops on that target.
   #
   # iOS class-init gap (see `project_crystal_ios_class_init_gap` memory):
   # deliberately a nilable default — no class-var initializer side
@@ -71,8 +74,9 @@ module Voyager
   end
 
   # Convenience: dispatch a Symbol action_ref through the host's
-  # ActionDispatcher. No-op when no dispatcher is set (static-site web +
-  # current iOS bridge). Per the brief's action-ref convention, the
+  # ActionDispatcher. No-op when no dispatcher is set (the static-site
+  # web path leaves the dispatcher nil; native targets assign one
+  # during host bootstrap). Per the brief's action-ref convention, the
   # Symbol form runs the action on the CURRENTLY MOUNTED route's
   # registered controller; the optional action_params hash forwards to
   # ctx.action_params.
@@ -83,24 +87,23 @@ module Voyager
     nil
   end
 
-  # Phase 8D.1 COMPATIBILITY SHIM.
+  # Static-site web entry point.
   #
-  # iOS bridge.cr + web/static_site.cr still call this. The shim
-  # constructs a minimal ScreenContext::Native (no dispatcher
+  # Permanent entry point for the static-site web target
+  # (`web/static_site.cr`) — the only caller post-8D.2. iOS migrated
+  # to the dispatcher path in Phase 8D.2 and no longer calls this.
+  # See
+  # `docs/initiative-cross-platform-ui/architecture/web-target-position.md`
+  # for the architectural rationale.
+  #
+  # Constructs a minimal ScreenContext::Native (no dispatcher
   # attached) so the screen's `build` method has the abstract
-  # `ScreenContext` parameter shape it now expects, and renders the
+  # `ScreenContext` parameter shape it expects, and renders the
   # screen via its registered class. Sets `Voyager.state` to the
   # passed-in state for the duration so screens reading
-  # `Voyager.state` get the caller's instance.
-  #
-  # NOTE on brief signature: the brief shows
-  # `UI::ScreenContext::Native.new(params:, action_params:, form_state:,
-  # session:, flash:)` but the actual `ScreenContext::Native#initialize`
-  # signature is `(form_state, session, flash, design_tokens,
-  # navigation, action_params)` — no `params:` kwarg (params is
-  # derived from `form_state.to_h`), and no `route_id` on FormState.
-  # Documented in the Phase 8D.1 implementer report as a brief
-  # inaccuracy (NOT a Phase 8B API gap).
+  # `Voyager.state` get the caller's instance. User-intent
+  # callbacks become no-ops on this path — static HTML + JS handles
+  # navigation client-side.
   def self.build_route(state : State, coord : UI::NavigationCoordinator, route : UI::NavigationCoordinator::Route) : UI::View
     # Make the per-call state visible to screens that read
     # `Voyager.state`.
@@ -159,9 +162,9 @@ module Voyager
   end
 end
 
-# Phase 8D.1 — UI::App declaration. Routes are registered via the
-# `screen` macro; bootstrap! re-runs the registrations defensively (iOS
-# class-init gap recovery hatch — see src/asset_pipeline/native_app.cr).
+# UI::App declaration. Routes are registered via the `screen` macro;
+# bootstrap! re-runs the registrations defensively (iOS class-init
+# gap recovery hatch — see src/asset_pipeline/native_app.cr).
 class VoyagerApp < UI::App
   initial_route :sign_in
   screen :sign_in,     Voyager::SignInController
