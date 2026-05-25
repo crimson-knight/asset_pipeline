@@ -39,6 +39,7 @@
 {% if flag?(:ios) %}
 
   require "../app"
+  require "../host_bootstrap"
   require "../../../src/ui/renderers/uikit_renderer"
   require "../../../src/ui/probes"
 
@@ -58,7 +59,14 @@
     @@initialized = false
     @@state : Voyager::State? = nil
     @@coord : UI::NavigationCoordinator? = nil
-    @@renderer : UI::UIKit::Renderer? = nil
+    # Phase 8D.2 — new collaborators owned by the dispatcher substrate.
+    # `Voyager::HostBootstrap.build` constructs all four and we pin them
+    # here so the GC doesn't collect them between Swift round-trips.
+    # All declared as nilable with `= nil` defaults: iOS class-init gap
+    # discipline (no initializer side effects).
+    @@session : UI::Session::InProcess? = nil
+    @@flash : UI::Flash::InProcess? = nil
+    @@dispatcher : UI::ActionDispatcher? = nil
     @@last_native : UI::NativeView? = nil
     @@current_slug_buf : Bytes? = nil
     @@swift_route_changed_cb : (LibC::Char* -> Void)? = nil
@@ -109,39 +117,51 @@
       UI::Probes::FormRowProbe.reset
       UI::Probes::RuntimeOverrideProbe.reset
 
-      # Phase 8D.1 — VoyagerApp.bootstrap! re-registers all 4 screen
-      # registrations through compile-time-emitted class methods. The
-      # `Voyager.build_route` compat shim looks up registrations via
-      # `VoyagerApp.registration_for(route.id)`; without this call, the
-      # iOS class-init gap could leave `@@screens` stranded as nil and
-      # the very first render_slug call would raise UnknownRouteError.
-      # See src/asset_pipeline/native_app.cr:33-37 for the gap rationale
-      # (this is the bridge entry path the framework docs reference).
-      # NOTE: this is the minimum-required-correctness fix for the
-      # Phase 8D.1 compat shim path. Full iOS migration to the
-      # ActionDispatcher is Phase 8D.2 scope.
-      VoyagerApp.bootstrap!
-
       # Allocate the slug buffer here (NOT as a class-var default) so the
       # iOS class-init gap can't strand it as nil. 64 bytes accommodates
       # the longest known Voyager slug (~"voyager-todo-editor" = 19) with
       # huge headroom for future routes.
       @@current_slug_buf = Bytes.new(64)
 
-      state = Voyager::State.new
-      coord = UI::NavigationCoordinator.new(
-        UI::NavigationCoordinator::Route.new(:sign_in)
-      )
-      renderer = UI::UIKit::Renderer.new
-      # Phase 6.11 Item 1 — brand override removed. Renderer carries
-      # `UI::DesignTokens::Tokens.default` already; no per-host override.
+      # Phase 8D.2 — call the canonical host-bootstrap helper. This
+      # internally:
+      #   * calls VoyagerApp.bootstrap! (registers all 4 screens —
+      #     mandatory before any dispatcher action lookup; the iOS
+      #     class-init gap means the compile-time class-var assignment
+      #     in src/asset_pipeline/native_app.cr is skipped, so this
+      #     re-runs the registrations defensively).
+      #   * constructs Voyager::State + NavigationCoordinator (root
+      #     :sign_in) + InProcess Session + InProcess Flash + a
+      #     UI::ActionDispatcher.
+      #   * calls dispatcher.mount_screen(coord.current) — bumps the
+      #     mount_token and seeds FormState BEFORE any render so the
+      #     wire-time TextField hook reads the new mount.
+      #   * assigns Voyager.state + Voyager.dispatcher so screen
+      #     callback closures dispatch through this host's dispatcher.
+      #
+      # We unpack the result into class-var pins so the GC won't
+      # collect them across Swift round-trips.
+      result = Voyager::HostBootstrap.build(:sign_in)
+      @@state = result.state
+      @@coord = result.coord
+      @@session = result.session
+      @@flash = result.flash
+      @@dispatcher = result.dispatcher
 
-      # The reactive substrate: when ANY Crystal code (a tap handler
-      # inside a rendered button, the sign-in submit, the settings
-      # back action) calls coord.push/pop, this callback fires and we
-      # hop into Swift via the registered route-changed C callback. The
-      # Swift side then trips its @State binding, which re-runs
+      # The reactive substrate: when any dispatcher-routed Navigate /
+      # Pop / ReplaceRoot fires `translate_result`, the dispatcher
+      # calls mount_screen FIRST (swapping FormState.current under the
+      # new token) and THEN invokes the coord op that fires this
+      # on_change. The subscriber here is RENDERER-NEUTRAL — it copies
+      # the slug into the buffer and hops into Swift via the registered
+      # C callback. Swift then trips its @State binding, which re-runs
       # voyager_render(new_slug) and SwiftUI swaps the hosted UIView.
+      #
+      # NO mount_screen call here: translate_result already mounted
+      # before publishing on_change (mount-before-publish invariant,
+      # Phase 8B Codex iter-4 finding #1 + 8D.1 macOS pattern).
+      # Re-mounting here would double-bump the token.
+      coord = @@coord.not_nil!
       coord.on_change do |route|
         slug = Voyager.slug_for_route_id(route.id)
         copy_slug_to_buf(slug)
@@ -154,9 +174,10 @@
         end
       end
 
-      @@state = state
-      @@coord = coord
-      @@renderer = renderer
+      # Seed the slug buffer with the bootstrap route's slug BEFORE
+      # @@initialized = true (Codex BLOCKER 1 — voyager_current_slug()
+      # must return the correct initial value before any navigation
+      # event fires).
       copy_slug_to_buf(Voyager.slug_for_route_id(coord.current.id))
       @@initialized = true
     end
@@ -180,16 +201,65 @@
     end
 
     # Build + render the requested slug. The slug Swift passes is the
-    # source of truth — Crystal does NOT override it from the
-    # coordinator's current state, because Swift may be requesting a
-    # slug that the coordinator already moved past (e.g. SwiftUI may
-    # batch state changes). Voyager.build_route operates from the
-    # shared `state` so any prior coord mutations (state.hide_completed
-    # toggling, etc.) are honored.
+    # source of truth for the INITIAL launch resync (Swift's
+    # VOYAGER_ROOT_SLUG arg drives the first cold render). After the
+    # resync, `coord.current` is the authoritative route and we render
+    # from it — so AX labels + test_ids reflect the actual mounted
+    # screen, not whatever slug Swift requested.
+    #
+    # Phase 8D.2 — Voyager.build_route is NO LONGER called from this
+    # path. The dispatcher (constructed in initialize_runtime via
+    # Voyager::HostBootstrap.build) owns FormState / session / flash /
+    # design_tokens / navigation. We build a ScreenContext::Native from
+    # the dispatcher's live state on every render so screen builds
+    # observe the same form-state + flash + session the controller
+    # layer just wrote.
     def self.render_slug(slug : String) : UI::NativeView
       initialize_runtime
-      state = @@state.not_nil!
       coord = @@coord.not_nil!
+      dispatcher = @@dispatcher.not_nil!
+
+      route = Voyager.route_for_slug(slug)
+
+      # Phase 6.10 Rem 4 (Item 1) + Phase 8D.2 Item 3 — coord/slug
+      # initial-resync through the host-driven path.
+      #
+      # When Swift launches with VOYAGER_ROOT_SLUG=voyager-todos, the
+      # Crystal coord is still at its constructor default (:sign_in).
+      # Without resync, the user's Save → coord.pop returns to
+      # :sign_in instead of :todos.
+      #
+      # The previous logic only synced "if no Swift callback yet" —
+      # but the callback gets registered BEFORE the first render, so
+      # the branch never fired and the coord stayed misaligned.
+      #
+      # New rule (8D.2): if the coord is at depth=1 (just the
+      # constructor root) AND the requested slug doesn't match, treat
+      # this call as a first-time sync from the Swift launch arg.
+      #
+      # Mount-before-publish: replace_root synchronously notifies
+      # on_change subscribers, so we MUST mount_screen first so
+      # FormState.current is the new mount's before any subscriber
+      # fires. Guard with `@@suppress_route_changed` (begin/ensure) so
+      # the resulting notify doesn't fire the Swift callback (which
+      # would loop us back into render_slug for the same slug).
+      if coord.current.id != route.id && coord.depth == 1
+        @@suppress_route_changed = true
+        begin
+          dispatcher.mount_screen(route)
+          coord.replace_root(route)
+        ensure
+          @@suppress_route_changed = false
+        end
+      end
+
+      # AX labels reflect coord.current — authoritative after resync.
+      # If Swift's requested slug disagreed with coord.current and no
+      # resync fired (e.g. mid-app slug requests after navigation has
+      # begun), the rendered screen and AX identity stay consistent.
+      current_slug = Voyager.slug_for_route_id(coord.current.id)
+      reg = VoyagerApp.registration_for(coord.current.id)
+      screen_class = reg.screen_class
 
       # Phase 6.10 Rem 1 — fresh renderer per render call to match
       # Cascade's proven-working pattern. Reusing a single renderer
@@ -198,39 +268,56 @@
       # correctly with a fresh renderer. The exact root cause appears
       # to be UIHostingController state inside SwiftKit facades; a new
       # renderer instance defensively rebuilds every facade chain.
+      #
+      # Phase 8D.2 — constructed BEFORE screen.build because the
+      # renderer's initializer installs the
+      # `UI::DesignTokens::Device.install_provider` block that screens
+      # query via `UI::DesignTokens::DeviceMetrics.current` during
+      # their build phase (e.g. SignInScreen reads DeviceMetrics for
+      # responsive layout). Constructing the renderer AFTER build
+      # SIGSEGVs at PC=0 because no provider is installed when build
+      # runs (verified via VoyagerDemo-2026-05-25-080058.ips: faulting
+      # frame is `UI::DesignTokens::DeviceMetrics::current` inside
+      # `Voyager::SignInScreen#build` inside `VoyagerBridge#render_slug`).
+      # The macOS host avoids this by constructing the renderer ONCE
+      # at startup; iOS uses a fresh renderer per call but must still
+      # honor the install-before-query ordering.
       renderer = UI::UIKit::Renderer.new
-      # Phase 6.11 Item 1 — brand override removed. Renderer carries
-      # `UI::DesignTokens::Tokens.default` already; no per-host override.
 
-      route = Voyager.route_for_slug(slug)
-      # Phase 6.10 Rem 4 (Item 1) — coord/slug sync invariant.
-      #
-      # When Swift launches with VOYAGER_ROOT_SLUG=voyager-todos, the
-      # Crystal coord is still at its constructor default (:sign_in).
-      # Without resync, the user's Save → coord.pop returns to
-      # :sign_in instead of :todos, and the new todo never gets
-      # visible because we land on the wrong screen.
-      #
-      # The previous logic only synced "if no Swift callback yet" —
-      # but the callback gets registered BEFORE the first render
-      # (VoyagerBridge.initialize() calls both routines), so the
-      # branch never fired and the coord stayed misaligned.
-      #
-      # New rule: if the coord is at depth=1 (just the constructor
-      # root) AND the requested slug doesn't match, treat this call as
-      # a first-time sync from the Swift launch arg — replace the
-      # root. Guard with `@@suppress_route_changed` so the resulting
-      # notify doesn't fire the Swift callback (which would loop us
-      # back into render_slug for the same slug we just synced).
-      if coord.current.id != route.id && coord.depth == 1
-        @@suppress_route_changed = true
-        coord.replace_root(route)
-        @@suppress_route_changed = false
+      # Defensive guard — not robust unknown-slug handling
+      # (route_for_slug already maps unknown slugs to :sign_in).
+      # Catches future registration shapes where screen_class could be
+      # nil (e.g. a web-only screen registered via the screen macro
+      # without a controller_class — see Phase 8C web-only-screen
+      # support in src/asset_pipeline/native_app.cr).
+      if screen_class.nil?
+        placeholder = UI::Label.new("Unknown screen for route: #{coord.current.id}")
+        placeholder.accessibility_label = "Unknown route"
+        placeholder.test_id = "voyager-root-unknown"
+        native = renderer.render(placeholder.as(UI::View))
+        @@last_native = native
+        return native
       end
 
-      view = Voyager.build_route(state, coord, route)
-      view.accessibility_label = "voyager-root-#{slug}" if view.accessibility_label.to_s.empty?
-      view.test_id = "voyager-root-#{slug}" if view.test_id.to_s.empty?
+      # Build a fresh ScreenContext::Native from the dispatcher's live
+      # FormState / session / flash / design_tokens / navigation. This
+      # is the proven Phase 8B spike pattern + 8D.1 macOS host pattern
+      # (samples/initiative-cross-platform-ui-voyager/macos/host.cr#rebuild_for).
+      # action_params is empty at render time — it only carries values
+      # during in-flight dispatches (e.g. swipe-row Edit's
+      # {"todo_id" => "3"}).
+      ctx = UI::ScreenContext::Native.new(
+        form_state: dispatcher.current_form_state,
+        session: dispatcher.session,
+        flash: dispatcher.flash,
+        design_tokens: dispatcher.design_tokens,
+        navigation: dispatcher.navigation,
+        action_params: {} of String => String,
+      )
+      view = screen_class.new.build(ctx)
+      view.accessibility_label = "voyager-root-#{current_slug}" if view.accessibility_label.to_s.empty?
+      view.test_id = "voyager-root-#{current_slug}" if view.test_id.to_s.empty?
+
       native = renderer.render(view)
       @@last_native = native
       native

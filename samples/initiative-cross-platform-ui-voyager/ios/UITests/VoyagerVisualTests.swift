@@ -36,9 +36,9 @@ final class VoyagerVisualTests: XCTestCase {
         let hostRoot    = app.otherElements["voyager-root-host"]
         let foundRoot   = crystalRoot.waitForExistence(timeout: 10)
                        || hostRoot.waitForExistence(timeout: 2)
-        if !foundRoot {
-            XCTContext.runActivity(named: "root-not-found") { _ in }
-        }
+        XCTAssertTrue(foundRoot,
+            "voyager-root-\(slug) not discoverable in AX tree within 10s. " +
+            "Likely cold-render failure for slug \(slug).")
 
         Thread.sleep(forTimeInterval: 0.4)
 
@@ -47,6 +47,55 @@ final class VoyagerVisualTests: XCTestCase {
         attachment.name = "\(slug)-\(appearance)"
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    /// Phase 8D.2 Item 8 — cold-launch dispatcher-wired smoke (Sign-in).
+    ///
+    /// Asserts that the iOS bridge's initialize_runtime →
+    /// Voyager::HostBootstrap.build → render_slug pipeline cold-launches
+    /// to a working Sign-in screen with the AX-discoverable "Sign in"
+    /// button present. If this fails, one of:
+    ///   - Crystal class-init crash (Thread/Fiber/Once gap regression).
+    ///   - HostBootstrap.build raised (dispatcher construction broken).
+    ///   - render_slug raised (ScreenContext::Native shape mismatch).
+    ///   - UIKit renderer produced an unhittable view tree.
+    func testColdLaunchSignInDispatcherWired() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment = ["VOYAGER_ROOT_SLUG": "voyager-sign-in"]
+        app.launch()
+
+        let signIn = app.buttons["Sign in"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 10),
+            "Cold-launch failed to reach AX-discoverable Sign-in button. " +
+            "Possible class-init crash, dispatcher construction failure, or render failure.")
+    }
+
+    /// Phase 8D.2 Item 8 — cold-launch dispatcher-wired smoke (Todos).
+    ///
+    /// Asserts that VOYAGER_ROOT_SLUG=voyager-todos cold-launches the
+    /// Todos screen specifically (not just "some screen"). The
+    /// voyager-todos-add test_id is unique to the Add Todo button on
+    /// the Todos screen, so finding it proves:
+    ///   - initial-slug resync (dispatcher.mount_screen +
+    ///     coord.replace_root) ran.
+    ///   - ScreenContext::Native built from the dispatcher's live
+    ///     FormState / session / flash worked.
+    ///   - TodosScreen#build rendered without raising.
+    ///
+    /// Asserting on voyager-todos-add specifically (not a label-or-id
+    /// disjunction) keeps the smoke specific: this is the Todos
+    /// screen, not just "some screen that happens to have a Settings
+    /// button too."
+    func testColdLaunchTodosDispatcherWired() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment = ["VOYAGER_ROOT_SLUG": "voyager-todos"]
+        app.launch()
+
+        let addButton = app.buttons["voyager-todos-add"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10),
+            "Cold-launch with VOYAGER_ROOT_SLUG=voyager-todos failed to render the Todos screen. " +
+            "voyager-todos-add not AX-discoverable. Initial slug resync " +
+            "(dispatcher.mount_screen + coord.replace_root) likely broken.")
     }
 
     /// Full navigation flow — the manual verification the owner asked
