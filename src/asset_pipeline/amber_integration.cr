@@ -78,12 +78,44 @@ require "../ui"
 module UI
   # Per-request value object passed to `UI::Screen#build`. Concrete
   # `ScreenContext::Web` lives below.
+  #
+  # # Phase 10B.0 — `platform` field (Tier 2 resolver hook).
+  #
+  # `ScreenContext` carries a `platform : Symbol` so `UI::Intent.resolve`
+  # can branch on the runtime platform identity when picking a widget
+  # for a given intent. The supported values are
+  # `:ios`, `:ipados`, `:macos`, `:android`, `:web_wide`, `:web_narrow`.
+  #
+  # How the value flows from app boot to screen build:
+  #
+  #   * **Web** — `ScreenContext::Web` defaults to `:web_wide`. Consumer
+  #     apps that want viewport-aware routing (`:web_narrow`) detect the
+  #     viewport client-side and pass the chosen value through their
+  #     `compute_screen_html` override.
+  #   * **Native** — `ScreenContext::Native` carries the platform-specific
+  #     symbol the host App sets at construction (`:ios`, `:ipados`,
+  #     `:macos`, or `:android`). The `UI::ActionDispatcher` threads it
+  #     through `build_context` on every dispatch so the in-context
+  #     resolver sees the same platform value the renderer uses.
   abstract class ScreenContext
     abstract def params : Hash(String, String)
     abstract def params_multi : Hash(String, Array(String))
     abstract def flash_data : Hash(String, String)
     abstract def design_tokens : UI::DesignTokens::Tokens
     abstract def csrf_token : String?
+
+    # The platform identity for this build. `UI::Intent.resolve` reads
+    # this to pick the right widget for the running target. Defaults
+    # to `:web_wide` so any code path that constructs a bare context
+    # without setting the field is interpreted as "desktop web."
+    #
+    # Concrete subclasses override the getter or set the property in
+    # `initialize`. The default-here approach preserves backwards-
+    # compatibility with any pre-Phase-10B caller that constructed a
+    # `ScreenContext` subclass without passing `platform:`.
+    def platform : Symbol
+      :web_wide
+    end
 
     # Web-target concrete ScreenContext. Wraps the scalar/multi params,
     # the flash messages, the design-token bundle, and the CSRF token
@@ -95,12 +127,19 @@ module UI
       getter design_tokens : UI::DesignTokens::Tokens
       getter csrf_token : String?
 
+      # Phase 10B.0 — viewport class. Defaults to `:web_wide` (desktop /
+      # tablet-landscape). Consumer apps that want narrow-mode routing
+      # (`:web_narrow`) detect the viewport client-side and pass the
+      # chosen value into `ScreenContext::Web.new(platform: :web_narrow, ...)`.
+      getter platform : Symbol
+
       def initialize(
         @params : Hash(String, String),
         @params_multi : Hash(String, Array(String)),
         @flash_data : Hash(String, String),
         @design_tokens : UI::DesignTokens::Tokens,
-        @csrf_token : String?
+        @csrf_token : String?,
+        @platform : Symbol = :web_wide,
       )
       end
     end
@@ -147,6 +186,39 @@ module UI
   #     end
   abstract class Screen
     abstract def build(context : ScreenContext) : UI::View
+
+    # Phase 10B.0 — class-level macro that registers a screen-scoped
+    # Tier 2 intent override. Wraps the registry call so the screen's
+    # class itself (not a fresh instance) is the key.
+    #
+    #     class TodosScreen < UI::Screen
+    #       override_intent :swipe_actions, AcmeFancySwipeRow
+    #
+    #       def build(context)
+    #         # ...
+    #       end
+    #     end
+    #
+    # Implemented as a macro (rather than a regular class method) so
+    # `@type` resolves to the screen subclass at the call site, not
+    # the abstract base class. Class-method emission is compile-time
+    # code, gap-safe.
+    macro override_intent(intent_id, widget_class)
+      def self._register_intent_override_{{intent_id.id}} : Nil
+        ::UI::Intent::Registry.register_screen_override(
+          {{@type}},
+          {{intent_id}},
+          {{widget_class}},
+        )
+        nil
+      end
+
+      # Class-load side effect: register immediately. iOS class-init
+      # gap recovery: the framework's screen-bootstrap pass could
+      # re-invoke `_register_intent_override_*` methods by name, in
+      # the same shape as `UI::App._bootstrap_screen_*` recovery.
+      _register_intent_override_{{intent_id.id}}
+    end
   end
 
   # Phase 8C — Amber-router contribution from `UI::App`.

@@ -124,6 +124,19 @@ module UI
     getter navigation : UI::NavigationCoordinator
     getter action_params : Hash(String, String)
 
+    # Phase 10B.0 — native platform identity. Set by the host App at
+    # dispatcher / context construction time (one of `:ios`, `:ipados`,
+    # `:macos`, `:android`). `UI::Intent.resolve` reads this on every
+    # build to pick the right widget for the running target.
+    #
+    # Defaults to `:macos` to preserve backwards-compatibility with any
+    # pre-Phase-10B caller that omitted the kwarg — every existing
+    # consumer of `ScreenContext::Native` ran on macOS as the only
+    # mature native target. Callers on iOS / iPadOS / Android MUST
+    # pass the matching symbol so the resolver returns the correct
+    # platform-default widget.
+    getter platform : Symbol
+
     def initialize(
       @form_state : UI::FormState,
       @session : UI::Session,
@@ -131,6 +144,7 @@ module UI
       @design_tokens : UI::DesignTokens::Tokens,
       @navigation : UI::NavigationCoordinator,
       @action_params : Hash(String, String) = {} of String => String,
+      @platform : Symbol = :macos,
     )
     end
 
