@@ -23,24 +23,9 @@ This matrix is small because Class A has 1 entry. As more Class A intents are id
 
 ---
 
-## Freshness reconciliation (IMPLEMENTER fills this section)
+## Freshness reconciliation
 
-Per brief-9 §5 Item 3 — this paragraph is **implementer's work**, not architect's. The implementer:
-
-1. Runs `ls src/ui/views/*.cr | wc -l` to get the actual count.
-2. Identifies what categories of files exist in `src/ui/views/`:
-   - Top-level concrete widgets (`button.cr`, `text_field.cr`, etc.).
-   - Gate-stub siblings (`src/ui/views/_gate_stubs/*.cr` per CLAUDE.md:158-160).
-   - `*_with_web_fallback.cr` companion classes for Tier 3 widgets.
-   - Presenters / compat layer files (if any).
-3. Reconciles the 59-vs-80 discrepancy between the `component-mapping-matrix` skill and what's actually under `src/ui/views/`.
-4. Writes a one-paragraph reconciliation explaining the final canonical count and what each category contributes.
-
-**Placeholder for implementer output:**
-
-> *[Implementer: replace this placeholder with the freshness reconciliation paragraph after running the count + categorizing the files.]*
-
-The reconciliation gets cross-referenced from `widget-intent-mapping.md` (Item 6) so the audit table's row count matches reality.
+Running `ls src/ui/views/*.cr | wc -l` against the repo on 2026-05-25 returns **79** top-level files, and `find src/ui/views -name '*.cr' | wc -l` returns **82** once the `_gate_stubs/` subdirectory is included. Those 82 source files break down into **four mutually-exclusive buckets**: **73 ordinary top-level `UI::View` subclasses** (`button.cr`, `text_field.cr`, `vstack.cr`, etc.); **3 Tier 3 gated widgets** (`action_sheet.cr`, `context_menu.cr`, `path_control.cr`) whose class definitions live behind `{% if flag?(...) %}` macros per CLAUDE.md:148-160; **3 `*_with_web_fallback.cr` companion classes** (`action_sheet_with_web_fallback.cr`, `context_menu_with_web_fallback.cr`, `path_control_with_web_fallback.cr`) that ship the cross-platform path for each Tier 3 widget; and **3 gate-stub siblings** under `src/ui/views/_gate_stubs/` (`action_sheet.cr`, `context_menu.cr`, `path_control.cr`) whose only job is to emit a `{% raise %}` compile-time error on non-matching builds. 73 + 3 + 3 = 79 top-level files; 79 + 3 gate stubs = 82. A handful of view files also define *presenter* helper classes inside the same file (e.g., `UI::ActivityViewPresenter` in `activity_view.cr`, `UI::PopoverPresenter` in `popover.cr`, `UI::SheetPresenter` in `sheet.cr`, `UI::SnackbarPresenter` in `snackbar.cr`); these do not change the file count, but `widget-intent-mapping.md` calls them out in the Reason column where they exist. The **canonical view-type count is 79** (the top-level `*.cr` files in `src/ui/views/`). The **scoping-9 reference to "80 view types" is approximate** (it predates the latest commit). The **`component-mapping-matrix` skill's count of 59** captures only the *cross-platform-mapped* widgets and intentionally omits the renderer-internal presenters, the gate stubs, and the WithWebFallback companions. **`tier-matrix.md` lists only 78 widget rows** (17 Tier 1 + 55 Tier 2 + 3 Tier 3 gated + 3 WithWebFallback companions); spot-checking the source tree against the matrix shows it currently omits `swipe_action_row.cr`, which is a staleness in `tier-matrix.md` rather than a discrepancy in the source tree. `widget-intent-mapping.md` (Item 6) audits all 82 files (the 79 top-level + the 3 gate stubs) so every row in the source tree is accounted for.
 
 ---
 
