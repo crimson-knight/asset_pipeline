@@ -89,6 +89,21 @@ For each Class C intent, search results across `src/` for the named API:
 
 **Verdict: Class C is 0/9 realized.** The entire class is catalog-only. The single Class C *view file* (`activity_view.cr`) is a presentation shell, not a system-integration bridge. This is consistent with catalog's stated `coverage_today: missing` on all 9 rows — but the existence of `UI::ActivityView` as a "Class C view" in `widget-intent-mapping.md` (row 28) creates the false impression that share-sheet integration is closer than it is.
 
+> **⚠️ CORRECTION 2026-05-25** (added by architect after Codex brief-10-pre.1 review caught the error):
+>
+> The above verdict is **WRONG about `:share_link`**. The audit searched only `src/asset_pipeline/` and `src/ui/views/activity_view.cr` doc comments — it did NOT scan the renderers, which is where the actual bridge wiring lives. Verified post-correction:
+>
+> - `src/ui/renderers/uikit_renderer.cr:3408` — `LibObjCBridge.uiactivityview_present(...)` is called in the iOS `visit(UI::ActivityView)` path when `view.is_presented && has_share_payload`.
+> - `src/ui/renderers/appkit_renderer.cr:3417` — `LibObjCBridge.nssharingservicepicker_present(...)` is called in the macOS `visit(UI::ActivityView)` path.
+> - `src/ui/renderers/android_renderer.cr:2871` — `LibAndroidBridge.android_context_start_share_chooser(...)` is called in the Android visitor.
+> - `src/ui/native/objc_bridge.m:2148-2245` — the actual ObjC implementations of `nssharingservicepicker_present` (NSSharingServicePicker) and `uiactivityview_present` (UIActivityViewController) live here.
+>
+> So `:share_link` is **SHIPPED on all three native platforms** plus web (`activity_view.cr` web visitor emits the share affordances inline). `UI::ActivityView` is a correctly-classified Class C view, NOT a presentational stub. The catalog row for `:share_link` should be `shipped (src/ui/renderers/uikit_renderer.cr:3408; appkit_renderer.cr:3417; android_renderer.cr:2871; src/ui/native/objc_bridge.m:2148-2245)`.
+>
+> **Class C corrected realization: 1/9 shipped (`:share_link`), 8/9 missing.** The other 8 Class C intents (`:copyable`, `:paste_button`, `:authorization_request`, `:open_url`, `:on_open_url`, `:ui_print_interaction_controller`, `:file_importer`, `:file_exporter`) remain honestly missing — verified post-correction by searching `src/ui/` AND `src/asset_pipeline/` for `Pasteboard`, `openURL:`, `NSWorkspace`, `UIDocumentPicker`, `NSOpenPanel`, `NSSavePanel`, `UIPrintInteraction`, `AVCaptureDevice` — zero matches.
+>
+> **Methodological lesson:** future framework-coverage audits MUST scan renderers + native bridges (`src/ui/renderers/`, `src/ui/native/`), not just `src/ui/views/` doc comments. The audit prompt for any future re-audit must specify these directories explicitly. See `[[audit-shortcut-trap]]` memory — this is the same failure mode (skip-the-real-code) in a new form.
+
 ## Class D spot checks (12 of 40)
 
 | Intent | Catalog `crystal_api_shape` | Actual API on view class | Verdict |
@@ -136,7 +151,7 @@ These are flags, not redesigns:
 |---|---|---|---|---|---|
 | A | 1 | 0 | 1 (`:swipe_actions` — trailing-only on iOS/web; macOS chrome-only; Android stub) | 0 | 1 (4 capability claims false; macOS/web_wide default class missing) |
 | B | 17 | 1 (`:accessibility_label`) | 3 (`:dynamic_type_size`, `:accessibility_voice_over_enabled`, `:accessibility_full_keyboard_access`) | 11 | 2 (`:accessibility_hint`, `:accessibility_value` — claimed "partial," actually zero) |
-| C | 9 | 0 | 0 | 9 (all honestly `missing`; `UI::ActivityView` is presentational only, not a Class C bridge) | 0 (but `widget-intent-mapping.md` overstates `activity_view.cr`'s realization) |
+| C | 9 | 1 (`:share_link` — corrected 2026-05-25; UI::ActivityView wires UIActivityViewController/NSSharingServicePicker/Intent.ACTION_SEND in renderers) | 0 | 8 (8/9 honestly `missing`) | **1 in the OPPOSITE direction — original audit falsely marked `:share_link` "missing" by skipping renderer + native bridge files; corrected above** |
 | D | 40 | unknown without full sweep | unknown | most rows correctly `missing` | At least 9 of the 12 spot-checked rows misname classes / properties / operators (`:list`, `:list_row_separator`, `:sheet`, `:presentation_detents`, `:presentation_drag_indicator`, `:toolbar`, `:toolbar_item`, `:menu_picker_style`, `:context_menu`); `:tap_gesture` overstates shipped scope |
 | **Total** | **67** | **~1** | **~4** | **~30** | **~12 spot-checked lies + extrapolated ~20 Class D shape errors** |
 
