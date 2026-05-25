@@ -29,6 +29,14 @@ src/asset_pipeline/
 - `Components::CSS::Config` — design token configuration (OKLCH colors, spacing, typography)
 - `Components::CSS::Engine::Generator` — generates utility CSS with @layer structure
 - `AssetPipeline::FrontLoader` — JavaScript import map and Stimulus management
+- `UI::App` — declarative app + route registry
+- `UI::Screen` — screen authoring with `build(ctx)`
+- `UI::Controller` — native action handler
+- `UI::ActionDispatcher` — routes action refs to controllers + applies ActionResult
+- `UI::ActionResult` — Navigate / Pop / Rerender / ReplaceRoot / RenderInline
+- `UI::FormState` — controlled input state across renders
+- `UI::ScreenContext` — Native + Web variants passed to `build(ctx)`
+- `UI::AmberIntegration.routes_for(App)` — Amber web integration macro
 
 ## Naming Conventions
 
@@ -54,6 +62,31 @@ src/asset_pipeline/
 The asset_pipeline extends beyond web with a cross-platform native UI component system. A single Crystal source tree compiles to web (HTML), macOS (AppKit), iOS (UIKit), and Android (JNI/Views) using Crystal's compile-time `flag?()` for zero-overhead platform dispatch.
 
 **Core model:** App code builds a tree of `UI::View` objects. A compile-time-selected `PlatformRenderer` (a `PlatformVisitor` subclass) walks the tree and produces native UI. The web renderer delegates to `Components::Elements`; native renderers call through ObjC or JNI bridges.
+
+### UI::App application architecture
+
+Phase 8 added the app-level architecture for cross-platform screens:
+
+- `UI::App` declares routes via the `screen` macro.
+- `UI::Screen` builds views from a `ScreenContext` (shared across web + native).
+- `UI::Controller` handles native actions and returns `UI::ActionResult`.
+- `UI::ActionDispatcher` routes native action refs and applies navigation/render results.
+- `UI::FormState` carries controlled input values across renders.
+- `UI::AmberIntegration.routes_for` wires a `UI::App` to a full-server Amber target.
+
+**Target split:**
+
+| Target | Path |
+|---|---|
+| macOS / iOS native | `UI::ActionDispatcher` |
+| Amber full-server web | `UI::AmberIntegration.routes_for` |
+| Voyager static-site web | `Voyager.build_route` (sample-local, deliberate; see `docs/initiative-cross-platform-ui/architecture/web-target-position.md`) |
+
+Voyager's static-site web target is intentionally NOT dispatcher-backed. See the web target position note for the rationale.
+
+Phase 8 closed the ergonomic MVC-style app API in May 2026 across 8A, 8B, 8C, 8D.1, 8D.2, 8D.3a, and 8D.3b.
+
+Full guide: `ui-app` skill + `docs/initiative-cross-platform-ui/tutorial-ui-app.md`.
 
 ### Design philosophy: beauty-by-default, overridable for brand
 
@@ -191,6 +224,7 @@ deferred generator has a stable conversion API.
 | Topic | Skill |
 |-------|-------|
 | Building UIs with elements and components | `build-ui` |
+| Building apps — UI::App + Controller + Dispatcher + FormState + Amber integration | `ui-app` |
 | CSS styling, ClassBuilder, design tokens | `css-styling` |
 | JavaScript, Stimulus, reactive components (legacy FrontLoader path only) | `javascript` |
 | WCAG 2.2 AA accessibility | `accessibility` |
