@@ -2,6 +2,8 @@
 
 **Companion to:** `intent-catalog.md`, `translation-matrix.md`.
 
+> **Frozen 2026-05-25 by Phase 10-pre.1.** Total entries: **36** (after closing B-026 and adding B-036 + B-037). Class breakdown: 3 A / 6 B / 8 C (one closed) / 17 D + 2 new amendments (B-036 Class A capability honesty, B-037 Class B AX hint/value) = 36 active. Priority reconciliation applied per freshness audit + 2026-05-25 correction.
+
 Class A + Class D intents where no shipped widget covers the per-platform default. Buildable backlog for Phase 10+ implementation.
 
 Each entry: ID, intent, platform with the gap, what's missing, rough size estimate (S/M/L), priority (P0/P1/P2).
@@ -14,10 +16,10 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 
 - **Intent:** `:swipe_actions`
 - **Platform:** macOS
-- **Gap:** No `UI::InlineActionRow` class exists. Today `UI::SwipeActionRow` is used and the AppKit renderer emits inline trailing buttons (`appkit_renderer.cr:3801`), but the widget name is misleading.
+- **Gap:** No `UI::InlineActionRow` class exists. Today `UI::SwipeActionRow` is used and the AppKit renderer emits inline trailing buttons (`src/ui/renderers/appkit_renderer.cr:3801-3826`), but the widget name is misleading.
 - **Action:** Create `UI::InlineActionRow` as the named macOS default. Move the AppKit inline-button rendering logic from `UI::SwipeActionRow`'s renderer into `UI::InlineActionRow`. Migrate the override registry to use the new class.
 - **Size:** M. Renderer move + new class + spec coverage + Voyager migration.
-- **Priority:** P1. Voyager compliance.
+- **Priority:** **P0** (promoted from P1 by Phase 10-pre.1 freshness audit — the catalog's only Class A intent advertises a default class that does not exist; this is a load-bearing dishonesty that 10B.1a must resolve before any other 10B work).
 
 ### B-002 — `:swipe_actions` web_wide default
 
@@ -26,16 +28,30 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 - **Gap:** Same as B-001 but for desktop web. No native swipe gesture exists; inline buttons with hover affordance are idiomatic.
 - **Action:** Extend `UI::InlineActionRow` to the web renderer. Hover state shows row backdrop + trailing buttons. Mobile-web (`web_narrow`) continues to use `UI::SwipeActionRow`.
 - **Size:** M.
-- **Priority:** P1. Voyager web compliance.
+- **Priority:** **P0** (promoted from P1; same justification as B-001).
 
 ### B-035 — `:swipe_actions` Android proper integration
 
 - **Intent:** `:swipe_actions`
 - **Platform:** Android
-- **Gap:** `android_renderer.cr:3148` is explicitly a stub that renders only the content view, omitting the swipe gesture + trailing actions. Comment notes: "Android proper integration is deferred per the brief."
+- **Gap:** `src/ui/renderers/android_renderer.cr:3148-3152` is explicitly a stub that renders only the content view, omitting the swipe gesture + trailing actions. Comment notes: "Android proper integration is deferred per the brief."
 - **Action:** Wire Material 3 `SwipeToDismissBox` (or equivalent Compose foundation `swipeable` modifier) into the Android renderer's `visit(UI::SwipeActionRow)` method. Honor `trailing_actions` + `leading_actions` properties. Respect destructive role for color tinting.
 - **Size:** M.
-- **Priority:** P1 if Android is in scope for a near-term release; P2 if Android remains deferred.
+- **Priority:** P1 if Android is in scope for a near-term release; P2 if Android remains deferred. **Confirmed P1 by Phase 10-pre.1.**
+
+### B-036 — `:swipe_actions` capability honesty (NEW — Phase 10-pre.1)
+
+- **Intent:** `:swipe_actions`
+- **Platforms with gap:** All native (iOS/iPadOS/macOS/Android); web partial.
+- **Gap:** The Phase 9 capability block in `intent-routing-candidates.md` declared 12 capabilities; the Phase 10-pre.1 trim moved 6 of them to "Planned (Phase 10B targets)" because they were UNBACKED. Specifically:
+  - `supports_disabled_actions` — `SwipeAction` struct (`src/ui/views/swipe_action_row.cr:19-39`) has no `disabled` / `is_disabled` field; no renderer applies disabled state.
+  - `requires_row_identity_dispatch` — `SwipeAction.on_tap` is a `Proc(Nil)` closure (`src/ui/views/swipe_action_row.cr:23,33`) with no row-identity argument threaded through.
+  - `supports_edge :leading` (native) — iOS/macOS/Android iterate only `trailing_actions` (`src/ui/renderers/uikit_renderer.cr:3851`, `src/ui/renderers/appkit_renderer.cr:3819`, `src/ui/renderers/android_renderer.cr:3152`). Only web honors leading (`src/ui/renderers/web_renderer.cr:2909-2911`).
+  - `supports_role :destructive` (full) — AppKit drops the role (`src/ui/renderers/appkit_renderer.cr:3819-3826`); Android stub drops it; iOS + web only.
+  - `requires_visible_or_keyboard_alternative` — declared but unenforced (no lint, no runtime check).
+- **Action:** 10B.1b implementation slice — add a `disabled : Bool` field to `SwipeAction`; honor it across renderers. Add a row-identity argument to `on_tap`. Extend the iOS/macOS/Android renderers to iterate `leading_actions`. Wire destructive tint on AppKit (NSButton.tintColor) and Android (Compose Button colors). The visible-or-keyboard-alternative invariant is delivered by 10A as a LSP rule.
+- **Size:** M (excluding the LSP rule, which is 10A).
+- **Priority:** **P0**. The keystone Class A contract pattern is rhetorically dead if even one declared capability is dishonest — Phase 10B cannot proceed without this bundle.
 
 ---
 
@@ -44,9 +60,9 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 ### B-003 — `:refreshable` integration
 
 - **Intent:** `:refreshable`
-- **Platforms with gap:** All (no `UI::List.refreshable=` property exists today).
-- **Gap:** `UI::List` (or equivalent list-rendering view) has no `refreshable` property. Authors cannot wire pull-to-refresh.
-- **Action:** Add `refreshable : Proc(Nil)?` to `UI::List` (or `UI::ScrollView`?). UIKit renderer wires `UIRefreshControl`. Android renderer wires `PullRefreshContainer`. macOS renderer emits a refresh `UI::ToolbarItem` automatically. Web renderer custom JS OR toolbar fallback.
+- **Platforms with gap:** All (no `UI::ListView.refreshable=` property exists today).
+- **Gap:** `UI::ListView` (`src/ui/views/list_view.cr:5`) has no `refreshable` property. Authors cannot wire pull-to-refresh.
+- **Action:** Add `refreshable : Proc(Nil)?` to `UI::ListView` (or `UI::ScrollView`?). UIKit renderer wires `UIRefreshControl`. Android renderer wires `PullRefreshContainer`. macOS renderer emits a refresh `UI::ToolbarItem` automatically. Web renderer custom JS OR toolbar fallback.
 - **Size:** L. Cross-platform renderer work + native gesture handling + CI test coverage.
 - **Priority:** P0 if mobile-list apps are a near-term target; P1 otherwise.
 
@@ -54,8 +70,8 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 
 - **Intent:** `:searchable`
 - **Platforms with gap:** All (no integration).
-- **Gap:** No `UI::List.searchable=` integration. Apps that want to surface search in the navigation toolbar have to write per-renderer code.
-- **Action:** Add `searchable : String?` (placeholder) + `on_search : Proc(String, Nil)?` properties to `UI::List`. UIKit `UISearchController` integration. AppKit `NSSearchToolbarItem`. Android Material `SearchBar`. Web `<input type="search">`.
+- **Gap:** No `UI::ListView.searchable=` integration. Apps that want to surface search in the navigation toolbar have to write per-renderer code.
+- **Action:** Add `searchable : String?` (placeholder) + `on_search : Proc(String, Nil)?` properties to `UI::ListView`. UIKit `UISearchController` integration. AppKit `NSSearchToolbarItem`. Android Material `SearchBar`. Web `<input type="search">`.
 - **Size:** L.
 - **Priority:** P1.
 
@@ -63,8 +79,8 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 
 - **Intent:** `:on_move`
 - **Platforms with gap:** All.
-- **Gap:** `UI::List` has no `on_move` property. Drag-to-reorder is not exposed at the framework level.
-- **Action:** Add `on_move : Proc(Int32, Int32, Nil)?` to `UI::List`. UIKit `UITableView.isEditing` + reorder. AppKit drag-source/destination protocols. Web HTML5 draggable.
+- **Gap:** `UI::ListView` has no `on_move` property. Drag-to-reorder is not exposed at the framework level.
+- **Action:** Add `on_move : Proc(Int32, Int32, Nil)?` to `UI::ListView`. UIKit `UITableView.isEditing` + reorder. AppKit drag-source/destination protocols. Web HTML5 draggable.
 - **Size:** L.
 - **Priority:** P2 unless an app needs it; the widget gap matters less for Voyager-style demos.
 
@@ -81,8 +97,8 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 
 - **Intent:** `:presentation_detents`
 - **Platforms with gap:** All.
-- **Gap:** `UI::Sheet` has no `presentation_detents` property. Authors cannot ask for medium-height sheets.
-- **Action:** Add `presentation_detents : Array(Symbol | Float64)?` to `UI::Sheet`. UIKit `UISheetPresentationController.detents`. Android Material `ModalBottomSheet` `sheetState`. macOS+web sheet uses fixed default.
+- **Gap:** `UI::Sheet` has `detents : Array(Symbol)` already (`src/ui/views/sheet.cr:31`) but no `presentation_detents` named property and no per-platform wiring of the `detents` array into native sheet APIs.
+- **Action:** Either alias `presentation_detents` to `detents` or migrate authors. UIKit `UISheetPresentationController.detents`. Android Material `ModalBottomSheet` `sheetState`. macOS+web sheet uses fixed default.
 - **Size:** M.
 - **Priority:** P1.
 
@@ -100,10 +116,10 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 `:full_screen_cover`. No `UI::FullScreenCover` view. Size: S. Priority: P2.
 
 ### B-011 — Toolbar modifiers
-`:toolbar_item_group`, `:toolbar_background`, `:toolbar_spacer`. Partial coverage today. Size: S each. Priority: P2.
+`:toolbar_item_group`, `:toolbar_background`, `:toolbar_spacer`. Partial coverage today (`toolbar_item_placement` downgraded to missing in Phase 10-pre.1; no `placement` field on `record ToolbarItem`). Size: S each. Priority: P2.
 
 ### B-012 — Picker styles
-`:wheel_picker_style`, `:palette_picker_style`, `:inline_picker_style`. Currently `UI::Picker` has no `picker_style` property exposing these. Size: M total. Priority: P2.
+`:wheel_picker_style`, `:palette_picker_style`, `:inline_picker_style`. Currently `UI::Picker` has `style : PickerStyle` (`src/ui/views/picker.cr:16`) but the `PickerStyle` enum (`src/ui/view.cr:67-71`) only defines `Wheel`, `Segmented`, `Menu`, `Inline` — no `Palette` value. Size: M total. Priority: P2.
 
 ### B-013 — Date picker styles
 `:graphical_date_picker_style`, `:wheel_date_picker_style`. `UI::DatePicker` has no style property. Size: M. Priority: P2.
@@ -136,15 +152,12 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 - **Gap:** No `view.accessibility_actions=` property. Critical for swipe-action rows per HIG `accessibility.md:134`.
 - **Action:** Add `accessibility_actions : Array(UI::AccessibilityAction)?` to base `UI::View`. UIKit `UIAccessibilityCustomAction`. AppKit `NSAccessibilityCustomAction`.
 - **Size:** M.
-- **Priority:** P0. HIG-mandated for any view that uses gestures.
+- **Priority:** **P0** (confirmed by Phase 10-pre.1 freshness audit). HIG-mandated for any view that uses gestures.
 
-### B-021 — Accessibility hint / value surfacing
+### B-021 — Accessibility hint / value surfacing (DEPRECATED by B-037)
 
 - **Intent:** `:accessibility_hint`, `:accessibility_value`
-- **Gap:** Inconsistent surfacing on existing views.
-- **Action:** Add to base `UI::View`. Renderers map to native properties.
-- **Size:** S.
-- **Priority:** P1.
+- **Status:** Superseded by B-037 (NEW Phase 10-pre.1 amendment). B-021 originally described the same surface but at P1; B-037 escalates to P0 because the Phase 10-pre.1 audit confirmed the catalog's previous "partial" claim was FALSE — zero views expose either property today.
 
 ### B-022 — Reduce-motion contract
 
@@ -157,7 +170,7 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 ### B-023 — Dynamic-type runtime scaling
 
 - **Intent:** `:dynamic_type_size`
-- **Gap:** Design tokens carry semantic font sizes but runtime scaling is not wired.
+- **Gap:** Design tokens (`src/ui/design_tokens.cr:537,643,1048`) carry semantic font sizes but runtime scaling is not wired through to renderers.
 - **Action:** Renderers honor system text-size preference and scale `UI::Font` sizes proportionally.
 - **Size:** M.
 - **Priority:** P1.
@@ -165,7 +178,7 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 ### B-024 — Full keyboard access
 
 - **Intent:** `:full_keyboard_access`
-- **Gap:** Partial. Some views are focusable but the framework doesn't have a documented contract.
+- **Gap:** Partial. Web `<button>` / `<input>` emitted by `src/ui/renderers/web_renderer.cr:159,294` are focusable by default; `src/ui/view.cr:132` is the only AX property on base `UI::View` — no `focusable` / `focus_effect` Crystal-side helper.
 - **Action:** Audit every interactive widget for keyboard focusability; add focus-ring rendering; document the contract.
 - **Size:** L.
 - **Priority:** P1.
@@ -178,40 +191,59 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 - **Size:** M.
 - **Priority:** P1.
 
----
+### B-037 — `accessibility_hint` + `accessibility_value` surfacing (NEW — Phase 10-pre.1)
 
-## Class C gaps (system integration — entirely missing)
-
-All Class C intents are missing — no Crystal API surfaces today.
-
-| ID | Intent | Size | Priority |
-|---|---|---|---|
-| B-026 | `:share_link` | M | P1 |
-| B-027 | `:copy_to_clipboard` | S | P1 |
-| B-028 | `:paste_from_clipboard` | S | P2 |
-| B-029 | `:request_permission` (per-resource) | L | P1 (camera, photos); P2 (others) |
-| B-030 | `:open_url` | S | P1 |
-| B-031 | `:open_deep_link` | M | P2 |
-| B-032 | `:print_document` | M | P2 |
-| B-033 | `:file_importer` | M | P2 |
-| B-034 | `:file_exporter` | M | P2 |
-
-These can ship as `UI::System.*` module-level functions (single Crystal API, renderer translates to platform).
+- **Intent:** `:accessibility_hint`, `:accessibility_value`
+- **Gap:** Phase 9 catalog claimed "partial" for both; Phase 10-pre.1 audit confirmed zero views expose either property. `src/ui/view.cr:132` exposes only `accessibility_label`; no `accessibility_hint` / `accessibility_value` exists anywhere in `src/ui/views/`. Two of the catalog's three Class B "partial" claims are factually zero — the catalog row pattern is rhetorically dead if Class B's most-cited gap stays unbacked.
+- **Action:** 10B.2a implementation slice — add `accessibility_hint : String? = nil` and `accessibility_value : String? = nil` to base `UI::View` (same one-line treatment as the existing `accessibility_label`). UIKit renderer maps to `UIView.accessibilityHint` / `UIView.accessibilityValue`. AppKit maps to `NSView.accessibilityHelp` / `accessibilityValue`. Android maps via Compose `Modifier.semantics`. Web maps to `aria-describedby` (with an internal description span) and `aria-valuenow` / `aria-valuetext`.
+- **Size:** S (one-line property additions + four-renderer pass + spec).
+- **Priority:** **P0**. The catalog row pattern's credibility depends on this landing in 10B.2a.
 
 ---
 
-## Total backlog
+## Class C gaps (system integration — 8 of 9 missing)
+
+8 of 9 Class C intents are missing — no Crystal API surfaces today. `:share_link` (B-026) is **SHIPPED and CLOSED** as of Phase 10-pre.1.
+
+| ID | Intent | Size | Priority | Status |
+|---|---|---|---|---|
+| ~~B-026~~ | ~~`:share_link`~~ | — | — | **CLOSED 2026-05-25 by Phase 10-pre.1.** Codex caught the original freshness audit's false-negative; re-audit verified `UI::ActivityView` wires `UIActivityViewController` (iOS), `NSSharingServicePicker` (macOS), and `Intent.ACTION_SEND` (Android) via the renderers + native bridges. See `phase-10-pre-1-class-c-reaudit-2026-05-25.md`. |
+| B-027 | `:copy_to_clipboard` (`:copyable`) | S | P1 | open — zero `UIPasteboard` / `NSPasteboard` / `ClipboardManager` matches in `src/`. |
+| B-028 | `:paste_from_clipboard` (`:paste_button`) | S | P2 | open — same as B-027. |
+| B-029 | `:request_permission` (`:authorization_request`) | L | P1 (camera, photos); P2 (others) | open — zero `AVCaptureDevice.requestAccess` / `PHPhotoLibrary` / `CLLocationManager` matches in `src/`. |
+| B-030 | `:open_url` | S | P1 | open — zero `openURL:` / `NSWorkspace.open` matches in `src/`. |
+| B-031 | `:open_deep_link` (`:on_open_url`) | M | P2 | open — zero `application:openURL:options:` matches. |
+| B-032 | `:print_document` (`:ui_print_interaction_controller`) | M | P2 | open — zero `UIPrintInteractionController` / `NSPrintInfo` matches. |
+| B-033 | `:file_importer` | M | P2 | open — zero `UIDocumentPickerViewController` / `NSOpenPanel` matches. |
+| B-034 | `:file_exporter` | M | P2 | open — zero `NSSavePanel` / `UIDocumentInteractionController` matches. |
+
+These 8 ship as `UI::System.*` module-level functions (single Crystal API, renderer translates to platform) per Phase 10B.3.x.
+
+---
+
+## Total backlog (reconciled 2026-05-25 by Phase 10-pre.1)
 
 | Class | Count | P0 | P1 | P2 |
 |---|---|---|---|---|
-| A | 2 | 0 | 2 | 0 |
-| B | 6 | 1 | 5 | 0 |
-| C | 9 | 0 | 4 | 5 |
-| D | 17 | 0 | 4 | 13 |
-| **Total** | **34** | **1** | **15** | **18** |
+| A | 4 (B-001, B-002, B-035, B-036) | 3 (B-001, B-002, B-036) | 1 (B-035) | 0 |
+| B | 7 (B-020, B-021†, B-022, B-023, B-024, B-025, B-037) | 2 (B-020, B-037) | 5 | 0 |
+| C | 8 (B-026 closed; B-027–B-034 open) | 0 | 3 (B-027, B-029, B-030) | 5 |
+| D | 17 (B-003–B-019) | 0 | 4 | 13 |
+| **Total** | **36** | **5** | **13** | **18** |
 
-**P0 (1):** B-020 (accessibility actions — HIG-mandated for swipe rows).
-**P1 (15):** Mostly Voyager-compliance work + key Class C surfaces.
+† B-021 is deprecated and superseded by B-037 — counted in the class total for ID-history continuity but does not contribute work.
+
+**P0 (5):** B-001, B-002 (Class A defaults — Phase 10B.1a), B-020 (accessibility actions — HIG-mandated for swipe rows; Phase 10B.2b), B-036 (`:swipe_actions` capability honesty — Phase 10B.1b), B-037 (`accessibility_hint` + `accessibility_value` surfacing — Phase 10B.2a).
+**P1 (13):** Mostly Voyager-compliance work + key Class C surfaces.
 **P2 (18):** Nice-to-haves, ships as needed.
 
-— Architect (Claude Opus 4.7)
+**Changes from Phase 9 close to Phase 10-pre.1 (2026-05-25):**
+- B-001 P1 → **P0** (Class A's only intent advertises a default class that does not exist).
+- B-002 P1 → **P0** (same).
+- B-035 confirmed **P1** (was floating P1/P2).
+- B-026 **CLOSED** (`:share_link` shipped — Codex catch + Class C re-audit).
+- **B-036 added P0** (`:swipe_actions` capability honesty bundle).
+- **B-037 added P0** (accessibility_hint + accessibility_value surfacing — supersedes B-021).
+- B-021 deprecated by B-037.
+
+— Architect (Claude Opus 4.7); reconciled by Phase 10-pre.1 implementer 2026-05-25.
