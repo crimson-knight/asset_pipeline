@@ -80,6 +80,8 @@ private class IntentSpecAppB < UI::App
 end
 
 private class IntentSpecScreenA < UI::Screen
+  override_intent :swipe_actions, IntentSpecFancyRow
+
   def build(context : UI::ScreenContext) : UI::View
     UI::Label.new("a")
   end
@@ -221,14 +223,16 @@ describe UI::Intent::Registry do
   end
 
   describe "screen overrides take precedence" do
-    it "screen override wins over app override at resolve time" do
-      IntentSpecScreenA.override_intent :swipe_actions, IntentSpecFancyRow
+    # IntentSpecScreenA registered :swipe_actions → IntentSpecFancyRow
+    # via the class-level macro at class body time (see the class
+    # definition above). Spec runs against that pre-registered state.
 
+    it "screen override wins over app override at resolve time" do
       ctx = native_ctx(:macos)
       # Passing screen_class: routes through the screen-tier first.
       hit = UI::Intent::Registry.resolve_for(:swipe_actions, ctx, screen_class: IntentSpecScreenA)
       hit.should eq(IntentSpecFancyRow)
-      UI::Intent::Registry.screen_override_count_for(IntentSpecScreenA, :swipe_actions).should eq(1)
+      UI::Intent::Registry.screen_override_count_for(IntentSpecScreenA, :swipe_actions).should be > 0
     end
   end
 

@@ -1,0 +1,175 @@
+#!/usr/bin/env crystal
+# Phase 10A.0a — Convention rule runner.
+#
+# Walks the repo, applies loaded rule classes, emits diagnostics.
+# Exit 0 if no violations; exit 1 if any. Invoked in CI, in
+# pre-commit hooks, or directly by contributors / AI agents.
+#
+# Usage:
+#   crystal run scripts/lint_conventions.cr -- [options]
+#
+# Options:
+#   --rules=family_1[,family_N]    Limit to one or more rule families
+#                                  (matches `rule_name` prefix).
+#   --paths=path1,path2,...        Override the default scan roots.
+#   --no-default-paths             Disable default roots; only scan --paths.
+#   --format=human|machine         Output format (default human).
+#   --quiet                        Suppress the "OK" banner on green runs.
+#
+# Default scan roots: src/, samples/, spec/.
+# Always-excluded paths: lib/, .crystal-cache/, spec/fixtures/ (test fixtures
+# intentionally exercise malformed shapes).
+#
+# Per-file disable: prepend `# lint:disable=<rule_name>` on a line near
+# the top of the file to suppress that rule for the whole file. Multiple
+# rules can be listed comma-separated. `# lint:disable=all` suppresses
+# every rule for the file.
+#
+# Output format (one line per diagnostic):
+#   <file>:<line>: [<rule_name>] <message> (suggested: <fix>)
+
+require "../src/lsp_rules/convention_rule"
+require "../src/lsp_rules/family_1_naming/screen_class_naming_rule"
+require "../src/lsp_rules/family_1_naming/controller_class_naming_rule"
+require "../src/lsp_rules/family_1_naming/screen_file_suffix_rule"
+require "../src/lsp_rules/family_1_naming/controller_file_suffix_rule"
+require "../src/lsp_rules/family_1_naming/view_subclass_under_views_dir_rule"
+
+# Aggregates rule classes and runs them across a list of files.
+class Linter
+  def initialize(@rules : Array(ConventionRule))
+  end
+
+  # Returns the registered rules; mostly for diagnostics.
+  def rules : Array(ConventionRule)
+    @rules
+  end
+
+  # Applies every loaded rule to every path, returning all diagnostics
+  # not suppressed by `# lint:disable=<rule>` / `# lint:disable=all`
+  # comments in the file.
+  def lint(paths : Array(String)) : Array(Diagnostic)
+    diagnostics = [] of Diagnostic
+    paths.each do |path|
+      content = File.read(path)
+      disabled = parse_disabled_rules(content)
+      next if disabled.includes?("all")
+      @rules.each do |rule|
+        next if disabled.includes?(rule.rule_name)
+        rule.check(path, content).each { |d| diagnostics << d }
+      end
+    end
+    diagnostics
+  end
+
+  # Parses `# lint:disable=<rule_name_or_all>` comments. The disable
+  # has file-wide scope (simplest semantics for v1; per-line scoping
+  # can come if needed).
+  private def parse_disabled_rules(content : String) : Set(String)
+    disabled = Set(String).new
+    content.scan(/^[ \t]*#\s*lint:disable=([^\s#]+)/m) do |m|
+      m[1].split(',').each { |name| disabled << name.strip }
+    end
+    disabled
+  end
+end
+
+# Discovers `.cr` files under the given roots, ignoring vendored deps
+# (`lib/`) and the local Crystal cache.
+def discover_files(roots : Array(String)) : Array(String)
+  files = [] of String
+  roots.each do |root|
+    next unless File.exists?(root)
+    if File.file?(root)
+      files << root if root.ends_with?(".cr")
+      next
+    end
+    Dir.glob("#{root}/**/*.cr") do |path|
+      next if path.includes?("/lib/")
+      next if path.includes?("/.crystal-cache/")
+      next if path.includes?("spec/fixtures/")
+      files << path
+    end
+  end
+  files.sort.uniq
+end
+
+# Loads every Family 1 rule. Future families register here as they ship.
+def load_rules : Array(ConventionRule)
+  [
+    ScreenClassNamingRule.new,
+    ControllerClassNamingRule.new,
+    ScreenFileSuffixRule.new,
+    ControllerFileSuffixRule.new,
+    ViewSubclassUnderViewsDirRule.new,
+  ] of ConventionRule
+end
+
+# ---------- CLI parsing ----------
+
+family_filters = [] of String
+path_overrides = [] of String
+use_default_paths = true
+format = "human"
+quiet = false
+
+ARGV.each do |arg|
+  case arg
+  when .starts_with?("--rules=")
+    family_filters = arg["--rules=".size..-1].split(',').map(&.strip).reject(&.empty?)
+  when .starts_with?("--paths=")
+    path_overrides = arg["--paths=".size..-1].split(',').map(&.strip).reject(&.empty?)
+  when "--no-default-paths"
+    use_default_paths = false
+  when .starts_with?("--format=")
+    format = arg["--format=".size..-1]
+  when "--quiet"
+    quiet = true
+  when "-h", "--help"
+    STDOUT.puts File.read(__FILE__).lines(chomp: false)[2..28].join.gsub(/^# ?/m, "")
+    exit 0
+  else
+    STDERR.puts "lint_conventions: unknown option '#{arg}'"
+    exit 2
+  end
+end
+
+default_roots = use_default_paths ? ["src", "samples", "spec"] : [] of String
+roots = default_roots + path_overrides
+if roots.empty?
+  STDERR.puts "lint_conventions: no scan roots configured"
+  exit 2
+end
+
+rules = load_rules
+unless family_filters.empty?
+  rules = rules.select do |rule|
+    family_filters.any? { |prefix| rule.rule_name.starts_with?(prefix) }
+  end
+  if rules.empty?
+    STDERR.puts "lint_conventions: --rules=#{family_filters.join(",")} matched no rules"
+    exit 2
+  end
+end
+
+files = discover_files(roots)
+linter = Linter.new(rules)
+diagnostics = linter.lint(files)
+
+case format
+when "human", "machine"
+  diagnostics.each { |d| STDOUT.puts d.to_s }
+else
+  STDERR.puts "lint_conventions: unknown --format='#{format}' (expected human|machine)"
+  exit 2
+end
+
+if diagnostics.empty?
+  unless quiet
+    STDOUT.puts "lint_conventions: OK (#{files.size} files, #{rules.size} rules, 0 diagnostics)"
+  end
+  exit 0
+else
+  STDOUT.puts "lint_conventions: FAIL (#{files.size} files, #{rules.size} rules, #{diagnostics.size} diagnostics)"
+  exit 1
+end
