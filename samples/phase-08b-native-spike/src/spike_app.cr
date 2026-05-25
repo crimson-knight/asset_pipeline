@@ -1,3 +1,6 @@
+# lint:disable=family_1/screen_file_suffix,family_1/controller_file_suffix
+# Phase 10A.0a: this is an intentional single-file spike that declares multiple
+# screens + controllers; per-class file-suffix rules are disabled accordingly.
 # Phase 8B macOS spike — Sign-in -> Todos with read-back proof.
 #
 # Demonstrates the full Phase 8B native flow:
