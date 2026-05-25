@@ -1,6 +1,10 @@
+# Top-of-screen toolbar container hosting buttons and other tools.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # Toolbar — Top-of-screen toolbar container hosting buttons and other tools.
   class Toolbar < View
     record ToolbarItem,
       id : String = "",

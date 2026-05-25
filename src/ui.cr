@@ -7,7 +7,18 @@ require "./ui/live_activities"
 require "./ui/widgets"
 require "./ui/windows"
 require "./ui/quick_actions"
+# Phase 10B.0 — Tier 2 intent resolver + registry. Must load BEFORE
+# `views/*` because `UI::SwipeActionRow` (and future Tier 2 widgets)
+# call `declares_capabilities` at class-load, which writes into
+# `UI::Intent::Registry`.
+require "./ui/intent/registry"
+require "./ui/intent"
 require "./ui/views/*"
+# `intent_bootstrap` installs the framework-default capability
+# declarations + platform defaults. It loads AFTER `views/*` so that
+# `UI::SwipeActionRow` (and future widget classes) are defined before
+# the bootstrap references them.
+require "./ui/intent_bootstrap"
 require "./ui/menu_bar"
 require "./ui/status_bar"
 require "./ui/platform_visitor"

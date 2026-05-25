@@ -1,3 +1,6 @@
+# Long-press / right-click contextual menu attached to a host view.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 {% if flag?(:macos) || flag?(:ios) %}

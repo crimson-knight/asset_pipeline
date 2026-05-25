@@ -1,3 +1,6 @@
+# Vertical stack that arranges children top-to-bottom with configurable spacing.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

@@ -1,6 +1,10 @@
+# Color selection control bridging to the native color picker on each platform.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # ColorPicker — Color selection control bridging to the native color picker on each platform.
   class ColorPicker < View
     property selected_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
     property on_change : Proc(Color, Nil)? = nil

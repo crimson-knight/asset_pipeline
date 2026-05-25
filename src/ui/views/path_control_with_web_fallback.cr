@@ -1,3 +1,6 @@
+# Tier-1/2 UI::View for the asset_pipeline cross-platform component system.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 {% if flag?(:macos) %}
   require "./path_control"

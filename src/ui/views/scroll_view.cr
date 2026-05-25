@@ -1,3 +1,6 @@
+# Single-axis or two-axis scrolling viewport wrapping a content view.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

@@ -1,6 +1,10 @@
+# Button styled as a hyperlink that opens or dispatches a navigation action.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # LinkButton — Button styled as a hyperlink that opens or dispatches a navigation action.
   class LinkButton < View
     property label : String
     property url : String = ""

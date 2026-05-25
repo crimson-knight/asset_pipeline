@@ -1,3 +1,6 @@
+# Modal sheet of choices presented at the bottom of the screen on iOS.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 {% if flag?(:ios) %}

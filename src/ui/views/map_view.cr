@@ -1,3 +1,6 @@
+# Native map view bridging to MapKit on Apple platforms.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
@@ -7,6 +10,7 @@ module UI
     title : String = "",
     subtitle : String? = nil
 
+  # MapView — Native map view bridging to MapKit on Apple platforms.
   class MapView < View
     property latitude : Float64 = 0.0
     property longitude : Float64 = 0.0

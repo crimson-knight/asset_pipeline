@@ -1,3 +1,6 @@
+# Multi-value tokenized text field (e.g. recipient field in a mail app).
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

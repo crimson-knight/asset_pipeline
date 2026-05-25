@@ -1,6 +1,10 @@
+# Action-confirmation prompt with platform-idiomatic destructive/cancel buttons.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # ConfirmationDialog — Action-confirmation prompt with platform-idiomatic destructive/cancel buttons.
   class ConfirmationDialog < View
     property title : String
     property message : String = ""

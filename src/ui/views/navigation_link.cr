@@ -1,3 +1,6 @@
+# Navigation affordance that pushes a destination onto the navigation stack.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

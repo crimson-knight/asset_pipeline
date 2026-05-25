@@ -1,3 +1,6 @@
+# Bounded value indicator showing progress along a fixed range.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

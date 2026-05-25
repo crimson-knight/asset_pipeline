@@ -1,3 +1,6 @@
+# Container that groups input controls into sections with HIG-conformant spacing.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

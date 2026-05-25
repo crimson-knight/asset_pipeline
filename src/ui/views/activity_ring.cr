@@ -1,3 +1,6 @@
+# Single circular progress ring rendered in the Activity Rings idiom.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

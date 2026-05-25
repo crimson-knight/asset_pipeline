@@ -1,6 +1,10 @@
+# Pressed-state button used as a toggle (e.g. bold / italic toolbar buttons).
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # ToggleButton — Pressed-state button used as a toggle (e.g. bold / italic toolbar buttons).
   class ToggleButton < View
     property label : String
     property is_selected : Bool = false

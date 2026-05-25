@@ -1,6 +1,10 @@
+# Transient toast / snackbar notification anchored to the bottom of the screen.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # Snackbar — Transient toast / snackbar notification anchored to the bottom of the screen.
   class Snackbar < View
     property message : String
     property action_label : String? = nil

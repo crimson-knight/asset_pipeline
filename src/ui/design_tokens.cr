@@ -1,3 +1,6 @@
+# Tier-1 brand-token contract: semantic colors, spacing, typography, and motion scales.
+# Part of the asset_pipeline cross-platform UI surface.
+
 require "./design_tokens/conversion"
 require "./design_tokens/material"
 

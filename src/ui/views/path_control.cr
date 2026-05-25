@@ -1,3 +1,6 @@
+# macOS path control showing a filesystem-style breadcrumb.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 {% if flag?(:macos) %}

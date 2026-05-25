@@ -1,3 +1,6 @@
+# Tier-1/2 UI::View for the asset_pipeline cross-platform component system.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
@@ -60,6 +63,16 @@ module UI
   #     UI::SwipeAction.new("Delete", role: :destructive) { delete(item) },
   #   ]
   class SwipeActionRow < View
+    # Phase 10B.0 — Tier 2 capability declaration. Lists the
+    # `:swipe_actions` capabilities this widget actually backs today.
+    # Validated by `UI::Intent::Registry` whenever an app or screen
+    # registers `UI::SwipeActionRow` as an override.
+    declares_capabilities :swipe_actions, {
+      supports_edge_trailing:    true,
+      supports_role_default:     true,
+      supports_role_destructive: :partial,
+    }
+
     property content : View
     property leading_actions : Array(SwipeAction)
     property trailing_actions : Array(SwipeAction)

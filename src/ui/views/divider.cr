@@ -1,6 +1,10 @@
+# Thin horizontal or vertical separator line between content.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # Divider — Thin horizontal or vertical separator line between content.
   class Divider < View
     property color : Color = Color.new(r: 0.8, g: 0.8, b: 0.8)
     property thickness : Float64 = 1.0

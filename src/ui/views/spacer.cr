@@ -1,3 +1,6 @@
+# Layout-only view that expands to fill remaining space along a stack's axis.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

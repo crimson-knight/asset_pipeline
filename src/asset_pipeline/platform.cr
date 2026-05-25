@@ -1,3 +1,6 @@
+# Compile-time platform-gating helpers for the asset_pipeline cross-platform UI.
+# Part of the asset_pipeline shard.
+
 module AssetPipeline
   # Platform-gate helpers for application code.
   #

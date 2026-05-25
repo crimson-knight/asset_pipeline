@@ -53,6 +53,12 @@ module UI
     getter design_tokens : UI::DesignTokens::Tokens
     getter current_form_state : UI::FormState
 
+    # Phase 10B.0 — native platform identity threaded into every
+    # `ScreenContext::Native` the dispatcher builds. Set by the host
+    # App at dispatcher construction. Defaults to `:macos` for
+    # backwards-compatibility with pre-Phase-10B callers.
+    getter platform : Symbol
+
     # Monotonically-increasing mount token. The dispatcher writes this
     # to `UI::FormState.current_mount_token` on every screen mount so
     # the renderer's stale-callback guard fires correctly.
@@ -70,6 +76,7 @@ module UI
       @session : UI::Session,
       @flash : UI::Flash,
       @design_tokens : UI::DesignTokens::Tokens,
+      @platform : Symbol = :macos,
     )
       @current_mount_token = 0_i64
       @current_form_state = UI::FormState.new(mount_token: 0_i64)
@@ -146,6 +153,7 @@ module UI
         design_tokens: @design_tokens,
         navigation: @navigation,
         action_params: explicit_params,
+        platform: @platform,
       )
     end
 

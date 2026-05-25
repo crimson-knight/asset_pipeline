@@ -1,3 +1,6 @@
+# Multi-column information list view (macOS NSTableView column layout).
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

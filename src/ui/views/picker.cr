@@ -1,3 +1,6 @@
+# Single-selection picker with platform-idiomatic wheel / inline / menu styles.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI

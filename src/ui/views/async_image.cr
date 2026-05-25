@@ -1,6 +1,10 @@
+# Image view that loads its content asynchronously from a URL.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # AsyncImage — Image view that loads its content asynchronously from a URL.
   class AsyncImage < View
     property url : String = ""
     property placeholder : View? = nil

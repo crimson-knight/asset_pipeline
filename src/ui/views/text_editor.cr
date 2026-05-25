@@ -1,6 +1,10 @@
+# Rich multi-line text editor with attributed string support.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 module UI
+  # TextEditor — Rich multi-line text editor with attributed string support.
   class TextEditor < View
     property text : String = ""
     property placeholder : String = ""
