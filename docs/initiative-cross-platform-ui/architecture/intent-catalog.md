@@ -547,7 +547,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `lists-and-tables.md`
 - **android_equivalent:** `PullRefreshContainer` (Material)
 - **web_equivalent:** No native pull-to-refresh; mobile-web custom JS or toolbar button
-- **coverage_today:** missing (no `UI::List.refreshable=` property)
+- **coverage_today:** missing (no `UI::ListView.refreshable=` property)
 - **crystal_api_shape:** `list.refreshable = -> { state.reload_todos }`
 - **platforms:** ios, ipados, android; macOS uses toolbar refresh fallback; web uses button fallback
 - **description:** Trigger a refresh of list content via pull-down gesture (or platform-equivalent affordance).
@@ -564,7 +564,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `search-fields.md`
 - **android_equivalent:** Material `SearchBar`
 - **web_equivalent:** `<input type="search">`
-- **coverage_today:** missing (no `UI::List.searchable=` integration)
+- **coverage_today:** missing (no `UI::ListView.searchable=` integration)
 - **crystal_api_shape:** `list.searchable = "Search todos..."`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Surface a search field for filtering list content.
@@ -837,7 +837,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Multiple action slots
 - **web_equivalent:** Button group HTML
 - **coverage_today:** missing
-- **crystal_api_shape:** `toolbar << UI::ToolbarItemGroup.new(items: [...])`
+- **crystal_api_shape:** `toolbar.add_group(id: "edit", items: [...])  # API TBD; Toolbar today only ships flat `add_item`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Grouped toolbar items that visually belong together.
 
@@ -888,7 +888,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** `Spacer` between actions
 - **web_equivalent:** Flex spacer
 - **coverage_today:** missing
-- **crystal_api_shape:** `toolbar << UI::ToolbarSpacer.new(:flexible)`
+- **crystal_api_shape:** `toolbar.add_spacer(:flexible)  # API TBD; Toolbar today has no spacer/group concept
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Spacer between toolbar items, fixed or flexible.
 
@@ -1075,7 +1075,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** `NumberPicker` (legacy Views)
 - **web_equivalent:** Custom drum/wheel widget
 - **coverage_today:** missing
-- **crystal_api_shape:** `picker.picker_style = :wheel`
+- **crystal_api_shape:** `picker.style = UI::PickerStyle::Wheel` (enum value exists at `src/ui/view.cr:67`; renderer wiring TBD)
 - **platforms:** ios, ipados
 - **description:** Picker as a rotating wheel (iOS-classic). Discoverable for long-numeric lists.
 
@@ -1092,7 +1092,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Custom grid layout
 - **web_equivalent:** Custom grid of radio inputs
 - **coverage_today:** missing
-- **crystal_api_shape:** `picker.picker_style = :palette`
+- **crystal_api_shape:** `picker.style = UI::PickerStyle::Palette  # enum value not yet defined (B-012); add to src/ui/view.cr enum, then renderer support`
 - **platforms:** ios, ipados, macos (iOS 17+ / macOS 14+)
 - **description:** Picker as a horizontal palette of icon swatches (emoji, color, symbol).
 
@@ -1109,7 +1109,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Radio button list
 - **web_equivalent:** Radio button list
 - **coverage_today:** missing
-- **crystal_api_shape:** `picker.picker_style = :inline`
+- **crystal_api_shape:** `picker.style = UI::PickerStyle::Inline` (enum value exists at `src/ui/view.cr:70`; renderer wiring TBD)
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Picker rendered as an expanded list of options (no popup). Good for 3-7 options when space allows.
 
