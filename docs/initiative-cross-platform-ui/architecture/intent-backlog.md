@@ -2,7 +2,7 @@
 
 **Companion to:** `intent-catalog.md`, `translation-matrix.md`.
 
-> **Frozen 2026-05-25 by Phase 10-pre.1.** Total entries: **36** (after closing B-026 and adding B-036 + B-037). Class breakdown: 3 A / 6 B / 8 C (one closed) / 17 D + 2 new amendments (B-036 Class A capability honesty, B-037 Class B AX hint/value) = 36 active. Priority reconciliation applied per freshness audit + 2026-05-25 correction.
+> **Frozen 2026-05-25 by Phase 10-pre.1.** **Tracked entries: 36** (preserves ID history including closed B-026 and deprecated B-021). **Active work items: 34** (= 36 − closed B-026 − deprecated B-021†). Class breakdown by tracked entry: 4 A (B-001/B-002/B-035/B-036) / 7 B (B-020/B-021†/B-022/B-023/B-024/B-025/B-037) / 8 C (B-026 closed + B-027–B-034 open) / 17 D (B-003–B-019). Priority reconciliation applied per freshness audit + 2026-05-25 correction.
 
 Class A + Class D intents where no shipped widget covers the per-platform default. Buildable backlog for Phase 10+ implementation.
 
@@ -46,6 +46,7 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 - **Gap:** The Phase 9 capability block in `intent-routing-candidates.md` declared 12 capabilities; the Phase 10-pre.1 trim moved 6 of them to "Planned (Phase 10B targets)" because they were UNBACKED. Specifically:
   - `supports_disabled_actions` — `SwipeAction` struct (`src/ui/views/swipe_action_row.cr:19-39`) has no `disabled` / `is_disabled` field; no renderer applies disabled state.
   - `requires_row_identity_dispatch` — `SwipeAction.on_tap` is a `Proc(Nil)` closure (`src/ui/views/swipe_action_row.cr:23,33`) with no row-identity argument threaded through.
+  - `requires_accessibility_custom_actions` + `supports_voiceover_actions` — no `UIAccessibilityCustomAction` is wired on `SwipeActionRow` or `SwipeAction`. HIG `accessibility.md:134` mandates this; framework does not satisfy it. Phase 10B.2b target.
   - `supports_edge :leading` (native) — iOS/macOS/Android iterate only `trailing_actions` (`src/ui/renderers/uikit_renderer.cr:3851`, `src/ui/renderers/appkit_renderer.cr:3819`, `src/ui/renderers/android_renderer.cr:3152`). Only web honors leading (`src/ui/renderers/web_renderer.cr:2909-2911`).
   - `supports_role :destructive` (full) — AppKit drops the role (`src/ui/renderers/appkit_renderer.cr:3819-3826`); Android stub drops it; iOS + web only.
   - `requires_visible_or_keyboard_alternative` — declared but unenforced (no lint, no runtime check).
@@ -229,7 +230,9 @@ These 8 ship as `UI::System.*` module-level functions (single Crystal API, rende
 | B | 7 (B-020, B-021†, B-022, B-023, B-024, B-025, B-037) | 2 (B-020, B-037) | 5 | 0 |
 | C | 8 (B-026 closed; B-027–B-034 open) | 0 | 3 (B-027, B-029, B-030) | 5 |
 | D | 17 (B-003–B-019) | 0 | 4 | 13 |
-| **Total** | **36** | **5** | **13** | **18** |
+| **Tracked** | **36** | **5** | **13** | **18** |
+
+**Active (excluding deprecated B-021 and closed B-026): 34 work items.**
 
 † B-021 is deprecated and superseded by B-037 — counted in the class total for ID-history continuity but does not contribute work.
 

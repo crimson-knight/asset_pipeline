@@ -32,7 +32,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **android_equivalent:** `SwipeToDismissBox` (Material 3); `swipeable` modifier (Compose Foundation)
 - **web_equivalent:** No native swipe affordance on desktop; mobile web uses CSS + JS gesture libraries OR inline buttons fallback
 - **coverage_today:** partial on iOS/iPadOS/web (`src/ui/views/swipe_action_row.cr:64-65`; iOS swipe-reveal via `src/ui/renderers/uikit_renderer.cr:3823-3870`; web via `src/ui/renderers/web_renderer.cr:2887-2911`); macOS inline-button degradation (`src/ui/renderers/appkit_renderer.cr:3819-3826`); Android renderer is a STUB (`src/ui/renderers/android_renderer.cr:3148-3152` — defers proper integration to Phase 10B.1c) # caveats: trailing-edge only on iOS/macOS/Android; leading-edge honored only on web (`src/ui/renderers/web_renderer.cr:2909-2911`); destructive role honored on iOS + web; AppKit drops it. Capability block trimmed in 10-pre.1 — see intent-routing-candidates.md.
-- **description:** Reveal trailing or leading actions on a list row via swipe gesture. HIG requires an alternate non-gesture path (button, custom action, keyboard shortcut) per `gestures.md:23,31` and `accessibility.md:134`. Materially different per platform: iOS swipe-reveal vs macOS inline trailing buttons (AppKit renders SwipeActionRow as inline buttons natively, per `src/ui/renderers/appkit_renderer.cr:3801`).
+- **description:** Reveal trailing or leading actions on a list row via swipe gesture. HIG requires an alternate non-gesture path (button, custom action, keyboard shortcut) per `gestures.md:23,31` and `accessibility.md:134`. Materially different per platform: iOS swipe-reveal vs macOS inline trailing buttons (AppKit `def visit(view : UI::SwipeActionRow)` at `src/ui/renderers/appkit_renderer.cr:3806` renders content + trailing-action NSButtons inline).
 
 ---
 
@@ -338,7 +338,7 @@ Single Crystal API surface, different native implementation per platform. **NOT 
 - **hig_page:** `system-experiences.md` (sharing) — not the same as the broader "system experiences" collection
 - **android_equivalent:** `Intent.ACTION_SEND` + `Intent.createChooser`
 - **web_equivalent:** `navigator.share()` (Web Share API)
-- **coverage_today:** shipped (`UI::ActivityView` wires native sharing through the renderers: iOS `src/ui/renderers/uikit_renderer.cr:3408` → `src/ui/native/objc_bridge.m:2216-2245` presenting `UIActivityViewController`; macOS `src/ui/renderers/appkit_renderer.cr:3417` → `src/ui/native/objc_bridge.m:2148-2214` presenting `NSSharingServicePicker`; Android `src/ui/renderers/android_renderer.cr:2871` → `src/ui/native/android_bridge.c:1045` invoking `Intent.ACTION_SEND` via `android_context_start_share_chooser`; web visitor renders inline share affordances) # 2026-05-25 correction: original audit false-negative (`phase-10-pre-catalog-freshness-2026-05-25.md` correction block); re-audit confirmed in `phase-10-pre-1-class-c-reaudit-2026-05-25.md`. B-026 closed by 10-pre.1.
+- **coverage_today:** shipped (`UI::ActivityView` wires native sharing through the renderers: iOS `src/ui/renderers/uikit_renderer.cr:3408` → `src/ui/native/objc_bridge.m:2216-2245` presenting `UIActivityViewController`; macOS `src/ui/renderers/appkit_renderer.cr:3417` → `src/ui/native/objc_bridge.m:2148-2214` presenting `NSSharingServicePicker`; Android `src/ui/renderers/android_renderer.cr:2871` → `src/ui/native/android_bridge.c:1045` invoking `Intent.ACTION_SEND` via `android_context_start_share_chooser`; web visitor renders inline share affordances at `src/ui/renderers/web_renderer.cr:2184-2265` — an inline HTML approximation of the share-sheet, NOT `navigator.share()`) # 2026-05-25 correction: original audit false-negative (`phase-10-pre-catalog-freshness-2026-05-25.md` correction block); re-audit confirmed in `phase-10-pre-1-class-c-reaudit-2026-05-25.md`. B-026 closed by 10-pre.1.
 - **description:** Open the system share UI to send content to other apps/services. SwiftUI canonical name is `ShareLink`; Crystal identifier is the snake_case form.
 
 ### `:copyable`
@@ -383,7 +383,7 @@ Single Crystal API surface, different native implementation per platform. **NOT 
 - **hig_page:** `privacy.md`, `requesting-permission.md`
 - **android_equivalent:** `ActivityResultContracts.RequestPermission`
 - **web_equivalent:** `navigator.permissions.query` + resource-specific prompts
-- **coverage_today:** missing
+- **coverage_today:** partial (notifications-auth shipped at `src/ui/notifications.cr:456` → `src/ui/native/objc_bridge.m:2297`; camera / microphone / photos / location / contacts / calendar not yet wired) # 2026-05-25 re-audit: notifications-auth is the only realized resource; HIG-mandated rationale presentation is the app's responsibility today, not framework-enforced. Tracked under B-029.
 - **description:** Request user permission for camera, microphone, photo library, location, contacts, calendar, notifications. HIG requires explicit user-facing rationale.
 
 ### `:open_url`
@@ -1465,7 +1465,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `gestures.md`
 - **android_equivalent:** `Modifier.clickable`
 - **web_equivalent:** `click` event
-- **coverage_today:** partial (`on_tap` exists on `src/ui/views/button.cr:93`, `src/ui/views/icon_button.cr:22`, `src/ui/views/link_button.cr:8`, and on `SwipeAction` at `src/ui/views/swipe_action_row.cr:23`; **NOT** on base `UI::View` (`src/ui/view.cr` carries no `on_tap` property)) # caveats: framework-wide tap-gesture surface is missing — clicks must be wired to a button-family widget today. Tracked by B-037-adjacent work; full surface deferred to 10B.
+- **coverage_today:** partial (`on_tap` exists on `src/ui/views/button.cr:93`, `src/ui/views/icon_button.cr:22`, `src/ui/views/link_button.cr:8`, and on `SwipeAction` at `src/ui/views/swipe_action_row.cr:23`; **NOT** on base `UI::View` (no `on_tap` property exists on the base class — verified by grep)) # caveats: framework-wide tap-gesture surface is missing — clicks must be wired to a button-family widget today. Tracked by B-037-adjacent work; full surface deferred to 10B.
 - **crystal_api_shape:** `view.on_tap = -> { ... }`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Tap or click handler.
@@ -1557,14 +1557,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 
 ---
 
-**Catalog total:** 67 intents across 4 classes.
+**Catalog totals (corrected by Phase 10-pre.1, verified 2026-05-25):**
 
-- Class A: 1 (`:swipe_actions`)
-- Class B: 17 (accessibility + reduced motion + dynamic type + contrast + assistive technologies + captions + Assistive Access + dim flashing)
-- Class C: 9 (cross-platform-bridged: share, clipboard, permissions, URL handling, file pickers, print)
-- Class D: 40 (native modifier intents)
-
-Every identifier is the snake_case form of `primary_apple_name`. Every row carries the full schema. Class D entries additionally carry `crystal_api_shape` and `platforms`.
+- **92 schema entries** total (Class A: 1, Class B: 18, Class C: 9, Class D: 64).
+- **67 top-level intent concepts** — the schema-entry count is higher because composed intents (e.g. picker styles, presentation modifiers) ship multiple catalog rows under one top-level concept.
+- Every identifier is the snake_case form of `primary_apple_name`. Every row carries the full schema. Class D entries additionally carry `crystal_api_shape` and `platforms`.
 
 This catalog is the source of truth. Phase 9 deliverables 2-7 cross-reference these identifiers.
 

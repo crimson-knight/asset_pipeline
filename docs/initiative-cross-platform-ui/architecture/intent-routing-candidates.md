@@ -127,7 +127,7 @@ These were architect opinions that hadn't been validated against the cited sourc
 |---|---|---|
 | iOS | `UI::SwipeActionRow` | Native swipe gesture is the idiomatic affordance. UIKit `UISwipeActionsConfiguration` backs this. |
 | iPadOS | `UI::SwipeActionRow` | Same as iOS; iPadOS list rows support swipe. |
-| macOS | `UI::InlineActionRow` (missing) | macOS has no swipe gesture on lists. Idiomatic AppKit equivalent is visible trailing buttons. The current `UI::SwipeActionRow` renderer already emits inline buttons on AppKit (`appkit_renderer.cr:3801`), so this is partially shipped — but it's masquerading under the wrong type name. Phase 10 introduces `UI::InlineActionRow` as the named default. |
+| macOS | `UI::InlineActionRow` (missing) | macOS has no swipe gesture on lists. Idiomatic AppKit equivalent is visible trailing buttons. The current `UI::SwipeActionRow` renderer already emits inline buttons on AppKit (`appkit_renderer.cr:3806`), so this is partially shipped — but it's masquerading under the wrong type name. Phase 10 introduces `UI::InlineActionRow` as the named default. |
 | Android | `UI::SwipeActionRow` (STUB) | Android renderer is explicitly a stub at `android_renderer.cr:3148` — defers proper Material `SwipeToDismissBox` integration. Backlog item B-035. |
 | web_wide | `UI::InlineActionRow` (missing) | Desktop web has no native swipe gesture. Hover/right-click affordances + visible trailing buttons are idiomatic. |
 | web_narrow | `UI::SwipeActionRow` | Mobile web honors touch gestures; CSS+JS libraries provide swipe-reveal. |
