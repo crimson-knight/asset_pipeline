@@ -55,7 +55,7 @@ end
 # every mount; instance state would not survive.
 class ReactivitySpecCounter
   @@resolve_count : Int32 = 0
-  @@last_resolved : UI::View.class? = nil
+  @@last_resolved : (UI::View.class)? = nil
 
   def self.reset
     @@resolve_count = 0
