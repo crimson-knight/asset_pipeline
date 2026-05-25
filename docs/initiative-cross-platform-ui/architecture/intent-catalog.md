@@ -684,7 +684,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Material `DropdownMenu` (functional analog)
 - **web_equivalent:** CSS-positioned floating element OR HTML `<dialog popover>`
 - **coverage_today:** shipped (`src/ui/views/popover.cr:4` — `class Popover < View`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:1723`, `src/ui/renderers/appkit_renderer.cr:1697`, `src/ui/renderers/web_renderer.cr:1390`, `src/ui/renderers/android_renderer.cr:1907`)
-- **crystal_api_shape:** `popover = UI::Popover.new(content); popover.present(from: anchor_view)`
+- **crystal_api_shape:** `popover = UI::Popover.new(content, :bottom); presenter = UI::PopoverPresenter.new(popover, anchor_view); presenter.present`
 - **platforms:** ipados, macos, web_wide; iOS+web_narrow fall back to sheet
 - **description:** Transient floating panel anchored to a source view. iPad/macOS only — on iPhone falls back to sheet.
 
@@ -718,7 +718,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Material `AlertDialog`
 - **web_equivalent:** HTML `<dialog>` or framework modal
 - **coverage_today:** shipped (`src/ui/views/alert.cr:5` — `class Alert < View`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:951`, `src/ui/renderers/appkit_renderer.cr:970`, `src/ui/renderers/web_renderer.cr:713`, `src/ui/renderers/android_renderer.cr:1046`)
-- **crystal_api_shape:** `alert = UI::Alert.new(title: "Delete?", actions: [...]); alert.present`
+- **crystal_api_shape:** `alert = UI::Alert.new("Delete?", "This cannot be undone."); alert.add_button("Delete", :destructive) { state.delete }; alert.add_button("Cancel"); alert.is_presented = true`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Critical attention modal requiring user decision. Sparing use per HIG.
 
@@ -735,7 +735,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Material `AlertDialog` with destructive style OR `ModalBottomSheet`
 - **web_equivalent:** Modal with action buttons
 - **coverage_today:** shipped (`src/ui/views/confirmation_dialog.cr:4` — `class ConfirmationDialog < View`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:1758`, `src/ui/renderers/appkit_renderer.cr:1733`, `src/ui/renderers/web_renderer.cr:1418`, `src/ui/renderers/android_renderer.cr:1984`)
-- **crystal_api_shape:** `dialog = UI::ConfirmationDialog.new(title: "Delete?", actions: [...]); dialog.present`
+- **crystal_api_shape:** `dialog = UI::ConfirmationDialog.new("Delete?", "This cannot be undone."); dialog.confirm_style = :destructive; dialog.on_confirm = -> { state.delete }; dialog.is_presented = true`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Sheet-style confirmation for destructive or significant actions. Distinct from alert: confirmation dialogs let the user choose among multiple paths; alerts inform.
 
@@ -956,7 +956,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Compose `Navigation` host
 - **web_equivalent:** Browser URL stack + framework router
 - **coverage_today:** shipped (`src/ui/views/navigation_stack.cr:10` — `class NavigationStack < View`; coordinator at `src/ui/navigation_coordinator.cr:30,38-39,59-67`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:779`, `src/ui/renderers/appkit_renderer.cr:800`, `src/ui/renderers/web_renderer.cr:530`, `src/ui/renderers/android_renderer.cr:946`)
-- **crystal_api_shape:** `coord = UI::NavigationCoordinator.new(initial_route); coord.push(...)`
+- **crystal_api_shape:** `coord = UI::NavigationCoordinator.new(UI::NavigationCoordinator::Route.new(:home)); coord.push(UI::NavigationCoordinator::Route.new(:settings))`
 - **platforms:** ios, ipados, android, web_wide, web_narrow
 - **description:** Stack-based forward/back navigation (push/pop semantics).
 
@@ -973,7 +973,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Custom two-pane layout (foldable)
 - **web_equivalent:** CSS grid sidebar + main
 - **coverage_today:** partial (`src/ui/views/navigation_split_view.cr:4-10` — `class NavigationSplitView < View` with `sidebar`, `content`, `detail`, `sidebar_width`, `column_visibility`; visitor entry points at `src/ui/renderers/uikit_renderer.cr:1576`, `src/ui/renderers/appkit_renderer.cr:1547`, `src/ui/renderers/web_renderer.cr:1274`, `src/ui/renderers/android_renderer.cr:1782`. Compact-collapse to stack not yet implemented at the renderer level.)
-- **crystal_api_shape:** `screen = UI::NavigationSplitView.new(sidebar:, detail:)`
+- **crystal_api_shape:** `view = UI::NavigationSplitView.new(sidebar: sidebar_view, content: list_view, detail: detail_view)`
 - **platforms:** ipados, macos, web_wide
 - **description:** Two- or three-pane navigation (sidebar + content + optional inspector). On compact platforms, collapses to a stack. **Why not Class A:** the framework already exposes `UI::NavigationStack` and `UI::NavigationSplitView` as separate widgets; authors pick which one based on their layout intent, and the compact-collapse is renderer-internal (the split-view widget itself doesn't change classes on iPhone — it collapses its panes). If a future phase determines authors need the framework to AUTO-PICK between Stack and SplitView per platform without naming the widget, that's a Class A candidate.
 
@@ -990,7 +990,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** `NavController.navigate`
 - **web_equivalent:** `<a href="...">` link triggering router
 - **coverage_today:** partial (`src/ui/views/navigation_link.cr:10-21` — `class NavigationLink < View` with `label`, `destination : View`, `icon`, `shows_disclosure`; route-driven `Voyager.dispatch(:open_X)` integration is implemented per-app, not on the link type itself)
-- **crystal_api_shape:** `link = UI::NavigationLink.new(label: "Settings", route_id: :settings)`
+- **crystal_api_shape:** `link = UI::NavigationLink.new("Settings", settings_screen_view)`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Tappable element that pushes onto the navigation stack.
 
@@ -1058,7 +1058,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Material `SegmentedButton`
 - **web_equivalent:** Radio group styled as segments
 - **coverage_today:** shipped (`src/ui/views/segmented_control.cr:4-7` — `class SegmentedControl < View` with `segments`, `selected_index`, `on_change`; visitors at `src/ui/renderers/uikit_renderer.cr:1381`, `src/ui/renderers/appkit_renderer.cr:1323`, `src/ui/renderers/web_renderer.cr:924`, `src/ui/renderers/android_renderer.cr:1408`)
-- **crystal_api_shape:** `picker.picker_style = :segmented`
+- **crystal_api_shape:** `picker.style = UI::PickerStyle::Segmented` (or use the standalone `UI::SegmentedControl.new(segments)`)
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Picker as a horizontal segmented control. 2-5 options; mutually exclusive.
 
@@ -1466,7 +1466,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** `Modifier.clickable`
 - **web_equivalent:** `click` event
 - **coverage_today:** partial (`on_tap` exists on `src/ui/views/button.cr:93`, `src/ui/views/icon_button.cr:22`, `src/ui/views/link_button.cr:8`, and on `SwipeAction` at `src/ui/views/swipe_action_row.cr:23`; **NOT** on base `UI::View` (no `on_tap` property exists on the base class — verified by grep)) # caveats: framework-wide tap-gesture surface is missing — clicks must be wired to a button-family widget today. Tracked by B-037-adjacent work; full surface deferred to 10B.
-- **crystal_api_shape:** `view.on_tap = -> { ... }`
+- **crystal_api_shape:** `button.on_tap = -> { ... }` (available on `Button`, `IconButton`, `LinkButton`, `SwipeAction` only; NOT on base `UI::View`)
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Tap or click handler.
 
