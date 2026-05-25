@@ -188,9 +188,9 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** missing
 - **description:** Provide non-color cues (icons, text labels, patterns) for state. HIG: never use color as the sole means of conveying information.
 
-### `:accessibility_voice_over`
+### `:accessibility_voice_over_enabled`
 
-- **intent_identifier_crystal:** `:accessibility_voice_over`
+- **intent_identifier_crystal:** `:accessibility_voice_over_enabled`
 - **primary_apple_name:** `accessibilityVoiceOverEnabled`
 - **class:** B
 - **tier:** 2
@@ -207,6 +207,8 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 
 - **intent_identifier_crystal:** `:accessibility_switch_control`
 - **primary_apple_name:** Switch Control
+- **apple_canonical_name_exists:** false
+- **exception_justification:** "Switch Control" is a HIG-named system feature (accessibility.md:154) with no single SwiftUI modifier. Apps honor it via focusable + accessibility actions; the intent is the contract, not an API. Identifier follows the `:accessibility_<feature_name>` convention used by other system-feature contracts in Class B.
 - **class:** B
 - **tier:** 2
 - **swiftui_api:** Honored via focusable + accessibility actions
@@ -222,6 +224,8 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 
 - **intent_identifier_crystal:** `:accessibility_voice_control`
 - **primary_apple_name:** Voice Control
+- **apple_canonical_name_exists:** false
+- **exception_justification:** "Voice Control" is a HIG-named system feature (accessibility.md:140) with no single SwiftUI modifier. Apps honor it by ensuring accessibility labels match visible text. Identifier follows the `:accessibility_<feature_name>` convention.
 - **class:** B
 - **tier:** 2
 - **swiftui_api:** Honored via accessibility labels (Voice Control matches on visible labels)
@@ -237,6 +241,8 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 
 - **intent_identifier_crystal:** `:accessibility_full_keyboard_access`
 - **primary_apple_name:** Full Keyboard Access
+- **apple_canonical_name_exists:** false
+- **exception_justification:** "Full Keyboard Access" is a HIG-named system feature (accessibility.md:152) with no single SwiftUI modifier. Apps honor it via `focusable`, `focusEffect`, `defaultFocus`, and `UIKeyCommand` collectively. Identifier follows the `:accessibility_<feature_name>` convention.
 - **class:** B
 - **tier:** 2
 - **swiftui_api:** `.focusable(_:)`, `.focusEffect(_:)`, `.defaultFocus(_:_:)`
@@ -248,13 +254,13 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** partial
 - **description:** Every interactive element reachable + activatable via keyboard alone. HIG calls this out explicitly: "Let people use the keyboard alone to navigate."
 
-### `:accessibility_element_grouping`
+### `:accessibility_element`
 
-- **intent_identifier_crystal:** `:accessibility_element_grouping`
-- **primary_apple_name:** `accessibilityElement(children:)`
+- **intent_identifier_crystal:** `:accessibility_element`
+- **primary_apple_name:** `accessibilityElement`
 - **class:** B
 - **tier:** 2
-- **swiftui_api:** `.accessibilityElement(children: .contain)`, `.accessibilityAddTraits(_:)`
+- **swiftui_api:** `.accessibilityElement(children:)`, `.accessibilityAddTraits(_:)`
 - **uikit_api:** `UIAccessibility` container traits
 - **appkit_api:** `NSAccessibility.Role` for grouping
 - **hig_page:** `accessibility.md`
@@ -267,6 +273,8 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 
 - **intent_identifier_crystal:** `:accessibility_captions`
 - **primary_apple_name:** Captions / Subtitles / Transcripts
+- **apple_canonical_name_exists:** false
+- **exception_justification:** "Captions / Subtitles / Transcripts" is a HIG-named media-accessibility category (accessibility.md:168) with no single SwiftUI modifier. Apps honor it via AVKit caption tracks + media selection options. Identifier follows the `:accessibility_<feature_name>` convention.
 - **class:** B
 - **tier:** 2
 - **swiftui_api:** `AVPlayer` caption tracks via `AVMediaSelectionOption`
@@ -282,6 +290,8 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 
 - **intent_identifier_crystal:** `:accessibility_assistive_access`
 - **primary_apple_name:** Assistive Access
+- **apple_canonical_name_exists:** false
+- **exception_justification:** "Assistive Access" is a HIG-named iOS 17+ system mode (assistive-access.md) with no SwiftUI modifier. Apps honor it by providing simplified flows. Identifier follows the `:accessibility_<feature_name>` convention.
 - **class:** B
 - **tier:** 2
 - **swiftui_api:** App design honors Assistive Access via simplified flows
@@ -297,6 +307,8 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 
 - **intent_identifier_crystal:** `:accessibility_dim_flashing_lights`
 - **primary_apple_name:** Dim Flashing Lights
+- **apple_canonical_name_exists:** false
+- **exception_justification:** "Dim Flashing Lights" is a HIG-named accessibility feature with no single SwiftUI modifier (system handles it inside AVKit playback). Custom video implementations need explicit handling. Identifier follows the `:accessibility_<feature_name>` convention.
 - **class:** B
 - **tier:** 2
 - **swiftui_api:** Honored automatically by AVKit playback
@@ -329,10 +341,10 @@ Single Crystal API surface, different native implementation per platform. **NOT 
 - **coverage_today:** missing
 - **description:** Open the system share UI to send content to other apps/services. SwiftUI canonical name is `ShareLink`; Crystal identifier is the snake_case form.
 
-### `:pasteboard_copy`
+### `:copyable`
 
-- **intent_identifier_crystal:** `:pasteboard_copy`
-- **primary_apple_name:** `UIPasteboard` (copy)
+- **intent_identifier_crystal:** `:copyable`
+- **primary_apple_name:** `copyable`
 - **class:** C
 - **tier:** 2
 - **swiftui_api:** `.copyable(_:)`
@@ -344,10 +356,10 @@ Single Crystal API surface, different native implementation per platform. **NOT 
 - **coverage_today:** missing
 - **description:** Write a string (or richer payload) to the system clipboard.
 
-### `:pasteboard_paste`
+### `:paste_button`
 
-- **intent_identifier_crystal:** `:pasteboard_paste`
-- **primary_apple_name:** `UIPasteboard` (paste) / `PasteButton`
+- **intent_identifier_crystal:** `:paste_button`
+- **primary_apple_name:** `PasteButton`
 - **class:** C
 - **tier:** 2
 - **swiftui_api:** `PasteButton(payloadType:onPaste:)`, `.pasteboard(...)`
@@ -404,9 +416,9 @@ Single Crystal API surface, different native implementation per platform. **NOT 
 - **coverage_today:** missing
 - **description:** Handle incoming URL/deep-link to navigate to a specific app state.
 
-### `:print_interaction`
+### `:ui_print_interaction_controller`
 
-- **intent_identifier_crystal:** `:print_interaction`
+- **intent_identifier_crystal:** `:ui_print_interaction_controller`
 - **primary_apple_name:** `UIPrintInteractionController`
 - **class:** C
 - **tier:** 2

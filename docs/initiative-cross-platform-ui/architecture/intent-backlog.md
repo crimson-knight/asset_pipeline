@@ -172,9 +172,9 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 
 ### B-025 — VoiceOver landmark grouping
 
-- **Intent:** `:voiceover_landmark`
-- **Gap:** No `accessibility_element_grouping` property; VoiceOver users hear leaf elements.
-- **Action:** Add `accessibility_grouping : Symbol?` (or equivalent) to container views. Renderers map to platform grouping.
+- **Intent:** `:accessibility_element`
+- **Gap:** No `accessibility_element` (children:) grouping property on container views; VoiceOver users hear leaf elements.
+- **Action:** Add `accessibility_element_children : Symbol?` (or equivalent) to container views. Renderers map to platform grouping.
 - **Size:** M.
 - **Priority:** P1.
 
