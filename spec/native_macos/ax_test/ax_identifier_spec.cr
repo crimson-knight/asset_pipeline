@@ -1,6 +1,7 @@
 {% if flag?(:macos) %}
 
 require "spec"
+require "../../../src/ui"
 require "../../../src/ui/ax_test"
 
 # A1 — find by AXIdentifier.

@@ -1,7 +1,7 @@
 {% if flag?(:macos) %}
 require "spec"
 require "json"
-require "../../support/ax_test_patterns"
+require "../support/ax_test_patterns"
 
 # Phase 3 BX2 — macOS twin of BX1.
 #

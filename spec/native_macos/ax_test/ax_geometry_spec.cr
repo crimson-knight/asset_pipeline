@@ -1,6 +1,7 @@
 {% if flag?(:macos) %}
 
 require "spec"
+require "../../../src/ui"
 require "../../../src/ui/ax_test"
 
 # A2 — AXValueRef unpacker for CGPoint / CGSize / CGRect.

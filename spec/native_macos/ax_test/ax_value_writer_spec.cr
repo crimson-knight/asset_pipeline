@@ -1,6 +1,7 @@
 {% if flag?(:macos) %}
 
 require "spec"
+require "../../../src/ui"
 require "../../../src/ui/ax_test"
 
 # A3 — Value writer (`Element#set_value` and `set_attribute`).

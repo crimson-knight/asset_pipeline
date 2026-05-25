@@ -1,6 +1,7 @@
 {% if flag?(:macos) %}
 require "json"
-require "../../src/ui/ax_test"
+require "../../../src/ui"
+require "../../../src/ui/ax_test"
 
 # Phase 6.5 D3 — AXTest pattern library.
 #
