@@ -20,35 +20,41 @@ Codex co-plan §1 predicted 1-3 Class A intents in the entire framework. The fin
 ```crystal
 intent :swipe_actions do
   capabilities do
-    supports_edge :leading
-    supports_edge :trailing
-    supports_full_swipe true
-    full_swipe_destructive_safe true
-    supports_role :destructive
-    supports_role :cancel
-    supports_role :default
-    supports_disabled_actions true
-    requires_row_identity_dispatch true
-    requires_visible_or_keyboard_alternative true   # HIG gestures.md:23
-    requires_accessibility_custom_actions true       # HIG accessibility.md:134
-    requires_confirmation_for_destructive_full_swipe true
-    preserves_focus_after_action true
-    supports_voiceover_actions true
-    supports_switch_control_activation true
-    supports_voice_control_labels true
-    does_not_conflict_with_system_gestures true
+    # SwiftUI/UIKit API surface (directly backed by swipeActions / UISwipeActionsConfiguration):
+    supports_edge :leading                            # swipeActions(edge: .leading, ...)
+    supports_edge :trailing                           # swipeActions(edge: .trailing, ...)
+    supports_role :destructive                        # SwiftUI Button.role
+    supports_role :default                            # SwiftUI Button (no role)
+    supports_disabled_actions true                    # Button.disabled() modifier
+    requires_row_identity_dispatch true               # callbacks need to know which row
+
+    # HIG-mandated invariants (gestures.md:23,31 + accessibility.md:134):
+    requires_visible_or_keyboard_alternative true     # HIG gestures.md:23 — gesture cannot be sole path
+    requires_accessibility_custom_actions true        # HIG accessibility.md:134 — non-gesture path via custom actions
+    supports_voiceover_actions true                   # accessibilityAction modifier honored
+    supports_switch_control_activation true           # focus + activation via Switch Control
+    supports_voice_control_labels true                # action labels match what Voice Control matches on
+    does_not_conflict_with_system_gestures true       # edge-swipes don't fight system back-gesture
   end
 
   defaults do
     ios        UI::SwipeActionRow
     ipados     UI::SwipeActionRow
-    macos      UI::InlineActionRow      # MISSING — see intent-backlog.md
-    android    UI::SwipeActionRow
-    web_wide   UI::InlineActionRow      # MISSING — see intent-backlog.md
+    macos      UI::InlineActionRow      # MISSING — see intent-backlog.md B-001
+    android    UI::SwipeActionRow       # STUB — android_renderer.cr:3148; see B-035
+    web_wide   UI::InlineActionRow      # MISSING — see intent-backlog.md B-002
     web_narrow UI::SwipeActionRow
   end
 end
 ```
+
+**Removed from earlier drafts (no source backing):**
+- `supports_full_swipe` / `full_swipe_destructive_safe` — `allowsFullSwipe` exists in SwiftUI's `swipeActions(edge:allowsFullSwipe:content:)` but the "destructive-safe" semantic is a design opinion, not a HIG rule. If the framework wants to encode that opinion, it belongs in a separate `framework_opinion` block, not in `capabilities`.
+- `supports_role :cancel` — SwiftUI `Button.role` accepts `.cancel` but the cancel role is meant for dismissal-style actions, not swipe-row actions. Removed pending a use case.
+- `requires_confirmation_for_destructive_full_swipe` — UX recommendation, not a HIG or API requirement. Apps that want this discipline implement it via `:confirmation_dialog` after the swipe action; not a property of `:swipe_actions` itself.
+- `preserves_focus_after_action` — desirable but not specified by SwiftUI or HIG.
+
+These were architect opinions that hadn't been validated against the cited sources. The capability block now reflects only what's backed by SwiftUI's API + HIG's accessibility rules.
 
 ### Per-platform default rationale
 
@@ -57,7 +63,7 @@ end
 | iOS | `UI::SwipeActionRow` | Native swipe gesture is the idiomatic affordance. UIKit `UISwipeActionsConfiguration` backs this. |
 | iPadOS | `UI::SwipeActionRow` | Same as iOS; iPadOS list rows support swipe. |
 | macOS | `UI::InlineActionRow` (missing) | macOS has no swipe gesture on lists. Idiomatic AppKit equivalent is visible trailing buttons. The current `UI::SwipeActionRow` renderer already emits inline buttons on AppKit (`appkit_renderer.cr:3801`), so this is partially shipped — but it's masquerading under the wrong type name. Phase 10 introduces `UI::InlineActionRow` as the named default. |
-| Android | `UI::SwipeActionRow` | Material 3 `SwipeToDismissBox` provides the swipe affordance. |
+| Android | `UI::SwipeActionRow` (STUB) | Android renderer is explicitly a stub at `android_renderer.cr:3148` — defers proper Material `SwipeToDismissBox` integration. Backlog item B-035. |
 | web_wide | `UI::InlineActionRow` (missing) | Desktop web has no native swipe gesture. Hover/right-click affordances + visible trailing buttons are idiomatic. |
 | web_narrow | `UI::SwipeActionRow` | Mobile web honors touch gestures; CSS+JS libraries provide swipe-reveal. |
 

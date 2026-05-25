@@ -8,10 +8,12 @@ Each entry is classified into exactly one of four classes:
 
 - **Class A** — Widget-routing intents. Framework picks materially different `UI::View` per platform. Gets the four-part contract (capabilities + defaults + override_registry + resolver). See `intent-routing-candidates.md`.
 - **Class B** — Framework-contract intents. Cross-cutting invariants every widget honors (accessibility, reduced motion, dynamic type).
-- **Class C** — System-integration intents. Single API surface, different native implementations (share, clipboard, permissions).
+- **Class C** — Cross-platform-bridged intents. Single Crystal API surface, different native implementations per platform (share, clipboard, permissions, URL handling, file pickers). Distinct from HIG's "system experiences" surface (App Shortcuts, Controls, Live Activities, Widgets, Notifications, Status Bars) — those would belong to a separate Class E if we expand to cover them; Phase 9 does not.
 - **Class D** — Native modifier intents. SwiftUI modifiers that configure existing widgets 1:1 (no routing, no contract — direct Crystal-to-modifier translation).
 
 Lint requires every row to carry all 12 common-schema fields. Class D rows carry 14 fields (the common 12 plus `crystal_api_shape` and `platforms`). Em-dash `"—"` is the sentinel for no-equivalent-on-platform.
+
+**Vocabulary rule:** `intent_identifier_crystal` MUST be the snake_case form of `primary_apple_name`. No exceptions in this catalog — Codex content review forced every identifier into compliance.
 
 ---
 
@@ -26,17 +28,17 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **swiftui_api:** `swipeActions(edge:allowsFullSwipe:content:)`
 - **uikit_api:** `UISwipeActionsConfiguration`
 - **appkit_api:** `NSTableView` row actions via `NSTableViewRowActionStyle`
-- **hig_page:** `gestures.md`, `accessibility.md`
+- **hig_page:** `gestures.md`, `accessibility.md`, `lists-and-tables.md`
 - **android_equivalent:** `SwipeToDismissBox` (Material 3); `swipeable` modifier (Compose Foundation)
 - **web_equivalent:** No native swipe affordance on desktop; mobile web uses CSS + JS gesture libraries OR inline buttons fallback
-- **coverage_today:** shipped (`UI::SwipeActionRow` at `src/ui/views/swipe_action_row.cr`)
+- **coverage_today:** shipped on iOS/iPadOS/web (`UI::SwipeActionRow` at `src/ui/views/swipe_action_row.cr`); macOS uses AppKit inline buttons; Android renderer is a STUB (`android_renderer.cr:3148` — defers proper integration to a future phase)
 - **description:** Reveal trailing or leading actions on a list row via swipe gesture. HIG requires an alternate non-gesture path (button, custom action, keyboard shortcut) per `gestures.md:23,31` and `accessibility.md:134`. Materially different per platform: iOS swipe-reveal vs macOS inline trailing buttons (AppKit renders SwipeActionRow as inline buttons natively, per `appkit_renderer.cr:3801`).
 
 ---
 
 ## Class B — Framework-contract intents
 
-### `:accessibilityLabel`
+### `:accessibility_label`
 
 - **intent_identifier_crystal:** `:accessibility_label`
 - **primary_apple_name:** `accessibilityLabel`
@@ -51,7 +53,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** shipped (every `UI::View` exposes `accessibility_label : String`)
 - **description:** Human-readable label exposed to assistive technologies (VoiceOver, TalkBack, screen readers). Required on every interactive widget per HIG accessibility guidance. Framework invariant: no interactive widget ships without a non-empty accessibility_label.
 
-### `:accessibilityHint`
+### `:accessibility_hint`
 
 - **intent_identifier_crystal:** `:accessibility_hint`
 - **primary_apple_name:** `accessibilityHint`
@@ -66,7 +68,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** partial (some views; not universally exposed)
 - **description:** Brief description of what activating an element does. Distinct from label (which is the element's identity). HIG cautions against duplicating the label.
 
-### `:accessibilityValue`
+### `:accessibility_value`
 
 - **intent_identifier_crystal:** `:accessibility_value`
 - **primary_apple_name:** `accessibilityValue`
@@ -81,7 +83,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** partial
 - **description:** Current value of a stateful control (slider position, toggle state, picker selection) for assistive tech.
 
-### `:accessibilityAction`
+### `:accessibility_action`
 
 - **intent_identifier_crystal:** `:accessibility_action`
 - **primary_apple_name:** `accessibilityAction`
@@ -96,7 +98,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** missing (not surfaced on `UI::View`)
 - **description:** Custom actions exposed to assistive tech as an alternative to gestures. **Critical for swipe-action rows** per `accessibility.md:134` — gestures cannot be the sole path to a function.
 
-### `:accessibilityRotor`
+### `:accessibility_rotor`
 
 - **intent_identifier_crystal:** `:accessibility_rotor`
 - **primary_apple_name:** `AccessibilityRotor`
@@ -111,7 +113,7 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** missing
 - **description:** Custom VoiceOver navigation entry point grouping related elements. Used for skimming long content.
 
-### `:accessibilityFocused`
+### `:accessibility_focused`
 
 - **intent_identifier_crystal:** `:accessibility_focused`
 - **primary_apple_name:** `accessibilityFocused`
@@ -126,10 +128,10 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** missing
 - **description:** Programmatically move assistive-tech focus to a specific element (e.g., when an error appears, route focus to the error message).
 
-### `:respect_reduced_motion`
+### `:accessibility_reduce_motion`
 
-- **intent_identifier_crystal:** `:respect_reduced_motion`
-- **primary_apple_name:** `accessibilityReduceMotion` (Environment value)
+- **intent_identifier_crystal:** `:accessibility_reduce_motion`
+- **primary_apple_name:** `accessibilityReduceMotion`
 - **class:** B
 - **tier:** 2
 - **swiftui_api:** `@Environment(\.accessibilityReduceMotion)`
@@ -141,9 +143,9 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** missing (no framework-level helper)
 - **description:** Respect user's Reduce Motion setting. Animations should fade rather than translate; large motion should be muted.
 
-### `:dynamic_type`
+### `:dynamic_type_size`
 
-- **intent_identifier_crystal:** `:dynamic_type`
+- **intent_identifier_crystal:** `:dynamic_type_size`
 - **primary_apple_name:** `dynamicTypeSize`
 - **class:** B
 - **tier:** 2
@@ -156,10 +158,85 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** partial (design tokens carry semantic font sizes; runtime scaling not yet wired)
 - **description:** Scale text and layout in response to user's text-size preference. HIG: support at least the standard accessibility sizes.
 
-### `:full_keyboard_access`
+### `:accessibility_increase_contrast`
 
-- **intent_identifier_crystal:** `:full_keyboard_access`
-- **primary_apple_name:** Full Keyboard Access (system feature)
+- **intent_identifier_crystal:** `:accessibility_increase_contrast`
+- **primary_apple_name:** `accessibilityIncreaseContrast`
+- **class:** B
+- **tier:** 2
+- **swiftui_api:** `@Environment(\.accessibilityIncreaseContrast)`
+- **uikit_api:** `UIAccessibility.isDarkerSystemColorsEnabled`
+- **appkit_api:** `NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast`
+- **hig_page:** `accessibility.md`
+- **android_equivalent:** Material `high contrast text` setting
+- **web_equivalent:** CSS `@media (prefers-contrast: more)`
+- **coverage_today:** missing
+- **description:** Increase color contrast for users with vision needs. Per HIG `accessibility.md:49`: ensure interface remains usable with elevated contrast.
+
+### `:accessibility_differentiate_without_color`
+
+- **intent_identifier_crystal:** `:accessibility_differentiate_without_color`
+- **primary_apple_name:** `accessibilityDifferentiateWithoutColor`
+- **class:** B
+- **tier:** 2
+- **swiftui_api:** `@Environment(\.accessibilityDifferentiateWithoutColor)`
+- **uikit_api:** `UIAccessibility.shouldDifferentiateWithoutColor`
+- **appkit_api:** —
+- **hig_page:** `accessibility.md`, `color.md`
+- **android_equivalent:** —
+- **web_equivalent:** WCAG 1.4.1 — provide redundant non-color cues
+- **coverage_today:** missing
+- **description:** Provide non-color cues (icons, text labels, patterns) for state. HIG: never use color as the sole means of conveying information.
+
+### `:accessibility_voice_over`
+
+- **intent_identifier_crystal:** `:accessibility_voice_over`
+- **primary_apple_name:** `accessibilityVoiceOverEnabled`
+- **class:** B
+- **tier:** 2
+- **swiftui_api:** `@Environment(\.accessibilityVoiceOverEnabled)` + label/hint/value/action modifiers
+- **uikit_api:** `UIAccessibility.isVoiceOverRunning`
+- **appkit_api:** `NSWorkspace.shared.isVoiceOverEnabled`
+- **hig_page:** `voiceover.md`, `accessibility.md`
+- **android_equivalent:** TalkBack
+- **web_equivalent:** Screen reader compatibility via ARIA
+- **coverage_today:** partial (accessibility_label honors VoiceOver; full traits/value not exposed)
+- **description:** Full VoiceOver compatibility. Required: every interactive element discoverable, labeled, value-reported, action-equivalent for gestures.
+
+### `:accessibility_switch_control`
+
+- **intent_identifier_crystal:** `:accessibility_switch_control`
+- **primary_apple_name:** Switch Control
+- **class:** B
+- **tier:** 2
+- **swiftui_api:** Honored via focusable + accessibility actions
+- **uikit_api:** `UIAccessibility.isSwitchControlRunning`
+- **appkit_api:** —
+- **hig_page:** `accessibility.md:154`
+- **android_equivalent:** Switch Access
+- **web_equivalent:** Keyboard-only navigation
+- **coverage_today:** missing
+- **description:** Switch Control assistive technology — single/dual-switch navigation through the UI. Requires every interactive element to be focusable + activatable without precise pointing.
+
+### `:accessibility_voice_control`
+
+- **intent_identifier_crystal:** `:accessibility_voice_control`
+- **primary_apple_name:** Voice Control
+- **class:** B
+- **tier:** 2
+- **swiftui_api:** Honored via accessibility labels (Voice Control matches on visible labels)
+- **uikit_api:** `UIAccessibility.isVoiceControlRunning`
+- **appkit_api:** —
+- **hig_page:** `accessibility.md:140`
+- **android_equivalent:** Voice Access
+- **web_equivalent:** —
+- **coverage_today:** missing
+- **description:** Voice Control allows users to operate the device entirely by voice. Requires accessibility labels match what's visible (so users can say "tap Sign In" and it works).
+
+### `:accessibility_full_keyboard_access`
+
+- **intent_identifier_crystal:** `:accessibility_full_keyboard_access`
+- **primary_apple_name:** Full Keyboard Access
 - **class:** B
 - **tier:** 2
 - **swiftui_api:** `.focusable(_:)`, `.focusEffect(_:)`, `.defaultFocus(_:_:)`
@@ -171,9 +248,9 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** partial
 - **description:** Every interactive element reachable + activatable via keyboard alone. HIG calls this out explicitly: "Let people use the keyboard alone to navigate."
 
-### `:voiceover_landmark`
+### `:accessibility_element_grouping`
 
-- **intent_identifier_crystal:** `:voiceover_landmark`
+- **intent_identifier_crystal:** `:accessibility_element_grouping`
 - **primary_apple_name:** `accessibilityElement(children:)`
 - **class:** B
 - **tier:** 2
@@ -186,67 +263,114 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** missing
 - **description:** Group related views for assistive-tech navigation. Without this, VoiceOver users hear every leaf element individually.
 
+### `:accessibility_captions`
+
+- **intent_identifier_crystal:** `:accessibility_captions`
+- **primary_apple_name:** Captions / Subtitles / Transcripts
+- **class:** B
+- **tier:** 2
+- **swiftui_api:** `AVPlayer` caption tracks via `AVMediaSelectionOption`
+- **uikit_api:** Same as SwiftUI
+- **appkit_api:** Same as SwiftUI
+- **hig_page:** `accessibility.md:168`
+- **android_equivalent:** `MediaPlayer.setCaptioningEnabled`
+- **web_equivalent:** `<track kind="captions">` element
+- **coverage_today:** missing
+- **description:** Captions, subtitles, transcripts for video/audio media. HIG: any media with speech should include captions.
+
+### `:accessibility_assistive_access`
+
+- **intent_identifier_crystal:** `:accessibility_assistive_access`
+- **primary_apple_name:** Assistive Access
+- **class:** B
+- **tier:** 2
+- **swiftui_api:** App design honors Assistive Access via simplified flows
+- **uikit_api:** —
+- **appkit_api:** —
+- **hig_page:** `accessibility.md`, `assistive-access.md`
+- **android_equivalent:** —
+- **web_equivalent:** —
+- **coverage_today:** missing
+- **description:** Apple's reduced-cognitive-load mode (iOS 17+). Apps that support Assistive Access provide simplified, focused, low-distraction flows.
+
+### `:accessibility_dim_flashing_lights`
+
+- **intent_identifier_crystal:** `:accessibility_dim_flashing_lights`
+- **primary_apple_name:** Dim Flashing Lights
+- **class:** B
+- **tier:** 2
+- **swiftui_api:** Honored automatically by AVKit playback
+- **uikit_api:** Same
+- **appkit_api:** Same
+- **hig_page:** `accessibility.md`
+- **android_equivalent:** —
+- **web_equivalent:** CSS-controlled dimming of video; manual implementation
+- **coverage_today:** missing
+- **description:** Detect + dim sequences of flashing lights in videos for users with photo-sensitivity. iOS handles this in system video playback; custom video players need explicit handling.
+
 ---
 
-## Class C — System-integration intents
+## Class C — Cross-platform-bridged intents
 
-### `:share_sheet`
+Single Crystal API surface, different native implementation per platform. **NOT the same as HIG's "system experiences" surface** (App Shortcuts, Controls, Live Activities, Widgets, Notifications, Status Bars per `system-experiences.md:31`). Those would be a separate class if introduced in a future phase.
 
-- **intent_identifier_crystal:** `:share_sheet`
+### `:share_link`
+
+- **intent_identifier_crystal:** `:share_link`
 - **primary_apple_name:** `ShareLink`
 - **class:** C
 - **tier:** 2
 - **swiftui_api:** `ShareLink(item:subject:message:label:)`
 - **uikit_api:** `UIActivityViewController`
 - **appkit_api:** `NSSharingService`, `NSSharingServicePicker`
-- **hig_page:** `system-experiences.md` (sharing)
+- **hig_page:** `system-experiences.md` (sharing) — not the same as the broader "system experiences" collection
 - **android_equivalent:** `Intent.ACTION_SEND` + `Intent.createChooser`
 - **web_equivalent:** `navigator.share()` (Web Share API)
 - **coverage_today:** missing
-- **description:** Open the system share UI to send content to other apps/services.
+- **description:** Open the system share UI to send content to other apps/services. SwiftUI canonical name is `ShareLink`; Crystal identifier is the snake_case form.
 
-### `:copy_to_clipboard`
+### `:pasteboard_copy`
 
-- **intent_identifier_crystal:** `:copy_to_clipboard`
-- **primary_apple_name:** `UIPasteboard.general.string`
+- **intent_identifier_crystal:** `:pasteboard_copy`
+- **primary_apple_name:** `UIPasteboard` (copy)
 - **class:** C
 - **tier:** 2
-- **swiftui_api:** `.copyable(_:)`, `UIPasteboard` via `UIApplication.shared`
-- **uikit_api:** `UIPasteboard.general`
-- **appkit_api:** `NSPasteboard.general`
+- **swiftui_api:** `.copyable(_:)`
+- **uikit_api:** `UIPasteboard.general.string = ...`
+- **appkit_api:** `NSPasteboard.general.setString(_:forType:)`
 - **hig_page:** `system-experiences.md`
 - **android_equivalent:** `ClipboardManager.setPrimaryClip(...)`
 - **web_equivalent:** `navigator.clipboard.writeText(...)`
 - **coverage_today:** missing
 - **description:** Write a string (or richer payload) to the system clipboard.
 
-### `:paste_from_clipboard`
+### `:pasteboard_paste`
 
-- **intent_identifier_crystal:** `:paste_from_clipboard`
-- **primary_apple_name:** `UIPasteboard.general.string`
+- **intent_identifier_crystal:** `:pasteboard_paste`
+- **primary_apple_name:** `UIPasteboard` (paste) / `PasteButton`
 - **class:** C
 - **tier:** 2
-- **swiftui_api:** `.pasteboard(...)`, `PasteButton`
-- **uikit_api:** `UIPasteboard.general`
-- **appkit_api:** `NSPasteboard.general`
+- **swiftui_api:** `PasteButton(payloadType:onPaste:)`, `.pasteboard(...)`
+- **uikit_api:** `UIPasteboard.general.string`
+- **appkit_api:** `NSPasteboard.general.string(forType:)`
 - **hig_page:** `system-experiences.md`
 - **android_equivalent:** `ClipboardManager.getPrimaryClip()`
 - **web_equivalent:** `navigator.clipboard.readText()` (requires permission)
 - **coverage_today:** missing
 - **description:** Read a string (or richer payload) from the system clipboard.
 
-### `:request_permission`
+### `:authorization_request`
 
-- **intent_identifier_crystal:** `:request_permission`
-- **primary_apple_name:** Platform-specific (e.g., `AVCaptureDevice.requestAccess(for:)`, `CLLocationManager.requestWhenInUseAuthorization()`)
+- **intent_identifier_crystal:** `:authorization_request`
+- **primary_apple_name:** Authorization request (resource-specific Apple APIs)
 - **class:** C
 - **tier:** 2
-- **swiftui_api:** Platform-specific authorization APIs per resource
+- **swiftui_api:** Resource-specific (e.g. `requestAuthorization` on `AVCaptureDevice`, `CLLocationManager`, `UNUserNotificationCenter`)
 - **uikit_api:** Same as SwiftUI (resource-specific)
 - **appkit_api:** Same as iOS for shared resources
 - **hig_page:** `privacy.md`, `requesting-permission.md`
 - **android_equivalent:** `ActivityResultContracts.RequestPermission`
-- **web_equivalent:** `navigator.permissions.query` + resource-specific prompts (camera, microphone, notifications)
+- **web_equivalent:** `navigator.permissions.query` + resource-specific prompts
 - **coverage_today:** missing
 - **description:** Request user permission for camera, microphone, photo library, location, contacts, calendar, notifications. HIG requires explicit user-facing rationale.
 
@@ -265,14 +389,14 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** missing
 - **description:** Open a URL in the system default handler (browser for web, mail client for mailto:, etc.).
 
-### `:open_deep_link`
+### `:on_open_url`
 
-- **intent_identifier_crystal:** `:open_deep_link`
-- **primary_apple_name:** Universal Links / `onOpenURL`
+- **intent_identifier_crystal:** `:on_open_url`
+- **primary_apple_name:** `onOpenURL`
 - **class:** C
 - **tier:** 2
 - **swiftui_api:** `.onOpenURL(perform:)`
-- **uikit_api:** `application(_:continue:restorationHandler:)`
+- **uikit_api:** `application(_:continue:restorationHandler:)`, `scene(_:openURLContexts:)`
 - **appkit_api:** Same as iOS via `NSApplicationDelegate`
 - **hig_page:** `system-experiences.md`
 - **android_equivalent:** App Links / `Intent` filters
@@ -280,9 +404,9 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** missing
 - **description:** Handle incoming URL/deep-link to navigate to a specific app state.
 
-### `:print_document`
+### `:print_interaction`
 
-- **intent_identifier_crystal:** `:print_document`
+- **intent_identifier_crystal:** `:print_interaction`
 - **primary_apple_name:** `UIPrintInteractionController`
 - **class:** C
 - **tier:** 2
@@ -295,9 +419,9 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** missing
 - **description:** Initiate the system print flow.
 
-### `:import_file`
+### `:file_importer`
 
-- **intent_identifier_crystal:** `:import_file`
+- **intent_identifier_crystal:** `:file_importer`
 - **primary_apple_name:** `fileImporter`
 - **class:** C
 - **tier:** 2
@@ -310,14 +434,14 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **coverage_today:** missing
 - **description:** Open a system file picker, return the user's selected file URL(s).
 
-### `:export_file`
+### `:file_exporter`
 
-- **intent_identifier_crystal:** `:export_file`
+- **intent_identifier_crystal:** `:file_exporter`
 - **primary_apple_name:** `fileExporter`
 - **class:** C
 - **tier:** 2
 - **swiftui_api:** `.fileExporter(isPresented:document:contentType:onCompletion:)`
-- **uikit_api:** `UIDocumentPickerViewController` (forExporting:)
+- **uikit_api:** `UIDocumentPickerViewController(forExporting:)`
 - **appkit_api:** `NSSavePanel`
 - **hig_page:** `file-management.md`
 - **android_equivalent:** `Intent.ACTION_CREATE_DOCUMENT`
@@ -331,77 +455,24 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 
 Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `platforms`.
 
-### Lists
+### `:list`
 
-#### `:refreshable`
-
-- **intent_identifier_crystal:** `:refreshable`
-- **primary_apple_name:** `refreshable`
+- **intent_identifier_crystal:** `:list`
+- **primary_apple_name:** `List`
 - **class:** D
 - **tier:** 2
-- **swiftui_api:** `.refreshable { await reload() }`
-- **uikit_api:** `UIRefreshControl`
-- **appkit_api:** — (no native pull-to-refresh; emit as toolbar refresh item)
+- **swiftui_api:** `List { ForEach(items) { ... } }`
+- **uikit_api:** `UITableView`, `UICollectionView`
+- **appkit_api:** `NSTableView`, `NSCollectionView`
 - **hig_page:** `lists-and-tables.md`
-- **android_equivalent:** `PullRefreshContainer` (Material)
-- **web_equivalent:** No native pull-to-refresh; mobile-web custom JS or toolbar button
-- **coverage_today:** missing (no `UI::List.refreshable=` property)
-- **crystal_api_shape:** `list.refreshable = -> { state.reload_todos }`
-- **platforms:** ios, ipados, android; macOS uses toolbar refresh fallback; web uses button fallback
-- **description:** Trigger a refresh of list content via pull-down gesture (or platform-equivalent affordance).
-
-#### `:searchable`
-
-- **intent_identifier_crystal:** `:searchable`
-- **primary_apple_name:** `searchable`
-- **class:** D
-- **tier:** 2
-- **swiftui_api:** `.searchable(text:placement:prompt:)`
-- **uikit_api:** `UISearchController`
-- **appkit_api:** `NSSearchToolbarItem`, `NSSearchField`
-- **hig_page:** `search-fields.md`
-- **android_equivalent:** Material `SearchBar`
-- **web_equivalent:** `<input type="search">`
-- **coverage_today:** missing (no `UI::List.searchable=` integration)
-- **crystal_api_shape:** `list.searchable = "Search todos..."`
+- **android_equivalent:** `LazyColumn` (Compose), `RecyclerView` (Views)
+- **web_equivalent:** `<ul>` / `<ol>` / `<table>` HTML
+- **coverage_today:** partial (`UI::List` exists via VStack composition; native List view not directly modeled)
+- **crystal_api_shape:** `list = UI::List.new; list << row_for(item) for each item`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
-- **description:** Surface a search field for filtering list content.
+- **description:** Vertically-scrolling collection of rows with native row management (separators, selection, swipe actions, reorder support).
 
-#### `:search_suggestions`
-
-- **intent_identifier_crystal:** `:search_suggestions`
-- **primary_apple_name:** `searchSuggestions`
-- **class:** D
-- **tier:** 2
-- **swiftui_api:** `.searchSuggestions { ... }`
-- **uikit_api:** `UISearchController.searchResultsUpdater`
-- **appkit_api:** `NSSearchField` autocomplete via `NSTextFieldDelegate`
-- **hig_page:** `search-fields.md`
-- **android_equivalent:** Material `SearchBar` suggestions slot
-- **web_equivalent:** `<datalist>` element
-- **coverage_today:** missing
-- **crystal_api_shape:** `list.search_suggestions = ->(query : String) { ["Egg", "Eggplant"] }`
-- **platforms:** ios, ipados, macos, android, web_wide, web_narrow
-- **description:** Show suggested completions/matches inside the search UI as the user types.
-
-#### `:search_scopes`
-
-- **intent_identifier_crystal:** `:search_scopes`
-- **primary_apple_name:** `searchScopes`
-- **class:** D
-- **tier:** 2
-- **swiftui_api:** `.searchScopes(_:scopes:)`
-- **uikit_api:** `UISearchController.searchBar.scopeButtonTitles`
-- **appkit_api:** —
-- **hig_page:** `search-fields.md`
-- **android_equivalent:** Material chip filter group adjacent to SearchBar
-- **web_equivalent:** Custom radio/segment UI
-- **coverage_today:** missing
-- **crystal_api_shape:** `list.search_scopes = ["All", "Open", "Done"]`
-- **platforms:** ios, ipados, android, web_wide, web_narrow; macOS uses adjacent segmented control
-- **description:** Constrain searches to a chosen scope via segmented control above/within the search field.
-
-#### `:list_row_separator`
+### `:list_row_separator`
 
 - **intent_identifier_crystal:** `:list_row_separator`
 - **primary_apple_name:** `listRowSeparator`
@@ -418,7 +489,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Show or hide the separator line between list rows.
 
-#### `:list_section_spacing`
+### `:list_section_spacing`
 
 - **intent_identifier_crystal:** `:list_section_spacing`
 - **primary_apple_name:** `listSectionSpacing`
@@ -435,7 +506,92 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, android, web_wide, web_narrow; macOS uses default
 - **description:** Vertical space between list sections.
 
-#### `:on_move`
+### `:list_section_index_visibility`
+
+- **intent_identifier_crystal:** `:list_section_index_visibility`
+- **primary_apple_name:** `listSectionIndexVisibility`
+- **class:** D
+- **tier:** 2
+- **swiftui_api:** `.listSectionIndexVisibility(_:)` (iOS 18+)
+- **uikit_api:** `UITableViewDataSource.sectionIndexTitles`
+- **appkit_api:** —
+- **hig_page:** `lists-and-tables.md`
+- **android_equivalent:** `FastScroller`
+- **web_equivalent:** Custom anchor links + scroll handlers
+- **coverage_today:** missing
+- **crystal_api_shape:** `list.list_section_index_visibility = :automatic | :visible | :hidden`
+- **platforms:** ios, ipados
+- **description:** Toggle the section-index sidebar (the A-Z scrubber on iOS Contacts-style lists).
+
+### `:refreshable`
+
+- **intent_identifier_crystal:** `:refreshable`
+- **primary_apple_name:** `refreshable`
+- **class:** D
+- **tier:** 2
+- **swiftui_api:** `.refreshable { await reload() }`
+- **uikit_api:** `UIRefreshControl`
+- **appkit_api:** — (no native pull-to-refresh; emit as toolbar refresh item)
+- **hig_page:** `lists-and-tables.md`
+- **android_equivalent:** `PullRefreshContainer` (Material)
+- **web_equivalent:** No native pull-to-refresh; mobile-web custom JS or toolbar button
+- **coverage_today:** missing (no `UI::List.refreshable=` property)
+- **crystal_api_shape:** `list.refreshable = -> { state.reload_todos }`
+- **platforms:** ios, ipados, android; macOS uses toolbar refresh fallback; web uses button fallback
+- **description:** Trigger a refresh of list content via pull-down gesture (or platform-equivalent affordance).
+
+### `:searchable`
+
+- **intent_identifier_crystal:** `:searchable`
+- **primary_apple_name:** `searchable`
+- **class:** D
+- **tier:** 2
+- **swiftui_api:** `.searchable(text:placement:prompt:)`
+- **uikit_api:** `UISearchController`
+- **appkit_api:** `NSSearchToolbarItem`, `NSSearchField`
+- **hig_page:** `search-fields.md`
+- **android_equivalent:** Material `SearchBar`
+- **web_equivalent:** `<input type="search">`
+- **coverage_today:** missing (no `UI::List.searchable=` integration)
+- **crystal_api_shape:** `list.searchable = "Search todos..."`
+- **platforms:** ios, ipados, macos, android, web_wide, web_narrow
+- **description:** Surface a search field for filtering list content.
+
+### `:search_suggestions`
+
+- **intent_identifier_crystal:** `:search_suggestions`
+- **primary_apple_name:** `searchSuggestions`
+- **class:** D
+- **tier:** 2
+- **swiftui_api:** `.searchSuggestions { ... }`
+- **uikit_api:** `UISearchController.searchResultsUpdater`
+- **appkit_api:** `NSSearchField` autocomplete via `NSTextFieldDelegate`
+- **hig_page:** `search-fields.md`
+- **android_equivalent:** Material `SearchBar` suggestions slot
+- **web_equivalent:** `<datalist>` element
+- **coverage_today:** missing
+- **crystal_api_shape:** `list.search_suggestions = ->(query : String) { ["Egg", "Eggplant"] }`
+- **platforms:** ios, ipados, macos, android, web_wide, web_narrow
+- **description:** Show suggested completions/matches inside the search UI as the user types.
+
+### `:search_scopes`
+
+- **intent_identifier_crystal:** `:search_scopes`
+- **primary_apple_name:** `searchScopes`
+- **class:** D
+- **tier:** 2
+- **swiftui_api:** `.searchScopes(_:scopes:)`
+- **uikit_api:** `UISearchController.searchBar.scopeButtonTitles`
+- **appkit_api:** —
+- **hig_page:** `search-fields.md`
+- **android_equivalent:** Material chip filter group adjacent to SearchBar
+- **web_equivalent:** Custom radio/segment UI
+- **coverage_today:** missing
+- **crystal_api_shape:** `list.search_scopes = ["All", "Open", "Done"]`
+- **platforms:** ios, ipados, android, web_wide, web_narrow; macOS uses adjacent segmented control
+- **description:** Constrain searches to a chosen scope via segmented control above/within the search field.
+
+### `:on_move`
 
 - **intent_identifier_crystal:** `:on_move`
 - **primary_apple_name:** `onMove`
@@ -450,28 +606,26 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **coverage_today:** missing
 - **crystal_api_shape:** `list.on_move = ->(from : Range(Int32, Int32), to : Int32) { state.reorder_todos(from, to) }`
 - **platforms:** ios, ipados, macos, android; web_wide uses drag-handle buttons; web_narrow uses up/down buttons
-- **description:** Reorder list items via drag gesture (mobile/native) or arrow buttons (web).
+- **description:** Reorder list items. **Why not Class A:** the renderer-side translation differs (drag-handle on mobile, arrow buttons on web) but the conceptual widget is still `UI::List` with an `on_move` handler. Authors don't pick a different widget per platform; they pass the same handler and the renderer handles the affordance. If a future phase determines authors need to actively choose between drag-handle and arrow-button widgets, the intent gets promoted to Class A.
 
-#### `:on_delete`
+### `:on_delete`
 
 - **intent_identifier_crystal:** `:on_delete`
 - **primary_apple_name:** `onDelete`
 - **class:** D
 - **tier:** 2
 - **swiftui_api:** `.onDelete(perform:)`
-- **uikit_api:** `UITableViewDataSource.tableView(_:commit:forRowAt:)`
-- **appkit_api:** Custom delete button per row OR menu action
+- **uikit_api:** `UITableViewDataSource.tableView(_:commit:forRowAt:)` with `editingStyle: .delete`
+- **appkit_api:** Custom delete button or menu action
 - **hig_page:** `lists-and-tables.md`
 - **android_equivalent:** `SwipeToDismiss` callback
 - **web_equivalent:** Delete button per row
-- **coverage_today:** partial (via `UI::SwipeActionRow` trailing actions with destructive role)
+- **coverage_today:** partial (via `UI::SwipeActionRow` trailing actions; standalone `on_delete` not exposed)
 - **crystal_api_shape:** `list.on_delete = ->(indices : IndexSet) { state.delete_todos(indices) }`
-- **platforms:** ios, ipados, android; macos+web use inline destructive buttons
-- **description:** Sugar for the delete swipe action with destructive role + confirmation.
+- **platforms:** ios, ipados, macos, android, web_wide, web_narrow
+- **description:** Handler for row deletion. Independent of `:swipe_actions` — `:on_delete` is the deletion callback; the framework decides how to expose deletion (swipe-action on mobile, Delete key on macOS, button on web). Apps that want explicit affordance control use `:swipe_actions` with custom destructive actions instead.
 
-### Sheets / modals
-
-#### `:sheet`
+### `:sheet`
 
 - **intent_identifier_crystal:** `:sheet`
 - **primary_apple_name:** `sheet`
@@ -488,7 +642,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Present content as a modal sheet anchored to bottom (iOS) or floating (macOS).
 
-#### `:full_screen_cover`
+### `:full_screen_cover`
 
 - **intent_identifier_crystal:** `:full_screen_cover`
 - **primary_apple_name:** `fullScreenCover`
@@ -505,7 +659,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, android; macos+web use sheets at appropriate size
 - **description:** Modal that takes the entire screen (no peek of the parent).
 
-#### `:popover`
+### `:popover`
 
 - **intent_identifier_crystal:** `:popover`
 - **primary_apple_name:** `popover`
@@ -522,7 +676,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ipados, macos, web_wide; iOS+web_narrow fall back to sheet
 - **description:** Transient floating panel anchored to a source view. iPad/macOS only — on iPhone falls back to sheet.
 
-#### `:inspector`
+### `:inspector`
 
 - **intent_identifier_crystal:** `:inspector`
 - **primary_apple_name:** `inspector`
@@ -539,7 +693,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ipados, macos, web_wide; ios+android+web_narrow use sheet fallback
 - **description:** Side-panel detail view that complements primary content. Detail-on-side, never modal.
 
-#### `:alert`
+### `:alert`
 
 - **intent_identifier_crystal:** `:alert`
 - **primary_apple_name:** `alert`
@@ -556,7 +710,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Critical attention modal requiring user decision. Sparing use per HIG.
 
-#### `:confirmation_dialog`
+### `:confirmation_dialog`
 
 - **intent_identifier_crystal:** `:confirmation_dialog`
 - **primary_apple_name:** `confirmationDialog`
@@ -573,7 +727,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Sheet-style confirmation for destructive or significant actions. Distinct from alert: confirmation dialogs let the user choose among multiple paths; alerts inform.
 
-#### `:presentation_detents`
+### `:presentation_detents`
 
 - **intent_identifier_crystal:** `:presentation_detents`
 - **primary_apple_name:** `presentationDetents`
@@ -587,10 +741,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Custom CSS heights
 - **coverage_today:** missing
 - **crystal_api_shape:** `sheet.presentation_detents = [:medium, :large]`
-- **platforms:** ios, ipados, android; macos+web sheet uses default size
-- **description:** Resizable sheet stops. `medium` ≈ half-height; `large` ≈ full-height; custom values allowed.
+- **platforms:** ios, ipados, android
+- **description:** Resizable sheet stops. `medium` ≈ half-height; `large` ≈ full-height; custom values allowed. macOS and web do not have native detent equivalents — sheets on those platforms render at their content-determined size, which is NOT an Apple detent.
 
-#### `:presentation_drag_indicator`
+### `:presentation_drag_indicator`
 
 - **intent_identifier_crystal:** `:presentation_drag_indicator`
 - **primary_apple_name:** `presentationDragIndicator`
@@ -607,7 +761,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, android; macos+web omit
 - **description:** Visual + VoiceOver-accessible grabber indicating the sheet is resizable.
 
-#### `:interactive_dismiss_disabled`
+### `:interactive_dismiss_disabled`
 
 - **intent_identifier_crystal:** `:interactive_dismiss_disabled`
 - **primary_apple_name:** `interactiveDismissDisabled`
@@ -617,16 +771,14 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **uikit_api:** `UIViewController.isModalInPresentation`
 - **appkit_api:** —
 - **hig_page:** `sheets.md:85`
-- **android_equivalent:** `ModalBottomSheet` `properties = ModalBottomSheetProperties(...)` with `shouldDismissOnBackPress = false`
+- **android_equivalent:** `ModalBottomSheet` `shouldDismissOnBackPress = false`
 - **web_equivalent:** Disable backdrop-click + ESC handling
 - **coverage_today:** missing
 - **crystal_api_shape:** `sheet.interactive_dismiss_disabled = true`
 - **platforms:** ios, ipados, android, web_wide, web_narrow; macos uses modal-only mode
 - **description:** Prevent the user from dismissing a sheet via swipe-down or background tap (typically because unsaved changes need confirmation).
 
-### Toolbars
-
-#### `:toolbar`
+### `:toolbar`
 
 - **intent_identifier_crystal:** `:toolbar`
 - **primary_apple_name:** `toolbar`
@@ -641,9 +793,9 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **coverage_today:** shipped (`UI::Toolbar`)
 - **crystal_api_shape:** `screen.toolbar = UI::Toolbar.new(items: [...])`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
-- **description:** Persistent action surface bound to a screen. Items placed via `ToolbarItemPlacement`.
+- **description:** Persistent action surface bound to a screen.
 
-#### `:toolbar_item`
+### `:toolbar_item`
 
 - **intent_identifier_crystal:** `:toolbar_item`
 - **primary_apple_name:** `ToolbarItem`
@@ -660,7 +812,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Individual action within a toolbar.
 
-#### `:toolbar_item_group`
+### `:toolbar_item_group`
 
 - **intent_identifier_crystal:** `:toolbar_item_group`
 - **primary_apple_name:** `ToolbarItemGroup`
@@ -675,9 +827,9 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **coverage_today:** missing
 - **crystal_api_shape:** `toolbar << UI::ToolbarItemGroup.new(items: [...])`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
-- **description:** Grouped toolbar items that visually belong together (e.g., text formatting controls).
+- **description:** Grouped toolbar items that visually belong together.
 
-#### `:toolbar_item_placement`
+### `:toolbar_item_placement`
 
 - **intent_identifier_crystal:** `:toolbar_item_placement`
 - **primary_apple_name:** `ToolbarItemPlacement`
@@ -689,12 +841,12 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `toolbars.md`
 - **android_equivalent:** —
 - **web_equivalent:** Layout via CSS
-- **coverage_today:** partial (placement values exposed but not fully aligned with SwiftUI)
+- **coverage_today:** partial
 - **crystal_api_shape:** `item.placement = :navigation_bar_leading`
 - **platforms:** ios, ipados, macos
 - **description:** Semantic placement of a toolbar item. Renderers honor placement to map to the platform's idiomatic location.
 
-#### `:toolbar_background`
+### `:toolbar_background`
 
 - **intent_identifier_crystal:** `:toolbar_background`
 - **primary_apple_name:** `toolbarBackground`
@@ -711,7 +863,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Tint/material override for the toolbar background.
 
-#### `:toolbar_spacer`
+### `:toolbar_spacer`
 
 - **intent_identifier_crystal:** `:toolbar_spacer`
 - **primary_apple_name:** `ToolbarSpacer`
@@ -728,9 +880,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Spacer between toolbar items, fixed or flexible.
 
-### Forms
-
-#### `:form_style`
+### `:form_style`
 
 - **intent_identifier_crystal:** `:form_style`
 - **primary_apple_name:** `formStyle`
@@ -744,10 +894,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** CSS styling of `<form>`
 - **coverage_today:** missing
 - **crystal_api_shape:** `form.form_style = :grouped | :columns | :automatic`
-- **platforms:** ios, ipados, macos, web_wide; android+web_narrow use default
+- **platforms:** ios, ipados, macos, web_wide
 - **description:** Visual style of a form: grouped, columns, automatic.
 
-#### `:grouped_form_style`
+### `:grouped_form_style`
 
 - **intent_identifier_crystal:** `:grouped_form_style`
 - **primary_apple_name:** `GroupedFormStyle`
@@ -761,10 +911,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Fieldset/legend HTML
 - **coverage_today:** missing
 - **crystal_api_shape:** `form.form_style = :grouped`
-- **platforms:** ios, ipados; macos+others use platform default
+- **platforms:** ios, ipados
 - **description:** Sections rendered as rounded grouped cards (iOS default for Settings-style screens).
 
-#### `:columns_form_style`
+### `:columns_form_style`
 
 - **intent_identifier_crystal:** `:columns_form_style`
 - **primary_apple_name:** `ColumnsFormStyle`
@@ -778,12 +928,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** CSS grid two-column
 - **coverage_today:** missing
 - **crystal_api_shape:** `form.form_style = :columns`
-- **platforms:** macos, web_wide; others fall back to grouped or default
+- **platforms:** macos, web_wide
 - **description:** Labels in a left column, controls in a right column. Desktop-form aesthetic.
 
-### Navigation
-
-#### `:navigation_stack`
+### `:navigation_stack`
 
 - **intent_identifier_crystal:** `:navigation_stack`
 - **primary_apple_name:** `NavigationStack`
@@ -797,10 +945,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Browser URL stack + framework router
 - **coverage_today:** shipped (`UI::NavigationStack` via `UI::NavigationCoordinator`)
 - **crystal_api_shape:** `coord = UI::NavigationCoordinator.new(initial_route); coord.push(...)`
-- **platforms:** ios, ipados, android, web_wide, web_narrow; macos uses split-view
+- **platforms:** ios, ipados, android, web_wide, web_narrow
 - **description:** Stack-based forward/back navigation (push/pop semantics).
 
-#### `:navigation_split_view`
+### `:navigation_split_view`
 
 - **intent_identifier_crystal:** `:navigation_split_view`
 - **primary_apple_name:** `NavigationSplitView`
@@ -814,10 +962,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** CSS grid sidebar + main
 - **coverage_today:** partial
 - **crystal_api_shape:** `screen = UI::NavigationSplitView.new(sidebar:, detail:)`
-- **platforms:** ipados, macos, web_wide; ios+android+web_narrow collapse to stack
-- **description:** Two- or three-pane navigation (sidebar + content + optional inspector). On compact platforms, collapses to a stack.
+- **platforms:** ipados, macos, web_wide
+- **description:** Two- or three-pane navigation (sidebar + content + optional inspector). On compact platforms, collapses to a stack. **Why not Class A:** the framework already exposes `UI::NavigationStack` and `UI::NavigationSplitView` as separate widgets; authors pick which one based on their layout intent, and the compact-collapse is renderer-internal (the split-view widget itself doesn't change classes on iPhone — it collapses its panes). If a future phase determines authors need the framework to AUTO-PICK between Stack and SplitView per platform without naming the widget, that's a Class A candidate.
 
-#### `:navigation_link`
+### `:navigation_link`
 
 - **intent_identifier_crystal:** `:navigation_link`
 - **primary_apple_name:** `NavigationLink`
@@ -834,7 +982,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Tappable element that pushes onto the navigation stack.
 
-#### `:navigation_destination`
+### `:navigation_destination`
 
 - **intent_identifier_crystal:** `:navigation_destination`
 - **primary_apple_name:** `navigationDestination`
@@ -851,7 +999,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Declarative mapping of a route value to a destination view. Powers value-driven navigation.
 
-#### `:navigation_path`
+### `:navigation_path`
 
 - **intent_identifier_crystal:** `:navigation_path`
 - **primary_apple_name:** `NavigationPath`
@@ -868,11 +1016,9 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Programmatic representation of the navigation stack — read or rewrite to deep-link.
 
-### Picker styles
+### `:menu_picker_style`
 
-#### `:picker_menu_style`
-
-- **intent_identifier_crystal:** `:picker_menu_style`
+- **intent_identifier_crystal:** `:menu_picker_style`
 - **primary_apple_name:** `MenuPickerStyle`
 - **class:** D
 - **tier:** 2
@@ -887,9 +1033,9 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Picker as a dropdown menu. Compact; suitable for 3-10 options.
 
-#### `:picker_segmented_style`
+### `:segmented_picker_style`
 
-- **intent_identifier_crystal:** `:picker_segmented_style`
+- **intent_identifier_crystal:** `:segmented_picker_style`
 - **primary_apple_name:** `SegmentedPickerStyle`
 - **class:** D
 - **tier:** 2
@@ -898,15 +1044,15 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **appkit_api:** `NSSegmentedControl`
 - **hig_page:** `segmented-controls.md`
 - **android_equivalent:** Material `SegmentedButton`
-- **web_equivalent:** Radio group styled as segments OR `<input type="radio">` + CSS
+- **web_equivalent:** Radio group styled as segments
 - **coverage_today:** shipped (`UI::SegmentedControl`)
 - **crystal_api_shape:** `picker.picker_style = :segmented`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Picker as a horizontal segmented control. 2-5 options; mutually exclusive.
 
-#### `:picker_wheel_style`
+### `:wheel_picker_style`
 
-- **intent_identifier_crystal:** `:picker_wheel_style`
+- **intent_identifier_crystal:** `:wheel_picker_style`
 - **primary_apple_name:** `WheelPickerStyle`
 - **class:** D
 - **tier:** 2
@@ -918,12 +1064,12 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Custom drum/wheel widget
 - **coverage_today:** missing
 - **crystal_api_shape:** `picker.picker_style = :wheel`
-- **platforms:** ios, ipados; others use `:menu` or `:segmented` fallback
+- **platforms:** ios, ipados
 - **description:** Picker as a rotating wheel (iOS-classic). Discoverable for long-numeric lists.
 
-#### `:picker_palette_style`
+### `:palette_picker_style`
 
-- **intent_identifier_crystal:** `:picker_palette_style`
+- **intent_identifier_crystal:** `:palette_picker_style`
 - **primary_apple_name:** `PalettePickerStyle`
 - **class:** D
 - **tier:** 2
@@ -935,12 +1081,12 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Custom grid of radio inputs
 - **coverage_today:** missing
 - **crystal_api_shape:** `picker.picker_style = :palette`
-- **platforms:** ios, ipados, macos (iOS 17+ / macOS 14+); others use `:segmented` fallback
+- **platforms:** ios, ipados, macos (iOS 17+ / macOS 14+)
 - **description:** Picker as a horizontal palette of icon swatches (emoji, color, symbol).
 
-#### `:picker_inline_style`
+### `:inline_picker_style`
 
-- **intent_identifier_crystal:** `:picker_inline_style`
+- **intent_identifier_crystal:** `:inline_picker_style`
 - **primary_apple_name:** `InlinePickerStyle`
 - **class:** D
 - **tier:** 2
@@ -955,11 +1101,9 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Picker rendered as an expanded list of options (no popup). Good for 3-7 options when space allows.
 
-### Date/time pickers
+### `:compact_date_picker_style`
 
-#### `:date_picker_compact_style`
-
-- **intent_identifier_crystal:** `:date_picker_compact_style`
+- **intent_identifier_crystal:** `:compact_date_picker_style`
 - **primary_apple_name:** `CompactDatePickerStyle`
 - **class:** D
 - **tier:** 2
@@ -974,9 +1118,9 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Compact field showing the value; tap/click to open calendar popover.
 
-#### `:date_picker_graphical_style`
+### `:graphical_date_picker_style`
 
-- **intent_identifier_crystal:** `:date_picker_graphical_style`
+- **intent_identifier_crystal:** `:graphical_date_picker_style`
 - **primary_apple_name:** `GraphicalDatePickerStyle`
 - **class:** D
 - **tier:** 2
@@ -988,12 +1132,12 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Calendar grid widget
 - **coverage_today:** missing
 - **crystal_api_shape:** `picker.date_picker_style = :graphical`
-- **platforms:** ios, ipados, macos, android, web_wide; web_narrow uses `:compact`
+- **platforms:** ios, ipados, macos, android, web_wide
 - **description:** Expanded calendar view inline. Suitable for date-pickers in forms with space.
 
-#### `:date_picker_wheel_style`
+### `:wheel_date_picker_style`
 
-- **intent_identifier_crystal:** `:date_picker_wheel_style`
+- **intent_identifier_crystal:** `:wheel_date_picker_style`
 - **primary_apple_name:** `WheelDatePickerStyle`
 - **class:** D
 - **tier:** 2
@@ -1005,12 +1149,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Custom wheel/drum
 - **coverage_today:** missing
 - **crystal_api_shape:** `picker.date_picker_style = :wheel`
-- **platforms:** ios, ipados; others use `:compact`
+- **platforms:** ios, ipados
 - **description:** iOS-classic wheel picker. Use sparingly per HIG; compact is preferred.
 
-### Menus
-
-#### `:menu`
+### `:menu`
 
 - **intent_identifier_crystal:** `:menu`
 - **primary_apple_name:** `Menu`
@@ -1027,7 +1169,41 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Anchored dropdown menu of actions, usually triggered by a button.
 
-#### `:context_menu`
+### `:ui_menu`
+
+- **intent_identifier_crystal:** `:ui_menu`
+- **primary_apple_name:** `UIMenu`
+- **class:** D
+- **tier:** 2
+- **swiftui_api:** —
+- **uikit_api:** `UIMenu(title:image:children:)`
+- **appkit_api:** `NSMenu` (analogous concept)
+- **hig_page:** `menus.md`
+- **android_equivalent:** Compose `DropdownMenu`
+- **web_equivalent:** Custom dropdown menu
+- **coverage_today:** partial (used internally by `UI::MenuButton`)
+- **crystal_api_shape:** `menu = UI::UIMenu.new(title: "Actions", children: [ui_action1, ui_action2])`
+- **platforms:** ios, ipados
+- **description:** UIKit's first-class menu type. Composed of `UIAction`s. Often constructed for context menus and button-attached menus.
+
+### `:ui_action`
+
+- **intent_identifier_crystal:** `:ui_action`
+- **primary_apple_name:** `UIAction`
+- **class:** D
+- **tier:** 2
+- **swiftui_api:** —
+- **uikit_api:** `UIAction(title:image:identifier:handler:)`
+- **appkit_api:** `NSMenuItem` (analogous concept)
+- **hig_page:** `menus.md`
+- **android_equivalent:** Compose `DropdownMenuItem`
+- **web_equivalent:** `<button>` inside menu
+- **coverage_today:** partial
+- **crystal_api_shape:** `action = UI::UIAction.new(title: "Delete", handler: ->{...})`
+- **platforms:** ios, ipados
+- **description:** UIKit's first-class menu item. Encodes title, image, attributes (destructive, hidden, disabled), and handler.
+
+### `:context_menu`
 
 - **intent_identifier_crystal:** `:context_menu`
 - **primary_apple_name:** `contextMenu`
@@ -1038,13 +1214,13 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **appkit_api:** `NSMenu` via `menu(for:)` on `NSView`
 - **hig_page:** `menus.md`
 - **android_equivalent:** Compose `combinedClickable(onLongClick:)` opening `DropdownMenu`
-- **web_equivalent:** `contextmenu` event + custom menu (or HTML `<menu type="context">` where supported)
+- **web_equivalent:** `contextmenu` event + custom menu
 - **coverage_today:** shipped (`UI::ContextMenu` + `UI::ContextMenuWithWebFallback`)
 - **crystal_api_shape:** `view.context_menu = UI::ContextMenu.new(items: [...])`
 - **platforms:** ios (long-press), ipados (long-press + pointer right-click), macos (right-click), android (long-press), web_wide (right-click), web_narrow (long-press)
 - **description:** Long-press / right-click action palette on an element. Triggered by the platform's idiomatic gesture.
 
-#### `:primary_action`
+### `:primary_action`
 
 - **intent_identifier_crystal:** `:primary_action`
 - **primary_apple_name:** `primaryAction`
@@ -1058,29 +1234,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Split button (button + dropdown caret)
 - **coverage_today:** missing
 - **crystal_api_shape:** `menu.primary_action = -> { state.do_default }`
-- **platforms:** ios, ipados, macos; android+web use split-button composition
+- **platforms:** ios, ipados, macos
 - **description:** Tap-default of a pull-down/menu button. Tap = primary action; long-press/click-arrow = menu.
 
-#### `:menu_picker`
-
-- **intent_identifier_crystal:** `:menu_picker`
-- **primary_apple_name:** `Menu` containing `Picker`
-- **class:** D
-- **tier:** 2
-- **swiftui_api:** `Menu { Picker(...) }`
-- **uikit_api:** `UIMenu` with checked `UIAction`s
-- **appkit_api:** `NSMenu` with checkmark items
-- **hig_page:** `pull-down-buttons.md`
-- **android_equivalent:** `DropdownMenu` with selection state
-- **web_equivalent:** Custom select-style dropdown
-- **coverage_today:** partial
-- **crystal_api_shape:** `picker.picker_style = :menu`
-- **platforms:** ios, ipados, macos, android, web_wide, web_narrow
-- **description:** Menu containing a picker — opens menu, user picks one option, menu dismisses with selection.
-
-### Drag and drop
-
-#### `:draggable`
+### `:draggable`
 
 - **intent_identifier_crystal:** `:draggable`
 - **primary_apple_name:** `draggable`
@@ -1094,10 +1251,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** HTML5 `draggable="true"` + drag events
 - **coverage_today:** missing
 - **crystal_api_shape:** `view.draggable = { transferable_payload }`
-- **platforms:** ios, ipados, macos, android, web_wide; web_narrow no drag affordance
+- **platforms:** ios, ipados, macos, android, web_wide
 - **description:** Mark a view as the source of a drag operation.
 
-#### `:drop_destination`
+### `:drop_destination`
 
 - **intent_identifier_crystal:** `:drop_destination`
 - **primary_apple_name:** `dropDestination`
@@ -1108,13 +1265,13 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **appkit_api:** `NSDraggingDestination`
 - **hig_page:** `drag-and-drop.md`
 - **android_equivalent:** `View.setOnDragListener`
-- **web_equivalent:** HTML5 drop events (`dragover`, `drop`)
+- **web_equivalent:** HTML5 drop events
 - **coverage_today:** missing
 - **crystal_api_shape:** `view.drop_destination = ->(payload, location) { ... }`
-- **platforms:** ios, ipados, macos, android, web_wide; web_narrow uses upload buttons
+- **platforms:** ios, ipados, macos, android, web_wide
 - **description:** Mark a view as accepting a drop.
 
-#### `:transferable`
+### `:transferable`
 
 - **intent_identifier_crystal:** `:transferable`
 - **primary_apple_name:** `Transferable`
@@ -1131,9 +1288,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide
 - **description:** Protocol for declaring how a Crystal type encodes/decodes for drag-drop and clipboard.
 
-### Animation
-
-#### `:transition`
+### `:transition`
 
 - **intent_identifier_crystal:** `:transition`
 - **primary_apple_name:** `transition`
@@ -1150,14 +1305,14 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Animation applied when a view enters or leaves the hierarchy.
 
-#### `:matched_geometry_effect`
+### `:matched_geometry_effect`
 
 - **intent_identifier_crystal:** `:matched_geometry_effect`
 - **primary_apple_name:** `matchedGeometryEffect`
 - **class:** D
 - **tier:** 2
 - **swiftui_api:** `.matchedGeometryEffect(id:in:)`
-- **uikit_api:** `UIView` animatable layout via manual constraints
+- **uikit_api:** Manual animatable layout
 - **appkit_api:** —
 - **hig_page:** `motion.md`
 - **android_equivalent:** Compose `SharedTransitionLayout`
@@ -1167,7 +1322,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android
 - **description:** Hero-style animation that morphs a view between two parents with shared identity.
 
-#### `:animation`
+### `:animation`
 
 - **intent_identifier_crystal:** `:animation`
 - **primary_apple_name:** `animation` (modifier form)
@@ -1184,7 +1339,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Apply an animation curve to property changes on a view.
 
-#### `:phase_animator`
+### `:phase_animator`
 
 - **intent_identifier_crystal:** `:phase_animator`
 - **primary_apple_name:** `PhaseAnimator`
@@ -1201,7 +1356,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos (17+ / 14+)
 - **description:** Multi-phase sequential animation. View cycles through phases automatically.
 
-#### `:keyframe_animator`
+### `:keyframe_animator`
 
 - **intent_identifier_crystal:** `:keyframe_animator`
 - **primary_apple_name:** `KeyframeAnimator`
@@ -1218,28 +1373,75 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos (17+ / 14+), android, web_wide, web_narrow
 - **description:** Keyframe-based animation with per-frame values.
 
-### Haptics
-
-#### `:sensory_feedback`
+### `:sensory_feedback`
 
 - **intent_identifier_crystal:** `:sensory_feedback`
 - **primary_apple_name:** `sensoryFeedback`
 - **class:** D
 - **tier:** 2
 - **swiftui_api:** `.sensoryFeedback(_:trigger:)` (iOS 17+)
-- **uikit_api:** `UIImpactFeedbackGenerator`, `UINotificationFeedbackGenerator`, `UISelectionFeedbackGenerator`
+- **uikit_api:** Composite of feedback generators (see :ui_impact_feedback_generator, :ui_notification_feedback_generator, :ui_selection_feedback_generator)
 - **appkit_api:** `NSHapticFeedbackManager`
 - **hig_page:** `playing-haptics.md`
 - **android_equivalent:** `View.performHapticFeedback`
 - **web_equivalent:** `navigator.vibrate()` (limited support)
 - **coverage_today:** missing
 - **crystal_api_shape:** `view.sensory_feedback = :success | :warning | :error | :impact | :selection`
-- **platforms:** ios, ipados, android; macos limited via trackpad feedback; web limited
-- **description:** Trigger haptic + audio feedback on a state change or user action.
+- **platforms:** ios, ipados, android
+- **description:** SwiftUI's high-level haptic feedback modifier (iOS 17+). Trigger on a state change or user action.
 
-### Gestures (raw recognizers — uncommon; usually composed inside other intents)
+### `:ui_impact_feedback_generator`
 
-#### `:tap_gesture`
+- **intent_identifier_crystal:** `:ui_impact_feedback_generator`
+- **primary_apple_name:** `UIImpactFeedbackGenerator`
+- **class:** D
+- **tier:** 2
+- **swiftui_api:** Use `.sensoryFeedback(.impact(weight:intensity:))` instead
+- **uikit_api:** `UIImpactFeedbackGenerator(style: .light/.medium/.heavy/.rigid/.soft)`
+- **appkit_api:** —
+- **hig_page:** `playing-haptics.md`
+- **android_equivalent:** `View.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)`
+- **web_equivalent:** —
+- **coverage_today:** missing
+- **crystal_api_shape:** `UI::UIImpactFeedbackGenerator.new(style: :medium).impact_occurred`
+- **platforms:** ios, ipados
+- **description:** UIKit's impact-style haptic generator. Distinct styles for collision-feel feedback.
+
+### `:ui_notification_feedback_generator`
+
+- **intent_identifier_crystal:** `:ui_notification_feedback_generator`
+- **primary_apple_name:** `UINotificationFeedbackGenerator`
+- **class:** D
+- **tier:** 2
+- **swiftui_api:** Use `.sensoryFeedback(.success | .warning | .error)` instead
+- **uikit_api:** `UINotificationFeedbackGenerator`
+- **appkit_api:** —
+- **hig_page:** `playing-haptics.md`
+- **android_equivalent:** `View.performHapticFeedback(HapticFeedbackConstants.CONFIRM)`
+- **web_equivalent:** —
+- **coverage_today:** missing
+- **crystal_api_shape:** `UI::UINotificationFeedbackGenerator.new.notification_occurred(:success)`
+- **platforms:** ios, ipados
+- **description:** UIKit's success/warning/error haptic generator. Semantic notification-level feedback.
+
+### `:ui_selection_feedback_generator`
+
+- **intent_identifier_crystal:** `:ui_selection_feedback_generator`
+- **primary_apple_name:** `UISelectionFeedbackGenerator`
+- **class:** D
+- **tier:** 2
+- **swiftui_api:** Use `.sensoryFeedback(.selection)` instead
+- **uikit_api:** `UISelectionFeedbackGenerator`
+- **appkit_api:** —
+- **hig_page:** `playing-haptics.md`
+- **android_equivalent:** —
+- **web_equivalent:** —
+- **coverage_today:** missing
+- **crystal_api_shape:** `UI::UISelectionFeedbackGenerator.new.selection_changed`
+- **platforms:** ios, ipados
+- **description:** UIKit's selection-change haptic generator. Subtle tick for picker scrolls, segmented control changes.
+
+### `:tap_gesture`
 
 - **intent_identifier_crystal:** `:tap_gesture`
 - **primary_apple_name:** `TapGesture`
@@ -1256,7 +1458,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Tap or click handler.
 
-#### `:long_press_gesture`
+### `:long_press_gesture`
 
 - **intent_identifier_crystal:** `:long_press_gesture`
 - **primary_apple_name:** `LongPressGesture`
@@ -1270,10 +1472,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Manual timer on `pointerdown`/`pointerup`
 - **coverage_today:** missing as a standalone modifier (used internally by ContextMenu)
 - **crystal_api_shape:** `view.on_long_press = -> { ... }`
-- **platforms:** ios, ipados, android, web_narrow; macos+web_wide use right-click via context_menu
+- **platforms:** ios, ipados, android, web_narrow
 - **description:** Long-press handler. Most commonly used internally by `:context_menu`.
 
-#### `:drag_gesture`
+### `:drag_gesture`
 
 - **intent_identifier_crystal:** `:drag_gesture`
 - **primary_apple_name:** `DragGesture`
@@ -1287,10 +1489,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** `pointerdown`/`pointermove`/`pointerup` event sequence
 - **coverage_today:** missing
 - **crystal_api_shape:** `view.on_drag = ->(translation : Point) { ... }`
-- **platforms:** ios, ipados, macos, android, web_wide; web_narrow uses touch sequence
+- **platforms:** ios, ipados, macos, android, web_wide
 - **description:** Pan/drag gesture handler for custom interactions.
 
-#### `:magnify_gesture`
+### `:magnify_gesture`
 
 - **intent_identifier_crystal:** `:magnify_gesture`
 - **primary_apple_name:** `MagnifyGesture`
@@ -1304,10 +1506,10 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Manual pointer-event multi-touch handling
 - **coverage_today:** missing
 - **crystal_api_shape:** `view.on_magnify = ->(scale : Float64) { ... }`
-- **platforms:** ios, ipados, macos (trackpad), android, web_wide (trackpad); web_narrow uses touch
+- **platforms:** ios, ipados, macos (trackpad), android, web_wide (trackpad)
 - **description:** Pinch-to-zoom gesture handler.
 
-#### `:rotate_gesture`
+### `:rotate_gesture`
 
 - **intent_identifier_crystal:** `:rotate_gesture`
 - **primary_apple_name:** `RotateGesture`
@@ -1324,7 +1526,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **platforms:** ios, ipados, macos (trackpad), android
 - **description:** Rotation gesture handler.
 
-#### `:spatial_tap_gesture`
+### `:spatial_tap_gesture`
 
 - **intent_identifier_crystal:** `:spatial_tap_gesture`
 - **primary_apple_name:** `SpatialTapGesture`
@@ -1338,19 +1540,19 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** —
 - **coverage_today:** missing (visionOS-specific; not in current scope)
 - **crystal_api_shape:** `view.on_spatial_tap = ->(location : Point3D) { ... }`
-- **platforms:** visionOS only
+- **platforms:** visionOS only (out of current cross-platform scope)
 - **description:** Tap gesture in 3D space (visionOS / spatial computing).
 
 ---
 
-**Catalog total:** 56 intents across 4 classes.
+**Catalog total:** 67 intents across 4 classes.
 
 - Class A: 1 (`:swipe_actions`)
-- Class B: 10
-- Class C: 9
-- Class D: 36
+- Class B: 17 (accessibility + reduced motion + dynamic type + contrast + assistive technologies + captions + Assistive Access + dim flashing)
+- Class C: 9 (cross-platform-bridged: share, clipboard, permissions, URL handling, file pickers, print)
+- Class D: 40 (native modifier intents)
 
-Each entry carries the full schema. Class D entries additionally carry `crystal_api_shape` and `platforms`.
+Every identifier is the snake_case form of `primary_apple_name`. Every row carries the full schema. Class D entries additionally carry `crystal_api_shape` and `platforms`.
 
 This catalog is the source of truth. Phase 9 deliverables 2-7 cross-reference these identifiers.
 

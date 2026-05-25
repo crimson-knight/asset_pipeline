@@ -28,6 +28,15 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 - **Size:** M.
 - **Priority:** P1. Voyager web compliance.
 
+### B-035 — `:swipe_actions` Android proper integration
+
+- **Intent:** `:swipe_actions`
+- **Platform:** Android
+- **Gap:** `android_renderer.cr:3148` is explicitly a stub that renders only the content view, omitting the swipe gesture + trailing actions. Comment notes: "Android proper integration is deferred per the brief."
+- **Action:** Wire Material 3 `SwipeToDismissBox` (or equivalent Compose foundation `swipeable` modifier) into the Android renderer's `visit(UI::SwipeActionRow)` method. Honor `trailing_actions` + `leading_actions` properties. Respect destructive role for color tinting.
+- **Size:** M.
+- **Priority:** P1 if Android is in scope for a near-term release; P2 if Android remains deferred.
+
 ---
 
 ## Class D gaps (high priority)
@@ -94,10 +103,10 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 `:toolbar_item_group`, `:toolbar_background`, `:toolbar_spacer`. Partial coverage today. Size: S each. Priority: P2.
 
 ### B-012 — Picker styles
-`:picker_wheel_style`, `:picker_palette_style`, `:picker_inline_style`. Currently `UI::Picker` has no `picker_style` property exposing these. Size: M total. Priority: P2.
+`:wheel_picker_style`, `:palette_picker_style`, `:inline_picker_style`. Currently `UI::Picker` has no `picker_style` property exposing these. Size: M total. Priority: P2.
 
 ### B-013 — Date picker styles
-`:date_picker_graphical_style`, `:date_picker_wheel_style`. `UI::DatePicker` has no style property. Size: M. Priority: P2.
+`:graphical_date_picker_style`, `:wheel_date_picker_style`. `UI::DatePicker` has no style property. Size: M. Priority: P2.
 
 ### B-014 — Drag and drop (full)
 `:draggable`, `:drop_destination`, `:transferable`. No drag-drop integration in any view. Size: L. Priority: P2.
@@ -139,7 +148,7 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 
 ### B-022 — Reduce-motion contract
 
-- **Intent:** `:respect_reduced_motion`
+- **Intent:** `:accessibility_reduce_motion`
 - **Gap:** No framework helper for querying `prefersReducedMotion`. Authors have to know per-platform APIs.
 - **Action:** Add `UI::Environment.reduce_motion? : Bool` that reads the platform setting. Document the contract that animation modifiers should consult this.
 - **Size:** S.
@@ -147,7 +156,7 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 
 ### B-023 — Dynamic-type runtime scaling
 
-- **Intent:** `:dynamic_type`
+- **Intent:** `:dynamic_type_size`
 - **Gap:** Design tokens carry semantic font sizes but runtime scaling is not wired.
 - **Action:** Renderers honor system text-size preference and scale `UI::Font` sizes proportionally.
 - **Size:** M.
@@ -177,15 +186,15 @@ All Class C intents are missing — no Crystal API surfaces today.
 
 | ID | Intent | Size | Priority |
 |---|---|---|---|
-| B-026 | `:share_sheet` | M | P1 |
+| B-026 | `:share_link` | M | P1 |
 | B-027 | `:copy_to_clipboard` | S | P1 |
 | B-028 | `:paste_from_clipboard` | S | P2 |
 | B-029 | `:request_permission` (per-resource) | L | P1 (camera, photos); P2 (others) |
 | B-030 | `:open_url` | S | P1 |
 | B-031 | `:open_deep_link` | M | P2 |
 | B-032 | `:print_document` | M | P2 |
-| B-033 | `:import_file` | M | P2 |
-| B-034 | `:export_file` | M | P2 |
+| B-033 | `:file_importer` | M | P2 |
+| B-034 | `:file_exporter` | M | P2 |
 
 These can ship as `UI::System.*` module-level functions (single Crystal API, renderer translates to platform).
 

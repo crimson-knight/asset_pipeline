@@ -15,11 +15,11 @@ This matrix is small because Class A has 1 entry. As more Class A intents are id
 | iOS | `UI::SwipeActionRow` | ✅ shipped | `src/ui/views/swipe_action_row.cr`; UIKit renderer emits swipe gesture. |
 | iPadOS | `UI::SwipeActionRow` | ✅ shipped | Same as iOS. |
 | macOS | `UI::InlineActionRow` | ❌ missing | Currently `UI::SwipeActionRow` is used but AppKit renderer emits inline buttons anyway (`appkit_renderer.cr:3801`). The named widget should match the visual representation. **Backlog item B-001.** |
-| Android | `UI::SwipeActionRow` | ✅ shipped | Material 3 `SwipeToDismissBox` translation. |
+| Android | `UI::SwipeActionRow` (stub) | ⚠️ partial | Android renderer is explicitly a stub at `android_renderer.cr:3148` — renders only the content view, defers proper `SwipeToDismissBox` integration to a future phase. **Backlog item B-035.** |
 | web_wide | `UI::InlineActionRow` | ❌ missing | Desktop web has no native swipe gesture. Inline trailing buttons (with hover affordance) are idiomatic. **Backlog item B-002.** |
 | web_narrow | `UI::SwipeActionRow` | ✅ shipped (web renderer) | Mobile web JS-driven swipe-reveal. |
 
-**4/6 default translations shipped; 2/6 missing.** See `intent-backlog.md` for B-001 + B-002.
+**3/6 default translations shipped; 1/6 partial (Android stub); 2/6 missing.** See `intent-backlog.md` for B-001, B-002, B-035.
 
 ---
 
