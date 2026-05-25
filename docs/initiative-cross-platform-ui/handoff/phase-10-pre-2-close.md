@@ -196,10 +196,63 @@ e22f3003 [Phase 10-pre.2] Apply 10 pre-ruled crystal_api_shape corrections
 ## Acceptance gate (final)
 
 - ✅ Every Class D row's `crystal_api_shape` either verified against source OR rewritten with verification.
-- ✅ Zero `# pending 10-pre.2 rename audit` markers remain (confirmed by Rule A passing).
+- ✅ Zero `# pending 10-pre.2 rename audit` markers remain in `architecture/intent-catalog.md` (confirmed by Rule A passing on the catalog). Note: historical phase/handoff briefs written before 10-pre.2 closed still contain the literal marker phrase in narrative prose; those documents are historical record and are out of Rule A's scope (which lints the catalog only).
 - ✅ Per-row decision log shipped (Deliverable 5).
 - ✅ `crystal run scripts/lint_intent_catalog.cr` exits 0 with new pending-marker + Class-D-shape-placeholder rules.
 - ✅ No catalog-wins renames; no Voyager build verification needed.
 - ⏳ Codex content review — pending (this close handoff is the artifact to review).
 
-— Phase 10-pre.2 implementer, Claude Opus 4.7, 2026-05-25.
+## Iter-2 remediation (post-Codex BLOCK review)
+
+After iter 1 closed at HEAD `63f8d804`, Codex returned **BLOCK** with 3 HIGH + 4 MEDIUM + 2 LOW findings. Iter 2 applied them all on the same branch:
+
+- **HIGH-1 — Rule B tightened.** The lint now rejects EMBEDDED placeholder substrings in Class D `crystal_api_shape`, not just values that exactly equal a placeholder. Banned (case-insensitive substring): `TBD`, `XXX`, `FIXME`, `<TODO>`. Banned (literal substring): `[...]`, `API TBD`. Banned (regex): 4+ consecutive dots. The tightened rule surfaced 7 violations across 4 rows that iter 1 had passed: `:toolbar_item_group`, `:toolbar_spacer`, `:wheel_picker_style`, `:inline_picker_style`. All 4 rewritten honestly.
+
+- **HIGH-2 — `:toolbar_item_group` / `:toolbar_spacer` no longer reference fictional `add_group` / `add_spacer` methods on `UI::Toolbar`.** Both `crystal_api_shape` fields now read `# Not yet implemented — UI::Toolbar only ships flat add_item ...`. The missing trailing backtick on the `:toolbar_spacer` shape was also fixed.
+
+- **HIGH-3 — `:palette_picker_style` reclassified as forward-looking gap.** Iter 1 wrote `picker.style = UI::PickerStyle::Palette` as if it were a fact; verification against `src/ui/view.cr:66-71` confirmed `Palette` is NOT in the `PickerStyle` enum (only `Wheel`, `Segmented`, `Menu`, `Inline`). Shape rewritten to `# Not yet implemented — UI::PickerStyle enum does not define Palette. Adding the value is tracked under B-012.`
+
+- **MED-1 — Pre-ruling deviations documented.** Codex flagged that the catalog uses `id: "save"` (String) where the brief's pre-ruling table used `id: :save` (Symbol), and uses `label:` without `id:` on `MenuButton.add_item` / `ContextMenu.add_item` where the brief suggested `id:, label:`. Source verification (`src/ui/views/toolbar.cr:23,27` — `id : String`; `src/ui/views/menu_button.cr:48,52` — no `id:`; `src/ui/views/context_menu.cr:28,38` — no `id:`) shows the brief's pre-rulings were wrong. Catalog stays source-accurate; the deviations are recorded in the iter-2 addendum of the decision log.
+
+- **MED-2 — `:presentation_drag_indicator` SwiftKit citation corrected.** Iter 1 claimed iOS/macOS were fully wired. Verification against `swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/SheetFacade.swift` showed only `presentationDetents` is applied (line 91); there is NO `.presentationDragIndicator(_:)` call. The bool stored at `swiftkit_overrides.cr:468-469` does not reach SwiftUI. Catalog `coverage_today` rewritten to honestly call out "stored-not-applied" for iOS/macOS. `:presentation_detents` cite verified accurate (`setDetents` IS applied at `SheetFacade.swift:91`).
+
+- **MED-3 — Appendix sweep.** 4+ rows whose appendix entry was over-generous have had their catalog `crystal_api_shape` rewritten to honestly mark them as not-yet-implemented (since the referenced classes/methods literally do not exist): `:full_screen_cover`, `:inspector`, `:interactive_dismiss_disabled`, `:compact_date_picker_style`, `:graphical_date_picker_style`, `:wheel_date_picker_style`, `:ui_menu`, `:ui_action`, `:transferable`, `:animation`, `:ui_impact_feedback_generator`, `:ui_notification_feedback_generator`, `:ui_selection_feedback_generator`. The appendix description "honest forward-looking proposal" was accurate; the catalog SHAPE field was the misleading one. Catalog shapes now match the appendix framing.
+
+- **MED-4 — Backlog B-007 (`:presentation_detents`) updated.** Description now reflects that iOS/iPadOS SwiftKit wiring DOES apply detents to SwiftUI (`SheetFacade.swift:91`), Android stub echoes values without producing detented behavior, macOS+web emit nothing. Companion drag-indicator stored-not-applied gap also called out.
+
+- **LOW-1 — "zero markers" claim made precise.** The acceptance gate bullet now scopes the claim to `architecture/intent-catalog.md`; historical phase/handoff briefs are explicitly out of Rule A's scope.
+
+- **LOW-2 — Lint verified.** `crystal run scripts/lint_intent_catalog.cr` exits 0 after all iter-2 corrections.
+
+**Iter-2 lint sequence:**
+
+```
+$ crystal run scripts/lint_intent_catalog.cr   # after Rule B tightening, before catalog edits
+FAIL
+Validated 92 entries; found 7 violation(s):
+  - [:toolbar_item_group @ line 827] ...embedded placeholder "TBD"...
+  - [:toolbar_item_group @ line 827] ...embedded placeholder "[...]"...
+  - [:toolbar_item_group @ line 827] ...embedded placeholder "API TBD"...
+  - [:toolbar_spacer @ line 878] ...embedded placeholder "TBD"...
+  - [:toolbar_spacer @ line 878] ...embedded placeholder "API TBD"...
+  - [:wheel_picker_style @ line 1065] ...embedded placeholder "TBD"...
+  - [:inline_picker_style @ line 1099] ...embedded placeholder "TBD"...
+
+$ crystal run scripts/lint_intent_catalog.cr   # after all iter-2 catalog edits
+PASS
+Validated 92 catalog entries against the schema in brief-9.md §3.
+```
+
+**Iter-2 acceptance check:**
+
+- ✅ Lint Rule B catches embedded placeholders (verified with intentional `[...]` injection, then reverted).
+- ✅ `:toolbar_item_group`, `:toolbar_spacer` no longer reference fictional APIs.
+- ✅ `:palette_picker_style` reclassified.
+- ✅ Pre-ruling deviations documented (source-accurate retention).
+- ✅ SwiftKit citation for `:presentation_drag_indicator` accurately reflects stored-not-applied state.
+- ✅ Appendix-overstated rows have catalog shapes rewritten to match.
+- ✅ Backlog B-007 description matches catalog state.
+- ✅ Close handoff "zero markers" claim precise.
+- ✅ Lint exits 0.
+
+— Phase 10-pre.2 implementer, Claude Opus 4.7, 2026-05-25 (iter 2).

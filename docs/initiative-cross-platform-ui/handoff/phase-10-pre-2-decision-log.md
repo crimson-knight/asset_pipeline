@@ -318,4 +318,104 @@ No row required new design work. Several rows surfaced design QUESTIONS that are
 
 ---
 
-— Phase 10-pre.2 implementer, Claude Opus 4.7, 2026-05-25.
+---
+
+## Iter-2 addendum (post-Codex BLOCK)
+
+Iter 1 closed at HEAD `63f8d804` with Codex returning BLOCK (3 HIGH + 4 MEDIUM + 2 LOW). The full list and remediation summary is in `phase-10-pre-2-close.md` § "Iter-2 remediation"; this addendum records the per-row decisions iter 2 applied.
+
+### Rows reclassified from "confirmed-correct" appendix to "code-wins-rewrite"
+
+The following rows were marked "honest forward-looking proposal" in the iter 1 appendix, but the catalog `crystal_api_shape` field still presented fictitious classes/methods AS IF they were real APIs. Iter 2 rewrote each shape to be an explicit "not yet implemented" note that names the missing surface and the relevant backlog item (when one exists). The appendix annotation was accurate; the catalog SHAPE was the misleading text.
+
+| Intent | Catalog shape (was, fictitious) | Catalog shape (after iter 2) |
+|---|---|---|
+| `:full_screen_cover` | `cover = UI::FullScreenCover.new(content); cover.present` | `# Not yet implemented — no UI::FullScreenCover class … Tracked under B-010.` |
+| `:inspector` | `screen.inspector = UI::Inspector.new(detail_content)` | `# Not yet implemented — no UI::Inspector class … Tracked under B-009.` |
+| `:interactive_dismiss_disabled` | `sheet.interactive_dismiss_disabled = true` | `# Not yet implemented — no interactive_dismiss_disabled property on UI::Sheet.` |
+| `:compact_date_picker_style` | `picker.date_picker_style = :compact` | `# Not yet implemented — UI::DatePicker has no date_picker_style property; only `mode` ships.` |
+| `:graphical_date_picker_style` | `picker.date_picker_style = :graphical` | Same gap as compact. |
+| `:wheel_date_picker_style` | `picker.date_picker_style = :wheel` | Same gap as compact. |
+| `:ui_menu` | `menu = UI::UIMenu.new(title:, children:)` | `# Not yet implemented — no standalone UI::UIMenu … analog is MenuButton::MenuItem.` |
+| `:ui_action` | `action = UI::UIAction.new(title:, handler:)` | `# Not yet implemented — no standalone UI::UIAction … analog is MenuButton::MenuItem.` |
+| `:transferable` | `module MyType; include UI::Transferable; ...; end` | `# Not yet implemented — no UI::Transferable module.` |
+| `:animation` | `view.animation = UI::Animation.spring(duration: 0.3)` | `# Not yet implemented — no UI::Animation class.` |
+| `:ui_impact_feedback_generator` | `UI::UIImpactFeedbackGenerator.new(style: :medium).impact_occurred` | `# Not yet implemented — no UI::UIImpactFeedbackGenerator class.` |
+| `:ui_notification_feedback_generator` | `UI::UINotificationFeedbackGenerator.new.notification_occurred(:success)` | `# Not yet implemented — no UI::UINotificationFeedbackGenerator class.` |
+| `:ui_selection_feedback_generator` | `UI::UISelectionFeedbackGenerator.new.selection_changed` | `# Not yet implemented — no UI::UISelectionFeedbackGenerator class.` |
+
+Decision: **code-wins-rewrite (additional)**. None of these are catalog-wins-rename candidates (the rename would require designing the missing classes first, which is out of 10-pre.2 scope).
+
+### Rows updated for iter-2 HIGH findings
+
+#### `:toolbar_item_group` (HIGH-2)
+
+- **Catalog crystal_api_shape (was, iter 1):** `toolbar.add_group(id: "edit", items: [...])  # API TBD; Toolbar today only ships flat add_item`
+- **Why iter 1 failed:** Shape claimed `add_group` method that doesn't exist; carried embedded `API TBD` + `[...]` placeholders; the trailing backtick was technically present but immediately followed by hyphen-narrative that made the markdown brittle.
+- **New crystal_api_shape:** `# Not yet implemented — UI::Toolbar (src/ui/views/toolbar.cr) only ships flat add_item(id:, label:, icon:) and has no group concept. Tracked in phase-10-pre-2-close.md "new gaps surfaced" item 3.`
+- **Decision:** code-wins-rewrite.
+
+#### `:toolbar_spacer` (HIGH-2)
+
+- **Catalog crystal_api_shape (was, iter 1):** `toolbar.add_spacer(:flexible)  # API TBD; Toolbar today has no spacer/group concept` (missing trailing backtick).
+- **Why iter 1 failed:** Same as `:toolbar_item_group` plus a real markdown rendering bug (missing closing backtick).
+- **New crystal_api_shape:** `# Not yet implemented — UI::Toolbar (src/ui/views/toolbar.cr) only ships flat add_item(id:, label:, icon:) and has no spacer concept. Tracked in phase-10-pre-2-close.md "new gaps surfaced" item 3.`
+- **Decision:** code-wins-rewrite.
+
+#### `:palette_picker_style` (HIGH-3)
+
+- **Catalog crystal_api_shape (was, iter 1):** `picker.style = UI::PickerStyle::Palette  # enum value not yet defined (B-012); add to src/ui/view.cr enum, then renderer support`
+- **Why iter 1 failed:** Presented a fictitious enum value (`Palette`) as if it were a real API; iter 1 misclassified this as a "code-wins-rewrite" when it was actually a "new-design-needed" — the enum value literally must be added to `src/ui/view.cr` before the shape is valid.
+- **New crystal_api_shape:** `# Not yet implemented — UI::PickerStyle enum (src/ui/view.cr:66-71) does not define Palette. Adding the value is tracked under B-012 picker styles.`
+- **Decision:** code-wins-rewrite (corrected iter-1 misclassification — was effectively a fictional shape, not a real one with backlog footnote).
+
+#### `:wheel_picker_style`, `:inline_picker_style` (HIGH-1 fallout)
+
+- **Why iter 1 passed but iter 2 caught:** Iter 1's Rule B only rejected EXACT placeholder values. Both shapes carried inline `; renderer wiring TBD)` which embeds the banned `TBD` substring. Iter 2's tightened rule (substring-banned, case-insensitive) flagged both.
+- **Fix:** Replaced "renderer wiring TBD" with "renderer wiring not yet shipped — tracked under B-012".
+- **Decision:** in-place phrasing correction (no shape semantics change). Both rows remain "code-wins-rewrite" per iter 1's classification (enum value exists, only rendering missing).
+
+### Pre-ruling deviation log (MED-1)
+
+Codex flagged 4 specific rows where the brief's Deliverable 2 pre-rulings were paraphrased rather than carried verbatim. Source verification:
+
+| Row | Brief pre-ruling | Catalog (source-accurate) | Source verification |
+|---|---|---|---|
+| `:toolbar` | `add_item(id: :save, label: "Save", icon: "checkmark") { ... }` (Symbol `id`) | `add_item(id: "save", label: "Save", icon: "checkmark") { ... }` (String `id`) | `src/ui/views/toolbar.cr:23,27` — `id : String`. Brief was wrong. |
+| `:toolbar_item` | `toolbar.add_item(id:, label:, icon:) { ... }` (named-only signature form) | Concrete-args expansion: `toolbar.add_item(id: "save", label: "Save", icon: "checkmark") { ... }` | Concrete args are more copy-pasteable and match the `:toolbar` row's shape; signature-only form is less useful in a catalog reference. Kept concrete; brief's signature form was a stylistic preference. |
+| `:menu` | `menu = UI::MenuButton.new("More"); menu.add_item(...)` (open-ended `...`) | `menu = UI::MenuButton.new("More"); menu.add_item(label: "Duplicate") { ... }` | `src/ui/views/menu_button.cr:48,52` — `add_item(label : String, icon : String? = nil, is_destructive : Bool = false, &block)`. Brief's `...` would have triggered iter-2 Rule B. Source signature has NO `id:` parameter. Catalog is source-accurate. |
+| `:context_menu` | `menu = UI::ContextMenu.new; menu.add_item(id:, label:) { ... }` | `menu = UI::ContextMenu.new; menu.add_item(label: "Delete", is_destructive: true) { ... }` | `src/ui/views/context_menu.cr:28,38` — `add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false, &block)`. NO `id:` parameter exists. Brief was wrong. |
+
+**Verdict (per row):** Catalog stays source-accurate. Brief's pre-ruling was the imprecise side in 3 of 4 cases; in the 4th (`:toolbar_item`) the catalog elaborates the brief's signature form into a concrete example for usability. No catalog rewrite needed.
+
+### MED-2 — `:presentation_drag_indicator` coverage_today correction
+
+- **Iter-1 catalog claim:** `partial (… SwiftKit setShowsDragIndicator at swiftkit_overrides.cr:468-469; web honored …; android honored …)` — implied iOS/macOS were fully wired.
+- **Codex verification:** `swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/SheetFacade.swift` has `.presentationDetents(Set(detents))` at line 91 but NO `.presentationDragIndicator(_:)` call anywhere. The bool stored by `swiftkit_overrides.cr:468-469` never reaches SwiftUI.
+- **Iter-2 catalog (after):** `partial (… SwiftKit overrides STORES the bool via setShowsDragIndicator at swiftkit_overrides.cr:468-469 but the value is NOT yet applied to SwiftUI — no .presentationDragIndicator(_:) call in SheetFacade.swift. iOS/macOS drag indicator is therefore stored-not-applied …)`
+- **Verdict:** `partial` is still the right classification (web + android DO apply; Crystal property exists; SwiftKit accepts the value) — only the iOS/macOS application step is missing.
+- **Companion check — `:presentation_detents`:** `setDetents` IS applied in `SheetFacade.swift:91`. Iter-1 cite is accurate; no change needed.
+
+### MED-3 — Appendix sweep (above)
+
+Captured in the reclassification table at the top of this addendum.
+
+### MED-4 — Backlog B-007 update
+
+`docs/initiative-cross-platform-ui/architecture/intent-backlog.md` B-007 description now reflects that iOS/iPadOS detent wiring IS applied to SwiftUI, while Android stub echoes values without effect and macOS+web emit nothing. The companion drag-indicator stored-not-applied gap is also called out. No new backlog item created.
+
+### LOW-1 — Close handoff "zero markers" precision
+
+Acceptance bullet in `phase-10-pre-2-close.md` now scopes the "zero markers" claim to `architecture/intent-catalog.md`. Historical phase/handoff briefs that contain the literal marker phrase in narrative prose are out of Rule A's scope.
+
+### Re-affirmed counts
+
+After iter 2:
+
+- 64 Class D rows (unchanged).
+- 23 + 13 = 36 rows that received `crystal_api_shape` rewrites total across iter 1 + iter 2. (Iter 1 rewrote 23; iter 2 rewrote an additional 13 fictional shapes from the appendix table plus 4 rule-B-flagged rows. Some overlap with the 4 HIGH-fix rows already counted in iter 1.)
+- 0 catalog-wins-rename.
+- 0 new-design-needed escalations (the iter-2 reclassifications are all "honest gap" rewrites, not new design work).
+- Lint: 7 violations (iter 2 mid-cycle) → 0 violations (final).
+
+— Phase 10-pre.2 implementer, Claude Opus 4.7, 2026-05-25 (iter 2).

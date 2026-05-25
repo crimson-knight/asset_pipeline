@@ -34,10 +34,24 @@ PENDING_RENAME_AUDIT_MARKER = "pending 10-pre.2 rename audit"
 
 # Phase 10-pre.2 Rule B: placeholder strings in a Class D `crystal_api_shape`
 # value are rejected (in addition to the literal sentinels already handled by
-# INVALID_LITERAL_VALUES). The list is intentionally small and high-signal —
-# bare ellipses inside a longer shape value are OK, only standalone occurrences
-# of these tokens are rejected.
+# INVALID_LITERAL_VALUES).
+#
+# Iter 2 (Codex HIGH-1): tightened to reject EMBEDDED placeholders, not only
+# values that exactly equal a placeholder. A row whose shape contains
+# `[...]`, `API TBD`, or inline `TBD` / `XXX` / `FIXME` / `<TODO>` is still
+# a placeholder even if it pretends to be a real expression.
+#
+# Standalone exact-match tokens (kept for back-compat with the iter 1 rule).
 CLASS_D_SHAPE_PLACEHOLDERS = ["TBD", "...", "<TODO>"]
+# Case-insensitive substring tokens that mark a value as a placeholder no
+# matter where they appear inside the shape.
+CLASS_D_SHAPE_BANNED_SUBSTRINGS_CI = ["TBD", "XXX", "FIXME", "<TODO>"]
+# Literal substrings (case-sensitive) that mark a value as a placeholder.
+# `[...]` is the canonical placeholder-bracket; `API TBD` is the prose form.
+CLASS_D_SHAPE_BANNED_SUBSTRINGS = ["[...]", "API TBD"]
+# Long consecutive-dot runs (4+) indicate placeholder ellipses substituting
+# for real code. Legitimate Crystal range literals use 2-3 dots only.
+CLASS_D_SHAPE_LONG_ELLIPSIS = /\.{4,}/
 
 REQUIRED_COMMON_FIELDS = [
   "intent_identifier_crystal",
@@ -239,13 +253,28 @@ entries.each do |entry|
     end
 
     # 4a. Phase 10-pre.2 Rule B: Class D crystal_api_shape must be non-empty
-    # AND must not consist solely of a placeholder token. The substantive
-    # value carries the consumer-facing copy-paste example; placeholders
-    # defeat the whole purpose of Class D.
+    # AND must not consist solely of — or contain embedded — placeholder
+    # tokens. The substantive value carries the consumer-facing copy-paste
+    # example; placeholders defeat the whole purpose of Class D.
     if shape = entry.fields["crystal_api_shape"]?
       shape_value = shape.strip
       if CLASS_D_SHAPE_PLACEHOLDERS.includes?(shape_value)
         violations << "#{prefix} Class D crystal_api_shape is a placeholder token #{shape_value.inspect}; must contain a real Crystal expression"
+      end
+      # Iter 2 (Codex HIGH-1): embedded substring placeholders.
+      shape_lower = shape_value.downcase
+      CLASS_D_SHAPE_BANNED_SUBSTRINGS_CI.each do |banned|
+        if shape_lower.includes?(banned.downcase)
+          violations << "#{prefix} Class D crystal_api_shape contains embedded placeholder substring #{banned.inspect} (case-insensitive): #{shape_value.inspect}"
+        end
+      end
+      CLASS_D_SHAPE_BANNED_SUBSTRINGS.each do |banned|
+        if shape_value.includes?(banned)
+          violations << "#{prefix} Class D crystal_api_shape contains embedded placeholder substring #{banned.inspect}: #{shape_value.inspect}"
+        end
+      end
+      if shape_value.matches?(CLASS_D_SHAPE_LONG_ELLIPSIS)
+        violations << "#{prefix} Class D crystal_api_shape contains a 4+ dot ellipsis run (placeholder for real code): #{shape_value.inspect}"
       end
     end
   end

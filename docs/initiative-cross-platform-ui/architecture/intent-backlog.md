@@ -97,9 +97,9 @@ Each entry: ID, intent, platform with the gap, what's missing, rough size estima
 ### B-007 — `:presentation_detents` on Sheet
 
 - **Intent:** `:presentation_detents`
-- **Platforms with gap:** All.
-- **Gap:** `UI::Sheet` has `detents : Array(Symbol)` already (`src/ui/views/sheet.cr:31`) but no `presentation_detents` named property and no per-platform wiring of the `detents` array into native sheet APIs.
-- **Action:** Either alias `presentation_detents` to `detents` or migrate authors. UIKit `UISheetPresentationController.detents`. Android Material `ModalBottomSheet` `sheetState`. macOS+web sheet uses fixed default.
+- **Platforms with gap:** macos+web (full); iOS/iPadOS + Android wired partially.
+- **Gap:** `UI::Sheet#detents : Array(Symbol)` ships at `src/ui/views/sheet.cr:31`. Per Phase 10-pre.2 audit: iOS/iPadOS wiring lands via SwiftKit's `setDetents` (`src/ui/native/swiftkit_overrides.cr:464-466`) and is APPLIED to SwiftUI as `.presentationDetents(_:)` (`swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/SheetFacade.swift:91`). Android stub at `src/ui/renderers/android_renderer.cr:1865` echoes the values but does not produce a real detented surface. macOS and web emit no detent behavior at all. The companion `presentation_drag_indicator` row is stored-not-applied on iOS/macOS (SwiftKit overrides records the bool but `SheetFacade.swift` never calls `.presentationDragIndicator(_:)`) — see catalog `:presentation_drag_indicator`.
+- **Action:** Either keep `detents` as the public name (catalog `crystal_api_shape` already settled there) or add an alias. iOS/iPadOS is the only platform with real detent behavior today; B-007 now scopes to: (1) wire macOS sheet to a documented "no detents" fallback or to NSPanel sizing, (2) make Android `ModalBottomSheet` honor the detents array beyond echoing, (3) decide on web detent semantics, (4) fix the drag-indicator stored-not-applied gap by adding the SwiftUI modifier call in `SheetFacade.swift`.
 - **Size:** M.
 - **Priority:** P1.
 

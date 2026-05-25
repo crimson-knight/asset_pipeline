@@ -667,7 +667,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Full-screen `Dialog` or full-screen activity
 - **web_equivalent:** Full-viewport modal overlay
 - **coverage_today:** missing
-- **crystal_api_shape:** `cover = UI::FullScreenCover.new(content); cover.present`
+- **crystal_api_shape:** `# Not yet implemented — no UI::FullScreenCover class exists in src/ui/views/. Tracked under B-010 full-screen cover.`
 - **platforms:** ios, ipados, android; macos+web use sheets at appropriate size
 - **description:** Modal that takes the entire screen (no peek of the parent).
 
@@ -701,7 +701,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** —
 - **web_equivalent:** Side panel via CSS grid/flex
 - **coverage_today:** missing
-- **crystal_api_shape:** `screen.inspector = UI::Inspector.new(detail_content)`
+- **crystal_api_shape:** `# Not yet implemented — no UI::Inspector class exists in src/ui/views/, and no screen.inspector= setter on UI::Screen. Tracked under B-009 inspector view.`
 - **platforms:** ipados, macos, web_wide; ios+android+web_narrow use sheet fallback
 - **description:** Side-panel detail view that complements primary content. Detail-on-side, never modal.
 
@@ -768,7 +768,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `sheets.md:83`
 - **android_equivalent:** Material `ModalBottomSheet` drag handle
 - **web_equivalent:** Custom CSS handle
-- **coverage_today:** partial (`src/ui/views/sheet.cr:30` — `Sheet#shows_drag_indicator : Bool = true`; iOS/macOS forwarded via SwiftKit `setShowsDragIndicator` at `src/ui/native/swiftkit_overrides.cr:468-469`; web honored at `src/ui/renderers/web_renderer.cr:1367`; android honored at `src/ui/renderers/android_renderer.cr:1857`. Three-valued `:automatic` state is NOT modeled — see close handoff.) # was: missing — Phase 10-pre.2 audit found shipped Crystal property + cross-platform wiring; only the `:automatic` symbol is unimplemented.
+- **coverage_today:** partial (`src/ui/views/sheet.cr:30` — `Sheet#shows_drag_indicator : Bool = true`; web honored at `src/ui/renderers/web_renderer.cr:1367`; android honored at `src/ui/renderers/android_renderer.cr:1857`; SwiftKit overrides STORES the bool via `setShowsDragIndicator` at `src/ui/native/swiftkit_overrides.cr:468-469` but the value is NOT yet applied to SwiftUI — no `.presentationDragIndicator(_:)` call in `swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/SheetFacade.swift`. iOS/macOS drag indicator is therefore stored-not-applied. Three-valued `:automatic` state is NOT modeled — see close handoff.) # was: missing — Phase 10-pre.2 iter 1 incorrectly claimed full SwiftKit wiring; iter 2 audit (Codex MED-2) corrected to stored-not-applied for iOS/macOS.
 - **crystal_api_shape:** `sheet.shows_drag_indicator = true`
 - **platforms:** ios, ipados, android; macos+web omit
 - **description:** Visual + VoiceOver-accessible grabber indicating the sheet is resizable.
@@ -786,7 +786,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** `ModalBottomSheet` `shouldDismissOnBackPress = false`
 - **web_equivalent:** Disable backdrop-click + ESC handling
 - **coverage_today:** missing
-- **crystal_api_shape:** `sheet.interactive_dismiss_disabled = true`
+- **crystal_api_shape:** `# Not yet implemented — no interactive_dismiss_disabled property on UI::Sheet (src/ui/views/sheet.cr:1-50). Tracked in phase-10-pre-2-close.md "new gaps surfaced".`
 - **platforms:** ios, ipados, android, web_wide, web_narrow; macos uses modal-only mode
 - **description:** Prevent the user from dismissing a sheet via swipe-down or background tap (typically because unsaved changes need confirmation).
 
@@ -837,7 +837,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Multiple action slots
 - **web_equivalent:** Button group HTML
 - **coverage_today:** missing
-- **crystal_api_shape:** `toolbar.add_group(id: "edit", items: [...])  # API TBD; Toolbar today only ships flat `add_item`
+- **crystal_api_shape:** `# Not yet implemented — UI::Toolbar (src/ui/views/toolbar.cr) only ships flat add_item(id:, label:, icon:) and has no group concept. Tracked in phase-10-pre-2-close.md "new gaps surfaced" item 3.`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Grouped toolbar items that visually belong together.
 
@@ -888,7 +888,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** `Spacer` between actions
 - **web_equivalent:** Flex spacer
 - **coverage_today:** missing
-- **crystal_api_shape:** `toolbar.add_spacer(:flexible)  # API TBD; Toolbar today has no spacer/group concept
+- **crystal_api_shape:** `# Not yet implemented — UI::Toolbar (src/ui/views/toolbar.cr) only ships flat add_item(id:, label:, icon:) and has no spacer concept. Tracked in phase-10-pre-2-close.md "new gaps surfaced" item 3.`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Spacer between toolbar items, fixed or flexible.
 
@@ -1075,7 +1075,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** `NumberPicker` (legacy Views)
 - **web_equivalent:** Custom drum/wheel widget
 - **coverage_today:** missing
-- **crystal_api_shape:** `picker.style = UI::PickerStyle::Wheel` (enum value exists at `src/ui/view.cr:67`; renderer wiring TBD)
+- **crystal_api_shape:** `picker.style = UI::PickerStyle::Wheel` (enum value exists at `src/ui/view.cr:67`; renderer wiring not yet shipped — tracked under B-012)
 - **platforms:** ios, ipados
 - **description:** Picker as a rotating wheel (iOS-classic). Discoverable for long-numeric lists.
 
@@ -1092,7 +1092,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Custom grid layout
 - **web_equivalent:** Custom grid of radio inputs
 - **coverage_today:** missing
-- **crystal_api_shape:** `picker.style = UI::PickerStyle::Palette  # enum value not yet defined (B-012); add to src/ui/view.cr enum, then renderer support`
+- **crystal_api_shape:** `# Not yet implemented — UI::PickerStyle enum (src/ui/view.cr:66-71) does not define Palette. Adding the value is tracked under B-012 picker styles.`
 - **platforms:** ios, ipados, macos (iOS 17+ / macOS 14+)
 - **description:** Picker as a horizontal palette of icon swatches (emoji, color, symbol).
 
@@ -1109,7 +1109,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Radio button list
 - **web_equivalent:** Radio button list
 - **coverage_today:** missing
-- **crystal_api_shape:** `picker.style = UI::PickerStyle::Inline` (enum value exists at `src/ui/view.cr:70`; renderer wiring TBD)
+- **crystal_api_shape:** `picker.style = UI::PickerStyle::Inline` (enum value exists at `src/ui/view.cr:70`; renderer wiring not yet shipped — tracked under B-012)
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Picker rendered as an expanded list of options (no popup). Good for 3-7 options when space allows.
 
@@ -1126,7 +1126,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Material `DatePicker` modal
 - **web_equivalent:** `<input type="date">`
 - **coverage_today:** partial (`src/ui/views/date_picker.cr:4-10` — `class DatePicker < View` with `selected_date`, `mode`, `minimum_date`, `maximum_date`, `on_change`; visitors at `src/ui/renderers/uikit_renderer.cr:1408`, `src/ui/renderers/appkit_renderer.cr:1353`, `src/ui/renderers/web_renderer.cr:957`, `src/ui/renderers/android_renderer.cr:1456`. No `date_picker_style` switch — only one rendering mode per platform today.)
-- **crystal_api_shape:** `picker.date_picker_style = :compact`
+- **crystal_api_shape:** `# Not yet implemented — UI::DatePicker (src/ui/views/date_picker.cr:4-22) has no date_picker_style property; only `mode` (a DatePickerMode enum) ships today. Tracked in phase-10-pre-2-close.md "new gaps surfaced".`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Compact field showing the value; tap/click to open calendar popover.
 
@@ -1143,7 +1143,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Material `DatePicker` inline mode
 - **web_equivalent:** Calendar grid widget
 - **coverage_today:** missing
-- **crystal_api_shape:** `picker.date_picker_style = :graphical`
+- **crystal_api_shape:** `# Not yet implemented — UI::DatePicker has no date_picker_style property (same gap as :compact_date_picker_style).`
 - **platforms:** ios, ipados, macos, android, web_wide
 - **description:** Expanded calendar view inline. Suitable for date-pickers in forms with space.
 
@@ -1160,7 +1160,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** —
 - **web_equivalent:** Custom wheel/drum
 - **coverage_today:** missing
-- **crystal_api_shape:** `picker.date_picker_style = :wheel`
+- **crystal_api_shape:** `# Not yet implemented — UI::DatePicker has no date_picker_style property (same gap as :compact_date_picker_style).`
 - **platforms:** ios, ipados
 - **description:** iOS-classic wheel picker. Use sparingly per HIG; compact is preferred.
 
@@ -1194,7 +1194,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Compose `DropdownMenu`
 - **web_equivalent:** Custom dropdown menu
 - **coverage_today:** partial (`src/ui/views/menu_button.cr:23-35` — `record MenuItem` nested in `UI::MenuButton`; consumed inside the `MenuButton` visitors cited above. No top-level `UI::UIMenu` class — items live on the button.)
-- **crystal_api_shape:** `menu = UI::UIMenu.new(title: "Actions", children: [ui_action1, ui_action2])`
+- **crystal_api_shape:** `# Not yet implemented — no standalone UI::UIMenu class. Today's analog is the nested UI::MenuButton::MenuItem record (src/ui/views/menu_button.cr:23-35). Tracked in phase-10-pre-2-close.md "new gaps surfaced" item 5.`
 - **platforms:** ios, ipados
 - **description:** UIKit's first-class menu type. Composed of `UIAction`s. Often constructed for context menus and button-attached menus.
 
@@ -1211,7 +1211,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Compose `DropdownMenuItem`
 - **web_equivalent:** `<button>` inside menu
 - **coverage_today:** partial (`src/ui/views/menu_button.cr:23-35` — `MenuItem` carries `label`, `icon`, `is_destructive`, `action : Proc(Nil)?`; analogous to UIAction but scoped to MenuButton. No standalone `UI::UIAction` class.)
-- **crystal_api_shape:** `action = UI::UIAction.new(title: "Delete", handler: ->{...})`
+- **crystal_api_shape:** `# Not yet implemented — no standalone UI::UIAction class. Today's analog is the nested UI::MenuButton::MenuItem record (src/ui/views/menu_button.cr:23-35). Tracked in phase-10-pre-2-close.md "new gaps surfaced" item 5.`
 - **platforms:** ios, ipados
 - **description:** UIKit's first-class menu item. Encodes title, image, attributes (destructive, hidden, disabled), and handler.
 
@@ -1296,7 +1296,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** `ClipData`
 - **web_equivalent:** `DataTransfer` API
 - **coverage_today:** missing
-- **crystal_api_shape:** `module MyType; include UI::Transferable; ...; end`
+- **crystal_api_shape:** `# Not yet implemented — no UI::Transferable module in src/ui/. Drag-and-drop is unimplemented on UI::View base.`
 - **platforms:** ios, ipados, macos, android, web_wide
 - **description:** Protocol for declaring how a Crystal type encodes/decodes for drag-drop and clipboard.
 
@@ -1347,7 +1347,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** Compose `animateAsState`
 - **web_equivalent:** CSS animations + transitions
 - **coverage_today:** missing
-- **crystal_api_shape:** `view.animation = UI::Animation.spring(duration: 0.3)`
+- **crystal_api_shape:** `# Not yet implemented — no UI::Animation class and no view.animation= setter on UI::View base. Animation system unimplemented across renderers.`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Apply an animation curve to property changes on a view.
 
@@ -1415,7 +1415,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** `View.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)`
 - **web_equivalent:** —
 - **coverage_today:** missing
-- **crystal_api_shape:** `UI::UIImpactFeedbackGenerator.new(style: :medium).impact_occurred`
+- **crystal_api_shape:** `# Not yet implemented — no UI::UIImpactFeedbackGenerator class. Haptic system unimplemented in src/ui/.`
 - **platforms:** ios, ipados
 - **description:** UIKit's impact-style haptic generator. Distinct styles for collision-feel feedback.
 
@@ -1432,7 +1432,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** `View.performHapticFeedback(HapticFeedbackConstants.CONFIRM)`
 - **web_equivalent:** —
 - **coverage_today:** missing
-- **crystal_api_shape:** `UI::UINotificationFeedbackGenerator.new.notification_occurred(:success)`
+- **crystal_api_shape:** `# Not yet implemented — no UI::UINotificationFeedbackGenerator class. Haptic system unimplemented in src/ui/.`
 - **platforms:** ios, ipados
 - **description:** UIKit's success/warning/error haptic generator. Semantic notification-level feedback.
 
@@ -1449,7 +1449,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **android_equivalent:** —
 - **web_equivalent:** —
 - **coverage_today:** missing
-- **crystal_api_shape:** `UI::UISelectionFeedbackGenerator.new.selection_changed`
+- **crystal_api_shape:** `# Not yet implemented — no UI::UISelectionFeedbackGenerator class. Haptic system unimplemented in src/ui/.`
 - **platforms:** ios, ipados
 - **description:** UIKit's selection-change haptic generator. Subtle tick for picker scrolls, segmented control changes.
 
