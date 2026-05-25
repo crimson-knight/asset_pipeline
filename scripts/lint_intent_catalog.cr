@@ -241,16 +241,19 @@ entries.each do |entry|
   #     accepted because the cite supplies the missing precision.
   if cov = entry.fields["coverage_today"]?
     cov_value = cov.strip
-    leading_token = cov_value.split(/[\s\(:;]/, 2).first.downcase
-    is_sentinel_only = COVERAGE_SENTINELS.includes?(leading_token) &&
-                       !cov_value.downcase.includes?("partial") &&
-                       !cov_value.downcase.includes?("shipped")
+    # The "# was: ..." trailing audit-history note documents what the prior
+    # catalog claimed before the 10-pre.1 correction. It is informational —
+    # the AUTHORITATIVE coverage classification is the text BEFORE that
+    # marker. Strip it before testing.
+    cov_authoritative = cov_value.split("# was:", 2).first.strip
+    leading_token = cov_authoritative.split(/[\s\(:;]/, 2).first.downcase
+    is_sentinel_only = COVERAGE_SENTINELS.includes?(leading_token)
     unless is_sentinel_only
-      unless cov_value.matches?(CITATION_PATTERN)
+      unless cov_authoritative.matches?(CITATION_PATTERN)
         violations << "#{prefix} coverage_today value lacks required source citation (expected pattern like `src/.../foo.cr:N` or `src/.../foo.cr:N-M`): #{cov_value.inspect}"
       end
       VAGUE_PHRASES.each do |phrase|
-        if cov_value.downcase.includes?(phrase) && !cov_value.matches?(CITATION_PATTERN)
+        if cov_authoritative.downcase.includes?(phrase) && !cov_authoritative.matches?(CITATION_PATTERN)
           violations << "#{prefix} coverage_today uses vague phrase #{phrase.inspect} without backing citation: #{cov_value.inspect}"
         end
       end
