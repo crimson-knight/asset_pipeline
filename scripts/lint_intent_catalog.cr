@@ -50,6 +50,27 @@ REQUIRED_CLASS_D_EXTRA = [
 INVALID_LITERAL_VALUES = ["", "nil", "null", "TBD", "XXX", "FIXME"]
 EMDASH_SENTINEL        = "—" # U+2014
 
+# Phase 10-pre.1: citation-presence check for `coverage_today`.
+# A `coverage_today` value other than `missing` / `catalog_only` / `deferred`
+# MUST cite at least one source file + line range, e.g.
+#   `src/ui/views/view.cr:132`
+#   `src/ui/renderers/uikit_renderer.cr:3408-3413`
+# We split the value on `;` and inspect each segment; at least one segment
+# of a `partial` / `shipped` value must match the citation pattern.
+CITATION_PATTERN = /src\/[A-Za-z0-9_\/\.\-]+\.(cr|m|c|h|swift):\d+(?:-\d+)?/
+# Vague language is rejected for `partial`/`shipped` values unless the value
+# also contains a citation. These phrases historically masked unbacked claims.
+VAGUE_PHRASES = [
+  "some views",
+  "most renderers",
+  "partial coverage",
+  "in some places",
+  "where appropriate",
+  "as needed",
+]
+# Recognized exemption / clause prefixes inside a multi-clause value.
+COVERAGE_SENTINELS = ["missing", "catalog_only", "deferred"]
+
 # Convert an Apple-name (camelCase, dotted, with parens) to canonical snake_case.
 # Strategy:
 #   - Strip everything after the first `(` (drop signatures).
@@ -202,6 +223,36 @@ entries.each do |entry|
       end
       if INVALID_LITERAL_VALUES.includes?(value)
         violations << "#{prefix} Class D #{field} has invalid sentinel value: #{value.inspect}"
+      end
+    end
+  end
+
+  # 4b. coverage_today citation-presence check (Phase 10-pre.1).
+  #
+  # Rules:
+  #   - If the value's leading token is `missing`, `catalog_only`, or
+  #     `deferred`, it is accepted regardless of citations (those classify
+  #     the row as having no realized code by design).
+  #   - Otherwise the value MUST contain at least one citation matching
+  #     CITATION_PATTERN (e.g. `src/ui/views/view.cr:132`).
+  #   - `partial` and `shipped` values without a citation are rejected.
+  #   - Vague phrases ("some views", "most renderers", etc.) are rejected
+  #     unless the value also contains a citation; if cited, they're
+  #     accepted because the cite supplies the missing precision.
+  if cov = entry.fields["coverage_today"]?
+    cov_value = cov.strip
+    leading_token = cov_value.split(/[\s\(:;]/, 2).first.downcase
+    is_sentinel_only = COVERAGE_SENTINELS.includes?(leading_token) &&
+                       !cov_value.downcase.includes?("partial") &&
+                       !cov_value.downcase.includes?("shipped")
+    unless is_sentinel_only
+      unless cov_value.matches?(CITATION_PATTERN)
+        violations << "#{prefix} coverage_today value lacks required source citation (expected pattern like `src/.../foo.cr:N` or `src/.../foo.cr:N-M`): #{cov_value.inspect}"
+      end
+      VAGUE_PHRASES.each do |phrase|
+        if cov_value.downcase.includes?(phrase) && !cov_value.matches?(CITATION_PATTERN)
+          violations << "#{prefix} coverage_today uses vague phrase #{phrase.inspect} without backing citation: #{cov_value.inspect}"
+        end
       end
     end
   end
