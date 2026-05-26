@@ -40,7 +40,6 @@ require "./amber_integration"
 
 # Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
-
   # Abstract per-app key / value store. Web concrete impls wrap Amber's
   # session; native uses `UI::Session::InProcess`.
   abstract class Session
@@ -146,7 +145,9 @@ module UI
       @navigation : UI::NavigationCoordinator,
       @action_params : Hash(String, String) = {} of String => String,
       @platform : Symbol = :macos,
+      environment : UI::Environment = UI::Environment.default,
     )
+      self.environment = environment
     end
 
     # Snapshot of the per-screen form values. Implements the abstract

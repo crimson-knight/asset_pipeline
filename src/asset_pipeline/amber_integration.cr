@@ -165,6 +165,29 @@ module UI
     # the resolver skips the screen-override tier.
     property active_screen_class : (UI::Screen.class)? = nil
 
+    # Phase 10B.2c — system-level user-preference snapshot read by
+    # views at render time (`reduce_motion`, `increase_contrast`,
+    # `dynamic_type_size`, `color_scheme`, `accessibility_enabled`).
+    #
+    # Defaults to `UI::Environment.default` (the accessibility-
+    # conservative no-preference baseline) so callers that construct a
+    # bare context still get a well-defined value. The host populates
+    # this from a request source on every render:
+    #
+    #   * Web (Amber): `compute_screen_html` reads HTTP client hints
+    #     and seeds via `UI::Environment.from_request_hints(...)`.
+    #   * Native dispatcher: `build_context` threads the
+    #     dispatcher-level `environment` property (which the host App
+    #     populates at boot from `UIAccessibility` / `NSWorkspace` /
+    #     Android `Settings.Global` queries).
+    #
+    # Widgets that animate / depend on contrast / dynamic-type read
+    # this and call `UI::Animation.duration_with_environment(env, ms)`
+    # (or equivalent helpers) so the same view tree renders correctly
+    # under different user preferences. See `UI::Snackbar#effective_duration`
+    # for the canonical reactivity proof.
+    property environment : UI::Environment = UI::Environment.default
+
     # Web-target concrete ScreenContext. Wraps the scalar/multi params,
     # the flash messages, the design-token bundle, and the CSRF token
     # extracted from the request via Amber's CSRF helper.
@@ -188,7 +211,9 @@ module UI
         @design_tokens : UI::DesignTokens::Tokens,
         @csrf_token : String?,
         @platform : Symbol = :web_wide,
+        environment : UI::Environment = UI::Environment.default,
       )
+        self.environment = environment
       end
     end
   end
@@ -426,10 +451,19 @@ module UI
     def compute_screen_html(
       screen_class : UI::Screen.class,
       app_class : (UI::App.class)? = nil,
+      environment : UI::Environment? = nil,
     ) : String
       ctx = build_screen_context
       ctx.app_class = app_class || UI::AmberConfig.active_app
       ctx.active_screen_class = screen_class
+      # Phase 10B.2c — environment precedence:
+      #   1. explicit kwarg (host knows the values per-request),
+      #   2. otherwise the value `build_screen_context` already seeded
+      #      from request hints (the default override hook for apps
+      #      that subclass `build_screen_context`).
+      if env = environment
+        ctx.environment = env
+      end
       screen = screen_class.new
       view_tree = screen.build(ctx)
       renderer = UI::Web::Renderer.new
@@ -443,6 +477,15 @@ module UI
     # Build a `UI::ScreenContext::Web` from the current Amber
     # controller's request. Override in a subclass if a non-default
     # context shape is required.
+    #
+    # Phase 10B.2c — environment seeding: the default implementation
+    # reads HTTP client-hint headers (`Sec-CH-Prefers-Reduced-Motion`
+    # etc.) from `request.headers` if the controller exposes a
+    # `request` method, and seeds `ctx.environment` via
+    # `UI::Environment.from_request_hints`. Hosts that need a richer
+    # source (e.g. session-stored user preferences) override this
+    # method to construct their own `ScreenContext::Web` with the
+    # `environment:` kwarg populated.
     private def build_screen_context : UI::ScreenContext::Web
       UI::ScreenContext::Web.new(
         params: params_scalar_hash,
@@ -450,7 +493,42 @@ module UI
         flash_data: flash_hash,
         design_tokens: UI::AmberConfig.design_tokens,
         csrf_token: amber_csrf_token,
+        environment: environment_from_request,
       )
+    end
+
+    # Read client-hint preference headers and convert via
+    # `UI::Environment.from_request_hints`. Default implementation
+    # returns the conservative default — Amber controllers override
+    # this to read `request.headers` (or any other per-app source,
+    # e.g. session-stored user preferences).
+    #
+    # Apps wanting the out-of-the-box HTTP-client-hints path override
+    # in `ApplicationController`:
+    #
+    #     class ApplicationController < Amber::Controller::Base
+    #       include UI::ScreenHelpers
+    #
+    #       private def environment_from_request : UI::Environment
+    #         hints = {} of String => String
+    #         {"Sec-CH-Prefers-Reduced-Motion",
+    #          "Sec-CH-Prefers-Contrast",
+    #          "Sec-CH-Prefers-Color-Scheme",
+    #          "Sec-CH-Prefers-Reduced-Transparency"}.each do |name|
+    #           if value = request.headers[name]?
+    #             hints[name] = value.to_s
+    #           end
+    #         end
+    #         UI::Environment.from_request_hints(hints)
+    #       end
+    #     end
+    #
+    # Kept overridable + default-conservative so the include path
+    # works in unit tests (no `request` available) without compile
+    # errors. The brief's "request-derived hints" hook lives at this
+    # method — apps wire it in their controller base.
+    private def environment_from_request : UI::Environment
+      UI::Environment.default
     end
 
     # Flattened scalar form of params. Multi-value params (checkbox
