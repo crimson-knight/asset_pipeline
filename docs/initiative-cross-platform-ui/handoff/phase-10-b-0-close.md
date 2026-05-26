@@ -12,9 +12,10 @@
 
 ### Resolver
 
-* `UI::Intent.resolve(intent_id : Symbol, context : UI::ScreenContext, screen_class : (UI::Screen.class)? = nil) : UI::View.class`
+* `UI::Intent.resolve(intent_id : Symbol, context : UI::ScreenContext, capabilities_required : Hash(Symbol, Bool)? = nil) : UI::View.class`
   * Looks up the registered widget for `intent_id` given `context.platform`.
-  * Optional `screen_class:` enables the screen-tier of override lookup.
+  * The active screen class for screen-tier lookup is read from `context.active_screen_class` (set by the host — dispatcher / `compute_screen_html` — or by the screen's own `build`). The public resolver does not take a `screen_class:` kwarg; see Section 11 for the iter-9 reconciliation rationale.
+  * Optional `capabilities_required:` lets the caller assert the resolved widget covers a specific capability subset at lookup time; mismatches raise `UnresolvableDefault`.
   * Raises `UI::Intent::UnresolvableDefault` if neither override nor default is registered.
 
 ### Errors
