@@ -18,18 +18,28 @@ module UI
   # itself (e.g. the CSRF token for `UI::Form`'s hidden-input
   # injection).
   #
+  # Phase 10B.2c iter 2 — Now also carries the `UI::Environment` so
+  # widgets that react to user preferences (e.g. `UI::Snackbar`'s
+  # `effective_duration` honoring reduce-motion) can read the
+  # environment at visit time from the renderer-side context. The
+  # `ScreenContext`'s environment is copied here when the host builds
+  # the render context (`compute_screen_html` does this); test paths
+  # that construct a `RenderContext` directly pass `environment:`
+  # explicitly or accept the conservative default.
+  #
   # Lives in the core `UI` namespace (rather than the Amber integration
   # file) so the web renderer can read it without requiring the Amber
   # integration to be loaded. Apps not using Amber simply pass a fresh
   # `RenderContext.empty` or omit the argument.
   struct RenderContext
     getter csrf_token : String?
+    getter environment : UI::Environment
 
-    def initialize(@csrf_token : String? = nil)
+    def initialize(@csrf_token : String? = nil, @environment : UI::Environment = UI::Environment.default)
     end
 
     def self.empty : RenderContext
-      new(csrf_token: nil)
+      new(csrf_token: nil, environment: UI::Environment.default)
     end
   end
 

@@ -197,6 +197,15 @@
       # of multi-renderer test runs is easier to reason about.
       @swiftkit_action_trampoline_installed : Bool = false
 
+      # Phase 10B.2c iter 2 — environment-driven render reactivity.
+      # Hosts set this via `renderer.environment = UI::Environment.from_uikit(...)`
+      # at boot or per-frame; default is the conservative baseline.
+      # iOS-native snackbars are static UILabel overlays — the dismiss
+      # timer is owned by host code. Threading the environment lets
+      # host code read `view.effective_duration(@environment)` when
+      # scheduling its own dismiss.
+      property environment : UI::Environment = UI::Environment.default
+
       def initialize
         @stack = [] of NativeView
         @stack_is_uistack = [] of Bool
@@ -1807,6 +1816,15 @@
 
       # -----------------------------------------------------------------
       # Visit: Snackbar -> UILabel (toast overlay)
+      #
+      # Phase 10B.2c iter 2 — iOS snackbars are static UILabel
+      # overlays at the renderer layer; the dismiss timer is owned by
+      # host code (Liquid Glass toasts on iOS 26+ typically use a
+      # presentation controller with its own dispatch_after). The
+      # view's `effective_duration(@environment)` is the canonical
+      # source of truth — host code reads it from the renderer's
+      # environment when scheduling its own dismiss. The visit method
+      # itself does not own the timer.
       # -----------------------------------------------------------------
       def visit(view : UI::Snackbar)
         ptr = alloc_init("UILabel")

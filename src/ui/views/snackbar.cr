@@ -25,6 +25,23 @@ module UI
     def default_accessibility_role : Symbol?
       :status
     end
+
+    # Phase 10B.2c — environment-driven duration. Honors the user's
+    # reduce-motion preference: returns `0.0` when
+    # `env.reduce_motion == true` (the snackbar's auto-dismiss
+    # animation is replaced by an instant transition); otherwise
+    # returns the author-configured `duration`.
+    #
+    # This is the canonical reactivity proof for Phase 10B.2c — the
+    # same `UI::Snackbar` view + two `UI::ScreenContext`s that differ
+    # only in `environment.reduce_motion` produces two different
+    # `effective_duration` values. Hosts that drive the dismiss timer
+    # (Web JS animation, AppKit `NSAnimationContext`, UIKit `UIView.
+    # animate`, Compose `LaunchedEffect`) read this rather than the
+    # raw `duration` property.
+    def effective_duration(env : UI::Environment) : Float64
+      UI::Animation.duration_seconds_with_environment(env, @duration)
+    end
   end
 
   # Presentation state for a Snackbar (is_presenting flag + the underlying view).

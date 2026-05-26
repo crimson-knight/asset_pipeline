@@ -2070,7 +2070,12 @@
           action_button.accept(self)
           pop_stack
         else
-          duration = new_text_view("#{view.duration.round.to_i}s", 12.0_f32, material_color(:primary), 1)
+          # Phase 10B.2c iter 2 — env-driven duration. Under
+          # reduce-motion the badge collapses to "0s" so the dismiss
+          # timer runs immediately; otherwise the host-configured
+          # duration passes through unchanged.
+          effective_s = view.effective_duration(@environment)
+          duration = new_text_view("#{effective_s.round.to_i}s", 12.0_f32, material_color(:primary), 1)
           LibAndroidBridge.android_viewgroup_add_view_wh(@env, row, duration, -2, -2)
         end
 
@@ -3571,6 +3576,13 @@
       # We need this because NativeHandle stores the global ref, but addView needs
       # the local ref during construction.
       @stack_local_ptrs : Array(Void*)
+
+      # Phase 10B.2c iter 2 — environment-driven render reactivity.
+      # The Android Snackbar visit reads `effective_duration(@environment)`
+      # to honor the user's reduce-motion preference. Hosts set this
+      # via `renderer.environment = UI::Environment.from_android(...)`
+      # at boot or per-frame; default is the conservative baseline.
+      property environment : UI::Environment = UI::Environment.default
 
       def initialize(@env : Void*, @context : Void*)
         @stack = [] of NativeView

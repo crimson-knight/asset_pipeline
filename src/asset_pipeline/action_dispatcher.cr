@@ -61,6 +61,20 @@ module UI
     # backwards-compatibility with pre-Phase-10B callers.
     getter platform : Symbol
 
+    # Phase 10B.2c — system-level user-preference snapshot threaded
+    # into every `ScreenContext::Native` the dispatcher builds. The
+    # host App populates this from OS queries (UIAccessibility /
+    # NSWorkspace / Android `Settings.Global`) at boot, and may swap
+    # it per-render by mutating the property (e.g. on a
+    # `UIAccessibility.reduceMotionStatusDidChangeNotification`
+    # observer firing — the renderer's `on_change` subscriber will
+    # rebuild with the new value on the next dispatch).
+    #
+    # Defaults to `UI::Environment.default` so dispatchers constructed
+    # without an explicit environment behave as if the user has no
+    # accommodations requested.
+    property environment : UI::Environment
+
     # Monotonically-increasing mount token. The dispatcher writes this
     # to `UI::FormState.current_mount_token` on every screen mount so
     # the renderer's stale-callback guard fires correctly.
@@ -79,6 +93,7 @@ module UI
       @flash : UI::Flash,
       @design_tokens : UI::DesignTokens::Tokens,
       @platform : Symbol = :macos,
+      @environment : UI::Environment = UI::Environment.default,
     )
       @current_mount_token = 0_i64
       @current_form_state = UI::FormState.new(mount_token: 0_i64)
@@ -156,6 +171,7 @@ module UI
         navigation: @navigation,
         action_params: explicit_params,
         platform: @platform,
+        environment: @environment,
       )
       # Iter-9 (Codex Finding 1): thread the active app class so the
       # intent resolver scopes app-tier overrides to the right app.
