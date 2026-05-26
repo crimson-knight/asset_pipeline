@@ -342,7 +342,7 @@ lint_conventions: OK (435 files, 6 rules, 0 diagnostics)
 Final commit on `phase-10-c-0`:
 
 ```
-<sha-of-this-commit>  [Phase 10C.0 iter 2 close] Codex remediation: 4 findings + 2 notes
+ef03ea76              [Phase 10C.0 iter 2 close] Codex remediation: 4 findings + 2 notes
 0a784515              [Phase 10C.0 iter 2] Finding 4 + notes: inventory fidelity + empty native dirs
 1ea28a57              [Phase 10C.0 iter 2] Findings 3 + note: CI Linux + lint jobs; AP_BRIDGE_OBJ rename
 8dacdfce              [Phase 10C.0 iter 2] Finding 2: SpecPlatformDirectoryRule extends ConventionRule
