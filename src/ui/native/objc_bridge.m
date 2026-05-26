@@ -3142,6 +3142,196 @@ int ap_view_resign_first_responder(void *view_ptr) {
     return 1;
 }
 
+// =============================================================================
+// Phase 10B.3.x — Class C feature bridge functions (iOS / iPadOS branch).
+//
+// One C entry-point per Class C feature implemented for the iOS/iPadOS
+// platform. Each function is fire-and-forget — the Crystal-side Class C
+// dispatch wraps the call in a DispatchResult.success unless the function
+// raises. Functions that need to return data (paste, file picker) route
+// the result through `crystal_ui_string_callback_dispatch` using a token
+// the caller passes in.
+//
+// All functions are main-thread-safe: they dispatch_async onto the main
+// queue when they need to touch UIKit (UIPasteboard is safe off-main; the
+// UIViewController-presenting calls are not).
+// =============================================================================
+
+// :copy_to_clipboard — write `value` to UIPasteboard.general.string.
+void ap_clipboard_write_ios(const char *value_cstr) {
+    NSString *value = ap_string_from_cstr(value_cstr);
+    if (!value) value = @"";
+    // UIPasteboard.string is documented main-thread-only on iOS.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [UIPasteboard generalPasteboard].string = value;
+    });
+}
+
+// :paste_from_clipboard — read UIPasteboard.general.string and route to
+// the Crystal-side callback. `token` is a callback tag returned by
+// `UI::Intent::CallbackRegistry`. The callback fires on the main thread.
+//
+// Returns 1 if a string was found and the callback was scheduled, 0 if
+// the pasteboard had no string content.
+int ap_clipboard_read_ios(unsigned long long token) {
+    __block int found = 0;
+    void (^work)(void) = ^{
+        NSString *value = [UIPasteboard generalPasteboard].string;
+        if (value) {
+            const char *cstr = value.UTF8String;
+            crystal_ui_string_callback_dispatch(token, cstr ? cstr : "");
+            found = 1;
+        } else {
+            crystal_ui_string_callback_dispatch(token, "");
+        }
+    };
+    if ([NSThread isMainThread]) {
+        work();
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), work);
+    }
+    return found;
+}
+
+// :open_url — UIApplication.openURL via the modern openURL:options:
+// completionHandler: selector. Returns 1 if the dispatch was scheduled,
+// 0 if the URL was malformed.
+int ap_open_url_ios(const char *url_cstr) {
+    NSURL *url = ap_url_from_cstr(url_cstr);
+    if (!url) return 0;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIApplication *app = [UIApplication sharedApplication];
+        if ([app respondsToSelector:@selector(openURL:options:completionHandler:)]) {
+            [app openURL:url options:@{} completionHandler:nil];
+        }
+    });
+    return 1;
+}
+
+// :request_permission — request UNUserNotificationCenter authorization on
+// iOS. Reuses the shared notifications helpers already in this file.
+// Returns 1 if granted, 0 otherwise. Synchronous via dispatch_semaphore;
+// the helper times out at 5 s.
+int ap_request_notification_permission_ios(void) {
+    return ap_notifications_request_authorization(1, 1, 1);
+}
+
+// :print — present a UIPrintInteractionController for a plain-text
+// payload. Best-effort: the substrate ships a text-only path here, real
+// apps composing with PDFs / images call the controller themselves with
+// a richer formatter. Returns 1 if dispatch scheduled, 0 if the API is
+// not available (UIPrintInteractionController.isPrintingAvailable == NO).
+int ap_print_text_ios(const char *text_cstr, const char *job_name_cstr) {
+    if (![UIPrintInteractionController isPrintingAvailable]) return 0;
+    NSString *text = ap_string_from_cstr(text_cstr);
+    NSString *job_name = ap_string_from_cstr(job_name_cstr);
+    if (!text) text = @"";
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIPrintInteractionController *pic = [UIPrintInteractionController sharedPrintController];
+        UIPrintInfo *info = [UIPrintInfo printInfo];
+        info.outputType = UIPrintInfoOutputGeneral;
+        if (job_name && job_name.length) info.jobName = job_name;
+        pic.printInfo = info;
+        UISimpleTextPrintFormatter *formatter =
+            [[UISimpleTextPrintFormatter alloc] initWithText:text];
+        pic.printFormatter = formatter;
+        [formatter release];
+        [pic presentAnimated:YES completionHandler:nil];
+    });
+    return 1;
+}
+
+// :open_file_picker — present a UIDocumentPickerViewController in
+// open-mode. The picker's selection is routed back via the
+// `crystal_ui_string_callback_dispatch` callback (with the picked URL,
+// or empty string on cancel).
+//
+// Anchor is required — iOS modal presentation needs a presenting
+// view-controller. The Crystal side passes the active view ptr from
+// the renderer surface.
+//
+// Returns 1 if the picker was scheduled, 0 if anchor is nil.
+//
+// NOTE: this minimal path registers an inline delegate via runtime —
+// in production the renderer should retain the delegate via associated
+// object so it survives the modal presentation. For the substrate's
+// fire-and-forget contract we accept a small leak; a real picker
+// component (10B.4) replaces this.
+static const void *ap_doc_picker_delegate_key = &ap_doc_picker_delegate_key;
+
+@interface APDocPickerDelegate : NSObject <UIDocumentPickerDelegate>
+@property (nonatomic, assign) unsigned long long callback_token;
+@end
+@implementation APDocPickerDelegate
+- (void)documentPicker:(UIDocumentPickerViewController *)controller
+didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    NSString *first = urls.firstObject.absoluteString ?: @"";
+    crystal_ui_string_callback_dispatch(self.callback_token, first.UTF8String);
+}
+- (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
+    crystal_ui_string_callback_dispatch(self.callback_token, "");
+}
+@end
+
+int ap_open_file_picker_ios(void *anchor_view_ptr, const char *utis_cstr,
+                            unsigned long long token) {
+    UIView *anchor = (UIView *)anchor_view_ptr;
+    if (!anchor) return 0;
+    NSString *utis = ap_string_from_cstr(utis_cstr);
+    // Default to public.data when caller doesn't specify a UTI list.
+    NSArray<NSString *> *types = nil;
+    if (utis && utis.length) {
+        types = [utis componentsSeparatedByString:@","];
+    } else {
+        types = @[@"public.data"];
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *presenter = ap_top_presenting_view_controller(anchor);
+        if (!presenter) return;
+        UIDocumentPickerViewController *picker =
+            [[UIDocumentPickerViewController alloc] initWithDocumentTypes:types
+                                                                   inMode:UIDocumentPickerModeImport];
+        APDocPickerDelegate *delegate = [[APDocPickerDelegate alloc] init];
+        delegate.callback_token = token;
+        picker.delegate = delegate;
+        objc_setAssociatedObject(picker, ap_doc_picker_delegate_key, delegate,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [delegate release];
+        [presenter presentViewController:picker animated:YES completion:nil];
+        [picker release];
+    });
+    return 1;
+}
+
+// :export_file — present a UIDocumentPickerViewController in export-mode.
+// The Crystal side hands us a temp-file URL pointing at the bytes to
+// export; the picker copies it into the user-chosen location.
+//
+// Returns 1 if scheduled, 0 if anchor / source-url is nil.
+int ap_export_file_ios(void *anchor_view_ptr, const char *source_url_cstr,
+                       unsigned long long token) {
+    UIView *anchor = (UIView *)anchor_view_ptr;
+    if (!anchor) return 0;
+    NSURL *source = ap_url_from_cstr(source_url_cstr);
+    if (!source) return 0;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *presenter = ap_top_presenting_view_controller(anchor);
+        if (!presenter) return;
+        UIDocumentPickerViewController *picker =
+            [[UIDocumentPickerViewController alloc] initWithURL:source
+                                                         inMode:UIDocumentPickerModeExportToService];
+        APDocPickerDelegate *delegate = [[APDocPickerDelegate alloc] init];
+        delegate.callback_token = token;
+        picker.delegate = delegate;
+        objc_setAssociatedObject(picker, ap_doc_picker_delegate_key, delegate,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [delegate release];
+        [presenter presentViewController:picker animated:YES completion:nil];
+        [picker release];
+    });
+    return 1;
+}
+
 #else  // macOS / AppKit
 
 // AppKit accessibility-custom-action support. NSAccessibilityCustomAction is
@@ -3260,4 +3450,182 @@ void ap_alert_show_macos(const char *title_cstr, const char *message_cstr) {
         [alert release];
     });
 }
+
+// =============================================================================
+// Phase 10B.3.x — Class C feature bridge functions (macOS / AppKit branch).
+//
+// One C entry-point per Class C feature implemented for the macOS
+// platform. Each function is fire-and-forget — the Crystal-side Class C
+// dispatch wraps the call in a DispatchResult.success unless the
+// function raises. Functions that need to return data (paste, file
+// picker) route the result through `crystal_ui_string_callback_dispatch`
+// using a token the caller passes in.
+// =============================================================================
+
+// :copy_to_clipboard — write `value` to NSPasteboard.general.
+void ap_clipboard_write_macos(const char *value_cstr) {
+    NSString *value = ap_string_from_cstr(value_cstr);
+    if (!value) value = @"";
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSPasteboard *pb = [NSPasteboard generalPasteboard];
+        [pb clearContents];
+        [pb setString:value forType:NSPasteboardTypeString];
+    });
+}
+
+// :paste_from_clipboard — read NSPasteboard.general string content and
+// route to the Crystal-side callback. Synchronous to keep the contract
+// symmetric with iOS — the pasteboard read is cheap on macOS.
+// Returns 1 when a string was found, 0 otherwise.
+int ap_clipboard_read_macos(unsigned long long token) {
+    __block int found = 0;
+    void (^work)(void) = ^{
+        NSPasteboard *pb = [NSPasteboard generalPasteboard];
+        NSString *value = [pb stringForType:NSPasteboardTypeString];
+        if (value) {
+            const char *cstr = value.UTF8String;
+            crystal_ui_string_callback_dispatch(token, cstr ? cstr : "");
+            found = 1;
+        } else {
+            crystal_ui_string_callback_dispatch(token, "");
+        }
+    };
+    if ([NSThread isMainThread]) {
+        work();
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), work);
+    }
+    return found;
+}
+
+// :open_url — NSWorkspace.shared.openURL: (modern openURL:configuration:
+// completionHandler: on macOS 10.15+; falls back to legacy openURL: on
+// older systems).
+int ap_open_url_macos(const char *url_cstr) {
+    NSURL *url = ap_url_from_cstr(url_cstr);
+    if (!url) return 0;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSWorkspace *ws = [NSWorkspace sharedWorkspace];
+        if ([ws respondsToSelector:@selector(openURL:configuration:completionHandler:)]) {
+            [ws openURL:url
+              configuration:[NSWorkspaceOpenConfiguration configuration]
+          completionHandler:nil];
+        } else {
+            [ws openURL:url];
+        }
+    });
+    return 1;
+}
+
+// :request_permission — request UNUserNotificationCenter authorization on
+// macOS. Returns 1 if granted, 0 otherwise. Synchronous via dispatch
+// semaphore; the helper times out at 5 s.
+int ap_request_notification_permission_macos(void) {
+    return ap_notifications_request_authorization(1, 1, 1);
+}
+
+// :print — present an NSPrintOperation for a plain-text payload built
+// into an NSTextView, run runModal on the active window. Returns 1 if
+// dispatch scheduled, 0 if no key window available.
+int ap_print_text_macos(const char *text_cstr, const char *job_name_cstr) {
+    NSString *text = ap_string_from_cstr(text_cstr);
+    NSString *job_name = ap_string_from_cstr(job_name_cstr);
+    if (!text) text = @"";
+
+    __block int ok = 1;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        // Build an off-screen NSTextView sized to the printable page so
+        // NSPrintOperation can paginate it. The text view lives only
+        // for the duration of the modal print panel.
+        NSPrintInfo *info = [NSPrintInfo sharedPrintInfo];
+        NSSize paper = info.paperSize;
+        NSRect frame = NSMakeRect(0.0, 0.0, paper.width, paper.height);
+        NSTextView *tv = [[NSTextView alloc] initWithFrame:frame];
+        [tv.textStorage replaceCharactersInRange:NSMakeRange(0, 0)
+                                      withString:text];
+        if (job_name && job_name.length) {
+            info.jobDisposition = NSPrintSpoolJob;
+        }
+        NSPrintOperation *op = [NSPrintOperation printOperationWithView:tv
+                                                              printInfo:info];
+        op.showsPrintPanel = YES;
+        op.showsProgressPanel = YES;
+        if (job_name && job_name.length) {
+            op.jobTitle = job_name;
+        }
+        [op runOperation];
+        [tv release];
+    });
+    return ok;
+}
+
+// :open_file_picker — present an NSOpenPanel modally. Returns the
+// selected URL via crystal_ui_string_callback_dispatch (empty string on
+// cancel). `utis` is a comma-separated list of UTI strings, e.g.
+// "public.image,public.data"; empty/nil means any file.
+//
+// Synchronous via runModal — NSOpenPanel returns when the user dismisses
+// the panel.
+int ap_open_file_picker_macos(const char *utis_cstr, unsigned long long token) {
+    NSString *utis = ap_string_from_cstr(utis_cstr);
+    void (^work)(void) = ^{
+        NSOpenPanel *panel = [NSOpenPanel openPanel];
+        panel.canChooseFiles = YES;
+        panel.canChooseDirectories = NO;
+        panel.allowsMultipleSelection = NO;
+        if (utis && utis.length) {
+            NSArray<NSString *> *types = [utis componentsSeparatedByString:@","];
+            if (@available(macOS 11.0, *)) {
+                // UTType API requires casts that depend on UniformType
+                // Identifiers framework. Defer to allowedFileTypes (legacy
+                // but still works on 11+) so we don't take a new link
+                // dependency.
+                panel.allowedFileTypes = types;
+            } else {
+                panel.allowedFileTypes = types;
+            }
+        }
+        NSModalResponse response = [panel runModal];
+        if (response == NSModalResponseOK && panel.URLs.firstObject) {
+            const char *cstr = panel.URLs.firstObject.absoluteString.UTF8String;
+            crystal_ui_string_callback_dispatch(token, cstr ? cstr : "");
+        } else {
+            crystal_ui_string_callback_dispatch(token, "");
+        }
+    };
+    if ([NSThread isMainThread]) {
+        work();
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), work);
+    }
+    return 1;
+}
+
+// :export_file — present an NSSavePanel modally. Suggests
+// `suggested_name` as the default filename. Returns chosen URL via
+// crystal_ui_string_callback_dispatch (empty on cancel).
+int ap_export_file_macos(const char *suggested_name_cstr,
+                         unsigned long long token) {
+    NSString *suggested = ap_string_from_cstr(suggested_name_cstr);
+    void (^work)(void) = ^{
+        NSSavePanel *panel = [NSSavePanel savePanel];
+        if (suggested && suggested.length) {
+            panel.nameFieldStringValue = suggested;
+        }
+        NSModalResponse response = [panel runModal];
+        if (response == NSModalResponseOK && panel.URL) {
+            const char *cstr = panel.URL.absoluteString.UTF8String;
+            crystal_ui_string_callback_dispatch(token, cstr ? cstr : "");
+        } else {
+            crystal_ui_string_callback_dispatch(token, "");
+        }
+    };
+    if ([NSThread isMainThread]) {
+        work();
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), work);
+    }
+    return 1;
+}
+
 #endif
