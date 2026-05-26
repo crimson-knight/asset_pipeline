@@ -1501,3 +1501,219 @@ int32_t android_view_apply_glass(void *env_ptr, void *view, float blur_radius, i
     (*env)->DeleteLocalRef(env, helper_cls);
     return result ? 1 : 0;
 }
+
+// ============================================================================
+// Phase 10B.3.x — Class C feature bridge functions (Android / JNI branch).
+//
+// Each function takes (void *env_ptr, void *context_ptr) plus feature args.
+// `context_ptr` is the application Context (or any subclass) used for
+// system-service lookups; the Crystal-side renderer stashes it at app
+// boot via the JNI surface and passes it down to each Class C dispatch.
+//
+// Functions that need to return data (clipboard read, file picker) route
+// the result through `crystal_ui_string_callback_dispatch` using a token
+// the caller passes in. The same symbol is exposed by the objc bridge —
+// the Crystal-side `CallbackRegistry` is platform-agnostic.
+// ============================================================================
+
+extern void crystal_ui_string_callback_dispatch(unsigned long long token, const char *value);
+
+// :copy_to_clipboard — write `text` to the system clipboard via
+// ClipboardManager. ClipData.newPlainText("ap_clipboard", text).
+//
+// Reachable from any thread; ClipboardManager is thread-safe.
+void ap_clipboard_write_android(void *env_ptr, void *context_ptr,
+                                uint8_t *text, int32_t text_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject context = (jobject)context_ptr;
+    if (!context) return;
+
+    jclass context_cls = (*env)->GetObjectClass(env, context);
+    jmethodID get_system_service = ap_try_get_method(env, context_cls, "getSystemService",
+                                                     "(Ljava/lang/String;)Ljava/lang/Object;");
+    if (!get_system_service) {
+        (*env)->DeleteLocalRef(env, context_cls);
+        return;
+    }
+
+    jstring service_name = ap_new_string(env, (const uint8_t *)"clipboard", -1);
+    jobject manager = (*env)->CallObjectMethod(env, context, get_system_service, service_name);
+    (*env)->DeleteLocalRef(env, service_name);
+    if (!manager) {
+        (*env)->DeleteLocalRef(env, context_cls);
+        return;
+    }
+
+    jclass clipdata_cls = (*env)->FindClass(env, "android/content/ClipData");
+    jmethodID new_plain_text = ap_get_static_method(env, clipdata_cls, "newPlainText",
+                                                   "(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;");
+    jstring label = ap_new_string(env, (const uint8_t *)"ap_clipboard", -1);
+    jstring value = ap_new_string(env, text, text_len);
+    jobject clip = (*env)->CallStaticObjectMethod(env, clipdata_cls, new_plain_text, label, value);
+
+    jclass manager_cls = (*env)->GetObjectClass(env, manager);
+    jmethodID set_primary_clip = ap_try_get_method(env, manager_cls, "setPrimaryClip",
+                                                   "(Landroid/content/ClipData;)V");
+    if (set_primary_clip && clip) {
+        (*env)->CallVoidMethod(env, manager, set_primary_clip, clip);
+    }
+
+    if (clip) (*env)->DeleteLocalRef(env, clip);
+    if (value) (*env)->DeleteLocalRef(env, value);
+    if (label) (*env)->DeleteLocalRef(env, label);
+    (*env)->DeleteLocalRef(env, manager_cls);
+    (*env)->DeleteLocalRef(env, clipdata_cls);
+    (*env)->DeleteLocalRef(env, manager);
+    (*env)->DeleteLocalRef(env, context_cls);
+}
+
+// :paste_from_clipboard — read the primary ClipData item's text and
+// route to the Crystal callback. Returns 1 on success, 0 if the
+// clipboard is empty or unavailable.
+int ap_clipboard_read_android(void *env_ptr, void *context_ptr,
+                              unsigned long long token) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject context = (jobject)context_ptr;
+    if (!context) {
+        crystal_ui_string_callback_dispatch(token, "");
+        return 0;
+    }
+
+    jclass context_cls = (*env)->GetObjectClass(env, context);
+    jmethodID get_system_service = ap_try_get_method(env, context_cls, "getSystemService",
+                                                     "(Ljava/lang/String;)Ljava/lang/Object;");
+    if (!get_system_service) {
+        (*env)->DeleteLocalRef(env, context_cls);
+        crystal_ui_string_callback_dispatch(token, "");
+        return 0;
+    }
+
+    jstring service_name = ap_new_string(env, (const uint8_t *)"clipboard", -1);
+    jobject manager = (*env)->CallObjectMethod(env, context, get_system_service, service_name);
+    (*env)->DeleteLocalRef(env, service_name);
+    (*env)->DeleteLocalRef(env, context_cls);
+    if (!manager) {
+        crystal_ui_string_callback_dispatch(token, "");
+        return 0;
+    }
+
+    jclass manager_cls = (*env)->GetObjectClass(env, manager);
+    jmethodID get_primary_clip = ap_try_get_method(env, manager_cls, "getPrimaryClip",
+                                                   "()Landroid/content/ClipData;");
+    jobject clip = get_primary_clip ? (*env)->CallObjectMethod(env, manager, get_primary_clip) : NULL;
+    (*env)->DeleteLocalRef(env, manager_cls);
+    (*env)->DeleteLocalRef(env, manager);
+
+    if (!clip) {
+        crystal_ui_string_callback_dispatch(token, "");
+        return 0;
+    }
+
+    jclass clip_cls = (*env)->GetObjectClass(env, clip);
+    jmethodID get_item_count = ap_try_get_method(env, clip_cls, "getItemCount", "()I");
+    jmethodID get_item_at = ap_try_get_method(env, clip_cls, "getItemAt", "(I)Landroid/content/ClipData$Item;");
+    jint count = get_item_count ? (*env)->CallIntMethod(env, clip, get_item_count) : 0;
+    if (count <= 0 || !get_item_at) {
+        (*env)->DeleteLocalRef(env, clip_cls);
+        (*env)->DeleteLocalRef(env, clip);
+        crystal_ui_string_callback_dispatch(token, "");
+        return 0;
+    }
+
+    jobject item = (*env)->CallObjectMethod(env, clip, get_item_at, 0);
+    (*env)->DeleteLocalRef(env, clip_cls);
+    (*env)->DeleteLocalRef(env, clip);
+    if (!item) {
+        crystal_ui_string_callback_dispatch(token, "");
+        return 0;
+    }
+
+    jclass item_cls = (*env)->GetObjectClass(env, item);
+    jmethodID get_text = ap_try_get_method(env, item_cls, "getText", "()Ljava/lang/CharSequence;");
+    jobject text_seq = get_text ? (*env)->CallObjectMethod(env, item, get_text) : NULL;
+    (*env)->DeleteLocalRef(env, item_cls);
+    (*env)->DeleteLocalRef(env, item);
+
+    if (!text_seq) {
+        crystal_ui_string_callback_dispatch(token, "");
+        return 0;
+    }
+
+    // text_seq is a CharSequence; the easiest path is its toString().
+    jclass cs_cls = (*env)->GetObjectClass(env, text_seq);
+    jmethodID to_string = ap_try_get_method(env, cs_cls, "toString", "()Ljava/lang/String;");
+    jstring jstr = to_string ? (jstring)(*env)->CallObjectMethod(env, text_seq, to_string) : NULL;
+    (*env)->DeleteLocalRef(env, cs_cls);
+    (*env)->DeleteLocalRef(env, text_seq);
+
+    if (!jstr) {
+        crystal_ui_string_callback_dispatch(token, "");
+        return 0;
+    }
+
+    const char *utf = (*env)->GetStringUTFChars(env, jstr, NULL);
+    crystal_ui_string_callback_dispatch(token, utf ? utf : "");
+    if (utf) (*env)->ReleaseStringUTFChars(env, jstr, utf);
+    (*env)->DeleteLocalRef(env, jstr);
+    return 1;
+}
+
+// :open_url — fire an Intent.ACTION_VIEW with the given URL.
+int ap_open_url_android(void *env_ptr, void *context_ptr,
+                        uint8_t *url, int32_t url_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jobject context = (jobject)context_ptr;
+    if (!context || !url || url_len <= 0) return 0;
+
+    jclass uri_cls = (*env)->FindClass(env, "android/net/Uri");
+    jmethodID parse = ap_get_static_method(env, uri_cls, "parse",
+                                            "(Ljava/lang/String;)Landroid/net/Uri;");
+    jstring url_str = ap_new_string(env, url, url_len);
+    jobject uri = (*env)->CallStaticObjectMethod(env, uri_cls, parse, url_str);
+    (*env)->DeleteLocalRef(env, url_str);
+    (*env)->DeleteLocalRef(env, uri_cls);
+    if (!uri) return 0;
+
+    jclass intent_cls = (*env)->FindClass(env, "android/content/Intent");
+    jfieldID action_view_field = (*env)->GetStaticFieldID(env, intent_cls, "ACTION_VIEW", "Ljava/lang/String;");
+    jstring action_view = action_view_field ? (*env)->GetStaticObjectField(env, intent_cls, action_view_field) : NULL;
+    jmethodID intent_ctor = ap_get_method(env, intent_cls, "<init>",
+                                          "(Ljava/lang/String;Landroid/net/Uri;)V");
+    jobject intent = (action_view && intent_ctor)
+        ? (*env)->NewObject(env, intent_cls, intent_ctor, action_view, uri)
+        : NULL;
+    (*env)->DeleteLocalRef(env, uri);
+    if (action_view) (*env)->DeleteLocalRef(env, action_view);
+    if (!intent) {
+        (*env)->DeleteLocalRef(env, intent_cls);
+        return 0;
+    }
+
+    jmethodID add_flags = ap_try_get_method(env, intent_cls, "addFlags",
+                                            "(I)Landroid/content/Intent;");
+    jfieldID new_task_field = (*env)->GetStaticFieldID(env, intent_cls, "FLAG_ACTIVITY_NEW_TASK", "I");
+    jint flag_new_task = new_task_field ? (*env)->GetStaticIntField(env, intent_cls, new_task_field) : 0;
+    if (add_flags && flag_new_task != 0) {
+        (*env)->CallObjectMethod(env, intent, add_flags, flag_new_task);
+    }
+
+    jclass context_cls = (*env)->GetObjectClass(env, context);
+    jmethodID start_activity = ap_try_get_method(env, context_cls, "startActivity",
+                                                 "(Landroid/content/Intent;)V");
+    int ok = 0;
+    if (start_activity) {
+        (*env)->CallVoidMethod(env, context, start_activity, intent);
+        if ((*env)->ExceptionCheck(env)) {
+            // ActivityNotFoundException — no handler installed for the
+            // scheme. Clear and report failure.
+            (*env)->ExceptionClear(env);
+            ok = 0;
+        } else {
+            ok = 1;
+        }
+    }
+    (*env)->DeleteLocalRef(env, context_cls);
+    (*env)->DeleteLocalRef(env, intent);
+    (*env)->DeleteLocalRef(env, intent_cls);
+    return ok;
+}
