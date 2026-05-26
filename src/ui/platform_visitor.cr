@@ -155,5 +155,14 @@ module UI
     # `UI::InlineActionRow`). Every other renderer maps it to its own
     # inline-row chrome so cross-platform overrides remain useful.
     abstract def visit(view : AndroidSwipeActionRow)
+
+    # Phase 10B.4 — Missing widgets from the Phase 10-pre catalog audit.
+    # Each was a `coverage_today: missing` entry whose `crystal_api_shape`
+    # named a non-existent `UI::X` class. The classes now ship; the
+    # renderer visit methods are required for the abstract contract.
+    abstract def visit(view : FullScreenCover)
+    abstract def visit(view : Inspector)
+    abstract def visit(view : ToolbarItemGroup)
+    abstract def visit(view : ToolbarSpacer)
   end
 end

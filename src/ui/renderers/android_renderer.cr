@@ -3309,6 +3309,133 @@
         visit(dialog)
       end
 
+      # Phase 10B.4 — FullScreenCover.
+      #
+      # Android's idiomatic mapping is a full-screen `Dialog` (or a
+      # full-screen activity). The JNI bridge surface today exposes
+      # the standard View tree (`android/widget/FrameLayout` et al)
+      # but not the `androidx.appcompat.app.AlertDialog` /
+      # `Dialog` lifecycle. Until that bridge lands, this visit emits
+      # a FrameLayout placeholder whose visibility flips with
+      # `is_presented`. The cover's content is mounted as a child so
+      # the data path is intact for the upcoming Dialog bridge.
+      def visit(view : UI::FullScreenCover)
+        layout = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+
+        # View.GONE = 8 when hidden, View.VISIBLE = 0 when presented.
+        LibAndroidBridge.android_view_set_visibility(@env, layout, view.is_presented ? 0 : 8)
+
+        apply_common_properties(layout, view)
+
+        global_layout = LibAndroidBridge.android_new_global_ref(@env, layout)
+        handle = JNI.wrap_global(global_layout, label: "FrameLayout[full-screen-cover]")
+        native = NativeView.new(handle)
+
+        push_stack(native, layout, is_linear: false)
+
+        if content = view.content
+          content.accept(self)
+        end
+
+        pop_stack
+
+        push_native(native, layout)
+      end
+
+      # Phase 10B.4 — Inspector.
+      #
+      # Android has no first-class inspector idiom — the closest analog
+      # is a horizontal split of two panes (master + detail or content +
+      # inspector). This visit emits a horizontal LinearLayout with the
+      # primary content followed by the (optional) inspector pane. When
+      # `is_presented` is false the inspector pane is omitted (not just
+      # hidden) so layout weighting picks up the freed space.
+      def visit(view : UI::Inspector)
+        ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+
+        # HORIZONTAL = 0
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 0)
+
+        apply_common_properties(ll, view)
+
+        global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
+        handle = JNI.wrap_global(global_ll, label: "LinearLayout[inspector]")
+        native = NativeView.new(handle)
+
+        push_stack(native, ll, is_linear: true)
+
+        if content = view.content
+          content.accept(self)
+        end
+
+        if view.is_presented
+          if inspector = view.inspector_content
+            inspector.accept(self)
+          end
+        end
+
+        pop_stack
+
+        push_native(native, ll)
+      end
+
+      # Phase 10B.4 — ToolbarItemGroup.
+      #
+      # Android's idiomatic mapping is a visual cluster of action slots
+      # inside a `MaterialToolbar` / `TopAppBar`. Outside of a host
+      # toolbar, the group renders as a horizontal LinearLayout of
+      # MaterialButton siblings dispatched through `UI::Button` (so
+      # accessibility wiring + role tinting flow through). The group's
+      # `label` is mounted on the LinearLayout's content description.
+      def visit(view : UI::ToolbarItemGroup)
+        ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+
+        # HORIZONTAL = 0
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 0)
+        # Gravity.CENTER_VERTICAL = 16
+        LibAndroidBridge.android_linearlayout_set_gravity(@env, ll, 16)
+
+        apply_common_properties(ll, view)
+
+        global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
+        handle = JNI.wrap_global(global_ll, label: "LinearLayout[toolbar-item-group]")
+        native = NativeView.new(handle)
+
+        push_stack(native, ll, is_linear: true)
+
+        view.items.each do |item|
+          btn = UI::Button.new(item.label)
+          btn.accessibility_label = item.label
+          if action = item.action
+            btn.on_tap = action
+          end
+          btn.as(UI::View).accept(self)
+        end
+
+        pop_stack
+
+        push_native(native, ll)
+      end
+
+      # Phase 10B.4 — ToolbarSpacer.
+      #
+      # Android's idiomatic mapping is an `android.widget.Space` view
+      # (zero-area placeholder honored by layout weighting). The JNI
+      # bridge exposes `android/widget/Space`; flexible spacers expect
+      # a parent `LinearLayout.LayoutParams.weight = 1` (set by the
+      # parent visitor). Fixed-size spacers require an explicit width
+      # constraint which the parent layout can apply; this visit emits
+      # the Space marker for layout participation.
+      def visit(view : UI::ToolbarSpacer)
+        space = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
+        apply_common_properties(space, view)
+
+        global_space = LibAndroidBridge.android_new_global_ref(@env, space)
+        handle = JNI.wrap_global(global_space, label: "Space[ToolbarSpacer:#{view.flexible? ? "flexible" : "fixed"}]")
+        native = NativeView.new(handle)
+        push_native(native, space)
+      end
+
       # ================================================================
       # Private helpers
       # ================================================================

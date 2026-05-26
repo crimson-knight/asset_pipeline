@@ -47,7 +47,7 @@ platform unit conventions) on every target.
 | VStack | `src/ui/views/vstack.cr` |
 | ZStack | `src/ui/views/zstack.cr` |
 
-## Tier 2 — Platform default (55 widgets)
+## Tier 2 — Platform default (59 widgets)
 
 These have a meaningful semantic on every platform; their visual
 treatment shifts based on the renderer. No gating; Phase 3's SwiftUI
@@ -71,10 +71,12 @@ bridge gives them their Apple polish.
 | DatePicker | `src/ui/views/date_picker.cr` | Yes | `<input type="date">` on web. |
 | DisclosureGroup | `src/ui/views/disclosure_group.cr` | — | |
 | Form | `src/ui/views/form.cr` | Yes | |
+| FullScreenCover | `src/ui/views/full_screen_cover.cr` | — | Phase 10B.4 — `:full_screen_cover` intent. Native lifecycle (UIVCM = .fullScreen) deferred to SwiftKit facade follow-up. |
 | Gauge | `src/ui/views/gauge.cr` | — | |
 | GlassBackground | `src/ui/views/glass_background.cr` | Yes | Degrades to standard backdrop on platforms without the glass material. |
 | IconButton | `src/ui/views/icon_button.cr` | Yes | |
 | ImageWell | `src/ui/views/image_well.cr` | — | |
+| Inspector | `src/ui/views/inspector.cr` | — | Phase 10B.4 — `:inspector` intent. Native split-view inspector-column binding deferred to SwiftKit facade follow-up. |
 | LinkButton | `src/ui/views/link_button.cr` | Yes | |
 | ListView | `src/ui/views/list_view.cr` | Yes | |
 | MapView | `src/ui/views/map_view.cr` | — | MapKit on Apple; Leaflet/Google embed on web. |
@@ -107,6 +109,8 @@ bridge gives them their Apple polish.
 | ToggleButton | `src/ui/views/toggle_button.cr` | Yes | |
 | TokenField | `src/ui/views/token_field.cr` | — | |
 | Toolbar | `src/ui/views/toolbar.cr` | Yes | Kept as a single cross-platform class; NSToolbar-style customization UI would land as a future Tier 3 `PlatformToolbar`. |
+| ToolbarItemGroup | `src/ui/views/toolbar_item_group.cr` | — | Phase 10B.4 — `:toolbar_item_group` intent. Standalone-group rendering shipped; inline-within-toolbar binding tracked under B-011 follow-up. |
+| ToolbarSpacer | `src/ui/views/toolbar_spacer.cr` | — | Phase 10B.4 — `:toolbar_spacer` intent. Flexible / fixed-width spacer; NSToolbar `flexibleSpace` identifier mapping tracked under B-011 follow-up. |
 | Tooltip | `src/ui/views/tooltip.cr` | — | |
 | VideoPlayer | `src/ui/views/video_player.cr` | — | |
 | WebViewComponent | `src/ui/views/web_view.cr` | — | |
@@ -152,6 +156,15 @@ itself gated to Apple-family targets because it references the Tier 3
 `UI::ContextMenu`).
 
 ## Change log
+
+* **2026-05-26** — Phase 10B.4 added four missing-widget classes
+  surfaced by the Phase 10-pre catalog freshness audit:
+  `FullScreenCover` (`:full_screen_cover`), `Inspector` (`:inspector`),
+  `ToolbarItemGroup` (`:toolbar_item_group`), and `ToolbarSpacer`
+  (`:toolbar_spacer`). All four are Tier 2 with web + macOS + iOS +
+  Android visitor implementations and specs. Native lifecycle wiring
+  for the modal / split-view / toolbar-host integrations is preserved
+  as backlog items B-009, B-010, B-011 follow-up work.
 
 * **2026-05-21** — Phase 4 created the initial classification.
   17 Tier 1, 55 Tier 2, 3 Tier 3 (gated classes: `ActionSheet`,
