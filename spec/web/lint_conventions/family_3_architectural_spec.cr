@@ -77,8 +77,8 @@ describe "Family 3 architectural rules — regression fixtures" do
   fixture_root = File.join(__DIR__, "fixtures", "family_3_architectural")
   fixture_paths = Dir.glob(File.join(fixture_root, "*.cr")).sort
 
-  it "loads at least 15 fixtures (5 rules × {pass + fail + ≥2 false-positive guards})" do
-    fixture_paths.size.should be >= 15
+  it "loads at least 24 fixtures (5 rules × {pass + fail + ≥2 false-positive guards}, plus iter 2 additions)" do
+    fixture_paths.size.should be >= 24
   end
 
   fixture_paths.each do |path|
