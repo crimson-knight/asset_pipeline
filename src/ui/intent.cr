@@ -72,11 +72,11 @@ module UI
     ) : UI::View.class
       widget = UI::Intent::Registry.resolve_for(intent_id, context)
       if widget
-        if capabilities_required && (missing = first_missing_capability(widget, intent_id, capabilities_required))
+        if capabilities_required && (missing = first_missing_capability(widget, intent_id, capabilities_required, context.platform))
           raise UnresolvableDefault.new(
             "Resolved widget #{widget} for intent #{intent_id.inspect} on platform " \
             "#{context.platform.inspect} is missing required capability `#{missing}`. " \
-            "Pick a widget that declares `#{missing}: true` for #{intent_id.inspect}, " \
+            "Pick a widget that declares `#{missing}: true` for #{context.platform.inspect}, " \
             "or drop the `capabilities_required:` kwarg if the caller can tolerate the gap."
           )
         end
@@ -93,19 +93,30 @@ module UI
     end
 
     # Returns the first capability key in `required` that the widget
-    # does NOT declare as `true` for `intent_id`. Returns nil if the
-    # widget covers everything required. Used by `.resolve` for the
-    # `capabilities_required:` kwarg path.
+    # does NOT back for `intent_id` on the given `platform`. Returns
+    # nil if the widget covers everything required. Used by `.resolve`
+    # for the `capabilities_required:` kwarg path.
+    #
+    # # Phase 10B.1b — platform-aware lookup
+    #
+    # The widget's declared capability value can now be a platform-
+    # keyed `Hash(Symbol, Bool)`. We delegate to
+    # `UI::Intent::Registry.platform_supported?` so a declaration like
+    # `supports_role_destructive: {ios: true, macos: false}` correctly
+    # passes when `context.platform == :ios` and fails when
+    # `context.platform == :macos`.
     private def self.first_missing_capability(
       widget_class : UI::View.class,
       intent_id : Symbol,
       required : Hash(Symbol, Bool),
+      platform : Symbol,
     ) : Symbol?
       declared = UI::Intent::Registry.declared_capabilities_for(widget_class, intent_id) ||
-                 ({} of Symbol => Bool | Symbol)
+                 ({} of Symbol => UI::Intent::Registry::CapabilityValue)
       required.each do |key, needed|
         next unless needed
-        return key unless declared[key]? == true
+        value = declared[key]?
+        return key unless UI::Intent::Registry.platform_supported?(value, platform)
       end
       nil
     end

@@ -32,16 +32,31 @@ module UI
     module Bootstrap
       # ----- Intent required capability declarations -----
       #
-      # The `:swipe_actions` requirement set per
-      # `docs/initiative-cross-platform-ui/architecture/intent-routing-candidates.md`
-      # (post-Phase-10-pre.1 honesty pass). Only the capabilities that
-      # are actually backed by source today, plus `supports_role_default`
-      # which is universally backed.
+      # The `:swipe_actions` requirement set per the platform-honesty
+      # audit in
+      # `docs/initiative-cross-platform-ui/architecture/swipe-actions-capability-audit.md`
+      # (Phase 10B.1b). The previous declaration coded
+      # `supports_role_destructive => :partial`, which collapsed the
+      # AppKit "no destructive tint" gap and the Android stub into a
+      # single fuzzy symbol. 10B.1b replaces that with a platform-keyed
+      # `Hash(Symbol, Bool)` so the registry can detect honesty
+      # mismatches per platform at registration time and at resolve
+      # time (when `capabilities_required:` is passed).
       UI::Intent::Registry.declare_intent_capabilities(:swipe_actions, {
-        :supports_edge_trailing    => true,
-        :supports_role_default     => true,
-        :supports_role_destructive => :partial,
-      } of Symbol => Bool | Symbol)
+        :supports_edge_trailing => true,
+        :supports_role_default  => true,
+        # Destructive tint demanded on iOS / iPadOS / web; not demanded
+        # on macOS until the AppKit button-role facade lands and not on
+        # Android until 10B.1c installs `UI::AndroidSwipeActionRow`.
+        :supports_role_destructive => {
+          :ios        => true,
+          :ipados     => true,
+          :macos      => false,
+          :web_wide   => true,
+          :web_narrow => true,
+          :android    => false,
+        } of Symbol => Bool,
+      } of Symbol => UI::Intent::Registry::CapabilityValue)
 
       # ----- Platform default widgets -----
       #

@@ -61,6 +61,24 @@ module UI
     end
 
     module Registry
+      # Phase 10B.1b — type alias for a capability value. A widget
+      # capability declaration carries one of:
+      #
+      #   * `true` / `false` — universal support / no support.
+      #   * `:partial` (Symbol) — fuzzy legacy "some platforms,
+      #     unspecified." Accepted for back-compat.
+      #   * `Hash(Symbol, Bool)` — platform-keyed support map. Keys are
+      #     platform symbols (`:ios`, `:ipados`, `:macos`,
+      #     `:web_wide`, `:web_narrow`, `:android`); values mark whether
+      #     the renderer for that platform actually backs the
+      #     capability today.
+      #
+      # The aliased union type is what every Registry method that
+      # accepts a capability bag references, so a single edit here
+      # threads the platform-keyed shape through validation,
+      # resolution, and declaration storage.
+      alias CapabilityValue = Bool | Symbol | Hash(Symbol, Bool)
+
       # Default widget per (intent_id, platform) pair. Populated by
       # `register_default(intent_id, platform, widget_class)`.
       @@defaults = {} of Tuple(Symbol, Symbol) => UI::View.class
@@ -76,15 +94,14 @@ module UI
       # Per-widget declared capabilities — populated by the
       # `declares_capabilities` macro on the widget class. Key is the
       # widget class + the intent_id it claims to satisfy. Value is
-      # the capability bag (Hash(Symbol, Bool | Symbol)) the widget
-      # claims to support.
-      @@widget_capabilities = {} of Tuple(UI::View.class, Symbol) => Hash(Symbol, Bool | Symbol)
+      # the capability bag the widget claims to support.
+      @@widget_capabilities = {} of Tuple(UI::View.class, Symbol) => Hash(Symbol, CapabilityValue)
 
       # Per-intent required capability set. Populated by
       # `declare_intent_capabilities(intent_id, required)`. Used at
       # override-registration time to check the override widget covers
       # every required capability.
-      @@intent_required_capabilities = {} of Symbol => Hash(Symbol, Bool | Symbol)
+      @@intent_required_capabilities = {} of Symbol => Hash(Symbol, CapabilityValue)
 
       # ------------------------------------------------------------------
       # Reset hook for specs.
@@ -147,14 +164,25 @@ module UI
       # at framework boot per intent. Subsequent `register_*_override`
       # calls validate the override widget covers this required set.
       #
-      # `:partial` capability semantics — a required capability of
-      # value `true` requires the override to declare `true` (NOT
-      # `false`, NOT `:partial`). A required value of `:partial` is
-      # satisfied by any of `true`, `:partial`. A required value of
-      # `false` is satisfied by anything (no constraint).
+      # # Required-value semantics (Phase 10B.1b)
+      #
+      # * `true` — override widget must declare `true` OR a platform-
+      #   keyed `Hash` that covers every platform where the intent has
+      #   a registered default with `true`. `:partial` no longer
+      #   satisfies a `true` requirement (10B.1b honesty fix —
+      #   `:partial` was previously accepted, collapsing per-platform
+      #   gaps into a single fuzzy symbol).
+      # * `:partial` — satisfied by any of `true`, `:partial`, or a
+      #   `Hash` with at least one `true` cell.
+      # * `false` — no constraint.
+      # * `Hash(Symbol, Bool)` — platform-keyed requirement. For each
+      #   platform the required hash sets to `true`, the widget's
+      #   declared value must be `true` for that platform (either
+      #   declared as `true` outright, or as a platform-keyed hash with
+      #   that key set to `true`).
       def self.declare_intent_capabilities(
         intent_id : Symbol,
-        required : Hash(Symbol, Bool | Symbol),
+        required : Hash(Symbol, CapabilityValue),
       ) : Nil
         @@intent_required_capabilities[intent_id] = required
         nil
@@ -162,8 +190,8 @@ module UI
 
       # Returns the recorded required capabilities for `intent_id`, or
       # an empty hash if none declared.
-      def self.required_capabilities_for(intent_id : Symbol) : Hash(Symbol, Bool | Symbol)
-        @@intent_required_capabilities[intent_id]? || {} of Symbol => Bool | Symbol
+      def self.required_capabilities_for(intent_id : Symbol) : Hash(Symbol, CapabilityValue)
+        @@intent_required_capabilities[intent_id]? || {} of Symbol => CapabilityValue
       end
 
       # ------------------------------------------------------------------
@@ -176,7 +204,7 @@ module UI
       def self.declare_widget_capabilities(
         widget_class : UI::View.class,
         intent_id : Symbol,
-        capabilities : Hash(Symbol, Bool | Symbol),
+        capabilities : Hash(Symbol, CapabilityValue),
       ) : Nil
         @@widget_capabilities[{widget_class, intent_id}] = capabilities
         nil
@@ -187,7 +215,7 @@ module UI
       def self.declared_capabilities_for(
         widget_class : UI::View.class,
         intent_id : Symbol,
-      ) : Hash(Symbol, Bool | Symbol)?
+      ) : Hash(Symbol, CapabilityValue)?
         @@widget_capabilities[{widget_class, intent_id}]?
       end
 
@@ -227,6 +255,18 @@ module UI
       # `IncompatibleOverride` on the first missing capability, naming
       # the widget + intent + missing capability key so the author can
       # add the declaration on the widget's class body.
+      #
+      # # Phase 10B.1b — platform-keyed validation
+      #
+      # When the required value is a `Hash(Symbol, Bool)`, each
+      # platform marked `true` in the requirement must be backed by
+      # the widget (either declared `true` outright, or declared as a
+      # platform-keyed hash with that key set to `true`). When the
+      # required value is `true` (universal), the widget's declared
+      # platform-keyed hash must cover every platform where the intent
+      # has a registered default — otherwise the override would
+      # shadow a working default with a widget that silently drops the
+      # capability on that platform.
       private def self.validate_override_capabilities(
         widget_class : UI::View.class,
         intent_id : Symbol,
@@ -235,43 +275,152 @@ module UI
         required = required_capabilities_for(intent_id)
         return if required.empty?
 
-        declared = declared_capabilities_for(widget_class, intent_id) || {} of Symbol => Bool | Symbol
+        declared = declared_capabilities_for(widget_class, intent_id) || {} of Symbol => CapabilityValue
+        default_platforms = platforms_with_default_for(intent_id)
 
         required.each do |key, required_value|
+          declared_value = declared[key]?
+
           case required_value
           when true
-            unless declared[key]? == true
-              raise IncompatibleOverride.new(
-                "Override for #{intent_id.inspect} on #{scope} with #{widget_class} " \
-                "is missing required capability `#{key}` (intent requires `true`, " \
-                "widget declared #{declared[key]?.inspect}). " \
-                "Add `#{key}: true` to the widget's `declares_capabilities` block, " \
-                "or pick a different widget."
-              )
-            end
+            validate_universal_requirement(
+              widget_class, intent_id, scope,
+              key, declared_value, default_platforms,
+            )
           when :partial
-            value = declared[key]?
-            unless value == true || value == :partial
+            unless declared_value == true ||
+                   declared_value == :partial ||
+                   (declared_value.is_a?(Hash) && declared_value.any? { |_, v| v == true })
               raise IncompatibleOverride.new(
                 "Override for #{intent_id.inspect} on #{scope} with #{widget_class} " \
-                "is missing required capability `#{key}` (intent requires `:partial` or `true`, " \
-                "widget declared #{value.inspect}). " \
-                "Add `#{key}: :partial` (or `true`) to the widget's `declares_capabilities` block."
+                "is missing required capability `#{key}` (intent requires `:partial` or " \
+                "`true`, widget declared #{declared_value.inspect}). " \
+                "Add `#{key}: :partial` (or `true`, or a platform-keyed Hash with at " \
+                "least one true cell) to the widget's `declares_capabilities` block."
               )
             end
           else
-            # Symbol other than :partial — exact match required.
-            unless declared[key]? == required_value
-              raise IncompatibleOverride.new(
-                "Override for #{intent_id.inspect} on #{scope} with #{widget_class} " \
-                "is missing required capability `#{key}` (intent requires #{required_value.inspect}, " \
-                "widget declared #{declared[key]?.inspect})."
-              )
+            # Hash (platform-keyed) or Symbol other than :partial.
+            if required_value.is_a?(Hash)
+              required_value.each do |plat, needed|
+                next unless needed
+                unless platform_supported?(declared_value, plat)
+                  raise IncompatibleOverride.new(
+                    "Override for #{intent_id.inspect} on #{scope} with #{widget_class} " \
+                    "is missing required capability `#{key}` on platform #{plat.inspect} " \
+                    "(intent requires `true` for that platform, widget declared " \
+                    "#{describe_platform_support(declared_value, plat)}). " \
+                    "Add `#{key}: {#{plat.to_s}: true, ...}` (or `#{key}: true`) to the widget's " \
+                    "`declares_capabilities` block, or pick a different widget."
+                  )
+                end
+              end
+            else
+              unless declared_value == required_value
+                raise IncompatibleOverride.new(
+                  "Override for #{intent_id.inspect} on #{scope} with #{widget_class} " \
+                  "is missing required capability `#{key}` (intent requires " \
+                  "#{required_value.inspect}, widget declared #{declared_value.inspect})."
+                )
+              end
             end
           end
         end
 
         nil
+      end
+
+      # Validate a universal (`required == true`) capability. The
+      # widget must declare `true`, OR a platform-keyed Hash where
+      # every platform with a registered default for the intent is
+      # backed (`true`). This is what catches the audit-honesty
+      # mismatch — declaring `true` while platform renderers silently
+      # drop the capability is rejected at registration time when the
+      # widget switches to the honest platform-keyed declaration.
+      private def self.validate_universal_requirement(
+        widget_class : UI::View.class,
+        intent_id : Symbol,
+        scope : String,
+        key : Symbol,
+        declared_value,
+        default_platforms : Array(Symbol),
+      ) : Nil
+        return if declared_value == true
+
+        if declared_value.is_a?(Hash)
+          # Every platform that has a registered default for the intent
+          # must be covered by the override's platform-keyed hash. The
+          # override is meant to *replace* the default — silently
+          # dropping a capability on a platform the default backed is
+          # exactly the regression we want to catch.
+          missing = default_platforms.select { |plat| !platform_supported?(declared_value, plat) }
+          return if missing.empty?
+          raise IncompatibleOverride.new(
+            "Override for #{intent_id.inspect} on #{scope} with #{widget_class} " \
+            "claims `#{key}` but the platform-keyed declaration does not back " \
+            "every platform with a registered default. " \
+            "Missing platforms: #{missing.inspect}. Widget declared " \
+            "#{declared_value.inspect}. Add the missing platform keys with `true`, " \
+            "or pick a different widget."
+          )
+        end
+
+        raise IncompatibleOverride.new(
+          "Override for #{intent_id.inspect} on #{scope} with #{widget_class} " \
+          "is missing required capability `#{key}` (intent requires `true`, " \
+          "widget declared #{declared_value.inspect}). " \
+          "Add `#{key}: true` (or a platform-keyed Hash covering every default " \
+          "platform) to the widget's `declares_capabilities` block, or pick a " \
+          "different widget."
+        )
+      end
+
+      # Returns the sorted unique list of platforms that have a
+      # registered default for `intent_id`. Used by the universal
+      # requirement validator to determine which platforms an
+      # override-widget's platform-keyed declaration must cover.
+      protected def self.platforms_with_default_for(intent_id : Symbol) : Array(Symbol)
+        @@defaults.compact_map do |k, _|
+          k[0] == intent_id ? k[1] : nil
+        end.uniq.sort_by(&.to_s)
+      end
+
+      # Returns true when `value` claims support for `platform`.
+      # Compatible with every CapabilityValue shape:
+      #
+      #   * `true` — supports everywhere → returns true.
+      #   * `false` / `nil` — no support → returns false.
+      #   * `:partial` — fuzzy; treated as NOT supported for the
+      #     specific-platform query (the caller wanted a precise
+      #     answer; `:partial` does not give one).
+      #   * `Hash` — returns `hash[platform]? == true`.
+      protected def self.platform_supported?(value, platform : Symbol) : Bool
+        case value
+        when true then true
+        when Hash
+          value[platform]? == true
+        else
+          false
+        end
+      end
+
+      # Human-readable description of the widget's stance on a
+      # platform, for diagnostic messages.
+      private def self.describe_platform_support(value, platform : Symbol) : String
+        case value
+        when true then "`true` (universal)"
+        when false then "`false`"
+        when :partial then "`:partial` (fuzzy)"
+        when nil then "nothing (capability not declared)"
+        when Hash
+          if value.has_key?(platform)
+            "`{#{platform.to_s}: #{value[platform]}}`"
+          else
+            "platform-keyed hash with no entry for #{platform.inspect}"
+          end
+        else
+          value.inspect
+        end
       end
 
       # ------------------------------------------------------------------
