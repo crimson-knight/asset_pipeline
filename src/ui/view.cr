@@ -291,6 +291,11 @@ module UI
     #   rendered on macOS" mismatches, and again at resolve time when
     #   `capabilities_required:` is passed to `UI::Intent.resolve`.
     #
+    # Both NamedTuple shorthand (`{ios: true, macos: false}`) and rocket-
+    # style HashLiteral (`{:ios => true, :macos => false}`) are accepted
+    # for the per-capability platform map. They produce the same
+    # `Hash(Symbol, Bool)` at the cap site.
+    #
     # The macro emits a class-level hook method
     # `_declare_capabilities_for_intent_<intent_id>` that runs the
     # `UI::Intent::Registry.declare_widget_capabilities` write. Like
@@ -306,11 +311,21 @@ module UI
           {% if value.is_a?(HashLiteral) || value.is_a?(NamedTupleLiteral) %}
             _cap_h_{{intent_id.id}}_{{key.id}} = {} of Symbol => Bool
             {% for plat_key, plat_value in value %}
-              _cap_h_{{intent_id.id}}_{{key.id}}[{{plat_key.symbolize}}] = {{plat_value}}
+              {% if plat_key.is_a?(SymbolLiteral) %}
+                # Rocket-style HashLiteral key (e.g. `:ios => true`) is
+                # already a SymbolLiteral. Emit it directly — calling
+                # `.symbolize` would wrap it as `:":ios"`, which then
+                # never matches a `:ios` lookup downstream.
+                _cap_h_{{intent_id.id}}_{{key.id}}[{{plat_key}}] = {{plat_value}}
+              {% else %}
+                # NamedTupleLiteral key (`ios: true`) arrives as a
+                # MacroId; symbolize it into `:ios`.
+                _cap_h_{{intent_id.id}}_{{key.id}}[{{plat_key.symbolize}}] = {{plat_value}}
+              {% end %}
             {% end %}
-            caps[{{key.symbolize}}] = _cap_h_{{intent_id.id}}_{{key.id}}
+            caps[{% if key.is_a?(SymbolLiteral) %}{{key}}{% else %}{{key.symbolize}}{% end %}] = _cap_h_{{intent_id.id}}_{{key.id}}
           {% else %}
-            caps[{{key.symbolize}}] = {{value}}
+            caps[{% if key.is_a?(SymbolLiteral) %}{{key}}{% else %}{{key.symbolize}}{% end %}] = {{value}}
           {% end %}
         {% end %}
         ::UI::Intent::Registry.declare_widget_capabilities(

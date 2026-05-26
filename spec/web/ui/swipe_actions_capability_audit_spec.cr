@@ -129,6 +129,54 @@ private class AuditHonestRow < UI::View
   end
 end
 
+# A spec widget that uses rocket-style HashLiteral keys (`:ios => true`)
+# instead of the NamedTuple shorthand. The macro must produce a
+# `Hash(Symbol, Bool)` whose keys are plain `:ios` / `:macos` / etc. and
+# NOT double-symbolized `:":ios"`. Used to prove the macro's HashLiteral
+# branch is honest end-to-end: declaration → registry → resolver lookup.
+private class AuditRocketHashRow < UI::View
+  declares_capabilities :swipe_actions, {
+    :supports_edge_trailing => {
+      :ios        => true,
+      :ipados     => true,
+      :macos      => true,
+      :web_wide   => true,
+      :web_narrow => true,
+      :android    => true,
+    },
+    :supports_edge_leading => {
+      :ios        => true,
+      :ipados     => true,
+      :macos      => true,
+      :web_wide   => true,
+      :web_narrow => true,
+      :android    => true,
+    },
+    :supports_role_default => {
+      :ios        => true,
+      :ipados     => true,
+      :macos      => true,
+      :web_wide   => true,
+      :web_narrow => true,
+      :android    => true,
+    },
+    :supports_role_destructive => {
+      :ios        => true,
+      :ipados     => true,
+      :macos      => false,
+      :web_wide   => true,
+      :web_narrow => true,
+      :android    => true,
+    },
+  }
+
+  def initialize
+  end
+
+  def accept(visitor : UI::PlatformVisitor)
+  end
+end
+
 # A spec widget that LIES — claims destructive support on macOS even
 # though no macOS renderer paints the tint. The registry must reject
 # this when the intent's required set demands `:macos => false` is
@@ -386,6 +434,55 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
       reinstall_audit_bootstrap
 
       AuditSpecApp.override_intent(:swipe_actions, AuditHonestRow)
+      UI::Intent::Registry.app_override_count_for(AuditSpecApp, :swipe_actions).should eq(1)
+    end
+  end
+
+  describe "macro HashLiteral key handling (rocket-style)" do
+    # Iter-2 finding 1 (Codex REVISE): the `declares_capabilities` macro
+    # claims to accept both NamedTupleLiteral (`ios: true`) and HashLiteral
+    # (`:ios => true`) shapes for the per-capability platform map. Pre-fix
+    # the HashLiteral branch ran `.symbolize` on a key that was already a
+    # SymbolLiteral, producing `:":ios"` — which never matched a `:ios`
+    # lookup in the registry. These specs prove the post-fix end-to-end
+    # chain: rocket-style declaration → registry stores plain `:ios` →
+    # resolver gates correctly per platform.
+
+    it "stores plain platform symbol keys (not double-symbolized) in the registry" do
+      UI::Intent::Registry.reset_overrides_for_spec
+      reinstall_audit_bootstrap
+
+      declared = UI::Intent::Registry.declared_capabilities_for(
+        AuditRocketHashRow, :swipe_actions
+      )
+      declared.should_not be_nil
+      d = declared.not_nil!
+      value = d[:supports_role_destructive]
+      value.is_a?(Hash).should be_true
+      h = value.as(Hash(Symbol, Bool))
+
+      # Plain :ios / :macos lookups must succeed — pre-fix these would
+      # return nil because the macro had stored `:":ios"`.
+      h[:ios].should be_true
+      h[:ipados].should be_true
+      h[:macos].should be_false
+      h[:web_wide].should be_true
+      h[:web_narrow].should be_true
+      h[:android].should be_true
+
+      # Belt-and-braces: the double-symbolized form must NOT be present.
+      h[:":ios"]?.should be_nil
+      h[:":macos"]?.should be_nil
+    end
+
+    it "rocket-style key declaration accepts as honest override on macOS" do
+      UI::Intent::Registry.reset_overrides_for_spec
+      reinstall_audit_bootstrap
+
+      # AuditRocketHashRow is honest on every required cell (it declares
+      # `supports_role_destructive` as `:macos => false`, matching the
+      # intent requirement). Registration must succeed.
+      AuditSpecApp.override_intent(:swipe_actions, AuditRocketHashRow)
       UI::Intent::Registry.app_override_count_for(AuditSpecApp, :swipe_actions).should eq(1)
     end
   end
