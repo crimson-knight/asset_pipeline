@@ -2,7 +2,7 @@
 
 **Branch:** `phase-10-b-1b` (cut from `phase-10` @ `5e50f3be`).
 **Brief:** `docs/initiative-cross-platform-ui/phases/phase-10-distribution-and-rules/brief-10-b-1b.md` (v1).
-**Status:** Forward-only commits; ready for content review.
+**Status:** Iter 2 (REVISE remediation) complete; ready for re-review.
 
 ---
 
@@ -227,6 +227,12 @@ EXIT: 0
 crystal run scripts/lint_conventions.cr
 lint_conventions: OK (453 files, 14 rules, 0 diagnostics)
 ```
+
+## Iter 2 commit log
+
+- `6795e8aa` — Finding 1: macro HashLiteral branch fix + 2 specs.
+- `1f82c7e3` — Finding 2: docs honesty about over-claim vs under-claim.
+- (final close commit) — handoff iter-2 sections + status flip.
 
 — Implementer (Claude Opus 4.7), 10B.1b iter-1
 — Implementer (Claude Opus 4.7), 10B.1b iter-2 (REVISE remediation)
