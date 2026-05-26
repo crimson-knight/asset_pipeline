@@ -135,6 +135,98 @@ including 2 backfill fixtures for the previously-untested
 
 ---
 
+## Iteration 2 — Codex REVISE remediation
+
+Codex returned `REVISE` on the close handoff with three findings;
+iter 2 addresses each.
+
+### Finding 1 (BLOCKER) — Docs sweep too narrow
+
+Codex measured 661 / 912 declarations and 297 / 404 `def`s in
+`src/ui/views/` without docs. Iter 1's strategic-4 scoping was too
+narrow.
+
+Resolution: full sweep of `src/ui/views/*.cr`. Two new
+re-runnable scripts:
+
+* `scripts/doc_sweep_views.cr` — adds 1-line semantic doc comments
+  above every `property` / `getter` / `setter` that lacks one, using
+  a curated property-name table (units, value ranges, platform
+  mapping notes). Idempotent.
+* `scripts/doc_sweep_view_methods.cr` — same for public `def`
+  declarations. Skips `accept(visitor)`,
+  `default_accessibility_role`, `default_focusable`, and
+  `initialize` per brief.
+
+Three batches with checkpoint commits between each:
+
+| Commit | Coverage delta |
+|---|---|
+| `329a81c1` — properties batch 1 | +308 docs across 58 files |
+| `1101966d` — methods batch 2 | +79 docs across 29 files |
+| `2ab95049` — long-tail batch 3 | +47 sweep docs + 13 hand-docs |
+
+Final coverage on `src/ui/views/*.cr`:
+
+| Surface | Doc coverage |
+|---|---|
+| Public properties / getters / setters | 508 / 508 (100 %) |
+| Public methods (excluding skipped categories) | 119 / 119 (100 %) |
+| Combined | 627 / 627 (100 %) |
+
+Skipped categories (per brief): `accept(visitor)`,
+`default_accessibility_role`, `default_focusable`, `initialize`, and
+every `private def`.
+
+### Finding 2 (MEDIUM) — notifications.cr partial
+
+Codex flagged that the iter-1 sweep stopped at line 211 and left
+`NotificationAction`'s properties, `NotificationCategory`,
+`NotificationsCatalog`, and the module-level methods undocumented.
+
+Resolution (commit `468876a1`): full doc pass on `src/ui/notifications.cr`
+— per-property docs on `NotificationAction` (every field including
+`text_input_*` fields with semantic constraints), full class +
+property docs on `NotificationCategory` and `NotificationsCatalog`,
+plus a module-level doc on `UI::Notifications` and per-method docs
+explaining unit semantics and non-Apple fallback behavior.
+
+### Finding 3 (MEDIUM) — Family 5 boundary matching
+
+`CrossTargetSpecPurityRule#token_matches?` only checked the LEFT
+identifier boundary, so a renamed test double like `LibObjCBridgeFake`
+or `LibObjCBridgeSpy` would false-positive (the token
+`LibObjCBridge` matched as a prefix).
+
+Resolution (commit `018668db`):
+
+* Extended `token_matches?` to also enforce a RIGHT identifier
+  boundary. `LibObjCBridge.foo` and `LibObjCBridge` at EOL still hit
+  (`.` and EOL are non-identifier followers); `LibObjCBridgeFake`
+  and `LibObjCBridgeSpy` no longer hit.
+* Added fixture
+  `spec/web/lint_conventions/fixtures/family_5_partial/web_spec_bridge_suffix_pass.cr`
+  covering `LibObjCBridgeFake`, `LibObjCBridgeSpy`, and
+  `LibAndroidBridgeFake`.
+
+### Iter 2 verification
+
+* `crystal run scripts/lint_conventions.cr` — OK (484 files, 19 rules, 0 diagnostics)
+* `crystal build src/asset_pipeline.cr --no-codegen` — clean
+* `crystal spec spec/web/lint_conventions/` — 84 / 84 examples pass
+
+### Iter 2 commit log
+
+| SHA | Subject |
+|---|---|
+| `018668db` | Finding 3 — Family 5 right-boundary token matching |
+| `468876a1` | Finding 2 — notifications.cr full doc pass |
+| `329a81c1` | Finding 1 batch 1 — view properties (+308) |
+| `1101966d` | Finding 1 batch 2 — view methods (+79) |
+| `2ab95049` | Finding 1 batch 3 — long-tail sweep + hand-docs (+60) |
+
+---
+
 ## Phase 10 status after 10A.final
 
 With 10A.final closed, the Phase 10 distribution-and-rules arc is
