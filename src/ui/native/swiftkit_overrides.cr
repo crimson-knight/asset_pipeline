@@ -105,6 +105,14 @@ module UI
         # Scalar Int setter (selectedIndex etc.). nil skips.
         def set_int(target : String, setter : Symbol, value : Int32?)
         end
+
+        # Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter
+        # used by `apskAccessibilityTraitsMask`. Default no-op; the
+        # production SwiftKit sender overrides this to dispatch through
+        # `apsk_overrides_set_uint64_boxed`. The recording spec sender
+        # records the call so tests can assert the composed bitmask.
+        def set_uint64(target : String, setter : Symbol, value : UInt64?)
+        end
       end
 
       # Populate the common `APSKViewOverrides` fields from any `UI::View`.
@@ -149,11 +157,79 @@ module UI
         sender.set_number(target, :setMaxWidth, view.maximum_width)
         sender.set_number(target, :setMaxHeight, view.maximum_height)
 
-        sender.set_string(target, :setAccessibilityIdentifier, view.test_id)
+        # Identifier precedence (Phase 10B.2a): explicit
+        # `accessibility_identifier` wins over the legacy `test_id`.
+        # Native renderers (AppKit/UIKit) implement the same precedence;
+        # the SwiftKit-backed path now mirrors it via the Populator so
+        # the two paths stay consistent.
+        resolved_identifier = view.accessibility_identifier || view.test_id
+        sender.set_string(target, :setAccessibilityIdentifier, resolved_identifier)
         # Renamed selector — see ViewOverrides.swift. The accessor remains
         # `apskAccessibilityLabel`; the setter is `setApskAccessibilityLabel:`.
         # Avoids the iOS UIAccessibility.accessibilityLabel selector clash.
         sender.set_string(target, :setApskAccessibilityLabel, view.accessibility_label)
+
+        # Phase 10B.2a iter 2 (Codex Finding 1) — forward the 5 new
+        # static accessibility metadata properties added in iter 1 to
+        # the SwiftKit ViewOverrides slots:
+        #   accessibility_hint       -> apskAccessibilityHint
+        #   accessibility_value      -> apskAccessibilityValue
+        #   accessibility_role       -> apskAccessibilityRole (string)
+        #   accessibility_traits +   -> apskAccessibilityTraitsMask (UInt64
+        #     role-trait bit               bitmask, OR of trait + role bits)
+        sender.set_string(target, :setApskAccessibilityHint, view.accessibility_hint)
+        sender.set_string(target, :setApskAccessibilityValue, view.accessibility_value)
+        if role_sym = view.effective_accessibility_role
+          sender.set_string(target, :setApskAccessibilityRole, role_sym.to_s)
+        end
+
+        # Compose the UIAccessibilityTraits bitmask: each trait symbol
+        # OR'd with the role-derived trait bit. The bit positions match
+        # the canonical table in `uikit_renderer.cr#uikit_trait_bitmask`
+        # AND the Swift-side `CommonModifiers.apply` reader.
+        traits_mask = 0_u64
+        view.accessibility_traits.each do |trait|
+          traits_mask |= populator_trait_bit(trait)
+        end
+        if role_sym = view.effective_accessibility_role
+          traits_mask |= populator_role_trait_bit(role_sym)
+        end
+        if traits_mask != 0_u64
+          sender.set_uint64(target, :setApskAccessibilityTraitsMask, traits_mask)
+        end
+      end
+
+      # Phase 10B.2a iter 2 (Codex Finding 1) — canonical UIAccessibility
+      # trait bit table, shared between the Crystal Populator (this
+      # method) and the SwiftKit CommonModifiers reader. MUST stay in
+      # lockstep with `uikit_renderer.cr#uikit_trait_bitmask`.
+      def self.populator_trait_bit(trait : Symbol) : UInt64
+        case trait
+        when :selected                  then 0x0010_u64 # 1 << 4
+        when :not_enabled               then 0x0200_u64 # 1 << 9
+        when :plays_sound               then 0x0020_u64 # 1 << 5
+        when :starts_media              then 0x0800_u64 # 1 << 11
+        when :causes_page_turn          then 0x4000_u64 # 1 << 14
+        when :updates_frequently        then 0x0400_u64 # 1 << 10
+        when :adjustable                then 0x1000_u64 # 1 << 12
+        when :allows_direct_interaction then 0x2000_u64 # 1 << 13
+        else                                 0_u64
+        end
+      end
+
+      # Phase 10B.2a iter 2 (Codex Finding 1) — role -> trait bit. MUST
+      # stay in lockstep with `uikit_renderer.cr#uikit_role_trait_bitmask`.
+      def self.populator_role_trait_bit(role : Symbol) : UInt64
+        case role
+        when :button      then 0x0001_u64  # 1 << 0
+        when :link        then 0x0002_u64  # 1 << 1
+        when :header      then 0x10000_u64 # 1 << 16
+        when :image, :img then 0x0008_u64  # 1 << 3
+        when :search      then 0x0004_u64  # 1 << 2
+        when :text        then 0x0080_u64  # 1 << 7
+        when :tab         then 0x8000_u64  # 1 << 15
+        else                   0_u64
+        end
       end
 
       # Populate an `APSKButtonOverrides` instance from a `UI::Button`.
@@ -707,12 +783,12 @@ module UI
         emit = apple_step != :regular || view.material != :regular
         if emit
           key = case apple_step
-                when :ultra_thin  then "ultraThin"
-                when :thin        then "thin"
-                when :regular     then "regular"
-                when :thick       then "thick"
-                when :chrome      then "ultraThick" # closest SwiftUI Material analogue
-                else                   apple_step.to_s
+                when :ultra_thin then "ultraThin"
+                when :thin       then "thin"
+                when :regular    then "regular"
+                when :thick      then "thick"
+                when :chrome     then "ultraThick" # closest SwiftUI Material analogue
+                else                  apple_step.to_s
                 end
           sender.set_string(target, :setMaterial, key)
         end
@@ -845,6 +921,15 @@ module UI
           LibSwiftKitBridge.apsk_overrides_set_int(
             @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe,
             value.to_i64,
+          )
+        end
+
+        # Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter.
+        # Used by `apskAccessibilityTraitsMask` (Swift `NSNumber?`).
+        def set_uint64(target : String, setter : Symbol, value : UInt64?)
+          return if value.nil?
+          LibSwiftKitBridge.apsk_overrides_set_uint64_boxed(
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe, value,
           )
         end
       end

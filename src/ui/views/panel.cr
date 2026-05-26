@@ -37,7 +37,7 @@ module UI
       @subtitle : String? = nil,
       @auxiliary_text : String? = nil,
       @footer : View? = nil,
-      @style : PanelStyle = PanelStyle::Inspector
+      @style : PanelStyle = PanelStyle::Inspector,
     )
     end
 

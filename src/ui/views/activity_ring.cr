@@ -38,7 +38,7 @@ module UI
       @label : String? = nil,
       @prompt : String? = nil,
       @caption : String? = nil,
-      @help_text : String? = nil
+      @help_text : String? = nil,
     )
     end
 
@@ -108,6 +108,11 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:progress_bar`.
+    def default_accessibility_role : Symbol?
+      :progress_bar
     end
 
     private def build_stage : UI::View

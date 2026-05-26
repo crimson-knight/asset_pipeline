@@ -29,7 +29,7 @@ module UI
       @label : String? = nil,
       @prompt : String? = nil,
       @caption : String? = nil,
-      @help_text : String? = nil
+      @help_text : String? = nil,
     )
     end
 

@@ -131,6 +131,11 @@ module UI
       visitor.visit(self)
     end
 
+    # Phase 10B.2a — default AX role: `:button`.
+    def default_accessibility_role : Symbol?
+      :button
+    end
+
     # ---- Phase 3 Remediation 4 reactive overrides ----------------------
     #
     # Override the three setters that the SwiftKit bridge can mutate at

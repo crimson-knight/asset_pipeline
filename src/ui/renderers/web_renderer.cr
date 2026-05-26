@@ -2597,9 +2597,123 @@ module UI
           end
         end
 
+        # Phase 10B.2a — Accessibility hint -> aria-description.
+        # We use `aria-description` (ARIA 1.3) over `aria-describedby` here
+        # because asset_pipeline can't synthesize a sibling element that's
+        # guaranteed to live next to the labelled element across every
+        # widget. `aria-description` is the closest semantic match: a
+        # supplemental string the AT reads after the accessible name.
+        # Browsers that don't yet support `aria-description` fall back to
+        # the value being ignored — equivalent to the iOS/AppKit hint slot
+        # being silently absent on older OSes.
+        if hint = view.accessibility_hint
+          el.set_attribute("aria-description", hint)
+        end
+
+        # Phase 10B.2a — Accessibility role. Use the explicit override
+        # (`view.accessibility_role`) when set, falling back to the
+        # widget-class default (`default_accessibility_role`). The
+        # `effective_accessibility_role` helper handles the precedence.
+        # `:none` emits `role="none"` (ARIA "no role at all"); other
+        # symbols pass through after dasherized conversion.
+        if role_sym = view.effective_accessibility_role
+          el.set_attribute("role", ax_role_to_aria(role_sym))
+        end
+
+        # Phase 10B.2a — Accessibility value -> aria-valuetext. Used for
+        # widgets where the role implies a value (slider, progress,
+        # spinbutton) so the AT announces the human-readable string
+        # rather than a raw number.
+        if value = view.accessibility_value
+          el.set_attribute("aria-valuetext", value)
+        end
+
+        # Phase 10B.2a — Accessibility traits -> ARIA state attributes.
+        # Each trait symbol maps to the closest ARIA state. Unmapped
+        # traits fall through silently.
+        #
+        # Iter 2 (Codex Finding 3): `:not_enabled` is the canonical trait
+        # for disabling. In addition to `aria-disabled` (semantic), we
+        # also emit the HTML `disabled` attribute (functional) so form
+        # controls (`<button>`, `<input>`, `<select>`, `<textarea>`,
+        # `<fieldset>`) are actually inert. Non-form elements get
+        # `aria-disabled` only — the attribute is a no-op on `<div>`
+        # but still announces "dimmed" to the AT.
+        view.accessibility_traits.each do |trait|
+          case trait
+          when :selected
+            el.set_attribute("aria-selected", "true")
+          when :not_enabled
+            el.set_attribute("aria-disabled", "true")
+            el.set_attribute("disabled", "disabled")
+          when :updates_frequently
+            # aria-live=polite tells the AT to announce updates without
+            # interrupting the user's current speech.
+            el.set_attribute("aria-live", "polite")
+          when :is_busy
+            el.set_attribute("aria-busy", "true")
+          when :is_required
+            el.set_attribute("aria-required", "true")
+          when :is_invalid
+            el.set_attribute("aria-invalid", "true")
+          end
+          # :plays_sound, :starts_media, :causes_page_turn have no
+          # ARIA-state analog — they're advisory UIKit metadata only.
+        end
+
         # Test identifier -> data-testid attribute for automated UI testing
         if tid = view.test_id
           el.set_attribute("data-testid", tid)
+        end
+
+        # Phase 10B.2a — Explicit accessibility identifier surfaces as
+        # `data-accessibility-id` on web so test drivers that already
+        # query that attribute keep working. Native renderers prefer this
+        # over `test_id` when set.
+        if aid = view.accessibility_identifier
+          el.set_attribute("data-accessibility-id", aid)
+        end
+      end
+
+      # Phase 10B.2a — Translate a Crystal role symbol into its
+      # canonical ARIA role string. Unknown roles dasherize (`:list_item`
+      # -> `"listitem"` per ARIA convention with the underscore stripped).
+      private def ax_role_to_aria(role : Symbol) : String
+        case role
+        when :button       then "button"
+        when :link         then "link"
+        when :text         then "text"
+        when :header       then "heading"
+        when :image, :img  then "img"
+        when :tab          then "tab"
+        when :tab_list     then "tablist"
+        when :tab_panel    then "tabpanel"
+        when :list         then "list"
+        when :list_item    then "listitem"
+        when :checkbox     then "checkbox"
+        when :radio        then "radio"
+        when :radio_group  then "radiogroup"
+        when :switch       then "switch"
+        when :slider       then "slider"
+        when :progress_bar then "progressbar"
+        when :spinbutton   then "spinbutton"
+        when :search       then "search"
+        when :dialog       then "dialog"
+        when :alert        then "alert"
+        when :menu         then "menu"
+        when :menu_item    then "menuitem"
+        when :status       then "status"
+        when :tooltip      then "tooltip"
+        when :combobox     then "combobox"
+        when :navigation   then "navigation"
+        when :toolbar      then "toolbar"
+        when :form         then "form"
+        when :grid         then "grid"
+        when :group        then "group"
+        when :separator    then "separator"
+        when :text_field   then "textbox"
+        when :none         then "none"
+        else                    role.to_s.tr("_", "")
         end
       end
 

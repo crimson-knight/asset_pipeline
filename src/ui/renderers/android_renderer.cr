@@ -3456,20 +3456,53 @@
             p.bottom.round.to_i          )
         end
 
-        # Accessibility label -> contentDescription
-        if a11y = view.accessibility_label
+        # Phase 10B.2a — Compose Android's single `contentDescription`
+        # channel from the label + value + hint. Android's accessibility API
+        # exposes one string per view (TalkBack reads it as-is), so we
+        # concatenate the available pieces with a separator the way
+        # screen-reader users expect: "<label>, <value>. <hint>".
+        #
+        # Setting `setStateDescription` separately (API 30+) is the long-term
+        # right answer for the value channel; until the JNI bridge gains that
+        # entry point we fold value into contentDescription so older devices
+        # still get the announcement.
+        composed = compose_android_content_description(view)
+        if composed
           LibAndroidBridge.android_view_set_content_description(
-            @env, v, a11y.to_unsafe, a11y.bytesize)
+            @env, v, composed.to_unsafe, composed.bytesize)
+        elsif tid = view.test_id
+          # Fall through to test_id when no label / hint / value was set.
+          # This keeps the legacy test-tag behavior intact.
+          LibAndroidBridge.android_view_set_content_description(
+            @env, v, tid.to_unsafe, tid.bytesize)
         end
 
-        # Test identifier -> contentDescription (used as test tag on Android)
-        # Only set if accessibility_label was not already set, to avoid overwriting it
-        if tid = view.test_id
-          unless view.accessibility_label
-            LibAndroidBridge.android_view_set_content_description(
-              @env, v, tid.to_unsafe, tid.bytesize)
+        # Phase 10B.2a — Accessibility traits map to setEnabled / setSelected
+        # where Android has a direct analog. Unmapped traits silently fall
+        # through; the broader trait surface awaits a richer JNI bridge.
+        view.accessibility_traits.each do |trait|
+          case trait
+          when :not_enabled
+            LibAndroidBridge.android_view_set_enabled(@env, v, 0)
           end
         end
+      end
+
+      # Phase 10B.2a — Build the composite contentDescription announcement.
+      # Returns nil when no AX text is configured.
+      private def compose_android_content_description(view : UI::View) : String?
+        parts = [] of String
+        if label = view.accessibility_label
+          parts << label
+        end
+        if value = view.accessibility_value
+          parts << value
+        end
+        if hint = view.accessibility_hint
+          parts << hint
+        end
+        return nil if parts.empty?
+        parts.join(". ")
       end
 
       # Apply common View base-class properties to an Android View local ref.

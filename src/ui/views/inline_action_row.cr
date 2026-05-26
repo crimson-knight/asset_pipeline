@@ -97,5 +97,10 @@ module UI
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end
+
+    # Phase 10B.2a — default AX role: `:list_item`.
+    def default_accessibility_role : Symbol?
+      :list_item
+    end
   end
 end

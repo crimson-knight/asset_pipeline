@@ -35,5 +35,10 @@ module UI
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end
+
+    # Phase 10B.2a — default AX role: `:button`.
+    def default_accessibility_role : Symbol?
+      :button
+    end
   end
 end

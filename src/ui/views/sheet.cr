@@ -33,7 +33,7 @@ module UI
     end
 
     property shows_drag_indicator : Bool = true
-    property detents : Array(Symbol) = [:medium, :large]  # :small, :medium, :large, :custom
+    property detents : Array(Symbol) = [:medium, :large] # :small, :medium, :large, :custom
     property selected_detent : Symbol = :medium
     property on_dismiss : Proc(Nil)? = nil
 
@@ -58,6 +58,11 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:dialog`.
+    def default_accessibility_role : Symbol?
+      :dialog
     end
   end
 

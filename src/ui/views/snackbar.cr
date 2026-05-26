@@ -9,7 +9,7 @@ module UI
   class Snackbar < View
     property message : String
     property action_label : String? = nil
-    property duration : Float64 = 4.0  # seconds
+    property duration : Float64 = 4.0 # seconds
     property is_presented : Bool = false
     property on_action : Proc(Nil)? = nil
     property on_dismiss : Proc(Nil)? = nil
@@ -19,6 +19,11 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:status`.
+    def default_accessibility_role : Symbol?
+      :status
     end
   end
 

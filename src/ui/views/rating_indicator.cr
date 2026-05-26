@@ -41,12 +41,17 @@ module UI
     def initialize(
       @value : Float64 = 0.0,
       @max : Int32 = 5,
-      @tint_color : Color? = nil
+      @tint_color : Color? = nil,
     )
     end
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:slider`.
+    def default_accessibility_role : Symbol?
+      :slider
     end
   end
 end

@@ -53,6 +53,10 @@
       fun objc_send_rect(obj : Void*, sel : Void*, rect : CGRect) : Void*
       fun objc_send_rect_void(obj : Void*, sel : Void*, rect : CGRect) : Void
       fun objc_send_ret_bool(obj : Void*, sel : Void*) : Int32
+      # Phase 10B.2a iter 2 (Codex Finding 3) — guarded setEnabled: helper
+      # used to functionally disable UIControl-derived widgets when the
+      # `:not_enabled` accessibility trait is set. No-ops on plain UIViews.
+      fun ap_set_enabled_if_responds(obj : Void*, enabled : Int32) : Int32
 
       # --- Section 4: Convenience helpers ---
       fun nsstring_from_cstr(str : UInt8*) : Void*
@@ -4482,10 +4486,137 @@
           LibObjCBridge.objc_send_bool(ptr, sel("setIsAccessibilityElement:"), 0)
         end
 
-        # Test identifier -> accessibilityIdentifier for automated UI testing
-        if tid = view.test_id
+        # Phase 10B.2a — Accessibility hint -> setAccessibilityHint:.
+        # UIKit reads this string AFTER the label, with a brief pause, to
+        # explain the result of activating the element ("Double-tap to
+        # open settings").
+        if hint = view.accessibility_hint
+          hint_str = LibObjCBridge.nsstring_from_cstr(hint.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityHint:"), hint_str)
+        end
+
+        # Phase 10B.2a — Accessibility value -> setAccessibilityValue:.
+        if value = view.accessibility_value
+          value_str = LibObjCBridge.nsstring_from_cstr(value.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityValue:"), value_str)
+        end
+
+        # Phase 10B.2a — Accessibility traits. UIKit traits are a
+        # `UIAccessibilityTraits` bitmask (UInt64). We OR the requested
+        # symbols together and call `setAccessibilityTraits:`. Unmapped
+        # symbols silently fall through.
+        unless view.accessibility_traits.empty?
+          mask = 0_u64
+          view.accessibility_traits.each do |trait|
+            mask |= uikit_trait_bitmask(trait)
+          end
+          if mask != 0_u64
+            LibObjCBridge.objc_send_ulong(ptr, sel("setAccessibilityTraits:"), mask)
+          end
+
+          # Iter 2 (Codex Finding 3): `:not_enabled` is the canonical
+          # disable trait. In addition to the accessibility trait flag
+          # above, functionally disable the underlying UIControl (button,
+          # switch, slider, segmented control, etc.) via setEnabled:NO.
+          # The helper guards on respondsToSelector: so plain UIViews
+          # silently no-op.
+          if view.accessibility_traits.includes?(:not_enabled)
+            LibObjCBridge.ap_set_enabled_if_responds(ptr, 0)
+          end
+        end
+
+        # Phase 10B.2a — Role inference for UIKit happens via traits, not
+        # an explicit role setter. When the explicit / default role maps
+        # to a trait (e.g. `:header` -> `UIAccessibilityTraitHeader`,
+        # `:button` -> `UIAccessibilityTraitButton`) OR it onto the
+        # existing traits mask. `:none` and roles with no trait analog
+        # fall through unchanged.
+        if role_sym = view.effective_accessibility_role
+          role_trait = uikit_role_trait_bitmask(role_sym)
+          if role_trait != 0_u64
+            # Compose with any explicit traits already set.
+            existing = view.accessibility_traits.empty? ? 0_u64 : view.accessibility_traits.reduce(0_u64) { |a, t| a | uikit_trait_bitmask(t) }
+            LibObjCBridge.objc_send_ulong(ptr, sel("setAccessibilityTraits:"), existing | role_trait)
+          end
+        end
+
+        # Phase 10B.2a — Explicit accessibility_identifier wins over
+        # test_id on UIKit, mirroring the AppKit precedence.
+        if aid = view.accessibility_identifier
+          aid_str = LibObjCBridge.nsstring_from_cstr(aid.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), aid_str)
+        elsif tid = view.test_id
           tid_str = LibObjCBridge.nsstring_from_cstr(tid.to_unsafe)
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), tid_str)
+        end
+      end
+
+      # Phase 10B.2a — Map a Crystal trait symbol to the matching
+      # `UIAccessibilityTraits` bitmask value. The constants below are
+      # the documented public values; unmapped traits return 0.
+      #
+      # Values per Apple's `UIAccessibilityConstants.h`
+      # (UIAccessibility, iOS 16+):
+      #   UIAccessibilityTraitButton              = 1 << 0  (0x0001)
+      #   UIAccessibilityTraitLink                = 1 << 1  (0x0002)
+      #   UIAccessibilityTraitSearchField         = 1 << 2  (0x0004)
+      #   UIAccessibilityTraitImage               = 1 << 3  (0x0008)
+      #   UIAccessibilityTraitSelected            = 1 << 4  (0x0010)
+      #   UIAccessibilityTraitPlaysSound          = 1 << 5  (0x0020)
+      #   UIAccessibilityTraitKeyboardKey         = 1 << 6  (0x0040)
+      #   UIAccessibilityTraitStaticText          = 1 << 7  (0x0080)
+      #   UIAccessibilityTraitSummaryElement      = 1 << 8  (0x0100)
+      #   UIAccessibilityTraitNotEnabled          = 1 << 9  (0x0200)
+      #   UIAccessibilityTraitUpdatesFrequently   = 1 << 10 (0x0400)
+      #   UIAccessibilityTraitStartsMediaSession  = 1 << 11 (0x0800)
+      #   UIAccessibilityTraitAdjustable          = 1 << 12 (0x1000)
+      #   UIAccessibilityTraitAllowsDirectInteraction = 1 << 13 (0x2000)
+      #   UIAccessibilityTraitCausesPageTurn      = 1 << 14 (0x4000)
+      #   UIAccessibilityTraitTabBar              = 1 << 15 (0x8000)
+      #   UIAccessibilityTraitHeader              = 1 << 16 (0x10000)
+      #
+      # Iter 2 (Codex Finding 2): corrected previously incorrect bit
+      # positions for Selected, NotEnabled, PlaysSound, StartsMediaSession,
+      # CausesPageTurn, UpdatesFrequently, AllowsDirectInteraction, and
+      # is_busy (now no analog — UIKit has no "busy" trait; remove the
+      # bogus SummaryElement mapping).
+      private def uikit_trait_bitmask(trait : Symbol) : UInt64
+        case trait
+        when :selected                  then 0x0000000000000010_u64 # Selected (1 << 4)
+        when :not_enabled               then 0x0000000000000200_u64 # NotEnabled (1 << 9)
+        when :plays_sound               then 0x0000000000000020_u64 # PlaysSound (1 << 5)
+        when :starts_media              then 0x0000000000000800_u64 # StartsMediaSession (1 << 11)
+        when :causes_page_turn          then 0x0000000000004000_u64 # CausesPageTurn (1 << 14)
+        when :updates_frequently        then 0x0000000000000400_u64 # UpdatesFrequently (1 << 10)
+        when :is_busy                   then 0_u64                  # No UIKit trait — UIKit has no "busy" analog
+        when :allows_direct_interaction then 0x0000000000002000_u64 # AllowsDirectInteraction (1 << 13)
+        when :adjustable                then 0x0000000000001000_u64 # Adjustable (1 << 12)
+        when :is_required               then 0_u64                  # No UIKit trait
+        when :is_invalid                then 0_u64                  # No UIKit trait
+        else                                 0_u64
+        end
+      end
+
+      # Phase 10B.2a — Translate a role symbol into a UIAccessibilityTrait
+      # bitmask. UIKit doesn't have a separate "role" channel; it overloads
+      # the traits bitmask with role flags like `Button`, `Header`,
+      # `Link`, `Image`, `SearchField`. Roles UIKit doesn't represent as
+      # a trait return 0 — the underlying UIKit class typically already
+      # carries the correct intrinsic role.
+      #
+      # Iter 2 (Codex Finding 2): corrected SearchField (was 0x80000,
+      # actual 0x0004), StaticText (was 0x40000, actual 0x0080), and
+      # TabBar (was 1 << 29, actual 1 << 15 = 0x8000).
+      private def uikit_role_trait_bitmask(role : Symbol) : UInt64
+        case role
+        when :button      then 0x0000000000000001_u64 # Button (1 << 0)
+        when :link        then 0x0000000000000002_u64 # Link (1 << 1)
+        when :header      then 0x0000000000010000_u64 # Header (1 << 16)
+        when :image, :img then 0x0000000000000008_u64 # Image (1 << 3)
+        when :search      then 0x0000000000000004_u64 # SearchField (1 << 2)
+        when :text        then 0x0000000000000080_u64 # StaticText (1 << 7)
+        when :tab         then 0x0000000000008000_u64 # TabBar (1 << 15)
+        else                   0_u64
         end
       end
 

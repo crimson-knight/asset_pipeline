@@ -43,5 +43,10 @@ module UI
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end
+
+    # Phase 10B.2a — default AX role: `:grid`.
+    def default_accessibility_role : Symbol?
+      :grid
+    end
   end
 end

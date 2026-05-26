@@ -36,5 +36,10 @@ module UI
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end
+
+    # Phase 10B.2a — default AX role: `:toolbar`.
+    def default_accessibility_role : Symbol?
+      :toolbar
+    end
   end
 end

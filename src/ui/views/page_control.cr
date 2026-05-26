@@ -45,5 +45,10 @@ module UI
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end
+
+    # Phase 10B.2a — default AX role: `:tab_list`.
+    def default_accessibility_role : Symbol?
+      :tab_list
+    end
   end
 end
