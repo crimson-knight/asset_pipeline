@@ -28,9 +28,19 @@ require "../../../src/ui/intent_bootstrap"
 # required capability set. Used to demonstrate a passing override.
 private class IntentSpecFancyRow < UI::View
   declares_capabilities :swipe_actions, {
-    supports_edge_trailing:    true,
-    supports_role_default:     true,
-    supports_role_destructive: :partial,
+    supports_edge_trailing: true,
+    supports_role_default:  true,
+    # Phase 10B.1b — platform-keyed honest declaration replacing the
+    # legacy `:partial`. Matches the per-platform requirement set
+    # `intent_bootstrap.cr` installs for `:swipe_actions`.
+    supports_role_destructive: {
+      ios:        true,
+      ipados:     true,
+      macos:      false,
+      web_wide:   true,
+      web_narrow: true,
+      android:    false,
+    },
   }
 
   property content : UI::View
@@ -80,9 +90,19 @@ end
 # AppB's context (not AppA's, which would prove the leak).
 private class IntentSpecAlternateRow < UI::View
   declares_capabilities :swipe_actions, {
-    supports_edge_trailing:    true,
-    supports_role_default:     true,
-    supports_role_destructive: :partial,
+    supports_edge_trailing: true,
+    supports_role_default:  true,
+    # Phase 10B.1b — platform-keyed honest declaration replacing the
+    # legacy `:partial`. Matches the per-platform requirement set
+    # `intent_bootstrap.cr` installs for `:swipe_actions`.
+    supports_role_destructive: {
+      ios:        true,
+      ipados:     true,
+      macos:      false,
+      web_wide:   true,
+      web_narrow: true,
+      android:    false,
+    },
   }
 
   def initialize
@@ -100,9 +120,19 @@ end
 # returned the result.
 private class IntentSpecAppWinner < UI::View
   declares_capabilities :swipe_actions, {
-    supports_edge_trailing:    true,
-    supports_role_default:     true,
-    supports_role_destructive: :partial,
+    supports_edge_trailing: true,
+    supports_role_default:  true,
+    # Phase 10B.1b — platform-keyed honest declaration replacing the
+    # legacy `:partial`. Matches the per-platform requirement set
+    # `intent_bootstrap.cr` installs for `:swipe_actions`.
+    supports_role_destructive: {
+      ios:        true,
+      ipados:     true,
+      macos:      false,
+      web_wide:   true,
+      web_narrow: true,
+      android:    false,
+    },
   }
 
   def initialize
@@ -114,9 +144,19 @@ end
 
 private class IntentSpecScreenWinner < UI::View
   declares_capabilities :swipe_actions, {
-    supports_edge_trailing:    true,
-    supports_role_default:     true,
-    supports_role_destructive: :partial,
+    supports_edge_trailing: true,
+    supports_role_default:  true,
+    # Phase 10B.1b — platform-keyed honest declaration replacing the
+    # legacy `:partial`. Matches the per-platform requirement set
+    # `intent_bootstrap.cr` installs for `:swipe_actions`.
+    supports_role_destructive: {
+      ios:        true,
+      ipados:     true,
+      macos:      false,
+      web_wide:   true,
+      web_narrow: true,
+      android:    false,
+    },
   }
 
   def initialize
@@ -161,8 +201,15 @@ private def reinstall_intent_bootstrap : Nil
   UI::Intent::Registry.declare_intent_capabilities(:swipe_actions, {
     :supports_edge_trailing    => true,
     :supports_role_default     => true,
-    :supports_role_destructive => :partial,
-  } of Symbol => Bool | Symbol)
+    :supports_role_destructive => {
+      :ios        => true,
+      :ipados     => true,
+      :macos      => false,
+      :web_wide   => true,
+      :web_narrow => true,
+      :android    => false,
+    } of Symbol => Bool,
+  } of Symbol => UI::Intent::Registry::CapabilityValue)
   UI::Intent::Registry.register_default(:swipe_actions, :ios, UI::SwipeActionRow)
   UI::Intent::Registry.register_default(:swipe_actions, :ipados, UI::SwipeActionRow)
   UI::Intent::Registry.register_default(:swipe_actions, :web_narrow, UI::SwipeActionRow)

@@ -64,14 +64,62 @@ module UI
   #     UI::SwipeAction.new("Delete", role: :destructive) { delete(item) },
   #   ]
   class SwipeActionRow < View
-    # Phase 10B.0 — Tier 2 capability declaration. Lists the
-    # `:swipe_actions` capabilities this widget actually backs today.
+    # Phase 10B.1b — Tier 2 capability declaration, platform-honest.
+    # Each capability uses a platform-keyed `Hash(Symbol, Bool)` whose
+    # entries reflect what the *renderer* for that platform actually
+    # backs today (audit citations in
+    # `docs/initiative-cross-platform-ui/architecture/swipe-actions-capability-audit.md`):
+    #
+    # * `supports_edge_trailing` — iOS uses `make_swipe_reveal_row` to
+    #   wire a trailing-only swipe; macOS and web emit inline trailing
+    #   buttons. Android `visit(SwipeActionRow)` is a stub.
+    # * `supports_edge_leading` — only the web renderer iterates
+    #   `leading_actions`; iOS and macOS visits silently drop the
+    #   array, Android is a stub.
+    # * `supports_role_default` — true wherever the widget renders at
+    #   all (no role-specific styling needed).
+    # * `supports_role_destructive` — iOS routes the role through
+    #   SwiftKit's `APSKButtonOverrides`; web emits a `.--destructive`
+    #   CSS class; the macOS AppKit visit never reads `action.role`
+    #   (no destructive tint).
+    #
     # Validated by `UI::Intent::Registry` whenever an app or screen
-    # registers `UI::SwipeActionRow` as an override.
+    # registers `UI::SwipeActionRow` as an override, and at resolve
+    # time when `UI::Intent.resolve(..., capabilities_required: ...)`
+    # is called.
     declares_capabilities :swipe_actions, {
-      supports_edge_trailing:    true,
-      supports_role_default:     true,
-      supports_role_destructive: :partial,
+      supports_edge_trailing: {
+        ios:        true,
+        ipados:     true,
+        macos:      true,
+        web_wide:   true,
+        web_narrow: true,
+        android:    false,
+      },
+      supports_edge_leading: {
+        ios:        false,
+        ipados:     false,
+        macos:      false,
+        web_wide:   true,
+        web_narrow: true,
+        android:    false,
+      },
+      supports_role_default: {
+        ios:        true,
+        ipados:     true,
+        macos:      true,
+        web_wide:   true,
+        web_narrow: true,
+        android:    false,
+      },
+      supports_role_destructive: {
+        ios:        true,
+        ipados:     true,
+        macos:      false,
+        web_wide:   true,
+        web_narrow: true,
+        android:    false,
+      },
     }
 
     property content : View

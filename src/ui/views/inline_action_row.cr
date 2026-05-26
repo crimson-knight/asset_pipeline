@@ -37,14 +37,52 @@ module UI
   # horizontal stack. That is the HIG-correct macOS pattern and the
   # desktop-web convention.
   class InlineActionRow < View
-    # Phase 10B.1a — Tier 2 capability declaration. Mirrors the
-    # `:swipe_actions` capability set declared by `UI::SwipeActionRow`
-    # so the resolver treats the two widgets as interchangeable on
-    # their respective platforms.
+    # Phase 10B.1b — Tier 2 capability declaration, platform-honest.
+    # Inline rendering is symmetric (leading + content + trailing) on
+    # every renderer that backs the widget, so `supports_edge_leading`
+    # and `supports_edge_trailing` track together. Audit citations in
+    # `docs/initiative-cross-platform-ui/architecture/swipe-actions-capability-audit.md`:
+    #
+    # * iOS + Android + web all dispatch action buttons through the
+    #   `UI::Button` visit with `role: action.role`, so destructive
+    #   tint flows through automatically.
+    # * macOS AppKit visit emits `NSButton` siblings with `setTitle:`
+    #   only and never reads `action.role` — no destructive tint
+    #   today. The capability is honestly `macos: false` until the
+    #   AppKit button-role facade lands (separate phase).
     declares_capabilities :swipe_actions, {
-      supports_edge_trailing:    true,
-      supports_role_default:     true,
-      supports_role_destructive: :partial,
+      supports_edge_trailing: {
+        ios:        true,
+        ipados:     true,
+        macos:      true,
+        web_wide:   true,
+        web_narrow: true,
+        android:    true,
+      },
+      supports_edge_leading: {
+        ios:        true,
+        ipados:     true,
+        macos:      true,
+        web_wide:   true,
+        web_narrow: true,
+        android:    true,
+      },
+      supports_role_default: {
+        ios:        true,
+        ipados:     true,
+        macos:      true,
+        web_wide:   true,
+        web_narrow: true,
+        android:    true,
+      },
+      supports_role_destructive: {
+        ios:        true,
+        ipados:     true,
+        macos:      false,
+        web_wide:   true,
+        web_narrow: true,
+        android:    true,
+      },
     }
 
     property content : View

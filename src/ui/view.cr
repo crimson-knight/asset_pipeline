@@ -271,10 +271,30 @@ module UI
     #     class UI::SwipeActionRow < UI::View
     #       declares_capabilities :swipe_actions, {
     #         supports_edge_trailing: true,
-    #         supports_role_destructive: :partial,
+    #         supports_role_destructive: {ios: true, macos: false, web_wide: true},
     #         supports_role_default: true,
     #       }
     #     end
+    #
+    # # Capability value shapes (Phase 10B.1b)
+    #
+    # * `true` — full support on every platform the intent can resolve to.
+    # * `false` — no support anywhere (declarative "I do not back this").
+    # * `:partial` — fuzzy legacy "some platforms, unspecified." Accepted
+    #   for back-compat but the 10B.1b audit prefers explicit Hash form
+    #   below.
+    # * `Hash(Symbol, Bool)` — platform-keyed support map. Keys are
+    #   platform symbols (`:ios`, `:ipados`, `:macos`, `:web_wide`,
+    #   `:web_narrow`, `:android`); the value is whether the renderer for
+    #   that platform actually backs the capability. `UI::Intent::Registry`
+    #   walks this hash at registration time to detect "claims iOS but
+    #   rendered on macOS" mismatches, and again at resolve time when
+    #   `capabilities_required:` is passed to `UI::Intent.resolve`.
+    #
+    # Both NamedTuple shorthand (`{ios: true, macos: false}`) and rocket-
+    # style HashLiteral (`{:ios => true, :macos => false}`) are accepted
+    # for the per-capability platform map. They produce the same
+    # `Hash(Symbol, Bool)` at the cap site.
     #
     # The macro emits a class-level hook method
     # `_declare_capabilities_for_intent_<intent_id>` that runs the
@@ -286,9 +306,27 @@ module UI
     # bag into the registry.
     macro declares_capabilities(intent_id, capabilities)
       def self._declare_capabilities_for_intent_{{intent_id.id}} : Nil
-        caps = {} of Symbol => Bool | Symbol
+        caps = {} of Symbol => ::UI::Intent::Registry::CapabilityValue
         {% for key, value in capabilities %}
-          caps[{{key.symbolize}}] = {{value}}
+          {% if value.is_a?(HashLiteral) || value.is_a?(NamedTupleLiteral) %}
+            _cap_h_{{intent_id.id}}_{{key.id}} = {} of Symbol => Bool
+            {% for plat_key, plat_value in value %}
+              {% if plat_key.is_a?(SymbolLiteral) %}
+                # Rocket-style HashLiteral key (e.g. `:ios => true`) is
+                # already a SymbolLiteral. Emit it directly — calling
+                # `.symbolize` would wrap it as `:":ios"`, which then
+                # never matches a `:ios` lookup downstream.
+                _cap_h_{{intent_id.id}}_{{key.id}}[{{plat_key}}] = {{plat_value}}
+              {% else %}
+                # NamedTupleLiteral key (`ios: true`) arrives as a
+                # MacroId; symbolize it into `:ios`.
+                _cap_h_{{intent_id.id}}_{{key.id}}[{{plat_key.symbolize}}] = {{plat_value}}
+              {% end %}
+            {% end %}
+            caps[{% if key.is_a?(SymbolLiteral) %}{{key}}{% else %}{{key.symbolize}}{% end %}] = _cap_h_{{intent_id.id}}_{{key.id}}
+          {% else %}
+            caps[{% if key.is_a?(SymbolLiteral) %}{{key}}{% else %}{{key.symbolize}}{% end %}] = {{value}}
+          {% end %}
         {% end %}
         ::UI::Intent::Registry.declare_widget_capabilities(
           {{@type}},
