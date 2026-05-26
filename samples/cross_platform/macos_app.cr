@@ -1,3 +1,6 @@
+# lint:disable=family_4/interactive_widget_test_id
+# (Demo showcase host; widgets identified by section heading, not test_id.)
+
 require "../../src/ui"
 
 # Build a comprehensive showcase of all UI components

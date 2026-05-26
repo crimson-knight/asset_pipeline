@@ -1,3 +1,6 @@
+# lint:disable=family_4/interactive_widget_test_id
+# (iOS HIG visual catalog bridge — same rationale as hig_showcase.cr.)
+#
 # CrystalHIGHost iOS bridge.
 #
 # Cross-compiled via samples/cross_platform/ios_host/build_crystal_lib.sh into
