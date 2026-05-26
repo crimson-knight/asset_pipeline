@@ -9,7 +9,7 @@ module UI
   class Popover < View
     property content : View? = nil
     property is_presented : Bool = false
-    property arrow_edge : Symbol = :bottom  # :top, :bottom, :leading, :trailing
+    property arrow_edge : Symbol = :bottom # :top, :bottom, :leading, :trailing
     property preferred_width : Float64? = nil
     property preferred_height : Float64? = nil
     property on_dismiss : Proc(Nil)? = nil
@@ -24,6 +24,11 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:dialog`.
+    def default_accessibility_role : Symbol?
+      :dialog
     end
   end
 

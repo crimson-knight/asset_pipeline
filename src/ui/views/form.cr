@@ -81,7 +81,7 @@ module UI
       *,
       @action : String? = nil,
       @method : String = "POST",
-      @csrf_token : String? = nil
+      @csrf_token : String? = nil,
     )
       # Default container-query root so `@container form (...)` rules and
       # the per-element render output both pick up `container-type:
@@ -110,6 +110,11 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:form`.
+    def default_accessibility_role : Symbol?
+      :form
     end
   end
 end

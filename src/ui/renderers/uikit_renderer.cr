@@ -2604,7 +2604,6 @@
         emit(ptr, "UIView[path]")
       end
 
-
       def visit(view : UI::MapView)
         span_delta = map_span_delta(view.zoom_level)
         ptr = LibObjCBridge.mkmapview_new(
@@ -4240,14 +4239,14 @@
       # round 3.
       private def uikit_blur_effect_style_for_semantic(semantic : UI::DesignTokens::AppleSemantic) : Int64
         case semantic
-        in .menu?              then  6_i64 # UIBlurEffectStyleSystemUltraThinMaterial
-        in .popover?           then  8_i64 # UIBlurEffectStyleSystemMaterial
-        in .sidebar?           then  7_i64 # UIBlurEffectStyleSystemThinMaterial
-        in .sheet?             then  9_i64 # UIBlurEffectStyleSystemThickMaterial
+        in .menu?              then 6_i64  # UIBlurEffectStyleSystemUltraThinMaterial
+        in .popover?           then 8_i64  # UIBlurEffectStyleSystemMaterial
+        in .sidebar?           then 7_i64  # UIBlurEffectStyleSystemThinMaterial
+        in .sheet?             then 9_i64  # UIBlurEffectStyleSystemThickMaterial
         in .header_view?       then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
-        in .window_background? then  8_i64 # UIBlurEffectStyleSystemMaterial (brief row 1)
+        in .window_background? then 8_i64  # UIBlurEffectStyleSystemMaterial (brief row 1)
         in .hud_window?        then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
-        in .titlebar?          then  8_i64 # UIBlurEffectStyleSystemMaterial (brief row 1)
+        in .titlebar?          then 8_i64  # UIBlurEffectStyleSystemMaterial (brief row 1)
         in .system_resolved?   then -1_i64 # SENTINEL — caller must skip setEffect:
         end
       end
@@ -4435,10 +4434,100 @@
           LibObjCBridge.objc_send_bool(ptr, sel("setIsAccessibilityElement:"), 0)
         end
 
-        # Test identifier -> accessibilityIdentifier for automated UI testing
-        if tid = view.test_id
+        # Phase 10B.2a — Accessibility hint -> setAccessibilityHint:.
+        # UIKit reads this string AFTER the label, with a brief pause, to
+        # explain the result of activating the element ("Double-tap to
+        # open settings").
+        if hint = view.accessibility_hint
+          hint_str = LibObjCBridge.nsstring_from_cstr(hint.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityHint:"), hint_str)
+        end
+
+        # Phase 10B.2a — Accessibility value -> setAccessibilityValue:.
+        if value = view.accessibility_value
+          value_str = LibObjCBridge.nsstring_from_cstr(value.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityValue:"), value_str)
+        end
+
+        # Phase 10B.2a — Accessibility traits. UIKit traits are a
+        # `UIAccessibilityTraits` bitmask (UInt64). We OR the requested
+        # symbols together and call `setAccessibilityTraits:`. Unmapped
+        # symbols silently fall through.
+        unless view.accessibility_traits.empty?
+          mask = 0_u64
+          view.accessibility_traits.each do |trait|
+            mask |= uikit_trait_bitmask(trait)
+          end
+          if mask != 0_u64
+            LibObjCBridge.objc_send_ulong(ptr, sel("setAccessibilityTraits:"), mask)
+          end
+        end
+
+        # Phase 10B.2a — Role inference for UIKit happens via traits, not
+        # an explicit role setter. When the explicit / default role maps
+        # to a trait (e.g. `:header` -> `UIAccessibilityTraitHeader`,
+        # `:button` -> `UIAccessibilityTraitButton`) OR it onto the
+        # existing traits mask. `:none` and roles with no trait analog
+        # fall through unchanged.
+        if role_sym = view.effective_accessibility_role
+          role_trait = uikit_role_trait_bitmask(role_sym)
+          if role_trait != 0_u64
+            # Compose with any explicit traits already set.
+            existing = view.accessibility_traits.empty? ? 0_u64 : view.accessibility_traits.reduce(0_u64) { |a, t| a | uikit_trait_bitmask(t) }
+            LibObjCBridge.objc_send_ulong(ptr, sel("setAccessibilityTraits:"), existing | role_trait)
+          end
+        end
+
+        # Phase 10B.2a — Explicit accessibility_identifier wins over
+        # test_id on UIKit, mirroring the AppKit precedence.
+        if aid = view.accessibility_identifier
+          aid_str = LibObjCBridge.nsstring_from_cstr(aid.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), aid_str)
+        elsif tid = view.test_id
           tid_str = LibObjCBridge.nsstring_from_cstr(tid.to_unsafe)
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), tid_str)
+        end
+      end
+
+      # Phase 10B.2a — Map a Crystal trait symbol to the matching
+      # `UIAccessibilityTraits` bitmask value. The constants below are
+      # the documented public values; unmapped traits return 0.
+      #
+      # Values per Apple's `UIAccessibilityTraits` header
+      # (UIAccessibility.h, iOS 16+).
+      private def uikit_trait_bitmask(trait : Symbol) : UInt64
+        case trait
+        when :selected                  then 0x0000000000000004_u64 # Selected
+        when :not_enabled               then 0x0000000000000040_u64 # NotEnabled
+        when :plays_sound               then 0x0000000000000010_u64 # PlaysSound
+        when :starts_media              then 0x0000000000000100_u64 # StartsMediaSession
+        when :causes_page_turn          then 0x0000000000020000_u64 # CausesPageTurn
+        when :updates_frequently        then 0x0000000000000080_u64 # UpdatesFrequently
+        when :is_busy                   then 0x0000000000000020_u64 # Summary element (closest analog)
+        when :allows_direct_interaction then 0x0000000000008000_u64
+        when :adjustable                then 0x0000000000001000_u64 # Adjustable
+        when :is_required               then 0_u64                  # No UIKit trait
+        when :is_invalid                then 0_u64                  # No UIKit trait
+        else                                 0_u64
+        end
+      end
+
+      # Phase 10B.2a — Translate a role symbol into a UIAccessibilityTrait
+      # bitmask. UIKit doesn't have a separate "role" channel; it overloads
+      # the traits bitmask with role flags like `Button`, `Header`,
+      # `Link`, `Image`, `SearchField`. Roles UIKit doesn't represent as
+      # a trait return 0 — the underlying UIKit class typically already
+      # carries the correct intrinsic role.
+      private def uikit_role_trait_bitmask(role : Symbol) : UInt64
+        case role
+        when :button      then 0x0000000000000001_u64 # Button
+        when :link        then 0x0000000000000002_u64 # Link
+        when :header      then 0x0000000000010000_u64 # Header
+        when :image, :img then 0x0000000000000008_u64 # Image
+        when :search      then 0x0000000000080000_u64 # SearchField
+        when :text        then 0x0000000000040000_u64 # StaticText
+        when :tab         then 0x0000000020000000_u64 # TabBar (iOS 10+)
+        else                   0_u64
         end
       end
 

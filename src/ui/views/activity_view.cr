@@ -10,7 +10,7 @@ module UI
   # like Copy and Print, in addition to quick access to frequently used apps."
   # Each destination is a circular icon (~60pt) with a label below it.
   struct ActivityDestination
-    property icon_symbol : String  # SF Symbol name (e.g. "envelope", "message")
+    property icon_symbol : String # SF Symbol name (e.g. "envelope", "message")
     property label : String
     property on_select : Proc(Nil)?
 
@@ -23,10 +23,10 @@ module UI
   # Each action tile is a rounded-rect button with icon + label,
   # laid out in a two-column grid below the destination row.
   struct ActivityAction
-    property icon_symbol : String  # SF Symbol name (e.g. "doc.on.doc", "printer")
+    property icon_symbol : String # SF Symbol name (e.g. "doc.on.doc", "printer")
     property label : String
     property on_select : Proc(Nil)?
-    property role : Symbol?        # :destructive to render label red; nil for default
+    property role : Symbol? # :destructive to render label red; nil for default
 
     def initialize(@icon_symbol : String, @label : String,
                    @on_select : Proc(Nil)? = nil, @role : Symbol? = nil)
@@ -70,7 +70,7 @@ module UI
     # Zone 1 — Header
     property title : String
     property subtitle : String?
-    property thumbnail : View?      # Optional preview; typically UI::Image
+    property thumbnail : View? # Optional preview; typically UI::Image
 
     # Zone 2 — Horizontal destination row
     property destinations : Array(ActivityDestination) = [] of ActivityDestination

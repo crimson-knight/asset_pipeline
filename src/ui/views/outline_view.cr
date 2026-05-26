@@ -21,7 +21,7 @@ module UI
         @secondary_text : String? = nil,
         @expanded : Bool = true,
         @children : Array(Node) = [] of Node,
-        @is_selected : Bool = false
+        @is_selected : Bool = false,
       )
       end
 

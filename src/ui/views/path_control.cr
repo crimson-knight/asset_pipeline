@@ -28,7 +28,7 @@ require "../view"
 
       def initialize(
         @components : Array(Component) = [] of Component,
-        @style : PathControlStyle = PathControlStyle::Standard
+        @style : PathControlStyle = PathControlStyle::Standard,
       )
       end
 
@@ -56,5 +56,6 @@ require "../view"
       PopUp
     end
   end
+
   require "./_gate_stubs/path_control"
 {% end %}

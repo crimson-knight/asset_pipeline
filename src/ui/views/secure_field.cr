@@ -27,5 +27,10 @@ module UI
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end
+
+    # Phase 10B.2a — default AX role: `:text_field`.
+    def default_accessibility_role : Symbol?
+      :text_field
+    end
   end
 end

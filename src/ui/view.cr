@@ -134,6 +134,88 @@ module UI
     # Accessibility label read by screen readers
     property accessibility_label : String? = nil
 
+    # Phase 10B.2a — Supplemental hint announced after the label, used to
+    # explain *what activating this element does* (e.g. "Double-tap to
+    # open settings"). Web maps to `aria-describedby` (or `aria-description`
+    # when the hint stands alone); UIKit maps to `accessibilityHint`;
+    # AppKit maps to `setAccessibilityHelp:` (the closest AppKit equivalent
+    # — AppKit lacks a first-class hint slot). Android concatenates the
+    # hint onto `contentDescription` with a separator since Android's AX
+    # API surfaces a single string per view.
+    property accessibility_hint : String? = nil
+
+    # Phase 10B.2a — Explicit semantic role for assistive tech. When `nil`
+    # the View's `accessibility_role` getter falls back to the widget
+    # subclass's `default_accessibility_role`. Set explicitly to override
+    # the default (e.g. a `UI::Label` acting as a section header should set
+    # `accessibility_role = :header`).
+    #
+    # Canonical role symbols (per-platform mapping table lives in the
+    # phase 10B.2a close handoff):
+    #   :button   :link        :text        :header     :image
+    #   :tab      :tab_list    :tab_panel   :list       :list_item
+    #   :checkbox :radio       :switch      :slider     :progress_bar
+    #   :search   :dialog      :alert       :menu       :menu_item
+    #   :none     — explicit "no role" (web emits `role="none"`).
+    property accessibility_role : Symbol? = nil
+
+    # Phase 10B.2a — UIKit-style traits surfaced to assistive tech as a
+    # set of capability flags. Examples:
+    #   :selected         — the element is in a selected state
+    #   :not_enabled      — the element is non-interactive
+    #   :plays_sound      — activating the element produces audio
+    #   :starts_media     — activating begins media playback
+    #   :causes_page_turn — activating navigates to a new screen
+    #   :updates_frequently — value changes rapidly (announce sparingly)
+    #
+    # Per-platform mapping:
+    #   UIKit  — bitwise OR of UIAccessibilityTraits values.
+    #   AppKit — best-effort via `setAccessibilityCustomRole` /
+    #            `setAccessibilitySelected:`; unmapped traits fall through.
+    #   Web    — mapped to `aria-selected`, `aria-disabled`, etc. where
+    #            an analog exists.
+    #   Android — applied via `AccessibilityNodeInfo` flags where supported.
+    property accessibility_traits : Array(Symbol) = [] of Symbol
+
+    # Phase 10B.2a — Current value as a human-readable string. Used by
+    # screen readers when the role implies a value (slider, progress,
+    # toggle, segmented control). Examples: `"On"`, `"75%"`, `"3 of 7"`.
+    # Web emits `aria-valuetext`; UIKit emits `accessibilityValue`;
+    # AppKit emits `setAccessibilityValue:`; Android emits
+    # `setStateDescription` (API 30+; older versions silently no-op).
+    property accessibility_value : String? = nil
+
+    # Phase 10B.2a — Stable identifier surfaced to platform AX trees for
+    # automated UI testing. This is intentionally distinct from `test_id`:
+    #   - `test_id` is the asset_pipeline / AXTest convention; the AppKit
+    #     and UIKit renderers historically map it to `accessibilityIdentifier`.
+    #   - `accessibility_identifier` is the explicit XCTest /
+    #     Espresso-friendly slot. When both are set, the explicit
+    #     `accessibility_identifier` wins on AppKit and UIKit.
+    #   - Web emits both as `data-testid` (test_id) and
+    #     `data-accessibility-id` (accessibility_identifier) so test
+    #     drivers that already query the latter don't break.
+    property accessibility_identifier : String? = nil
+
+    # Phase 10B.2a — Per-widget default semantic role. Subclasses override
+    # to return the role symbol that matches the widget's HIG semantics.
+    # The base default is `nil`, which on web emits no `role=` attribute
+    # (the HTML tag's intrinsic role wins). The `accessibility_role`
+    # getter is overridden via `effective_accessibility_role` so callers
+    # never need to pick between the explicit and default channels.
+    def default_accessibility_role : Symbol?
+      nil
+    end
+
+    # Phase 10B.2a — The resolved role: the explicitly set
+    # `accessibility_role`, falling back to the subclass's
+    # `default_accessibility_role`. Renderers MUST call this method
+    # instead of reading the raw `accessibility_role` property so the
+    # default-role inference path runs.
+    def effective_accessibility_role : Symbol?
+      @accessibility_role || default_accessibility_role
+    end
+
     # Padding around the view content
     property padding : EdgeInsets = EdgeInsets.new
 

@@ -4171,15 +4171,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       private def appkit_visual_effect_material_for_semantic(semantic : UI::DesignTokens::AppleSemantic) : Int64
         # AppKit material translation table — only allowed hard-coded glass switch
         case semantic
-        in .menu?              then  5_i64 # NSVisualEffectMaterialMenu
-        in .popover?           then  6_i64 # NSVisualEffectMaterialPopover
-        in .sidebar?           then  7_i64 # NSVisualEffectMaterialSidebar
+        in .menu?              then 5_i64  # NSVisualEffectMaterialMenu
+        in .popover?           then 6_i64  # NSVisualEffectMaterialPopover
+        in .sidebar?           then 7_i64  # NSVisualEffectMaterialSidebar
         in .header_view?       then 10_i64 # NSVisualEffectMaterialHeaderView
         in .sheet?             then 11_i64 # NSVisualEffectMaterialSheet
         in .window_background? then 12_i64 # NSVisualEffectMaterialWindowBackground
         in .hud_window?        then 13_i64 # NSVisualEffectMaterialHUDWindow
-        in .titlebar?          then  3_i64 # NSVisualEffectMaterialTitlebar
-        in .system_resolved?   then  0_i64 # SENTINEL — caller must skip setMaterial:
+        in .titlebar?          then 3_i64  # NSVisualEffectMaterialTitlebar
+        in .system_resolved?   then 0_i64  # SENTINEL — caller must skip setMaterial:
         end
       end
 
@@ -4293,10 +4293,98 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElement:"), 0)
         end
 
-        # Test identifier -> accessibilityIdentifier for automated UI testing
-        if tid = view.test_id
+        # Phase 10B.2a — Accessibility hint -> setAccessibilityHelp:.
+        # AppKit has no first-class "hint" slot; `accessibilityHelp` is the
+        # closest equivalent (VoiceOver speaks it as supplemental help
+        # after the label).
+        if hint = view.accessibility_hint
+          hint_str = LibObjCBridge.nsstring_from_cstr(hint.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityHelp:"), hint_str)
+        end
+
+        # Phase 10B.2a — Accessibility value -> setAccessibilityValue:.
+        if value = view.accessibility_value
+          value_str = LibObjCBridge.nsstring_from_cstr(value.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityValue:"), value_str)
+        end
+
+        # Phase 10B.2a — Accessibility role. Use the explicit override
+        # if set, otherwise fall back to the subclass default. The
+        # `appkit_ax_role_string` helper returns an AppKit constant string
+        # (NSAccessibilityButtonRole, etc.) or nil for roles that have no
+        # AppKit analog.
+        if role_sym = view.effective_accessibility_role
+          if role_str = appkit_ax_role_string(role_sym)
+            role_ns = LibObjCBridge.nsstring_from_cstr(role_str.to_unsafe)
+            LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityRole:"), role_ns)
+          end
+        end
+
+        # Phase 10B.2a — Accessibility traits. AppKit doesn't have a
+        # `traits` bitmask; it exposes a few selected setters
+        # (`setAccessibilitySelected:`, `setAccessibilityDisclosed:`,
+        # `setAccessibilityEnabled:`). Map the closest analogs; the rest
+        # fall through silently.
+        view.accessibility_traits.each do |trait|
+          case trait
+          when :selected
+            LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilitySelected:"), 1)
+          when :not_enabled
+            LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityEnabled:"), 0)
+          end
+        end
+
+        # Phase 10B.2a — Explicit accessibility_identifier wins over
+        # test_id on AppKit. Both eventually call setAccessibilityIdentifier:,
+        # but precedence is documented so callers can rely on it.
+        if aid = view.accessibility_identifier
+          aid_str = LibObjCBridge.nsstring_from_cstr(aid.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), aid_str)
+        elsif tid = view.test_id
           tid_str = LibObjCBridge.nsstring_from_cstr(tid.to_unsafe)
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), tid_str)
+        end
+      end
+
+      # Phase 10B.2a — Translate a Crystal role symbol into the matching
+      # AppKit NSAccessibility*Role constant string. Returns nil for
+      # roles AppKit has no analog for (e.g. `:tab_panel` — AppKit uses
+      # the parent tab view's relationships instead).
+      private def appkit_ax_role_string(role : Symbol) : String?
+        case role
+        when :button       then "AXButton"
+        when :link         then "AXLink"
+        when :text         then "AXStaticText"
+        when :text_field   then "AXTextField"
+        when :header       then "AXHeading"
+        when :image, :img  then "AXImage"
+        when :tab          then "AXRadioButton" # tabs are AXRadioButton inside an AXTabGroup
+        when :tab_list     then "AXTabGroup"
+        when :list         then "AXList"
+        when :list_item    then "AXRow"
+        when :checkbox     then "AXCheckBox"
+        when :radio        then "AXRadioButton"
+        when :radio_group  then "AXRadioGroup"
+        when :switch       then "AXCheckBox" # AppKit lacks a switch role; checkbox is the canonical fallback
+        when :slider       then "AXSlider"
+        when :progress_bar then "AXProgressIndicator"
+        when :spinbutton   then "AXIncrementor"
+        when :search       then "AXSearchField"
+        when :dialog       then "AXSheet"
+        when :alert        then "AXSheet"
+        when :menu         then "AXMenu"
+        when :menu_item    then "AXMenuItem"
+        when :combobox     then "AXComboBox"
+        when :toolbar      then "AXToolbar"
+        when :grid         then "AXTable"
+        when :group        then "AXGroup"
+        when :separator    then "AXSplitter"
+        when :navigation   then "AXGroup"
+        when :form         then "AXGroup"
+        when :tooltip      then "AXHelpTag"
+        when :status       then "AXGroup"
+        when :none         then "AXUnknown"
+        else                    nil
         end
       end
 

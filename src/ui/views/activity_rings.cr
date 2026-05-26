@@ -29,7 +29,7 @@ module UI
     def initialize(
       @move : Float64 = 0.0,
       @exercise : Float64 = 0.0,
-      @stand : Float64 = 0.0
+      @stand : Float64 = 0.0,
     )
     end
 

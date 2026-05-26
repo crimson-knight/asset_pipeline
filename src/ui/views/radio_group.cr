@@ -21,5 +21,10 @@ module UI
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end
+
+    # Phase 10B.2a — default AX role: `:radio_group`.
+    def default_accessibility_role : Symbol?
+      :radio_group
+    end
   end
 end

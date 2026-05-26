@@ -20,7 +20,7 @@ module UI
       def initialize(
         @title : String,
         @icon : String? = nil,
-        @secondary_text : String? = nil
+        @secondary_text : String? = nil,
       )
       end
 
@@ -46,7 +46,7 @@ module UI
       @tokens : Array(Token) = [] of Token,
       @placeholder : String = "",
       @label : String? = nil,
-      @prompt : String? = nil
+      @prompt : String? = nil,
     )
     end
 

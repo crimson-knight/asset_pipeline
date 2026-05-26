@@ -21,7 +21,7 @@ module UI
         @title : String,
         @icon : String? = nil,
         @secondary_text : String? = nil,
-        @children : Array(Item) = [] of Item
+        @children : Array(Item) = [] of Item,
       )
       end
 

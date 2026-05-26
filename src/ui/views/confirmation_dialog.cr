@@ -12,7 +12,7 @@ module UI
     property is_presented : Bool = false
     property confirm_label : String = "Confirm"
     property cancel_label : String = "Cancel"
-    property confirm_style : Symbol = :default  # :default, :destructive
+    property confirm_style : Symbol = :default # :default, :destructive
     property on_confirm : Proc(Nil)? = nil
     property on_cancel : Proc(Nil)? = nil
 
@@ -21,6 +21,11 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:alert`.
+    def default_accessibility_role : Symbol?
+      :alert
     end
   end
 end

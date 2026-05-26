@@ -26,6 +26,7 @@ module UI
       {% end %}
       new_value
     end
+
     property label : String = ""
     property style : ToggleStyle = ToggleStyle::Switch
     property tint_color : Color? = nil
@@ -43,6 +44,11 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:switch`.
+    def default_accessibility_role : Symbol?
+      :switch
     end
   end
 end
