@@ -128,7 +128,105 @@ is green. No further action.
 
 ## Codex content review
 
-*Pending architect-side invocation. Implementer iter-1 evidence
-captured in this handoff.*
+Iter-1 Codex review returned **REVISE** with two findings:
+
+1. **(BLOCKER)** `declares_capabilities` macro advertised both
+   NamedTupleLiteral and HashLiteral key shapes for the per-capability
+   platform map, but the HashLiteral branch was dishonest. Rocket-
+   style keys (`:ios => true`) arrive as `SymbolLiteral` and the
+   `.symbolize` call wrapped them into `:":ios"`, never matching
+   downstream lookups.
+2. **(MEDIUM)** The audit doc and spec language over-claimed what
+   the registry enforces. The validator walks only required-`true`
+   cells (`registry.cr:305` — `next unless needed`), so a widget
+   that over-claims `:macos => true` for `supports_role_destructive`
+   (while the intent requires `:macos => false`) registers
+   successfully. Codex verified this with a dummy widget.
+
+## Iter 2 — remediation
+
+### Finding 1 (Option A — fix the macro)
+
+Updated `src/ui/view.cr` `declares_capabilities` macro:
+
+- For each inner platform key, branch on
+  `plat_key.is_a?(SymbolLiteral)`. Rocket-style keys emit directly
+  (no `.symbolize`). NamedTupleLiteral keys (MacroId) keep going
+  through `.symbolize`.
+- Same handling applied to the outer capability key for symmetry —
+  both `supports_edge_trailing:` (NamedTuple) and
+  `:supports_edge_trailing =>` (rocket Hash) produce
+  `caps[:supports_edge_trailing]`.
+
+Added a new spec block, `macro HashLiteral key handling (rocket-
+style)`, with 2 examples:
+
+1. A widget declared entirely with rocket-style HashLiteral keys
+   stores plain `:ios` / `:macos` / etc. in the registry — verified
+   by direct lookup of `value[:ios]`, plus a belt-and-braces check
+   that `value[:":ios"]?` is `nil`.
+2. The same rocket-style widget passes override validation on macOS
+   (the registration path that would have silently dropped pre-fix).
+
+Spec count: **18 examples** (was 16). All pass.
+
+### Finding 2 (Option A — be honest in the docs)
+
+Updated the audit doc's "Registry validation contract update"
+section with a new "What the registry enforces (and what it does
+NOT)" callout that:
+
+- States plainly that **under-claim rejection is enforced** (widget
+  admits it doesn't back a required cell → rejected).
+- States plainly that **over-claim is NOT rejected by the registry**
+  (widget falsely claims it backs an unrequired cell → registers
+  successfully).
+- Cites `registry.cr:305`'s `next unless needed` as the source of
+  the behavior.
+- Explains the design rationale: no runtime oracle for what each
+  renderer paints; the audit doc + Codex review of renderer code is
+  the over-claim guard.
+- Documents the implication: a future requirement flip
+  (`:macos => false` → `:macos => true`) re-checks overrides on
+  next registration and rejects any over-claim that didn't back the
+  renderer.
+
+Also corrected the misleading paragraph at the end of the
+"`:swipe_actions` intent-requirement update" section that implied
+the registry catches `:macos => true` over-claims. Reworded to
+specify under-claim rejection only.
+
+Updated the spec file's top-of-file docstring to (a) restate the
+four guarantees the spec proves (the 3 originals plus the iter-2
+rocket-Hash regression guard) and (b) carry the same honesty
+callout about what the registry does NOT enforce.
+
+No code changes for Finding 2 — it's a documentation honesty fix.
+
+## Iter 2 verification
+
+```
+crystal spec spec/web/ui/swipe_actions_capability_audit_spec.cr
+18 examples, 0 failures, 0 errors, 0 pending
+
+crystal spec spec/web/ui/intent_spec.cr
+25 examples, 0 failures, 0 errors, 0 pending
+
+crystal spec spec/web/ui/intent_reactivity_spec.cr
+3 examples, 0 failures, 0 errors, 0 pending
+
+crystal spec spec/web/ui/views/inline_action_row_spec.cr
+9 examples, 0 failures, 0 errors, 0 pending
+
+crystal spec spec/web/ui/swipe_action_row_spec.cr
+10 examples, 0 failures, 0 errors, 0 pending
+
+crystal build src/asset_pipeline.cr
+EXIT: 0
+
+crystal run scripts/lint_conventions.cr
+lint_conventions: OK (453 files, 14 rules, 0 diagnostics)
+```
 
 — Implementer (Claude Opus 4.7), 10B.1b iter-1
+— Implementer (Claude Opus 4.7), 10B.1b iter-2 (REVISE remediation)

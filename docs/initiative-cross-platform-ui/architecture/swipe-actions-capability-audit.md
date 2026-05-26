@@ -268,6 +268,51 @@ The resolver also gains a per-context check: when
 `capabilities_required:` is passed, the platform of `context.platform`
 is the single platform the validator gates on.
 
+#### What the registry enforces (and what it does NOT)
+
+**Under-claim rejection (enforced).** A widget that declares it does
+NOT back a capability the intent requires is rejected at registration.
+Concrete cases the spec proves:
+
+* Required `true` (universal), widget declares `:partial` — rejected.
+* Required `true` (universal), widget declares a `Hash` with `false`
+  (or missing) on a platform that has a registered default — rejected,
+  naming the missing platform.
+* Required `Hash{web_wide: true, ...}`, widget declares
+  `Hash{web_wide: false, ...}` — rejected per-platform.
+
+**Over-claim is NOT rejected by the registry.** When the intent
+requirement is `{macos: false, ...}` (e.g.,
+`supports_role_destructive` on `:macos`), the per-platform validator
+walks only the cells where the requirement is `true`
+(`registry.cr:305`'s `next unless needed`). A widget that claims
+`{macos: true, ...}` for the same capability passes registration
+even when the macOS renderer paints no destructive tint.
+
+This is intentional. The registry cannot prove a renderer-side
+implementation claim is honest without a ground-truth oracle of what
+each renderer paints — that oracle does not exist as code; it lives
+in the audit doc and the renderer-code citations in the matrix above.
+**The audit doc + code review are the over-claim guard, not the
+runtime validator.** The library widgets (`UI::SwipeActionRow`,
+`UI::InlineActionRow`) are honest because the cited renderer code was
+inspected per-cell; future overrides earn the same trust through the
+same review.
+
+Implications for downstream apps:
+
+* If you add a custom override that backs every required cell, the
+  registry accepts it — even cells beyond the requirement set. If you
+  later turn `:macos` from `false` to `true` in the intent
+  requirement (e.g., once an AppKit button-role facade lands), the
+  registry will RE-CHECK your override at the next registration and
+  reject it if you over-claimed `:macos => true` without backing the
+  renderer.
+* If you want to spot over-claims in your own widgets before that
+  flip happens, exercise them under `capabilities_required:` in a
+  spec that asserts the correct render output (the renderer must
+  prove the cell, not the declaration).
+
 ### `:swipe_actions` intent-requirement update
 
 `src/ui/intent_bootstrap.cr` previously declared:
@@ -289,9 +334,17 @@ iOS / iPadOS / web_wide / web_narrow demand destructive tint; macOS
 does not until the AppKit button-role facade lands; Android does not
 until 10B.1c's `UI::AndroidSwipeActionRow`. Existing widgets
 (`SwipeActionRow`, `InlineActionRow`) declare their honest matrices
-above and pass validation. A would-be override that lied (e.g.,
-declared `supports_role_destructive: true` on macOS without painting
-the tint) would now fail registration — that's the test in
-`swipe_actions_capability_audit_spec.cr`.
+above and pass validation. A would-be override that **under-claims**
+a required cell (e.g., declared `supports_role_destructive` as a
+Hash with `:web_wide => false` while the intent requires
+`:web_wide => true`) fails registration — that's the rejection
+tests in `swipe_actions_capability_audit_spec.cr`.
+
+The registry does NOT reject **over-claims** — a widget declaring
+`:macos => true` for `supports_role_destructive` (while macOS is
+required `false`) registers successfully today. The runtime validator
+walks only required-`true` cells; honesty for unrequired cells is
+enforced by the audit doc + Codex review, not the runtime. See the
+"What the registry enforces" callout above.
 
 — Architect-implementer (Claude Opus 4.7), 10B.1b iter 1

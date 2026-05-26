@@ -12,21 +12,43 @@ require "../../../src/ui/intent_bootstrap"
 # by asserting the platform-keyed capability declarations on
 # `UI::SwipeActionRow` + `UI::InlineActionRow` are honest, and by
 # proving the registry's platform-aware validator rejects an override
-# that lies about a platform it doesn't back.
+# that **under-claims** a required platform/capability cell.
 #
-# Covers three guarantees:
+# Covers four guarantees:
 #
 #   1. The audit matrix matches the resolver's runtime answer.
 #      For each platform with a default, `UI::Intent.resolve` returns
 #      the widget the audit lists as the platform default, and the
 #      `capabilities_required:` kwarg gates per-platform honestly.
 #   2. `IncompatibleOverride` fires when a candidate override widget
-#      declares a capability `true` on a platform where the renderer
-#      cannot back it (specifically `supports_role_destructive` on
-#      `:macos`).
+#      UNDER-CLAIMS a required cell — e.g. declares
+#      `:web_wide => false` for `supports_role_destructive` while the
+#      intent demands `:web_wide => true`, or declares
+#      `:macos => false` for `supports_edge_trailing` while macOS has
+#      a registered default for the intent.
 #   3. The legacy `:partial` value no longer satisfies a `true` /
 #      platform-keyed requirement — apps that previously relied on the
 #      fuzzy declaration must migrate to platform-keyed honesty.
+#   4. Rocket-style HashLiteral keys (`:ios => true`) produce plain
+#      `:ios` symbol keys in the registry — not `:":ios"` — and pass
+#      override validation end-to-end (iter-2 Finding 1 regression
+#      guard).
+#
+# # What the registry does NOT enforce (honesty-doc disclosure)
+#
+# The validator walks only required-`true` cells (see
+# `registry.cr:305` — `next unless needed`). A widget that declares
+# `:macos => true` for `supports_role_destructive` when the intent's
+# required Hash has `:macos => false` registers successfully. The
+# registry has no oracle for what a renderer paints, so over-claims
+# are caught by the audit doc + Codex review of renderer code, not
+# by this spec or `IncompatibleOverride`.
+#
+# This is intentional. If a future intent flip raises a previously-
+# unrequired cell to `true`, the validator re-checks the override at
+# the next registration and rejects an over-claim that didn't back the
+# renderer. The over-claim → silent renderer gap is closed when (and
+# only when) the requirement cell flips.
 
 # ---------------- Spec helper: re-install honest bootstrap ----------------
 
