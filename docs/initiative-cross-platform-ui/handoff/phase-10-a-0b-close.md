@@ -2,7 +2,7 @@
 
 **Sub-phase:** 10A.0b — Family 2 view-spec pair rules.
 **Branch:** `phase-10-a-0b` (cut from `phase-10` post-trio merge).
-**Status:** CLOSED — all 5 deliverables shipped; runner exits 0 with 9 rules; fixture spec green (25 examples, 0 failures).
+**Status:** CLOSED — Codex APPROVE on iter 3. All 5 deliverables shipped; runner exits 0 with 9 rules; fixture spec green (27 examples, 0 failures); gate-corrected fixtures discriminate iter-1 vs iter-2 logic via diagnostic-content assertions.
 **Implementer:** Claude Opus 4.7
 **Date:** 2026-05-26
 
@@ -162,7 +162,15 @@ Adding a NEW view without a spec must NOT touch the allowlist — landing the sp
 
 **Iter 3 (fixture discrimination):** the fixture spec gained two header keys (`diagnostic_message_contains:`, `diagnostic_message_excludes:`) and the two macro-branch fixtures now pin the corrected diagnostic path. Renamed `nested_flag_uses_deepest_pass.cr` → `nested_flag_uses_deepest_fail.cr` to match its `expected: fail` (the fixture now uses a synthetic path with no spec at any platform location, so the rule fires and the diagnostic content discriminates). Verified by temporarily restoring the iter-1 rule and re-running the spec: both new fixtures fail with diagnostic-content mismatches under OLD logic; pass cleanly under iter-2/3 logic.
 
-**Iter 3 verdict:** to be filled by Codex iter-3 re-review. Goal: APPROVE.
+**Iter 3 verdict:** APPROVE. No findings. Codex iter-3 quote:
+
+> APPROVE. No findings.
+>
+> LOW-3 is closed. The fixture parser now parses and enforces `diagnostic_message_contains:` / `diagnostic_message_excludes:` for `expected: fail` cases. The two fixtures pin the corrected diagnostic paths and exclude the old-logic paths.
+>
+> I reproduced the discrimination check. [...] Under iter-1 behavior, the focused spec failed exactly on the two new fixtures with diagnostic-content mismatches. After restoring iter-3, the focused spec passed: 16 examples, 0 failures.
+>
+> Final verification passed: `lint_conventions: OK (444 files, 9 rules, 0 diagnostics)`; `crystal spec spec/web/lint_conventions/`: 27 examples, 0 failures.
 
 ---
 
