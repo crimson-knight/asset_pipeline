@@ -47,20 +47,62 @@ jobs:
   # ---------------------------------------------------------------------
   # Phase 10C.0 spec-lane jobs.
   #
-  # `make test-web` runs the default web spec lane under spec/web/.
-  # `make test-macos` runs the macOS native spec lane under spec/native_macos/.
-  # `make test-ios` and `make test-android` are placeholders today
-  # (`continue-on-error: true`) — see
-  # docs/initiative-cross-platform-ui/native-compile-matrix.md.
-  #
-  # Lint job runs `scripts/lint_conventions.cr` ONCE 10A.0a merges its
-  # Crystal-side convention runner. Until then this job is commented
-  # out — the Family 5 rule file ships at
-  # `src/lsp_rules/family_5_partial/spec_platform_directory_convention.cr`
-  # but no runner is wired.
+  # Brief §4 line 140-144 split:
+  #   * `make test-web` runs the default web spec lane (Linux runner —
+  #     plain `crystal spec`, no native deps, fastest CI path).
+  #   * `make test-web` also runs on macos-14 to confirm Makefile
+  #     compatibility with BSD make + macOS toolchain.
+  #   * `make test-macos` runs the macOS native spec lane under
+  #     spec/native_macos/ (macos-14 only — needs ObjC bridge + AppKit).
+  #   * `make test-ios` and `make test-android` are placeholders today
+  #     (`continue-on-error: true`) — see
+  #     docs/initiative-cross-platform-ui/native-compile-matrix.md.
+  #   * `lint` runs Phase 10A.0a's convention rule runner
+  #     (`scripts/lint_conventions.cr`). The runner ships with phase-10-a-0a
+  #     which is merged onto phase-10-c-0 in iter 2.
   # ---------------------------------------------------------------------
-  test-web:
-    name: Spec lane (web)
+  lint:
+    name: Lint (convention rules)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+
+      - name: make lint
+        run: make lint
+
+  test-web-linux:
+    name: Spec lane (web, Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Crystal shards
+        uses: actions/cache@v4
+        with:
+          path: lib
+          key: crystal-shards-${{ runner.os }}-${{ hashFiles('shard.lock', 'shard.yml') }}
+          restore-keys: |
+            crystal-shards-${{ runner.os }}-
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+
+      - name: Shards install
+        run: |
+          if [ -f shard.yml ]; then shards install; fi
+
+      - name: make test-web
+        run: make test-web
+
+  test-web-macos:
+    name: Spec lane (web, macOS)
     runs-on: macos-14
     timeout-minutes: 20
     steps:

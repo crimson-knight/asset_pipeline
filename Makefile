@@ -13,19 +13,22 @@
 #                    Currently `attempted-blocked` on Crystal stdlib host-only.
 #                    Implementation deferred to Phase 10D / native runner phase.
 #   test-all       — runs `test-web` + `test-macos`.
+#   lint           — runs Phase 10A.0a's convention-rule runner
+#                    (`scripts/lint_conventions.cr`).
 #
 # Bridge object file lifecycle:
-#   `make test-macos` depends on `src/ui/native/objc_bridge.o` and
-#   `src/ui/native/swiftkit_bridge.o`. Both are compiled with `-fno-objc-arc`
+#   `make test-macos` depends on `src/ui/native/objc_bridge.o`
+#   (`$(AP_BRIDGE_OBJ)`) and `src/ui/native/swiftkit_bridge.o`
+#   (`$(SK_BRIDGE_OBJ)`). Both are compiled with `-fno-objc-arc`
 #   (the bridges manage their own memory). The `.o` files are .gitignored
 #   build artifacts — never check them in.
 
 CRYSTAL       ?= crystal
 ACRYSTAL      ?= acrystal
 
-AP_BRIDGE     := src/ui/native/objc_bridge.o
+AP_BRIDGE_OBJ := src/ui/native/objc_bridge.o
 AP_BRIDGE_SRC := src/ui/native/objc_bridge.m
-SK_BRIDGE     := src/ui/native/swiftkit_bridge.o
+SK_BRIDGE_OBJ := src/ui/native/swiftkit_bridge.o
 SK_BRIDGE_SRC := src/ui/native/swiftkit_bridge.m
 
 SWIFTKIT_DIR  := swift/AssetPipelineSwiftKit
@@ -42,17 +45,17 @@ MACOS_FRAMEWORKS := \
 	-lobjc
 
 MACOS_LINK_FLAGS := \
-	$(abspath $(AP_BRIDGE)) $(abspath $(SK_BRIDGE)) \
+	$(abspath $(AP_BRIDGE_OBJ)) $(abspath $(SK_BRIDGE_OBJ)) \
 	-Wl,-force_load,$(abspath $(SWIFTKIT_LIB)) \
 	$(MACOS_FRAMEWORKS) \
 	-Wl,-rpath,/usr/lib/swift
 
-.PHONY: test-web test-macos test-ios test-android test-all clean-bridges
+.PHONY: test-web test-macos test-ios test-android test-all lint clean-bridges
 
 test-web:
 	$(CRYSTAL) spec spec/web/
 
-test-macos: $(AP_BRIDGE) $(SK_BRIDGE) $(SWIFTKIT_LIB)
+test-macos: $(AP_BRIDGE_OBJ) $(SK_BRIDGE_OBJ) $(SWIFTKIT_LIB)
 	$(ACRYSTAL) spec spec/native_macos/ -Dmacos \
 		--link-flags="$(MACOS_LINK_FLAGS)"
 
@@ -74,11 +77,14 @@ test-all: test-web test-macos
 	@echo "[test-all] web + macOS lanes complete."
 	@echo "[test-all] iOS / Android lanes: see native-compile-matrix.md"
 
-$(AP_BRIDGE): $(AP_BRIDGE_SRC)
-	clang -c $(AP_BRIDGE_SRC) -o $(AP_BRIDGE) -fno-objc-arc
+lint:
+	$(CRYSTAL) run scripts/lint_conventions.cr
 
-$(SK_BRIDGE): $(SK_BRIDGE_SRC)
-	clang -c $(SK_BRIDGE_SRC) -o $(SK_BRIDGE) -fno-objc-arc
+$(AP_BRIDGE_OBJ): $(AP_BRIDGE_SRC)
+	clang -c $(AP_BRIDGE_SRC) -o $(AP_BRIDGE_OBJ) -fno-objc-arc
+
+$(SK_BRIDGE_OBJ): $(SK_BRIDGE_SRC)
+	clang -c $(SK_BRIDGE_SRC) -o $(SK_BRIDGE_OBJ) -fno-objc-arc
 
 $(SWIFTKIT_LIB): $(wildcard $(SWIFTKIT_DIR)/Sources/AssetPipelineSwiftKit/*.swift) \
                  $(wildcard $(SWIFTKIT_DIR)/Sources/AssetPipelineSwiftKit/**/*.swift) \
@@ -86,4 +92,4 @@ $(SWIFTKIT_LIB): $(wildcard $(SWIFTKIT_DIR)/Sources/AssetPipelineSwiftKit/*.swif
 	swift build -c release --package-path $(SWIFTKIT_DIR)
 
 clean-bridges:
-	rm -f $(AP_BRIDGE) $(SK_BRIDGE)
+	rm -f $(AP_BRIDGE_OBJ) $(SK_BRIDGE_OBJ)
