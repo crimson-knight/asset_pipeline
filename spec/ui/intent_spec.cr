@@ -425,6 +425,112 @@ describe UI::Intent::Registry do
 end
 
 
+# ---------- Iter-10 Finding 2: runtime capabilities_required spec ----------
+#
+# Existing coverage validates capabilities at REGISTRATION (the
+# IncompatibleOverride path). This block exercises the RUNTIME path
+# through `UI::Intent.resolve(intent_id, ctx, capabilities_required: ...)`
+# — the kwarg lets a migration / soft-fallback caller assert the
+# resolved widget covers a specific capability subset before mounting.
+# Mismatches surface as `UnresolvableDefault`.
+
+# Spec-only intent declared with no required capabilities (so we don't
+# trip the registration-time validator) — capability checks are
+# exercised here only at runtime via `capabilities_required:`.
+private class IntentSpecCapWidget < UI::View
+  declares_capabilities :spec_runtime_cap_intent, {
+    cap_a: true,
+    cap_b: false,
+  }
+
+  def initialize
+  end
+
+  def accept(visitor : UI::PlatformVisitor)
+  end
+end
+
+describe "UI::Intent.resolve runtime capabilities_required" do
+  it "raises UnresolvableDefault when widget is missing a required capability" do
+    UI::Intent::Registry.register_default(
+      :spec_runtime_cap_intent,
+      :macos,
+      IntentSpecCapWidget,
+    )
+
+    ctx = UI::ScreenContext::Native.new(
+      form_state: UI::FormState.new(mount_token: 0_i64),
+      session: UI::Session::InProcess.new,
+      flash: UI::Flash::InProcess.new,
+      design_tokens: UI::DesignTokens::Tokens.default,
+      navigation: UI::NavigationCoordinator.new(UI::NavigationCoordinator::Route.new(:test)),
+      platform: :macos,
+    )
+
+    # Widget declares cap_b: false. Asking for cap_b: true must raise
+    # UnresolvableDefault with the missing capability key named in the
+    # message (per intent.cr#first_missing_capability path).
+    expect_raises(UI::Intent::UnresolvableDefault, /cap_b/) do
+      UI::Intent.resolve(
+        :spec_runtime_cap_intent,
+        ctx,
+        capabilities_required: {:cap_b => true},
+      )
+    end
+  end
+
+  it "returns the widget when capabilities_required is fully covered" do
+    UI::Intent::Registry.register_default(
+      :spec_runtime_cap_intent,
+      :macos,
+      IntentSpecCapWidget,
+    )
+
+    ctx = UI::ScreenContext::Native.new(
+      form_state: UI::FormState.new(mount_token: 0_i64),
+      session: UI::Session::InProcess.new,
+      flash: UI::Flash::InProcess.new,
+      design_tokens: UI::DesignTokens::Tokens.default,
+      navigation: UI::NavigationCoordinator.new(UI::NavigationCoordinator::Route.new(:test)),
+      platform: :macos,
+    )
+
+    # cap_a: true is declared. Asking only for cap_a: true returns the
+    # widget without raising.
+    result = UI::Intent.resolve(
+      :spec_runtime_cap_intent,
+      ctx,
+      capabilities_required: {:cap_a => true},
+    )
+    result.should eq(IntentSpecCapWidget)
+  end
+
+  it "ignores required keys with value false" do
+    UI::Intent::Registry.register_default(
+      :spec_runtime_cap_intent,
+      :macos,
+      IntentSpecCapWidget,
+    )
+
+    ctx = UI::ScreenContext::Native.new(
+      form_state: UI::FormState.new(mount_token: 0_i64),
+      session: UI::Session::InProcess.new,
+      flash: UI::Flash::InProcess.new,
+      design_tokens: UI::DesignTokens::Tokens.default,
+      navigation: UI::NavigationCoordinator.new(UI::NavigationCoordinator::Route.new(:test)),
+      platform: :macos,
+    )
+
+    # cap_b: false means "caller doesn't need it" — must not trip the
+    # missing-capability path even though the widget declared cap_b: false.
+    result = UI::Intent.resolve(
+      :spec_runtime_cap_intent,
+      ctx,
+      capabilities_required: {:cap_b => false},
+    )
+    result.should eq(IntentSpecCapWidget)
+  end
+end
 # ---------- Iter-10 Finding 1: Amber web context seeds app_class ----------
 #
 # `compute_screen_html` on the web target must thread `ctx.app_class`
