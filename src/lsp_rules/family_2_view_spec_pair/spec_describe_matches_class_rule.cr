@@ -21,8 +21,18 @@
 #     spec describing `Foo::Bar` passes if `Bar` is declared anywhere
 #     in src/. This avoids false positives on Crystal's open-module
 #     re-opening pattern (`module Foo; module Bar; end; end` in many
-#     files). The deepest-segment heuristic mirrors how AmberLSP's
-#     `ProjectContext` would resolve identifiers if it shipped.
+#     files).
+#
+# Known false-negative risk (deliberate, documented):
+#   - The deepest-segment heuristic CAN hide namespace drift. If a
+#     spec writes `describe UI::OldName` and the class was actually
+#     renamed to `Components::OldName` (same leaf, different parent),
+#     the rule passes because the leaf still resolves. Full namespace-
+#     aware resolution would require an AmberLSP `ProjectContext` or a
+#     Crystal parser hook; the runner is intentionally regex-only
+#     until/unless that infrastructure exists. The rule catches the
+#     common case (typo'd or deleted class names); it does not catch
+#     reorg-by-namespace.
 #
 # Class registry is built lazily on first `check` call and cached on
 # the rule instance for the duration of the runner process.

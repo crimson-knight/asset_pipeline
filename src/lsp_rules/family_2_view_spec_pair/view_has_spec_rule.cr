@@ -35,10 +35,17 @@ require "../convention_rule"
 class ViewHasSpecRule < ConventionRule
   CLASS_PATTERN = /^\s*class\s+([A-Za-z_][A-Za-z0-9_]*)(?:\([^)]*\))?\s*<\s*(?:::)?(?:UI::)?View\b/
 
-  # Top-level macro-guard openers; we only care about platform flags.
-  FLAG_OPEN_PATTERN  = /\{%\s*if\s+(?:[^%]*?\b)?flag\?\(:([a-z_]+)\)/
-  MACRO_OPEN_PATTERN = /\{%\s*if\b/
-  MACRO_END_PATTERN  = /\{%\s*end\s*%\}/
+  # Macro-guard openers / branches / closers. We track:
+  #   - `{% if ... %}` (push a new frame on the stack)
+  #   - `{% else %}` and `{% elsif ... %}` (the current frame's flag is
+  #     no longer active inside this branch — clear its platform flag
+  #     but keep the frame so the matching `{% end %}` pops correctly)
+  #   - `{% end %}` (pop the topmost frame)
+  FLAG_OPEN_PATTERN   = /\{%\s*if\s+(?:[^%]*?\b)?flag\?\(:([a-z_]+)\)/
+  MACRO_OPEN_PATTERN  = /\{%\s*if\b/
+  MACRO_END_PATTERN   = /\{%\s*end\s*%\}/
+  MACRO_ELSE_PATTERN  = /\{%\s*else\s*%\}/
+  MACRO_ELSIF_PATTERN = /\{%\s*elsif\b/
 
   PLATFORM_SPEC_DIR = {
     "ios"     => "spec/native_ios/ui/views/",
@@ -68,20 +75,31 @@ class ViewHasSpecRule < ConventionRule
     return diagnostics if rel == "src/ui/view.cr"
     return diagnostics if @expected_pending.includes?(rel)
 
-    # Track macro-guard nesting; record platform flag for the *outermost*
-    # currently-open `{% if flag?(:X) %}` block.
-    flag_stack = [] of String? # parallel to macro depth; nil = non-platform if
+    # Track macro-guard nesting. Each frame is the platform flag (or
+    # nil) currently active inside the innermost open `{% if %}` block.
+    # `{% else %}` / `{% elsif %}` clears the frame's platform flag —
+    # code in the else branch is NOT under the original flag. The
+    # `active_flag` query takes the DEEPEST non-nil flag so nested
+    # `{% if flag?(:ios) %}` inside an outer `{% if flag?(:macos) %}`
+    # picks up `:ios`.
+    flag_stack = [] of String?
     content.each_line.with_index(1) do |raw, lineno|
       line = raw
 
-      # Process macro openers / closers in order. A line can contain
-      # multiple in principle; in practice tier-3 view files use one
-      # opener per line, but we still scan for both forms.
+      # Process macro openers / branches / closers in order.
       if line.matches?(MACRO_OPEN_PATTERN)
         if m = FLAG_OPEN_PATTERN.match(line)
           flag_stack << m[1]
         else
           flag_stack << nil
+        end
+      end
+      if line.matches?(MACRO_ELSE_PATTERN) || line.matches?(MACRO_ELSIF_PATTERN)
+        # In the else / elsif branch, the original `if` flag no longer
+        # describes the body. Clear it but keep the frame; the matching
+        # `{% end %}` will pop.
+        unless flag_stack.empty?
+          flag_stack[-1] = nil
         end
       end
       if line.matches?(MACRO_END_PATTERN)
@@ -92,7 +110,10 @@ class ViewHasSpecRule < ConventionRule
         class_name = m[1]
         next if class_name == "View"
 
-        active_flag = flag_stack.compact.first?
+        # Deepest platform flag in scope governs the expected spec dir.
+        # An outer macos guard wrapping an inner ios guard means the
+        # class belongs to the ios platform, not macos.
+        active_flag = flag_stack.compact.last?
         # Derive the expected spec basename from the view *file* basename
         # rather than from the class name. This is more honest than
         # snake_case(class_name) because the file basename is canonical
