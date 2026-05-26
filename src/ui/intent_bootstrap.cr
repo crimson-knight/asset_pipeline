@@ -53,8 +53,11 @@ module UI
       UI::Intent::Registry.register_default(:swipe_actions, :ios, UI::SwipeActionRow)
       UI::Intent::Registry.register_default(:swipe_actions, :ipados, UI::SwipeActionRow)
       UI::Intent::Registry.register_default(:swipe_actions, :web_narrow, UI::SwipeActionRow)
-      # :macos    — NO default; Phase 10B.1a will install UI::InlineActionRow.
-      # :web_wide — NO default; Phase 10B.1a will install UI::InlineActionRow.
+      # Phase 10B.1a — macOS + web_wide back the `:swipe_actions` intent
+      # with `UI::InlineActionRow` (HIG: no swipe-to-reveal on the Mac;
+      # desktop-web mirrors the convention with visible inline buttons).
+      UI::Intent::Registry.register_default(:swipe_actions, :macos, UI::InlineActionRow)
+      UI::Intent::Registry.register_default(:swipe_actions, :web_wide, UI::InlineActionRow)
       # :android  — NO default; Phase 10B.1c will install UI::AndroidSwipeActionRow.
     end
   end

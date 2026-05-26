@@ -166,6 +166,9 @@ private def reinstall_intent_bootstrap : Nil
   UI::Intent::Registry.register_default(:swipe_actions, :ios, UI::SwipeActionRow)
   UI::Intent::Registry.register_default(:swipe_actions, :ipados, UI::SwipeActionRow)
   UI::Intent::Registry.register_default(:swipe_actions, :web_narrow, UI::SwipeActionRow)
+  # Phase 10B.1a — macOS + web_wide back :swipe_actions with InlineActionRow.
+  UI::Intent::Registry.register_default(:swipe_actions, :macos, UI::InlineActionRow)
+  UI::Intent::Registry.register_default(:swipe_actions, :web_wide, UI::InlineActionRow)
   nil
 end
 
@@ -210,18 +213,19 @@ describe UI::Intent do
       UI::Intent.resolve(:swipe_actions, ctx).should eq(UI::SwipeActionRow)
     end
 
-    it "raises UnresolvableDefault for :swipe_actions on macOS (no default)" do
+    it "returns UI::InlineActionRow for :swipe_actions on macOS (Phase 10B.1a)" do
+      # Pre-10B.1a this raised UnresolvableDefault. 10B.1a installed
+      # UI::InlineActionRow as the macOS default (HIG: no swipe-to-
+      # reveal on the Mac — visible inline buttons are idiomatic).
       ctx = native_ctx(:macos)
-      expect_raises(UI::Intent::UnresolvableDefault, /:swipe_actions.*:macos/) do
-        UI::Intent.resolve(:swipe_actions, ctx)
-      end
+      UI::Intent.resolve(:swipe_actions, ctx).should eq(UI::InlineActionRow)
     end
 
-    it "raises UnresolvableDefault for :swipe_actions on web_wide (no default)" do
+    it "returns UI::InlineActionRow for :swipe_actions on web_wide (Phase 10B.1a)" do
+      # Pre-10B.1a this raised UnresolvableDefault. Desktop-web mirrors
+      # the macOS convention.
       ctx = web_ctx(:web_wide)
-      expect_raises(UI::Intent::UnresolvableDefault, /:swipe_actions.*:web_wide/) do
-        UI::Intent.resolve(:swipe_actions, ctx)
-      end
+      UI::Intent.resolve(:swipe_actions, ctx).should eq(UI::InlineActionRow)
     end
 
     it "raises UnresolvableDefault for :swipe_actions on android (no default)" do
@@ -335,9 +339,12 @@ describe UI::Intent::Registry do
       reinstall_intent_bootstrap
       IntentSpecAppA.override_intent(:swipe_actions, IntentSpecFancyRow)
 
-      ctx = native_ctx(:macos)
-      # ctx.app_class remains nil — no default exists for :macos on
-      # :swipe_actions, so the resolver returns nil.
+      # Use :android — still the only platform without a registered
+      # default for :swipe_actions post-10B.1a (macOS + web_wide now
+      # default to UI::InlineActionRow). With app_class nil the
+      # resolver skips the app tier, falls through to the (missing)
+      # default, and returns nil.
+      ctx = native_ctx(:android)
       UI::Intent::Registry.resolve_for(:swipe_actions, ctx).should be_nil
     end
   end

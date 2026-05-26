@@ -2922,6 +2922,153 @@ module UI
         push_element(wrap)
       end
 
+      # Phase 10B.1a — InlineActionRow.
+      #
+      # The macOS + web_wide default for the `:swipe_actions` intent.
+      # Unlike `UI::SwipeActionRow`, this widget has no gesture-driven
+      # reveal: leading + trailing actions render as visible inline
+      # buttons in a horizontal flex row. Each button carries an
+      # `aria-label` from its `SwipeAction#label` so assistive tech
+      # surfaces it correctly. No CSS / JS shim is required — the row
+      # is plain semantic HTML.
+      def visit(view : UI::InlineActionRow)
+        row_id = next_inline_action_id
+        wrap = Components::Elements::Div.new
+        wrap.set_attribute("role", "row")
+        wrap.add_class("ap-inline-action-row")
+        wrap.set_attribute("data-component", "inline-action-row")
+        wrap.set_attribute("data-row-id", row_id.to_s)
+
+        if !view.leading_actions.empty?
+          wrap.add_child(inline_action_panel(view.leading_actions, "leading"))
+        end
+
+        # Content cell — the primary row content. Rendered via the
+        # standard visit path so any UI::View is supported.
+        content_html = render_subview(view.content)
+        content_el = Components::Elements::Div.new
+        content_el.add_class("ap-inline-action-row__content")
+        content_el.add_raw_html(content_html)
+        wrap.add_child(content_el)
+
+        if !view.trailing_actions.empty?
+          wrap.add_child(inline_action_panel(view.trailing_actions, "trailing"))
+        end
+
+        register_inline_action_chrome(wrap) unless @inline_action_chrome_emitted
+
+        apply_common_styles(wrap, view)
+        push_element(wrap)
+      end
+
+      @inline_action_counter : Int32 = 0
+      @inline_action_chrome_emitted : Bool = false
+
+      private def next_inline_action_id : Int32
+        @inline_action_counter += 1
+      end
+
+      # Build a leading/trailing inline-action panel for an
+      # `InlineActionRow`. Mirrors `swipe_action_panel` but emits a
+      # distinct CSS class so the inline-row chrome doesn't pick up
+      # `SwipeActionRow`'s mobile touch-reveal CSS / JS.
+      private def inline_action_panel(actions : Array(UI::SwipeAction), edge : String) : Components::Elements::Div
+        panel = Components::Elements::Div.new
+        panel.add_class("ap-inline-action-row__#{edge}")
+        actions.each_with_index do |action, idx|
+          btn = Components::Elements::Button.new(type: "button")
+          btn << action.label
+          btn.add_class("ap-inline-action-row__action")
+          btn.add_class("ap-inline-action-row__action--destructive") if action.role == :destructive
+          btn.set_attribute("data-action-index", idx.to_s)
+          btn.set_attribute("data-action-role", action.role.to_s)
+          btn.set_attribute("data-action-edge", edge)
+          btn.set_attribute("aria-label", action.label)
+          if route = action.on_tap_route
+            btn.set_attribute("data-on-tap-route", route)
+          end
+          if action.on_tap
+            # Crystal Procs can't run client-side from static HTML,
+            # but mark the button so a downstream JS-bound demo can
+            # dispatch by index.
+            btn.set_attribute("data-has-callback", "1")
+          end
+          panel.add_child(btn)
+        end
+        panel
+      end
+
+      # Emit the inline-action-row CSS once per renderer instance.
+      # Buttons follow the same chrome the swipe-row uses for visual
+      # consistency; the row container is a plain flex row with no
+      # gesture handlers.
+      private def register_inline_action_chrome(wrap : Components::Elements::HTMLElement)
+        @inline_action_chrome_emitted = true
+        chrome_div = Components::Elements::Div.new
+        chrome_div.set_attribute("data-component", "inline-action-row-chrome")
+        chrome_div.set_attribute("hidden", "hidden")
+        chrome_div.add_raw_html(inline_action_chrome_html)
+        wrap.as(Components::Elements::ContainerElement).add_child(chrome_div)
+      end
+
+      private def inline_action_chrome_html : String
+        <<-HTML
+        <style>
+        .ap-inline-action-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .ap-inline-action-row__content {
+          flex: 1;
+          min-width: 0;
+        }
+        .ap-inline-action-row__trailing,
+        .ap-inline-action-row__leading {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        .ap-inline-action-row__action {
+          padding: 8px 14px;
+          border-radius: 8px;
+          border: 1px solid var(--ap-color-border-default);
+          background: var(--ap-color-surface-panel);
+          color: var(--ap-color-text-primary);
+          font: inherit;
+          cursor: pointer;
+          min-height: 44px;
+        }
+        .ap-inline-action-row__action--destructive {
+          color: var(--ap-color-danger-text);
+          border-color: var(--ap-color-danger-text);
+        }
+        </style>
+        <script>
+        (function() {
+          function bindAll() {
+            document.querySelectorAll('.ap-inline-action-row__action').forEach(function(btn) {
+              if (btn.dataset.inlineActionBound === '1') return;
+              btn.dataset.inlineActionBound = '1';
+              btn.addEventListener('click', function(e) {
+                var route = btn.getAttribute('data-on-tap-route');
+                if (route && window.UIRouteHost && typeof window.UIRouteHost.push === 'function') {
+                  e.preventDefault();
+                  window.UIRouteHost.push(route);
+                }
+              });
+            });
+          }
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bindAll);
+          } else {
+            bindAll();
+          }
+        })();
+        </script>
+        HTML
+      end
+
       @swipe_action_counter : Int32 = 0
       @swipe_action_chrome_emitted : Bool = false
 
