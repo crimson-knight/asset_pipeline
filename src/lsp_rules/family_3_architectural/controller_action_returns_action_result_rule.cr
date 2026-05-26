@@ -12,11 +12,13 @@
 #
 # - Only inspect classes whose inheritance line matches
 #   `class X < (::)?UI::Controller`.
-# - Only inspect methods declared `def name(...) : UI::ActionResult`
-#   (with optional `protected`/`private`/`public` modifier and
-#   optional `::` namespace prefix on the return type). This is the
-#   narrow gate — methods without the explicit return-type
-#   annotation are NOT checked.
+# - Two narrow gates surface a method as an "action handler":
+#   (a) `def name(...) : UI::ActionResult` — the explicit
+#       return-type annotation (optional `::` prefix accepted), OR
+#   (b) the method is preceded by an `action_handler :name` macro
+#       call (the next `def name(...)` after that line is treated
+#       as the handler, even without the explicit annotation).
+#   Methods that match neither gate are NOT checked.
 # - Find the final non-blank, non-comment line of the method body
 #   (the line immediately before the matching `end`).
 # - Allow that line to:
@@ -54,6 +56,14 @@ class ControllerActionReturnsActionResultRule < ConventionRule
   # The visibility modifier is on a previous line in idiomatic Crystal,
   # so we don't try to match it here.
   ACTION_DEF_PATTERN = /^(\s*)def\s+([A-Za-z_][A-Za-z0-9_]*[?!=]?)\s*(?:\([^)]*\))?\s*:\s*(?:::)?UI::ActionResult\b/
+
+  # Matches any `def name(args)` (with or without return-type
+  # annotation). Used in conjunction with `action_handler :name` to
+  # find decorated handlers.
+  ANY_DEF_PATTERN = /^(\s*)def\s+([A-Za-z_][A-Za-z0-9_]*[?!=]?)\b/
+
+  # Matches `action_handler :name` (optionally `action_handler(:name)`).
+  ACTION_HANDLER_DECL_PATTERN = /^\s*action_handler[\s(]+:([A-Za-z_][A-Za-z0-9_]*[?!=]?)\b/
 
   ALLOWED_HELPER_NAMES = %w(
     navigate_to
@@ -118,12 +128,38 @@ class ControllerActionReturnsActionResultRule < ConventionRule
     class_name : String,
     diagnostics : Array(Diagnostic),
   ) : Nil
+    # First pass: collect the set of names declared as
+    # `action_handler :name`. These methods are also action handlers
+    # for our purposes even if they lack the `: UI::ActionResult`
+    # return-type annotation.
+    decorated_names = Set(String).new
+    k = start
+    while k <= stop && k < lines.size
+      if dm = ACTION_HANDLER_DECL_PATTERN.match(lines[k])
+        decorated_names << dm[1]
+      end
+      k += 1
+    end
+
     j = start
     while j <= stop && j < lines.size
       raw = lines[j]
-      if m = ACTION_DEF_PATTERN.match(raw)
-        def_indent = m[1]
-        method_name = m[2]
+      typed_match = ACTION_DEF_PATTERN.match(raw)
+      any_def_match = ANY_DEF_PATTERN.match(raw)
+
+      handler_match = nil
+      origin = ""
+      if typed_match
+        handler_match = typed_match
+        origin = "typed"
+      elsif any_def_match && decorated_names.includes?(any_def_match[2])
+        handler_match = any_def_match
+        origin = "decorated"
+      end
+
+      if handler_match
+        def_indent = handler_match[1]
+        method_name = handler_match[2]
         body_end = find_block_end(lines, j + 1, def_indent)
         if body_end > j
           terminal_line_idx = find_terminal_line(lines, j + 1, body_end - 1)
@@ -134,7 +170,7 @@ class ControllerActionReturnsActionResultRule < ConventionRule
                 file_path: file_path,
                 line: terminal_line_idx + 1,
                 rule_name: rule_name,
-                message: "Controller action `#{class_name}##{method_name}` declares `: UI::ActionResult` but its terminal expression does not appear to return one. The dispatcher silently no-ops on Nil returns.",
+                message: handler_message(class_name, method_name, origin, kind: :terminal),
                 suggested_fix: "end with `navigate_to(...)`, `pop_navigation`, `render_current_screen`, `replace_root(...)`, `respond_with(view)`, or an explicit `UI::ActionResult::*` constructor"
               )
             end
@@ -143,7 +179,7 @@ class ControllerActionReturnsActionResultRule < ConventionRule
               file_path: file_path,
               line: j + 1,
               rule_name: rule_name,
-              message: "Controller action `#{class_name}##{method_name}` declares `: UI::ActionResult` but has an empty body.",
+              message: handler_message(class_name, method_name, origin, kind: :empty),
               suggested_fix: "return one of the controller helpers (e.g. `render_current_screen`)"
             )
           end
@@ -152,6 +188,18 @@ class ControllerActionReturnsActionResultRule < ConventionRule
       else
         j += 1
       end
+    end
+  end
+
+  private def handler_message(class_name : String, method_name : String, origin : String, kind : Symbol) : String
+    surface = origin == "typed" ? "declares `: UI::ActionResult`" : "is decorated with `action_handler :#{method_name}`"
+    case kind
+    when :terminal
+      "Controller action `#{class_name}##{method_name}` #{surface} but its terminal expression does not appear to return one. The dispatcher silently no-ops on Nil returns."
+    when :empty
+      "Controller action `#{class_name}##{method_name}` #{surface} but has an empty body."
+    else
+      "Controller action `#{class_name}##{method_name}` #{surface}."
     end
   end
 
