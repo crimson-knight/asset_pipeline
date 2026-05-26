@@ -45,7 +45,10 @@
 # The web request-hints reader is fully implemented because the web
 # target has a deterministic in-process source (HTTP headers).
 
-require "./view"
+# Phase 10B.2c iter 2 — Environment must load BEFORE `view.cr` because
+# `UI::RenderContext` (defined in view.cr) carries a `UI::Environment`
+# field. The forward dependency lives in `src/ui.cr`'s ordered
+# require list, not in this file.
 
 # Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI

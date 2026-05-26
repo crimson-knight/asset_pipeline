@@ -1481,6 +1481,17 @@ module UI
           el.add_style("display: none")
         end
 
+        # Phase 10B.2c iter 2 — emit the environment-adjusted duration
+        # so the client-side dismissal timer can honor reduce-motion.
+        # When `env.reduce_motion` is true, `effective_duration`
+        # returns 0.0 → the toast dismisses immediately (no fade /
+        # slide animation timer). When false, the host-configured
+        # duration passes through unchanged. Hosts driving the
+        # dismissal timer read `data-duration` (seconds, Float64).
+        el.set_attribute("data-component", "snackbar")
+        effective = view.effective_duration(@render_context.environment)
+        el.set_attribute("data-duration", effective.to_s)
+
         msg = Components::Elements::Span.new
         msg << view.message
         el.add_child(msg)

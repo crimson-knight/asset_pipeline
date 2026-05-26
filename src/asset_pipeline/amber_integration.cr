@@ -468,7 +468,14 @@ module UI
       view_tree = screen.build(ctx)
       renderer = UI::Web::Renderer.new
       renderer.design_tokens = ctx.design_tokens
-      render_context = UI::RenderContext.new(csrf_token: ctx.csrf_token)
+      # Phase 10B.2c iter 2 — thread the ScreenContext's environment
+      # onto the RenderContext so renderer-side visit methods (e.g.
+      # the Snackbar's effective_duration → data-duration emit) can
+      # honor user accessibility preferences at render time.
+      render_context = UI::RenderContext.new(
+        csrf_token: ctx.csrf_token,
+        environment: ctx.environment,
+      )
       html = renderer.render(view_tree, render_context: render_context)
       @screen_html = html
       html

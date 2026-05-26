@@ -163,6 +163,16 @@
       # per renderer lifetime (no harm in repeating, but no benefit either).
       @swiftkit_action_trampoline_installed : Bool = false
 
+      # Phase 10B.2c iter 2 — environment-driven render reactivity.
+      # Hosts set this via `renderer.environment = UI::Environment.from_appkit(...)`
+      # at boot or per-frame; default is the conservative baseline.
+      # macOS-native snackbars are static NSTextField overlays — they
+      # do not own a dismiss timer at the renderer layer; host code
+      # drives presentation. The environment is still threaded so
+      # `view.effective_duration(@environment)` is available to host
+      # code that queries it for its own dismiss scheduling.
+      property environment : UI::Environment = UI::Environment.default
+
       def initialize
         @stack = [] of NativeView
         @stack_is_nsstack = [] of Bool
@@ -1771,6 +1781,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
       # -----------------------------------------------------------------
       # Visit: Snackbar -> NSView (toast-style overlay)
+      #
+      # Phase 10B.2c iter 2 — macOS snackbars are static NSTextField
+      # overlays at the renderer layer; the dismiss timer is owned by
+      # host code (the macOS HIG variant typically uses NSAlert or
+      # NSToast wrapped in an NSWindow with a sheet-style timer the
+      # host installs). The view's `effective_duration(@environment)`
+      # is the canonical source of truth — host code reads it from
+      # the renderer's environment when scheduling its own dismiss.
+      # The visit method itself does not own the timer.
       # -----------------------------------------------------------------
       def visit(view : UI::Snackbar)
         ptr = alloc_init("NSTextField")

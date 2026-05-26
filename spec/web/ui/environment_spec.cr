@@ -398,3 +398,72 @@ describe "UI::Snackbar#effective_duration — reactivity proof (Phase 10B.2c)" d
     )
   end
 end
+
+# Phase 10B.2c iter 2 — Codex Finding 2 remediation. The end-to-end
+# reactivity proof: one Snackbar view, two `UI::RenderContext`s that
+# differ only in their `environment`, rendered through the actual web
+# renderer — the emitted HTML must differ in the `data-duration`
+# attribute. This proves the full chain:
+#
+#   ScreenContext.environment
+#     → RenderContext.environment (compute_screen_html threads it)
+#     → renderer @render_context.environment
+#     → view.effective_duration(env)
+#     → data-duration attribute on the rendered element
+#
+# A unit-only test on `effective_duration` is insufficient because the
+# renderer could ignore the helper entirely; only an end-to-end render
+# assertion proves the renderer actually consumes the environment.
+describe "UI::Snackbar end-to-end reactivity through Web::Renderer (Phase 10B.2c iter 2)" do
+  it "renders different data-duration when env.reduce_motion flips" do
+    snack = UI::Snackbar.new("Saved")
+    snack.duration = 4.0
+    snack.is_presented = true
+
+    renderer_default = UI::Web::Renderer.new
+    html_default = renderer_default.render(
+      snack,
+      render_context: UI::RenderContext.new(
+        csrf_token: nil,
+        environment: UI::Environment.default,
+      ),
+    )
+
+    renderer_reduce = UI::Web::Renderer.new
+    html_reduce = renderer_reduce.render(
+      snack,
+      render_context: UI::RenderContext.new(
+        csrf_token: nil,
+        environment: UI::Environment.new(reduce_motion: true),
+      ),
+    )
+
+    # Both renders produce snackbar markup.
+    html_default.should contain(%(data-component="snackbar"))
+    html_reduce.should contain(%(data-component="snackbar"))
+
+    # Default env honors the configured duration.
+    html_default.should contain(%(data-duration="4.0"))
+
+    # Reduce-motion env collapses the duration to 0.0 — the visible
+    # proof that environment threads end-to-end into the rendered HTML.
+    html_reduce.should contain(%(data-duration="0.0"))
+
+    # And the two outputs are genuinely different.
+    html_default.should_not eq(html_reduce)
+  end
+
+  it "RenderContext.empty defaults environment to the conservative baseline" do
+    ctx = UI::RenderContext.empty
+    ctx.environment.reduce_motion.should be_false
+    ctx.environment.color_scheme.should eq(:light)
+  end
+
+  it "RenderContext carries the environment when constructed explicitly" do
+    env = UI::Environment.accessibility_active
+    ctx = UI::RenderContext.new(csrf_token: "abc", environment: env)
+    ctx.environment.reduce_motion.should be_true
+    ctx.environment.color_scheme.should eq(:high_contrast)
+    ctx.csrf_token.should eq("abc")
+  end
+end

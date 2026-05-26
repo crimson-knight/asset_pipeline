@@ -1,6 +1,8 @@
 require "./ui/fluid"
-require "./ui/view"
+# Phase 10B.2c iter 2 — `UI::Environment` is referenced from
+# `UI::RenderContext` (in `view.cr`), so it must load BEFORE `view.cr`.
 require "./ui/environment"
+require "./ui/view"
 require "./ui/form_state"
 require "./ui/navigation_coordinator"
 require "./ui/app_shortcuts"
