@@ -61,19 +61,23 @@ module UI
     def initialize(@items : Array(Item) = [] of Item)
     end
 
+    # Appends an item and returns the newly-created item.
     def add_item(item : Item) : self
       @items << item
       self
     end
 
+    # Returns the number of columns currently configured.
     def column_count : Int32
       count_visible_columns(@items, 0)
     end
 
+    # Returns the number of items currently configured.
     def item_count : Int32
       count_items(@items)
     end
 
+    # Returns the selected path component string (or nil if no selection).
     def selected_path : Array(Int32)
       path = [] of Int32
       current_items = @items
@@ -96,6 +100,7 @@ module UI
       path
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       stack = UI::HStack.new(spacing: column_spacing, alignment: UI::Alignment::Top)
       build_column_chain(stack, @items, 0)

@@ -52,10 +52,12 @@ module UI
     def initialize(@label : String)
     end
 
+    # Appends an item and returns the newly-created item.
     def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, &block : -> Nil)
       @items << MenuItem.new(label: label, icon: icon, is_destructive: is_destructive, action: block)
     end
 
+    # Appends an item and returns the newly-created item.
     def add_item(label : String, icon : String? = nil, is_destructive : Bool = false)
       @items << MenuItem.new(label: label, icon: icon, is_destructive: is_destructive)
     end

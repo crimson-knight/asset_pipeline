@@ -30,6 +30,7 @@ require "../view"
       def initialize
       end
 
+      # Appends an item and returns the newly-created item.
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false, &block : -> Nil)
         @items << Item.new(
           label: label,
@@ -40,6 +41,7 @@ require "../view"
         )
       end
 
+      # Appends an item and returns the newly-created item.
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false)
         @items << Item.new(
           label: label,

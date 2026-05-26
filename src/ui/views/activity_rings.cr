@@ -41,18 +41,22 @@ module UI
     )
     end
 
+    # Returns the move ring's completion fraction in `0.0..1.0`.
     def move_fraction : Float64
       normalized_fraction(move)
     end
 
+    # Returns the exercise ring's completion fraction in `0.0..1.0`.
     def exercise_fraction : Float64
       normalized_fraction(exercise)
     end
 
+    # Returns the stand ring's completion fraction in `0.0..1.0`.
     def stand_fraction : Float64
       normalized_fraction(stand)
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       stage = UI::ZStack.new(UI::Alignment::Center)
       stage.minimum_width = size

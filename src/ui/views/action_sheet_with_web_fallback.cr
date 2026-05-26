@@ -44,11 +44,13 @@ module UI
         @inner = UI::ActionSheet.new(@title, @message)
       end
 
+      # Appends an action affordance and returns the newly-created action.
       def add_action(label : String, style : Symbol = :default, &block : -> Nil)
         @actions << Action.new(label: label, style: style, action: block)
         @inner.add_action(label, style, &block)
       end
 
+      # Appends an action affordance and returns the newly-created action.
       def add_action(label : String, style : Symbol = :default)
         @actions << Action.new(label: label, style: style)
         @inner.add_action(label, style)
@@ -64,10 +66,12 @@ module UI
       def initialize(@title : String = "", @message : String = "")
       end
 
+      # Appends an action affordance and returns the newly-created action.
       def add_action(label : String, style : Symbol = :default, &block : -> Nil)
         @actions << Action.new(label: label, style: style, action: block)
       end
 
+      # Appends an action affordance and returns the newly-created action.
       def add_action(label : String, style : Symbol = :default)
         @actions << Action.new(label: label, style: style)
       end

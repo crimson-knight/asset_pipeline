@@ -51,15 +51,18 @@ module UI
     )
     end
 
+    # Appends an action affordance and returns the newly-created action.
     def add_action(action : Button) : self
       @actions << action
       self
     end
 
+    # Returns the number of actions currently attached.
     def action_count : Int32
       @actions.size.to_i32
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       body = UI::VStack.new(spacing: body_spacing, alignment: UI::Alignment::Fill)
       body << build_header.as(UI::View)

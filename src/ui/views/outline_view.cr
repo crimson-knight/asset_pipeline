@@ -57,15 +57,18 @@ module UI
     def initialize(@roots : Array(Node) = [] of Node)
     end
 
+    # Appends a root node and returns the newly-created node.
     def add_root(node : Node) : self
       @roots << node
       self
     end
 
+    # Returns the number of nodes currently configured.
     def node_count : Int32
       count_nodes(@roots)
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       stack = UI::VStack.new(spacing: row_spacing, alignment: UI::Alignment::Fill)
       roots.each do |node|

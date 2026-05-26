@@ -79,11 +79,13 @@ module UI
     def initialize(@sheet : Sheet)
     end
 
+    # Presents the overlay / modal.
     def present
       @is_presenting = true
       @sheet.is_presented = true
     end
 
+    # Dismisses the overlay / modal.
     def dismiss
       @is_presenting = false
       @sheet.is_presented = false

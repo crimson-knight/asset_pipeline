@@ -47,6 +47,7 @@ module UI
       !@image_source.nil? && !@image_source.not_nil!.empty?
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       body = UI::VStack.new(spacing: 8.0, alignment: UI::Alignment::Fill)
 

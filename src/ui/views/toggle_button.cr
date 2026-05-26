@@ -23,6 +23,7 @@ module UI
       @on_toggle = block
     end
 
+    # Flips the control's on / off state.
     def toggle
       @is_selected = !@is_selected
     end

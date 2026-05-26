@@ -21,6 +21,7 @@ module UI
       @on_change = block
     end
 
+    # Returns the selected segment label (or nil if no valid selection).
     def selected_segment : String?
       if selected_index >= 0 && selected_index < segments.size
         segments[selected_index]

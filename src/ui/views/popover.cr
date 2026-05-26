@@ -48,11 +48,13 @@ module UI
     def initialize(@popover : Popover, @anchor : View? = nil)
     end
 
+    # Presents the overlay / modal.
     def present
       @is_presenting = true
       @popover.is_presented = true
     end
 
+    # Dismisses the overlay / modal.
     def dismiss
       @is_presenting = false
       @popover.is_presented = false

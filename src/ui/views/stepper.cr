@@ -29,6 +29,7 @@ module UI
       @on_change = block
     end
 
+    # Increases the value by `step_value`, clamping or wrapping per `wraps`.
     def increment
       new_val = @value + @step_value
       if new_val > @maximum
@@ -38,6 +39,7 @@ module UI
       end
     end
 
+    # Decreases the value by `step_value`, clamping or wrapping per `wraps`.
     def decrement
       new_val = @value - @step_value
       if new_val < @minimum

@@ -60,16 +60,19 @@ module UI
     )
     end
 
+    # Returns the value normalized into `0.0..1.0` against `minimum`..`maximum`.
     def normalized_value : Float64
       return minimum_value if maximum_value <= minimum_value
       clamped_value
     end
 
+    # Returns the overall progress fraction in `0.0..1.0`.
     def progress_fraction : Float64
       return 0.0 if maximum_value <= minimum_value
       (clamped_value - minimum_value) / (maximum_value - minimum_value)
     end
 
+    # Returns the user-facing formatted value string.
     def display_value : String
       rounded = normalized_value.round(value_precision)
       text = value_precision <= 0 ? rounded.to_i.to_s : rounded.to_s
@@ -80,6 +83,7 @@ module UI
       end
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       body = UI::VStack.new(spacing: 8.0, alignment: UI::Alignment::Fill)
 

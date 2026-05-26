@@ -108,11 +108,13 @@ module UI
     def initialize(@activity_view : ActivityView)
     end
 
+    # Presents the overlay / modal.
     def present
       @is_presenting = true
       @activity_view.is_presented = true
     end
 
+    # Dismisses the overlay / modal.
     def dismiss
       @is_presenting = false
       @activity_view.is_presented = false

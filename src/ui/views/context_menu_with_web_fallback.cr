@@ -46,6 +46,7 @@ module UI
         @inner = UI::ContextMenu.new
       end
 
+      # Appends an item and returns the newly-created item.
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false, &block : -> Nil)
         @items << Item.new(
           label: label, icon: icon,
@@ -55,6 +56,7 @@ module UI
         @inner.add_item(label, icon, is_destructive, is_disabled, &block)
       end
 
+      # Appends an item and returns the newly-created item.
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false)
         @items << Item.new(
           label: label, icon: icon,
@@ -75,6 +77,7 @@ module UI
       def initialize(@trigger : View? = nil)
       end
 
+      # Appends an item and returns the newly-created item.
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false, &block : -> Nil)
         @items << Item.new(
           label: label, icon: icon,
@@ -83,6 +86,7 @@ module UI
         )
       end
 
+      # Appends an item and returns the newly-created item.
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false)
         @items << Item.new(
           label: label, icon: icon,

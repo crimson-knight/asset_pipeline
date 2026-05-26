@@ -58,11 +58,13 @@ module UI
     def initialize(@snackbar : Snackbar)
     end
 
+    # Renders the overlay / modal in the visible state.
     def show
       @is_presenting = true
       @snackbar.is_presented = true
     end
 
+    # Dismisses the overlay / modal.
     def dismiss
       @is_presenting = false
       @snackbar.is_presented = false

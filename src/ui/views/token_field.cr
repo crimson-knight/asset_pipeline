@@ -65,21 +65,25 @@ module UI
     )
     end
 
+    # Appends a token and returns the newly-created token.
     def add_token(token : Token) : self
       @tokens << token
       self
     end
 
+    # Returns the number of tokens currently configured.
     def token_count : Int32
       @tokens.size.to_i32
     end
 
+    # Returns every token currently in the selected set.
     def selected_tokens : Array(Token)
       @selected_indexes.compact_map do |index|
         @tokens[index]?
       end
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       card_body = UI::VStack.new(spacing: row_spacing, alignment: UI::Alignment::Fill)
 

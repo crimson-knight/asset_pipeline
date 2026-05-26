@@ -40,18 +40,22 @@ module UI
     def initialize(@width : Float64 = 100.0, @height : Float64 = 100.0)
     end
 
+    # Moves the cursor to `(x, y)` without drawing.
     def move_to(x : Float64, y : Float64)
       @segments << PathSegment.new(command: PathCommand::MoveTo, x: x, y: y)
     end
 
+    # Draws a line from the current cursor to `(x, y)`.
     def line_to(x : Float64, y : Float64)
       @segments << PathSegment.new(command: PathCommand::LineTo, x: x, y: y)
     end
 
+    # Draws a curve from the current cursor to the destination.
     def curve_to(x : Float64, y : Float64, cx1 : Float64, cy1 : Float64, cx2 : Float64, cy2 : Float64)
       @segments << PathSegment.new(command: PathCommand::CurveTo, x: x, y: y, control_x1: cx1, control_y1: cy1, control_x2: cx2, control_y2: cy2)
     end
 
+    # Closes the overlay / modal.
     def close
       @segments << PathSegment.new(command: PathCommand::Close)
     end

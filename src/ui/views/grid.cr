@@ -35,10 +35,12 @@ module UI
       @children << row
     end
 
+    # Returns the number of rows currently configured.
     def row_count : Int32
       @children.size
     end
 
+    # Returns the number of columns currently configured.
     def column_count : Int32
       columns.empty? ? (@children.first?.try(&.size) || 0) : columns.size
     end

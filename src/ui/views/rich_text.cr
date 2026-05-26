@@ -24,10 +24,12 @@ module UI
     def initialize
     end
 
+    # Appends a styled span to the rich-text run.
     def add_span(text : String, bold : Bool = false, italic : Bool = false, color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0))
       @spans << Span.new(text: text, bold: bold, italic: italic, color: color)
     end
 
+    # Returns the unstyled plain-text content.
     def plain_text : String
       spans.map(&.text).join
     end

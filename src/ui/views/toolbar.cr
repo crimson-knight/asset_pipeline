@@ -28,10 +28,12 @@ module UI
     def initialize(@title : String? = nil)
     end
 
+    # Appends an item and returns the newly-created item.
     def add_item(id : String, label : String, icon : String? = nil, &block : -> Nil)
       @items << ToolbarItem.new(id: id, label: label, icon: icon, action: block)
     end
 
+    # Appends an item and returns the newly-created item.
     def add_item(id : String, label : String, icon : String? = nil)
       @items << ToolbarItem.new(id: id, label: label, icon: icon)
     end

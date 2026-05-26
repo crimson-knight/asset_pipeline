@@ -78,6 +78,7 @@ module UI
       @items << Toolbar::ToolbarItem.new(id: id, label: label, icon: icon, action: block)
     end
 
+    # Appends an item and returns the newly-created item.
     def add_item(id : String, label : String, icon : String? = nil)
       @items << Toolbar::ToolbarItem.new(id: id, label: label, icon: icon)
     end
