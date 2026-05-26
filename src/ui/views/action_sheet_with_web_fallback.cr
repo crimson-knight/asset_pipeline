@@ -1,8 +1,12 @@
+# Tier-3 action sheet with a web-compatible fallback rendering on non-iOS targets.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 {% if flag?(:ios) %}
   require "./action_sheet"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Cross-platform companion to the iOS-only UI::ActionSheet.
   #

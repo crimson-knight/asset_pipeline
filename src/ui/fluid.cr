@@ -1,3 +1,6 @@
+# Responsive sizing value (`Fluid(min, ideal, max)`) that translates to CSS
+# `clamp(...)` on web and to platform-idiomatic size-class behavior on native.
+
 module UI
   # Responsive sizing value. Translates to `clamp(min, ideal, max)` on web,
   # and to the platform's idiomatic size class behavior on Apple/Android

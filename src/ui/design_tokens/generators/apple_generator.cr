@@ -1,3 +1,6 @@
+# Emits a deterministic Swift source file (AssetPipelineTokens.swift) from a
+# UI::DesignTokens::Tokens instance, consumed by the Apple SwiftUI bridge.
+
 require "../../design_tokens"
 
 module UI

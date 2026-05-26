@@ -1,6 +1,11 @@
+# Multi-line plain-text input field.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # TextArea — Multi-line plain-text input field.
   class TextArea < View
     property text : String = ""
     property placeholder : String = ""

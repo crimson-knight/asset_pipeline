@@ -1,5 +1,9 @@
+# Compact icon-only button used for toolbar and inline actions.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A button that displays an icon (system symbol or image name) instead of text.
   class IconButton < View

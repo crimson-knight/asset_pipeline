@@ -1,3 +1,6 @@
+# Material-Design-3-flavoured `ThemeColor` and Apple `LabelRole` types that bridge
+# the design-token system to the legacy MD3 CSS emitter and native dynamic colors.
+
 require "./design_tokens"
 require "../components/css/tokens/amber_theme"
 

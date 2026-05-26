@@ -1,5 +1,10 @@
+# Horizontal star-row rating control. AppKit maps to NSLevelIndicator's rating
+# style; UIKit synthesises a UIStackView of SF Symbol "star.fill" / "star"
+# UIImageViews tinted with the resolved color.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A horizontal row of star symbols communicating a ranking level.
   #

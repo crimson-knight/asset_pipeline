@@ -1,3 +1,6 @@
+# Wraps a raw `Void*` pointer to a platform-native object with explicit ownership
+# semantics carried by a `ReleaseStrategy`. The substrate of all native handles.
+
 require "./release_strategy"
 require "./lib_objc_runtime"
 {% if flag?(:macos) || flag?(:ios) %}

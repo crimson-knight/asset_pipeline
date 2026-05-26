@@ -1,3 +1,6 @@
+# Crystal models for UserNotifications authorization status and request payloads.
+# Export-only: a host adapter performs the actual UNUserNotificationCenter calls.
+
 require "json"
 
 module UI

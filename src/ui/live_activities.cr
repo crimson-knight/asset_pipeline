@@ -1,3 +1,6 @@
+# Crystal model for ActivityKit-style Live Activity update intents. Export-only:
+# captures the update payload for a host or build step without rendering in-app.
+
 require "json"
 
 module UI

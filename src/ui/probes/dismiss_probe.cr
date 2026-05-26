@@ -1,3 +1,6 @@
+# Phase 3 BX8 dismiss-path probe. Records which sheet dismiss path (primary,
+# cancel, swipe, backdrop, escape) fired so AXTest / XCUITest can assert it.
+
 require "./probe_store"
 
 module UI::Probes

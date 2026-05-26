@@ -1,6 +1,11 @@
+# Rectangular primitive with configurable corner radius.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # RoundedRectangle — Rectangular primitive with configurable corner radius.
   class RoundedRectangle < View
     property fill_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
     property stroke_color : Color? = nil

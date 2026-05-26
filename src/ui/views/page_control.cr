@@ -1,5 +1,9 @@
+# Horizontal page-indicator dots commonly used under paged scroll views.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A horizontal row of dot indicators showing position in a paged list.
   #

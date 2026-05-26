@@ -1,3 +1,6 @@
+# Android platform renderer. Walks a UI::View tree and produces a native Android
+# View hierarchy via JNI bridge calls (LinearLayout, TextView, MaterialButton, ...).
+
 {% if flag?(:android) %}
 require "../platform_visitor"
 require "../native/native_handle"

@@ -1,3 +1,6 @@
+# DocumentScene — Phase 6 validation builder. Produces a UI::View tree of a
+# document-style text + toolbar layout for renderer captures.
+
 require "../view"
 require "../views/label"
 require "../views/button"

@@ -1,3 +1,6 @@
+# Synthesizes keyboard events via CGEvent for AXTest harnesses. Posts clean
+# key-down/key-up pairs to the frontmost app; requires Accessibility permission.
+
 {% if flag?(:macos) %}
 
 require "./ax_ffi"

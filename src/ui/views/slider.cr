@@ -1,9 +1,14 @@
+# Continuous-value slider control with configurable range and step.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 {% if flag?(:macos) || flag?(:ios) %}
   require "../native/swiftkit_bridge"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Slider — Continuous-value slider control with configurable range and step.
   class Slider < View
     getter value : Float64 = 0.0
 

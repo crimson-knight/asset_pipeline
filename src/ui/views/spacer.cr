@@ -1,5 +1,9 @@
+# Layout-only view that expands to fill remaining space along a stack's axis.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A flexible space that expands to fill available room in a stack.
   #

@@ -1,3 +1,6 @@
+# macOS / AppKit platform renderer. Walks a UI::View tree and produces a native
+# NSView hierarchy (NSStackView, NSButton, NSTextField, NSVisualEffectView, ...).
+
 {% if flag?(:macos) %}
   require "../platform_visitor"
   require "../native/native_handle"

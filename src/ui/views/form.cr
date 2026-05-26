@@ -1,5 +1,9 @@
+# Container that groups input controls into sections with HIG-conformant spacing.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A form view. Two usage modes co-exist:
   #

@@ -1,9 +1,14 @@
+# On / off toggle switch with optional label.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 {% if flag?(:macos) || flag?(:ios) %}
   require "../native/swiftkit_bridge"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Toggle — On / off toggle switch with optional label.
   class Toggle < View
     getter is_on : Bool = false
 

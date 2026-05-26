@@ -45,8 +45,156 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------
-  # Build jobs — run in parallel, one per target platform.
-  # Each emits artifacts that the downstream audit jobs consume.
+  # Phase 10C.0 spec-lane jobs.
+  #
+  # Brief §4 line 140-144 split:
+  #   * `make test-web` runs the default web spec lane (Linux runner —
+  #     plain `crystal spec`, no native deps, fastest CI path).
+  #   * `make test-web` also runs on macos-14 to confirm Makefile
+  #     compatibility with BSD make + macOS toolchain.
+  #   * `make test-macos` runs the macOS native spec lane under
+  #     spec/native_macos/ (macos-14 only — needs ObjC bridge + AppKit).
+  #   * `make test-ios` and `make test-android` are placeholders today
+  #     (`continue-on-error: true`) — see
+  #     docs/initiative-cross-platform-ui/native-compile-matrix.md.
+  #   * `lint` runs Phase 10A.0a's convention rule runner
+  #     (`scripts/lint_conventions.cr`). The runner ships with phase-10-a-0a
+  #     which is merged onto phase-10-c-0 in iter 2.
+  # ---------------------------------------------------------------------
+  lint:
+    name: Lint (convention rules)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+
+      - name: make lint
+        run: make lint
+
+  test-web-linux:
+    name: Spec lane (web, Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Crystal shards
+        uses: actions/cache@v4
+        with:
+          path: lib
+          key: crystal-shards-${{ runner.os }}-${{ hashFiles('shard.lock', 'shard.yml') }}
+          restore-keys: |
+            crystal-shards-${{ runner.os }}-
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+
+      - name: Shards install
+        run: |
+          if [ -f shard.yml ]; then shards install; fi
+
+      - name: make test-web
+        run: make test-web
+
+  test-web-macos:
+    name: Spec lane (web, macOS)
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Crystal shards
+        uses: actions/cache@v4
+        with:
+          path: lib
+          key: crystal-shards-${{ runner.os }}-${{ hashFiles('shard.lock', 'shard.yml') }}
+          restore-keys: |
+            crystal-shards-${{ runner.os }}-
+
+      - name: Install crystal-alpha (Homebrew tap)
+        run: |
+          brew tap crimson-knight/agent-crystal
+          brew install crimson-knight/agent-crystal/agent-crystal
+
+      - name: Shards install
+        run: |
+          if [ -f shard.yml ]; then shards install; fi
+
+      - name: make test-web
+        run: make test-web
+
+  test-macos:
+    name: Spec lane (macOS native)
+    runs-on: macos-14
+    timeout-minutes: 25
+    # Phase 10C.0 native compile matrix reports macOS test-macos as
+    # `attempted-blocked` (two distinct blockers — see
+    # native-compile-matrix.md). Until the C collection bridge is
+    # implemented and the spec-entry require pattern is settled in
+    # downstream tooling, this job must not fail the workflow.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Crystal shards
+        uses: actions/cache@v4
+        with:
+          path: lib
+          key: crystal-shards-${{ runner.os }}-${{ hashFiles('shard.lock', 'shard.yml') }}
+          restore-keys: |
+            crystal-shards-${{ runner.os }}-
+
+      - name: Cache Swift .build
+        uses: actions/cache@v4
+        with:
+          path: swift/AssetPipelineSwiftKit/.build
+          key: swift-build-${{ runner.os }}-${{ hashFiles('swift/AssetPipelineSwiftKit/Package.resolved', 'swift/AssetPipelineSwiftKit/Package.swift') }}
+          restore-keys: |
+            swift-build-${{ runner.os }}-
+
+      - name: Install crystal-alpha (Homebrew tap)
+        run: |
+          brew tap crimson-knight/agent-crystal
+          brew install crimson-knight/agent-crystal/agent-crystal
+
+      - name: Shards install
+        run: |
+          if [ -f shard.yml ]; then shards install; fi
+
+      - name: make test-macos
+        run: make test-macos
+
+  test-ios:
+    name: Spec lane (iOS native)
+    runs-on: macos-14
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: make test-ios (placeholder)
+        run: make test-ios
+
+  test-android:
+    name: Spec lane (Android native)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: make test-android (placeholder)
+        run: make test-android
+
+  # ---------------------------------------------------------------------
+  # Demo-build + visual-audit jobs (Phase 6.5+) — unchanged.
   # ---------------------------------------------------------------------
   build-web:
     name: Build (web demo)

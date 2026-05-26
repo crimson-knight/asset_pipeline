@@ -1,5 +1,9 @@
+# Multi-column information list view (macOS NSTableView column layout).
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A Finder-style column browser made of nested item columns.
   #

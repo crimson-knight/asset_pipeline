@@ -1,3 +1,6 @@
+# Phase 3 BX3 toggle-value probe. Mirrors the most recent Toggle on_change Bool
+# into a store entry that an adjacent Label reads at render time.
+
 require "./probe_store"
 
 module UI::Probes

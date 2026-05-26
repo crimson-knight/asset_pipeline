@@ -1,3 +1,6 @@
+# Factory methods that produce NativeHandle instances wrapping ObjC objects,
+# encoding the correct ReleaseStrategy (owned / borrowed / autoreleased).
+
 require "./native_handle"
 
 module UI

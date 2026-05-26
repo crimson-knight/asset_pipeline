@@ -1,3 +1,6 @@
+# Phase 3 BX1/BX2 button-tap probe. Increments a counter on each on_tap and
+# exposes it via a mirror Label so XCUITest / AXTest can assert the transitions.
+
 require "./probe_store"
 
 module UI::Probes

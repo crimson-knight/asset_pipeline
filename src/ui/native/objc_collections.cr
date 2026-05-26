@@ -1,3 +1,6 @@
+# Crystal wrappers for the ObjC collection bridge (NSArray / NSDictionary).
+# Provides type-safe construction and access from Crystal on Apple targets.
+
 {% if flag?(:macos) || flag?(:ios) %}
   # Crystal wrappers for Objective-C collection bridge operations.
   #

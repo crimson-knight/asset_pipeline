@@ -1,5 +1,9 @@
+# Native share / activity sheet for exporting content to other apps.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Struct representing a share destination in the horizontal destination row.
   # HIG: "Activity views present sharing activities like messaging and actions
@@ -90,6 +94,7 @@ module UI
     end
   end
 
+  # Presentation state for an ActivityView share sheet.
   class ActivityViewPresenter
     property activity_view : ActivityView
     property is_presenting : Bool = false

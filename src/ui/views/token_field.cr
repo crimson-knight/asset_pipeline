@@ -1,5 +1,9 @@
+# Multi-value tokenized text field (e.g. recipient field in a mail app).
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A pill-style token entry field with optional labeling.
   #

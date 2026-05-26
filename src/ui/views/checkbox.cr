@@ -1,6 +1,11 @@
+# Two-state checkbox control with a leading label.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Checkbox — Two-state checkbox control with a leading label.
   class Checkbox < View
     property is_checked : Bool = false
     property label : String = ""

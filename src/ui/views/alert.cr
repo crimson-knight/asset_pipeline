@@ -1,5 +1,9 @@
+# Modal alert dialog used to confirm critical information or destructive actions.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A modal alert dialog with title, message, and action buttons.
   class Alert < View

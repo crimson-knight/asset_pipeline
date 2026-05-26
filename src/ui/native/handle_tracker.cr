@@ -1,3 +1,6 @@
+# Debug-only handle tracker that monitors NativeHandle lifetimes when
+# `-Dui_debug` is set. Eliminated at compile time in release builds.
+
 module UI
   # Debug-only handle tracker that monitors `NativeHandle` lifetimes.
   #

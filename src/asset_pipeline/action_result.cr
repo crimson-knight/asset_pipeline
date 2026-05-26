@@ -11,7 +11,9 @@
 
 require "../ui"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Abstract base for the ActionResult type hierarchy returned from UI::Controller action methods.
   abstract class ActionResult
     # Navigate to a new route, pushing it on the navigation stack.
     class Navigate < ActionResult

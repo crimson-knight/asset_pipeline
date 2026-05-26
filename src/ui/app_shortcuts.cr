@@ -1,3 +1,7 @@
+# Crystal model for Apple App Shortcuts (AppIntents) metadata. Export-only:
+# captures the shortcut intent so host tooling can register it with the OS,
+# without pretending to render the shortcut UI in-app.
+
 require "json"
 
 module UI

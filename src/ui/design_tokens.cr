@@ -1,6 +1,10 @@
+# Tier-1 brand-token contract: semantic colors, spacing, typography, and motion scales.
+# Part of the asset_pipeline cross-platform UI surface.
+
 require "./design_tokens/conversion"
 require "./design_tokens/material"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Unified design-token model. This is the single source of truth for all
   # Tier 1 brand decisions in the asset_pipeline cross-platform UI system.

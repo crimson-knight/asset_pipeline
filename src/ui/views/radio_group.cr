@@ -1,6 +1,11 @@
+# Group of mutually exclusive radio buttons with a shared selection.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # RadioGroup — Group of mutually exclusive radio buttons with a shared selection.
   class RadioGroup < View
     property options : Array(String) = [] of String
     property selected_index : Int32 = 0

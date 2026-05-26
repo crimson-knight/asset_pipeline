@@ -1,8 +1,12 @@
+# Tappable button with HIG-conformant styling for primary, secondary, and tinted roles.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 {% if flag?(:macos) || flag?(:ios) %}
   require "../native/swiftkit_bridge"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Visual presentation style for UI::Button.
   #

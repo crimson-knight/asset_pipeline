@@ -1,3 +1,6 @@
+# Thread-unsafe key/value store keyed by string identifiers, backing all
+# Phase 3 behavior probes. Probe singletons write into it; mirror labels read.
+
 module UI::Probes
   # ProbeStore — a thread-unsafe key/value store keyed by string identifiers.
   #

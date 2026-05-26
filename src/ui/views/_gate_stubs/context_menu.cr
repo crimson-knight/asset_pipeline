@@ -6,6 +6,7 @@
 # `flag?(:ios)` is set — see `src/ui/views/context_menu.cr` for the gate.
 
 module UI
+  # Long-press / right-click contextual menu attached to a host view (Apple-family only).
   class ContextMenu
     macro new(*args, **kwargs)
       {% raise <<-MSG

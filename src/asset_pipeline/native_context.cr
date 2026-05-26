@@ -38,6 +38,7 @@ require "../ui"
 require "../ui/form_state"
 require "./amber_integration"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
 
   # Abstract per-app key / value store. Web concrete impls wrap Amber's

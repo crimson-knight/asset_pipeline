@@ -1,3 +1,6 @@
+# DashboardScene — Phase 6 validation builder. Produces a UI::View tree of a
+# dashboard with stat cards, charts, and a sheet for renderer captures.
+
 require "../view"
 require "../views/label"
 require "../views/button"

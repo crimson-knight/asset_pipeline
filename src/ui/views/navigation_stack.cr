@@ -1,5 +1,9 @@
+# Push/pop navigation container hosting a sequence of screens.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A navigation container that manages a stack of views with push/pop transitions.
   #

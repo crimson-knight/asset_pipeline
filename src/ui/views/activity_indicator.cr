@@ -1,5 +1,9 @@
+# Indeterminate spinner indicating that work is in progress.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # An indeterminate activity/loading spinner.
   class ActivityIndicator < View

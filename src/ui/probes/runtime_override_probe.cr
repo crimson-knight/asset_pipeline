@@ -1,3 +1,6 @@
+# Phase 3 BX5 runtime-override probe. Backs the 'Make Red' trigger that mutates
+# a target view's background_color override at render time for the scene rebuild.
+
 require "./probe_store"
 
 module UI::Probes

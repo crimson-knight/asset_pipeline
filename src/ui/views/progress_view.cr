@@ -1,5 +1,9 @@
+# Determinate progress bar / circle for known-duration work.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A progress indicator showing determinate or indeterminate progress.
   class ProgressView < View
