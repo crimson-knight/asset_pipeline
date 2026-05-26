@@ -84,5 +84,14 @@ module UI
     def default_accessibility_role : Symbol?
       :none
     end
+
+    # Phase 10B.2b — Inspector is a structural container; focus belongs
+    # to its primary and pane children individually, not the wrapper.
+    # The renderer-emitted `<aside role="complementary">` already gives
+    # AT users a landmark to jump to, so the wrapper itself does not
+    # need to be in the tab order.
+    def default_focusable : Bool
+      false
+    end
   end
 end

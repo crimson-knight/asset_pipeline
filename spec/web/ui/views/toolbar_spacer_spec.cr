@@ -20,6 +20,13 @@ describe UI::ToolbarSpacer do
     UI::ToolbarSpacer.new.default_accessibility_role.should eq :none
   end
 
+  it "is non-focusable by default (decorative chrome stays out of tab order)" do
+    # Phase 10B.4 iter 2 — a spacer is aria-hidden chrome; it must
+    # never enter the keyboard tab order. The default-focusable
+    # override keeps the resolver in agreement with the rendered ARIA.
+    UI::ToolbarSpacer.new.default_focusable.should be_false
+  end
+
   it "dispatches to the visitor via accept" do
     visitor = TestToolbarSpacerVisitor.new
     s = UI::ToolbarSpacer.new

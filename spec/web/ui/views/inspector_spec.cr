@@ -24,6 +24,12 @@ describe UI::Inspector do
     UI::Inspector.new.default_accessibility_role.should eq :none
   end
 
+  it "is non-focusable by default (focus lives on child content, not the wrapper)" do
+    # Phase 10B.4 iter 2 — Inspector is a structural container; the
+    # individual primary + pane children carry their own focusability.
+    UI::Inspector.new.default_focusable.should be_false
+  end
+
   it "dispatches to the visitor via accept" do
     visitor = TestInspectorVisitor.new
     insp = UI::Inspector.new

@@ -668,7 +668,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **web_equivalent:** Full-viewport modal overlay
 - **coverage_today:** partial (`src/ui/views/full_screen_cover.cr:50` — `class FullScreenCover < View` with `content`, `is_presented`, `on_dismiss`; visitor entry points at `src/ui/renderers/web_renderer.cr:3196` (fixed-inset overlay), `src/ui/renderers/uikit_renderer.cr:4087` (hidden-toggle UIView fallback), `src/ui/renderers/appkit_renderer.cr:3976` (hidden-toggle NSView fallback), `src/ui/renderers/android_renderer.cr:3318` (visibility-toggle FrameLayout). Full `UIViewController.modalPresentationStyle = .fullScreen` lifecycle deferred to SwiftKit facade follow-up.) # was: missing — Phase 10B.4 shipped widget class + 4 renderer visit methods + spec; native lifecycle wiring tracked under B-010 follow-up.
 - **crystal_api_shape:** `cover = UI::FullScreenCover.new(content); cover.is_presented = true`
-- **platforms:** ios, ipados, android; macos+web use sheets at appropriate size
+- **platforms:** ios, ipados, android (native modal); macos, web (fallback container with role=dialog)
 - **description:** Modal that takes the entire screen (no peek of the parent).
 
 ### `:popover`

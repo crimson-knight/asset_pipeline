@@ -67,5 +67,13 @@ module UI
     def default_accessibility_role : Symbol?
       :none
     end
+
+    # Phase 10B.2b — A spacer is decorative chrome (web emits
+    # `aria-hidden="true"`); it must never enter the keyboard tab
+    # order. Hard-set the default to false so the `effective_focusable`
+    # resolver agrees with the rendered ARIA contract.
+    def default_focusable : Bool
+      false
+    end
   end
 end

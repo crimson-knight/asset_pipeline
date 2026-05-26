@@ -92,5 +92,13 @@ module UI
     def default_accessibility_role : Symbol?
       :group
     end
+
+    # Phase 10B.2b — ToolbarItemGroup is a clustering wrapper; the
+    # individual items inside it are the focusable surfaces (each
+    # rendered as a `<button>` with its own intrinsic tab order). The
+    # group wrapper itself does not enter the tab order.
+    def default_focusable : Bool
+      false
+    end
   end
 end

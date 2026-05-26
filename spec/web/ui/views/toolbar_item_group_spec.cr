@@ -44,6 +44,12 @@ describe UI::ToolbarItemGroup do
     UI::ToolbarItemGroup.new.default_accessibility_role.should eq :group
   end
 
+  it "is non-focusable by default (items inside carry the tab stops)" do
+    # Phase 10B.4 iter 2 — the group wrapper is a clustering surface;
+    # the individual `<button>` items inside it own the tab order.
+    UI::ToolbarItemGroup.new.default_focusable.should be_false
+  end
+
   it "dispatches to the visitor via accept" do
     visitor = TestToolbarItemGroupVisitor.new
     g = UI::ToolbarItemGroup.new
