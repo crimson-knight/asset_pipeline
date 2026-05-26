@@ -52,6 +52,10 @@
       fun objc_send_rect(obj : Void*, sel : Void*, rect : CGRect) : Void*
       fun objc_send_rect_void(obj : Void*, sel : Void*, rect : CGRect) : Void
       fun objc_send_ret_bool(obj : Void*, sel : Void*) : Int32
+      # Phase 10B.2a iter 2 (Codex Finding 3) — guarded setEnabled: helper
+      # used to functionally disable NSControl-derived widgets when the
+      # `:not_enabled` accessibility trait is set. No-ops on plain NSViews.
+      fun ap_set_enabled_if_responds(obj : Void*, enabled : Int32) : Int32
 
       # --- Section 4: Convenience helpers ---
       fun nsstring_from_cstr(str : UInt8*) : Void*
@@ -4322,15 +4326,23 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         # Phase 10B.2a — Accessibility traits. AppKit doesn't have a
         # `traits` bitmask; it exposes a few selected setters
-        # (`setAccessibilitySelected:`, `setAccessibilityDisclosed:`,
-        # `setAccessibilityEnabled:`). Map the closest analogs; the rest
-        # fall through silently.
+        # (`setAccessibilitySelected:`, `setAccessibilityDisclosed:`).
+        # Map the closest analogs; the rest fall through silently.
+        #
+        # Iter 2 (Codex Finding 3): `:not_enabled` is the canonical
+        # disable trait. We now functionally disable the underlying
+        # NSControl (button, slider, popup, etc.) via setEnabled:NO.
+        # The bridge helper guards on respondsToSelector: so plain
+        # NSViews silently no-op. We also still flip the AX semantics
+        # via setAccessibilityElement:NO is NOT what we want — instead
+        # we let setEnabled:NO propagate through AppKit's automatic
+        # accessibility dimming.
         view.accessibility_traits.each do |trait|
           case trait
           when :selected
             LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilitySelected:"), 1)
           when :not_enabled
-            LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityEnabled:"), 0)
+            LibObjCBridge.ap_set_enabled_if_responds(ptr, 0)
           end
         end
 
@@ -4383,6 +4395,7 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         when :form         then "AXGroup"
         when :tooltip      then "AXHelpTag"
         when :status       then "AXGroup"
+        when :tab_panel    then "AXGroup" # tab content panel; the parent AXTabGroup owns selection
         when :none         then "AXUnknown"
         else                    nil
         end
