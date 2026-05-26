@@ -1,3 +1,6 @@
+# GalleryScene — Phase 6 validation builder. Produces a UI::View tree of an image
+# gallery grid composition for renderer captures.
+
 require "../view"
 require "../views/label"
 require "../views/button"

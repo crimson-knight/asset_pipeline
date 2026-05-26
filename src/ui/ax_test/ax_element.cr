@@ -1,3 +1,6 @@
+# Crystal wrapper around an AXUIElementRef. Reads accessibility attributes
+# (role, label, value, children) and performs actions (press, click, focus).
+
 {% if flag?(:macos) %}
 
 require "./ax_ffi"

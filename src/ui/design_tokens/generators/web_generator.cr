@@ -1,3 +1,6 @@
+# Emits a deterministic CSS file (web_tokens.css) of `--ap-*` custom properties
+# from a UI::DesignTokens::Tokens instance, consumed by the web renderer.
+
 require "../../design_tokens"
 
 module UI

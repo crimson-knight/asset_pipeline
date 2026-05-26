@@ -1,3 +1,6 @@
+# OKLCH <-> sRGB color-space conversion routines used by the design-token
+# engine. Deterministic and round-trip stable within documented tolerances.
+
 module UI
   module DesignTokens
     # OKLCH ↔ sRGB conversion based on Björn Ottosson's OKLab/OKLCH algorithm.

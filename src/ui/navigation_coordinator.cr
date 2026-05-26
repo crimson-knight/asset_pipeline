@@ -1,3 +1,6 @@
+# Reactive app-level navigation state. Owns the route stack plus on_change
+# callbacks that renderers subscribe to in order to rebuild the visible root.
+
 module UI
   # Reactive app-level navigation state.
   #

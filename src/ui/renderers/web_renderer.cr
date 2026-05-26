@@ -1,3 +1,6 @@
+# Web platform renderer. Walks a UI::View tree and produces HTML by delegating
+# to the Components::Elements system; accepts a per-request RenderContext.
+
 require "../platform_visitor"
 require "../../components"
 require "../design_tokens"

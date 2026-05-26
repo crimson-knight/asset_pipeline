@@ -1,3 +1,6 @@
+# Window configuration types (`WindowConfiguration`, `WindowSize`, titlebar style)
+# describing top-level windows for macOS / iPadOS renderers to materialize.
+
 module UI
   enum WindowTitlebarStyle
     Automatic

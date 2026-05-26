@@ -1,3 +1,6 @@
+# InboxScene — Phase 6 validation builder. Produces a UI::View tree of an email /
+# messaging inbox list-and-detail composition for renderer captures.
+
 require "../view"
 require "../views/label"
 require "../views/button"

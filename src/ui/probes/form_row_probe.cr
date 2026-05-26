@@ -1,3 +1,6 @@
+# Phase 3 BX6/BX7 form-row probe. Counts taps on a nested form-row button and
+# exposes the count via a mirror label that test harnesses can read.
+
 require "./probe_store"
 
 module UI::Probes

@@ -1,3 +1,6 @@
+# Crystal model for cross-platform widget placement metadata (surface, families,
+# timeline intent, refresh policy). Export-only — no in-app rendering implied.
+
 require "json"
 
 module UI

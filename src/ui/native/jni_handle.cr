@@ -1,3 +1,6 @@
+# Factory methods that produce NativeHandle instances wrapping JNI global refs,
+# encoding the correct ReleaseStrategy for cross-call lifetime management.
+
 require "./native_handle"
 
 module UI

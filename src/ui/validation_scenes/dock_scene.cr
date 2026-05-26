@@ -1,3 +1,6 @@
+# DockScene — Phase 6 validation builder. Produces a UI::View tree representing
+# a macOS-style dock strip of icon buttons for renderer captures.
+
 require "../view"
 require "../views/label"
 require "../views/image"

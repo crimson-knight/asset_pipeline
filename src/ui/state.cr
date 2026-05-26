@@ -1,3 +1,6 @@
+# Type-safe reactive state container (`UI::State(T)`). Notifies registered
+# listeners on value change (equality-checked) and underpins controlled inputs.
+
 module UI
   # Type-safe reactive state container.
   #

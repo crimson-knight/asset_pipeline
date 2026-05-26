@@ -1,3 +1,6 @@
+# SettingsScene — Phase 6 validation builder. Produces a UI::View tree of a
+# settings form composition (rows, toggles, pickers) for renderer captures.
+
 require "../view"
 require "../views/label"
 require "../views/button"

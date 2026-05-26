@@ -1,3 +1,6 @@
+# AXTest harness entry point: launches a macOS .app bundle and exposes its
+# accessibility tree (windows, elements, screenshots) for end-to-end UI tests.
+
 {% if flag?(:macos) %}
 
 require "./ax_element"

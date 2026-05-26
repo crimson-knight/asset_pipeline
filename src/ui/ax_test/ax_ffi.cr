@@ -1,3 +1,6 @@
+# Raw FFI bindings for macOS Accessibility (AXUIElement) and CoreFoundation
+# helpers. Used by the AXTest harness to read the running app's a11y tree.
+
 {% if flag?(:macos) %}
 
 # Raw FFI bindings for the macOS Accessibility API (AXUIElement) and
