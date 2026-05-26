@@ -2961,6 +2961,43 @@ module UI
         push_element(wrap)
       end
 
+      # Phase 10B.1c — AndroidSwipeActionRow web fallback.
+      #
+      # On non-Android targets, `UI::AndroidSwipeActionRow` is rendered
+      # with the same chrome as `UI::InlineActionRow`: a row with
+      # leading-actions panel, content cell, trailing-actions panel.
+      # The fallback emits a `data-component="android-swipe-action-row"`
+      # marker so introspection / E2E specs can distinguish the widget
+      # from a plain InlineActionRow render, but the visual + a11y
+      # contract is intentionally identical.
+      def visit(view : UI::AndroidSwipeActionRow)
+        row_id = next_inline_action_id
+        wrap = Components::Elements::Div.new
+        wrap.set_attribute("role", "row")
+        wrap.add_class("ap-inline-action-row")
+        wrap.set_attribute("data-component", "android-swipe-action-row")
+        wrap.set_attribute("data-row-id", row_id.to_s)
+
+        if !view.leading_actions.empty?
+          wrap.add_child(inline_action_panel(view.leading_actions, "leading"))
+        end
+
+        content_html = render_subview(view.content)
+        content_el = Components::Elements::Div.new
+        content_el.add_class("ap-inline-action-row__content")
+        content_el.add_raw_html(content_html)
+        wrap.add_child(content_el)
+
+        if !view.trailing_actions.empty?
+          wrap.add_child(inline_action_panel(view.trailing_actions, "trailing"))
+        end
+
+        register_inline_action_chrome(wrap) unless @inline_action_chrome_emitted
+
+        apply_common_styles(wrap, view)
+        push_element(wrap)
+      end
+
       @inline_action_counter : Int32 = 0
       @inline_action_chrome_emitted : Bool = false
 

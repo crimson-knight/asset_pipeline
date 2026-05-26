@@ -146,5 +146,14 @@ module UI
     # buttons (no gesture); every renderer maps it to a horizontal
     # stack of (content + action buttons).
     abstract def visit(view : InlineActionRow)
+
+    # Phase 10B.1c — AndroidSwipeActionRow. The `:android` default for
+    # the `:swipe_actions` intent. The Android renderer's aspirational
+    # mapping is `androidx.compose.material3.SwipeToDismissBox`; until
+    # the JNI bridge gains a Compose-host surface the renderer falls
+    # back to a horizontal LinearLayout (same shape as
+    # `UI::InlineActionRow`). Every other renderer maps it to its own
+    # inline-row chrome so cross-platform overrides remain useful.
+    abstract def visit(view : AndroidSwipeActionRow)
   end
 end
