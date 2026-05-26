@@ -3156,14 +3156,37 @@ module UI::Android
     end
 
     # Phase 10B.1a — InlineActionRow. The Android renderer materializes
-    # the leading actions + content + trailing actions as visible
+    # the row as a horizontal `LinearLayout` containing the leading
+    # actions, the content view, and the trailing actions as
     # MaterialButton siblings dispatched through the standard UI::Button
     # visit path. Per the brief, `:swipe_actions` on Android still
     # raises `UnresolvableDefault` at the resolver level (10B.1c
     # installs the Material3 swipe widget); this visit is best-effort
     # coverage for apps that explicitly mount `UI::InlineActionRow` on
     # Android.
+    #
+    # Pattern mirrors `visit(view : UI::HStack)` above: create a
+    # horizontal LinearLayout, push it as the parent on the stack,
+    # visit each child (so they attach to the row via push_native),
+    # then pop the stack and push the row itself.
     def visit(view : UI::InlineActionRow)
+      ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+
+      # HORIZONTAL = 0
+      LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 0)
+
+      # Center children vertically along the row baseline. Matches the
+      # HIG-aligned inline action layout (Gravity.CENTER_VERTICAL=16).
+      LibAndroidBridge.android_linearlayout_set_gravity(@env, ll, 16)
+
+      apply_common_properties(ll, view)
+
+      global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
+      handle = JNI.wrap_global(global_ll, label: "LinearLayout[inline-action-row]")
+      native = NativeView.new(handle)
+
+      push_stack(native, ll, is_linear: true)
+
       view.leading_actions.each do |action|
         btn = UI::Button.new(action.label, role: action.role)
         btn.accessibility_label = action.label
@@ -3183,6 +3206,10 @@ module UI::Android
         end
         btn.as(UI::View).accept(self)
       end
+
+      pop_stack
+
+      push_native(native, ll)
     end
 
     def visit(view : UI::ActionSheetWithWebFallback)

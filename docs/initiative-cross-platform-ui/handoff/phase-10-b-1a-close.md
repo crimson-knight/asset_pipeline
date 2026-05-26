@@ -173,3 +173,53 @@ content critique before the merge tag is cut.*
   this slug.
 
 — Implementer (Claude Opus 4.7), 10B.1a iter-1
+
+## Iter 2 — Codex REVISE remediation (Android renderer)
+
+**Codex finding (BLOCKER):** The Android `visit(UI::InlineActionRow)`
+in `src/ui/renderers/android_renderer.cr` visited leading buttons,
+content, and trailing buttons sequentially without composing them into
+a parent container. Because `push_native` either sets `@result` (no
+parent) or attaches to the current parent, a top-level `InlineActionRow`
+resolved to its last visited child, and a nested `InlineActionRow`
+leaked its buttons + content as separate parent siblings. Not a
+reasonable row renderer.
+
+**Fix:** Rewrote the Android visit to mirror the established
+`visit(UI::HStack)` LinearLayout pattern (renderer line ~480):
+
+1. Create a horizontal `LinearLayout` (orientation = 0) with
+   center-vertical gravity (16).
+2. `apply_common_properties` so frame / background / padding still
+   apply.
+3. Wrap as `NativeView` and `push_stack` as a linear parent.
+4. Visit leading actions → content → trailing actions; each child
+   attaches to the row LinearLayout via `push_native` while the row
+   is the current stack parent.
+5. `pop_stack` then `push_native(native, ll)` so the row itself is
+   either set as `@result` (top-level case) or registered with its
+   own parent (nested case).
+
+The Android renderer remains a best-effort path until 10B.1c installs
+`UI::AndroidSwipeActionRow` as the resolver default for
+`:swipe_actions` on `:android`; the resolver still raises
+`UnresolvableDefault` there. This visit covers apps that explicitly
+mount `UI::InlineActionRow` on Android.
+
+**Affected file:** `src/ui/renderers/android_renderer.cr` (visit method
+spanning the InlineActionRow block, container + push_stack + child
+visits + pop_stack + push_native composition).
+
+**Verification:**
+
+- `crystal build src/asset_pipeline.cr` — green.
+- `crystal run scripts/lint_conventions.cr` — `OK (442 files, 6 rules,
+  0 diagnostics)`.
+- `crystal spec spec/web/` — 1771 examples, 4 failures (baseline),
+  0 errors. No regression.
+- `crystal spec spec/web/ui/intent_spec.cr
+  spec/web/ui/intent_reactivity_spec.cr
+  spec/web/ui/views/inline_action_row_spec.cr` —
+  37 examples, 0 failures.
+
+— Implementer (Claude Opus 4.7), 10B.1a iter-2
