@@ -334,6 +334,10 @@ class TestVisitor < UI::PlatformVisitor
   def visit(view : UI::SwipeActionRow)
     @visited << "SwipeActionRow(trailing=#{view.trailing_actions.size},leading=#{view.leading_actions.size})"
   end
+
+  def visit(view : UI::InlineActionRow)
+    @visited << "InlineActionRow(trailing=#{view.trailing_actions.size},leading=#{view.leading_actions.size})"
+  end
 end
 
 describe UI do
@@ -693,7 +697,7 @@ describe UI do
       button.on_tap.should be_nil
 
       counter = 0
-      button.on_tap = ->{ counter += 1; nil }
+      button.on_tap = -> { counter += 1; nil }
       button.on_tap.try(&.call)
       button.on_tap.try(&.call)
       counter.should eq(2)
@@ -1650,7 +1654,7 @@ describe UI::SheetPresenter do
   it "calls on_dismiss callback" do
     called = false
     sheet = UI::Sheet.new
-    sheet.on_dismiss = ->{ called = true; nil }
+    sheet.on_dismiss = -> { called = true; nil }
     presenter = UI::SheetPresenter.new(sheet)
     presenter.present
     presenter.dismiss
@@ -1718,8 +1722,8 @@ describe UI::ConfirmationDialog do
     confirmed = false
     cancelled = false
     cd = UI::ConfirmationDialog.new("Confirm")
-    cd.on_confirm = ->{ confirmed = true; nil }
-    cd.on_cancel = ->{ cancelled = true; nil }
+    cd.on_confirm = -> { confirmed = true; nil }
+    cd.on_cancel = -> { cancelled = true; nil }
     cd.on_confirm.try(&.call)
     confirmed.should be_true
     cd.on_cancel.try(&.call)
@@ -1889,7 +1893,7 @@ describe UI::AsyncImage do
   it "stores on_load callback" do
     loaded = false
     ai = UI::AsyncImage.new("https://example.com/img.png")
-    ai.on_load = ->{ loaded = true; nil }
+    ai.on_load = -> { loaded = true; nil }
     ai.on_load.try(&.call)
     loaded.should be_true
   end
@@ -1969,7 +1973,7 @@ describe UI::LinkButton do
   it "stores on_tap callback" do
     tapped = false
     lb = UI::LinkButton.new("Tap")
-    lb.on_tap = ->{ tapped = true; nil }
+    lb.on_tap = -> { tapped = true; nil }
     lb.on_tap.try(&.call)
     tapped.should be_true
   end

@@ -3886,6 +3886,53 @@
         push_native(outer_native)
       end
 
+      # Phase 10B.1a — InlineActionRow. iOS fallback rendering for the
+      # `:swipe_actions` intent on the rare cases an app deliberately
+      # overrides to `UI::InlineActionRow` on iOS (the platform default
+      # remains `UI::SwipeActionRow` with the swipe-reveal scroll view).
+      # Renders a horizontal UIStackView with leading actions + content
+      # + trailing actions, all visible inline as UIButtons.
+      def visit(view : UI::InlineActionRow)
+        stack = alloc_init("UIStackView")
+        LibObjCBridge.objc_send_long(stack, sel("setAxis:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 8.0)
+
+        outer_handle = ObjC.owned(stack, label: "UIStackView[InlineActionRow]")
+        outer_native = NativeView.new(outer_handle)
+
+        view.leading_actions.each do |action|
+          inner = UI::Button.new(action.label, role: action.role, style: UI::ButtonStyle::Prominent)
+          inner.accessibility_label = action.label
+          if tap = action.on_tap
+            inner.on_tap = tap
+          end
+          if action_native = render_detached(inner.as(UI::View))
+            LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), action_native.handle.ptr!)
+            outer_native.add_child(action_native)
+          end
+        end
+
+        if content_native = render_detached(view.content)
+          LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), content_native.handle.ptr!)
+          outer_native.add_child(content_native)
+        end
+
+        view.trailing_actions.each do |action|
+          inner = UI::Button.new(action.label, role: action.role, style: UI::ButtonStyle::Prominent)
+          inner.accessibility_label = action.label
+          if tap = action.on_tap
+            inner.on_tap = tap
+          end
+          if action_native = render_detached(inner.as(UI::View))
+            LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), action_native.handle.ptr!)
+            outer_native.add_child(action_native)
+          end
+        end
+
+        apply_common_properties(stack, view)
+        push_native(outer_native)
+      end
+
       def visit(view : UI::ActionSheetWithWebFallback)
         # The WithWebFallback's iOS branch holds a UI::ActionSheet and
         # forwards accept() to it, so this visitor is unreachable in

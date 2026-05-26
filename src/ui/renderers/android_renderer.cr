@@ -3155,6 +3155,36 @@ module UI::Android
       view.content.accept(self)
     end
 
+    # Phase 10B.1a — InlineActionRow. The Android renderer materializes
+    # the leading actions + content + trailing actions as visible
+    # MaterialButton siblings dispatched through the standard UI::Button
+    # visit path. Per the brief, `:swipe_actions` on Android still
+    # raises `UnresolvableDefault` at the resolver level (10B.1c
+    # installs the Material3 swipe widget); this visit is best-effort
+    # coverage for apps that explicitly mount `UI::InlineActionRow` on
+    # Android.
+    def visit(view : UI::InlineActionRow)
+      view.leading_actions.each do |action|
+        btn = UI::Button.new(action.label, role: action.role)
+        btn.accessibility_label = action.label
+        if tap = action.on_tap
+          btn.on_tap = tap
+        end
+        btn.as(UI::View).accept(self)
+      end
+
+      view.content.accept(self)
+
+      view.trailing_actions.each do |action|
+        btn = UI::Button.new(action.label, role: action.role)
+        btn.accessibility_label = action.label
+        if tap = action.on_tap
+          btn.on_tap = tap
+        end
+        btn.as(UI::View).accept(self)
+      end
+    end
+
     def visit(view : UI::ActionSheetWithWebFallback)
       # Android has a BottomSheetDialog widget but Phase 4 keeps fidelity
       # high by synthesizing a UI::ConfirmationDialog (confirm + cancel)

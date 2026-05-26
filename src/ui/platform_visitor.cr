@@ -42,27 +42,35 @@ module UI
     abstract def visit(view : IconButton)
     abstract def visit(view : ListView)
     abstract def visit(view : OutlineView)
+
     def visit(view : ColumnView)
       view.fallback_view.accept(self)
     end
+
     def visit(view : TokenField)
       view.fallback_view.accept(self)
     end
+
     def visit(view : ImageWell)
       view.fallback_view.accept(self)
     end
+
     def visit(view : Panel)
       view.fallback_view.accept(self)
     end
+
     def visit(view : Gauge)
       view.fallback_view.accept(self)
     end
+
     def visit(view : ActivityRing)
       view.fallback_view.accept(self)
     end
+
     def visit(view : ActivityRings)
       view.fallback_view.accept(self)
     end
+
     abstract def visit(view : SecureField)
     abstract def visit(view : Stepper)
     abstract def visit(view : SegmentedControl)
@@ -87,6 +95,7 @@ module UI
     abstract def visit(view : RichText)
     abstract def visit(view : LinkButton)
     abstract def visit(view : MenuButton)
+
     {% if flag?(:macos) || flag?(:ios) %}
       abstract def visit(view : ContextMenu)
     {% end %}
@@ -99,6 +108,7 @@ module UI
     abstract def visit(view : Capsule)
     abstract def visit(view : Canvas)
     abstract def visit(view : PathView)
+
     {% if flag?(:macos) %}
       abstract def visit(view : PathControl)
     {% end %}
@@ -130,5 +140,11 @@ module UI
     # macOS + desktop-web render visible trailing buttons; mobile-web
     # renders touch-swipe-to-reveal panel.
     abstract def visit(view : SwipeActionRow)
+
+    # Phase 10B.1a — InlineActionRow. The macOS + web_wide default for
+    # the `:swipe_actions` intent. Actions are always visible inline
+    # buttons (no gesture); every renderer maps it to a horizontal
+    # stack of (content + action buttons).
+    abstract def visit(view : InlineActionRow)
   end
 end
