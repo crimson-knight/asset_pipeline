@@ -377,3 +377,98 @@ feaf5d25 [Phase 10B.0 iter 9 Finding 1] App-class isolation for overrides
 ```
 
 — Implementer (Claude Opus 4.7), Phase 10B.0 iter 9 remediation, 2026-05-26.
+
+---
+
+## 12. Iter 10 remediation — Codex iter-9 re-review
+
+Codex re-reviewed iter-9 and confirmed the three iter-9 findings closed.
+It flagged two new BLOCKER/MEDIUM items and one non-blocking doc-drift
+note. Iter 10 closes them.
+
+### Finding 1 (BLOCKER) — Amber web target didn't seed `ctx.app_class`
+
+**Symptom.** `ActionDispatcher#build_context` (native) sets
+`ctx.app_class = @app` after iter-9, so app-tier overrides isolate
+correctly per app. But `UI::ScreenHelpers#compute_screen_html` (web)
+built a `ScreenContext::Web` and passed it to `screen.build(ctx)`
+WITHOUT setting `app_class` or `active_screen_class`. Result: on the
+web target, `context.app_class` was always nil, so
+`Registry.resolve_for` always skipped the app-override tier. App
+overrides registered for the active web app never applied — silently.
+Process-wide regression on every web render.
+
+**Fix.**
+
+* `UI::AmberConfig.active_app=` — new boot-time slot.
+  Apps bind their `UI::App` subclass once at boot:
+  `UI::AmberConfig.active_app = SpikeApp`.
+* `compute_screen_html(screen_class, app_class: nil)` — kwarg
+  overload. Precedence: explicit kwarg → `AmberConfig.active_app`
+  → nil. Backwards compatible: existing single-arg callers continue
+  to compile and behave as before (with nil `app_class`, which was
+  the pre-iter-10 behavior anyway).
+* `ctx.active_screen_class` is seeded from the required
+  `screen_class` arg, so screens calling `UI::Intent.resolve` see
+  the screen-tier override table without boilerplate.
+
+**Spec coverage (5 new specs).**
+
+* `ctx.app_class` seeded from explicit kwarg.
+* `ctx.active_screen_class` seeded from `screen_class` arg.
+* `AmberConfig.active_app` fallback when no kwarg passed.
+* Nil when neither source set.
+* End-to-end: app-tier override fires on web render via seeded context.
+
+**Commit.** `892aa1ca [Phase 10B.0 iter 10 Finding 1] Seed app_class on web ScreenContext`.
+
+### Finding 2 (MEDIUM) — No spec for runtime `capabilities_required`
+
+**Symptom.** `UI::Intent.resolve(intent_id, ctx, capabilities_required: ...)`
+raises `UnresolvableDefault` when the resolved widget doesn't satisfy
+the requested capabilities (`intent.cr#first_missing_capability`). Spec
+coverage existed only for the REGISTRATION-time `IncompatibleOverride`
+path; the runtime resolver path was untested.
+
+**Fix.** Added 3 specs against a spec-only widget `IntentSpecCapWidget`
+that declares `{cap_a: true, cap_b: false}`:
+
+* Negative: `capabilities_required: {cap_b: true}` raises
+  `UnresolvableDefault` with `cap_b` named in the message.
+* Positive: `capabilities_required: {cap_a: true}` returns the widget.
+* Edge: `capabilities_required: {cap_b: false}` returns the widget
+  (false-valued required keys are no-ops per the resolver contract).
+
+The exception type is `UI::Intent::UnresolvableDefault` — same type
+the no-default path raises, by design (callers get one typed error
+surface for "no usable widget" regardless of cause).
+
+**Commit.** `b2cae2f0 [Phase 10B.0 iter 10 Finding 2] Spec runtime capabilities_required path`.
+
+### Finding 3 (NON-BLOCKING) — Stale API text in section 1
+
+**Symptom.** Line 15 still showed the pre-iter-9 signature with
+`screen_class:` kwarg. Section 11 corrected it later but section 1's
+quick-reference was stale.
+
+**Fix.** Updated line 15 to the iter-9 final form:
+`UI::Intent.resolve(intent_id, context, capabilities_required: nil)`
+with a one-line note that the active screen class is sourced from
+`context.active_screen_class`, back-referencing section 11.
+
+**Commit.** `1d4b3859 [Phase 10B.0 iter 10 Finding 3] Sync close handoff API line with iter-9`.
+
+### Iter 10 verification
+
+* `crystal spec spec/ui/intent_spec.cr spec/ui/intent_reactivity_spec.cr` → 28 examples, 0 failures (20 pre-iter-10 + 5 Finding 1 + 3 Finding 2).
+* `crystal build src/asset_pipeline.cr` → compiles clean.
+
+### Iter 10 commit log
+
+```
+1d4b3859 [Phase 10B.0 iter 10 Finding 3] Sync close handoff API line with iter-9
+b2cae2f0 [Phase 10B.0 iter 10 Finding 2] Spec runtime capabilities_required path
+892aa1ca [Phase 10B.0 iter 10 Finding 1] Seed app_class on web ScreenContext
+```
+
+— Implementer (Claude Opus 4.7), Phase 10B.0 iter 10 remediation, 2026-05-26.
