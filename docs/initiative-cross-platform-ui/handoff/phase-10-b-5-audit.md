@@ -10,7 +10,7 @@
 
 Audit covers all 64 Class D entries in `intent-catalog.md`. Per the
 brief's "no-op close is fine" clause, **10B.5 ships zero new modifiers**.
-The remaining Class D modifier gap is large (40 missing entries) but
+The remaining Class D modifier gap is large (38 missing entries) but
 already correctly scoped into `intent-backlog.md` items B-003 through
 B-019 (P1/P2 multi-phase work). Shipping any subset here would either
 require new framework subsystems (animation, haptics, drag/drop, full
@@ -19,12 +19,36 @@ facade — both anti-patterns flagged by prior Codex / freshness audits.
 
 | Status | Count | Class D entries |
 |---|---|---|
-| SHIPPED | 12 | sheet, popover, alert, confirmation_dialog, toolbar, toolbar_item, navigation_stack, navigation_destination, navigation_path, segmented_picker_style, menu, context_menu |
-| PARTIAL | 12 | list, list_row_separator, on_delete, presentation_detents, presentation_drag_indicator, navigation_split_view, navigation_link, menu_picker_style, compact_date_picker_style, ui_menu, ui_action, tap_gesture |
-| MISSING | 40 | list_section_spacing, list_section_index_visibility, refreshable, searchable, search_suggestions, search_scopes, on_move, full_screen_cover, inspector, interactive_dismiss_disabled, toolbar_item_group, toolbar_item_placement, toolbar_background, toolbar_spacer, form_style, grouped_form_style, columns_form_style, wheel_picker_style, palette_picker_style, inline_picker_style, graphical_date_picker_style, wheel_date_picker_style, primary_action, draggable, drop_destination, transferable, transition, matched_geometry_effect, animation, phase_animator, keyframe_animator, sensory_feedback, ui_impact_feedback_generator, ui_notification_feedback_generator, ui_selection_feedback_generator, long_press_gesture, drag_gesture, magnify_gesture, rotate_gesture, spatial_tap_gesture |
+| SHIPPED | 12 | sheet, popover, alert, confirmation_dialog, toolbar, toolbar_item, navigation_stack, navigation_destination, navigation_path, segmented_picker_style, wheel_picker_style, context_menu |
+| PARTIAL | 14 | list, list_row_separator, on_delete, presentation_detents, presentation_drag_indicator, navigation_split_view, navigation_link, menu, menu_picker_style, inline_picker_style, compact_date_picker_style, ui_menu, ui_action, tap_gesture |
+| MISSING | 38 | list_section_spacing, list_section_index_visibility, refreshable, searchable, search_suggestions, search_scopes, on_move, full_screen_cover, inspector, interactive_dismiss_disabled, toolbar_item_group, toolbar_item_placement, toolbar_background, toolbar_spacer, form_style, grouped_form_style, columns_form_style, palette_picker_style, graphical_date_picker_style, wheel_date_picker_style, primary_action, draggable, drop_destination, transferable, transition, matched_geometry_effect, animation, phase_animator, keyframe_animator, sensory_feedback, ui_impact_feedback_generator, ui_notification_feedback_generator, ui_selection_feedback_generator, long_press_gesture, drag_gesture, magnify_gesture, rotate_gesture, spatial_tap_gesture |
 
-Totals: **12 shipped / 12 partial / 40 missing = 64 Class D entries**
+Totals: **12 shipped / 14 partial / 38 missing = 64 Class D entries**
 (matches `intent-catalog.md` final summary: "Class D: 64").
+
+**Iter 2 reclassifications (Codex REVISE on iter 1):**
+
+- `:menu` moved SHIPPED → PARTIAL. iter-1 audit cited
+  `android_renderer.cr:2258` as evidence of a shipped Android visitor, but
+  the visitor only emits a plain `android/widget/Button` with the label
+  and never iterates `view.items`. Android has no menu functionality;
+  iOS / macOS / web ship a full menu.
+- `:wheel_picker_style` moved MISSING → SHIPPED. iter-1 audit asserted
+  "facade switch missing," but `PickerFacade.swift:28-31` has
+  `case "wheel": ... content.pickerStyle(.wheel)` (gated by
+  `#if canImport(UIKit)` matching the catalog's declared
+  `platforms: ios, ipados`), and `swiftkit_overrides.cr:487-492`
+  forwards the style via `set_string(:setPickerStyle, "wheel")` for
+  any non-Menu style. End-to-end on declared platforms.
+- `:inline_picker_style` moved MISSING → PARTIAL. iter-1 audit asserted
+  "facade switch missing," but `PickerFacade.swift:34-35` has
+  `case "inline"` (no platform gate, so iOS / iPadOS / macOS all
+  honor it via the facade), `android_renderer.cr:1125-1158` has an
+  explicit `UI::PickerStyle::Inline` branch rendering a RadioGroup in
+  a surface container, and the populator forwards the style. The
+  remaining gap is web — `web_renderer.cr:751-787` renders the same
+  `role=combobox` div regardless of `view.style`, so the inline style
+  is dropped on the web renderer.
 
 ---
 
@@ -59,12 +83,16 @@ The Class D gap is real but **not addressable inside a single sub-phase**:
      bridges and a search-state coordination story.
    - **Form modifiers** — `:form_style`, `:grouped_form_style`,
      `:columns_form_style`. Tracked under **B-008 Form modifiers**.
-   - **Picker / date picker styles** — `:wheel_picker_style`,
-     `:palette_picker_style`, `:inline_picker_style`,
+   - **Picker / date picker styles** — `:palette_picker_style`,
      `:graphical_date_picker_style`, `:wheel_date_picker_style`. Tracked
      under **B-012 Picker styles** and **B-013 Date picker styles**.
-     Requires renderer-side style switches that the SwiftKit Picker /
-     DatePicker facades do not yet honor.
+     (`:wheel_picker_style` is SHIPPED on its declared iOS/iPadOS
+     platforms via the PickerFacade switch + populator. The
+     `:inline_picker_style` row is PARTIAL — the SwiftKit facade
+     applies it on iOS/iPadOS/macOS, the Android renderer renders an
+     inline RadioGroup, but the web renderer drops the style and
+     always emits a combobox; closing that web gap is tracked under
+     **B-012**.)
 
 2. **`:full_screen_cover` and `:inspector` are widgets, not modifiers.**
    Phase 10B.4 owns these (branch `phase-10-b-4` exists; not yet merged
@@ -133,10 +161,10 @@ gating the work. "Renderers" abbreviates the four-renderer set: iOS
 | `:navigation_destination` | `src/asset_pipeline/native_app.cr:227` (`macro screen`); registers route→destination on `UI::App` subclasses. |
 | `:navigation_path` | `src/ui/navigation_coordinator.cr:38-39` (`getter routes : Array(Route)`); mutators at 59-67. |
 | `:segmented_picker_style` | `src/ui/views/segmented_control.cr:4-7`; renderers at uikit 1381, appkit 1323, web 924, android 1408. |
-| `:menu` | `src/ui/views/menu_button.cr:22-53`; renderers at uikit 2122, appkit 2133, web 1680, android 2250. |
+| `:wheel_picker_style` | Declared platforms iOS / iPadOS only. `swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/PickerFacade.swift:28-31` has `case "wheel": ... content.pickerStyle(.wheel)` gated by `#if canImport(UIKit)`; `src/ui/native/swiftkit_overrides.cr:487-492` (`populate_picker`) forwards via `set_string(:setPickerStyle, view.style.to_s.downcase)` for any non-Menu style; iOS renderer reaches the facade through `apsk_make_picker` at uikit 1045-1048. |
 | `:context_menu` | `src/ui/views/context_menu.cr:10` (iOS-gated) + `src/ui/views/context_menu_with_web_fallback.cr:15`; renderers at appkit 2164,3782, web 1720,1737, android 2263. |
 
-### PARTIAL (12)
+### PARTIAL (14)
 
 | Intent | Citation + gap |
 |---|---|
@@ -147,13 +175,15 @@ gating the work. "Renderers" abbreviates the four-renderer set: iOS
 | `:presentation_drag_indicator` | `src/ui/views/sheet.cr:35`; web/Android honored. iOS/macOS: SwiftKit STORES via `setShowsDragIndicator` but `SheetFacade.swift` does NOT apply `.presentationDragIndicator(_:)`. Stored-not-applied gap (Codex MED-2). Tracked under **B-007**. |
 | `:navigation_split_view` | `src/ui/views/navigation_split_view.cr:4-10`; renderers at uikit 1576, appkit 1547, web 1274, android 1782. Gap: compact-collapse to stack not implemented at renderer level. |
 | `:navigation_link` | `src/ui/views/navigation_link.cr:10-21`. Gap: route-driven `Voyager.dispatch(:open_X)` integration is per-app, not on the link type itself. |
-| `:menu_picker_style` | `src/ui/views/picker.cr:16` (`property style : PickerStyle = PickerStyle::Menu`); renderers at uikit 1000, appkit 1003, web 748, android 1106-1108. Only Menu and Segmented styles render today; Wheel/Inline enum values exist but no renderer branch. |
+| `:menu` | iOS / macOS / web ship the full menu. `src/ui/views/menu_button.cr:22-53` defines the `MenuItem` shape; iOS visitor at `src/ui/renderers/uikit_renderer.cr:2122` and macOS at `src/ui/renderers/appkit_renderer.cr:2133` route through the SwiftKit MenuButton facade with the items; web at `src/ui/renderers/web_renderer.cr:1680` emits an accessible menu DOM. Gap: `src/ui/renderers/android_renderer.cr:2258-2264` only emits a plain `android/widget/Button` with the label and never iterates `view.items`, so on Android the menu collapses to a button stub with no items, no `PopupMenu` / `DropdownMenu`, and no `is_destructive` styling. Tracked as an Android backlog item (B-012-adjacent / Android menu wiring); not addressed in 10B.5. |
+| `:menu_picker_style` | `src/ui/views/picker.cr:16` (`property style : PickerStyle = PickerStyle::Menu`); renderers at uikit 1000, appkit 1003, web 748, android 1106-1108. Default Picker style on iOS / macOS / Android (and the default DOM shape on web). |
+| `:inline_picker_style` | Declared platforms iOS / iPadOS / macOS / Android / web_wide / web_narrow. iOS / iPadOS / macOS: `swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/PickerFacade.swift:34-35` applies `.pickerStyle(.inline)` (no platform gate), reached via `swiftkit_overrides.cr:487-492`. Android: `src/ui/renderers/android_renderer.cr:1125-1158` has an explicit `UI::PickerStyle::Inline` branch rendering a `RadioGroup` inside a Material surface container. Gap: `src/ui/renderers/web_renderer.cr:751-787` does not switch on `view.style` — the visitor always emits a `role=combobox` div regardless of style, dropping the inline style on web. Tracked under **B-012**. |
 | `:compact_date_picker_style` | `src/ui/views/date_picker.cr:4-10`; renderers at uikit 1408, appkit 1353, web 957, android 1456. Gap: no `date_picker_style` switch — only one rendering mode per platform. |
 | `:ui_menu` | `src/ui/views/menu_button.cr:23-35` (`record MenuItem` nested in `UI::MenuButton`). No top-level `UI::UIMenu` class — items live on the button. |
 | `:ui_action` | `src/ui/views/menu_button.cr:23-35` (`MenuItem` carries `label`, `icon`, `is_destructive`, `action : Proc(Nil)?`). No standalone `UI::UIAction` class. |
 | `:tap_gesture` | `on_tap` exists on `src/ui/views/button.cr:93`, `icon_button.cr:22`, `link_button.cr:8`, `swipe_action_row.cr:23` (`SwipeAction`). NOT on base `UI::View`. Gap tracked adjacent to **B-037**. |
 
-### MISSING (40)
+### MISSING (38)
 
 Grouped by gating backlog item.
 
@@ -176,9 +206,7 @@ Grouped by gating backlog item.
 | `:form_style` | **B-008**. Needs `FormFacade.swift` `.formStyle(_:)` switch. |
 | `:grouped_form_style` | **B-008** (depends on `:form_style`). |
 | `:columns_form_style` | **B-008** (depends on `:form_style`). |
-| `:wheel_picker_style` | **B-012**. Enum value exists; renderer wiring + facade switch missing. |
 | `:palette_picker_style` | **B-012**. Enum value not yet defined. |
-| `:inline_picker_style` | **B-012**. Enum value exists; renderer wiring + facade switch missing. |
 | `:graphical_date_picker_style` | **B-013**. Needs `DatePicker#style` enum + facade switch. |
 | `:wheel_date_picker_style` | **B-013**. Needs `DatePicker#style` enum + facade switch. |
 | `:primary_action` | Needs `MenuButton#primary_action : Proc(Nil)?` + `MenuButtonFacade.swift` `Button(primaryAction:)` form. |
@@ -224,9 +252,43 @@ Nothing functional. Only this audit document.
 
 ## New gaps surfaced
 
-None. The audit confirms the existing catalog + backlog classification
-is accurate. The freshness audit from Phase 10-pre.1 / pre.2 needs no
-revision.
+Iter 2 reclassifications surface three concrete renderer-side gaps that
+were previously hidden behind incorrect SHIPPED / MISSING labels:
+
+- **Android `:menu` is a stub.** `MenuButton` visitor in
+  `src/ui/renderers/android_renderer.cr:2258-2264` emits only a labeled
+  `android/widget/Button` and never iterates `view.items`. There is no
+  `PopupMenu` / `DropdownMenu` wiring, no per-item icon / destructive
+  styling, and no item action dispatch. Closing the gap requires a JNI
+  bridge into either `android.widget.PopupMenu` or the Material
+  `androidx.compose.material3.DropdownMenu` (the latter aligns with the
+  existing Compose-style adoption in `android-compose-components`). The
+  Crystal-side API (`UI::MenuButton::MenuItem` shape) is already in
+  place; this is renderer wiring only.
+- **Web `:inline_picker_style` is dropped.**
+  `src/ui/renderers/web_renderer.cr:751-787` (`visit(view : UI::Picker)`)
+  emits a single `role=combobox` div regardless of `view.style`. The
+  inline style needs a renderer branch that emits a radio group
+  matching the catalog's `web_equivalent: Radio button list`. Tracked
+  under B-012.
+- **Audit-doc accuracy (process gap).** Iter 1 cited
+  `android_renderer.cr:2258` as evidence `:menu` shipped on Android and
+  cited "facade switch missing" for two picker styles where the switch
+  already existed. Both were citation reads that did not verify the
+  cited code's actual behavior. Codex caught both. The lesson — file:line
+  citations must include enough surrounding behavior assertion that the
+  classification is verifiable from the citation alone — is filed for
+  future audits.
+
+The freshness audit from Phase 10-pre.1 / pre.2 still needs no revision
+at the catalog row level (the catalog's `coverage_today` for
+`:wheel_picker_style` and `:inline_picker_style` reads `missing`, but
+those rows already cite "tracked under B-012" — moving them to PARTIAL
+in this audit document does not require flipping the catalog rows,
+because the catalog tracks intent-level shipping and on declared web
+platforms inline is still missing; the catalog label `missing` is
+defensible as the union-across-platforms verdict, while this audit
+splits per platform).
 
 ## Reflection — why 10B.5 lands as no-op
 
@@ -245,4 +307,5 @@ Compressing 13 P2 backlog items into one sub-phase by stripping their
 native integration would re-introduce the kind of false-progress gap
 the Phase 10-pre.1 freshness audit had to correct.
 
-— Implementer (Claude Opus 4.7), Phase 10B.5 audit
+— Implementer (Claude Opus 4.7), Phase 10B.5 audit (iter 1 + iter 2
+audit-doc accuracy remediation)
