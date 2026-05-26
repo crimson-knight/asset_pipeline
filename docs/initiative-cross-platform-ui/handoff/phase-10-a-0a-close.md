@@ -2,9 +2,9 @@
 
 **Sub-phase:** 10A.0a — Crystal-side convention runner + Family 1 naming rules + skill + minimal doc scaffolding.
 **Branch:** `phase-10-a-0a`
-**Status:** ACCEPTANCE GATE — pending Codex content review.
+**Status:** ACCEPTANCE GATE — iter 4 Codex REVISE remediations applied (3 findings closed); awaiting re-review.
 **Implementer:** Claude Opus 4.7
-**Date:** 2026-05-25
+**Date:** 2026-05-26 (iter 4); 2026-05-25 (initial close)
 
 ---
 
@@ -104,21 +104,124 @@ Two pre-existing samples violated the file-suffix rule and were adjusted in iter
 ## 4. Branch / commit summary
 
 ```
+1cab4b5d [Phase 10A.0a iter 4 — Finding 1] Doc scaffold sweep — all public types
+7eb367d2 [Phase 10A.0a iter 4 — Finding 3] Config file + regression fixtures + spec
+3f8fa948 [Phase 10A.0a iter 4 — Finding 2] Rule auto-discovery via inherited registry
+00484872 [Phase 10A.0a close] Close handoff: runner + 5 rules + skill + 84-file doc scaffold
 a4894779 [Phase 10A.0a iter 3] Doc-scaffold sweep across ~90 public surface files
 00642af1 [Phase 10A.0a iter 2] Rename voyager screens + disable spike to satisfy Family 1
 4f42ed51 [Phase 10A.0a iter 1] Convention rule runner + 5 Family 1 naming rules + skill
 f40f247e [Phase 10] Parallel-trio briefs v2 + architecture-decisions.md  (base)
 ```
 
-3 commits on `phase-10-a-0a` over the phase-10 base. Standard `Co-Authored-By: Claude Opus 4.7` footer on each.
+7 commits on `phase-10-a-0a` over the phase-10 base. Standard `Co-Authored-By: Claude Opus 4.7` footer on each.
 
 ## 5. Acceptance gate
 
-- ✅ `crystal run scripts/lint_conventions.cr` exits 0 on current asset_pipeline + Voyager source (433 files, 5 rules, 0 diagnostics).
+- ✅ `crystal run scripts/lint_conventions.cr` exits 0 on current asset_pipeline + Voyager source (434 files, 5 rules, 0 diagnostics — count is one higher than at initial close because the new `family_1_naming_spec.cr` is in the walk).
 - ✅ Each of the 5 Family 1 rules fires RED on an intentional injection.
 - ✅ Skill installs correctly via shards in scratch project (double-prefix caveat noted).
-- ✅ Minimal doc scaffolding on the 92 public files (per scoping v3 corrected count).
-- ⏳ Codex content review APPROVE — pending.
+- ✅ Minimal doc scaffolding sweep — file header + ≥1 public-type summary on 95/96 in-scope files (one file is a pure require shim with no public types; coverage is therefore effectively 96/96 for what's applicable).
+- ✅ Iter 4 Codex REVISE remediations applied (Findings 1, 2, 3).
+- ⏳ Codex content re-review APPROVE — pending.
+
+## 5a. Iter 4 — Codex REVISE remediations
+
+Codex's first content review returned REVISE with three findings. All
+three are closed as forward commits on this branch.
+
+### Finding 1 (HIGH) — Doc scaffolding materially incomplete → CLOSED
+
+Extended `scripts/scaffold_doc_headers.cr` to handle ALL public type
+declarations (`class`, `abstract class`, `module`, `struct`) at top
+level or single-nest depth across the full 96 in-scope files (96 once
+the three `_gate_stubs/` tier-3 stubs are counted; the brief's "~90"
+estimate was approximate).
+
+Final coverage (rerun any time with `crystal run scripts/scaffold_doc_headers.cr`):
+
+| Metric | Count |
+|---|---|
+| Files in scope | 96 |
+| Files with a file header | 96 / 96 (100%) |
+| Files with ≥1 public-type summary | 95 / 96 (98.9%) |
+| Files with BOTH | 95 / 96 (98.9%) |
+
+The single non-summary file is `src/asset_pipeline/design_system.cr`,
+a pure `require` shim with no public type. The file header is
+correct coverage for that case.
+
+The two specific Codex-flagged spot checks are both resolved:
+- `src/asset_pipeline.cr` has a file header and a real
+  `AssetPipeline` module summary; the `# TODO: Write documentation
+  for AssetPipeline` placeholder has been removed.
+- `src/asset_pipeline/native_app.cr` has a summary above
+  `abstract class App`.
+
+(Also fixed during this iter: the TODO-placeholder gsub regex needed
+the `/m` flag to actually match across the multi-line content — the
+prior iter 3 version silently no-op'd on this rewrite.)
+
+### Finding 2 (HIGH) — Rule auto-loading not shipped → CLOSED
+
+Auto-discovery now works:
+
+1. `ConventionRule.inherited` macro registers every subclass into
+   `ConventionRule.registered_rules` at class-definition time.
+2. `scripts/lint_conventions.cr` uses a compile-time `find` macro
+   that shells out at compile time to enumerate every `*_rule.cr`
+   under `src/lsp_rules/` and emits one `require` per match.
+3. `load_rules(config)` walks the registry and instantiates every
+   class; rules may override `configure(config : ConventionConfig)`
+   to receive runtime config.
+
+Adding a new rule is now: drop a file in
+`src/lsp_rules/family_N_<topic>/<name>_rule.cr` subclassing
+`ConventionRule` — no runner edit, no skill edit.
+
+Verified by dropping a 6th stub rule
+(`src/lsp_rules/family_1_naming/_stub_autodiscovery_rule.cr`),
+running the linter (saw `OK (434 files, 6 rules, 0 diagnostics)`),
+then removing the stub (back to `OK (433 / 434 files, 5 rules, 0
+diagnostics)` once specs were also added). Skill doc
+`.claude/skills/asset_pipeline--lint-conventions/SKILL.md` updated
+to describe auto-discovery and to drop the manual-registration step.
+
+### Finding 3 (MEDIUM) — View allowlist not configurable + no regression fixtures → CLOSED
+
+Config mechanism:
+- `.lint_conventions.yml` at repo root carries
+  `view_subclass.approved_roots` (current defaults:
+  `src/ui/views/` + `samples/`). Missing file → compiled-in
+  defaults still apply. `--config=<path>` overrides location.
+- `ConventionConfig` class (in `src/lsp_rules/convention_rule.cr`)
+  exposes the loaded values; the runner calls `rule.configure(cfg)`
+  on every rule after instantiation. Inline YAML parser supports the
+  `key: [inline_list]` and `key:`-followed-by-block-list forms.
+- `ViewSubclassUnderViewsDirRule` reads `@approved_roots` from the
+  config (default copy if `configure` is never called).
+
+Regression fixture inventory under
+`spec/lint_conventions/fixtures/`:
+
+| Fixture | Expected | Rule(s) |
+|---|---|---|
+| `samples_view_pass.cr` | pass | `family_1/view_subclass_under_views_dir` |
+| `ui_root_view_fail.cr` | fail | `family_1/view_subclass_under_views_dir` |
+| `lib_vendored_pass.cr` | skipped_by_runner | (runner discover_files exclusion) |
+| `screen_pass.cr` | pass | `family_1/screen_class_naming` + `family_1/screen_file_suffix` |
+| `screen_bad_name_fail.cr` | fail | `family_1/screen_class_naming` |
+| `controller_pass.cr` | pass | `family_1/controller_class_naming` + `family_1/controller_file_suffix` |
+| `controller_bad_suffix_fail.cr` | fail | `family_1/controller_file_suffix` |
+
+Spec at `spec/lint_conventions/family_1_naming_spec.cr` parses each
+fixture's `fixture_for` / `expected` / `synthetic_path` header keys,
+replays the rule against the content with the synthesized file path,
+and asserts the expected diagnostic outcome. `crystal spec
+spec/lint_conventions/family_1_naming_spec.cr` → 11 examples, 0
+failures. The runner's `discover_files` now excludes any
+`**/fixtures/` directory so the fixture content does not leak into
+production lint runs.
 
 ## 6. Out of scope for 10A.0a (per brief §7)
 
@@ -132,8 +235,17 @@ f40f247e [Phase 10] Parallel-trio briefs v2 + architecture-decisions.md  (base)
 ## 7. Notes for the next implementer
 
 - The runner is invoked from the **repo root** (it uses repo-relative `require "../src/lsp_rules/…"`). When wiring CI in 10C.0, the working directory must be the repo root.
-- Future families add a rule by: (1) dropping `src/lsp_rules/family_<N>_<topic>/<name>_rule.cr`, (2) `require`-ing it in `scripts/lint_conventions.cr`, (3) appending the rule instance to `load_rules`.
+- **(iter 4)** Future families add a rule by: drop
+  `src/lsp_rules/family_<N>_<topic>/<name>_rule.cr` subclassing
+  `ConventionRule`. The class auto-registers via the `inherited`
+  macro and the runner auto-requires the file via a compile-time
+  `find` macro. No edit to `scripts/lint_conventions.cr` or to the
+  skill is needed.
+- **(iter 4)** New rules that need a runtime allowlist should
+  override `configure(config : ConventionConfig)` and read the field
+  from `config`. Add the field to `ConventionConfig` and the YAML key
+  to `.lint_conventions.yml`.
 - The double-prefix naming caveat (Deliverable 5) is the cleanest follow-up to address. Renaming `.claude/skills/asset_pipeline--lint-conventions/` → `.claude/skills/lint-conventions/` collapses the installed path. The brief explicitly named the directory with the prefix; this handoff records the consequence so the owner can rule.
 - Working-tree coordination: while implementing 10A.0a, the parallel 10B.0 worktree (`asset_pipeline-10c`) and the 10B.0 agent both operated against the same repo. A safer pattern for future parallel sub-phases is per-branch worktrees under distinct paths so untracked files don't get caught in cross-branch `git checkout` races.
 
-— Implementer (Claude Opus 4.7), phase-10-a-0a iter 3 close
+— Implementer (Claude Opus 4.7), phase-10-a-0a iter 4 close (Codex REVISE remediations)
