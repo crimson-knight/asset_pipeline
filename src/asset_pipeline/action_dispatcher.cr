@@ -146,7 +146,7 @@ module UI
     # session, flash, etc.). The explicit_params arrive from the
     # Button's per-tap payload (action_params on the context).
     private def build_context(explicit_params : Hash(String, String)) : UI::ScreenContext::Native
-      UI::ScreenContext::Native.new(
+      ctx = UI::ScreenContext::Native.new(
         form_state: @current_form_state,
         session: @session,
         flash: @flash,
@@ -155,6 +155,21 @@ module UI
         action_params: explicit_params,
         platform: @platform,
       )
+      # Iter-9 (Codex Finding 2): thread the active screen class so
+      # the intent resolver can consult the screen-tier override table
+      # without the caller passing a `screen_class:` kwarg. The dispatch
+      # path knows which route is current; the registration carries the
+      # screen class.
+      begin
+        registration = @app.registration_for(@navigation.current.id)
+        if (screen_class = registration.screen_class)
+          ctx.active_screen_class = screen_class
+        end
+      rescue UI::App::UnknownRouteError
+        # Route not registered — leave active_screen_class nil. The
+        # resolver simply skips the screen-override tier in that case.
+      end
+      ctx
     end
 
     private def call_action(

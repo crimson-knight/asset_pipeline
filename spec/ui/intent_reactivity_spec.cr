@@ -83,7 +83,15 @@ private class ReactivitySpecScreen < UI::Screen
     # MUST reflect the current registry state. The counter records
     # the resolved widget so the spec can assert that overrides
     # registered mid-flow take effect on the NEXT build.
-    klass = UI::Intent.resolve(:reactivity_test_intent, context, screen_class: ReactivitySpecScreen)
+    #
+    # Iter-9 (Codex Finding 2): the public `.resolve` signature now
+    # mirrors the brief — no `screen_class:` kwarg. Screens that want
+    # screen-tier overrides set `ctx.active_screen_class` defensively
+    # before calling resolve. In production the host (dispatcher /
+    # `compute_screen_html`) sets it on the context it builds; here
+    # the spec sets it directly because we hand-craft the context.
+    context.active_screen_class = ReactivitySpecScreen
+    klass = UI::Intent.resolve(:reactivity_test_intent, context)
     ReactivitySpecCounter.record(klass)
     UI::Label.new("resolved=#{klass}")
   end

@@ -76,6 +76,13 @@
 require "../ui"
 
 module UI
+  # Forward declaration so `ScreenContext#active_screen_class` can
+  # carry a `UI::Screen.class` value at class-body time. The full
+  # abstract class definition lives below (line 227+). Mirrors the
+  # `Controller` forward-declaration pattern in `native_app.cr`.
+  abstract class Screen
+  end
+
   # Per-request value object passed to `UI::Screen#build`. Concrete
   # `ScreenContext::Web` lives below.
   #
@@ -116,6 +123,23 @@ module UI
     def platform : Symbol
       :web_wide
     end
+
+    # Phase 10B.0 iter-9 (Codex Finding 2): the active `UI::Screen`
+    # class for this build. Replaces the prior explicit `screen_class:`
+    # kwarg on `UI::Intent.resolve` — the public resolver now reads
+    # the active screen class from the context so the call-site stays
+    # narrow (`UI::Intent.resolve(intent_id, ctx)` matches the brief
+    # signature). The host that builds the context — `ActionDispatcher`
+    # for native, `compute_screen_html` for web — sets this to the
+    # screen class being built. Screens that call `UI::Intent.resolve`
+    # from their own `build` method can set
+    # `ctx.active_screen_class = self.class` defensively when the host
+    # didn't set it (e.g. unit tests that instantiate a context bare).
+    #
+    # `UI::Intent::Registry.resolve_for` consults this when no
+    # explicit `screen_class:` kwarg is passed. Without either source,
+    # the resolver skips the screen-override tier.
+    property active_screen_class : (UI::Screen.class)? = nil
 
     # Web-target concrete ScreenContext. Wraps the scalar/multi params,
     # the flash messages, the design-token bundle, and the CSRF token

@@ -27,6 +27,20 @@
 # `register_*_override` time inside `UI::Intent::Registry`. This keeps
 # the resolver hot path cheap (a single hash lookup per call) and
 # surfaces capability mismatches at app boot — not at first user tap.
+#
+# # Iter-9 (Codex Finding 2) — signature now matches the brief
+#
+# The shipped signature carries `capabilities_required :
+# Hash(Symbol, Bool)? = nil` per `brief-10-b-0.md` line 62. The earlier
+# implementer drift toward `screen_class:` was retired — the active
+# screen class travels on `ScreenContext.active_screen_class` instead
+# (added by iter-9). `capabilities_required` enables migration /
+# soft-fallback callers that want the resolver to assert the chosen
+# widget covers a specific subset of capabilities at lookup time
+# (e.g. an analytics overlay that resolves `:swipe_actions` and
+# requires `supports_role_destructive` to be true before mounting).
+# When a required capability is missing, the resolver raises
+# `UnresolvableDefault` rather than returning a degraded widget.
 
 require "./intent/registry"
 require "../asset_pipeline/amber_integration"
@@ -37,18 +51,37 @@ module UI
     # `intent_id` given `context.platform`. Raises
     # `UI::Intent::UnresolvableDefault` if no widget is registered.
     #
-    # `screen_class:` is an optional kwarg. Passing a `UI::Screen`
-    # subclass enables the screen-scoped override tier — useful for
-    # callers that know which screen is building (e.g. a screen
-    # calling `UI::Intent.resolve` from its own `build` method).
-    # Without the hint, the resolver skips screen-scoped overrides.
+    # `capabilities_required:` is an optional kwarg. When provided, the
+    # resolver asserts the resolved widget's declared capabilities
+    # (recorded via `declares_capabilities`) cover every required key
+    # before returning. A mismatch surfaces as `UnresolvableDefault`
+    # — the caller gets the same actionable error path as a
+    # missing-default lookup, with the diff capability named in the
+    # message. The hot path (no kwarg) skips this check entirely.
+    #
+    # The active screen class — used to consult the screen-tier
+    # override table — is read from `context.active_screen_class` (a
+    # property on `ScreenContext` added in iter-9). Screens that want
+    # screen-scoped overrides set `ctx.active_screen_class = self.class`
+    # in their `build` body, or rely on the host (dispatcher /
+    # `compute_screen_html`) to set it when it builds the context.
     def self.resolve(
       intent_id : Symbol,
       context : UI::ScreenContext,
-      screen_class : (UI::Screen.class)? = nil,
+      capabilities_required : Hash(Symbol, Bool)? = nil,
     ) : UI::View.class
-      widget = UI::Intent::Registry.resolve_for(intent_id, context, screen_class: screen_class)
-      return widget if widget
+      widget = UI::Intent::Registry.resolve_for(intent_id, context)
+      if widget
+        if capabilities_required && (missing = first_missing_capability(widget, intent_id, capabilities_required))
+          raise UnresolvableDefault.new(
+            "Resolved widget #{widget} for intent #{intent_id.inspect} on platform " \
+            "#{context.platform.inspect} is missing required capability `#{missing}`. " \
+            "Pick a widget that declares `#{missing}: true` for #{intent_id.inspect}, " \
+            "or drop the `capabilities_required:` kwarg if the caller can tolerate the gap."
+          )
+        end
+        return widget
+      end
 
       raise UnresolvableDefault.new(
         "No widget registered for intent #{intent_id.inspect} on platform #{context.platform.inspect}. " \
@@ -57,6 +90,24 @@ module UI
         "If you're hitting this on macOS or web_wide for `:swipe_actions`, the missing widget is " \
         "`UI::InlineActionRow` (Phase 10B.1a target)."
       )
+    end
+
+    # Returns the first capability key in `required` that the widget
+    # does NOT declare as `true` for `intent_id`. Returns nil if the
+    # widget covers everything required. Used by `.resolve` for the
+    # `capabilities_required:` kwarg path.
+    private def self.first_missing_capability(
+      widget_class : UI::View.class,
+      intent_id : Symbol,
+      required : Hash(Symbol, Bool),
+    ) : Symbol?
+      declared = UI::Intent::Registry.declared_capabilities_for(widget_class, intent_id) ||
+                 ({} of Symbol => Bool | Symbol)
+      required.each do |key, needed|
+        next unless needed
+        return key unless declared[key]? == true
+      end
+      nil
     end
   end
 end

@@ -268,10 +268,11 @@ module UI
       #
       # The screen-class hint is optional. When the caller knows which
       # `UI::Screen` subclass is currently building, the resolver
-      # checks screen-scoped overrides first. Without that hint, the
-      # resolver skips the screen tier (it cannot infer which screen
-      # is current from the context alone — `ScreenContext::Native`
-      # does not carry a screen ref).
+      # checks screen-scoped overrides first. Iter-9 (Codex Finding 2):
+      # the explicit kwarg is retained for back-compat, but the
+      # canonical source is `context.active_screen_class` — the public
+      # `UI::Intent.resolve` reads it from there and threads no kwarg.
+      # Without either source, the resolver skips the screen tier.
       #
       # Returns nil if neither override nor default is registered. The
       # public `UI::Intent.resolve` wraps this and raises
@@ -281,7 +282,12 @@ module UI
         context : UI::ScreenContext,
         screen_class : (UI::Screen.class)? = nil,
       ) : (UI::View.class)?
-        if screen_class && (hit = @@screen_overrides[{screen_class, intent_id}]?)
+        # The active screen class is sourced from (in order): the
+        # explicit kwarg (back-compat for specs that pass it directly)
+        # OR `context.active_screen_class` (iter-9 — the public
+        # resolver path always reads it here).
+        active_screen = screen_class || context.active_screen_class
+        if active_screen && (hit = @@screen_overrides[{active_screen, intent_id}]?)
           return hit
         end
 
