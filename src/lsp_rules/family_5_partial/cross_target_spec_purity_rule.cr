@@ -131,18 +131,24 @@ class CrossTargetSpecPurityRule < ConventionRule
     diagnostics
   end
 
-  # Checks for `token` in `line` with a Crystal-identifier word
-  # boundary on the LEFT — `LibObjCBridge` must not match
-  # `FakeLibObjCBridge`. The right boundary is naturally enforced by
-  # the token text (callers spell the full identifier including the
-  # module separator) plus a non-identifier follower; we accept any
-  # character after since `LibObjCBridge.foo` and `LibObjCBridge` at
-  # EOL are both legitimate hits.
+  # Checks for `token` in `line` with Crystal-identifier word boundaries
+  # on BOTH sides. `LibObjCBridge` must match `LibObjCBridge.foo` and
+  # `LibObjCBridge` at EOL, but must NOT match `FakeLibObjCBridge` (left
+  # boundary fails) nor `LibObjCBridgeFake` / `LibObjCBridgeSpy` (right
+  # boundary fails — without this check, a renamed test double that
+  # happens to share the prefix would false-positive).
+  #
+  # The `::` separator IS allowed on the right (token `LibObjCBridge`
+  # in `LibObjCBridge::Symbol` should still trip the rule), so the right
+  # boundary check treats `:` as a non-identifier follower the same way
+  # `.` and `(` are non-identifier followers.
   private def token_matches?(line : String, token : String) : Bool
     idx = 0
     while (pos = line.index(token, idx))
       left_ok = pos == 0 || !identifier_char?(line[pos - 1])
-      if left_ok
+      end_pos = pos + token.size
+      right_ok = end_pos >= line.size || !identifier_char?(line[end_pos])
+      if left_ok && right_ok
         return true
       end
       idx = pos + 1
