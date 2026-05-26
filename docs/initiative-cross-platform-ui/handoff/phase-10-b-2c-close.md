@@ -291,3 +291,113 @@ what asset_pipeline provides vs. what the host has to wire.
 - Runtime AT testing (deferred per brief Out-of-scope).
 
 — Implementer (Claude Opus 4.7), 10B.2c iter-1
+
+---
+
+## Iteration 2 — Codex REJECT remediation (2026-05-26)
+
+Codex returned **REJECT** with 2 BLOCKER findings against iter-1.
+Both fixed forward; HEAD now at `450aca8a`.
+
+### Iter-2 commits
+
+* `b73c13d8` — Finding 1: parse RFC 8941 quoted Client Hints
+* `450aca8a` — Finding 2: env threads through render to HTML
+
+### Finding 1: Sec-CH-Prefers-* parser missed real wire values
+
+`src/ui/environment.cr` `from_request_hints` previously compared raw
+hash values against bare tokens (`reduce`, `more`, `dark`). Real
+`Sec-CH-Prefers-*` headers are RFC 8941 Structured Field Values and
+arrive on the wire as quoted strings — e.g.
+`Sec-CH-Prefers-Color-Scheme: "dark"`. Codex's local test fed the
+quoted form and got `{false, :light}` — the parser silently fell
+through every case.
+
+**Fix:** the `lookup` closure in `from_request_hints` now applies
+`.strip.strip('"')` to the value after the case-insensitive hash
+lookup. Both the wire form (`"dark"`) and the bare token form
+(`dark`) used in tests parse identically. The doc-comment block
+above the method gained an explicit note that the underlying
+`Sec-CH-Prefers-*` family is currently a **WICG draft**, not a W3C
+Recommendation; consumers depending on this surface should pin
+server-side detection accordingly.
+
+Four new specs in `spec/web/ui/environment_spec.cr` cover the
+quoted-form parse for reduced-motion, color-scheme, contrast, and
+surrounding-whitespace tolerance.
+
+### Finding 2: reactive proof was unit-only, not end-to-end
+
+Codex caught that the iter-1 reactivity spec called
+`snack.effective_duration(ctx.environment)` directly without
+rendering. The web renderer ignored `effective_duration` entirely;
+the Android renderer used raw `view.duration`. Without
+renderer-side consumption the spec couldn't prove the full chain.
+
+**Fix:**
+
+* **`UI::RenderContext`** (`src/ui/view.cr`) gains an `environment`
+  field defaulting to `UI::Environment.default`. The struct now
+  carries both the CSRF token and the env so renderer visits can
+  read both pieces of per-request state from the same value.
+* **`src/ui.cr` load order swap** — `environment.cr` now loads
+  BEFORE `view.cr` because `RenderContext` references
+  `UI::Environment` at field-type position. The internal
+  `require "./view"` inside `environment.cr` is removed.
+* **`compute_screen_html`** (`src/asset_pipeline/amber_integration.cr`)
+  populates `RenderContext.new(csrf_token:, environment:)` from
+  the `ScreenContext`'s environment. The flow is now:
+  `ScreenContext.environment → RenderContext.environment →
+  renderer @render_context.environment → view.effective_duration →
+  HTML data-duration`.
+* **Web renderer** `visit(UI::Snackbar)` emits
+  `data-component="snackbar"` + `data-duration="<effective>"` where
+  `<effective>` = `view.effective_duration(@render_context.environment)`.
+  Hosts driving the client-side dismiss timer read `data-duration`
+  in seconds; `reduce_motion` → `0.0` → instant dismiss.
+* **Android renderer** swaps `view.duration.round` for
+  `view.effective_duration(@environment).round` in the duration
+  badge. A new `property environment : UI::Environment` on the
+  renderer carries the per-frame value.
+* **AppKit / UIKit renderers** gain the same `property environment`
+  with a visit-method doc comment documenting that macOS / iOS
+  snackbars are static overlays at the renderer layer (the dismiss
+  timer is owned by host code, which reads
+  `view.effective_duration(@environment)` for its own scheduling).
+  The renderer visits don't run a timer themselves — documenting
+  the platform behavior per the iter-2 brief.
+
+**New end-to-end spec**
+`UI::Snackbar end-to-end reactivity through Web::Renderer`:
+one Snackbar, two `RenderContext`s differing only in their env,
+asserts the rendered HTML's `data-duration` is `"4.0"` vs `"0.0"`
+and the two HTML strings are not equal. Plus 2 supporting specs
+for `RenderContext.empty` defaulting to the conservative env, and
+explicit construction carrying the env.
+
+### Iter-2 spec result
+
+```
+crystal spec spec/web/ui/environment_spec.cr
+→ 35 examples, 0 failures, 0 errors, 0 pending
+   (iter-1 baseline: 28; iter-2 added 4 + 3 = 7 new tests)
+```
+
+### Iter-2 build + lint
+
+```
+crystal build --no-codegen src/asset_pipeline.cr   # clean
+crystal run scripts/lint_conventions.cr            # 459 files, 14 rules, 0 diagnostics
+crystal tool format --check (files I touched)      # clean
+   (the pre-existing formatter bug on
+    src/asset_pipeline/amber_integration.cr is unchanged from
+    iter-1 baseline — same backtrace, same exit code.)
+```
+
+Full-suite delta confirmed via baseline stash: 1911 examples pre,
+1914 post — exactly +3 from the new tests. Pre-existing failures
+(views_spec / phase2_verification / intent_spec `:android`) are
+unrelated and unchanged.
+
+— Implementer (Claude Opus 4.7), 10B.2c iter-2
