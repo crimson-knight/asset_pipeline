@@ -11,6 +11,7 @@ module UI
     property text : String = ""
     # Child view rendered inside this container.
     property content : View? = nil
+    # Geographic / screen position for the view.
     property position : Symbol = :top # :top, :bottom, :leading, :trailing
     # Numeric value (pt unless otherwise noted).
     property delay : Float64 = 0.5

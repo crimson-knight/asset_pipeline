@@ -52,6 +52,7 @@ module UI
       fields : Array(Field) = [] of Field,
       footer : String? = nil
 
+    # Section groupings within the view.
     property sections : Array(FormSection) = [] of FormSection
 
     # Flat (non-sectioned) children appended via `<<`. Web visit renders

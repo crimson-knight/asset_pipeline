@@ -51,6 +51,7 @@ require "../view"
         )
       end
 
+      # Appends a separator divider between menu items.
       def add_separator
         @items << Separator.new
       end

@@ -13,8 +13,9 @@ module UI
     property stroke_color : Color? = nil
     # Stroke / outline width in pt.
     property stroke_width : Float64 = 0.0
+    # Corner curve style — `:continuous` (Apple superellipse) or `:circular` (true arc).
     property corner_style : Symbol = :continuous # :continuous, :circular
-    # Numeric value (pt unless otherwise noted).
+    # Corner radius in pt.
     property corner_radius : Float64
     # Intrinsic width in pt.
     property width : Float64 = 100.0

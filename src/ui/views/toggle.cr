@@ -30,6 +30,7 @@ module UI
 
     # Caption / accessibility label rendered alongside the control.
     property label : String = ""
+    # Visual style variant applied to the control.
     property style : ToggleStyle = ToggleStyle::Switch
     # Tint applied to platform-native chrome (button highlight, selection, etc).
     property tint_color : Color? = nil

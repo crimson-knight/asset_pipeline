@@ -11,6 +11,7 @@ module UI
     property content : View? = nil
     # Whether the modal / overlay is currently presented.
     property is_presented : Bool = false
+    # Edge the popover's arrow points at (`:top`, `:bottom`, `:leading`, `:trailing`).
     property arrow_edge : Symbol = :bottom # :top, :bottom, :leading, :trailing
     # Numeric value (pt unless otherwise noted).
     property preferred_width : Float64? = nil
@@ -39,8 +40,9 @@ module UI
 
   # Presentation state for a Popover (is_presenting flag + the underlying view).
   class PopoverPresenter
+    # The Popover instance being presented.
     property popover : Popover
-    # Wrapped child view.
+    # The anchor view the popover is positioned relative to.
     property anchor : View? = nil
     # Whether the controller is in the act of presenting the overlay.
     property is_presenting : Bool = false

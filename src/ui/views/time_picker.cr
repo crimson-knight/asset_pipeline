@@ -7,6 +7,7 @@ require "../view"
 module UI
   # TimePicker — Time-of-day selection control.
   class TimePicker < View
+    # Currently selected time.
     property selected_time : Time = Time.utc
     # Boolean toggle.
     property shows_24_hour : Bool = false

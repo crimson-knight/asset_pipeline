@@ -28,6 +28,7 @@ module UI
     property well_width : Float64 = 240.0
     # Numeric value (pt unless otherwise noted).
     property well_height : Float64 = 180.0
+    # Inner padding (pt) applied to the preview pane.
     property preview_padding : EdgeInsets = EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
     # Optional fixed width (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_width : Float64 = 0.0
@@ -43,6 +44,7 @@ module UI
     )
     end
 
+    # Returns true when a non-empty image source is currently assigned.
     def has_image? : Bool
       !@image_source.nil? && !@image_source.not_nil!.empty?
     end

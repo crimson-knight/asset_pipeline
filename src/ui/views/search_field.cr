@@ -19,6 +19,7 @@ module UI
     property on_change : Proc(String, Nil)? = nil
     # Invoked when the user submits the field (Return / Enter).
     property on_submit : Proc(String, Nil)? = nil
+    # Invoked when the user cancels the operation (Escape, swipe-down, tap-outside).
     property on_cancel : Proc(Nil)? = nil
 
     def initialize(@placeholder : String = "Search")

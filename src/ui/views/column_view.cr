@@ -18,6 +18,7 @@ module UI
       property icon : String?
       # Text value.
       property secondary_text : String?
+      # Ordered list of child views.
       property children : Array(Item)
 
       def initialize(
@@ -28,11 +29,13 @@ module UI
       )
       end
 
+      # Appends a child item and returns self for chaining.
       def add_child(child : Item) : self
         @children << child
         self
       end
 
+      # Returns true when this item has any children (i.e. it is a branch / non-leaf).
       def branch? : Bool
         !@children.empty?
       end
@@ -44,6 +47,7 @@ module UI
     property selected_indexes : Array(Int32) = [] of Int32
     # Numeric value (pt unless otherwise noted).
     property default_column_width : Float64 = 220.0
+    # Per-column width overrides (pt). Empty means use `default_column_width` for every column.
     property column_widths : Array(Float64) = [] of Float64
     # Horizontal gap (in pt) between columns.
     property column_spacing : Float64 = 12.0

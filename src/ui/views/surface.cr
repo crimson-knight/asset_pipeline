@@ -13,6 +13,7 @@ module UI
     property elevation : Float64 = 0.0
     # Numeric value (pt unless otherwise noted).
     property tonal_elevation : Float64 = 0.0
+    # Bounding shape used to clip / mask the view.
     property shape : Symbol = :rectangle # :rectangle, :rounded, :circle
 
     def initialize(@content : View? = nil)

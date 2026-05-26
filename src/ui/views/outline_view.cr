@@ -14,6 +14,7 @@ module UI
       property icon : String?
       # Text value.
       property secondary_text : String?
+      # Ordered list of child views.
       property children : Array(Node)
       # Boolean toggle.
       property expanded : Bool
@@ -30,16 +31,19 @@ module UI
       )
       end
 
+      # Appends a child node and returns self for chaining.
       def add_child(child : Node) : self
         @children << child
         self
       end
 
+      # Returns true when this node has any children (i.e. it is a branch / non-leaf).
       def branch? : Bool
         !@children.empty?
       end
     end
 
+    # Root nodes of the outline.
     property roots : Array(Node) = [] of Node
     # Vertical gap (in pt) between rows.
     property row_spacing : Float64 = 4.0

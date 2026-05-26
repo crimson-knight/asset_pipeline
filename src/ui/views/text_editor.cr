@@ -19,6 +19,7 @@ module UI
     property is_editable : Bool = true
     # Boolean toggle.
     property shows_line_numbers : Bool = false
+    # Syntax highlighting language identifier (or nil for plain text).
     property syntax_highlighting : Symbol? = nil # :crystal, :json, :markdown, etc.
     # Invoked when the user changes the control's value.
     property on_change : Proc(String, Nil)? = nil

@@ -27,6 +27,7 @@ module UI
       )
       end
 
+      # Whether this token can contain nested tokens. Tokens are always leaves; included for OutlineView-compatible iteration.
       def branch? : Bool
         false
       end

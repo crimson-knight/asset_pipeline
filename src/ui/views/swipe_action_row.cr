@@ -23,6 +23,7 @@ module UI
   class SwipeAction
     # Caption / accessibility label rendered alongside the control.
     property label : String
+    # Semantic role (e.g. `:primary`, `:destructive`, `:cancel`).
     property role : Symbol
     # Optional icon shown next to the title. Native: SF Symbol name; web: icon class or URL.
     property icon : String?

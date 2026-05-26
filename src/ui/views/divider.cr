@@ -11,6 +11,7 @@ module UI
     property color : Color = Color.new(r: 0.8, g: 0.8, b: 0.8)
     # Numeric value (pt unless otherwise noted).
     property thickness : Float64 = 1.0
+    # Layout orientation (e.g. `:horizontal`, `:vertical`).
     property orientation : Symbol = :horizontal # :horizontal, :vertical
 
     def initialize(@orientation : Symbol = :horizontal)

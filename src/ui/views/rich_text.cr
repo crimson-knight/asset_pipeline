@@ -17,6 +17,7 @@ module UI
       strikethrough : Bool = false,
       link : String? = nil
 
+    # Styled text runs that make up the rich-text content.
     property spans : Array(Span) = [] of Span
     # Horizontal text alignment.
     property text_alignment : Alignment = Alignment::Leading

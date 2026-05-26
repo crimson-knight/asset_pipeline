@@ -46,10 +46,12 @@ require "../view"
         @actions << Action.new(label: label, style: style)
       end
 
+      # Returns the first non-cancel action — typically the destructive or default button.
       def primary_action : Action?
         @actions.find { |a| a.style != :cancel }
       end
 
+      # Returns the cancel action, if one has been registered.
       def cancel_action : Action?
         @actions.find { |a| a.style == :cancel }
       end

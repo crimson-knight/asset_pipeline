@@ -11,7 +11,9 @@ module UI
       alignment : Alignment = Alignment::Leading,
       minimum_width : Float64? = nil
 
+    # Ordered list of child views.
     property children : Array(Array(View)) = [] of Array(View)
+    # Column descriptors for the layout.
     property columns : Array(Column) = [] of Column
     # Vertical gap (in pt) between rows.
     property row_spacing : Float64 = 8.0

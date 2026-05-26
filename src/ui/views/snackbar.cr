@@ -15,6 +15,7 @@ module UI
     property duration : Float64 = 4.0 # seconds
     # Whether the modal / overlay is currently presented.
     property is_presented : Bool = false
+    # Invoked when the action affordance is activated.
     property on_action : Proc(Nil)? = nil
     # Invoked when the overlay is dismissed (by tap-outside, escape, or programmatic close).
     property on_dismiss : Proc(Nil)? = nil
@@ -51,6 +52,7 @@ module UI
 
   # Presentation state for a Snackbar (is_presenting flag + the underlying view).
   class SnackbarPresenter
+    # The Snackbar instance being presented.
     property snackbar : Snackbar
     # Whether the controller is in the act of presenting the overlay.
     property is_presenting : Bool = false

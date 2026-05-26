@@ -39,6 +39,7 @@ module UI
     property width : Float64 = 300.0
     # Intrinsic height in pt.
     property height : Float64 = 150.0
+    # Drawing / canvas operations recorded for replay.
     property operations : Array(CanvasOp) = [] of CanvasOp
 
     def initialize(@width : Float64 = 300.0, @height : Float64 = 150.0)

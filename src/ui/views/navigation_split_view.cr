@@ -17,6 +17,7 @@ module UI
     property sidebar_width : Float64 = 250.0
     # Boolean toggle.
     property shows_sidebar : Bool = true
+    # Initial visibility / collapse state for each column.
     property column_visibility : Symbol = :all # :all, :double_column, :detail_only
 
     # Phase 5 v2 — Apple semantic material override for the sidebar pane.

@@ -37,6 +37,7 @@ module UI
     property body_spacing : Float64 = 14.0
     # Numeric value (pt unless otherwise noted).
     property action_spacing : Float64 = 8.0
+    # Visual style variant applied to the control.
     property style : PanelStyle = PanelStyle::Inspector
     # Whether row separators are drawn.
     property shows_separators : Bool = true

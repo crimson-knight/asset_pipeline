@@ -65,6 +65,7 @@ module UI
         @inner.add_item(label, icon, is_destructive, is_disabled)
       end
 
+      # Appends a separator divider between menu items.
       def add_separator
         @items << Separator.new
         @inner.add_separator
@@ -94,6 +95,7 @@ module UI
         )
       end
 
+      # Appends a separator divider between menu items (web-fallback variant).
       def add_separator
         @items << Separator.new
       end

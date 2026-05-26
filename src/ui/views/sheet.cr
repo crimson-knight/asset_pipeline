@@ -36,7 +36,9 @@ module UI
 
     # Boolean toggle.
     property shows_drag_indicator : Bool = true
+    # Allowed sheet detents (heights the user can drag the sheet to).
     property detents : Array(Symbol) = [:medium, :large] # :small, :medium, :large, :custom
+    # Currently active sheet detent.
     property selected_detent : Symbol = :medium
     # Invoked when the overlay is dismissed (by tap-outside, escape, or programmatic close).
     property on_dismiss : Proc(Nil)? = nil
@@ -72,6 +74,7 @@ module UI
 
   # Presentation state for a Sheet (is_presenting flag + the underlying view).
   class SheetPresenter
+    # The Sheet instance being presented.
     property sheet : Sheet
     # Whether the controller is in the act of presenting the overlay.
     property is_presenting : Bool = false
