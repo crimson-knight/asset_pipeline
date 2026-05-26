@@ -1,17 +1,17 @@
 # Phase 10A.0a — Family 1 convention rule regression spec.
 #
-# Loads each rule fixture from `spec/lint_conventions/fixtures/`,
+# Loads each rule fixture from `spec/web/lint_conventions/fixtures/`,
 # parses the leading header keys (`fixture_for`, `expected`,
 # `synthetic_path`), and replays the rule against the fixture content
 # with the declared synthetic file_path. Locks in current diagnostic
 # behavior for the documented false-positive cases.
 
 require "spec"
-require "../../src/lsp_rules/convention_rule"
+require "../../../src/lsp_rules/convention_rule"
 
 # Auto-require every rule file so `ConventionRule.registered_rules`
 # is populated when the spec runs.
-{% for path in `cd #{__DIR__}/../../src/lsp_rules && find . -type f -name "*_rule.cr" | sed 's|^\\./|../../src/lsp_rules/|'`.split('\n').reject(&.empty?) %}
+{% for path in `cd #{__DIR__}/../../../src/lsp_rules && find . -type f -name "*_rule.cr" | sed 's|^\\./|../../../src/lsp_rules/|'`.split('\n').reject(&.empty?) %}
   require {{ path }}
 {% end %}
 
