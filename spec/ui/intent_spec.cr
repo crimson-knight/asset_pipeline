@@ -92,6 +92,40 @@ private class IntentSpecAlternateRow < UI::View
   end
 end
 
+# Iter-9 Finding 3: distinct spec widgets for the screen-vs-app
+# precedence test. Pre-iter-9, both tiers registered the SAME widget
+# (IntentSpecFancyRow), so the precedence assertion was vacuous —
+# the "screen wins" claim would pass even if app won. The two
+# widgets below let the assertion distinguish which tier actually
+# returned the result.
+private class IntentSpecAppWinner < UI::View
+  declares_capabilities :swipe_actions, {
+    supports_edge_trailing:    true,
+    supports_role_default:     true,
+    supports_role_destructive: :partial,
+  }
+
+  def initialize
+  end
+
+  def accept(visitor : UI::PlatformVisitor)
+  end
+end
+
+private class IntentSpecScreenWinner < UI::View
+  declares_capabilities :swipe_actions, {
+    supports_edge_trailing:    true,
+    supports_role_default:     true,
+    supports_role_destructive: :partial,
+  }
+
+  def initialize
+  end
+
+  def accept(visitor : UI::PlatformVisitor)
+  end
+end
+
 # Spec apps + screens — class identity matters for the override
 # registry.
 private class IntentSpecAppA < UI::App
@@ -101,7 +135,11 @@ private class IntentSpecAppB < UI::App
 end
 
 private class IntentSpecScreenA < UI::Screen
-  override_intent :swipe_actions, IntentSpecFancyRow
+  # Iter-9 Finding 3: register a DISTINCT widget at screen scope so
+  # the screen-vs-app precedence spec can prove screen-tier wins
+  # (both tiers used to register IntentSpecFancyRow, making the
+  # precedence assertion vacuous).
+  override_intent :swipe_actions, IntentSpecScreenWinner
 
   def build(context : UI::ScreenContext) : UI::View
     UI::Label.new("a")
@@ -305,27 +343,62 @@ describe UI::Intent::Registry do
   end
 
   describe "screen overrides take precedence" do
-    # IntentSpecScreenA registered :swipe_actions → IntentSpecFancyRow
-    # via the class-level macro at class body time (see the class
-    # definition above). Spec runs against that pre-registered state.
+    # IntentSpecScreenA registered :swipe_actions → IntentSpecScreenWinner
+    # at class-body time. The specs below register IntentSpecAppWinner
+    # at app-tier for the same app that owns the resolve context —
+    # so both tiers carry DIFFERENT widget classes. That's what makes
+    # the precedence assertion meaningful: the result distinguishes
+    # which tier actually won (Codex iter-9 Finding 3).
 
     it "screen override wins over app override at resolve time" do
-      # Iter-9 (Finding 1): the isolation specs above call
+      # The Finding 1 isolation specs above call
       # `reset_overrides_for_spec`, which clears the screen-override
-      # table — including IntentSpecScreenA's class-body registration.
-      # Re-install it here so the precedence assertion has the
-      # screen-tier entry it needs.
+      # table — including IntentSpecScreenA's class-body
+      # registration. Re-install both tiers here so the precedence
+      # assertion has each entry it needs.
+      UI::Intent::Registry.reset_overrides_for_spec
       reinstall_intent_bootstrap
       UI::Intent::Registry.register_screen_override(
         IntentSpecScreenA,
         :swipe_actions,
-        IntentSpecFancyRow,
+        IntentSpecScreenWinner,
       )
+      IntentSpecAppA.override_intent(:swipe_actions, IntentSpecAppWinner)
+
       ctx = native_ctx(:macos)
-      # Passing screen_class: routes through the screen-tier first.
+      ctx.app_class = IntentSpecAppA
+
+      # With screen_class hint: screen wins -> IntentSpecScreenWinner.
+      # If the resolver picked the app tier (broken precedence), this
+      # would return IntentSpecAppWinner. The distinct-class
+      # assertion proves the screen tier ran.
       hit = UI::Intent::Registry.resolve_for(:swipe_actions, ctx, screen_class: IntentSpecScreenA)
-      hit.should eq(IntentSpecFancyRow)
+      hit.should eq(IntentSpecScreenWinner)
       UI::Intent::Registry.screen_override_count_for(IntentSpecScreenA, :swipe_actions).should be > 0
+    end
+
+    it "falls through to app override when no screen_class hint is passed" do
+      # Same setup as the prior spec: both tiers registered with
+      # DIFFERENT widgets. Without the screen_class hint AND with
+      # ctx.active_screen_class also nil, the resolver cannot consult
+      # the screen tier and must fall through to app. The
+      # distinct-class assertion proves the app tier ran (and the
+      # screen tier was correctly skipped).
+      UI::Intent::Registry.reset_overrides_for_spec
+      reinstall_intent_bootstrap
+      UI::Intent::Registry.register_screen_override(
+        IntentSpecScreenA,
+        :swipe_actions,
+        IntentSpecScreenWinner,
+      )
+      IntentSpecAppA.override_intent(:swipe_actions, IntentSpecAppWinner)
+
+      ctx = native_ctx(:macos)
+      ctx.app_class = IntentSpecAppA
+      # ctx.active_screen_class deliberately left nil.
+
+      hit = UI::Intent::Registry.resolve_for(:swipe_actions, ctx)
+      hit.should eq(IntentSpecAppWinner)
     end
   end
 
