@@ -196,6 +196,81 @@ enum CommonModifiers {
             // Reserved for future heading-level / image-label specialisation.
             // The trait flag was already applied via the bitmask above.
         }
+
+        // Phase 10B.2b — Custom accessibility actions. The Crystal
+        // side surfaces the action names as a comma-joined string.
+        // We attach a SwiftUI `.accessibilityAction(named:)` per name
+        // whose callback resolves the matching UIAccessibilityCustomAction
+        // attached to the underlying UIView (the renderer's ObjC
+        // bridge wired those via `apsk_view_add_accessibility_custom_action`).
+        // The action closure itself is a no-op at the SwiftUI level;
+        // the UIView-level wiring already routes activation to Crystal.
+        if let joined = overrides.apskAccessibilityActions, !joined.isEmpty {
+            let names = joined.split(separator: ",").map { (s: Substring) -> String in
+                // Unescape %2C back to comma.
+                String(s).replacingOccurrences(of: "%2C", with: ",")
+            }
+            for name in names {
+                current = AnyView(current.accessibilityAction(named: Text(name)) {
+                    // Activation is routed through the underlying UIView
+                    // accessibilityCustomActions list (wired in objc_bridge.m).
+                    // This closure stays empty so SwiftUI's stub doesn't
+                    // duplicate the dispatch.
+                })
+            }
+        }
+
+        // Phase 10B.2b — Keyboard shortcut. SwiftUI's `.keyboardShortcut`
+        // takes a `KeyEquivalent` + `EventModifiers`. We map a single-
+        // character key directly; named keys (`return`, `escape`, …)
+        // map onto SwiftUI's special-key constants when available.
+        if let key = overrides.apskKeyboardShortcutKey, let maskBox = overrides.apskKeyboardShortcutModifiers, !key.isEmpty {
+            let mask = maskBox.uint64Value
+            var modifiers: EventModifiers = []
+            // Bit positions match UIKeyModifierFlags / NSEventModifierFlags.
+            if (mask & (1 << 17)) != 0 { modifiers.insert(.shift) }
+            if (mask & (1 << 18)) != 0 { modifiers.insert(.control) }
+            if (mask & (1 << 19)) != 0 { modifiers.insert(.option) }
+            if (mask & (1 << 20)) != 0 { modifiers.insert(.command) }
+
+            let equivalent: KeyEquivalent?
+            switch key.lowercased() {
+            case "return", "enter": equivalent = .return
+            case "escape", "esc": equivalent = .escape
+            case "tab": equivalent = .tab
+            case "space": equivalent = .space
+            case "delete": equivalent = .delete
+            case "up": equivalent = .upArrow
+            case "down": equivalent = .downArrow
+            case "left": equivalent = .leftArrow
+            case "right": equivalent = .rightArrow
+            default:
+                if let first = key.first {
+                    equivalent = KeyEquivalent(first)
+                } else {
+                    equivalent = nil
+                }
+            }
+            if let eq = equivalent {
+                current = AnyView(current.keyboardShortcut(eq, modifiers: modifiers))
+            }
+        }
+
+        // Phase 10B.2b — Focus management. SwiftUI requires a
+        // `@FocusState` binding to call `.accessibilityFocused`, which
+        // we cannot synthesise from outside the facade. We rely on the
+        // ObjC-side `ap_view_become_first_responder` helper (called by
+        // the AppKit / UIKit renderer's apply_common_properties) to
+        // request focus on the resolved native view. The Swift side
+        // therefore intentionally does NOT attach a `.focused()`
+        // modifier here; the slot is read so the populator's wiring
+        // remains symmetric. Future SwiftKit facades that own their
+        // own `@FocusState` may consume this property directly.
+        if let _ = overrides.apskFocused {
+            // No-op at the modifier layer — the UIView-level helper
+            // handles focus request.
+        }
+
         return current
     }
 

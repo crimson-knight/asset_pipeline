@@ -3486,6 +3486,34 @@
             LibAndroidBridge.android_view_set_enabled(@env, v, 0)
           end
         end
+
+        # Phase 10B.2b — Focus management. We can clear focus when the
+        # caller explicitly opts out (`focusable = false` overriding a
+        # focusable default). `focused = true` requires a
+        # `android_view_request_focus` JNI bridge entry point that the
+        # current `LibAndroidBridge` does not expose; the gap is
+        # documented in the close handoff and the Crystal-side data
+        # stays on the View object so an app wiring its own JNI can
+        # honor it.
+        if view.focusable == false
+          LibAndroidBridge.android_view_clear_focus(@env, v)
+        end
+
+        # Phase 10B.2b — Accessibility actions / keyboard shortcuts on
+        # Android. The brief lists Android as best-effort because the
+        # `AccessibilityNodeInfo.addAction` surface requires installing
+        # a per-View `AccessibilityDelegate`, and the keyboard layer
+        # uses `View.OnKeyListener` — neither is exposed through the
+        # current JNI bridge. We document the gap honestly here rather
+        # than silently drop the data: when the Crystal-side surface
+        # has actions or a keyboard shortcut, the renderer counts the
+        # gap in a future bridge upgrade.
+        #
+        # The Crystal-side `accessibility_actions` and `keyboard_shortcut`
+        # data is still available on the View object after `render`, so
+        # an app that wants to wire its own delegate via raw JNI can do
+        # so. The lint diagnostic in the handoff calls this out.
+        # (No-op intentionally; honest limitation documented in handoff.)
       end
 
       # Phase 10B.2a — Build the composite contentDescription announcement.

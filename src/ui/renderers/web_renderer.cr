@@ -2673,6 +2673,76 @@ module UI
         if aid = view.accessibility_identifier
           el.set_attribute("data-accessibility-id", aid)
         end
+
+        # Phase 10B.2b — Custom accessibility actions. Surface the names
+        # as a comma-joined list on `data-ax-actions` and an action
+        # count on `data-ax-action-count`. A JS shim can read the list
+        # and bind keyboard/rotor handlers; the data attribute alone is
+        # also useful for automated test drivers that want to enumerate
+        # actions a screen-reader user would see.
+        #
+        # Names that contain commas are URL-encoded so the joined list
+        # round-trips cleanly. Empty array -> no attribute emitted.
+        unless view.accessibility_actions.empty?
+          escaped = view.accessibility_actions.map do |action|
+            action.name.gsub(",", "%2C")
+          end
+          el.set_attribute("data-ax-actions", escaped.join(","))
+          el.set_attribute("data-ax-action-count", view.accessibility_actions.size.to_s)
+        end
+
+        # Phase 10B.2b — Focus management. When `focused == true` we
+        # emit `autofocus` on form controls (button / input / select /
+        # textarea) and a `data-focused="true"` hook on every element so
+        # a JS shim can `.focus()` non-form elements after mount.
+        if view.focused
+          el.set_attribute("data-focused", "true")
+          tag = el.tag_name
+          if tag == "button" || tag == "input" || tag == "select" || tag == "textarea"
+            el.set_attribute("autofocus", "autofocus")
+          end
+        end
+
+        # Phase 10B.2b — `tabindex` emission via the centralised
+        # `effective_tab_index` resolver. The resolver returns nil for
+        # widgets whose intrinsic HTML focusability matches the caller's
+        # intent (no attribute needed), an explicit integer when the
+        # caller set `tab_index`, `-1` when they opted a focusable
+        # widget out of traversal, or `0` when they opted a non-
+        # focusable widget IN.
+        #
+        # Phase 10B.2b iter 2 — Custom accessibility actions imply
+        # keyboard reachability. If the view declares any actions and
+        # the resolver did not already produce a tabindex AND the
+        # widget is not intrinsically focusable (e.g. a Label, Image,
+        # or Spacer rather than a Button or TextField), promote the
+        # element into the tab order with `tabindex="0"` so AT users
+        # on keyboard-only input can reach the element and invoke the
+        # actions via the JS action shim. A widget that explicitly
+        # opted out (`tabindex="-1"`) keeps that override — the
+        # caller's intent wins over the implicit promotion. A widget
+        # that is already keyboard-reachable via its intrinsic role
+        # (`<button>`, `<input>`, etc.) doesn't need a redundant
+        # `tabindex="0"`.
+        ti = view.effective_tab_index
+        if ti.nil? && !view.accessibility_actions.empty? && !view.effective_focusable
+          ti = 0
+        end
+        if ti
+          el.set_attribute("tabindex", ti.to_s)
+        end
+
+        # Phase 10B.2b — Keyboard shortcut. We emit BOTH the standard
+        # HTML `accesskey` attribute (single-character keys only) AND
+        # a `data-keyboard-shortcut` attribute carrying the canonical
+        # "Cmd+Shift+P"-style string so richer JS dispatchers can act
+        # on combinations the bare `accesskey` semantics can't express.
+        if ks = view.keyboard_shortcut
+          if ak = ks.accesskey_char
+            el.set_attribute("accesskey", ak)
+          end
+          el.set_attribute("data-keyboard-shortcut", ks.canonical)
+        end
       end
 
       # Phase 10B.2a — Translate a Crystal role symbol into its
