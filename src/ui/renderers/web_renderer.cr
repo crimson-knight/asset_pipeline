@@ -3193,6 +3193,149 @@ module UI
         push_element(wrap)
       end
 
+      # Phase 10B.4 — FullScreenCover.
+      #
+      # Renders a `<div role="dialog" aria-modal="true">` fixed-inset
+      # overlay. When `is_presented` is false the wrapper is emitted
+      # with `display: none` so reactive flips of `is_presented` flow
+      # through on the next render without removing the node from the
+      # DOM (mirrors `UI::Sheet`'s render-with-hidden-state pattern).
+      #
+      # The cover container is `tabindex="-1"` so keyboard users can
+      # programmatically focus the overlay before tabbing into its
+      # content; combined with `aria-modal="true"`, this is the WCAG
+      # 2.2 baseline for modal dialogs.
+      def visit(view : UI::FullScreenCover)
+        el = Components::Elements::Div.new
+        el.set_attribute("data-component", "full-screen-cover")
+        # Phase 10B.4 iter 2 — modal-dialog ARIA contract. `role="dialog"`
+        # arrives via `apply_common_styles` (default_accessibility_role
+        # is `:dialog`), but `aria-modal` and `tabindex="-1"` are
+        # FullScreenCover-specific and MUST be emitted explicitly here:
+        # `effective_tab_index` returns `nil` for default-focusable
+        # widgets (the View base intentionally skips emitting
+        # `tabindex="0"` to avoid noise on form controls), so the
+        # tabindex="-1" promise documented above must be set on the
+        # element directly.
+        el.set_attribute("aria-modal", "true")
+        el.set_attribute("tabindex", "-1")
+        if view.is_presented
+          el.add_style("position: fixed; inset: 0; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); z-index: 950; display: flex; flex-direction: column; overflow: auto")
+        else
+          el.add_style("display: none")
+        end
+
+        if content = view.content
+          inner = Components::Elements::Div.new
+          inner.add_class("ap-full-screen-cover__content")
+          inner.add_style("flex: 1 1 auto; padding: 24px; overflow-y: auto")
+          inner.add_raw_html(render_subview(content))
+          el.add_child(inner)
+        end
+
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      # Phase 10B.4 — Inspector.
+      #
+      # Web emits a CSS-grid 2-column layout: primary content (`1fr`)
+      # plus a trailing inspector pane sized to `preferred_width`
+      # (defaulting to 320px). The inspector pane is wrapped in
+      # `<aside role="complementary">` so VoiceOver / NVDA announce
+      # it as a landmark and users can jump directly to it. When
+      # `is_presented` is false the grid collapses to a single column
+      # and the aside is `display: none` (keeps focus order
+      # predictable).
+      def visit(view : UI::Inspector)
+        wrap = Components::Elements::Div.new
+        wrap.set_attribute("data-component", "inspector")
+        width = view.preferred_width || 320.0
+        if view.is_presented
+          wrap.add_style("display: grid; grid-template-columns: 1fr #{width}px; gap: 16px; align-items: stretch")
+        else
+          wrap.add_style("display: grid; grid-template-columns: 1fr; gap: 16px; align-items: stretch")
+        end
+
+        primary = Components::Elements::Div.new
+        primary.add_class("ap-inspector__primary")
+        if c = view.content
+          primary.add_raw_html(render_subview(c))
+        end
+        wrap.add_child(primary)
+
+        if view.is_presented
+          aside = Components::Elements::Div.new
+          aside.set_attribute("role", "complementary")
+          aside.add_class("ap-inspector__pane")
+          aside.add_style("padding: 16px; background: var(--ap-color-surface-sunken); border-left: 1px solid var(--ap-color-border-subtle)")
+          if pc = view.inspector_content
+            aside.add_raw_html(render_subview(pc))
+          end
+          wrap.add_child(aside)
+        end
+
+        apply_common_styles(wrap, view)
+        push_element(wrap)
+      end
+
+      # Phase 10B.4 — ToolbarItemGroup.
+      #
+      # Emits `<div role="group" aria-label="...">` wrapping the group's
+      # items as `<button>` siblings. The `aria-label` carries the
+      # group's `label` so VoiceOver announces the cluster as a single
+      # semantic unit. A trailing divider span is appended when
+      # `with_divider` is true.
+      def visit(view : UI::ToolbarItemGroup)
+        el = Components::Elements::Div.new
+        el.set_attribute("data-component", "toolbar-item-group")
+        el.add_style("display: inline-flex; align-items: center; gap: 4px")
+        if lbl = view.label
+          el.set_attribute("aria-label", lbl)
+        end
+
+        view.items.each do |item|
+          btn = Components::Elements::Button.new(type: "button")
+          btn.add_style("border: none; background: transparent; cursor: pointer; padding: 4px 8px; min-height: 44px; min-width: 44px")
+          btn.set_attribute("aria-label", item.label)
+          btn.set_attribute("data-item-id", item.id) unless item.id.empty?
+          btn << item.label
+          el.add_child(btn)
+        end
+
+        if view.with_divider && !view.items.empty?
+          divider = Components::Elements::Span.new
+          divider.set_attribute("aria-hidden", "true")
+          divider.add_style("display: inline-block; width: 1px; height: 24px; margin: 0 4px; background: var(--ap-color-border-subtle)")
+          el.add_child(divider)
+        end
+
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      # Phase 10B.4 — ToolbarSpacer.
+      #
+      # Emits a `<div aria-hidden="true">` with `flex: 1 1 auto`
+      # (flexible) or `flex: 0 0 <size>px` (fixed). The `aria-hidden`
+      # ensures screen readers skip it — the spacer carries no
+      # semantics.
+      def visit(view : UI::ToolbarSpacer)
+        el = Components::Elements::Div.new
+        el.set_attribute("data-component", "toolbar-spacer")
+        el.set_attribute("aria-hidden", "true")
+        if size = view.fixed_size
+          el.add_style("flex: 0 0 #{size}px")
+          el.set_attribute("data-spacer-mode", "fixed")
+        else
+          el.add_style("flex: 1 1 auto")
+          el.set_attribute("data-spacer-mode", "flexible")
+        end
+
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
       @inline_action_counter : Int32 = 0
       @inline_action_chrome_emitted : Bool = false
 

@@ -342,6 +342,22 @@ class TestVisitor < UI::PlatformVisitor
   def visit(view : UI::AndroidSwipeActionRow)
     @visited << "AndroidSwipeActionRow(trailing=#{view.trailing_actions.size},leading=#{view.leading_actions.size})"
   end
+
+  def visit(view : UI::FullScreenCover)
+    @visited << "FullScreenCover(presented=#{view.is_presented})"
+  end
+
+  def visit(view : UI::Inspector)
+    @visited << "Inspector(presented=#{view.is_presented})"
+  end
+
+  def visit(view : UI::ToolbarItemGroup)
+    @visited << "ToolbarItemGroup(items=#{view.items.size})"
+  end
+
+  def visit(view : UI::ToolbarSpacer)
+    @visited << "ToolbarSpacer(flexible=#{view.flexible?})"
+  end
 end
 
 describe UI do

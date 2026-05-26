@@ -4083,6 +4083,123 @@
         push_native(outer_native)
       end
 
+      # Phase 10B.4 — FullScreenCover.
+      #
+      # UIKit's idiomatic mapping is
+      # `UIViewController.modalPresentationStyle = .fullScreen` plus a
+      # `present(_:animated:completion:)` call. The full presentation
+      # lifecycle requires a SwiftKit facade (tracked under B-010);
+      # this visit emits a UIView placeholder whose `hidden` flag
+      # mirrors `is_presented`. The cover's content is rendered as a
+      # single subview so the data path is intact for the upcoming
+      # facade landing.
+      def visit(view : UI::FullScreenCover)
+        ptr = alloc_init("UIView")
+        LibObjCBridge.objc_send_bool(ptr, sel("setHidden:"), view.is_presented ? 0 : 1)
+
+        outer_handle = ObjC.owned(ptr, label: "UIView[FullScreenCover]")
+        outer_native = NativeView.new(outer_handle)
+
+        if content = view.content
+          if content_native = render_detached(content)
+            LibObjCBridge.objc_send_void_id(ptr, sel("addSubview:"), content_native.handle.ptr!)
+            outer_native.add_child(content_native)
+          end
+        end
+
+        apply_common_properties(ptr, view)
+        push_native(outer_native)
+      end
+
+      # Phase 10B.4 — Inspector.
+      #
+      # iOS / iPadOS 17+ idiomatic mapping is `.inspector(isPresented:content:)`
+      # on a SwiftUI view; UIKit's analog is a `UISplitViewController`
+      # with the inspector column. Until a SwiftKit facade ships, this
+      # visit emits a horizontal UIStackView with primary + (optional)
+      # inspector pane. The inspector pane is hidden when
+      # `is_presented` is false so reactive toggling works.
+      def visit(view : UI::Inspector)
+        stack = alloc_init("UIStackView")
+        LibObjCBridge.objc_send_long(stack, sel("setAxis:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 16.0)
+        LibObjCBridge.objc_send_long(stack, sel("setAlignment:"), 0_i64) # fill
+
+        outer_handle = ObjC.owned(stack, label: "UIStackView[Inspector]")
+        outer_native = NativeView.new(outer_handle)
+
+        if content = view.content
+          if content_native = render_detached(content)
+            LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), content_native.handle.ptr!)
+            outer_native.add_child(content_native)
+          end
+        end
+
+        if view.is_presented
+          if inspector = view.inspector_content
+            if pane_native = render_detached(inspector)
+              LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), pane_native.handle.ptr!)
+              outer_native.add_child(pane_native)
+            end
+          end
+        end
+
+        apply_common_properties(stack, view)
+        push_native(outer_native)
+      end
+
+      # Phase 10B.4 — ToolbarItemGroup.
+      #
+      # UIKit's idiomatic mapping is `UIBarButtonItemGroup`. Until a
+      # SwiftKit facade ships, this visit emits a horizontal UIStackView
+      # with the group's items as UIButton siblings dispatched through
+      # `UI::Button` (preserves accessibility / role wiring). The
+      # group's `label` is set as the stack's accessibility label so
+      # VoiceOver announces the cluster.
+      def visit(view : UI::ToolbarItemGroup)
+        stack = alloc_init("UIStackView")
+        LibObjCBridge.objc_send_long(stack, sel("setAxis:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 4.0)
+        LibObjCBridge.objc_send_long(stack, sel("setAlignment:"), 3_i64) # center
+
+        if lbl = view.label
+          ns_lbl = LibObjCBridge.nsstring_from_cstr(lbl.to_unsafe)
+          LibObjCBridge.objc_send_id(stack, sel("setAccessibilityLabel:"), ns_lbl)
+        end
+
+        outer_handle = ObjC.owned(stack, label: "UIStackView[ToolbarItemGroup]")
+        outer_native = NativeView.new(outer_handle)
+
+        view.items.each do |item|
+          btn = UI::Button.new(item.label)
+          btn.accessibility_label = item.label
+          if action = item.action
+            btn.on_tap = action
+          end
+          if btn_native = render_detached(btn.as(UI::View))
+            LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), btn_native.handle.ptr!)
+            outer_native.add_child(btn_native)
+          end
+        end
+
+        apply_common_properties(stack, view)
+        push_native(outer_native)
+      end
+
+      # Phase 10B.4 — ToolbarSpacer.
+      #
+      # UIKit's idiomatic mapping is `UIBarButtonItem.fixedSpace` /
+      # `flexibleSpace`. Since this widget can render outside a native
+      # UIToolbar, this visit emits a plain UIView placeholder. When
+      # the spacer participates in a UIStackView the stack's
+      # distribution settings determine flex behavior. A full
+      # UIToolbar integration is tracked under B-011 as follow-up.
+      def visit(view : UI::ToolbarSpacer)
+        ptr = alloc_init("UIView")
+        apply_common_properties(ptr, view)
+        emit(ptr, "UIView[ToolbarSpacer:#{view.flexible? ? "flexible" : "fixed"}]")
+      end
+
       # ================================================================
       # Private helpers
       # ================================================================

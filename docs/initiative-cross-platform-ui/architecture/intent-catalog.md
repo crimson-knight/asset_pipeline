@@ -666,9 +666,9 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `modality.md`
 - **android_equivalent:** Full-screen `Dialog` or full-screen activity
 - **web_equivalent:** Full-viewport modal overlay
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — no UI::FullScreenCover class exists in src/ui/views/. Tracked under B-010 full-screen cover.`
-- **platforms:** ios, ipados, android; macos+web use sheets at appropriate size
+- **coverage_today:** partial (`src/ui/views/full_screen_cover.cr:50` — `class FullScreenCover < View` with `content`, `is_presented`, `on_dismiss`; visitor entry points at `src/ui/renderers/web_renderer.cr:3196` (fixed-inset overlay), `src/ui/renderers/uikit_renderer.cr:4087` (hidden-toggle UIView fallback), `src/ui/renderers/appkit_renderer.cr:3976` (hidden-toggle NSView fallback), `src/ui/renderers/android_renderer.cr:3318` (visibility-toggle FrameLayout). Full `UIViewController.modalPresentationStyle = .fullScreen` lifecycle deferred to SwiftKit facade follow-up.) # was: missing — Phase 10B.4 shipped widget class + 4 renderer visit methods + spec; native lifecycle wiring tracked under B-010 follow-up.
+- **crystal_api_shape:** `cover = UI::FullScreenCover.new(content); cover.is_presented = true`
+- **platforms:** ios, ipados, android (native modal); macos, web (fallback container with role=dialog)
 - **description:** Modal that takes the entire screen (no peek of the parent).
 
 ### `:popover`
@@ -700,8 +700,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `inspectors.md`
 - **android_equivalent:** —
 - **web_equivalent:** Side panel via CSS grid/flex
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — no UI::Inspector class exists in src/ui/views/, and no screen.inspector= setter on UI::Screen. Tracked under B-009 inspector view.`
+- **coverage_today:** partial (`src/ui/views/inspector.cr:51` — `class Inspector < View` with `content`, `inspector_content`, `is_presented`, `preferred_width`; visitor entry points at `src/ui/renderers/web_renderer.cr:3231` (CSS-grid 2-column with `role="complementary"`), `src/ui/renderers/uikit_renderer.cr:4117` (horizontal UIStackView fallback), `src/ui/renderers/appkit_renderer.cr:4011` (horizontal NSStackView fallback), `src/ui/renderers/android_renderer.cr:3354` (horizontal LinearLayout fallback). Full `UISplitViewController` / `NSSplitViewController` inspector-column binding deferred to SwiftKit facade follow-up.) # was: missing — Phase 10B.4 shipped widget class + 4 renderer visit methods + spec; native split-view binding tracked under B-009 follow-up.
+- **crystal_api_shape:** `inspector = UI::Inspector.new(primary_view, inspector_view); inspector.preferred_width = 320.0`
 - **platforms:** ipados, macos, web_wide; ios+android+web_narrow use sheet fallback
 - **description:** Side-panel detail view that complements primary content. Detail-on-side, never modal.
 
@@ -836,8 +836,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `toolbars.md`
 - **android_equivalent:** Multiple action slots
 - **web_equivalent:** Button group HTML
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — UI::Toolbar (src/ui/views/toolbar.cr) only ships flat add_item(id:, label:, icon:) and has no group concept. Tracked in phase-10-pre-2-close.md "new gaps surfaced" item 3.`
+- **coverage_today:** partial (`src/ui/views/toolbar_item_group.cr:60` — `class ToolbarItemGroup < View` sharing `Toolbar::ToolbarItem` value type; visitor entry points at `src/ui/renderers/web_renderer.cr:3272` (`<div role="group" aria-label="...">` with button siblings), `src/ui/renderers/uikit_renderer.cr:4153` (horizontal UIStackView), `src/ui/renderers/appkit_renderer.cr:4047` (horizontal NSStackView), `src/ui/renderers/android_renderer.cr:3391` (horizontal LinearLayout). Toolbar host integration — adding groups inline within a `UI::Toolbar` — tracked as follow-up under B-011.) # was: missing — Phase 10B.4 shipped standalone widget class + 4 renderer visit methods + spec; Toolbar host integration tracked under B-011 follow-up.
+- **crystal_api_shape:** `group = UI::ToolbarItemGroup.new("Formatting"); group.add_item("bold", "Bold"); group.add_item("italic", "Italic")`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Grouped toolbar items that visually belong together.
 
@@ -887,8 +887,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `toolbars.md`
 - **android_equivalent:** `Spacer` between actions
 - **web_equivalent:** Flex spacer
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — UI::Toolbar (src/ui/views/toolbar.cr) only ships flat add_item(id:, label:, icon:) and has no spacer concept. Tracked in phase-10-pre-2-close.md "new gaps surfaced" item 3.`
+- **coverage_today:** partial (`src/ui/views/toolbar_spacer.cr:36` — `class ToolbarSpacer < View` with `fixed_size : Float64?` (`flexible?` getter); visitor entry points at `src/ui/renderers/web_renderer.cr:3307` (`<div aria-hidden="true">` with `flex: 1 1 auto` or `flex: 0 0 <size>px`), `src/ui/renderers/uikit_renderer.cr:4193` (UIView placeholder), `src/ui/renderers/appkit_renderer.cr:4087` (NSView placeholder), `src/ui/renderers/android_renderer.cr:3429` (`android.widget.Space`). NSToolbar / UIToolbar host integration (mapping to `flexibleSpace` identifiers) tracked as follow-up under B-011.) # was: missing — Phase 10B.4 shipped standalone widget class + 4 renderer visit methods + spec; native toolbar host integration tracked under B-011 follow-up.
+- **crystal_api_shape:** `flex_spacer = UI::ToolbarSpacer.new; fixed_spacer = UI::ToolbarSpacer.new(16.0)`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Spacer between toolbar items, fixed or flexible.
 
