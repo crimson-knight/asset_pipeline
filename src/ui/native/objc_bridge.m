@@ -3226,4 +3226,38 @@ int ap_view_resign_first_responder(void *view_ptr) {
     return 0;
 }
 
+
+// Phase 10B.3.0 — Class C `:hello_world_alert` binding (macOS).
+//
+// Presents an `NSAlert` modally on the active key window. Pure
+// fire-and-forget: the proof binding does not need the user's
+// response (a real production alert binding would route the button
+// taps through `crystal_ui_callback_dispatch`, but the substrate
+// proof intentionally stays minimal).
+//
+// Dispatch is queued onto the main thread because the binding may be
+// invoked from any thread (e.g. a background work item that finished
+// and wants to surface a notification). NSAlert is main-thread-only.
+//
+// Why `runModal` instead of `beginSheetModalForWindow:`?
+// `runModal` works without an anchor window — `:hello_world_alert`
+// is a proof intent that may fire before any window has been
+// constructed (e.g. in a launch-time smoke test). Real Class C
+// alert / dialog bindings introduced in 10B.3.x will prefer a
+// window-anchored API.
+void ap_alert_show_macos(const char *title_cstr, const char *message_cstr) {
+    NSString *title = ap_string_from_cstr(title_cstr);
+    NSString *message = ap_string_from_cstr(message_cstr);
+    if (!title) title = @"Hello";
+    if (!message) message = @"";
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSAlert *alert = [[NSAlert alloc] init];
+        alert.messageText = title;
+        alert.informativeText = message;
+        [alert addButtonWithTitle:@"OK"];
+        [alert runModal];
+        [alert release];
+    });
+}
 #endif

@@ -43,6 +43,9 @@
 # `UnresolvableDefault` rather than returning a degraded widget.
 
 require "./intent/registry"
+require "./intent/dispatch_result"
+require "./intent/platform_feature_binding"
+require "./intent/class_c_registry"
 require "../asset_pipeline/amber_integration"
 
 module UI
@@ -97,6 +100,110 @@ module UI
     # nil if the widget covers everything required. Used by `.resolve`
     # for the `capabilities_required:` kwarg path.
     #
+    # ------------------------------------------------------------------
+    # Phase 10B.3.0 — Class C dispatch entry point.
+    # ------------------------------------------------------------------
+
+    # Dispatch a Class C intent. Looks up the
+    # `PlatformFeatureBinding` registered for `intent_id`, picks the
+    # platform lambda matching `UI::Environment.platform`, and invokes
+    # it with `args`.
+    #
+    # # Return contract
+    #
+    # Returns a `DispatchResult`:
+    #
+    #   * `DispatchResult.success`           — the platform lambda
+    #     completed without raising.
+    #   * `DispatchResult.unsupported(why)`  — no binding registered,
+    #     OR the binding does not cover the current platform, OR the
+    #     binding's `api_capability_check` returned false.
+    #   * `DispatchResult.failed(reason)`    — the platform lambda
+    #     raised; `reason` is the exception message.
+    #
+    # Class C dispatch is fire-and-forget by contract — the result is
+    # informational. Callers that need result data wire it through a
+    # callback inside `args` (e.g. a file-picker binding takes an
+    # `on_pick:` symbol identifier; the binding fires a callback
+    # registered with `UI::Intent::CallbackRegistry`). The substrate
+    # itself returns no payload.
+    #
+    # # args shape
+    #
+    # `args` is `Hash(Symbol, String)` — the lowest-common-denominator
+    # shape that crosses JNI / objc bridge boundaries safely. Native
+    # bindings parse the string keys inside the platform lambda.
+    # Callers spell the args as
+    # `UI::Intent.dispatch(:hello_world_alert, {message: "hi"})`; the
+    # convenience `dispatch(intent_id, **kwargs)` form is documented
+    # in the close handoff but deferred — Crystal does not support
+    # `**kwargs : Hash(Symbol, String)` without macro gymnastics.
+    # Convenience overload — accepts kwargs and packs them into the
+    # `Hash(Symbol, String)` form the substrate uses. Keyword values
+    # may be any type that supports `to_s`; the conversion happens
+    # here so bindings can rely on string args downstream. Call-sites
+    # can spell:
+    #
+    #     UI::Intent.dispatch(:hello_world_alert, message: "hi")
+    #
+    # in place of the more verbose Hash-literal form.
+    def self.dispatch(intent_id : Symbol, **kwargs) : DispatchResult
+      args = {} of Symbol => String
+      kwargs.each do |k, v|
+        args[k] = v.to_s
+      end
+      dispatch(intent_id, args)
+    end
+
+    def self.dispatch(
+      intent_id : Symbol,
+      args : Hash(Symbol, String) = {} of Symbol => String,
+    ) : DispatchResult
+      binding = UI::Intent::ClassCRegistry.binding_for(intent_id)
+      unless binding
+        return DispatchResult.unsupported(
+          "No Class C binding registered for intent #{intent_id.inspect}. " \
+          "Bindings are installed by `UI::Intent::ClassCBootstrap` at framework " \
+          "load — if you expected this intent to be wired, confirm the bootstrap " \
+          "file is required and the binding hasn't been gated out by a missing " \
+          "compile-time flag."
+        )
+      end
+
+      platform = UI::Environment.platform
+      unless binding.supports?(platform)
+        return DispatchResult.unsupported(
+          "Intent #{intent_id.inspect} has a binding registered, but the binding " \
+          "does not cover platform #{platform.inspect} (or its api_capability_check " \
+          "returned false). Either extend the binding's `platforms` map to include " \
+          "#{platform.inspect}, or fall back to a platform-appropriate UI " \
+          "(e.g. degrade to a copy-link when share isn't available)."
+        )
+      end
+
+      proc = binding.platform_proc(platform)
+      unless proc
+        # Defensive — supports? returned true, so the proc must exist;
+        # but the typechecker can't prove that without re-reading the
+        # Hash. The early return keeps the exception path honest.
+        return DispatchResult.unsupported(
+          "Intent #{intent_id.inspect} binding claimed support for platform " \
+          "#{platform.inspect} but no proc was found in the platforms map. " \
+          "This is a substrate bug — please file an issue."
+        )
+      end
+
+      begin
+        proc.call(args)
+        DispatchResult.success
+      rescue ex : Exception
+        DispatchResult.failed(
+          "Intent #{intent_id.inspect} on platform #{platform.inspect} raised " \
+          "#{ex.class}: #{ex.message}"
+        )
+      end
+    end
+
     # # Phase 10B.1b — platform-aware lookup
     #
     # The widget's declared capability value can now be a platform-

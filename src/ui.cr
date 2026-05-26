@@ -15,6 +15,13 @@ require "./ui/quick_actions"
 # call `declares_capabilities` at class-load, which writes into
 # `UI::Intent::Registry`.
 require "./ui/intent/registry"
+require "./ui/intent/dispatch_result"
+require "./ui/intent/platform_feature_binding"
+require "./ui/intent/class_c_registry"
+# Phase 10B.3.0 — UI::Environment is the process-level platform +
+# capability surface read by Class C dispatch. Load before
+# `./ui/intent` so `Intent.dispatch` can reference it.
+require "./ui/environment"
 require "./ui/intent"
 require "./ui/views/*"
 # `intent_bootstrap` installs the framework-default capability
@@ -22,6 +29,9 @@ require "./ui/views/*"
 # `UI::SwipeActionRow` (and future widget classes) are defined before
 # the bootstrap references them.
 require "./ui/intent_bootstrap"
+# Phase 10B.3.0 — install Class C bindings (currently the
+# :hello_world_alert proof; 10B.3.x grows this).
+require "./ui/intent/class_c_bootstrap"
 require "./ui/menu_bar"
 require "./ui/status_bar"
 require "./ui/platform_visitor"

@@ -279,6 +279,70 @@ module UI
         accessibility_enabled: talk_back_active,
       )
     end
+    # ------------------------------------------------------------------
+    # Phase 10B.3.0 — Process-level platform identity (for Class C
+    # intent dispatch).
+    # ------------------------------------------------------------------
+    #
+    # The runtime platform is sourced from Crystal's compile-time
+    # `flag?(:macos | :ios | :ipados | :android)` markers. The Web build
+    # (no flag) falls through to `:web_wide`. Consumer apps that want
+    # viewport-aware behavior call `set_platform(:web_narrow)` from
+    # their JS bridge after viewport detection.
+    @@platform : Symbol = begin
+      {% if flag?(:macos) %}
+        :macos
+      {% elsif flag?(:ipados) %}
+        :ipados
+      {% elsif flag?(:ios) %}
+        :ios
+      {% elsif flag?(:android) %}
+        :android
+      {% else %}
+        :web_wide
+      {% end %}
+    end
+
+    # Returns the current platform identity. The same symbol used by
+    # `UI::Intent::Registry` lookups and by `PlatformFeatureBinding`
+    # platform maps.
+    def self.platform : Symbol
+      @@platform
+    end
+
+    # Override the platform at runtime. Used by web hosts detecting a
+    # narrow viewport client-side, and by tests exercising multiple
+    # platform branches. Production native apps do NOT call this — the
+    # compile-time flag is authoritative.
+    def self.set_platform(platform : Symbol) : Nil
+      @@platform = platform
+      nil
+    end
+
+    # SPEC-ONLY — restore the compile-time default platform.
+    def self.reset_platform_for_spec : Nil
+      @@platform = {% if flag?(:macos) %}
+                     :macos
+                   {% elsif flag?(:ipados) %}
+                     :ipados
+                   {% elsif flag?(:ios) %}
+                     :ios
+                   {% elsif flag?(:android) %}
+                     :android
+                   {% else %}
+                     :web_wide
+                   {% end %}
+      nil
+    end
+
+    # Returns `true` when a Class C `PlatformFeatureBinding` exists for
+    # `intent_id` on the current platform AND the binding's
+    # `api_capability_check` returns `true`. Use to feature-detect
+    # before rendering UI that calls `UI::Intent.dispatch`.
+    def self.feature_supported?(intent_id : Symbol) : Bool
+      UI::Intent::ClassCRegistry.supports?(intent_id, @@platform)
+    end
+
   end
 
   # Animation helper namespace. Phase 10B.2c ships only
