@@ -66,4 +66,62 @@ describe "UI::View accessibility actions (Phase 10B.2b)" do
       html.should_not contain("data-ax-actions")
     end
   end
+
+  # Phase 10B.2b iter 2 — A view that exposes custom accessibility
+  # actions to AT users MUST be keyboard-reachable. Otherwise a
+  # keyboard-only user (including switch / sip-and-puff users routed
+  # through their AT to keyboard events) cannot focus the element and
+  # therefore cannot invoke the actions. The web renderer promotes
+  # any view with non-empty `accessibility_actions` to `tabindex="0"`
+  # when the focus resolver did not already produce a tabindex.
+  describe "keyboard reachability for custom actions" do
+    it "promotes a Label with accessibility_actions to tabindex=0" do
+      lbl = UI::Label.new("Status")
+      lbl.accessibility_actions = [
+        UI::AccessibilityAction.new("Refresh") { },
+      ]
+      html = render(lbl)
+      html.should contain(%(tabindex="0"))
+    end
+
+    it "does not promote a Label without accessibility_actions" do
+      lbl = UI::Label.new("Status")
+      html = render(lbl)
+      html.should_not contain("tabindex=")
+    end
+
+    it "preserves an explicit tab_index even with accessibility_actions" do
+      lbl = UI::Label.new("Status")
+      lbl.tab_index = 4
+      lbl.accessibility_actions = [
+        UI::AccessibilityAction.new("Refresh") { },
+      ]
+      html = render(lbl)
+      html.should contain(%(tabindex="4"))
+      html.should_not contain(%(tabindex="0"))
+    end
+
+    it "preserves tabindex=-1 opt-out on a focusable widget with actions" do
+      btn = UI::Button.new("X")
+      btn.focusable = false
+      btn.accessibility_actions = [
+        UI::AccessibilityAction.new("Refresh") { },
+      ]
+      html = render(btn)
+      html.should contain(%(tabindex="-1"))
+    end
+
+    it "does not emit a redundant tabindex on an intrinsically focusable widget with actions" do
+      btn = UI::Button.new("Save")
+      btn.accessibility_actions = [
+        UI::AccessibilityAction.new("Save as draft") { },
+      ]
+      html = render(btn)
+      # Button is intrinsically focusable via <button>; the keyboard
+      # reachability invariant is already satisfied without a
+      # `tabindex` attribute, so the promotion rule deliberately
+      # skips it to avoid noise in the rendered HTML.
+      html.should_not contain("tabindex=")
+    end
+  end
 end

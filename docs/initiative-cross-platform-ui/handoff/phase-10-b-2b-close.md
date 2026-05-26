@@ -268,3 +268,81 @@ so the gaps surface explicitly rather than ship as silent skips.
   is available.
 
 — Implementer (Claude Opus 4.7), 10B.2b iter-1
+
+---
+
+## Iter 2 — Codex REVISE remediation
+
+**Finding (BLOCKER):** Web `accessibility_actions` weren't keyboard-
+reachable. A non-interactive view (Label, Image, Spacer, …) carrying
+custom `accessibility_actions` emitted `data-ax-actions` but no
+`tabindex`, so keyboard-only AT users could not focus the element to
+invoke its actions. The contract is: *an element with custom
+accessibility actions MUST be keyboard-reachable so AT users can
+invoke those actions.*
+
+**Fix (web-only, `src/ui/renderers/web_renderer.cr`):** After the
+existing `effective_tab_index` resolution, promote the element into
+the tab order when ALL of the following hold:
+
+1. The resolver returned `nil` (no explicit `tab_index`, no opt-in / opt-out override), AND
+2. The view has a non-empty `accessibility_actions` array, AND
+3. The view is NOT intrinsically focusable (`!effective_focusable`).
+
+When that triad fires, the renderer emits `tabindex="0"`. Explicit
+overrides win — a caller-set `tab_index` is preserved verbatim, and a
+`focusable = false` opt-out on an intrinsically focusable widget still
+emits `tabindex="-1"`. Intrinsically focusable widgets (Button,
+TextField, …) that carry actions are already keyboard-reachable, so
+no redundant `tabindex="0"` is emitted; the existing "skip tabindex
+on a focusable widget with no override" invariant holds.
+
+UIKit / AppKit are not touched — they have their own focus model
+(`isAccessibilityElement` / `accessibilityElement` + responder chain)
+and the `ax_view_add_accessibility_custom_action` helpers already
+wire actions into the accessibility tree where AT users discover
+them via the rotor / actions menu.
+
+**Rendering rule (precedence top-down):**
+
+| Condition | tabindex emitted |
+|---|---|
+| `tab_index = N` (explicit) | `N` |
+| `focusable = false` on focusable-by-default widget | `-1` |
+| `focusable = true` on non-focusable-by-default widget | `0` |
+| `accessibility_actions` non-empty AND not intrinsically focusable | `0` |
+| otherwise | (no attribute) |
+
+**Spec coverage (5 new examples in `spec/web/ui/accessibility_actions_spec.cr`):**
+
+- Label with `accessibility_actions` -> `tabindex="0"` (the primary contract).
+- Label without `accessibility_actions` -> no `tabindex` (no false promotion).
+- Label with explicit `tab_index = 4` + actions -> `tabindex="4"` (caller wins).
+- Button with `focusable = false` + actions -> `tabindex="-1"` (opt-out wins over implicit promotion).
+- Button with actions -> no `tabindex` (already reachable; no noise).
+
+```
+crystal spec spec/web/ui/accessibility_actions_spec.cr \
+            spec/web/ui/accessibility_focus_spec.cr \
+            spec/web/ui/accessibility_keyboard_spec.cr
+39 examples, 0 failures, 0 errors, 0 pending
+```
+
+(11 in actions + 15 in focus + 13 in keyboard = 39; previously 34 across
+the same three files. Iter 1's handoff cited 41 across four files
+including the SwiftKit overrides spec — that fourth file is unchanged
+in iter 2 and still green.)
+
+**Full web spec regression:** `1925 examples, 4 failures, 2 errors,
+66 pending`. The 4 failures + 2 errors match the pre-iter-2 baseline
+exactly (verified via `git stash` / re-run): one `UI::Theme
+inject_theme_css` empty-string check, three Phase 2 fixture mismatches
+in `phase2_verification_spec.cr`, and two `:swipe_actions` android
+registration ordering issues. None touch the focus / actions
+surface; iter 2 introduces zero new failures.
+
+**Lint:** `lint_conventions: OK (461 files, 14 rules, 0 diagnostics)`.
+
+**Build:** `crystal build src/asset_pipeline.cr --no-codegen` → success.
+
+— Implementer (Claude Opus 4.7), 10B.2b iter-2

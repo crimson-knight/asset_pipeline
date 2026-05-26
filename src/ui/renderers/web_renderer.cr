@@ -2710,7 +2710,25 @@ module UI
         # caller set `tab_index`, `-1` when they opted a focusable
         # widget out of traversal, or `0` when they opted a non-
         # focusable widget IN.
-        if (ti = view.effective_tab_index)
+        #
+        # Phase 10B.2b iter 2 — Custom accessibility actions imply
+        # keyboard reachability. If the view declares any actions and
+        # the resolver did not already produce a tabindex AND the
+        # widget is not intrinsically focusable (e.g. a Label, Image,
+        # or Spacer rather than a Button or TextField), promote the
+        # element into the tab order with `tabindex="0"` so AT users
+        # on keyboard-only input can reach the element and invoke the
+        # actions via the JS action shim. A widget that explicitly
+        # opted out (`tabindex="-1"`) keeps that override — the
+        # caller's intent wins over the implicit promotion. A widget
+        # that is already keyboard-reachable via its intrinsic role
+        # (`<button>`, `<input>`, etc.) doesn't need a redundant
+        # `tabindex="0"`.
+        ti = view.effective_tab_index
+        if ti.nil? && !view.accessibility_actions.empty? && !view.effective_focusable
+          ti = 0
+        end
+        if ti
           el.set_attribute("tabindex", ti.to_s)
         end
 
