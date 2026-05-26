@@ -73,7 +73,15 @@ module UI
       # desktop-web mirrors the convention with visible inline buttons).
       UI::Intent::Registry.register_default(:swipe_actions, :macos, UI::InlineActionRow)
       UI::Intent::Registry.register_default(:swipe_actions, :web_wide, UI::InlineActionRow)
-      # :android  — NO default; Phase 10B.1c will install UI::AndroidSwipeActionRow.
+      # Phase 10B.1c — Android backs `:swipe_actions` with
+      # `UI::AndroidSwipeActionRow`. The aspirational mapping is
+      # `androidx.compose.material3.SwipeToDismissBox` but the current
+      # JNI bridge is View-system only; the renderer falls back to a
+      # horizontal LinearLayout. The capability declaration on the
+      # widget reflects the fallback (`supports_role_destructive:
+      # :partial`) so registration-time validation stays honest.
+      # See `docs/initiative-cross-platform-ui/handoff/phase-10-b-1c-close.md`.
+      UI::Intent::Registry.register_default(:swipe_actions, :android, UI::AndroidSwipeActionRow)
     end
   end
 end

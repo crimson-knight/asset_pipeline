@@ -338,6 +338,10 @@ class TestVisitor < UI::PlatformVisitor
   def visit(view : UI::InlineActionRow)
     @visited << "InlineActionRow(trailing=#{view.trailing_actions.size},leading=#{view.leading_actions.size})"
   end
+
+  def visit(view : UI::AndroidSwipeActionRow)
+    @visited << "AndroidSwipeActionRow(trailing=#{view.trailing_actions.size},leading=#{view.leading_actions.size})"
+  end
 end
 
 describe UI do

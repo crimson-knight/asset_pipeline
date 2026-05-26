@@ -2604,7 +2604,6 @@
         emit(ptr, "UIView[path]")
       end
 
-
       def visit(view : UI::MapView)
         span_delta = map_span_delta(view.zoom_level)
         ptr = LibObjCBridge.mkmapview_new(
@@ -3933,6 +3932,54 @@
         push_native(outer_native)
       end
 
+      # Phase 10B.1c — AndroidSwipeActionRow. iOS fallback rendering.
+      # The `:swipe_actions` platform default on `:ios` is
+      # `UI::SwipeActionRow` (SwiftUI `.swipeActions`), so this visit
+      # only fires when an app registers `UI::AndroidSwipeActionRow` as
+      # an explicit override. Renders a horizontal UIStackView with
+      # leading actions + content + trailing actions inline — same
+      # shape as `visit(InlineActionRow)`.
+      def visit(view : UI::AndroidSwipeActionRow)
+        stack = alloc_init("UIStackView")
+        LibObjCBridge.objc_send_long(stack, sel("setAxis:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 8.0)
+
+        outer_handle = ObjC.owned(stack, label: "UIStackView[AndroidSwipeActionRow]")
+        outer_native = NativeView.new(outer_handle)
+
+        view.leading_actions.each do |action|
+          inner = UI::Button.new(action.label, role: action.role, style: UI::ButtonStyle::Prominent)
+          inner.accessibility_label = action.label
+          if tap = action.on_tap
+            inner.on_tap = tap
+          end
+          if action_native = render_detached(inner.as(UI::View))
+            LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), action_native.handle.ptr!)
+            outer_native.add_child(action_native)
+          end
+        end
+
+        if content_native = render_detached(view.content)
+          LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), content_native.handle.ptr!)
+          outer_native.add_child(content_native)
+        end
+
+        view.trailing_actions.each do |action|
+          inner = UI::Button.new(action.label, role: action.role, style: UI::ButtonStyle::Prominent)
+          inner.accessibility_label = action.label
+          if tap = action.on_tap
+            inner.on_tap = tap
+          end
+          if action_native = render_detached(inner.as(UI::View))
+            LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), action_native.handle.ptr!)
+            outer_native.add_child(action_native)
+          end
+        end
+
+        apply_common_properties(stack, view)
+        push_native(outer_native)
+      end
+
       def visit(view : UI::ActionSheetWithWebFallback)
         # The WithWebFallback's iOS branch holds a UI::ActionSheet and
         # forwards accept() to it, so this visitor is unreachable in
@@ -4240,14 +4287,14 @@
       # round 3.
       private def uikit_blur_effect_style_for_semantic(semantic : UI::DesignTokens::AppleSemantic) : Int64
         case semantic
-        in .menu?              then  6_i64 # UIBlurEffectStyleSystemUltraThinMaterial
-        in .popover?           then  8_i64 # UIBlurEffectStyleSystemMaterial
-        in .sidebar?           then  7_i64 # UIBlurEffectStyleSystemThinMaterial
-        in .sheet?             then  9_i64 # UIBlurEffectStyleSystemThickMaterial
+        in .menu?              then 6_i64  # UIBlurEffectStyleSystemUltraThinMaterial
+        in .popover?           then 8_i64  # UIBlurEffectStyleSystemMaterial
+        in .sidebar?           then 7_i64  # UIBlurEffectStyleSystemThinMaterial
+        in .sheet?             then 9_i64  # UIBlurEffectStyleSystemThickMaterial
         in .header_view?       then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
-        in .window_background? then  8_i64 # UIBlurEffectStyleSystemMaterial (brief row 1)
+        in .window_background? then 8_i64  # UIBlurEffectStyleSystemMaterial (brief row 1)
         in .hud_window?        then 10_i64 # UIBlurEffectStyleSystemChromeMaterial
-        in .titlebar?          then  8_i64 # UIBlurEffectStyleSystemMaterial (brief row 1)
+        in .titlebar?          then 8_i64  # UIBlurEffectStyleSystemMaterial (brief row 1)
         in .system_resolved?   then -1_i64 # SENTINEL — caller must skip setEffect:
         end
       end

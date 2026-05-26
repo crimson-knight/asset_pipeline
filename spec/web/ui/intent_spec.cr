@@ -216,6 +216,8 @@ private def reinstall_intent_bootstrap : Nil
   # Phase 10B.1a — macOS + web_wide back :swipe_actions with InlineActionRow.
   UI::Intent::Registry.register_default(:swipe_actions, :macos, UI::InlineActionRow)
   UI::Intent::Registry.register_default(:swipe_actions, :web_wide, UI::InlineActionRow)
+  # Phase 10B.1c — Android backs :swipe_actions with UI::AndroidSwipeActionRow.
+  UI::Intent::Registry.register_default(:swipe_actions, :android, UI::AndroidSwipeActionRow)
   nil
 end
 
@@ -275,11 +277,16 @@ describe UI::Intent do
       UI::Intent.resolve(:swipe_actions, ctx).should eq(UI::InlineActionRow)
     end
 
-    it "raises UnresolvableDefault for :swipe_actions on android (no default)" do
+    it "returns UI::AndroidSwipeActionRow for :swipe_actions on android (Phase 10B.1c)" do
+      # Pre-10B.1c this raised UnresolvableDefault — Android was the
+      # last platform without a `:swipe_actions` default. 10B.1c
+      # installs `UI::AndroidSwipeActionRow`; the aspirational
+      # renderer mapping is `M3.SwipeToDismissBox` but until the JNI
+      # bridge gains Compose interop the renderer falls back to a
+      # horizontal LinearLayout. The resolver returns the widget
+      # regardless of which renderer-side strategy is active.
       ctx = native_ctx(:android)
-      expect_raises(UI::Intent::UnresolvableDefault, /:swipe_actions.*:android/) do
-        UI::Intent.resolve(:swipe_actions, ctx)
-      end
+      UI::Intent.resolve(:swipe_actions, ctx).should eq(UI::AndroidSwipeActionRow)
     end
 
     it "produces a return type that can be invoked via .new (compiling call-site)" do
@@ -386,12 +393,14 @@ describe UI::Intent::Registry do
       reinstall_intent_bootstrap
       IntentSpecAppA.override_intent(:swipe_actions, IntentSpecFancyRow)
 
-      # Use :android — still the only platform without a registered
-      # default for :swipe_actions post-10B.1a (macOS + web_wide now
-      # default to UI::InlineActionRow). With app_class nil the
+      # Use a synthetic platform symbol (`:spec_no_default_platform`)
+      # that no bootstrap has registered. Post-10B.1c every real
+      # platform — ios, ipados, macos, web_narrow, web_wide, android —
+      # has a registered `:swipe_actions` default, so the "no default"
+      # branch needs an unregistered platform. With app_class nil the
       # resolver skips the app tier, falls through to the (missing)
       # default, and returns nil.
-      ctx = native_ctx(:android)
+      ctx = native_ctx(:spec_no_default_platform)
       UI::Intent::Registry.resolve_for(:swipe_actions, ctx).should be_nil
     end
   end

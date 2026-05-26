@@ -3872,6 +3872,48 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         push_native(outer_native)
       end
 
+      # Phase 10B.1c — AndroidSwipeActionRow. macOS fallback rendering.
+      # The `:swipe_actions` platform default on `:macos` is
+      # `UI::InlineActionRow`, so this visit only fires when an app
+      # registers `UI::AndroidSwipeActionRow` as an explicit override.
+      # Renders the same NSStackView chrome as `visit(InlineActionRow)`
+      # so the override produces HIG-correct macOS chrome rather than a
+      # stub.
+      def visit(view : UI::AndroidSwipeActionRow)
+        ptr = alloc_init("NSStackView")
+        LibObjCBridge.objc_send_long(ptr, sel("setOrientation:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(ptr, sel("setSpacing:"), 8.0)
+
+        outer_handle = ObjC.owned(ptr, label: "NSStackView[AndroidSwipeActionRow]")
+        outer_native = NativeView.new(outer_handle)
+
+        view.leading_actions.each do |action|
+          btn = alloc_init("NSButton")
+          title_ns = LibObjCBridge.nsstring_from_cstr(action.label.to_unsafe)
+          LibObjCBridge.objc_send_id(btn, sel("setTitle:"), title_ns)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), btn)
+          btn_handle = ObjC.owned(btn, label: "NSButton[AndroidSwipeAction:leading:#{action.label}]")
+          outer_native.add_child(NativeView.new(btn_handle))
+        end
+
+        if content_native = render_detached(view.content)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), content_native.handle.ptr!)
+          outer_native.add_child(content_native)
+        end
+
+        view.trailing_actions.each do |action|
+          btn = alloc_init("NSButton")
+          title_ns = LibObjCBridge.nsstring_from_cstr(action.label.to_unsafe)
+          LibObjCBridge.objc_send_id(btn, sel("setTitle:"), title_ns)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), btn)
+          btn_handle = ObjC.owned(btn, label: "NSButton[AndroidSwipeAction:trailing:#{action.label}]")
+          outer_native.add_child(NativeView.new(btn_handle))
+        end
+
+        apply_common_properties(ptr, view)
+        push_native(outer_native)
+      end
+
       def visit(view : UI::ActionSheetWithWebFallback)
         # macOS lacks a native action-sheet idiom (HIG steers developers to
         # NSAlert / modal sheets). We synthesize a UI::ConfirmationDialog
@@ -4171,15 +4213,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       private def appkit_visual_effect_material_for_semantic(semantic : UI::DesignTokens::AppleSemantic) : Int64
         # AppKit material translation table — only allowed hard-coded glass switch
         case semantic
-        in .menu?              then  5_i64 # NSVisualEffectMaterialMenu
-        in .popover?           then  6_i64 # NSVisualEffectMaterialPopover
-        in .sidebar?           then  7_i64 # NSVisualEffectMaterialSidebar
+        in .menu?              then 5_i64  # NSVisualEffectMaterialMenu
+        in .popover?           then 6_i64  # NSVisualEffectMaterialPopover
+        in .sidebar?           then 7_i64  # NSVisualEffectMaterialSidebar
         in .header_view?       then 10_i64 # NSVisualEffectMaterialHeaderView
         in .sheet?             then 11_i64 # NSVisualEffectMaterialSheet
         in .window_background? then 12_i64 # NSVisualEffectMaterialWindowBackground
         in .hud_window?        then 13_i64 # NSVisualEffectMaterialHUDWindow
-        in .titlebar?          then  3_i64 # NSVisualEffectMaterialTitlebar
-        in .system_resolved?   then  0_i64 # SENTINEL — caller must skip setMaterial:
+        in .titlebar?          then 3_i64  # NSVisualEffectMaterialTitlebar
+        in .system_resolved?   then 0_i64  # SENTINEL — caller must skip setMaterial:
         end
       end
 
