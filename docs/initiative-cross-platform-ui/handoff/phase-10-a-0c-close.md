@@ -27,9 +27,12 @@ auto-registered into `ConventionRule.registered_rules` via the
 ### Deliverable 2 — Regression fixtures
 
 Under `spec/web/lint_conventions/fixtures/family_3_architectural/` —
-15 fixtures total (3 per rule = 1 pass + 1 fail + ≥2 false-positive
-guards for the rules that have them; some rules ship 3 pass + 1 fail
-where the pass fixtures double as the false-positive guards).
+20 fixtures total at iter 1 close (5 pass + 5 fail + 10
+false-positive guards: ≥2 guards per rule, satisfying the brief).
+
+Iter 2 adds 4 more fixtures (2 for Finding 1, 2 for Finding 2),
+bringing the total to **24**. See §9 (iter 2 remediation) for the
+inventory.
 
 | Rule | Pass | Fail | False-positive guards |
 |---|---|---|---|
@@ -46,7 +49,8 @@ rule against the declared synthetic path.
 ### Deliverable 3 — Spec
 
 `spec/web/lint_conventions/family_3_architectural_spec.cr` — 22
-examples, all green. Fixture-driven, mirrors the Family 1 spec shape.
+examples at iter 1 close, 26 at iter 2 close. All green.
+Fixture-driven, mirrors the Family 1 spec shape.
 
 ### Deliverable 4 — Close handoff
 
@@ -138,9 +142,12 @@ not replaces — the skill's narrative discipline.
 ### Rule 2 — `controller_action_returns_action_result`
 
 - Only inspects classes inheriting `(::)?UI::Controller`.
-- Only inspects methods with an EXPLICIT `: UI::ActionResult`
-  return-type annotation. Methods without the annotation are not
-  checked (the rule trades off coverage for false-positive safety).
+- Recognises action handlers via TWO narrow gates:
+  (a) the EXPLICIT `: UI::ActionResult` return-type annotation, OR
+  (b) a preceding `action_handler :name` declaration (iter 2 —
+      Finding 2 remediation).
+  Methods that match neither gate are not checked (the rule trades
+  off coverage for false-positive safety).
 - Finds the last non-blank, non-comment line of the method body
   (the line before the matching `end`).
 - Accepts a wide set of terminal forms: any controller helper
@@ -194,25 +201,46 @@ not replaces — the skill's narrative discipline.
   and the explicit-receiver parens form
   (`UI::App.override_intent(:foo, Bar)`).
 - Skips comment lines at entry.
+- Iter 2 — Finding 1 remediation: scrubs string-literal interiors
+  and inline `# ...` comments out of each line before the entry
+  regex runs, so a string `"override_intent :foo, Bar"` or an
+  inline `# override_intent :foo, Bar` on a non-macro line cannot
+  false-positive.
 - Requires the FIRST argument to be a Symbol literal (`:foo`). If
   not, the rule bails (treats the call as an unrelated
   `*.override_intent` overload).
 - For the SECOND argument, requires the token to match the class
   constant regex: `(::)?[A-Z][A-Za-z0-9_]*(::[A-Z][A-Za-z0-9_]*)*`.
   Strips a trailing `# ...` comment before matching.
-- **Acknowledged narrow-heuristic limit:** regex CANNOT verify
-  subclass relationship. The rule only verifies the second arg
-  *looks like a class constant*. A typo that yields a valid-looking
-  class name (e.g. `AcmeFancySwippeRow` with a typo) compiles, and
-  this rule would not catch the typo. The Crystal compiler catches
-  unresolved constants at build time; this rule catches obvious
-  shape violations (symbols, strings, lowercase identifiers, hash
-  literals) that the compiler would also catch but with a less
-  actionable message.
+- **Acknowledged narrow-heuristic limit (iter 2 — Finding 3,
+  downgraded scope chosen):** regex CANNOT verify subclass
+  relationship. The rule only verifies the second arg *looks like a
+  class constant*. It does NOT verify the constant subclasses
+  `UI::View` — that requires AST + symbol resolution outside regex
+  linting and is intentionally out of scope. A typo that yields a
+  valid-looking class name (e.g. `AcmeFancySwippeRow` with a typo)
+  compiles to "unresolved constant" at build time, and the
+  `UI::App.override_intent` macro validates the class against
+  declared capabilities at registration time. This rule's job is
+  the obvious-shape gate (symbols, strings, lowercase identifiers,
+  hash/array literals); the deeper subclass check happens
+  downstream. The rule's docstring + the diagnostic message both
+  call this out so downstream readers don't expect more.
+- Codex's Finding 3 recommended either implementing a
+  set-based subclass scan OR downgrading the docs honestly. The
+  set-based scan would require either (a) modifying existing
+  fixtures to reference real `UI::View` classes (entangling
+  fixture-mode with the real repo's source tree) or (b) injecting
+  a configured View set into the rule via `configure`. Both
+  options trade testability for marginal coverage gain when the
+  Crystal compiler + macro already catch the deeper case. We
+  chose the documentation downgrade.
 
 ## 5. False-positive fixture inventory
 
-10 false-positive fixtures total (≥2 per rule, satisfying the brief):
+10 false-positive fixtures at iter 1 close (≥2 per rule, satisfying
+the brief); iter 2 adds 2 more for rule 5, bringing the rule-5 count
+to 4:
 
 - Rule 1: `no_domain_mutation_view_local_pass.cr`,
   `no_domain_mutation_state_read_pass.cr`.
@@ -223,7 +251,9 @@ not replaces — the skill's narrative discipline.
 - Rule 4: `intent_resolve_multiline_pass.cr`,
   `intent_resolve_in_comment_pass.cr`.
 - Rule 5: `override_intent_namespaced_pass.cr`,
-  `override_intent_explicit_receiver_pass.cr`.
+  `override_intent_explicit_receiver_pass.cr`,
+  `override_intent_inline_comment_pass.cr` (iter 2),
+  `override_intent_string_literal_pass.cr` (iter 2).
 
 Each fixture documents the specific shape it guards against in its
 file-header comment.
@@ -290,4 +320,110 @@ docs/initiative-cross-platform-ui/handoff/
   phase-10-a-0c-close.md (this file)
 ```
 
-— Implementer (Claude Opus 4.7), 10A.0c close v1
+Iter 2 additions (Codex REVISE remediation):
+
+```
+spec/web/lint_conventions/fixtures/family_3_architectural/
+  override_intent_inline_comment_pass.cr   (Finding 1)
+  override_intent_string_literal_pass.cr   (Finding 1)
+  controller_action_decorated_pass.cr      (Finding 2)
+  controller_action_decorated_fail.cr      (Finding 2)
+```
+
+## 9. Iter 2 — Codex REVISE remediation
+
+Codex returned REVISE with three findings; all three addressed.
+
+### Finding 1 (MEDIUM) — override_intent rule regex narrowness
+
+**Problem:** the rule's docstring claimed it skipped strings + inline
+comments, but the implementation only skipped whole-line comments
+and then regex-matched the raw line. A string literal containing
+`override_intent :foo, BarClass` or an inline trailing
+`# override_intent :foo, BarClass` on a non-macro line both
+false-positived (Codex reproduced 2 spurious diagnostics).
+
+**Fix:** added `scrub_strings_and_inline_comments` helper. It walks
+each line once, replaces string-literal interiors with spaces
+(preserving the quotes + line length so column math stays sane),
+and drops everything after a top-level `#`. The `check` method
+scrubs all lines up-front, then runs the entry/arg regex over the
+scrubbed copy. Diagnostic line numbers are preserved (one-to-one
+with the original line array).
+
+**New fixtures:**
+- `override_intent_inline_comment_pass.cr` — inline trailing
+  `# override_intent :swipe_actions, BogusWidget` on a non-macro
+  line, must pass.
+- `override_intent_string_literal_pass.cr` — string constant
+  containing `"use override_intent :swipe_actions, :bogus_widget"`,
+  must pass.
+
+### Finding 2 (MEDIUM) — controller rule misses decorated handlers
+
+**Problem:** the brief defined "action method" as (a) `: UI::ActionResult`
+return-type annotation OR (b) decorated with `action_handler :name`.
+The original implementation only matched form (a). Decorated handlers
+without an explicit return-type annotation slipped through.
+
+**Fix:** added a first-pass collector that walks the controller body
+and gathers every name declared as `action_handler :name`. The main
+walk then surfaces a method as a handler if it matches either gate
+(typed return OR decorated). Diagnostic message identifies the
+source: "declares `: UI::ActionResult`" vs "is decorated with
+`action_handler :name`".
+
+**New fixtures:**
+- `controller_action_decorated_pass.cr` — `action_handler :submit`
+  + un-annotated `def submit` ending in `navigate_to(:todos)`, must
+  pass.
+- `controller_action_decorated_fail.cr` — `action_handler :submit`
+  + un-annotated `def submit` ending in `puts "submitted"`, must
+  fail.
+
+### Finding 3 (NOTE) — View subclass verification not implemented
+
+**Problem:** the rule claims `override_intent` second arg "must
+reference a class that subclasses `UI::View`" but only verifies the
+arg looks like a class constant. Codex flagged this as honest in
+the rule's docstring but recommended either implementing a
+set-based subclass scan OR explicitly downgrading the docs.
+
+**Decision: downgrade docs.** Implementing the set-based scan would
+either entangle fixture-mode with the real repo's source tree (the
+existing fixtures use deliberately fake names like
+`AcmeFancySwipeRow`) or require injecting a configured View set
+through `configure`. Both options trade testability for marginal
+coverage gain — the Crystal compiler catches unresolved-constant
+typos at build time and the `UI::App.override_intent` macro
+validates class-against-capabilities at registration time. So the
+rule's role is narrowed honestly to the shape gate.
+
+**Changes:**
+- Rule docstring: added explicit "Scope (honest)" section calling
+  out the limit and pointing to the downstream catchers.
+- Diagnostic message: now notes "this rule only checks the constant
+  shape — actual subclass relationship is validated by the
+  `override_intent` macro at registration time."
+- §4 Rule 5 (this file): expanded the "Acknowledged narrow-heuristic
+  limit" bullet with the explicit Finding-3 trade-off rationale.
+
+### Iter 2 acceptance gate
+
+```
+$ crystal run scripts/lint_conventions.cr
+lint_conventions: OK (446 files, 11 rules, 0 diagnostics)
+
+$ crystal spec spec/web/lint_conventions/family_3_architectural_spec.cr
+26 examples, 0 failures, 0 errors, 0 pending
+```
+
+Fixture count: **24** (was 20 at iter 1 close — see §2 Deliverable 2
+for the original "20" breakdown). The earlier draft of this doc
+mistakenly described it as "15 fixtures total" — corrected in iter 2
+to reflect the actual count. Iter 1 ship: 5 pass + 5 fail + 10
+false-positive guards = 20. Iter 2 additions: 1 pass + 1 fail
+(decorated handler — Finding 2) + 2 false-positive guards (inline
+comment + string literal — Finding 1) = 4 more, total **24**.
+
+— Implementer (Claude Opus 4.7), 10A.0c close v1; iter 2 remediation

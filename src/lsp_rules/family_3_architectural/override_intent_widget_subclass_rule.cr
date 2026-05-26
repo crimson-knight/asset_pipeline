@@ -1,19 +1,31 @@
 # Phase 10A.0c — Family 3 architectural rule: `override_intent :foo, Bar`
 # must reference a Crystal class constant.
 #
+# **Scope (honest):** this rule verifies the second argument *looks
+# like a Crystal class constant*. It does NOT verify that the class
+# actually subclasses `UI::View` — that requires AST + symbol
+# resolution outside regex linting and is intentionally out of scope
+# (see Phase 10A.0c iter 2 Finding 3 close-handoff entry). The
+# Crystal compiler catches unresolved constants at build time, and
+# the `UI::App.override_intent` macro validates the class against
+# the intent's declared capabilities at registration time — so a
+# typo that yields a valid-looking-but-non-View constant is caught
+# downstream with a less actionable message; this rule's job is to
+# catch the obvious shape violations (symbols, strings, lowercase
+# identifiers, hash/array literals) that produce confusing compiler
+# errors.
+#
 # The Phase 10B.0 macros `UI::App.override_intent(:intent_id, WidgetClass)`
 # and the `override_intent :intent_id, WidgetClass` class-body form on
 # `UI::Screen` subclasses both expect a `UI::View.class` as the second
-# argument. The widget class is validated against the intent's declared
-# capabilities at registration time.
+# argument.
 #
-# We CANNOT verify subclass relationship from regex (that requires AST
-# + a loaded type table). The narrowest honest check is: the second
-# argument must look like a Crystal class constant — i.e. an
-# identifier or path that starts with an uppercase letter (optionally
-# prefixed with `::` and possibly module-qualified). Anything that
-# looks like a Symbol literal, String literal, Hash/Array literal,
-# Proc, lowercase identifier, or method call is flagged.
+# Narrowest honest check: the second argument must look like a
+# Crystal class constant — i.e. an identifier or path that starts
+# with an uppercase letter (optionally prefixed with `::` and
+# possibly module-qualified). Anything that looks like a Symbol
+# literal, String literal, Hash/Array literal, Proc, lowercase
+# identifier, or method call is flagged.
 #
 # Narrow heuristic (per architecture-decisions.md Decision 3):
 #
@@ -225,7 +237,7 @@ class OverrideIntentWidgetSubclassRule < ConventionRule
         file_path: file_path,
         line: line,
         rule_name: rule_name,
-        message: "`override_intent` second argument '#{widget_part}' is not a class constant. Expected a `UI::View` subclass (e.g. `UI::InlineActionRow`).",
+        message: "`override_intent` second argument '#{widget_part}' is not a class constant. Expected a class constant that subclasses `UI::View` (e.g. `UI::InlineActionRow`). Note: this rule only checks the constant shape — actual subclass relationship is validated by the `override_intent` macro at registration time.",
         suggested_fix: "pass the widget class itself (PascalCase identifier or `Module::ClassName`), not a symbol/string/literal"
       )
     end
