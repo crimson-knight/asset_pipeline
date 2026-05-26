@@ -197,6 +197,37 @@ module UI
         if traits_mask != 0_u64
           sender.set_uint64(target, :setApskAccessibilityTraitsMask, traits_mask)
         end
+
+        # Phase 10B.2b — Surface the action / focus / keyboard slots to
+        # SwiftKit. The Swift side reads each via the matching
+        # `apsk*` selector and applies the SwiftUI modifier
+        # (`.accessibilityAction(named:)`, `.accessibilityFocused`,
+        # `.keyboardShortcut`).
+        #
+        # Action names — joined as a comma-separated string so the
+        # populator stays on the existing string-slot surface. The
+        # Swift side splits on comma. Names containing commas are
+        # URL-encoded to round-trip cleanly, matching the web
+        # renderer's encoding.
+        unless view.accessibility_actions.empty?
+          escaped = view.accessibility_actions.map do |action|
+            action.name.gsub(",", "%2C")
+          end
+          sender.set_string(target, :setApskAccessibilityActions, escaped.join(","))
+          sender.set_int(target, :setApskAccessibilityActionCount,
+            view.accessibility_actions.size)
+        end
+
+        # Focused flag. Boolean-as-int.
+        sender.set_bool(target, :setApskFocused, view.focused ? true : nil)
+
+        # Keyboard shortcut: surface the canonical string + modifier
+        # mask separately so the Swift side can build a SwiftUI
+        # `.keyboardShortcut(KeyEquivalent, modifiers:)` directly.
+        if ks = view.keyboard_shortcut
+          sender.set_string(target, :setApskKeyboardShortcutKey, ks.key)
+          sender.set_uint64(target, :setApskKeyboardShortcutModifiers, ks.uikit_modifier_mask)
+        end
       end
 
       # Phase 10B.2a iter 2 (Codex Finding 1) — canonical UIAccessibility

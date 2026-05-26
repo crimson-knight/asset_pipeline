@@ -91,5 +91,43 @@ public class ViewOverrides: NSObject {
     // `.accessibilityAddTraits(...)` call.
     @objc(apskAccessibilityTraitsMask) public var apskAccessibilityTraitsMask: NSNumber? = nil
 
+    // Phase 10B.2b — action + focus + keyboard accessibility slots.
+    //
+    // `apskAccessibilityActions` is a comma-joined string of action
+    // names. Names containing commas are %2C-escaped on the Crystal
+    // side; the modifier splits + unescapes. Each action's callback
+    // is wired separately via the ObjC bridge (`apsk_view_add_*`),
+    // so the Swift facade only needs the *names* to attach
+    // `.accessibilityAction(named:action:)` modifiers — the action
+    // closures invoke the matching custom-action handler on the
+    // attached UIAccessibilityCustomAction object.
+    //
+    // For SwiftUI views constructed through the facade we can also
+    // attach `.accessibilityAction(named:)` modifiers directly so the
+    // VoiceOver rotor surfaces them without depending on the legacy
+    // UIView accessibilityCustomActions path. The callback token is
+    // resolved in the Swift facade via a per-view dispatch table
+    // populated by the Crystal renderer; iter 1 ships the data
+    // pipeline and Apple-host validation is deferred to the snapshot
+    // harness.
+    @objc(apskAccessibilityActions) public var apskAccessibilityActions: String? = nil
+    @objc(apskAccessibilityActionCount) public var apskAccessibilityActionCount: NSNumber? = nil
+
+    // Focus request: when true the view should call
+    // `.accessibilityFocused` (or equivalent) on the next render.
+    // SwiftUI's `.accessibilityFocused` requires a `@FocusState`
+    // binding inside the View, which we cannot synthesise from
+    // outside the facade. The reactive `apsk_view_become_first_responder`
+    // helper bridges the gap on iOS/macOS at the UIView/NSView layer
+    // for the native renderer path.
+    @objc(apskFocused) public var apskFocused: NSNumber? = nil
+
+    // Keyboard shortcut: key (single character or special key name)
+    // + UIKeyModifierFlags-compatible bitmask. SwiftUI's
+    // `.keyboardShortcut` takes a `KeyEquivalent` + `EventModifiers`;
+    // the modifier maps the bitmask onto `EventModifiers` bits.
+    @objc(apskKeyboardShortcutKey) public var apskKeyboardShortcutKey: String? = nil
+    @objc(apskKeyboardShortcutModifiers) public var apskKeyboardShortcutModifiers: NSNumber? = nil
+
     @objc public override init() { super.init() }
 }

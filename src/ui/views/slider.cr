@@ -48,5 +48,10 @@ module UI
     def default_accessibility_role : Symbol?
       :slider
     end
+
+    # Phase 10B.2b — interactive widgets default to focusable.
+    def default_focusable : Bool
+      true
+    end
   end
 end

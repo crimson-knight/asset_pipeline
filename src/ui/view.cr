@@ -122,6 +122,125 @@ module UI
     bottom : Float64 = 0.0,
     leading : Float64 = 0.0
 
+  # Phase 10B.2b — Custom accessibility action surfaced to assistive tech
+  # (VoiceOver / TalkBack / NSAccessibility). Each action carries a
+  # human-readable `name` (announced by the screen reader as a verb
+  # users invoke via the rotor / actions menu) plus a `callback` Proc
+  # invoked when the user activates the action.
+  #
+  # Per-platform mapping:
+  #   - UIKit  -> `UIAccessibilityCustomAction(name:target:selector:)`
+  #              array passed to `setAccessibilityCustomActions:`.
+  #   - AppKit -> `NSAccessibilityCustomAction(name:handler:)` array
+  #              passed to `setAccessibilityCustomActions:`. Available
+  #              on macOS 10.13+.
+  #   - Web    -> emits `data-ax-actions="action1,action2"` plus a
+  #              `data-ax-action-N-token="<n>"` attribute per action so
+  #              a JS shim can dispatch keystroke-driven custom actions.
+  #              The element is ensured focusable when actions exist.
+  #   - Android -> best-effort `AccessibilityNodeInfo.addAction` via the
+  #              accessibility delegate. JNI surface is documented as a
+  #              deferred limitation when the bridge entry point is not
+  #              wired (10B.2b iter 1 ships the Crystal-side data path
+  #              and a stub log call).
+  class AccessibilityAction
+    getter name : String
+    getter callback : Proc(Nil)
+
+    def initialize(@name : String, &block : -> Nil)
+      @callback = block
+    end
+
+    # Spec convenience — constructs an action that records its
+    # invocation onto the given Channel/Array. Mostly used by tests
+    # so the Crystal-side surface stays plain.
+    def self.new(name : String, callback : Proc(Nil)) : AccessibilityAction
+      new(name) { callback.call }
+    end
+
+    # Invoke the underlying callback. Renderers / dispatchers call this
+    # from the native action trampoline.
+    def call : Nil
+      @callback.call
+    end
+  end
+
+  # Phase 10B.2b — Keyboard shortcut binding for a view. The `key` is a
+  # single character (or a special key name like `:return`, `:escape`,
+  # `:tab`, `:up`, `:down`, `:left`, `:right`, `:space`, `:delete`,
+  # `:backspace`, `:f1`...`:f12`). `modifiers` is a set of modifier
+  # symbols: `:command`, `:control`, `:option` / `:alt`, `:shift`.
+  #
+  # Per-platform mapping:
+  #   - Web    -> `accesskey` attribute (single character only) plus a
+  #              `data-keyboard-shortcut` attribute carrying the full
+  #              canonical string ("Cmd+Shift+P") for JS handlers that
+  #              want richer dispatch.
+  #   - UIKit  -> `UIKeyCommand` entries pushed onto the view's
+  #              `keyCommands` (we maintain an Objective-C side list
+  #              via `apsk_view_add_key_command`).
+  #   - AppKit -> on `NSButton`-like controls we set `keyEquivalent` +
+  #              `keyEquivalentModifierMask` directly. Non-control views
+  #              fall through.
+  #   - Android -> no first-class analog beyond `View.setOnKeyListener`;
+  #              documented as a deferred limitation.
+  struct KeyboardShortcut
+    getter key : String
+    getter modifiers : Array(Symbol)
+
+    def initialize(key : String | Symbol, @modifiers : Array(Symbol) = [] of Symbol)
+      @key = key.to_s
+    end
+
+    # Canonical "Cmd+Shift+P"-style label. Renderers / specs can use
+    # this directly without re-implementing the join. Modifier ordering
+    # matches macOS HIG: Control, Option, Shift, Command.
+    def canonical : String
+      parts = [] of String
+      parts << "Control" if @modifiers.includes?(:control)
+      parts << "Option" if @modifiers.includes?(:option) || @modifiers.includes?(:alt)
+      parts << "Shift" if @modifiers.includes?(:shift)
+      parts << "Command" if @modifiers.includes?(:command) || @modifiers.includes?(:cmd)
+      parts << @key
+      parts.join("+")
+    end
+
+    # Single-character "access key" used by HTML's `accesskey` attribute.
+    # Returns the first character of `key` when `key` is a printable
+    # single-character string; nil for named keys like `:return`.
+    def accesskey_char : String?
+      return nil if @key.size != 1
+      @key
+    end
+
+    # UIKit `UIKeyModifierFlags` bitmask. Bit positions per the
+    # UIKit public header:
+    #   UIKeyModifierAlphaShift = 1 << 16
+    #   UIKeyModifierShift      = 1 << 17
+    #   UIKeyModifierControl    = 1 << 18
+    #   UIKeyModifierAlternate  = 1 << 19
+    #   UIKeyModifierCommand    = 1 << 20
+    #   UIKeyModifierNumericPad = 1 << 21
+    def uikit_modifier_mask : UInt64
+      mask = 0_u64
+      mask |= (1_u64 << 17) if @modifiers.includes?(:shift)
+      mask |= (1_u64 << 18) if @modifiers.includes?(:control)
+      mask |= (1_u64 << 19) if @modifiers.includes?(:option) || @modifiers.includes?(:alt)
+      mask |= (1_u64 << 20) if @modifiers.includes?(:command) || @modifiers.includes?(:cmd)
+      mask
+    end
+
+    # AppKit `NSEventModifierFlags`. Bit positions per AppKit header:
+    #   NSEventModifierFlagShift   = 1 << 17
+    #   NSEventModifierFlagControl = 1 << 18
+    #   NSEventModifierFlagOption  = 1 << 19
+    #   NSEventModifierFlagCommand = 1 << 20
+    # (Same bit layout as UIKit for the four general modifiers.)
+    def appkit_modifier_mask : UInt64
+      uikit_modifier_mask
+    end
+  end
+
   # Abstract base class for all UI views.
   #
   # Crystal prohibits recursive structs, so View must be a class.
@@ -196,6 +315,94 @@ module UI
     #     `data-accessibility-id` (accessibility_identifier) so test
     #     drivers that already query the latter don't break.
     property accessibility_identifier : String? = nil
+
+    # Phase 10B.2b — Custom accessibility actions surfaced to assistive
+    # tech. Each action carries a human-readable name and a callback.
+    # See `UI::AccessibilityAction`. Renderers walk this array and
+    # emit per-platform custom actions (UIKit `UIAccessibilityCustomAction`,
+    # AppKit `NSAccessibilityCustomAction`, web data-attribute hooks,
+    # Android best-effort).
+    property accessibility_actions : Array(AccessibilityAction) = [] of AccessibilityAction
+
+    # Phase 10B.2b — Requests that the view receive focus on render. When
+    # toggled true (e.g. via a controller reaction), the matching native
+    # renderer calls `becomeFirstResponder` / `makeFirstResponder:` /
+    # `requestFocus()` on the resolved native view. Web emits an
+    # `autofocus` attribute on form controls and a `data-focused="true"`
+    # hook for non-form elements that a JS shim can act on.
+    property focused : Bool = false
+
+    # Phase 10B.2b — Whether this view participates in keyboard focus
+    # traversal. `nil` means "use the widget's default" (interactive
+    # widgets default to focusable, layout primitives to non-focusable).
+    # Set explicitly to override. Web emits `tabindex="0"` (focusable)
+    # or `tabindex="-1"` (programmatic-focus-only). Native renderers
+    # call `setIsAccessibilityElement:` / `setFocusable` to reflect the
+    # choice.
+    property focusable : Bool? = nil
+
+    # Phase 10B.2b — Explicit tab order index. Web emits `tabindex="<n>"`.
+    # On native platforms `tab_index` is advisory because keyboard
+    # traversal order is determined by the platform's focus engine; we
+    # surface the value in `accessibility_identifier` test attribute
+    # form so XCUITest / Espresso can introspect intent.
+    property tab_index : Int32? = nil
+
+    # Phase 10B.2b — Keyboard shortcut binding. See `UI::KeyboardShortcut`.
+    # Web emits an `accesskey` attribute plus a `data-keyboard-shortcut`
+    # canonical string. UIKit and AppKit thread the modifier mask into
+    # the platform's key command / key equivalent APIs.
+    property keyboard_shortcut : KeyboardShortcut? = nil
+
+    # Chainable convenience setter: `view.with_keyboard_shortcut("S",
+    # modifiers: [:command])`. Returns `self`.
+    def with_keyboard_shortcut(key : String | Symbol, modifiers : Array(Symbol) = [] of Symbol) : self
+      @keyboard_shortcut = KeyboardShortcut.new(key, modifiers)
+      self
+    end
+
+    # Phase 10B.2b — Per-widget default for `focusable` when the caller
+    # leaves the property at `nil`. Interactive subclasses (`Button`,
+    # `TextField`, `Toggle`, …) override this to return `true`; layout
+    # primitives and decorative views return `false`. The
+    # `effective_focusable` getter applies the precedence.
+    def default_focusable : Bool
+      false
+    end
+
+    # Phase 10B.2b — Resolved focusability: explicit `focusable` when
+    # set, otherwise the subclass default. Renderers MUST call this
+    # method rather than read `@focusable` directly so the default-
+    # inference path runs.
+    def effective_focusable : Bool
+      f = @focusable
+      f.nil? ? default_focusable : f
+    end
+
+    # Phase 10B.2b — Resolved tab-index emission. Returns the explicit
+    # `tab_index` when the caller set one. When `focusable` was
+    # explicitly set to `false` on a widget whose default is focusable,
+    # returns `-1` so the renderer can opt the element out of tab
+    # traversal. Otherwise returns `nil` and the renderer skips the
+    # `tabindex` attribute — HTML form controls already have an
+    # implicit tab order, so unconditional `tabindex="0"` emission
+    # would just produce noise.
+    def effective_tab_index : Int32?
+      if t = @tab_index
+        return t
+      end
+      # Explicit opt-out: focusable was set to false but the widget
+      # default is true (or vice versa needs explicit override).
+      if @focusable == false && default_focusable
+        return -1
+      end
+      # Explicit opt-in on a widget whose default is non-focusable —
+      # emit tabindex="0" so the browser puts it in the tab order.
+      if @focusable == true && !default_focusable
+        return 0
+      end
+      nil
+    end
 
     # Phase 10B.2a — Per-widget default semantic role. Subclasses override
     # to return the role symbol that matches the widget's HIG semantics.

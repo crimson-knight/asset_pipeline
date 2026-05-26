@@ -3023,3 +3023,207 @@ void register_crystal_action_dispatcher(void) {
 
     objc_registerClassPair(cls);
 }
+
+// =============================================================================
+// Phase 10B.2b — Action + focus + keyboard accessibility helpers.
+//
+// Custom AX actions, focus management, and keyboard shortcut helpers shared by
+// AppKit + UIKit renderers. Each helper takes a callback token (UInt64) the
+// Crystal-side `UI::CallbackRegistry` returns when registering the action's
+// Proc; activating the AX action / key command on the platform side fires
+// `crystal_ui_callback_dispatch(token)` which routes back to Crystal.
+// =============================================================================
+
+#if TARGET_OS_IPHONE
+
+// Add a UIAccessibilityCustomAction with the given name + callback token to
+// the view's `accessibilityCustomActions` array. We use a block-based target
+// (iOS 13+) so we don't need the global selector-dispatcher pattern.
+//
+// Returns 1 on success, 0 on no-op (target nil / name nil).
+int ap_view_add_accessibility_custom_action(void *view_ptr, const char *name,
+                                            unsigned long long token) {
+    if (view_ptr == NULL || name == NULL) return 0;
+    UIView *view = (__bridge UIView *)view_ptr;
+    NSString *ns_name = [NSString stringWithUTF8String:name];
+    if (ns_name == nil) return 0;
+
+    UIAccessibilityCustomAction *action =
+        [[UIAccessibilityCustomAction alloc] initWithName:ns_name
+                                            actionHandler:^BOOL(UIAccessibilityCustomAction *_Nonnull a) {
+                                                crystal_ui_callback_dispatch(token);
+                                                return YES;
+                                            }];
+
+    NSArray<UIAccessibilityCustomAction *> *existing = view.accessibilityCustomActions;
+    NSMutableArray *next = existing ? [existing mutableCopy] : [NSMutableArray array];
+    [next addObject:action];
+    view.accessibilityCustomActions = next;
+    return 1;
+}
+
+// Add a UIKeyCommand to a view's keyCommands. UIKit's stock UIView returns
+// a static keyCommands array, so we install ours via the associated-object
+// dynamic-subclass pattern. For simplicity we use `setKeyCommands:` on
+// UIViewController-derived hosts when available; on plain UIView we fall
+// back to associating an array the renderer can read back later. The
+// Crystal side compose `keyCommands` at the view-controller level.
+//
+// This helper handles the common case: the view is the
+// UIHostingController/UIViewController root we got from the SwiftKit
+// facade — we set its `additionalKeyCommands` (iOS 15+) via runtime.
+//
+// Returns 1 if the message was sent, 0 if the receiver didn't respond.
+int ap_view_add_key_command(void *view_ptr, const char *input, unsigned long long modifier_mask,
+                            unsigned long long token) {
+    if (view_ptr == NULL || input == NULL) return 0;
+    id receiver = (__bridge id)view_ptr;
+    NSString *ns_input = [NSString stringWithUTF8String:input];
+    if (ns_input == nil) return 0;
+
+    // Build the UIKeyCommand. The selector is dispatched via the global
+    // CrystalActionDispatcher class (registered separately); we wire the
+    // tag via an associated object so the dispatcher's invocation can
+    // pull the right callback token.
+    //
+    // For simplicity in iter 1, we use the action-block convenience via
+    // UIKeyCommand's keyCommandWithInput:modifierFlags:action: which uses
+    // the responder chain's @selector. We bind to a static selector
+    // registered on UIResponder via category — but to avoid adding a
+    // category we instead leverage the same CrystalActionDispatcher
+    // class as the button click path.
+    SEL action_sel = sel_registerName("dispatch:");
+    UIKeyCommand *cmd = [UIKeyCommand keyCommandWithInput:ns_input
+                                           modifierFlags:(UIKeyModifierFlags)modifier_mask
+                                                  action:action_sel];
+
+    // Allocate a CrystalActionDispatcher to carry the token, retain via
+    // associated objects so the lifetime tracks the view.
+    Class disp_cls = objc_getClass("CrystalActionDispatcher");
+    if (disp_cls == Nil) return 0;
+    id dispatcher = ((id (*)(Class, SEL))objc_msgSend)(disp_cls, sel_registerName("new"));
+    ((void (*)(id, SEL, long long))objc_msgSend)(dispatcher, sel_registerName("setTag:"), (long long)token);
+    objc_setAssociatedObject(cmd, "apsk_dispatcher", dispatcher, OBJC_ASSOCIATION_RETAIN);
+
+    // Attempt to append to `keyCommands`. UIView doesn't have a setter, but
+    // UIViewController has `addKeyCommand:`. We try the latter first.
+    SEL add_sel = sel_registerName("addKeyCommand:");
+    if ([receiver respondsToSelector:add_sel]) {
+        ((void (*)(id, SEL, id))objc_msgSend)(receiver, add_sel, cmd);
+        return 1;
+    }
+    // Fallback: store on associated object so a host VC can read+install later.
+    NSMutableArray *bag = objc_getAssociatedObject(receiver, "apsk_pending_key_commands");
+    if (bag == nil) {
+        bag = [NSMutableArray array];
+        objc_setAssociatedObject(receiver, "apsk_pending_key_commands", bag, OBJC_ASSOCIATION_RETAIN);
+    }
+    [bag addObject:cmd];
+    return 1;
+}
+
+// Request first-responder status (focus). Returns 1 if the message was sent.
+int ap_view_become_first_responder(void *view_ptr) {
+    if (view_ptr == NULL) return 0;
+    id receiver = (__bridge id)view_ptr;
+    SEL sel = @selector(becomeFirstResponder);
+    if (![receiver respondsToSelector:sel]) return 0;
+    ((void (*)(id, SEL))objc_msgSend)(receiver, sel);
+    return 1;
+}
+
+// Resign first-responder status (blur).
+int ap_view_resign_first_responder(void *view_ptr) {
+    if (view_ptr == NULL) return 0;
+    id receiver = (__bridge id)view_ptr;
+    SEL sel = @selector(resignFirstResponder);
+    if (![receiver respondsToSelector:sel]) return 0;
+    ((void (*)(id, SEL))objc_msgSend)(receiver, sel);
+    return 1;
+}
+
+#else  // macOS / AppKit
+
+// AppKit accessibility-custom-action support. NSAccessibilityCustomAction is
+// available on macOS 10.13+ via the NSAccessibility informal protocol.
+int ap_view_add_accessibility_custom_action(void *view_ptr, const char *name,
+                                            unsigned long long token) {
+    if (view_ptr == NULL || name == NULL) return 0;
+    NSView *view = (__bridge NSView *)view_ptr;
+    NSString *ns_name = [NSString stringWithUTF8String:name];
+    if (ns_name == nil) return 0;
+
+    NSAccessibilityCustomAction *action =
+        [[NSAccessibilityCustomAction alloc] initWithName:ns_name
+                                                  handler:^BOOL(void) {
+                                                      crystal_ui_callback_dispatch(token);
+                                                      return YES;
+                                                  }];
+
+    NSArray<NSAccessibilityCustomAction *> *existing = view.accessibilityCustomActions;
+    NSMutableArray *next = existing ? [existing mutableCopy] : [NSMutableArray array];
+    [next addObject:action];
+    view.accessibilityCustomActions = next;
+    return 1;
+}
+
+// AppKit keyboard shortcuts: NSButton-derived controls accept setKeyEquivalent:
+// + setKeyEquivalentModifierMask:. Non-button controls get the value stored as
+// an associated object the host menu / responder chain can consult later.
+int ap_view_add_key_command(void *view_ptr, const char *input, unsigned long long modifier_mask,
+                            unsigned long long token) {
+    if (view_ptr == NULL || input == NULL) return 0;
+    id receiver = (__bridge id)view_ptr;
+    NSString *ns_input = [NSString stringWithUTF8String:input];
+    if (ns_input == nil) return 0;
+
+    SEL set_ke = @selector(setKeyEquivalent:);
+    SEL set_kem = @selector(setKeyEquivalentModifierMask:);
+    if ([receiver respondsToSelector:set_ke]) {
+        // First character only for keyEquivalent.
+        NSString *first_char = ns_input.length > 0 ? [ns_input substringToIndex:1] : @"";
+        ((void (*)(id, SEL, id))objc_msgSend)(receiver, set_ke, first_char);
+        if ([receiver respondsToSelector:set_kem]) {
+            ((void (*)(id, SEL, NSUInteger))objc_msgSend)(
+                receiver, set_kem, (NSUInteger)modifier_mask);
+        }
+        // The button's target/action already wires Crystal-side callbacks.
+        // Token is advisory in the NSButton path — Crystal-side dispatcher
+        // already routes the click.
+        (void)token;
+        return 1;
+    }
+    // Non-button: store associated for later wiring (debug aid).
+    NSDictionary *meta = @{
+        @"input": ns_input,
+        @"mask": @(modifier_mask),
+        @"token": @(token),
+    };
+    objc_setAssociatedObject(receiver, "apsk_keyboard_shortcut", meta, OBJC_ASSOCIATION_RETAIN);
+    return 1;
+}
+
+// AppKit "become first responder": route through the view's window.
+int ap_view_become_first_responder(void *view_ptr) {
+    if (view_ptr == NULL) return 0;
+    NSView *view = (__bridge NSView *)view_ptr;
+    NSWindow *win = view.window;
+    if (win == nil) return 0;
+    [win makeFirstResponder:view];
+    return 1;
+}
+
+// Resign first responder by asking the window to take the responder spot back.
+int ap_view_resign_first_responder(void *view_ptr) {
+    if (view_ptr == NULL) return 0;
+    NSView *view = (__bridge NSView *)view_ptr;
+    NSWindow *win = view.window;
+    if (win == nil) return 0;
+    if (win.firstResponder == (NSResponder *)view) {
+        [win makeFirstResponder:nil];
+        return 1;
+    }
+    return 0;
+}
+
+#endif

@@ -136,6 +136,11 @@ module UI
       :button
     end
 
+    # Phase 10B.2b — interactive widgets default to focusable.
+    def default_focusable : Bool
+      true
+    end
+
     # ---- Phase 3 Remediation 4 reactive overrides ----------------------
     #
     # Override the three setters that the SwiftKit bridge can mutate at

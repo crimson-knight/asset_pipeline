@@ -58,6 +58,18 @@
       # `:not_enabled` accessibility trait is set. No-ops on plain UIViews.
       fun ap_set_enabled_if_responds(obj : Void*, enabled : Int32) : Int32
 
+      # Phase 10B.2b — Action + focus + keyboard accessibility helpers.
+      # Add a custom accessibility action (block-based, iOS 13+).
+      fun ap_view_add_accessibility_custom_action(view : Void*, name : UInt8*,
+                                                  token : UInt64) : Int32
+      # Add a UIKeyCommand to a UIViewController (or buffer on an associated
+      # object for plain UIViews).
+      fun ap_view_add_key_command(view : Void*, input : UInt8*,
+                                  modifier_mask : UInt64, token : UInt64) : Int32
+      # Focus management.
+      fun ap_view_become_first_responder(view : Void*) : Int32
+      fun ap_view_resign_first_responder(view : Void*) : Int32
+
       # --- Section 4: Convenience helpers ---
       fun nsstring_from_cstr(str : UInt8*) : Void*
       fun nscolor_rgba(r : Float64, g : Float64, b : Float64, a : Float64) : Void*
@@ -4548,6 +4560,60 @@
         elsif tid = view.test_id
           tid_str = LibObjCBridge.nsstring_from_cstr(tid.to_unsafe)
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), tid_str)
+        end
+
+        # Phase 10B.2b — Custom accessibility actions. Each action gets
+        # registered with the CallbackRegistry (so Crystal keeps a
+        # strong reference to the Proc) and the returned token is passed
+        # to `ap_view_add_accessibility_custom_action` which builds a
+        # block-based UIAccessibilityCustomAction and appends it to the
+        # view's accessibilityCustomActions array.
+        view.accessibility_actions.each do |action|
+          token = UI::CallbackRegistry.register(action.callback)
+          LibObjCBridge.ap_view_add_accessibility_custom_action(
+            ptr, action.name.to_unsafe, token)
+        end
+
+        # Phase 10B.2b — Keyboard shortcut. UIKit `UIKeyCommand` is
+        # attached via the host UIViewController's `addKeyCommand:`;
+        # for plain UIViews we buffer the command on an associated
+        # object so a containing VC can read it back (best-effort —
+        # the brief lists this as expected behavior; raw UIView has
+        # no first-class key-commands setter).
+        if ks = view.keyboard_shortcut
+          # We register a sentinel callback so the dispatcher token
+          # routes back to a no-op if no app-level action_token was
+          # supplied — keyboard shortcuts typically duplicate an
+          # action that's already wired via the widget's button
+          # target/action, so the token here is the safety net.
+          token = UI::CallbackRegistry.register(-> { nil.as(Nil) })
+          LibObjCBridge.ap_view_add_key_command(
+            ptr, ks.key.to_unsafe, ks.uikit_modifier_mask, token)
+        end
+
+        # Phase 10B.2b — Focus management. When `focused` is true the
+        # view becomes first responder right after render. Mutation of
+        # `focused` at runtime is honored by the reactive dispatcher's
+        # rerender path (see `UI::ActionDispatcher#apply`).
+        if view.focused
+          LibObjCBridge.ap_view_become_first_responder(ptr)
+        end
+
+        # Phase 10B.2b — Focusability override. When the caller set
+        # `focusable = false` explicitly we mark the view as a NON-
+        # accessibility element so VoiceOver / keyboard focus skips it.
+        # When `focusable = true` is set on a non-default-focusable
+        # widget (e.g. a Label or container) we flip it on. The widget
+        # default already aligns with UIKit's intrinsic focus model.
+        case view.focusable
+        when false
+          LibObjCBridge.objc_send_bool(ptr, sel("setIsAccessibilityElement:"), 0)
+        when true
+          # Only flip on for views whose default IS false — otherwise the
+          # existing container clamp logic above already handled it.
+          unless view.default_focusable
+            LibObjCBridge.objc_send_bool(ptr, sel("setIsAccessibilityElement:"), 1)
+          end
         end
       end
 

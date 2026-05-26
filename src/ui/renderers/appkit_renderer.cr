@@ -57,6 +57,19 @@
       # `:not_enabled` accessibility trait is set. No-ops on plain NSViews.
       fun ap_set_enabled_if_responds(obj : Void*, enabled : Int32) : Int32
 
+      # Phase 10B.2b — Action + focus + keyboard accessibility helpers.
+      # Add a custom NSAccessibilityCustomAction (block-based, macOS 10.13+).
+      fun ap_view_add_accessibility_custom_action(view : Void*, name : UInt8*,
+                                                  token : UInt64) : Int32
+      # AppKit keyboard shortcut: on NSButton-derived controls sets
+      # keyEquivalent + modifier mask. Non-button views buffer the value as
+      # an associated object for menu / responder-chain wiring.
+      fun ap_view_add_key_command(view : Void*, input : UInt8*,
+                                  modifier_mask : UInt64, token : UInt64) : Int32
+      # Focus management via the view's host window.
+      fun ap_view_become_first_responder(view : Void*) : Int32
+      fun ap_view_resign_first_responder(view : Void*) : Int32
+
       # --- Section 4: Convenience helpers ---
       fun nsstring_from_cstr(str : UInt8*) : Void*
       fun nscolor_rgba(r : Float64, g : Float64, b : Float64, a : Float64) : Void*
@@ -4397,6 +4410,48 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         elsif tid = view.test_id
           tid_str = LibObjCBridge.nsstring_from_cstr(tid.to_unsafe)
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), tid_str)
+        end
+
+        # Phase 10B.2b — Custom accessibility actions. AppKit's
+        # NSAccessibilityCustomAction is block-based; we wire each
+        # Crystal callback through the callback registry and pass the
+        # token to the C helper.
+        view.accessibility_actions.each do |action|
+          token = UI::CallbackRegistry.register(action.callback)
+          LibObjCBridge.ap_view_add_accessibility_custom_action(
+            ptr, action.name.to_unsafe, token)
+        end
+
+        # Phase 10B.2b — Keyboard shortcut. NSButton-derived controls
+        # accept setKeyEquivalent: + setKeyEquivalentModifierMask:;
+        # other views buffer the value on an associated object so the
+        # responder chain / menu builder can consult it later.
+        if ks = view.keyboard_shortcut
+          token = UI::CallbackRegistry.register(-> { nil.as(Nil) })
+          LibObjCBridge.ap_view_add_key_command(
+            ptr, ks.key.to_unsafe, ks.appkit_modifier_mask, token)
+        end
+
+        # Phase 10B.2b — Focus management. When `focused` is true the
+        # view's host window makes it the first responder. AppKit
+        # routes focus through the window so the call is guarded on a
+        # window being present (it will be by the time the renderer
+        # walks the tree into a host view).
+        if view.focused
+          LibObjCBridge.ap_view_become_first_responder(ptr)
+        end
+
+        # Phase 10B.2b — Focusability override. AppKit exposes
+        # `setAccessibilityElement:` on every NSView; we flip it
+        # explicitly when the caller opted in/out of focus traversal
+        # against the widget default.
+        case view.focusable
+        when false
+          LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElement:"), 0)
+        when true
+          unless view.default_focusable
+            LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElement:"), 1)
+          end
         end
       end
 
