@@ -29,6 +29,7 @@ module UI
 
     alias Entry = Item | Separator
 
+    # Items rendered by the control.
     property items : Array(Entry) = [] of Entry
 
     # Optional trigger view rendered as a child of the menu host so the

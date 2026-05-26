@@ -7,9 +7,13 @@ require "../view"
 module UI
   # ToggleButton — Pressed-state button used as a toggle (e.g. bold / italic toolbar buttons).
   class ToggleButton < View
+    # Caption / accessibility label rendered alongside the control.
     property label : String
+    # Boolean toggle.
     property is_selected : Bool = false
+    # Optional icon shown next to the title. Native: SF Symbol name; web: icon class or URL.
     property icon : String? = nil
+    # Invoked when the toggle's `is_on` value flips.
     property on_toggle : Proc(Bool, Nil)? = nil
 
     def initialize(@label : String, @is_selected : Bool = false)

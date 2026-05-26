@@ -13,8 +13,11 @@ module UI
 
     property children : Array(Array(View)) = [] of Array(View)
     property columns : Array(Column) = [] of Column
+    # Vertical gap (in pt) between rows.
     property row_spacing : Float64 = 8.0
+    # Horizontal gap (in pt) between columns.
     property column_spacing : Float64 = 8.0
+    # Cross-axis alignment for children. See `UI::Alignment`.
     property alignment : Alignment = Alignment::Leading
 
     def initialize(@columns : Array(Column) = [] of Column)

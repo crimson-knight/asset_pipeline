@@ -24,6 +24,7 @@ require "../view"
 
       property components : Array(Component) = [] of Component
       property style : PathControlStyle = PathControlStyle::Standard
+      # Boolean toggle.
       property is_editable : Bool = false
 
       def initialize(

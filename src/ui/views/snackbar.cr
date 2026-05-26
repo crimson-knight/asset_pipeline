@@ -7,11 +7,16 @@ require "../view"
 module UI
   # Snackbar — Transient toast / snackbar notification anchored to the bottom of the screen.
   class Snackbar < View
+    # Body / message text shown in the alert / dialog.
     property message : String
+    # Text value.
     property action_label : String? = nil
+    # Numeric value (pt unless otherwise noted).
     property duration : Float64 = 4.0 # seconds
+    # Whether the modal / overlay is currently presented.
     property is_presented : Bool = false
     property on_action : Proc(Nil)? = nil
+    # Invoked when the overlay is dismissed (by tap-outside, escape, or programmatic close).
     property on_dismiss : Proc(Nil)? = nil
 
     def initialize(@message : String, @action_label : String? = nil)
@@ -47,6 +52,7 @@ module UI
   # Presentation state for a Snackbar (is_presenting flag + the underlying view).
   class SnackbarPresenter
     property snackbar : Snackbar
+    # Whether the controller is in the act of presenting the overlay.
     property is_presenting : Bool = false
 
     def initialize(@snackbar : Snackbar)

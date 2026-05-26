@@ -12,23 +12,41 @@ module UI
   # arc operations plus existing stack/label views. Native bridges can come
   # later without changing the public shared API.
   class ActivityRing < View
+    # Current value of the control.
     property value : Float64 = 0.0
+    # Numeric value (pt unless otherwise noted).
     property minimum_value : Float64 = 0.0
+    # Numeric value (pt unless otherwise noted).
     property maximum_value : Float64 = 100.0
+    # Unit suffix appended after the formatted value (e.g. "%").
     property units : String? = "%"
+    # Number of fractional digits to format the value with.
     property value_precision : Int32 = 0
+    # Caption / accessibility label rendered alongside the control.
     property label : String? = nil
+    # Helper / prompt text shown above or below the field.
     property prompt : String? = nil
+    # Short caption rendered alongside the main content.
     property caption : String? = nil
+    # Help / hint text shown beneath the control.
     property help_text : String? = nil
+    # Whether to render the current value alongside the control.
     property show_value : Bool = true
+    # Numeric value (pt unless otherwise noted).
     property diameter : Float64 = 176.0
+    # Numeric value (pt unless otherwise noted).
     property ring_thickness : Float64 = 14.0
+    # Starting angle in radians.
     property start_angle : Float64 = -1.5707963267948966
+    # Ending angle in radians.
     property end_angle : Float64 = 4.71238898038469
+    # Color value.
     property track_color : Color = Color.new(r: 0.84, g: 0.85, b: 0.88)
+    # Color value.
     property progress_color : Color = Color.new(r: 0.31, g: 0.58, b: 0.96)
+    # Optional fixed width (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_width : Float64 = 0.0
+    # Optional fixed height (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_height : Float64 = 0.0
 
     def initialize(

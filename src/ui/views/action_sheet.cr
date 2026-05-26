@@ -24,9 +24,13 @@ require "../view"
         style : Symbol = :default, # :default | :destructive | :cancel
         action : Proc(Nil)? = nil
 
+      # Primary text shown on the control.
       property title : String = ""
+      # Body / message text shown in the alert / dialog.
       property message : String = ""
+      # Actions rendered as interactive affordances.
       property actions : Array(Action) = [] of Action
+      # Whether the modal / overlay is currently presented.
       property is_presented : Bool = false
 
       def initialize(@title : String = "", @message : String = "")

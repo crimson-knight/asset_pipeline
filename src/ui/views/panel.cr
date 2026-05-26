@@ -19,16 +19,26 @@ module UI
   # area. Platform renderers can add true floating-panel bridges later while
   # the shard already has an honest in-app expression of the concept.
   class Panel < View
+    # Primary text shown on the control.
     property title : String
+    # Secondary line shown beneath the title.
     property subtitle : String? = nil
+    # Text value.
     property auxiliary_text : String? = nil
+    # Child view rendered inside this container.
     property content : View? = nil
+    # Wrapped child view.
     property footer : View? = nil
+    # Actions rendered as interactive affordances.
     property actions : Array(Button) = [] of Button
+    # Numeric value (pt unless otherwise noted).
     property preferred_width : Float64 = 320.0
+    # Numeric value (pt unless otherwise noted).
     property body_spacing : Float64 = 14.0
+    # Numeric value (pt unless otherwise noted).
     property action_spacing : Float64 = 8.0
     property style : PanelStyle = PanelStyle::Inspector
+    # Whether row separators are drawn.
     property shows_separators : Bool = true
 
     def initialize(

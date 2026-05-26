@@ -12,16 +12,26 @@ module UI
   # surface that can be rendered consistently before native image-well bridges
   # exist on each platform.
   class ImageWell < View
+    # Text value.
     property image_source : String? = nil
+    # Text value.
     property placeholder_icon : String = "photo"
+    # Caption / accessibility label rendered alongside the control.
     property label : String? = nil
+    # Helper / prompt text shown above or below the field.
     property prompt : String? = nil
+    # Short caption rendered alongside the main content.
     property caption : String? = nil
+    # Help / hint text shown beneath the control.
     property help_text : String? = nil
+    # Numeric value (pt unless otherwise noted).
     property well_width : Float64 = 240.0
+    # Numeric value (pt unless otherwise noted).
     property well_height : Float64 = 180.0
     property preview_padding : EdgeInsets = EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    # Optional fixed width (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_width : Float64 = 0.0
+    # Optional fixed height (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_height : Float64 = 0.0
 
     def initialize(

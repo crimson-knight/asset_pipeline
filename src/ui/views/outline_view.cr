@@ -8,11 +8,16 @@ module UI
   # OutlineView — Hierarchical disclosure view backed by NSOutlineView / UITableView with indents.
   class OutlineView < View
     class Node
+      # Primary text shown on the control.
       property title : String
+      # Optional icon shown next to the title. Native: SF Symbol name; web: icon class or URL.
       property icon : String?
+      # Text value.
       property secondary_text : String?
       property children : Array(Node)
+      # Boolean toggle.
       property expanded : Bool
+      # Boolean toggle.
       property is_selected : Bool
 
       def initialize(
@@ -36,11 +41,17 @@ module UI
     end
 
     property roots : Array(Node) = [] of Node
+    # Vertical gap (in pt) between rows.
     property row_spacing : Float64 = 4.0
+    # Numeric value (pt unless otherwise noted).
     property indent_width : Float64 = 18.0
+    # Inner padding (pt) applied to each row.
     property row_padding : EdgeInsets = EdgeInsets.new(top: 6.0, trailing: 10.0, bottom: 6.0, leading: 10.0)
+    # Optional fixed width (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_width : Float64 = 0.0
+    # Optional fixed height (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_height : Float64 = 320.0
+    # Whether disclosure (chevron) glyphs are drawn beside expandable rows.
     property shows_disclosure_glyphs : Bool = true
 
     def initialize(@roots : Array(Node) = [] of Node)

@@ -30,12 +30,15 @@ module UI
       is_destructive : Bool = false,
       action : Proc(Nil)? = nil
 
+    # Caption / accessibility label rendered alongside the control.
     property label : String
+    # Optional icon shown next to the title. Native: SF Symbol name; web: icon class or URL.
     property icon : String? = nil
     # Zero-based index of the currently selected item (pop-up mode only).
     # In pull-down mode this property is ignored -- no item is pre-selected.
     # Default is 0.
     property selected_index : Int32 = 0
+    # Items rendered by the control.
     property items : Array(MenuItem) = [] of MenuItem
     # When true, renders as a pull-down button (action list, no selection
     # tracking).  When false (default), renders as a pop-up button (mutually

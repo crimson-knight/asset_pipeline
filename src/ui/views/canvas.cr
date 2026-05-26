@@ -35,7 +35,9 @@ module UI
 
   # Canvas — Low-level drawing surface backed by the native platform 2D drawing API.
   class Canvas < View
+    # Intrinsic width in pt.
     property width : Float64 = 300.0
+    # Intrinsic height in pt.
     property height : Float64 = 150.0
     property operations : Array(CanvasOp) = [] of CanvasOp
 

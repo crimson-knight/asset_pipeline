@@ -7,8 +7,11 @@ require "../view"
 module UI
   # RadioGroup — Group of mutually exclusive radio buttons with a shared selection.
   class RadioGroup < View
+    # Ordered list of option labels.
     property options : Array(String) = [] of String
+    # Currently selected index into the segments / options array.
     property selected_index : Int32 = 0
+    # Invoked when the user changes the control's value.
     property on_change : Proc(Int32, Nil)? = nil
 
     def initialize(@options : Array(String) = [] of String, @selected_index : Int32 = 0)

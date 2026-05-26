@@ -7,8 +7,11 @@ require "../view"
 module UI
   # GlassBackground — Apple glass / translucency background using NSVisualEffectView / UIVisualEffectView.
   class GlassBackground < View
+    # Child view rendered inside this container.
     property content : View? = nil
+    # Surface material applied to the background (e.g. `:primary`, `:secondary`, `:thin`).
     property material : Symbol = :regular # :thin, :ultra_thin, :regular, :thick, :chrome
+    # Boolean toggle.
     property is_vibrant : Bool = true
 
     def initialize(@content : View? = nil, @material : Symbol = :regular)

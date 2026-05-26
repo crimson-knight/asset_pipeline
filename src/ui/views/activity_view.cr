@@ -11,6 +11,7 @@ module UI
   # Each destination is a circular icon (~60pt) with a label below it.
   struct ActivityDestination
     property icon_symbol : String # SF Symbol name (e.g. "envelope", "message")
+    # Caption / accessibility label rendered alongside the control.
     property label : String
     property on_select : Proc(Nil)?
 
@@ -24,6 +25,7 @@ module UI
   # laid out in a two-column grid below the destination row.
   struct ActivityAction
     property icon_symbol : String # SF Symbol name (e.g. "doc.on.doc", "printer")
+    # Caption / accessibility label rendered alongside the control.
     property label : String
     property on_select : Proc(Nil)?
     property role : Symbol? # :destructive to render label red; nil for default
@@ -64,11 +66,14 @@ module UI
     # Optional native share payload. These values power UIActivityViewController
     # / NSSharingServicePicker for real app flows.
     property share_text : String? = nil
+    # Text value.
     property share_url : String? = nil
+    # Text value.
     property share_subject : String? = nil
 
     # Zone 1 — Header
     property title : String
+    # Secondary line shown beneath the title.
     property subtitle : String?
     property thumbnail : View? # Optional preview; typically UI::Image
 
@@ -97,6 +102,7 @@ module UI
   # Presentation state for an ActivityView share sheet.
   class ActivityViewPresenter
     property activity_view : ActivityView
+    # Whether the controller is in the act of presenting the overlay.
     property is_presenting : Bool = false
 
     def initialize(@activity_view : ActivityView)

@@ -24,6 +24,7 @@ require "../view"
 
       alias Entry = Item | Separator
 
+      # Items rendered by the control.
       property items : Array(Entry) = [] of Entry
 
       def initialize

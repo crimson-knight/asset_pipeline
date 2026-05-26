@@ -7,10 +7,14 @@ require "../view"
 module UI
   # Tooltip — Hover / focus-driven tooltip overlay attached to a host view.
   class Tooltip < View
+    # Body text rendered by the view.
     property text : String = ""
+    # Child view rendered inside this container.
     property content : View? = nil
     property position : Symbol = :top # :top, :bottom, :leading, :trailing
+    # Numeric value (pt unless otherwise noted).
     property delay : Float64 = 0.5
+    # Boolean toggle.
     property is_visible : Bool = false
 
     def initialize(@text : String = "")

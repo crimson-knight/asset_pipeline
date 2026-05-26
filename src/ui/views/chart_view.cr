@@ -13,9 +13,12 @@ module UI
   # ChartView — Native chart view wrapping Swift Charts on Apple platforms and the equivalent on other targets.
   class ChartView < View
     property chart_type : Symbol = :bar # :bar, :line, :pie
+    # Primary text shown on the control.
     property title : String = ""
     property data_points : Array(ChartDataPoint) = [] of ChartDataPoint
+    # Boolean toggle.
     property show_legend : Bool = true
+    # Boolean toggle.
     property show_grid : Bool = true
 
     def initialize

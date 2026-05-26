@@ -7,7 +7,9 @@ require "../view"
 module UI
   # Divider — Thin horizontal or vertical separator line between content.
   class Divider < View
+    # Color value.
     property color : Color = Color.new(r: 0.8, g: 0.8, b: 0.8)
+    # Numeric value (pt unless otherwise noted).
     property thickness : Float64 = 1.0
     property orientation : Symbol = :horizontal # :horizontal, :vertical
 

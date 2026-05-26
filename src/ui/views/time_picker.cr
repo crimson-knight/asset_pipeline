@@ -8,9 +8,13 @@ module UI
   # TimePicker — Time-of-day selection control.
   class TimePicker < View
     property selected_time : Time = Time.utc
+    # Boolean toggle.
     property shows_24_hour : Bool = false
+    # Integer value.
     property minute_interval : Int32 = 1
+    # Caption / accessibility label rendered alongside the control.
     property label : String = ""
+    # Invoked when the user changes the control's value.
     property on_change : Proc(Time, Nil)? = nil
 
     def initialize(@shows_24_hour : Bool = false)

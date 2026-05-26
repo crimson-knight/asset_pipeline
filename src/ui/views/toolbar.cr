@@ -13,8 +13,11 @@ module UI
       icon : String? = nil,
       action : Proc(Nil)? = nil
 
+    # Items rendered by the control.
     property items : Array(ToolbarItem) = [] of ToolbarItem
+    # Primary text shown on the control.
     property title : String? = nil
+    # Boolean toggle.
     property shows_title : Bool = true
 
     # Phase 5 v2 — Apple semantic material override. nil = HIG-canonical

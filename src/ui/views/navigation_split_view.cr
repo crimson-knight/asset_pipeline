@@ -7,10 +7,15 @@ require "../view"
 module UI
   # NavigationSplitView — Multi-column navigation container (sidebar + content + detail) for iPad and macOS.
   class NavigationSplitView < View
+    # Wrapped child view.
     property sidebar : View? = nil
+    # Child view rendered inside this container.
     property content : View? = nil
+    # Wrapped child view.
     property detail : View? = nil
+    # Numeric value (pt unless otherwise noted).
     property sidebar_width : Float64 = 250.0
+    # Boolean toggle.
     property shows_sidebar : Bool = true
     property column_visibility : Symbol = :all # :all, :double_column, :detail_only
 

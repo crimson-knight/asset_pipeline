@@ -18,6 +18,7 @@ module UI
       link : String? = nil
 
     property spans : Array(Span) = [] of Span
+    # Horizontal text alignment.
     property text_alignment : Alignment = Alignment::Leading
 
     def initialize

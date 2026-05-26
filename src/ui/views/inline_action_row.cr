@@ -85,8 +85,11 @@ module UI
       },
     }
 
+    # Child view rendered inside this container.
     property content : View
+    # Actions revealed by a leading-edge swipe.
     property leading_actions : Array(SwipeAction)
+    # Actions revealed by a trailing-edge swipe.
     property trailing_actions : Array(SwipeAction)
 
     def initialize(@content : View)

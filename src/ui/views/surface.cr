@@ -7,8 +7,11 @@ require "../view"
 module UI
   # Surface — Generic themed surface used as a background for other content.
   class Surface < View
+    # Child view rendered inside this container.
     property content : View? = nil
+    # Logical Z-depth used for shadow + material selection.
     property elevation : Float64 = 0.0
+    # Numeric value (pt unless otherwise noted).
     property tonal_elevation : Float64 = 0.0
     property shape : Symbol = :rectangle # :rectangle, :rounded, :circle
 

@@ -11,7 +11,9 @@ module UI
     property mode : DatePickerMode = DatePickerMode::Date
     property minimum_date : Time? = nil
     property maximum_date : Time? = nil
+    # Caption / accessibility label rendered alongside the control.
     property label : String = ""
+    # Invoked when the user changes the control's value.
     property on_change : Proc(Time, Nil)? = nil
 
     def initialize(@mode : DatePickerMode = DatePickerMode::Date)
