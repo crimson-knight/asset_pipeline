@@ -4,6 +4,11 @@
 require "json"
 
 module UI
+  # User-Notifications authorization status, mirroring
+  # `UNAuthorizationStatus` (iOS / macOS) and the Android equivalents.
+  # The `Unsupported` variant marks targets where the user-notifications
+  # framework has no analog (e.g. web before the Notification API
+  # adapter ships).
   enum NotificationAuthorizationStatus
     NotDetermined
     Denied
@@ -13,15 +18,49 @@ module UI
     Unsupported
   end
 
+  # Declarative description of a local user notification.
+  #
+  # The Crystal model captures the payload the host adapter passes to
+  # `UNUserNotificationCenter.add(request:withCompletionHandler:)`.
+  # Construction validates basics; scheduling is the host's
+  # responsibility.
+  #
+  # ```
+  # req = UI::NotificationRequest.new(
+  #   title: "Standup in 5 minutes",
+  #   body: "Daily standup starts at 10:00",
+  #   subtitle: "Engineering",
+  #   delay_seconds: 300.0,
+  # )
+  # ```
   class NotificationRequest
+    # Stable identifier for the notification. Reuse to update an
+    # existing notification; defaults to a millisecond-resolution UUID.
     property identifier : String
+
+    # Main heading text (UNNotificationContent.title).
     property title : String
+
+    # Optional sub-heading (UNNotificationContent.subtitle).
     property subtitle : String?
+
+    # Body text shown below the title.
     property body : String
+
+    # Trigger delay in seconds. Floored to 0.25s for non-repeating;
+    # repeating notifications are minimum 60s per platform requirements.
     property delay_seconds : Float64
+
+    # Whether the trigger repeats at `delay_seconds` cadence.
     property repeats : Bool
+
+    # Whether to play the default sound when delivered.
     property sound : Bool
+
+    # Optional app-icon badge count to apply on delivery.
     property badge : Int32?
+
+    # Optional thread / grouping identifier (UNNotificationContent.threadIdentifier).
     property thread_id : String?
 
     def initialize(@title : String,
@@ -40,12 +79,18 @@ module UI
                     end
     end
 
+    # Returns the actual trigger delay enforced by platform constraints:
+    # floored to 0.25s on non-repeating, 60s on repeating per Apple's
+    # UNTimeIntervalNotificationTrigger contract.
     def effective_delay_seconds : Float64
       base = @delay_seconds > 0.0 ? @delay_seconds : 0.25
       @repeats && base < 60.0 ? 60.0 : base
     end
   end
 
+  # Declarative description of a notification action button (the
+  # interactive affordances rendered in expanded / banner notifications).
+  # Mirrors `UNNotificationAction` / `UNTextInputNotificationAction`.
   class NotificationAction
     property identifier : String
     property title : String
