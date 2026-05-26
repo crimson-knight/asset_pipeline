@@ -38,15 +38,29 @@ end
 # Runtime config passed to convention rules. Loaded from
 # `.lint_conventions.yml` at the repo root (or defaults) by the runner.
 #
-# Today only `view_subclass_approved_roots` is configurable; future
-# rules can read additional fields without changing the constructor
-# signature.
+# Configurable knobs (today):
+#   `view_subclass_approved_roots` — Family 1 view-subclass-dir rule.
+#   `view_spec_pair_expected_pending` — Family 2 allowlist of views known
+#     not to have specs yet (debt tracker; entries are repo-relative
+#     paths to view files, e.g. `src/ui/views/button.cr`).
+#   `view_spec_pair_orphan_spec_allowlist` — Family 2 allowlist of spec
+#     files known not to map to a single source file (e.g. multi-class
+#     fixtures or framework-spanning specs).
+#
+# Future rules can read additional fields without changing the
+# constructor signature.
 class ConventionConfig
   property view_subclass_approved_roots : Array(String)
+  property view_spec_pair_expected_pending : Array(String)
+  property view_spec_pair_orphan_spec_allowlist : Array(String)
 
   DEFAULT_VIEW_SUBCLASS_APPROVED_ROOTS = ["src/ui/views/", "samples/"]
 
-  def initialize(@view_subclass_approved_roots : Array(String) = DEFAULT_VIEW_SUBCLASS_APPROVED_ROOTS.dup)
+  def initialize(
+    @view_subclass_approved_roots : Array(String) = DEFAULT_VIEW_SUBCLASS_APPROVED_ROOTS.dup,
+    @view_spec_pair_expected_pending : Array(String) = [] of String,
+    @view_spec_pair_orphan_spec_allowlist : Array(String) = [] of String,
+  )
   end
 
   # Loads config from a YAML file at `path`, falling back to defaults
@@ -58,6 +72,10 @@ class ConventionConfig
     text = File.read(path)
     roots = parse_yaml_string_list(text, "view_subclass.approved_roots")
     cfg.view_subclass_approved_roots = roots unless roots.empty?
+    pending = parse_yaml_string_list(text, "view_spec_pair.expected_pending")
+    cfg.view_spec_pair_expected_pending = pending unless pending.empty?
+    orphans = parse_yaml_string_list(text, "view_spec_pair.orphan_spec_allowlist")
+    cfg.view_spec_pair_orphan_spec_allowlist = orphans unless orphans.empty?
     cfg
   end
 

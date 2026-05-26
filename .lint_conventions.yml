@@ -1,4 +1,4 @@
-# Phase 10A.0a — Convention linter config.
+# Phase 10A.0a + 10A.0b — Convention linter config.
 #
 # Read by `scripts/lint_conventions.cr` (and any rule that overrides
 # `ConventionRule#configure`). Missing keys fall back to compiled-in
@@ -11,3 +11,100 @@ view_subclass:
   approved_roots:
     - "src/ui/views/"
     - "samples/"
+
+view_spec_pair:
+  # Family 2 (Phase 10A.0b) tracked-debt allowlist. Each entry is a
+  # repo-relative path to a view file that does NOT yet ship a paired
+  # spec at `spec/web/ui/views/<basename>_spec.cr` (or the platform
+  # equivalent). The rule `family_2/view_has_spec` skips these files.
+  #
+  # The list locks the current backlog so the rule stays green on
+  # ToT. Adding a spec is a forward commit; remove the file's entry
+  # in the same commit. Adding a NEW view without a spec must NOT
+  # touch this allowlist — landing the spec is part of the same PR.
+  #
+  # As of Phase 10A.0b iter 1: 75 entries. Tracked as Phase 10A.final
+  # follow-up work; see docs/initiative-cross-platform-ui/handoff/
+  # phase-10-a-0b-close.md for the migration plan.
+  expected_pending:
+    - "src/ui/views/activity_indicator.cr"
+    - "src/ui/views/activity_ring.cr"
+    - "src/ui/views/activity_rings.cr"
+    - "src/ui/views/activity_view.cr"
+    - "src/ui/views/alert.cr"
+    - "src/ui/views/async_image.cr"
+    - "src/ui/views/button.cr"
+    - "src/ui/views/canvas.cr"
+    - "src/ui/views/capsule.cr"
+    - "src/ui/views/card.cr"
+    - "src/ui/views/chart_view.cr"
+    - "src/ui/views/checkbox.cr"
+    - "src/ui/views/circle.cr"
+    - "src/ui/views/color_picker.cr"
+    - "src/ui/views/column_view.cr"
+    - "src/ui/views/combo_box.cr"
+    - "src/ui/views/confirmation_dialog.cr"
+    - "src/ui/views/context_menu.cr"
+    - "src/ui/views/date_picker.cr"
+    - "src/ui/views/disclosure_group.cr"
+    - "src/ui/views/divider.cr"
+    - "src/ui/views/form.cr"
+    - "src/ui/views/gauge.cr"
+    - "src/ui/views/glass_background.cr"
+    - "src/ui/views/grid.cr"
+    - "src/ui/views/hstack.cr"
+    - "src/ui/views/icon_button.cr"
+    - "src/ui/views/image_well.cr"
+    - "src/ui/views/image.cr"
+    - "src/ui/views/label.cr"
+    - "src/ui/views/link_button.cr"
+    - "src/ui/views/list_view.cr"
+    - "src/ui/views/map_view.cr"
+    - "src/ui/views/menu_button.cr"
+    - "src/ui/views/navigation_link.cr"
+    - "src/ui/views/navigation_split_view.cr"
+    - "src/ui/views/navigation_stack.cr"
+    - "src/ui/views/outline_view.cr"
+    - "src/ui/views/page_control.cr"
+    - "src/ui/views/panel.cr"
+    - "src/ui/views/path_control.cr"
+    - "src/ui/views/path_view.cr"
+    - "src/ui/views/picker.cr"
+    - "src/ui/views/popover.cr"
+    - "src/ui/views/progress_view.cr"
+    - "src/ui/views/radio_group.cr"
+    - "src/ui/views/rating_indicator.cr"
+    - "src/ui/views/rectangle.cr"
+    - "src/ui/views/rich_text.cr"
+    - "src/ui/views/rounded_rectangle.cr"
+    - "src/ui/views/scroll_view.cr"
+    - "src/ui/views/search_field.cr"
+    - "src/ui/views/secure_field.cr"
+    - "src/ui/views/segmented_control.cr"
+    - "src/ui/views/sheet.cr"
+    - "src/ui/views/slider.cr"
+    - "src/ui/views/snackbar.cr"
+    - "src/ui/views/spacer.cr"
+    - "src/ui/views/stepper.cr"
+    - "src/ui/views/surface.cr"
+    - "src/ui/views/swipe_action_row.cr"
+    - "src/ui/views/tab_view.cr"
+    - "src/ui/views/text_area.cr"
+    - "src/ui/views/text_editor.cr"
+    - "src/ui/views/text_field.cr"
+    - "src/ui/views/time_picker.cr"
+    - "src/ui/views/toggle_button.cr"
+    - "src/ui/views/toggle.cr"
+    - "src/ui/views/token_field.cr"
+    - "src/ui/views/toolbar.cr"
+    - "src/ui/views/tooltip.cr"
+    - "src/ui/views/video_player.cr"
+    - "src/ui/views/vstack.cr"
+    - "src/ui/views/web_view.cr"
+    - "src/ui/views/zstack.cr"
+
+  # Family 2 spec-side allowlist: spec files that intentionally do not
+  # map to a single `src/ui/views/<basename>.cr` (e.g. tier-3 compile-
+  # error fixtures, cross-class integration specs). The rule
+  # `family_2/spec_has_view` skips these files. Empty today.
+  orphan_spec_allowlist: []
