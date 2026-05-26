@@ -89,7 +89,9 @@ def discover_files(roots : Array(String)) : Array(String)
     Dir.glob("#{root}/**/*.cr") do |path|
       next if path.includes?("/lib/")
       next if path.includes?("/.crystal-cache/")
-      next if path.includes?("spec/fixtures/")
+      # Any spec fixtures dir intentionally exercises malformed shapes.
+      next if path.includes?("/fixtures/")
+      next if path.starts_with?("fixtures/")
       files << path
     end
   end

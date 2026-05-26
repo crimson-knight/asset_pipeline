@@ -5,6 +5,10 @@
 # `src/ui/views/` or a configured sample-tree allowlist. The intent is
 # to keep the view catalog discoverable and to keep ad-hoc one-off
 # views from accreting in random directories.
+#
+# Allowlist is configurable via `.lint_conventions.yml` at the repo
+# root (`view_subclass.approved_roots`). The defaults are
+# `src/ui/views/` + `samples/`.
 
 require "../convention_rule"
 
@@ -14,12 +18,16 @@ class ViewSubclassUnderViewsDirRule < ConventionRule
   # `< View` (inside the UI module) OR `< UI::View` (from user code).
   PATTERN = /^\s*class\s+([A-Za-z_][A-Za-z0-9_]*)(?:\([^)]*\))?\s*<\s*(?:::)?(?:UI::)?View\b/
 
-  # Approved roots. `src/ui/views/` is the canonical home. Samples may
-  # declare one-off views inline; library + production code may not.
-  APPROVED_ROOTS = [
-    "src/ui/views/",
-    "samples/",
-  ]
+  # Default approved roots. Overridable via `.lint_conventions.yml`
+  # `view_subclass.approved_roots`. The runner threads the config
+  # through `configure`.
+  DEFAULT_APPROVED_ROOTS = ["src/ui/views/", "samples/"]
+
+  @approved_roots : Array(String) = DEFAULT_APPROVED_ROOTS.dup
+
+  def configure(config : ConventionConfig) : Nil
+    @approved_roots = config.view_subclass_approved_roots.dup
+  end
 
   def rule_name : String
     "family_1/view_subclass_under_views_dir"
@@ -29,7 +37,7 @@ class ViewSubclassUnderViewsDirRule < ConventionRule
     diagnostics = [] of Diagnostic
     rel = file_path
     rel = rel[Dir.current.size + 1..-1] if rel.starts_with?(Dir.current + "/")
-    return diagnostics if APPROVED_ROOTS.any? { |root| rel.starts_with?(root) }
+    return diagnostics if @approved_roots.any? { |root| rel.starts_with?(root) }
     return diagnostics if rel == "src/ui/view.cr"
 
     content.each_line.with_index(1) do |line, lineno|
@@ -40,7 +48,7 @@ class ViewSubclassUnderViewsDirRule < ConventionRule
           file_path: file_path,
           line: lineno,
           rule_name: rule_name,
-          message: "Class '#{class_name}' inherits UI::View but lives outside an approved root (#{APPROVED_ROOTS.join(", ")})",
+          message: "Class '#{class_name}' inherits UI::View but lives outside an approved root (#{@approved_roots.join(", ")})",
           suggested_fix: "move file under src/ui/views/ or document a sample allowlist entry"
         )
       end
