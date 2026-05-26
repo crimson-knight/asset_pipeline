@@ -154,13 +154,34 @@ module UI
     #   * `Sec-CH-Prefers-Reduced-Transparency` → "reduce" / "no-preference"
     #     (currently rolled into `increase_contrast` as a stronger signal)
     #
+    # Sec-CH-Prefers-* hints are encoded as RFC 8941 Structured Field
+    # Values — the wire form is a quoted sFV string, e.g.
+    # `Sec-CH-Prefers-Color-Scheme: "dark"`. This reader strips the
+    # outer double quotes (and surrounding whitespace) before matching
+    # so that both the wire form (`"dark"`) and the bare token (`dark`)
+    # parse identically. Caller-side normalization (lowercase key) is
+    # still honored.
+    #
+    # Note on standards status: at the time of writing, the Client
+    # Hints `Sec-CH-Prefers-*` family is a WICG draft (not yet a W3C
+    # Recommendation). The asset_pipeline implementation tracks the
+    # current draft — consumers depending on this surface should pin
+    # their server-side detection accordingly. See the close handoff
+    # for the spec link + tracking notes.
+    #
     # Unknown / missing keys → conservative default (no accommodation).
     # The `Hash` lookup is case-insensitive on the key (the caller is
     # expected to normalize header names to the canonical casing or to
     # populate both forms). This implementation does both.
     def self.from_request_hints(hints : Hash(String, String)) : Environment
       lookup = ->(name : String) {
-        hints[name]? || hints[name.downcase]? || hints[name.upcase]?
+        raw = hints[name]? || hints[name.downcase]? || hints[name.upcase]?
+        # RFC 8941 structured-field value: strip outer whitespace and
+        # outer double quotes. Real Client Hints headers ship as
+        # `Sec-CH-Prefers-Color-Scheme: "dark"`; a permissive parse
+        # also accepts the bare token form (`dark`) used in tests and
+        # synthetic fixtures.
+        raw.try(&.strip.strip('"'))
       }
 
       rm_raw = lookup.call("Sec-CH-Prefers-Reduced-Motion")

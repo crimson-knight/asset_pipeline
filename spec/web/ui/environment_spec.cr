@@ -103,6 +103,39 @@ describe "UI::Environment (Phase 10B.2c)" do
       })
       env.reduce_motion.should be_true
     end
+
+    # Phase 10B.2c iter 2 — Codex Finding 1 remediation. Real Client
+    # Hints headers ship as RFC 8941 structured field values, which
+    # means the wire bytes for the value are quoted. Strip outer
+    # quotes before token matching so the same parse handles both
+    # forms.
+    it "parses the RFC 8941 quoted wire form for reduced-motion" do
+      env = UI::Environment.from_request_hints({
+        "Sec-CH-Prefers-Reduced-Motion" => "\"reduce\"",
+      })
+      env.reduce_motion.should be_true
+    end
+
+    it "parses the RFC 8941 quoted wire form for color-scheme" do
+      env = UI::Environment.from_request_hints({
+        "Sec-CH-Prefers-Color-Scheme" => "\"dark\"",
+      })
+      env.color_scheme.should eq(:dark)
+    end
+
+    it "parses the RFC 8941 quoted wire form for contrast" do
+      env = UI::Environment.from_request_hints({
+        "Sec-CH-Prefers-Contrast" => "\"more\"",
+      })
+      env.increase_contrast.should be_true
+    end
+
+    it "tolerates leading/trailing whitespace around quoted wire values" do
+      env = UI::Environment.from_request_hints({
+        "Sec-CH-Prefers-Reduced-Motion" => "  \"reduce\"  ",
+      })
+      env.reduce_motion.should be_true
+    end
   end
 
   describe "Native sources: from_uikit / from_appkit / from_android" do
