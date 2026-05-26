@@ -423,3 +423,161 @@ describe UI::Intent::Registry do
     end
   end
 end
+
+
+# ---------- Iter-10 Finding 1: Amber web context seeds app_class ----------
+#
+# `compute_screen_html` on the web target must thread `ctx.app_class`
+# so `UI::Intent::Registry.resolve_for` applies app-scoped overrides
+# correctly. Mirrors the native dispatcher's `ctx.app_class = @app`
+# behavior. Pre-iter-10 the web path left `app_class` nil — silently
+# bypassing every app-tier override on every web render.
+#
+# These specs exercise `compute_screen_html` via a stub controller that
+# duck-types Amber's params/flash/csrf_token surface. The point isn't
+# to test Amber end-to-end; it's to prove the context-seeding code path
+# is reachable from the web target and threads the correct value.
+
+# Stub controller mixing in UI::ScreenHelpers. The mixin reads
+# `params.to_h`, `flash.each`, and `csrf_token` — the stubs below
+# emit the minimum each method needs.
+private class IntentSpecStubParams
+  def to_h
+    {} of String => String
+  end
+end
+
+private class IntentSpecStubFlash
+  def each(&block)
+  end
+end
+
+private class IntentSpecStubController
+  include UI::ScreenHelpers
+
+  property screen_html : String? = nil
+
+  def params
+    IntentSpecStubParams.new
+  end
+
+  def flash
+    IntentSpecStubFlash.new
+  end
+
+  def csrf_token
+    nil
+  end
+
+  # ScreenHelpers#compute_screen_html assigns to @screen_html — Crystal
+  # synthesizes the ivar on first assignment. Expose via the public
+  # property accessor above for assertions.
+end
+
+# Spec-only screen that captures the build context for assertion.
+# Records `ctx.app_class` + `ctx.active_screen_class` in class vars so
+# the spec can read them after `compute_screen_html` returns.
+private class IntentSpecWebRecorderScreen < UI::Screen
+  @@captured_app_class : (UI::App.class)? = nil
+  @@captured_screen_class : (UI::Screen.class)? = nil
+
+  def self.captured_app_class : (UI::App.class)?
+    @@captured_app_class
+  end
+
+  def self.captured_screen_class : (UI::Screen.class)?
+    @@captured_screen_class
+  end
+
+  def self.reset_captures : Nil
+    @@captured_app_class = nil
+    @@captured_screen_class = nil
+    nil
+  end
+
+  def build(context : UI::ScreenContext) : UI::View
+    @@captured_app_class = context.app_class
+    @@captured_screen_class = context.active_screen_class
+    UI::Label.new("recorded")
+  end
+end
+
+describe "UI::ScreenHelpers#compute_screen_html context seeding" do
+  it "seeds ctx.app_class from explicit kwarg" do
+    IntentSpecWebRecorderScreen.reset_captures
+    controller = IntentSpecStubController.new
+    controller.compute_screen_html(
+      IntentSpecWebRecorderScreen,
+      app_class: IntentSpecAppA,
+    )
+    IntentSpecWebRecorderScreen.captured_app_class.should eq(IntentSpecAppA)
+  end
+
+  it "seeds ctx.active_screen_class from the screen_class arg" do
+    IntentSpecWebRecorderScreen.reset_captures
+    controller = IntentSpecStubController.new
+    controller.compute_screen_html(IntentSpecWebRecorderScreen)
+    IntentSpecWebRecorderScreen.captured_screen_class.should eq(IntentSpecWebRecorderScreen)
+  end
+
+  it "falls back to UI::AmberConfig.active_app when no kwarg passed" do
+    IntentSpecWebRecorderScreen.reset_captures
+    previous = UI::AmberConfig.active_app
+    begin
+      UI::AmberConfig.active_app = IntentSpecAppB
+      controller = IntentSpecStubController.new
+      controller.compute_screen_html(IntentSpecWebRecorderScreen)
+      IntentSpecWebRecorderScreen.captured_app_class.should eq(IntentSpecAppB)
+    ensure
+      UI::AmberConfig.active_app = previous
+    end
+  end
+
+  it "leaves ctx.app_class nil when no kwarg and no AmberConfig.active_app" do
+    IntentSpecWebRecorderScreen.reset_captures
+    previous = UI::AmberConfig.active_app
+    begin
+      UI::AmberConfig.active_app = nil
+      controller = IntentSpecStubController.new
+      controller.compute_screen_html(IntentSpecWebRecorderScreen)
+      IntentSpecWebRecorderScreen.captured_app_class.should be_nil
+    ensure
+      UI::AmberConfig.active_app = previous
+    end
+  end
+
+  it "applies an app-tier override on the web target via the seeded context" do
+    # End-to-end proof: register an app override on AppA, render via
+    # compute_screen_html with app_class: AppA, and assert the
+    # resolver returned the override widget (not the default / not
+    # nil). This is the regression spec for Codex iter-9 Finding 1.
+    UI::Intent::Registry.reset_overrides_for_spec
+    reinstall_intent_bootstrap
+    IntentSpecAppA.override_intent(:swipe_actions, IntentSpecFancyRow)
+
+    IntentSpecWebRecorderScreen.reset_captures
+    controller = IntentSpecStubController.new
+    controller.compute_screen_html(
+      IntentSpecWebRecorderScreen,
+      app_class: IntentSpecAppA,
+    )
+
+    # The screen captured the context. Resolve through the captured
+    # context's app_class — must hit the override (not nil/default).
+    captured_app = IntentSpecWebRecorderScreen.captured_app_class
+    captured_app.should eq(IntentSpecAppA)
+
+    # Re-resolve with a synthetic web context carrying the same app
+    # class to prove the seeding path is what unlocks the override.
+    ctx = UI::ScreenContext::Web.new(
+      params: {} of String => String,
+      params_multi: {} of String => Array(String),
+      flash_data: {} of String => String,
+      design_tokens: UI::DesignTokens::Tokens.default,
+      csrf_token: nil,
+      platform: :web_wide,
+    )
+    ctx.app_class = captured_app
+    UI::Intent::Registry.resolve_for(:swipe_actions, ctx).should eq(IntentSpecFancyRow)
+  end
+end

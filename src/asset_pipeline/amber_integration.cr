@@ -197,11 +197,34 @@ module UI
   #
   #     UI::AmberConfig.design_tokens = UI::DesignTokens::Tokens
   #       .default.with_brand(AcmeBrand.new)
+  #     UI::AmberConfig.active_app = SpikeApp
   #
   # The configured tokens are passed into every `UI::ScreenContext`
   # built by `UI::ScreenHelpers#compute_screen_html`.
+  #
+  # # Phase 10B.0 iter-10 (Codex Finding 1) — `active_app`.
+  #
+  # The web-target `compute_screen_html` path needs to seed
+  # `ctx.app_class` so `UI::Intent::Registry.resolve_for` can apply
+  # app-scoped overrides for the running app. There's no per-request
+  # source of the App class on the controller side (controllers are
+  # user-authored and only know the screen class they're rendering),
+  # so apps bind their `UI::App` subclass here at boot:
+  #
+  #     UI::AmberConfig.active_app = SpikeApp
+  #
+  # `compute_screen_html` reads this and threads it onto the
+  # `ScreenContext` so the resolver isolates app overrides correctly
+  # on the web target (mirroring the native dispatcher's
+  # `ctx.app_class = @app` behavior).
+  #
+  # If the caller wants a different app for a specific render (rare,
+  # e.g. multi-tenant routing where one HTTP server hosts more than
+  # one `UI::App`), they can pass `app_class:` directly to
+  # `compute_screen_html` — the kwarg wins over `AmberConfig.active_app`.
   module AmberConfig
     @@design_tokens : UI::DesignTokens::Tokens = UI::DesignTokens::Tokens.default
+    @@active_app : (UI::App.class)? = nil
 
     def self.design_tokens : UI::DesignTokens::Tokens
       @@design_tokens
@@ -209,6 +232,18 @@ module UI
 
     def self.design_tokens=(tokens : UI::DesignTokens::Tokens) : UI::DesignTokens::Tokens
       @@design_tokens = tokens
+    end
+
+    # The active `UI::App` subclass for this process. Set once at
+    # boot so `compute_screen_html` can thread `app_class` onto every
+    # web `ScreenContext`. nil means "no app context" — the resolver
+    # skips the app-override tier in that case.
+    def self.active_app : (UI::App.class)?
+      @@active_app
+    end
+
+    def self.active_app=(app_class : (UI::App.class)?) : (UI::App.class)?
+      @@active_app = app_class
     end
   end
 
@@ -368,8 +403,32 @@ module UI
     # The renderer's `design_tokens` are seeded from
     # `UI::AmberConfig.design_tokens` so apps that configured a brand
     # override at boot pick it up automatically.
-    def compute_screen_html(screen_class : UI::Screen.class) : String
+    #
+    # # Phase 10B.0 iter-10 (Codex Finding 1) — `app_class` seeding.
+    #
+    # The web target seeds `ctx.app_class` so
+    # `UI::Intent::Registry.resolve_for` can apply app-scoped overrides
+    # for this app's running build. Source precedence:
+    #
+    #   1. Explicit `app_class:` kwarg (most specific — used by
+    #      multi-tenant setups that route distinct apps off the same
+    #      server).
+    #   2. `UI::AmberConfig.active_app` (set once at boot — the
+    #      common path).
+    #   3. nil (resolver skips the app-override tier — only the
+    #      platform default remains).
+    #
+    # `ctx.active_screen_class` is seeded from `screen_class` (the
+    # method's required arg), so screens calling `UI::Intent.resolve`
+    # automatically see the screen-tier override table without
+    # boilerplate.
+    def compute_screen_html(
+      screen_class : UI::Screen.class,
+      app_class : (UI::App.class)? = nil,
+    ) : String
       ctx = build_screen_context
+      ctx.app_class = app_class || UI::AmberConfig.active_app
+      ctx.active_screen_class = screen_class
       screen = screen_class.new
       view_tree = screen.build(ctx)
       renderer = UI::Web::Renderer.new
