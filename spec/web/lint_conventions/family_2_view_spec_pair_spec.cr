@@ -26,13 +26,17 @@ private record Family2Fixture,
   fixture_for : Array(String),
   expected : Symbol,
   synthetic_path : String,
-  content : String
+  content : String,
+  diagnostic_message_contains : Array(String),
+  diagnostic_message_excludes : Array(String)
 
 private def parse_family_2_fixture(path : String) : Family2Fixture
   content = File.read(path)
   fixture_for = [] of String
   expected = :pass
   synthetic_path = ""
+  contains = [] of String
+  excludes = [] of String
   content.each_line do |raw|
     line = raw.strip
     break unless line.starts_with?("#")
@@ -47,6 +51,10 @@ private def parse_family_2_fixture(path : String) : Family2Fixture
                  end
     elsif body.starts_with?("synthetic_path:")
       synthetic_path = body.sub("synthetic_path:", "").strip
+    elsif body.starts_with?("diagnostic_message_contains:")
+      contains = body.sub("diagnostic_message_contains:", "").split(',').map(&.strip).reject(&.empty?)
+    elsif body.starts_with?("diagnostic_message_excludes:")
+      excludes = body.sub("diagnostic_message_excludes:", "").split(',').map(&.strip).reject(&.empty?)
     end
   end
   Family2Fixture.new(
@@ -54,7 +62,9 @@ private def parse_family_2_fixture(path : String) : Family2Fixture
     fixture_for: fixture_for,
     expected: expected,
     synthetic_path: synthetic_path,
-    content: content
+    content: content,
+    diagnostic_message_contains: contains,
+    diagnostic_message_excludes: excludes
   )
 end
 
@@ -102,6 +112,23 @@ describe "Family 2 view-spec pair rules — regression fixtures" do
             fail "expected at least one diagnostic for rule #{rule_name}, got none"
           end
           diagnostics.first.rule_name.should eq(rule_name)
+          # When the fixture pins specific substrings, the diagnostic
+          # MUST contain (or exclude) them. Used by gate-discriminating
+          # fixtures to prove the corrected else/elsif and deepest-flag
+          # semantics (Codex iter-1 LOW-3): asserting that the diagnostic
+          # message refers to the expected path discriminates between
+          # the OLD outermost-flag logic and the corrected logic.
+          rendered = diagnostics.first.to_s
+          fixture.diagnostic_message_contains.each do |needle|
+            unless rendered.includes?(needle)
+              fail "expected diagnostic message to contain '#{needle}', got: #{rendered}"
+            end
+          end
+          fixture.diagnostic_message_excludes.each do |needle|
+            if rendered.includes?(needle)
+              fail "expected diagnostic message to NOT contain '#{needle}', got: #{rendered}"
+            end
+          end
         end
       end
     end

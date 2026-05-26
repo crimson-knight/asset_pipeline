@@ -45,8 +45,8 @@ Fixtures under `spec/web/lint_conventions/fixtures/family_2/` (14 files):
 | `gate_stub_skip_pass.cr` | `family_2/view_has_spec` | pass |
 | `abstract_base_pass.cr` | `family_2/view_has_spec` | pass |
 | `tier3_gated_view_pass.cr` | `family_2/view_has_spec` | pass |
-| `tier3_gated_view_else_branch_fail.cr` | `family_2/view_has_spec` | fail |
-| `nested_flag_uses_deepest_pass.cr` | `family_2/view_has_spec` | pass |
+| `tier3_gated_view_else_branch_fail.cr` | `family_2/view_has_spec` | fail (with `spec/web/...` path, NOT `spec/native_ios`) |
+| `nested_flag_uses_deepest_fail.cr` | `family_2/view_has_spec` | fail (with `spec/native_ios/...` path, NOT `spec/native_macos`) |
 | `spec_with_view_pass.cr` | `family_2/spec_has_view` | pass |
 | `orphan_spec_fail.cr` | `family_2/spec_has_view` | fail |
 | `compile_error_suffix_pass.cr` | `family_2/spec_has_view` | pass |
@@ -55,7 +55,7 @@ Fixtures under `spec/web/lint_conventions/fixtures/family_2/` (14 files):
 | `describe_string_literal_pass.cr` | `family_2/spec_describe_matches_class` | pass |
 | `describe_method_ref_pass.cr` | `family_2/spec_describe_matches_class` | pass |
 
-The two macro-branch fixtures (`tier3_gated_view_else_branch_fail.cr` and `nested_flag_uses_deepest_pass.cr`) exercise the gate detector's else-branch clearing and deepest-flag-wins semantics — Codex iter-1 review (MED-2) requested these as evidence beyond the simple action_sheet iOS case.
+The two macro-branch fixtures (`tier3_gated_view_else_branch_fail.cr` and `nested_flag_uses_deepest_fail.cr`) exercise the gate detector's else-branch clearing and deepest-flag-wins semantics. They DISCRIMINATE the corrected logic from the old logic via `diagnostic_message_contains` + `diagnostic_message_excludes` header assertions — the fixture spec inspects the rendered diagnostic and asserts the expected path appears (NEW logic) and the wrong path does not (OLD logic). Verified by temporarily restoring the iter-1 rule: both fixtures fail with diagnostic-content mismatches under OLD logic, then pass cleanly under iter-2 logic. Codex iter-2 review (LOW-3) requested this discriminating proof.
 
 Spec: `spec/web/lint_conventions/family_2_view_spec_pair_spec.cr` — 16 examples, 0 failures, 0 errors.
 
@@ -158,7 +158,11 @@ Adding a NEW view without a spec must NOT touch the allowlist — landing the sp
 | LOW-3 — Fixture coverage too live-tree-dependent; tier-3 fixture only covered the simple action_sheet iOS case. | Addressed in iter 2 by the two new fixtures (above) which exercise the gate detector independently of disk state for the gate logic itself. |
 | LOW-4 — Deepest-segment class registry heuristic could hide namespace drift; should be documented as false-negative risk, not equivalent to resolver behavior. | Fixed in iter 2: `spec_describe_matches_class_rule.cr` header now carries a "Known false-negative risk" section; handoff §1 deliverable 3 mirrors it. |
 
-**Iter 2 verdict:** to be filled by the iter-2 Codex re-review run (`scripts/codex_lint_review.sh` analog or manual `codex exec`). Goal: APPROVE.
+**Iter 2 verdict:** NEEDS_WORK on LOW-3 only — Codex accepted MED-1, MED-2, LOW-4 fixes but flagged that the two new fixtures didn't actually discriminate the corrected gate semantics (both passed under old and new logic without inspecting the diagnostic content). Codex iter-2 quote: *"`tier3_gated_view_else_branch_fail.cr` would fail under both the old and new gate logic because neither default nor native spec exists. `nested_flag_uses_deepest_pass.cr` would also pass under the old outermost-flag logic because platform-gated classes accept the default web spec path."*
+
+**Iter 3 (fixture discrimination):** the fixture spec gained two header keys (`diagnostic_message_contains:`, `diagnostic_message_excludes:`) and the two macro-branch fixtures now pin the corrected diagnostic path. Renamed `nested_flag_uses_deepest_pass.cr` → `nested_flag_uses_deepest_fail.cr` to match its `expected: fail` (the fixture now uses a synthetic path with no spec at any platform location, so the rule fires and the diagnostic content discriminates). Verified by temporarily restoring the iter-1 rule and re-running the spec: both new fixtures fail with diagnostic-content mismatches under OLD logic; pass cleanly under iter-2/3 logic.
+
+**Iter 3 verdict:** to be filled by Codex iter-3 re-review. Goal: APPROVE.
 
 ---
 
@@ -181,7 +185,8 @@ Adding a NEW view without a spec must NOT touch the allowlist — landing the sp
 |---|---|---|
 | 1 | `[Phase 10A.0b iter 1] Family 2 view-spec pair rules + fixtures + spec` | 3 rule files, 12 fixtures, 1 spec, ConventionConfig extension, allowlist YAML, this handoff |
 | 2 | `[Phase 10A.0b iter 2] Address Codex MED-1/MED-2/LOW-3/LOW-4` | view_has_spec_rule.cr gate-detection fix (else/elsif + deepest flag), 2 new branch fixtures, false-negative-risk doc, handoff corrections |
+| 3 | `[Phase 10A.0b iter 3] Discriminate gate-corrected fixtures via diagnostic-content assertions` | fixture spec gains `diagnostic_message_contains` / `_excludes` headers; both macro-branch fixtures pin the corrected diagnostic path; one renamed to match `expected: fail` |
 
 ---
 
-— Implementer (Claude Opus 4.7), 10A.0b close iter 2
+— Implementer (Claude Opus 4.7), 10A.0b close iter 3
