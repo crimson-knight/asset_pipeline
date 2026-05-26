@@ -7,8 +7,11 @@ require "../view"
 module UI
   # Card — Boxed surface that groups related content with optional title and elevation.
   class Card < View
+    # Child view rendered inside this container.
     property content : View? = nil
+    # Logical Z-depth used for shadow + material selection.
     property elevation : Float64 = 1.0
+    # Boolean toggle.
     property is_outlined : Bool = false
 
     # Optional introductory title displayed above / at the top of the card.

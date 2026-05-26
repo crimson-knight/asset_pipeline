@@ -7,8 +7,11 @@ require "../view"
 module UI
   # SegmentedControl — Horizontal segmented selector for picking one option from a small set.
   class SegmentedControl < View
+    # Ordered list of option labels.
     property segments : Array(String) = [] of String
+    # Currently selected index into the segments / options array.
     property selected_index : Int32 = 0
+    # Invoked when the user changes the control's value.
     property on_change : Proc(Int32, Nil)? = nil
 
     def initialize(@segments : Array(String) = [] of String, @selected_index : Int32 = 0)
@@ -18,6 +21,7 @@ module UI
       @on_change = block
     end
 
+    # Returns the selected segment label (or nil if no valid selection).
     def selected_segment : String?
       if selected_index >= 0 && selected_index < segments.size
         segments[selected_index]

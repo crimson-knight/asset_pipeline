@@ -13,8 +13,11 @@ module UI
   # can be added later without changing the shared API.
   class TokenField < View
     class Token
+      # Primary text shown on the control.
       property title : String
+      # Optional icon shown next to the title. Native: SF Symbol name; web: icon class or URL.
       property icon : String?
+      # Text value.
       property secondary_text : String?
 
       def initialize(
@@ -24,22 +27,35 @@ module UI
       )
       end
 
+      # Whether this token can contain nested tokens. Tokens are always leaves; included for OutlineView-compatible iteration.
       def branch? : Bool
         false
       end
     end
 
+    # Tokens currently displayed.
     property tokens : Array(Token) = [] of Token
+    # Currently selected indexes into the items array (multi-select).
     property selected_indexes : Array(Int32) = [] of Int32
+    # Placeholder text shown when the field is empty.
     property placeholder : String = ""
+    # Caption / accessibility label rendered alongside the control.
     property label : String? = nil
+    # Helper / prompt text shown above or below the field.
     property prompt : String? = nil
+    # Horizontal gap (in pt) between adjacent chips / tokens.
     property chip_spacing : Float64 = 8.0
+    # Vertical gap (in pt) between rows.
     property row_spacing : Float64 = 8.0
+    # Inner padding (pt) inside each chip / token.
     property chip_padding : EdgeInsets = EdgeInsets.new(top: 6.0, trailing: 10.0, bottom: 6.0, leading: 10.0)
+    # Minimum width (in pt) of the embedded input field.
     property input_min_width : Float64 = 120.0
+    # Maximum width (in pt) of the embedded input field.
     property input_max_width : Float64 = 220.0
+    # Optional fixed width (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_width : Float64 = 0.0
+    # Optional fixed height (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_height : Float64 = 56.0
 
     def initialize(
@@ -50,21 +66,25 @@ module UI
     )
     end
 
+    # Appends a token and returns the newly-created token.
     def add_token(token : Token) : self
       @tokens << token
       self
     end
 
+    # Returns the number of tokens currently configured.
     def token_count : Int32
       @tokens.size.to_i32
     end
 
+    # Returns every token currently in the selected set.
     def selected_tokens : Array(Token)
       @selected_indexes.compact_map do |index|
         @tokens[index]?
       end
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       card_body = UI::VStack.new(spacing: row_spacing, alignment: UI::Alignment::Fill)
 

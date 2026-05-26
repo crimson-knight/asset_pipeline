@@ -29,6 +29,7 @@ module UI
 
     alias Entry = Item | Separator
 
+    # Items rendered by the control.
     property items : Array(Entry) = [] of Entry
 
     # Optional trigger view rendered as a child of the menu host so the
@@ -45,6 +46,7 @@ module UI
         @inner = UI::ContextMenu.new
       end
 
+      # Appends an item and returns the newly-created item.
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false, &block : -> Nil)
         @items << Item.new(
           label: label, icon: icon,
@@ -54,6 +56,7 @@ module UI
         @inner.add_item(label, icon, is_destructive, is_disabled, &block)
       end
 
+      # Appends an item and returns the newly-created item.
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false)
         @items << Item.new(
           label: label, icon: icon,
@@ -62,6 +65,7 @@ module UI
         @inner.add_item(label, icon, is_destructive, is_disabled)
       end
 
+      # Appends a separator divider between menu items.
       def add_separator
         @items << Separator.new
         @inner.add_separator
@@ -74,6 +78,7 @@ module UI
       def initialize(@trigger : View? = nil)
       end
 
+      # Appends an item and returns the newly-created item.
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false, &block : -> Nil)
         @items << Item.new(
           label: label, icon: icon,
@@ -82,6 +87,7 @@ module UI
         )
       end
 
+      # Appends an item and returns the newly-created item.
       def add_item(label : String, icon : String? = nil, is_destructive : Bool = false, is_disabled : Bool = false)
         @items << Item.new(
           label: label, icon: icon,
@@ -89,6 +95,7 @@ module UI
         )
       end
 
+      # Appends a separator divider between menu items (web-fallback variant).
       def add_separator
         @items << Separator.new
       end

@@ -7,9 +7,13 @@ require "../view"
 module UI
   # ColorPicker — Color selection control bridging to the native color picker on each platform.
   class ColorPicker < View
+    # Color value.
     property selected_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
+    # Invoked when the user changes the control's value.
     property on_change : Proc(Color, Nil)? = nil
+    # Caption / accessibility label rendered alongside the control.
     property label : String = ""
+    # Boolean toggle.
     property supports_alpha : Bool = false
 
     def initialize

@@ -10,7 +10,9 @@ require "../view"
 module UI
   # Sheet — Modal sheet that slides up from the bottom (iOS) or appears as a dialog (macOS).
   class Sheet < View
+    # Child view rendered inside this container.
     property content : View? = nil
+    # Whether the modal / overlay is currently presented.
     getter is_presented : Bool = false
 
     # Phase 3 Remediation 10 — reactive setter. Mirrors the
@@ -32,9 +34,13 @@ module UI
       new_value
     end
 
+    # Boolean toggle.
     property shows_drag_indicator : Bool = true
+    # Allowed sheet detents (heights the user can drag the sheet to).
     property detents : Array(Symbol) = [:medium, :large] # :small, :medium, :large, :custom
+    # Currently active sheet detent.
     property selected_detent : Symbol = :medium
+    # Invoked when the overlay is dismissed (by tap-outside, escape, or programmatic close).
     property on_dismiss : Proc(Nil)? = nil
 
     # HIG surface-chrome style. Controls how renderers paint the sheet's
@@ -68,17 +74,21 @@ module UI
 
   # Presentation state for a Sheet (is_presenting flag + the underlying view).
   class SheetPresenter
+    # The Sheet instance being presented.
     property sheet : Sheet
+    # Whether the controller is in the act of presenting the overlay.
     property is_presenting : Bool = false
 
     def initialize(@sheet : Sheet)
     end
 
+    # Presents the overlay / modal.
     def present
       @is_presenting = true
       @sheet.is_presented = true
     end
 
+    # Dismisses the overlay / modal.
     def dismiss
       @is_presenting = false
       @sheet.is_presented = false

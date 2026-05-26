@@ -7,12 +7,19 @@ require "../view"
 module UI
   # SearchField — Single-line search input with platform-idiomatic clear and scope affordances.
   class SearchField < View
+    # Body text rendered by the view.
     property text : String = ""
+    # Placeholder text shown when the field is empty.
     property placeholder : String = "Search"
+    # Boolean toggle.
     property is_searching : Bool = false
+    # Boolean toggle.
     property shows_cancel_button : Bool = true
+    # Invoked when the user changes the control's value.
     property on_change : Proc(String, Nil)? = nil
+    # Invoked when the user submits the field (Return / Enter).
     property on_submit : Proc(String, Nil)? = nil
+    # Invoked when the user cancels the operation (Escape, swipe-down, tap-outside).
     property on_cancel : Proc(Nil)? = nil
 
     def initialize(@placeholder : String = "Search")

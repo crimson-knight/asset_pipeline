@@ -7,12 +7,19 @@ require "../view"
 module UI
   # Stepper — Increment / decrement stepper for adjusting a discrete numeric value.
   class Stepper < View
+    # Current value of the control.
     property value : Float64 = 0.0
+    # Minimum legal value (inclusive).
     property minimum : Float64 = 0.0
+    # Maximum legal value (inclusive).
     property maximum : Float64 = 100.0
+    # Increment / decrement amount applied per tick.
     property step_value : Float64 = 1.0
+    # Caption / accessibility label rendered alongside the control.
     property label : String = ""
+    # Whether the value wraps around at the min / max boundary.
     property wraps : Bool = false
+    # Invoked when the user changes the control's value.
     property on_change : Proc(Float64, Nil)? = nil
 
     def initialize(@minimum : Float64 = 0.0, @maximum : Float64 = 100.0, @value : Float64 = 0.0)
@@ -22,6 +29,7 @@ module UI
       @on_change = block
     end
 
+    # Increases the value by `step_value`, clamping or wrapping per `wraps`.
     def increment
       new_val = @value + @step_value
       if new_val > @maximum
@@ -31,6 +39,7 @@ module UI
       end
     end
 
+    # Decreases the value by `step_value`, clamping or wrapping per `wraps`.
     def decrement
       new_val = @value - @step_value
       if new_val < @minimum

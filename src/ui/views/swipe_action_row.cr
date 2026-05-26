@@ -21,9 +21,13 @@ module UI
   # CallbackRegistry so the Crystal Proc isn't GC'd while native code
   # holds a function pointer to it.
   class SwipeAction
+    # Caption / accessibility label rendered alongside the control.
     property label : String
+    # Semantic role (e.g. `:primary`, `:destructive`, `:cancel`).
     property role : Symbol
+    # Optional icon shown next to the title. Native: SF Symbol name; web: icon class or URL.
     property icon : String?
+    # Invoked when the user taps / clicks the control.
     property on_tap : Proc(Nil)?
 
     # Optional route id the web renderer wires to a client-side
@@ -122,8 +126,11 @@ module UI
       },
     }
 
+    # Child view rendered inside this container.
     property content : View
+    # Actions revealed by a leading-edge swipe.
     property leading_actions : Array(SwipeAction)
+    # Actions revealed by a trailing-edge swipe.
     property trailing_actions : Array(SwipeAction)
 
     # Mobile-web breakpoint: viewports below this width get touch-swipe

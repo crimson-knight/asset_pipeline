@@ -4,6 +4,11 @@
 # AppKit window. The window title is "HIG: <slug>" so the AXTest harness
 # can find it by title and screenshot it.
 #
+# lint:disable=family_4/interactive_widget_test_id
+# (HIG visual catalog: 100+ widget demos identified by slug/window title;
+#  AXTest interacts with these via HIG slug, not test_id. Adding 100+
+#  test_id strings would be noise.)
+#
 # Slug source (in priority order):
 #   1. ENV["HIG_SLUG"]
 #   2. ARGV[0]

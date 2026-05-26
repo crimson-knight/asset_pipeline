@@ -17,13 +17,21 @@ module UI
     STAND_COLOR    = Color.new(r: 0.0, g: 1.0, b: 246.0 / 255.0)
     BLACK          = Color.new(r: 0.0, g: 0.0, b: 0.0)
 
+    # Numeric value (pt unless otherwise noted).
     property move : Float64 = 0.0
+    # Numeric value (pt unless otherwise noted).
     property exercise : Float64 = 0.0
+    # Numeric value (pt unless otherwise noted).
     property stand : Float64 = 0.0
+    # Numeric value (pt unless otherwise noted).
     property size : Float64 = 176.0
+    # Numeric value (pt unless otherwise noted).
     property thickness : Float64 = 16.0
+    # Numeric value (pt unless otherwise noted).
     property gap : Float64 = 8.0
+    # Starting angle in radians.
     property start_angle : Float64 = -1.5707963267948966
+    # Ending angle in radians.
     property end_angle : Float64 = 4.71238898038469
 
     def initialize(
@@ -33,18 +41,22 @@ module UI
     )
     end
 
+    # Returns the move ring's completion fraction in `0.0..1.0`.
     def move_fraction : Float64
       normalized_fraction(move)
     end
 
+    # Returns the exercise ring's completion fraction in `0.0..1.0`.
     def exercise_fraction : Float64
       normalized_fraction(exercise)
     end
 
+    # Returns the stand ring's completion fraction in `0.0..1.0`.
     def stand_fraction : Float64
       normalized_fraction(stand)
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       stage = UI::ZStack.new(UI::Alignment::Center)
       stage.minimum_width = size

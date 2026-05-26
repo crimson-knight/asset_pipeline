@@ -52,6 +52,7 @@ module UI
       fields : Array(Field) = [] of Field,
       footer : String? = nil
 
+    # Section groupings within the view.
     property sections : Array(FormSection) = [] of FormSection
 
     # Flat (non-sectioned) children appended via `<<`. Web visit renders
@@ -90,6 +91,7 @@ module UI
       @container_query_name = "form"
     end
 
+    # Appends a section and returns the newly-created section.
     def add_section(header : String? = nil, footer : String? = nil) : FormSection
       section = FormSection.new(header: header, footer: footer)
       @sections << section
@@ -104,6 +106,7 @@ module UI
       self
     end
 
+    # Returns the number of fields currently configured.
     def field_count : Int32
       sections.sum(&.fields.size)
     end

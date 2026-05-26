@@ -23,8 +23,11 @@ module UI
       icon : String? = nil,
       url : String? = nil
 
+    # Sub-components rendered by the view.
     property components : Array(Component) = [] of Component
+    # Visual style variant applied to the control.
     property style : PathControlStyle = PathControlStyle::Standard
+    # Boolean toggle.
     property is_editable : Bool = false
 
     {% if flag?(:macos) %}
@@ -40,11 +43,13 @@ module UI
         @inner = UI::PathControl.new(inner_components, @style)
       end
 
+      # Appends a path component to the breadcrumb trail.
       def add_component(name : String, icon : String? = nil, url : String? = nil)
         @components << Component.new(name: name, icon: icon, url: url)
         @inner.add_component(name, icon, url)
       end
 
+      # Returns the components joined as a POSIX-style path string.
       def path_string : String
         @inner.path_string
       end
@@ -59,10 +64,12 @@ module UI
       )
       end
 
+      # Appends a path component to the breadcrumb trail (web-fallback variant).
       def add_component(name : String, icon : String? = nil, url : String? = nil)
         @components << Component.new(name: name, icon: icon, url: url)
       end
 
+      # Returns the components joined as a POSIX-style path string.
       def path_string : String
         return "/" if @components.empty?
         "/" + @components.map(&.name).join("/")

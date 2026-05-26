@@ -1,3 +1,7 @@
+# lint:disable=family_4/interactive_widget_test_id
+# (Brand-cascade demo: single visible button used as a brand swatch, not
+#  a screen element with AXTest assertions.)
+#
 # Brand-cascade demonstration for Phase 1 on macOS (AppKit).
 #
 # Renders a single UI::VStack containing a brand-tinted UI::Button onto a

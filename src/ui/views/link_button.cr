@@ -7,9 +7,13 @@ require "../view"
 module UI
   # LinkButton — Button styled as a hyperlink that opens or dispatches a navigation action.
   class LinkButton < View
+    # Caption / accessibility label rendered alongside the control.
     property label : String
+    # URL the view points at.
     property url : String = ""
+    # Boolean toggle.
     property opens_in_browser : Bool = true
+    # Invoked when the user taps / clicks the control.
     property on_tap : Proc(Nil)? = nil
 
     def initialize(@label : String, @url : String = "")

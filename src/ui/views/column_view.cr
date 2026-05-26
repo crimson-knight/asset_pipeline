@@ -12,9 +12,13 @@ module UI
   # continue using the fallback tree composed here.
   class ColumnView < View
     class Item
+      # Primary text shown on the control.
       property title : String
+      # Optional icon shown next to the title. Native: SF Symbol name; web: icon class or URL.
       property icon : String?
+      # Text value.
       property secondary_text : String?
+      # Ordered list of child views.
       property children : Array(Item)
 
       def initialize(
@@ -25,43 +29,59 @@ module UI
       )
       end
 
+      # Appends a child item and returns self for chaining.
       def add_child(child : Item) : self
         @children << child
         self
       end
 
+      # Returns true when this item has any children (i.e. it is a branch / non-leaf).
       def branch? : Bool
         !@children.empty?
       end
     end
 
+    # Items rendered by the control.
     property items : Array(Item) = [] of Item
+    # Currently selected indexes into the items array (multi-select).
     property selected_indexes : Array(Int32) = [] of Int32
+    # Numeric value (pt unless otherwise noted).
     property default_column_width : Float64 = 220.0
+    # Per-column width overrides (pt). Empty means use `default_column_width` for every column.
     property column_widths : Array(Float64) = [] of Float64
+    # Horizontal gap (in pt) between columns.
     property column_spacing : Float64 = 12.0
+    # Vertical gap (in pt) between rows.
     property row_spacing : Float64 = 4.0
+    # Inner padding (pt) applied to each row.
     property row_padding : EdgeInsets = EdgeInsets.new(top: 6.0, trailing: 10.0, bottom: 6.0, leading: 10.0)
+    # Optional fixed width (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_width : Float64 = 0.0
+    # Optional fixed height (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_height : Float64 = 320.0
+    # Whether disclosure (chevron) glyphs are drawn beside expandable rows.
     property shows_disclosure_glyphs : Bool = true
 
     def initialize(@items : Array(Item) = [] of Item)
     end
 
+    # Appends an item and returns the newly-created item.
     def add_item(item : Item) : self
       @items << item
       self
     end
 
+    # Returns the number of columns currently configured.
     def column_count : Int32
       count_visible_columns(@items, 0)
     end
 
+    # Returns the number of items currently configured.
     def item_count : Int32
       count_items(@items)
     end
 
+    # Returns the selected path component string (or nil if no selection).
     def selected_path : Array(Int32)
       path = [] of Int32
       current_items = @items
@@ -84,6 +104,7 @@ module UI
       path
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       stack = UI::HStack.new(spacing: column_spacing, alignment: UI::Alignment::Top)
       build_column_chain(stack, @items, 0)

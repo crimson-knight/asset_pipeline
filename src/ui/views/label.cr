@@ -24,6 +24,7 @@ module UI
     # the next render seeds the reactive state from the new value.
     getter text : String
 
+    # Assigns the body text.
     def text=(new_text : String) : String
       @text = new_text
       {% if flag?(:macos) || flag?(:ios) %}

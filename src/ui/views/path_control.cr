@@ -22,8 +22,11 @@ require "../view"
         icon : String? = nil,
         url : String? = nil
 
+      # Sub-components rendered by the view.
       property components : Array(Component) = [] of Component
+      # Visual style variant applied to the control.
       property style : PathControlStyle = PathControlStyle::Standard
+      # Boolean toggle.
       property is_editable : Bool = false
 
       def initialize(
@@ -32,10 +35,12 @@ require "../view"
       )
       end
 
+      # Appends a path component to the breadcrumb trail. `icon` and `url` are optional decoration / link target.
       def add_component(name : String, icon : String? = nil, url : String? = nil)
         @components << Component.new(name: name, icon: icon, url: url)
       end
 
+      # Returns the components joined as a POSIX-style path string (e.g. `/Users/seth/Desktop`).
       def path_string : String
         return "/" if @components.empty?
         "/" + @components.map(&.name).join("/")

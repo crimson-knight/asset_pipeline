@@ -83,6 +83,7 @@ module UI
     # rebuilding the whole screen.
     getter disabled : Bool = false
 
+    # Assigns the disabled flag.
     def disabled=(new_value : Bool) : Bool
       @disabled = new_value
       {% if flag?(:macos) || flag?(:ios) %}
@@ -154,6 +155,7 @@ module UI
     # delegates to a single helper so all three call-sites stay
     # consistent.
 
+    # Assigns the background fill.
     def background=(new_color : Color?) : Color?
       @background = new_color
       {% if flag?(:macos) || flag?(:ios) %}
@@ -168,6 +170,7 @@ module UI
       new_color
     end
 
+    # Assigns the foreground color.
     def foreground_color=(new_color : Color) : Color
       @foreground_color = new_color
       {% if flag?(:macos) || flag?(:ios) %}
@@ -180,6 +183,7 @@ module UI
       new_color
     end
 
+    # Assigns the corner radius (pt).
     def corner_radius=(new_radius : Float64) : Float64
       @corner_radius = new_radius
       {% if flag?(:macos) || flag?(:ios) %}

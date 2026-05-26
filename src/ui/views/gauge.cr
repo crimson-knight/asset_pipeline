@@ -13,23 +13,41 @@ module UI
   # can later map this to a platform gauge or chart control without changing
   # the shared API.
   class Gauge < View
+    # Current value of the control.
     property value : Float64 = 0.0
+    # Numeric value (pt unless otherwise noted).
     property minimum_value : Float64 = 0.0
+    # Numeric value (pt unless otherwise noted).
     property maximum_value : Float64 = 100.0
+    # Unit suffix appended after the formatted value (e.g. "%").
     property units : String? = "%"
+    # Number of fractional digits to format the value with.
     property value_precision : Int32 = 0
+    # Caption / accessibility label rendered alongside the control.
     property label : String? = nil
+    # Helper / prompt text shown above or below the field.
     property prompt : String? = nil
+    # Short caption rendered alongside the main content.
     property caption : String? = nil
+    # Help / hint text shown beneath the control.
     property help_text : String? = nil
+    # Whether to render the current value alongside the control.
     property show_value : Bool = true
+    # Numeric value (pt unless otherwise noted).
     property diameter : Float64 = 180.0
+    # Numeric value (pt unless otherwise noted).
     property ring_thickness : Float64 = 12.0
+    # Starting angle in radians.
     property start_angle : Float64 = -2.356194490192345
+    # Ending angle in radians.
     property end_angle : Float64 = 2.356194490192345
+    # Color value.
     property track_color : Color = Color.new(r: 0.82, g: 0.83, b: 0.86)
+    # Color value.
     property progress_color : Color = Color.new(r: 0.28, g: 0.46, b: 0.84)
+    # Optional fixed width (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_width : Float64 = 0.0
+    # Optional fixed height (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_height : Float64 = 0.0
 
     def initialize(
@@ -43,16 +61,19 @@ module UI
     )
     end
 
+    # Returns the value normalized into `0.0..1.0` against `minimum`..`maximum`.
     def normalized_value : Float64
       return minimum_value if maximum_value <= minimum_value
       clamped_value
     end
 
+    # Returns the overall progress fraction in `0.0..1.0`.
     def progress_fraction : Float64
       return 0.0 if maximum_value <= minimum_value
       (clamped_value - minimum_value) / (maximum_value - minimum_value)
     end
 
+    # Returns the user-facing formatted value string.
     def display_value : String
       rounded = normalized_value.round(value_precision)
       text = value_precision <= 0 ? rounded.to_i.to_s : rounded.to_s
@@ -63,6 +84,7 @@ module UI
       end
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       body = UI::VStack.new(spacing: 8.0, alignment: UI::Alignment::Fill)
 

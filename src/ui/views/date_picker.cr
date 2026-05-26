@@ -7,11 +7,17 @@ require "../view"
 module UI
   # DatePicker — Calendar-based date selection control.
   class DatePicker < View
+    # Currently selected date.
     property selected_date : Time = Time.utc
+    # Operating mode for the control.
     property mode : DatePickerMode = DatePickerMode::Date
+    # Earliest selectable date (inclusive).
     property minimum_date : Time? = nil
+    # Latest selectable date (inclusive).
     property maximum_date : Time? = nil
+    # Caption / accessibility label rendered alongside the control.
     property label : String = ""
+    # Invoked when the user changes the control's value.
     property on_change : Proc(Time, Nil)? = nil
 
     def initialize(@mode : DatePickerMode = DatePickerMode::Date)

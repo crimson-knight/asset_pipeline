@@ -10,6 +10,7 @@ require "../view"
 module UI
   # Slider — Continuous-value slider control with configurable range and step.
   class Slider < View
+    # Current value of the control.
     getter value : Float64 = 0.0
 
     # Reactive setter — programmatically drag a rendered SwiftUI Slider
@@ -26,11 +27,17 @@ module UI
       new_value
     end
 
+    # Minimum legal value (inclusive).
     property minimum : Float64 = 0.0
+    # Maximum legal value (inclusive).
     property maximum : Float64 = 1.0
+    # Numeric value (pt unless otherwise noted).
     property step : Float64 = 0.0 # 0 = continuous
+    # Caption / accessibility label rendered alongside the control.
     property label : String = ""
+    # Tint applied to platform-native chrome (button highlight, selection, etc).
     property tint_color : Color? = nil
+    # Invoked when the user changes the control's value.
     property on_change : Proc(Float64, Nil)? = nil
 
     def initialize(@minimum : Float64 = 0.0, @maximum : Float64 = 1.0, @value : Float64 = 0.0)

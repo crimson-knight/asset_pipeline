@@ -17,16 +17,20 @@ module UI
       strikethrough : Bool = false,
       link : String? = nil
 
+    # Styled text runs that make up the rich-text content.
     property spans : Array(Span) = [] of Span
+    # Horizontal text alignment.
     property text_alignment : Alignment = Alignment::Leading
 
     def initialize
     end
 
+    # Appends a styled span to the rich-text run.
     def add_span(text : String, bold : Bool = false, italic : Bool = false, color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0))
       @spans << Span.new(text: text, bold: bold, italic: italic, color: color)
     end
 
+    # Returns the unstyled plain-text content.
     def plain_text : String
       spans.map(&.text).join
     end

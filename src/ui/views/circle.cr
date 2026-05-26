@@ -7,9 +7,13 @@ require "../view"
 module UI
   # Circle — Filled or stroked circular geometric primitive.
   class Circle < View
+    # Solid fill color for the shape body.
     property fill_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
+    # Stroke / outline color for the shape.
     property stroke_color : Color? = nil
+    # Stroke / outline width in pt.
     property stroke_width : Float64 = 0.0
+    # Numeric value (pt unless otherwise noted).
     property size : Float64 = 50.0
 
     def initialize(@size : Float64 = 50.0)
