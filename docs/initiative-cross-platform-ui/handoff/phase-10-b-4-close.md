@@ -222,3 +222,91 @@ listing shows the logical breakdown.)
 - ☐ Codex content review — pending architect dispatch.
 
 — Phase 10B.4 implementer, Claude Opus 4.7, 2026-05-26.
+
+---
+
+## Iter 2 — Codex REVISE remediation (2026-05-26)
+
+Codex returned REVISE on the iter-1 ship with 3 findings. All three
+addressed in this iteration; no other changes.
+
+### Finding 1 (BLOCKER) — FullScreenCover web missing aria-modal + tabindex
+
+**Root cause.** The visit method docstring promised `role="dialog"
+aria-modal="true"` with `tabindex="-1"`, but only `role="dialog"` was
+actually being emitted (via `apply_common_styles` reading
+`default_accessibility_role`). The two extra attributes were never
+explicitly set, and `effective_tab_index` returns `nil` for default-
+focusable widgets (the View base intentionally skips emitting
+`tabindex="0"` to avoid noise on form controls), so the documented
+`tabindex="-1"` promise was being silently dropped.
+
+**Fix.** `src/ui/renderers/web_renderer.cr:3208-3242` —
+`visit(view : UI::FullScreenCover)` now explicitly emits
+`aria-modal="true"` and `tabindex="-1"` via `set_attribute` BEFORE
+the `apply_common_styles` call (which only sets tabindex when
+`effective_tab_index` is non-nil, so the pre-set attribute survives).
+A multi-line comment documents the rationale so a future maintainer
+who reaches for "move this to `effective_tab_index = -1` as the
+widget default" understands the intentional explicit-emission choice.
+
+**Spec.** Two new examples in
+`spec/web/ui/views/full_screen_cover_spec.cr`:
+- `"emits aria-modal=\"true\" and tabindex=\"-1\" (modal-dialog contract)"` — presented state
+- `"emits the modal-dialog ARIA contract even when not presented"` — hidden state (`display: none` wrapper still carries the ARIA contract so reactive flips don't churn it)
+
+### Finding 2 (MEDIUM) — 3 widgets missing default_focusable overrides
+
+The brief required `default_focusable` overrides per widget; only
+`FullScreenCover` had one (returning `true`). The other three relied
+on the View base default (`false`), which happens to be the right
+value but was not explicitly documented as the widget's intent —
+making the contract fragile against a future change to the View
+base default.
+
+**Fix.**
+- `src/ui/views/inspector.cr:90-95` — added
+  `def default_focusable : Bool; false; end` with rationale comment
+  (structural container; focus belongs to primary + pane children).
+- `src/ui/views/toolbar_item_group.cr:96-102` — added
+  `def default_focusable : Bool; false; end` with rationale comment
+  (clustering wrapper; items inside carry their own tab stops).
+- `src/ui/views/toolbar_spacer.cr:73-79` — added
+  `def default_focusable : Bool; false; end` with rationale comment
+  (decorative `aria-hidden` chrome).
+
+**Specs.** One assertion per widget:
+- `spec/web/ui/views/inspector_spec.cr` — `"is non-focusable by default (focus lives on child content, not the wrapper)"`
+- `spec/web/ui/views/toolbar_item_group_spec.cr` — `"is non-focusable by default (items inside carry the tab stops)"`
+- `spec/web/ui/views/toolbar_spacer_spec.cr` — `"is non-focusable by default (decorative chrome stays out of tab order)"`
+
+### Finding 3 (MINOR) — Stale catalog platforms line for `:full_screen_cover`
+
+The catalog's `platforms:` line said `ios, ipados, android; macos+web
+use sheets at appropriate size`, but the 10B.4 ship landed visit
+methods on web + AppKit. The platforms line now reflects reality:
+
+`docs/initiative-cross-platform-ui/architecture/intent-catalog.md:671`
+
+```diff
+- - **platforms:** ios, ipados, android; macos+web use sheets at appropriate size
++ - **platforms:** ios, ipados, android (native modal); macos, web (fallback container with role=dialog)
+```
+
+### Iter 2 acceptance
+
+- ✅ Spec result: `crystal spec spec/web/ui/views/full_screen_cover_spec.cr
+  spec/web/ui/views/inspector_spec.cr
+  spec/web/ui/views/toolbar_item_group_spec.cr
+  spec/web/ui/views/toolbar_spacer_spec.cr` →
+  **40 examples, 0 failures, 0 errors** (was 35; +5 new assertions
+  per the findings).
+- ✅ Wider spec sweep: `crystal spec spec/web/ui/views/` →
+  **81 examples, 0 failures, 0 errors**.
+- ✅ `crystal run scripts/lint_conventions.cr` →
+  **OK (477 files, 14 rules, 0 diagnostics)**.
+- ✅ `crystal run scripts/lint_intent_catalog.cr` →
+  **PASS (92 catalog entries)**.
+- ✅ Forward-only commits on `phase-10-b-4`; no rebase, no amend.
+
+— Phase 10B.4 iter 2 implementer, Claude Opus 4.7, 2026-05-26.
