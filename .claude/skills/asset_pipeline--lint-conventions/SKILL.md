@@ -76,12 +76,52 @@ Five regex-based rules covering screen/controller/view naming:
 
 ## Adding a new rule
 
+Rules are **auto-discovered**. Drop a file and ship — no runner edit
+required.
+
 1. Create the rule file under `src/lsp_rules/family_<N>_<topic>/<name>_rule.cr`.
-2. Subclass `ConventionRule` and implement `rule_name` + `check(file_path, content) : Array(Diagnostic)`.
-3. Register the new rule in `scripts/lint_conventions.cr` `load_rules` (and `require` it at the top of the runner).
-4. Run the linter; confirm green on `src/` + `samples/`.
+2. Subclass `ConventionRule` and implement `rule_name : String` +
+   `check(file_path, content) : Array(Diagnostic)`. (Optional:
+   override `configure(config : ConventionConfig)` to receive runtime
+   config.)
+3. The class auto-registers via `ConventionRule.inherited`, and the
+   runner auto-requires every `*_rule.cr` under `src/lsp_rules/` via a
+   compile-time `find` macro expansion.
+4. Run `crystal run scripts/lint_conventions.cr` and confirm the rule
+   count went up by one and the run is green on `src/` + `samples/`.
 5. Manually break a file; confirm red on injection.
 6. Add a SKILL.md row in the appropriate Family table.
+
+To verify auto-discovery, drop a stub rule file in any
+`src/lsp_rules/family_N_*/` directory, re-run the linter, observe the
+rule count increment, then delete the file.
+
+## Configurable allowlists
+
+Some rules read a config file at the repo root:
+
+- `.lint_conventions.yml` — flat YAML with sectioned keys.
+
+Currently supported keys:
+
+```yaml
+view_subclass:
+  approved_roots:
+    - "src/ui/views/"
+    - "samples/"
+```
+
+If the config file is missing, defaults apply. Pass `--config=<path>`
+to override the location.
+
+## Regression fixtures
+
+Known false-positive cases are pinned as fixtures under
+`spec/lint_conventions/fixtures/`. A fixture file is a single `.cr`
+file with a comment header naming the expected outcome (pass or fail
+with which rule). The optional spec at
+`spec/lint_conventions/family_1_naming_spec.cr` exercises each rule
+against the fixtures to lock in current behavior.
 
 ## CI integration
 
