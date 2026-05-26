@@ -73,6 +73,25 @@ private class IntentSpecFakeWidget < UI::View
   end
 end
 
+# Second-spec widget that fully declares the :swipe_actions
+# capability set. Iter-9 Finding 1 needs a SECOND fully-capable
+# widget so the app-class-isolation test can register a DIFFERENT
+# widget on AppB and prove the resolver returns AppB's widget for
+# AppB's context (not AppA's, which would prove the leak).
+private class IntentSpecAlternateRow < UI::View
+  declares_capabilities :swipe_actions, {
+    supports_edge_trailing:    true,
+    supports_role_default:     true,
+    supports_role_destructive: :partial,
+  }
+
+  def initialize
+  end
+
+  def accept(visitor : UI::PlatformVisitor)
+  end
+end
+
 # Spec apps + screens — class identity matters for the override
 # registry.
 private class IntentSpecAppA < UI::App
@@ -93,6 +112,23 @@ private class IntentSpecScreenB < UI::Screen
   def build(context : UI::ScreenContext) : UI::View
     UI::Label.new("b")
   end
+end
+
+# Helper: re-install the minimum bootstrap state the registry needs
+# after a `reset_overrides_for_spec` call. Restores intent capability
+# requirements + the platforms that ship a default for :swipe_actions,
+# so sibling tests that rely on the bootstrap state still pass after
+# a reset. (Iter-9 added specs that reset state mid-flow.)
+private def reinstall_intent_bootstrap : Nil
+  UI::Intent::Registry.declare_intent_capabilities(:swipe_actions, {
+    :supports_edge_trailing    => true,
+    :supports_role_default     => true,
+    :supports_role_destructive => :partial,
+  } of Symbol => Bool | Symbol)
+  UI::Intent::Registry.register_default(:swipe_actions, :ios, UI::SwipeActionRow)
+  UI::Intent::Registry.register_default(:swipe_actions, :ipados, UI::SwipeActionRow)
+  UI::Intent::Registry.register_default(:swipe_actions, :web_narrow, UI::SwipeActionRow)
+  nil
 end
 
 # Helper: a Native context for the given platform.
@@ -205,15 +241,18 @@ end
 
 describe UI::Intent::Registry do
   describe "app overrides" do
-    it "applies an app override on the platforms its widget supports" do
+    it "applies an app override when context.app_class matches" do
       # Register IntentSpecFancyRow as the app override for :swipe_actions
-      # on IntentSpecAppA. The override is global (not platform-scoped) —
-      # any context resolution that finds AppA's override returns it.
+      # on IntentSpecAppA. Iter-9 (Codex Finding 1): the resolver now
+      # checks `context.app_class` against the override key — the
+      # context must opt in to IntentSpecAppA for the override to apply.
       IntentSpecAppA.override_intent(:swipe_actions, IntentSpecFancyRow)
 
       # On macOS — without the override, this would raise
-      # UnresolvableDefault. With the override, FancyRow wins.
+      # UnresolvableDefault. With the override AND app_class set on
+      # context, FancyRow wins.
       ctx = native_ctx(:macos)
+      ctx.app_class = IntentSpecAppA
       result = UI::Intent::Registry.resolve_for(:swipe_actions, ctx)
       result.should eq(IntentSpecFancyRow)
     end
@@ -221,6 +260,47 @@ describe UI::Intent::Registry do
     it "exposes an override count accessor for specs" do
       IntentSpecAppB.override_intent(:swipe_actions, IntentSpecFancyRow)
       UI::Intent::Registry.app_override_count_for(IntentSpecAppB, :swipe_actions).should eq(1)
+    end
+
+    it "isolates app overrides by app class (Codex iter-9 Finding 1)" do
+      # The critical proof: an override registered against AppA must
+      # NOT leak into AppB's resolution path. Prior to iter-9, the
+      # resolver iterated ALL app overrides and returned the first
+      # match — making @@app_overrides effectively process-global
+      # and defeating the point of keying by app class.
+      UI::Intent::Registry.reset_overrides_for_spec
+      reinstall_intent_bootstrap
+
+      # Register DIFFERENT widgets for the SAME intent on two apps.
+      # The resolver must return the widget keyed to the active app.
+      IntentSpecAppA.override_intent(:swipe_actions, IntentSpecFancyRow)
+      IntentSpecAppB.override_intent(:swipe_actions, IntentSpecAlternateRow)
+
+      # Resolve from AppA's context — must return AppA's widget.
+      ctx_a = native_ctx(:macos)
+      ctx_a.app_class = IntentSpecAppA
+      UI::Intent::Registry.resolve_for(:swipe_actions, ctx_a).should eq(IntentSpecFancyRow)
+
+      # Resolve from AppB's context — must return AppB's widget, NOT
+      # AppA's. Pre-iter-9 this returned whichever override was
+      # iterated first (effectively random).
+      ctx_b = native_ctx(:macos)
+      ctx_b.app_class = IntentSpecAppB
+      UI::Intent::Registry.resolve_for(:swipe_actions, ctx_b).should eq(IntentSpecAlternateRow)
+    end
+
+    it "skips the app tier when context.app_class is nil" do
+      # Specs / call-sites that don't bind to a UI::App leave
+      # app_class nil. The resolver MUST skip the app tier in that
+      # case rather than scanning all app overrides.
+      UI::Intent::Registry.reset_overrides_for_spec
+      reinstall_intent_bootstrap
+      IntentSpecAppA.override_intent(:swipe_actions, IntentSpecFancyRow)
+
+      ctx = native_ctx(:macos)
+      # ctx.app_class remains nil — no default exists for :macos on
+      # :swipe_actions, so the resolver returns nil.
+      UI::Intent::Registry.resolve_for(:swipe_actions, ctx).should be_nil
     end
   end
 
@@ -230,6 +310,17 @@ describe UI::Intent::Registry do
     # definition above). Spec runs against that pre-registered state.
 
     it "screen override wins over app override at resolve time" do
+      # Iter-9 (Finding 1): the isolation specs above call
+      # `reset_overrides_for_spec`, which clears the screen-override
+      # table — including IntentSpecScreenA's class-body registration.
+      # Re-install it here so the precedence assertion has the
+      # screen-tier entry it needs.
+      reinstall_intent_bootstrap
+      UI::Intent::Registry.register_screen_override(
+        IntentSpecScreenA,
+        :swipe_actions,
+        IntentSpecFancyRow,
+      )
       ctx = native_ctx(:macos)
       # Passing screen_class: routes through the screen-tier first.
       hit = UI::Intent::Registry.resolve_for(:swipe_actions, ctx, screen_class: IntentSpecScreenA)

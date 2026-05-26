@@ -76,6 +76,14 @@
 require "../ui"
 
 module UI
+  # Forward declaration so `ScreenContext#app_class` can carry a
+  # `UI::App.class` value before `UI::App` lands in `native_app.cr`
+  # (which is required AFTER this file). The full abstract class
+  # definition lives there. Mirrors the `Controller` forward-
+  # declaration pattern in `native_app.cr`.
+  abstract class App
+  end
+
   # Forward declaration so `ScreenContext#active_screen_class` can
   # carry a `UI::Screen.class` value at class-body time. The full
   # abstract class definition lives below (line 227+). Mirrors the
@@ -123,6 +131,21 @@ module UI
     def platform : Symbol
       :web_wide
     end
+
+    # Phase 10B.0 iter-9 (Codex Finding 1): the active `UI::App` class
+    # for this build. `UI::Intent::Registry.resolve_for` reads this to
+    # isolate app-scoped overrides — without an app-class key, an
+    # override registered against `AppA` would leak into `AppB`'s
+    # resolution path (defeating the purpose of keying the override
+    # table by app class).
+    #
+    # Optional — nil means "no app context"; the resolver simply
+    # skips the app-override tier in that case. Specs that don't bind
+    # to a `UI::App` (most unit tests) work without setting this.
+    # Production callsites (the `ActionDispatcher` for native, the
+    # Amber `compute_screen_html` path for web) set it from the live
+    # `UI::App` subclass.
+    property app_class : (UI::App.class)? = nil
 
     # Phase 10B.0 iter-9 (Codex Finding 2): the active `UI::Screen`
     # class for this build. Replaces the prior explicit `screen_class:`

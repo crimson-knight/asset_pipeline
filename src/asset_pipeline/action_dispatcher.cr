@@ -155,6 +155,11 @@ module UI
         action_params: explicit_params,
         platform: @platform,
       )
+      # Iter-9 (Codex Finding 1): thread the active app class so the
+      # intent resolver scopes app-tier overrides to the right app.
+      # Without this, an override registered on `MyApp` would also fire
+      # for `OtherApp` builds (defeating the registry's per-app keying).
+      ctx.app_class = @app
       # Iter-9 (Codex Finding 2): thread the active screen class so
       # the intent resolver can consult the screen-tier override table
       # without the caller passing a `screen_class:` kwarg. The dispatch

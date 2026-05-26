@@ -102,6 +102,20 @@ module UI
         nil
       end
 
+      # Clear ONLY override tables + defaults (NOT
+      # `@@widget_capabilities`, which holds class-static metadata
+      # written once at widget class-body load and cannot be
+      # re-installed at runtime). Iter-9 added this for specs that
+      # need to test the resolver from a clean override state while
+      # leaving widget capability declarations intact.
+      def self.reset_overrides_for_spec : Nil
+        @@defaults.clear
+        @@app_overrides.clear
+        @@screen_overrides.clear
+        @@intent_required_capabilities.clear
+        nil
+      end
+
       # ------------------------------------------------------------------
       # Defaults table.
       # ------------------------------------------------------------------
@@ -274,6 +288,13 @@ module UI
       # `UI::Intent.resolve` reads it from there and threads no kwarg.
       # Without either source, the resolver skips the screen tier.
       #
+      # The app tier is consulted ONLY when `context.app_class` is set
+      # (iter-9, Codex Finding 1). Without an app-class on the context,
+      # the resolver cannot tell which app owns this build, so it
+      # skips app-tier rather than leaking an override from an
+      # unrelated app — overrides keyed by `{app_class, intent_id}`
+      # would otherwise be effectively process-global.
+      #
       # Returns nil if neither override nor default is registered. The
       # public `UI::Intent.resolve` wraps this and raises
       # `UnresolvableDefault` when nil.
@@ -291,8 +312,8 @@ module UI
           return hit
         end
 
-        @@app_overrides.each do |key, widget|
-          return widget if key[1] == intent_id
+        if (app_class = context.app_class) && (hit = @@app_overrides[{app_class, intent_id}]?)
+          return hit
         end
 
         default_for(intent_id, context.platform)
