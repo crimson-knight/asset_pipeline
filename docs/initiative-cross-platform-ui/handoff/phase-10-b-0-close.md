@@ -295,3 +295,84 @@ The following are intentionally NOT included in this slice:
 * Owner involvement / hands-on tests.
 
 — Implementer (Claude Opus 4.7), Phase 10B.0 close, 2026-05-25.
+
+---
+
+## 11. Iter 9 remediation — Codex content-review REVISE
+
+Codex returned `REVISE` on the 10B.0 close with three findings. Iter 9 closes all three forward on `phase-10-b-0` (no history rewrites).
+
+### Finding 1 (BLOCKER) — App override lookup ignored app-class key
+
+**Symptom.** `@@app_overrides` is keyed by `{UI::App.class, Symbol}` but `Registry.resolve_for` iterated ALL app overrides and returned the first matching intent regardless of app class. An override registered on AppA would fire for AppB's resolve — process-global behavior that defeated the keying.
+
+**Fix.** Thread the active `UI::App` class onto `ScreenContext` (new `app_class : (UI::App.class)?` property). `Registry.resolve_for` now does `@@app_overrides[{context.app_class, intent_id}]?` — a direct keyed lookup. Without an `app_class` on context the resolver skips the app tier entirely.
+
+**Wiring.**
+
+* `ScreenContext.app_class` — forward-declared `UI::App` so the property type resolves at class-body load.
+* `ActionDispatcher#build_context` — sets `ctx.app_class = @app` on every dispatch.
+* The web-target `compute_screen_html` does NOT yet set this (the path doesn't carry a per-request `UI::App` reference); a future slice that exposes the active app from `ScreenHelpers` will wire it. Specs that don't bind to a `UI::App` (most unit tests) work because nil app_class skips the app tier cleanly.
+
+**Proof spec.** `spec/ui/intent_spec.cr` — new `"isolates app overrides by app class (Codex iter-9 Finding 1)"` registers `IntentSpecFancyRow` on `IntentSpecAppA` AND `IntentSpecAlternateRow` on `IntentSpecAppB`, then resolves from each app's context and asserts the result matches. A second new spec (`"skips the app tier when context.app_class is nil"`) proves the nil-app_class path returns nil rather than leaking the AppA override.
+
+**Commit.** `feaf5d25 [Phase 10B.0 iter 9 Finding 1] App-class isolation for overrides`.
+
+### Finding 2 (MEDIUM) — D1 signature drift
+
+**Symptom.** Brief at line 62 specifies `def self.resolve(intent_id, context, capabilities_required : Hash(Symbol, Bool)? = nil)`. Implementer shipped `screen_class : (UI::Screen.class)? = nil` instead. The brief signature is the contract; the implementer's kwarg conflated two concerns (override lookup + capability validation).
+
+**Fix — Option A (match brief literally).** The active screen class moved onto `ScreenContext.active_screen_class` (new property). The public `UI::Intent.resolve` signature now reads:
+
+```crystal
+def self.resolve(
+  intent_id : Symbol,
+  context : UI::ScreenContext,
+  capabilities_required : Hash(Symbol, Bool)? = nil,
+) : UI::View.class
+```
+
+`capabilities_required` is opt-in. When passed, the resolver looks up the resolved widget's declared capabilities (via `declares_capabilities`) and raises `UnresolvableDefault` if any required capability is missing — the error names the missing key so the caller sees the gap.
+
+**Why Option A.** The brief signature was a contract surface, not a guess; widening the kwarg to carry both concerns would have been a contract change requiring its own decision record. `capabilities_required` is the legitimate use case (migration / soft-fallback paths), and `screen_class` belongs on the context where it lives alongside other build-time state.
+
+**Wiring.**
+
+* `Registry.resolve_for` reads `context.active_screen_class` when no explicit `screen_class:` kwarg is passed (the kwarg stays for spec back-compat).
+* `ActionDispatcher#build_context` sets `ctx.active_screen_class` from the route's registration.
+* `spec/ui/intent_reactivity_spec.cr` — `ReactivitySpecScreen.build` now sets `context.active_screen_class = ReactivitySpecScreen` before calling `UI::Intent.resolve(intent_id, context)` (no kwarg).
+
+**Commit.** `20643bbe [Phase 10B.0 iter 9 Finding 2] Reconcile resolver signature to brief`.
+
+### Finding 3 (MEDIUM) — D7 spec didn't prove screen-precedence
+
+**Symptom.** The screen-vs-app precedence spec registered `IntentSpecFancyRow` at BOTH tiers, so the "screen wins" assertion would have passed even if the app tier had won.
+
+**Fix.** Added two new distinct spec widgets: `IntentSpecAppWinner` and `IntentSpecScreenWinner` (each declaring the full `:swipe_actions` capability set). `IntentSpecScreenA`'s class-body `override_intent` now registers `IntentSpecScreenWinner`. The precedence spec registers `IntentSpecAppWinner` at app tier and asserts resolve returns `IntentSpecScreenWinner` — the distinct-class assertion is no longer vacuous.
+
+**Bonus spec.** Added `"falls through to app override when no screen_class hint is passed"` — same setup, but no screen_class kwarg and `active_screen_class` left nil; asserts resolve returns `IntentSpecAppWinner` (proves the screen tier was correctly skipped AND the app tier ran).
+
+**Commit.** `008e414b [Phase 10B.0 iter 9 Finding 3] Distinct widgets prove screen-vs-app precedence`.
+
+### Iter 9 verification
+
+* `crystal spec spec/ui/intent_spec.cr spec/ui/intent_reactivity_spec.cr` → 20 examples, 0 failures (17 pre-iter-9 + 3 new: app-class isolation, nil-app_class skip, falls-through-to-app).
+* `crystal spec` (full suite) → 1743 examples, 4 failures (all 4 are the pre-existing failures present on `phase-10` — `views_spec.cr:3279` + 3 × `phase2_verification_spec.cr`).
+* `crystal build src/asset_pipeline.cr` → compiles clean.
+
+### Updated API surface (post iter-9)
+
+* `UI::Intent.resolve(intent_id : Symbol, context : UI::ScreenContext, capabilities_required : Hash(Symbol, Bool)? = nil) : UI::View.class` (revised signature, matches brief line 62).
+* `UI::ScreenContext#app_class : (UI::App.class)?` — new property (Finding 1).
+* `UI::ScreenContext#active_screen_class : (UI::Screen.class)?` — new property (Finding 2).
+* `UI::Intent::Registry.reset_overrides_for_spec : Nil` — new partial reset that preserves widget capability declarations.
+
+### Iter 9 commit log
+
+```
+008e414b [Phase 10B.0 iter 9 Finding 3] Distinct widgets prove screen-vs-app precedence
+feaf5d25 [Phase 10B.0 iter 9 Finding 1] App-class isolation for overrides
+20643bbe [Phase 10B.0 iter 9 Finding 2] Reconcile resolver signature to brief
+```
+
+— Implementer (Claude Opus 4.7), Phase 10B.0 iter 9 remediation, 2026-05-26.
