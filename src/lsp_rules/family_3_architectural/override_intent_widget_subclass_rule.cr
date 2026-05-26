@@ -25,13 +25,23 @@
 # - The class-constant token regex: optional `::`, then
 #   `[A-Z][A-Za-z0-9_]*(::[A-Z][A-Za-z0-9_]*)*`. No trailing parens,
 #   no string quotes, no Hash/Array literal characters.
-# - Skip comment lines and string literals (lines whose
-#   `override_intent` token is inside a comment or `"..."`).
+# - Skip whole-line comments at entry.
+# - For inline-comment + string-literal robustness, scrub each line
+#   before regex-matching: replace string-literal interiors with
+#   spaces (preserving quotes + line length so column math stays
+#   sane) and drop everything after a top-level `#`. This means an
+#   inline `# override_intent :foo, BarClass` and a string literal
+#   `"override_intent :foo, BarClass"` are both invisible to the
+#   entry regex.
 #
 # False-positive shape acknowledged in fixtures:
 #
 # - A doc comment containing `override_intent :foo, MyBar` is NOT
 #   flagged (comment lines skipped).
+# - An inline `# override_intent :foo, BarClass` riding on a
+#   non-macro line is NOT flagged (scrubbed before match).
+# - A string literal `"override_intent :foo, BarClass"` is NOT
+#   flagged (scrubbed before match).
 # - A multiline call with the widget class on a continuation line —
 #   we concatenate continuation lines until parens balance, so the
 #   token is found.
@@ -58,7 +68,15 @@ class OverrideIntentWidgetSubclassRule < ConventionRule
 
   def check(file_path : String, content : String) : Array(Diagnostic)
     diagnostics = [] of Diagnostic
-    lines = content.lines
+    raw_lines = content.lines
+    # Scrub strings + inline comments once up front so neither the
+    # entry match nor the arg-region reader can be fooled by string
+    # literals containing `override_intent :foo, Bar` or by inline
+    # `# override_intent :foo, Bar` trailing comments. We preserve
+    # line count + column positions (string interiors replaced with
+    # spaces; comment tail dropped) so diagnostic line numbers are
+    # still accurate.
+    lines = raw_lines.map { |line| scrub_strings_and_inline_comments(line) }
     i = 0
     while i < lines.size
       raw = lines[i]
@@ -236,6 +254,55 @@ class OverrideIntentWidgetSubclassRule < ConventionRule
       end
     end
     nil
+  end
+
+  # Replace string-literal interiors with spaces and drop any
+  # top-level inline `# ...` comment. Quotes themselves are kept (so
+  # the line still parses as `... "   " ...`); the goal is to make
+  # the entry/arg regex blind to any `override_intent` text that
+  # lives inside a string or after a `#`. Trailing newline preserved.
+  private def scrub_strings_and_inline_comments(line : String) : String
+    builder = String::Builder.new
+    in_string = false
+    string_char = '\0'
+    prev_was_backslash = false
+    i = 0
+    while i < line.size
+      c = line[i]
+      if in_string
+        # Inside string: preserve the quote on close, replace
+        # everything else with a space (newline preserved).
+        if c == string_char && !prev_was_backslash
+          builder << c
+          in_string = false
+        elsif c == '\n'
+          builder << c
+        else
+          builder << ' '
+        end
+        prev_was_backslash = (c == '\\' && !prev_was_backslash)
+      else
+        case c
+        when '"', '\''
+          builder << c
+          in_string = true
+          string_char = c
+          prev_was_backslash = false
+        when '#'
+          # Inline comment — drop the rest of the line, but preserve
+          # the trailing newline if present.
+          if line.ends_with?('\n')
+            builder << '\n'
+          end
+          return builder.to_s
+        else
+          builder << c
+          prev_was_backslash = false
+        end
+      end
+      i += 1
+    end
+    builder.to_s
   end
 
   private def split_top_level_commas(args_str : String) : Array(String)
