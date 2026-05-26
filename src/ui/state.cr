@@ -14,6 +14,8 @@ module UI
   #   counter.value = 1  # prints "0 -> 1"
   #   counter.value = 1  # no output (same value)
   class State(T)
+    # The current value. Read via `state.value`; write via
+    # `state.value = ...` (the setter notifies listeners on change).
     getter value : T
     @listeners : Array(Proc(T, T, Nil))
 
@@ -21,6 +23,10 @@ module UI
       @listeners = [] of Proc(T, T, Nil)
     end
 
+    # Assigns a new value. If `new_value` is equal to the current value
+    # (per `!=`), the setter is a no-op and listeners are NOT called.
+    # On change, every registered listener is invoked synchronously with
+    # `(old_value, new_value)`. Returns `new_value`.
     def value=(new_value : T) : T
       old = @value
       @value = new_value
@@ -30,10 +36,23 @@ module UI
       new_value
     end
 
+    # Registers a change listener. The block runs every time
+    # `value =` is called with a value not equal to the current one.
+    # Listeners run in registration order; raised exceptions abort
+    # the remaining listeners on that change (use `begin/rescue`
+    # inside the block to swallow if necessary).
+    #
+    # ```
+    # selected = UI::State(Int32).new(0)
+    # selected.on_change { |old, new| puts "selection #{old} -> #{new}" }
+    # selected.value = 3 # prints "selection 0 -> 3"
+    # ```
     def on_change(&block : T, T -> Nil) : Nil
       @listeners << block
     end
 
+    # Removes every registered listener. Use when tearing down a screen
+    # whose listeners hold view references that should be GC-eligible.
     def remove_listeners : Nil
       @listeners.clear
     end
