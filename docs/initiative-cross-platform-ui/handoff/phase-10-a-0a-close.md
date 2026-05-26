@@ -290,4 +290,17 @@ scope) is unchanged; this iter is file-headers only.
 - The double-prefix naming caveat (Deliverable 5) is the cleanest follow-up to address. Renaming `.claude/skills/asset_pipeline--lint-conventions/` → `.claude/skills/lint-conventions/` collapses the installed path. The brief explicitly named the directory with the prefix; this handoff records the consequence so the owner can rule.
 - Working-tree coordination: while implementing 10A.0a, the parallel 10B.0 worktree (`asset_pipeline-10c`) and the 10B.0 agent both operated against the same repo. A safer pattern for future parallel sub-phases is per-branch worktrees under distinct paths so untracked files don't get caught in cross-branch `git checkout` races.
 
-— Implementer (Claude Opus 4.7), phase-10-a-0a iter 5 close (file-header sweep — Finding 1 full closure)
+## 5c. Iter 6 — Codex iter-5 re-review final polish → CLOSED
+
+Codex iter-5 re-review confirmed Findings 2 + 3 closed and validation green, with two precise residual notes on Finding 1:
+
+1. Two file headers were generic copy-paste boilerplate that didn't identify the file's actual responsibility:
+   - `src/ui/views/panel.cr:1` — replaced with a specific one-line summary naming the panel surface role.
+   - `src/ui/views/rating_indicator.cr:1` — replaced with a specific summary naming the AppKit NSLevelIndicator + UIKit SF Symbol implementation choices.
+2. `src/ui/ax_test.cr` was classified as a "pure-require shim" but the file's first non-blank line is a `{% if flag?(:macos) %}` macro guard wrapping a substantial file-level doc block + requires. Reclassified for this handoff as **"platform-gated re-export shim with file-level docs"**. The file has no `class`/`module` declaration but is not literally require-only; the long top-of-file comment block functions as the header.
+
+Final lint + spec runs after the panel/rating fixes:
+- `crystal run scripts/lint_conventions.cr` → `OK (434 files, 5 rules, 0 diagnostics)`.
+- `crystal spec spec/lint_conventions/` → 11 examples, 0 failures.
+
+— Architect (Claude Opus 4.7), phase-10-a-0a iter 6 close (Finding 1 boilerplate polish)

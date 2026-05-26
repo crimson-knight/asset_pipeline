@@ -1,5 +1,6 @@
-# Tier-1/2 UI::View for the asset_pipeline cross-platform component system.
-# Part of the asset_pipeline cross-platform UI::View catalog.
+# Horizontal star-row rating control. AppKit maps to NSLevelIndicator's rating
+# style; UIKit synthesises a UIStackView of SF Symbol "star.fill" / "star"
+# UIImageViews tinted with the resolved color.
 
 require "../view"
 

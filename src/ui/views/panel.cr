@@ -1,5 +1,6 @@
-# Tier-1/2 UI::View for the asset_pipeline cross-platform component system.
-# Part of the asset_pipeline cross-platform UI::View catalog.
+# Auxiliary panel surface (title + optional subtitle + content + footer) used
+# for inspector / settings / details affordances. Conservative shared primitive
+# pending true floating-panel platform bridges.
 
 require "../view"
 
