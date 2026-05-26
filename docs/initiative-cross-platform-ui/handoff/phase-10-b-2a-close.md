@@ -383,3 +383,74 @@ crystal build src/asset_pipeline.cr
 ```
 
 — Implementer (Claude Opus 4.7), 10B.2a iter-2
+
+---
+
+## Iter 3 — Codex Finding 1 (Swift compile errors) remediation
+
+**Codex iter-2 verdict:** BLOCK. Findings 2, 3, 4 closed in iter 2; Finding 1
+re-opened because the Swift code in `CommonModifiers.swift` had two
+compile-stopping type errors plus eight unused-result warnings.
+
+**Scope:** Single file —
+`swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Modifiers/CommonModifiers.swift`.
+No Crystal-side changes.
+
+### Finding 1.1 — `.isAdjustable` does not exist on `AccessibilityTraits`
+
+Line 161 referenced `AccessibilityTraits.isAdjustable` — that static
+member does not exist in any SwiftUI release. SwiftUI has no
+bitmask-style "adjustable" trait at all; adjustable semantics are
+exposed exclusively via the `.accessibilityAdjustableAction { … }`
+view modifier (a per-callback API, not a flag).
+
+**Fix:** the bit-0x1000 branch now no-ops with a comment explaining
+why. The Crystal populator may still emit this bit (matching the
+UIKit trait bitmask) so the slot remains wired honestly; the Swift
+side just acknowledges SwiftUI lacks the analog. If a future
+revision wants adjustable behavior on SwiftUI it would route through
+a different override slot carrying the adjust callbacks.
+
+### Finding 1.2 — `.isTabBar` is iOS 17+ / macOS 14+ only
+
+Line 164 referenced `AccessibilityTraits.isTabBar` unconditionally.
+That symbol was introduced in iOS 17 / macOS 14. Deployment targets
+per `[[platform_minimums]]` are iOS 16+ / macOS 14+, so the call
+is invalid on iOS 16 even though it is fine on macOS 14.
+
+**Fix:** wrapped the `traits.formUnion(.isTabBar)` call in
+`if #available(iOS 17, macOS 14, *) { … }`. On iOS 16 the bit
+silently no-ops; iOS 17+ and macOS 14+ get the real trait.
+
+### Finding 1.3 (polish) — `.insert` return value warnings
+
+Lines 145–164 each called `traits.insert(.foo)`. `AccessibilityTraits`
+is an `OptionSet`, and `OptionSet.insert(_:)` returns
+`(inserted: Bool, memberAfterInsert: AccessibilityTraits)`. Swift
+warns when the result is discarded.
+
+**Fix:** all 14 insertion sites converted from `traits.insert(.X)` to
+`traits.formUnion(.X)`. `formUnion(_:)` is the `OptionSet` mutating
+union operation that returns `Void`, eliminating the warning while
+preserving the exact same set semantics. The `.disabled(true)`
+branch (bit 0x200) is unchanged — it doesn't touch `traits`.
+
+### Iter-3 verification
+
+```
+swift build  (in swift/AssetPipelineSwiftKit/)
+Build complete!   — no errors, no warnings
+
+crystal spec spec/web/ui/renderers/swiftkit/accessibility_metadata_overrides_spec.cr
+12 examples, 0 failures, 0 errors, 0 pending
+
+crystal run scripts/lint_conventions.cr
+lint_conventions: OK (454 files, 14 rules, 0 diagnostics)
+
+crystal build src/asset_pipeline.cr --no-codegen
+(success)
+```
+
+Net diff: single file, ~18 lines touched. No Crystal changes.
+
+— Implementer (Claude Opus 4.7), 10B.2a iter-3

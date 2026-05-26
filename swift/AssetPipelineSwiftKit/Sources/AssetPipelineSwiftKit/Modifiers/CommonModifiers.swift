@@ -142,27 +142,43 @@ enum CommonModifiers {
             // Bit positions per UIAccessibilityConstants.h (see
             // src/ui/renderers/uikit_renderer.cr uikit_trait_bitmask
             // for the canonical table — these must stay in lockstep).
-            if (mask & 0x0001) != 0 { traits.insert(.isButton) }
-            if (mask & 0x0002) != 0 { traits.insert(.isLink) }
-            if (mask & 0x0004) != 0 { traits.insert(.isSearchField) }
-            if (mask & 0x0008) != 0 { traits.insert(.isImage) }
-            if (mask & 0x0010) != 0 { traits.insert(.isSelected) }
-            if (mask & 0x0020) != 0 { traits.insert(.playsSound) }
-            if (mask & 0x0080) != 0 { traits.insert(.isStaticText) }
-            if (mask & 0x0100) != 0 { traits.insert(.isSummaryElement) }
+            if (mask & 0x0001) != 0 { traits.formUnion(.isButton) }
+            if (mask & 0x0002) != 0 { traits.formUnion(.isLink) }
+            if (mask & 0x0004) != 0 { traits.formUnion(.isSearchField) }
+            if (mask & 0x0008) != 0 { traits.formUnion(.isImage) }
+            if (mask & 0x0010) != 0 { traits.formUnion(.isSelected) }
+            if (mask & 0x0020) != 0 { traits.formUnion(.playsSound) }
+            if (mask & 0x0080) != 0 { traits.formUnion(.isStaticText) }
+            if (mask & 0x0100) != 0 { traits.formUnion(.isSummaryElement) }
             if (mask & 0x0200) != 0 {
                 // SwiftUI represents disabled via .disabled(true), NOT
                 // an AccessibilityTraits flag — emit the modifier here
                 // so :not_enabled functionally disables the SwiftUI view.
                 current = AnyView(current.disabled(true))
             }
-            if (mask & 0x0400) != 0 { traits.insert(.updatesFrequently) }
-            if (mask & 0x0800) != 0 { traits.insert(.startsMediaSession) }
-            if (mask & 0x1000) != 0 { traits.insert(.isAdjustable) }
-            if (mask & 0x2000) != 0 { traits.insert(.allowsDirectInteraction) }
-            if (mask & 0x4000) != 0 { traits.insert(.causesPageTurn) }
-            if (mask & 0x8000) != 0 { traits.insert(.isTabBar) }
-            if (mask & 0x10000) != 0 { traits.insert(.isHeader) }
+            if (mask & 0x0400) != 0 { traits.formUnion(.updatesFrequently) }
+            if (mask & 0x0800) != 0 { traits.formUnion(.startsMediaSession) }
+            if (mask & 0x1000) != 0 {
+                // UIAccessibilityTraitAdjustable has no SwiftUI
+                // `AccessibilityTraits` analog (neither `.isAdjustable`
+                // nor `.adjustable` exists). SwiftUI exposes adjustable
+                // semantics only via `.accessibilityAdjustableAction { ... }`
+                // on the view itself — that's a per-callback API, not a
+                // trait flag we can fold into a bitmask. The Crystal
+                // populator may still emit this bit so the slot stays
+                // honestly wired; we deliberately no-op here.
+            }
+            if (mask & 0x2000) != 0 { traits.formUnion(.allowsDirectInteraction) }
+            if (mask & 0x4000) != 0 { traits.formUnion(.causesPageTurn) }
+            if (mask & 0x8000) != 0 {
+                // `.isTabBar` is iOS 17+ / macOS 14+ only. Deployment
+                // targets are iOS 16+ / macOS 14+ (see
+                // [[platform_minimums]]), so we must gate per availability.
+                if #available(iOS 17, macOS 14, *) {
+                    traits.formUnion(.isTabBar)
+                }
+            }
+            if (mask & 0x10000) != 0 { traits.formUnion(.isHeader) }
             if !traits.isEmpty {
                 current = AnyView(current.accessibilityAddTraits(traits))
             }
