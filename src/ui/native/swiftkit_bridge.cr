@@ -138,6 +138,11 @@
     # Setter for an `Int`-typed scalar property (used by selectedIndex on
     # TabView / MenuButton facades).
     fun apsk_overrides_set_int(target : Void*, setter_name : UInt8*, value : Int64)
+    # Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter.
+    # Used by `apskAccessibilityTraitsMask` (Swift `NSNumber?`). Unlike
+    # `apsk_overrides_set_int`, this boxes the value via NSNumber before
+    # calling the setter so the property receives a boxed reference type.
+    fun apsk_overrides_set_uint64_boxed(target : Void*, setter_name : UInt8*, value : UInt64)
 
     # -------------------------------------------------------------------------
     # Facade entry points. Each returns a +1 retained platform view

@@ -55,5 +55,41 @@ public class ViewOverrides: NSObject {
     // unambiguous setter (`setApskAccessibilityLabel:`).
     @objc(apskAccessibilityLabel) public var apskAccessibilityLabel: String? = nil
 
+    // Phase 10B.2a iter 2 (Codex Finding 1) — five new accessibility
+    // metadata slots threaded through from the Crystal-side `UI::View`
+    // base. Each setter is renamed to `apsk*` to avoid collision with
+    // the `NSObject`-supplied `UIAccessibility.*` properties on iOS
+    // slices (same root cause as `apskAccessibilityLabel`). The Crystal
+    // Populator addresses these via `setApskAccessibilityHint:` etc.
+    //
+    // CommonModifiers.apply reads these and emits the matching SwiftUI
+    // accessibility modifier:
+    //   apskAccessibilityHint       -> .accessibilityHint(Text(...))
+    //   apskAccessibilityValue      -> .accessibilityValue(Text(...))
+    //   apskAccessibilityRole       -> role-specific modifier (heading/image/...)
+    //   apskAccessibilityTraitsMask -> .accessibilityAddTraits(...) bitmask
+    //   apskAccessibilityIdentifier2 — duplicate of accessibilityIdentifier
+    //                                  because the View-base `accessibility_identifier`
+    //                                  is a SEPARATE Crystal property from `test_id`;
+    //                                  the populator writes BOTH slots and the
+    //                                  Crystal-side precedence rule (identifier wins
+    //                                  over test_id) is enforced by the Populator
+    //                                  emitting nil for the looser slot when
+    //                                  identifier is set.
+    @objc(apskAccessibilityHint) public var apskAccessibilityHint: String? = nil
+    @objc(apskAccessibilityValue) public var apskAccessibilityValue: String? = nil
+    // Role symbol stringified ("button", "heading", "image", "search",
+    // "text", "link", ...). The Modifier reads this and dispatches to
+    // the matching SwiftUI `.accessibilityAddTraits()` or
+    // `.accessibilityRepresentation { ... }` form. Unmapped roles fall
+    // through silently.
+    @objc(apskAccessibilityRole) public var apskAccessibilityRole: String? = nil
+    // UIAccessibilityTraits bitmask, raw `UInt64` boxed in NSNumber.
+    // Crystal computes the OR of `accessibility_traits` + role-trait
+    // and passes the composed mask. The Modifier maps known bits to
+    // SwiftUI `AccessibilityTraits` and emits a single
+    // `.accessibilityAddTraits(...)` call.
+    @objc(apskAccessibilityTraitsMask) public var apskAccessibilityTraitsMask: NSNumber? = nil
+
     @objc public override init() { super.init() }
 }

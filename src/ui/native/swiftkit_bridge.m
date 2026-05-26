@@ -345,6 +345,21 @@ void apsk_overrides_set_int(void *target, const char *setter_name,
         (id)target, sel, (NSInteger)value);
 }
 
+// Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter. Unlike
+// `apsk_overrides_set_int` which calls the setter with a raw NSInteger
+// (used for `Int`-typed Swift properties like `selectedIndex`), this
+// trampoline boxes the UInt64 into an `NSNumber` and passes the boxed
+// number to the setter. Used by `apskAccessibilityTraitsMask` (declared
+// as `NSNumber?` in `ViewOverrides.swift`) so the SwiftUI side can
+// read `traitsBox.uint64Value` back from the bitmask.
+void apsk_overrides_set_uint64_boxed(void *target, const char *setter_name,
+                                     unsigned long long value) {
+    if (target == NULL || setter_name == NULL) return;
+    NSNumber *boxed = [NSNumber numberWithUnsignedLongLong:value];
+    SEL sel = sel_registerName(setter_name);
+    ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, boxed);
+}
+
 // ---------------------------------------------------------------------------
 // Helper: build NSArray<APSKPlatformView*> from a C array of view
 // pointers. Used by every container facade trampoline below.
