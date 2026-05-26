@@ -169,6 +169,22 @@ int objc_send_ret_bool(void *obj, void *sel) {
     return (int)((BOOL (*)(id, SEL))objc_msgSend)((id)obj, sel);
 }
 
+// Phase 10B.2a iter 2 (Codex Finding 3) — guarded setEnabled: helper.
+// Sends `-setEnabled:` to `obj` only if the object responds to that
+// selector. Used by the accessibility-metadata path to functionally
+// disable UIControl / NSControl instances when the `:not_enabled`
+// trait is set, while no-oping on plain UIView / NSView objects that
+// have no enabled state to flip. Returns 1 if the message was sent,
+// 0 if the object didn't respond.
+int ap_set_enabled_if_responds(void *obj, int enabled) {
+    if (!obj) return 0;
+    id receiver = (id)obj;
+    SEL set_enabled_sel = @selector(setEnabled:);
+    if (![receiver respondsToSelector:set_enabled_sel]) return 0;
+    ((void (*)(id, SEL, BOOL))objc_msgSend)(receiver, set_enabled_sel, (BOOL)enabled);
+    return 1;
+}
+
 // ============================================================
 // Section 4: Convenience helpers
 // ============================================================

@@ -2631,12 +2631,21 @@ module UI
         # Phase 10B.2a — Accessibility traits -> ARIA state attributes.
         # Each trait symbol maps to the closest ARIA state. Unmapped
         # traits fall through silently.
+        #
+        # Iter 2 (Codex Finding 3): `:not_enabled` is the canonical trait
+        # for disabling. In addition to `aria-disabled` (semantic), we
+        # also emit the HTML `disabled` attribute (functional) so form
+        # controls (`<button>`, `<input>`, `<select>`, `<textarea>`,
+        # `<fieldset>`) are actually inert. Non-form elements get
+        # `aria-disabled` only — the attribute is a no-op on `<div>`
+        # but still announces "dimmed" to the AT.
         view.accessibility_traits.each do |trait|
           case trait
           when :selected
             el.set_attribute("aria-selected", "true")
           when :not_enabled
             el.set_attribute("aria-disabled", "true")
+            el.set_attribute("disabled", "disabled")
           when :updates_frequently
             # aria-live=polite tells the AT to announce updates without
             # interrupting the user's current speech.
