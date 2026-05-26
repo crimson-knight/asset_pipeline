@@ -1,8 +1,12 @@
+# Tier-3 context menu with a web-compatible fallback rendering on non-native targets.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 {% if flag?(:macos) || flag?(:ios) %}
   require "./context_menu"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Cross-platform companion to the Apple-family-only UI::ContextMenu.
   #

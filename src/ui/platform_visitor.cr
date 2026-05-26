@@ -1,3 +1,6 @@
+# Abstract visitor interface that every platform renderer (Web / AppKit / UIKit /
+# Android) implements to walk a UI::View tree and produce native output.
+
 require "./views/*"
 
 module UI

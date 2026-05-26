@@ -1,6 +1,11 @@
+# Multi-column navigation container (sidebar + content + detail) for iPad and macOS.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # NavigationSplitView — Multi-column navigation container (sidebar + content + detail) for iPad and macOS.
   class NavigationSplitView < View
     property sidebar : View? = nil
     property content : View? = nil

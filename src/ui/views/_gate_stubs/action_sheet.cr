@@ -11,6 +11,7 @@
 # `src/ui/views/action_sheet.cr` for the gate.
 
 module UI
+  # Modal sheet of choices presented at the bottom of the screen on iOS (iOS only).
   class ActionSheet
     macro new(*args, **kwargs)
       {% raise <<-MSG

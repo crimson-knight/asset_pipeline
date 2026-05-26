@@ -1,3 +1,6 @@
+# Screenshot capture helpers for the AXTest harness. Shells out to the macOS
+# `screencapture` CLI to produce full-screen or per-window PNGs.
+
 {% if flag?(:macos) %}
 
 module UI::AXTest

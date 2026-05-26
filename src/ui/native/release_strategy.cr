@@ -1,3 +1,6 @@
+# Enumerates how a `NativeHandle` should release its underlying pointer
+# (ObjC retain/release, JNI global ref, manual, no-op, etc.).
+
 module UI
   # Describes how a `NativeHandle` should release its underlying platform pointer.
   #

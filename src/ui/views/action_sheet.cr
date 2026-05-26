@@ -1,6 +1,10 @@
+# Modal sheet of choices presented at the bottom of the screen on iOS.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 {% if flag?(:ios) %}
+  # Top-level namespace for the asset_pipeline cross-platform UI system.
   module UI
     # Tier 3 — iOS-only. Use UI::ActionSheetWithWebFallback to render on
     # web (or anywhere a cross-platform fallback is acceptable).

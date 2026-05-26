@@ -1,3 +1,6 @@
+# Phase 3 BX4 slider-value probe. Writes the latest Slider on_change Float64 into
+# a store entry that an adjacent mirror Label reads at render time.
+
 require "./probe_store"
 
 module UI::Probes

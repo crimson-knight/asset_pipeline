@@ -1,3 +1,6 @@
+# Bridges a UI::View tree into the legacy Components stateful-component system,
+# so view trees can be rendered as HTML by the existing component pipeline.
+
 require "../components/base/stateful_component"
 require "./renderers/web_renderer"
 require "./state"

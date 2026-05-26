@@ -1,6 +1,11 @@
+# Time-of-day selection control.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # TimePicker — Time-of-day selection control.
   class TimePicker < View
     property selected_time : Time = Time.utc
     property shows_24_hour : Bool = false

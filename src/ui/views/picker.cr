@@ -1,5 +1,9 @@
+# Single-selection picker with platform-idiomatic wheel / inline / menu styles.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A selection control that lets the user choose from a list of options.
   class Picker < View

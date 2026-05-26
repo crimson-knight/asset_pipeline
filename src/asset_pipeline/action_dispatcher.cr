@@ -44,7 +44,9 @@ require "./native_controller"
 require "./native_context"
 require "./action_result"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Per-app coordinator that translates UI actions into navigation operations or inline view renders.
   class ActionDispatcher
     getter app : UI::App.class
     getter navigation : UI::NavigationCoordinator

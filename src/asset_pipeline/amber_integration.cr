@@ -75,6 +75,7 @@
 
 require "../ui"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Per-request value object passed to `UI::Screen#build`. Concrete
   # `ScreenContext::Web` lives below.

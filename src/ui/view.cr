@@ -1,3 +1,6 @@
+# Defines `UI::View`, the abstract base for every cross-platform view, plus the
+# `RenderContext` and `RenderError` types used by the platform-visitor renderers.
+
 module UI
   # Phase 6.11 iter-3 — Raised by a platform visitor when a child view
   # cannot be rendered to its native handle. The previous behavior emitted

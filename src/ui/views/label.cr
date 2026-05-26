@@ -1,9 +1,13 @@
+# Static text label with semantic typography and accessibility metadata.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 require "../theme"
 {% if flag?(:macos) || flag?(:ios) %}
   require "../native/swiftkit_bridge"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A read-only text label.
   #

@@ -1,6 +1,10 @@
+# macOS path control showing a filesystem-style breadcrumb.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
 {% if flag?(:macos) %}
+  # Top-level namespace for the asset_pipeline cross-platform UI system.
   module UI
     enum PathControlStyle
       Standard

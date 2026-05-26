@@ -1,3 +1,6 @@
+# ChartScene — Phase 6 validation builder. Produces a UI::View tree representing
+# a chart-and-card composition for renderer visual-regression captures.
+
 require "../view"
 require "../views/label"
 require "../views/button"

@@ -1,5 +1,9 @@
+# Collapsible disclosure section grouping related content under a toggle header.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # DisclosureGroup renders a HIG-compliant disclosure control: a header row
   # with a rotating chevron/triangle that reveals or hides a block of content.

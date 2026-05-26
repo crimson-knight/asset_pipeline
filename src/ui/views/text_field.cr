@@ -1,5 +1,9 @@
+# Single-line plain-text input field.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # An editable single-line text input field.
   #

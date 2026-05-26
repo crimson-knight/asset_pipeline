@@ -1,5 +1,9 @@
+# Overlay container that layers children along the z-axis.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A z-axis stack that overlays children on top of each other.
   #

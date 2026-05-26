@@ -1,3 +1,6 @@
+# Per-view-type override modules that customize how each UI::View is bridged
+# into the SwiftKit hosting layer on Apple platforms.
+
 require "../view"
 require "../views/button"
 require "../views/label"

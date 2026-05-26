@@ -1,6 +1,11 @@
+# Increment / decrement stepper for adjusting a discrete numeric value.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Stepper — Increment / decrement stepper for adjusting a discrete numeric value.
   class Stepper < View
     property value : Float64 = 0.0
     property minimum : Float64 = 0.0

@@ -1,3 +1,6 @@
+# Minimal Crystal bindings to the ObjC runtime (retain / release / autorelease)
+# needed by NativeHandle for Apple-target memory management.
+
 {% if flag?(:darwin) %}
   # Minimal ObjC runtime bindings needed for NativeHandle memory management.
   #

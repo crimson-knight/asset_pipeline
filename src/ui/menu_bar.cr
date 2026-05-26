@@ -1,3 +1,7 @@
+# Declarative top-level menu structure for the macOS / iPad app-shell menu bar.
+# Not a UI::View — the visible menu bar belongs to AppKit; this model is
+# installed into the host application's main menu.
+
 require "json"
 
 module UI

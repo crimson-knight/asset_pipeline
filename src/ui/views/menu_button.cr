@@ -1,5 +1,9 @@
+# Button that reveals a drop-down menu of actions.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # MenuButton serves two distinct HIG roles depending on `is_pull_down`:
   #

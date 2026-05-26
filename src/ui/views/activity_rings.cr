@@ -1,5 +1,9 @@
+# Composition of activity rings rendered as a stack of progress indicators.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A three-ring activity summary that follows the HIG's fixed Move /
   # Exercise / Stand semantics.

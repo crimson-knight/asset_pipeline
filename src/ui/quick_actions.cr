@@ -1,3 +1,6 @@
+# Crystal model for iOS / iPadOS Quick Actions (Home Screen long-press shortcuts).
+# Export-only: captures the action metadata for the host to register with the OS.
+
 require "json"
 
 module UI

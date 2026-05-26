@@ -1,3 +1,6 @@
+# Two-axis material model (semantic role + thickness) for design-token-driven
+# glass/translucency surfaces. Replaces the pre-v2 thickness-only model.
+
 module UI
   module DesignTokens
     # Phase 5 v2 — TWO-AXIS Material model.

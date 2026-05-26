@@ -36,10 +36,10 @@ require "../../src/asset_pipeline/native_context"
 
 require "./screens/state"
 
-require "./screens/sign_in"
-require "./screens/todos"
-require "./screens/todo_editor"
-require "./screens/settings"
+require "./screens/sign_in_screen"
+require "./screens/todos_screen"
+require "./screens/todo_editor_screen"
+require "./screens/settings_screen"
 
 require "./controllers/sign_in_controller"
 require "./controllers/todos_controller"

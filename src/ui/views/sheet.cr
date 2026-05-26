@@ -1,9 +1,14 @@
+# Modal sheet that slides up from the bottom (iOS) or appears as a dialog (macOS).
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 {% if flag?(:macos) || flag?(:ios) %}
   require "../native/swiftkit_bridge"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Sheet — Modal sheet that slides up from the bottom (iOS) or appears as a dialog (macOS).
   class Sheet < View
     property content : View? = nil
     getter is_presented : Bool = false
@@ -56,6 +61,7 @@ module UI
     end
   end
 
+  # Presentation state for a Sheet (is_presenting flag + the underlying view).
   class SheetPresenter
     property sheet : Sheet
     property is_presenting : Bool = false

@@ -1,3 +1,6 @@
+# AmbientScene — Phase 6 validation builder. Produces a UI::View tree representing
+# an ambient / wallpaper-like screen for renderer visual-regression captures.
+
 require "../view"
 require "../views/label"
 require "../views/divider"

@@ -1,5 +1,9 @@
+# Drop-target image well control for accepting an image via drag-and-drop or click.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A bordered image drop-target surface with optional labeling.
   #

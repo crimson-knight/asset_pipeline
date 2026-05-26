@@ -59,7 +59,9 @@ require "./amber_integration"
 require "./action_result"
 require "./native_context"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Abstract base class for native-target controllers that turn user actions into ActionResult values.
   abstract class Controller
     # Subclasses override this method with a `case` dispatch over the
     # action names they implement. The default implementation raises

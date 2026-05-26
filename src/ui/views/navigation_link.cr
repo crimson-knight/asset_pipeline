@@ -1,5 +1,9 @@
+# Navigation affordance that pushes a destination onto the navigation stack.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A tappable element that pushes a destination view onto a NavigationStack.
   #

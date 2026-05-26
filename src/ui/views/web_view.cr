@@ -1,6 +1,11 @@
+# Embedded web content view backed by WKWebView / WebView2.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # WebViewComponent — Embedded web content view backed by WKWebView / WebView2.
   class WebViewComponent < View
     property url : String = ""
     property html : String? = nil

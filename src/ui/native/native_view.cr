@@ -1,3 +1,6 @@
+# A rendered native view tree node: pairs a `NativeHandle` with its children to
+# mirror the platform view hierarchy produced by a platform renderer.
+
 require "./native_handle"
 require "./callback_registry"
 

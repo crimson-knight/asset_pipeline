@@ -1,6 +1,11 @@
+# Generic themed surface used as a background for other content.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Surface — Generic themed surface used as a background for other content.
   class Surface < View
     property content : View? = nil
     property elevation : Float64 = 0.0

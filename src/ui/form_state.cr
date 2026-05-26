@@ -36,7 +36,9 @@
 require "./fluid"
 require "./view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Controlled-input state container threaded through screen renders to preserve text values across rerenders.
   class FormState
     # Field name -> current value. Populated by `register` (initial seed
     # from view.text) and `update` (on_change from input).

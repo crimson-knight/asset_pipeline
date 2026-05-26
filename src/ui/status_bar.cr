@@ -1,3 +1,6 @@
+# Crystal model for iOS status-bar appearance (content style + hidden flag).
+# Export-only: a host adapter applies the appearance to the active UIViewController.
+
 require "json"
 
 module UI

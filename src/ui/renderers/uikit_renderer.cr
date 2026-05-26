@@ -1,3 +1,6 @@
+# iOS / UIKit platform renderer. Walks a UI::View tree and produces a native
+# UIView hierarchy (UIStackView, UIButton, UILabel, UIVisualEffectView, ...).
+
 {% if flag?(:ios) %}
   require "../platform_visitor"
   require "../native/native_handle"

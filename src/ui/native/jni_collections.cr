@@ -1,3 +1,6 @@
+# Crystal wrappers for the JNI collection bridge (ArrayList / HashMap). Provides
+# type-safe construction and access from Crystal code targeting Android.
+
 {% if flag?(:android) %}
   # Crystal wrappers for JNI collection bridge operations.
   #

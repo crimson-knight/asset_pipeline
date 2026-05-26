@@ -1,8 +1,12 @@
+# Tier-3 path control with a web-compatible fallback rendering on non-macOS targets.
+# Part of the asset_pipeline cross-platform UI::View catalog.
+
 require "../view"
 {% if flag?(:macos) %}
   require "./path_control"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Cross-platform companion to the macOS-only UI::PathControl.
   #

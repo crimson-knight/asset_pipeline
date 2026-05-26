@@ -6,6 +6,7 @@
 # see `src/ui/views/path_control.cr` for the gate.
 
 module UI
+  # macOS path control showing a filesystem-style breadcrumb (macOS only).
   class PathControl
     macro new(*args, **kwargs)
       {% raise <<-MSG
