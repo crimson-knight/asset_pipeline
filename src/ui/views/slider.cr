@@ -6,6 +6,7 @@ require "../view"
   require "../native/swiftkit_bridge"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Slider — Continuous-value slider control with configurable range and step.
   class Slider < View

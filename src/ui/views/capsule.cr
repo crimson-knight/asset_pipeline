@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Capsule — Pill-shaped geometric primitive used for badges and chip backgrounds.
   class Capsule < View

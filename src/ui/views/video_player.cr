@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # VideoPlayer — Native video playback view bridging to AVPlayerViewController on Apple platforms.
   class VideoPlayer < View

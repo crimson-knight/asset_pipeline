@@ -3,6 +3,7 @@
 
 require "./dependency_analyzer"
 
+# Top-level shard namespace housing FrontLoader, import maps, framework registry, and the cross-platform UI surface.
 module AssetPipeline
   # The `ScriptRenderer` handles framework-agnostic JavaScript script generation and rendering.
   # It provides advanced functionality for generating import statements, analyzing dependencies,

@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Toolbar — Top-of-screen toolbar container hosting buttons and other tools.
   class Toolbar < View

@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # ConfirmationDialog — Action-confirmation prompt with platform-idiomatic destructive/cancel buttons.
   class ConfirmationDialog < View

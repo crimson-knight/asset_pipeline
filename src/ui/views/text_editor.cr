@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # TextEditor — Rich multi-line text editor with attributed string support.
   class TextEditor < View

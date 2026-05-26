@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # SearchField — Single-line search input with platform-idiomatic clear and scope affordances.
   class SearchField < View

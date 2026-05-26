@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # SegmentedControl — Horizontal segmented selector for picking one option from a small set.
   class SegmentedControl < View

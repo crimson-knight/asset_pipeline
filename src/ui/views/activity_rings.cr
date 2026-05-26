@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A three-ring activity summary that follows the HIG's fixed Move /
   # Exercise / Stand semantics.

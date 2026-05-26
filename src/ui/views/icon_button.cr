@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A button that displays an icon (system symbol or image name) instead of text.
   class IconButton < View

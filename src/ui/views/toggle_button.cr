@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # ToggleButton — Pressed-state button used as a toggle (e.g. bold / italic toolbar buttons).
   class ToggleButton < View

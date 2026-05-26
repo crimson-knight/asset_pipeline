@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Snackbar — Transient toast / snackbar notification anchored to the bottom of the screen.
   class Snackbar < View
@@ -21,6 +22,7 @@ module UI
     end
   end
 
+  # Presentation state for a Snackbar (is_presenting flag + the underlying view).
   class SnackbarPresenter
     property snackbar : Snackbar
     property is_presenting : Bool = false

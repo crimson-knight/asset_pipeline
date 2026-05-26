@@ -6,6 +6,7 @@ require "../view"
   require "./context_menu"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Cross-platform companion to the Apple-family-only UI::ContextMenu.
   #

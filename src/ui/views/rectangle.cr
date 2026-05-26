@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Rectangle — Filled or stroked rectangular geometric primitive.
   class Rectangle < View

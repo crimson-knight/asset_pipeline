@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # A progress indicator showing determinate or indeterminate progress.
   class ProgressView < View

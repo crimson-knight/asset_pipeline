@@ -6,6 +6,7 @@ require "../view"
   require "./action_sheet"
 {% end %}
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Cross-platform companion to the iOS-only UI::ActionSheet.
   #

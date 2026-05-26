@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Tooltip — Hover / focus-driven tooltip overlay attached to a host view.
   class Tooltip < View

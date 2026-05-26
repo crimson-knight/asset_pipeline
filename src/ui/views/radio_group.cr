@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # RadioGroup — Group of mutually exclusive radio buttons with a shared selection.
   class RadioGroup < View

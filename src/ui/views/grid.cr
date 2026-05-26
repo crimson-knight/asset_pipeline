@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Grid — Two-dimensional layout that arranges children in rows and columns.
   class Grid < View

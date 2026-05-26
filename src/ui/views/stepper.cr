@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Stepper — Increment / decrement stepper for adjusting a discrete numeric value.
   class Stepper < View

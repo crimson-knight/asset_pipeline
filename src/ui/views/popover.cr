@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Popover — Lightweight transient overlay anchored to a host view.
   class Popover < View
@@ -26,6 +27,7 @@ module UI
     end
   end
 
+  # Presentation state for a Popover (is_presenting flag + the underlying view).
   class PopoverPresenter
     property popover : Popover
     property anchor : View? = nil

@@ -39,6 +39,7 @@ require "../ui"
 require "./amber_integration"
 require "./action_result"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # Forward declaration so `UI::App::ScreenRegistration` can carry a
   # `UI::Controller.class` value before `UI::Controller` lands in
@@ -47,6 +48,7 @@ module UI
   abstract class Controller
   end
 
+  # Abstract base class for the declarative app + route registry; subclasses use the `screen` macro.
   abstract class App
     # Phase 8C — raised by `UI::ActionDispatcher#dispatch` when an
     # action resolves to a screen registration whose `controller_class`

@@ -4,6 +4,7 @@
 require "../view"
 
 {% if flag?(:macos) || flag?(:ios) %}
+  # Top-level namespace for the asset_pipeline cross-platform UI system.
   module UI
     # Tier 3 — Apple-family only (macOS + iOS). Use UI::ContextMenuWithWebFallback
     # to render an equivalent dropdown menu on web.

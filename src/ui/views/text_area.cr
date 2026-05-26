@@ -3,6 +3,7 @@
 
 require "../view"
 
+# Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
   # TextArea — Multi-line plain-text input field.
   class TextArea < View
