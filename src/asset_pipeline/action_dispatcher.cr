@@ -55,6 +55,12 @@ module UI
     getter design_tokens : UI::DesignTokens::Tokens
     getter current_form_state : UI::FormState
 
+    # Phase 10B.0 — native platform identity threaded into every
+    # `ScreenContext::Native` the dispatcher builds. Set by the host
+    # App at dispatcher construction. Defaults to `:macos` for
+    # backwards-compatibility with pre-Phase-10B callers.
+    getter platform : Symbol
+
     # Monotonically-increasing mount token. The dispatcher writes this
     # to `UI::FormState.current_mount_token` on every screen mount so
     # the renderer's stale-callback guard fires correctly.
@@ -72,6 +78,7 @@ module UI
       @session : UI::Session,
       @flash : UI::Flash,
       @design_tokens : UI::DesignTokens::Tokens,
+      @platform : Symbol = :macos,
     )
       @current_mount_token = 0_i64
       @current_form_state = UI::FormState.new(mount_token: 0_i64)
@@ -141,14 +148,35 @@ module UI
     # session, flash, etc.). The explicit_params arrive from the
     # Button's per-tap payload (action_params on the context).
     private def build_context(explicit_params : Hash(String, String)) : UI::ScreenContext::Native
-      UI::ScreenContext::Native.new(
+      ctx = UI::ScreenContext::Native.new(
         form_state: @current_form_state,
         session: @session,
         flash: @flash,
         design_tokens: @design_tokens,
         navigation: @navigation,
         action_params: explicit_params,
+        platform: @platform,
       )
+      # Iter-9 (Codex Finding 1): thread the active app class so the
+      # intent resolver scopes app-tier overrides to the right app.
+      # Without this, an override registered on `MyApp` would also fire
+      # for `OtherApp` builds (defeating the registry's per-app keying).
+      ctx.app_class = @app
+      # Iter-9 (Codex Finding 2): thread the active screen class so
+      # the intent resolver can consult the screen-tier override table
+      # without the caller passing a `screen_class:` kwarg. The dispatch
+      # path knows which route is current; the registration carries the
+      # screen class.
+      begin
+        registration = @app.registration_for(@navigation.current.id)
+        if (screen_class = registration.screen_class)
+          ctx.active_screen_class = screen_class
+        end
+      rescue UI::App::UnknownRouteError
+        # Route not registered — leave active_screen_class nil. The
+        # resolver simply skips the screen-override tier in that case.
+      end
+      ctx
     end
 
     private def call_action(

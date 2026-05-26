@@ -263,6 +263,48 @@ module UI
     # Each concrete view type calls `visitor.visit(self)`.
     abstract def accept(visitor : PlatformVisitor)
 
+    # Phase 10B.0 — declare which capabilities this view class supports
+    # for a given Tier 2 intent. Used by `UI::Intent::Registry` to
+    # validate overrides at registration time. Subclasses call this
+    # exactly once per intent they claim to satisfy:
+    #
+    #     class UI::SwipeActionRow < UI::View
+    #       declares_capabilities :swipe_actions, {
+    #         supports_edge_trailing: true,
+    #         supports_role_destructive: :partial,
+    #         supports_role_default: true,
+    #       }
+    #     end
+    #
+    # The macro emits a class-level hook method
+    # `_declare_capabilities_for_intent_<intent_id>` that runs the
+    # `UI::Intent::Registry.declare_widget_capabilities` write. Like
+    # `UI::App`'s `_bootstrap_screen_*` pattern, method definitions are
+    # compile-time-emitted code, unaffected by the iOS class-init gap
+    # (see [[project_crystal_ios_class_init_gap]]). The class-load side
+    # effect of invoking the named method then writes the capability
+    # bag into the registry.
+    macro declares_capabilities(intent_id, capabilities)
+      def self._declare_capabilities_for_intent_{{intent_id.id}} : Nil
+        caps = {} of Symbol => Bool | Symbol
+        {% for key, value in capabilities %}
+          caps[{{key.symbolize}}] = {{value}}
+        {% end %}
+        ::UI::Intent::Registry.declare_widget_capabilities(
+          {{@type}},
+          {{intent_id}},
+          caps,
+        )
+        nil
+      end
+
+      # Class-load side effect: register the declaration eagerly. iOS
+      # embedding may skip this write (class-init gap). The named
+      # method above is the recovery hatch — re-running it from a
+      # framework bootstrap routine restores the declaration.
+      _declare_capabilities_for_intent_{{intent_id.id}}
+    end
+
     # Coerce a fluid size argument into its CSS string form. Numbers are
     # treated as pixel values; strings pass through unchanged.
     private def coerce_fluid_size(value : String | Number) : String
