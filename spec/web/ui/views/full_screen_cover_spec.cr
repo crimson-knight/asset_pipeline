@@ -68,6 +68,33 @@ describe UI::FullScreenCover do
       html.should contain "role=\"dialog\""
     end
 
+    it "emits aria-modal=\"true\" and tabindex=\"-1\" (modal-dialog contract)" do
+      # Phase 10B.4 iter 2 — the visit method MUST set these explicitly.
+      # `effective_tab_index` returns nil for default-focusable widgets,
+      # so the documented `tabindex=\"-1\"` promise would otherwise be
+      # silently dropped. The aria-modal attribute is required by
+      # WAI-ARIA for modal dialogs and the tabindex makes the overlay
+      # programmatically focusable so keyboard users can land on it.
+      cover = UI::FullScreenCover.new(UI::Label.new("Modal body"))
+      cover.is_presented = true
+      renderer = UI::Web::Renderer.new
+      html = renderer.render(cover)
+      html.should contain "aria-modal=\"true\""
+      html.should contain "tabindex=\"-1\""
+    end
+
+    it "emits the modal-dialog ARIA contract even when not presented" do
+      # The wrapper exists in the DOM (display: none) so reactive
+      # flips don't re-instantiate the subtree; the ARIA contract
+      # must survive across the presented/hidden boundary.
+      cover = UI::FullScreenCover.new(UI::Label.new("Hidden"))
+      cover.is_presented = false
+      renderer = UI::Web::Renderer.new
+      html = renderer.render(cover)
+      html.should contain "aria-modal=\"true\""
+      html.should contain "tabindex=\"-1\""
+    end
+
     it "reflects is_presented mutations across renders (reactivity contract)" do
       cover = UI::FullScreenCover.new(UI::Label.new("Reactive body"))
       r1 = UI::Web::Renderer.new

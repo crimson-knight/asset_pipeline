@@ -3208,6 +3208,17 @@ module UI
       def visit(view : UI::FullScreenCover)
         el = Components::Elements::Div.new
         el.set_attribute("data-component", "full-screen-cover")
+        # Phase 10B.4 iter 2 — modal-dialog ARIA contract. `role="dialog"`
+        # arrives via `apply_common_styles` (default_accessibility_role
+        # is `:dialog`), but `aria-modal` and `tabindex="-1"` are
+        # FullScreenCover-specific and MUST be emitted explicitly here:
+        # `effective_tab_index` returns `nil` for default-focusable
+        # widgets (the View base intentionally skips emitting
+        # `tabindex="0"` to avoid noise on form controls), so the
+        # tabindex="-1" promise documented above must be set on the
+        # element directly.
+        el.set_attribute("aria-modal", "true")
+        el.set_attribute("tabindex", "-1")
         if view.is_presented
           el.add_style("position: fixed; inset: 0; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); z-index: 950; display: flex; flex-direction: column; overflow: auto")
         else
