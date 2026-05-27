@@ -92,6 +92,24 @@ public class ListViewFacade: NSObject {
         let moveToken: UInt64? = overrides.moveToken?.uint64Value
         let rowTapTokens = overrides.rowTapTokens
 
+        // Phase 10D-polish A4 — default 16pt row inset (Mail-style).
+        // nil → SwiftUI platform default; default 16pt populated by
+        // the Crystal populator unless the consumer explicitly clears it.
+        let insetH: CGFloat? = overrides.contentInsetHorizontal
+            .map { CGFloat($0.doubleValue) }
+
+        // Phase 10D-polish A3 — row-removal animation duration. 0.0
+        // disables; default 0.4s. Wraps the inner ForEach in a
+        // `withAnimation(.easeInOut(...))` via the `animation(_:value:)`
+        // modifier so SwiftUI runs the removal transition on count change.
+        let removalDuration: Double = overrides.rowRemovalDurationSeconds?
+            .doubleValue ?? 0.4
+
+        // Phase 10D-polish A2 — drag-handle visibility. Renders only when
+        // `moveToken != nil` AND `showsDragHandle != false`. Default true.
+        let showsDragHandle: Bool = (overrides.showsDragHandle?.boolValue ?? true)
+            && (moveToken != nil)
+
         let list = List {
             ForEach(0..<counts.count, id: \.self) { sIdx in
                 let header = sIdx < headers.count ? headers[sIdx] : ""
@@ -114,7 +132,10 @@ public class ListViewFacade: NSObject {
                             leadingOffsets: leadingOffsets,
                             leadingCounts: leadingCounts,
                             trailingOffsets: trailingOffsets,
-                            trailingCounts: trailingCounts
+                            trailingCounts: trailingCounts,
+                            insetHorizontal: insetH,
+                            showsDragHandle: showsDragHandle,
+                            removalDuration: removalDuration
                         )
                     }
                 } header: {
@@ -125,7 +146,22 @@ public class ListViewFacade: NSObject {
             }
         }
 
-        let styled: AnyView = applyListStyle(list, key: overrides.listStyle)
+        // Phase 10D-polish A3 — drive removal animation by binding the
+        // `animation(_:value:)` modifier to the total childViews count,
+        // so SwiftUI runs the easeInOut on every shrink (delete) event.
+        let animated: AnyView = {
+            if removalDuration > 0.0 {
+                return AnyView(
+                    list.animation(
+                        .easeInOut(duration: removalDuration),
+                        value: childViews.count
+                    )
+                )
+            }
+            return AnyView(list)
+        }()
+
+        let styled: AnyView = applyListStyle(animated, key: overrides.listStyle)
         let composed = CommonModifiers.apply(styled, overrides: overrides)
         return HostingHelpers.host(composed)
     }
@@ -165,7 +201,8 @@ public class ListViewFacade: NSObject {
     }
 
     // Build a single row with all the per-row modifiers (tap + leading
-    // swipe + trailing swipe + separator-hide).
+    // swipe + trailing swipe + separator-hide + drag handle + insets +
+    // removal transition).
     @ViewBuilder
     private static func rowBuilder(
         view: APSKPlatformView,
@@ -176,7 +213,10 @@ public class ListViewFacade: NSObject {
         leadingOffsets: [Int],
         leadingCounts: [Int],
         trailingOffsets: [Int],
-        trailingCounts: [Int]
+        trailingCounts: [Int],
+        insetHorizontal: CGFloat?,
+        showsDragHandle: Bool,
+        removalDuration: Double
     ) -> some View {
         let base = APSKHostedChild(view: view)
 
@@ -192,16 +232,41 @@ public class ListViewFacade: NSObject {
         let trailingCount = absIdx < trailingCounts.count ? trailingCounts[absIdx] : 0
         let trailingOffset = absIdx < trailingOffsets.count ? trailingOffsets[absIdx] : 0
 
+        // Phase 10D-polish A2 — drag affordance overlay. Render the
+        // SF Symbol `line.3.horizontal` on the trailing edge when
+        // `showsDragHandle` resolves true (moveToken != nil &&
+        // overrides.showsDragHandle != false). The Image is rendered
+        // inside an HStack with a Spacer so it sits on the trailing
+        // edge without disrupting the hosted-child intrinsic layout.
+        let baseWithDragHandle: AnyView = {
+            if showsDragHandle {
+                return AnyView(
+                    HStack(spacing: 0) {
+                        base
+                        Spacer(minLength: 8)
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundStyle(Color.secondary.opacity(0.6))
+                            .accessibilityLabel("Reorder row")
+                            .padding(.trailing, 4)
+                            .frame(width: 24)
+                    }
+                )
+            } else {
+                return AnyView(base)
+            }
+        }()
+
         let withTap: AnyView = {
             if tapToken != 0 {
                 return AnyView(
-                    base.contentShape(Rectangle())
+                    baseWithDragHandle.contentShape(Rectangle())
                         .onTapGesture {
                             CallbackBridge.fire(token: tapToken, value: 0.0)
                         }
                 )
             } else {
-                return AnyView(base)
+                return AnyView(baseWithDragHandle)
             }
         }()
 
@@ -247,14 +312,54 @@ public class ListViewFacade: NSObject {
             }
         }()
 
+        // Phase 10D-polish A4 — apply 16pt (or override) horizontal
+        // row inset via SwiftUI's `.listRowInsets(...)`. We honor any
+        // explicit inset; nil means "use SwiftUI default."
+        // Phase 10D-polish A3 — `.transition(...)` for row removal.
+        // Asymmetric so inserts feel snappy but deletes collapse with
+        // an opacity + leading-scale animation.
+        let withInsets: AnyView = {
+            if let insetH = insetHorizontal {
+                if #available(iOS 15.0, macOS 12.0, *) {
+                    return AnyView(
+                        withTrailing.listRowInsets(EdgeInsets(
+                            top: 8,
+                            leading: insetH,
+                            bottom: 8,
+                            trailing: insetH
+                        ))
+                    )
+                }
+            }
+            return AnyView(withTrailing)
+        }()
+
+        let withTransition: AnyView = {
+            if removalDuration > 0.0 {
+                if #available(iOS 15.0, macOS 12.0, *) {
+                    return AnyView(
+                        withInsets.transition(
+                            .asymmetric(
+                                insertion: .opacity,
+                                removal: .opacity.combined(with: .scale(
+                                    scale: 0.0, anchor: .leading
+                                ))
+                            )
+                        )
+                    )
+                }
+            }
+            return withInsets
+        }()
+
         if hideSeparator {
             if #available(iOS 15.0, macOS 13.0, *) {
-                withTrailing.listRowSeparator(.hidden)
+                withTransition.listRowSeparator(.hidden)
             } else {
-                withTrailing
+                withTransition
             }
         } else {
-            withTrailing
+            withTransition
         }
     }
 
@@ -262,6 +367,17 @@ public class ListViewFacade: NSObject {
     /// closure. Identical contract to `SwipeActionRowFacade.actionButton`
     /// (role + tint + icon + label), parameterized over the parallel
     /// flat arrays so a single helper services both edges.
+    ///
+    /// Phase 10D-polish A1 — Mail-style square-corner tiles. The owner
+    /// reported that the previous chrome rendered with rounded / capsule
+    /// corners. The fix is twofold:
+    ///   1. Use `.tint(color)` (SwiftUI's documented swipe-tile tint API)
+    ///      and rely on SwiftUI to paint the full-bleed rectangle. We do
+    ///      NOT apply a custom `.buttonStyle` because that suppresses
+    ///      SwiftUI's swipe-action tile chrome.
+    ///   2. Render the label as a `Label(label, systemImage: icon)` with
+    ///      a stacked vertical icon-above-text layout (Mail's idiom on
+    ///      iOS 17+) so the tile reads at swipe-edge width.
     @ViewBuilder
     private static func actionButton(
         index i: Int,
@@ -285,24 +401,27 @@ public class ListViewFacade: NSObject {
             if role == "destructive" {
                 return AnyView(
                     Button(role: .destructive, action: action) {
-                        buttonLabel(label: label, icon: icon)
+                        swipeTileLabel(label: label, icon: icon)
                     }
                 )
             } else if role == "cancel" {
                 return AnyView(
                     Button(role: .cancel, action: action) {
-                        buttonLabel(label: label, icon: icon)
+                        swipeTileLabel(label: label, icon: icon)
                     }
                 )
             } else {
                 return AnyView(
                     Button(action: action) {
-                        buttonLabel(label: label, icon: icon)
+                        swipeTileLabel(label: label, icon: icon)
                     }
                 )
             }
         }()
 
+        // `.tint(color)` paints the SwiftUI swipe-action tile fill (full-
+        // bleed, square corners — system chrome). For destructive, we
+        // skip explicit tinting so SwiftUI's role-based red applies.
         if let color = colorFor(tintKey: tintKey) {
             button.tint(color)
         } else {
@@ -310,10 +429,18 @@ public class ListViewFacade: NSObject {
         }
     }
 
+    // Phase 10D-polish A1 — Mail-app tile layout. SwiftUI's swipe-action
+    // tile sizes itself based on its label; using an icon-above-text
+    // stack (matching iOS Mail) gives the tile the right tap target and
+    // visual weight without forcing a custom .buttonStyle (which
+    // suppresses the swipe-tile chrome).
     @ViewBuilder
-    private static func buttonLabel(label: String, icon: String) -> some View {
+    private static func swipeTileLabel(label: String, icon: String) -> some View {
         if !icon.isEmpty && !label.isEmpty {
+            // Use SwiftUI Label so VoiceOver reads both icon + text
+            // and Dynamic Type scales the stacked tile.
             Label(label, systemImage: icon)
+                .labelStyle(.titleAndIcon)
         } else if !icon.isEmpty {
             Image(systemName: icon)
         } else {
