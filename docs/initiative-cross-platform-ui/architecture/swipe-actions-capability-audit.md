@@ -29,9 +29,17 @@ Cells use `true` (full support) / `false` (none / silently absent).
 | Capability | iOS | macOS | web_wide | web_narrow | Android |
 |---|---|---|---|---|---|
 | `supports_edge_trailing` | true | true (inline, visible) | true | true | **false** |
-| `supports_edge_leading` | **false** | **false** | true | true | **false** |
+| `supports_edge_leading` | **true** (10D-refocus) | **false** | true | true | **false** |
 | `supports_role_default` | true | true | true | true | **false** |
 | `supports_role_destructive` | true | **false** | true | true | **false** |
+
+> **Phase 10D-refocus update (2026-05-27):** the iOS `visit(SwipeActionRow)`
+> now routes through `APSKSwipeActionRowFacade` (SwiftUI
+> `.swipeActions(edge:)`), which iterates **both** `leading_actions` and
+> `trailing_actions` and registers each action's `on_tap` via
+> `CallbackRegistry.register_action`. The legacy `make_swipe_reveal_row`
+> ObjC UIScrollView path is no longer reached. `supports_edge_leading`
+> flipped from `false` to `true` for iOS / iPadOS as a result.
 
 ### `UI::InlineActionRow`
 

@@ -784,6 +784,71 @@ module UI
       end
 
       # ---------------------------------------------------------------
+      # Phase 10D-refocus — SwipeActionRow populator.
+      #
+      # Emits the per-action parallel arrays (labels / icons / roles /
+      # tints) onto the overrides instance. Action tokens are registered
+      # by the visit method (the populator has no CallbackRegistry
+      # handle) and emitted via `sender.set_uint64_array` after this
+      # call returns — same split as `populate_alert` / `Alert.visit`.
+      #
+      # Tint is derived from the action role:
+      #   :destructive → "red" (SwiftUI .destructive role overrides; we
+      #                  still emit "red" so callers that explicitly set
+      #                  a different tint via SwipeAction#icon-based
+      #                  metadata in future can override).
+      #   :default    → "" (SwiftUI default — system blue for trailing,
+      #                  system blue for leading too).
+      # When SwipeAction grows an explicit `tint:` property in a later
+      # slice the populator should read it directly instead.
+      def self.populate_swipe_action_row(target : String, view : UI::SwipeActionRow, sender : Sender)
+        populate_view_common(target, view, sender)
+
+        unless view.leading_actions.empty?
+          sender.set_string_array(target, :setLeadingLabels,
+            view.leading_actions.map(&.label))
+          sender.set_string_array(target, :setLeadingIcons,
+            view.leading_actions.map { |a| a.icon || "" })
+          sender.set_string_array(target, :setLeadingRoles,
+            view.leading_actions.map(&.role.to_s))
+          sender.set_string_array(target, :setLeadingTints,
+            view.leading_actions.map { |a|
+              # Default tint inference: destructive → red, otherwise
+              # leading swipe defaults to system green (per iOS Mail
+              # convention — leading = positive / archive). Future
+              # SwipeAction#tint property override would land here.
+              case a.role
+              when :destructive then "red"
+              else                   "green"
+              end
+            })
+        end
+
+        unless view.trailing_actions.empty?
+          sender.set_string_array(target, :setTrailingLabels,
+            view.trailing_actions.map(&.label))
+          sender.set_string_array(target, :setTrailingIcons,
+            view.trailing_actions.map { |a| a.icon || "" })
+          sender.set_string_array(target, :setTrailingRoles,
+            view.trailing_actions.map(&.role.to_s))
+          sender.set_string_array(target, :setTrailingTints,
+            view.trailing_actions.map { |a|
+              case a.role
+              when :destructive then ""  # SwiftUI .destructive role → red automatically
+              else                   "blue"
+              end
+            })
+        end
+
+        # Row width pin — when set on the UI::SwipeActionRow (via
+        # maximum_width / minimum_width to the same value), the facade
+        # applies `.frame(width:)` so the single-row List collapses
+        # horizontally to match the surrounding stack's content_width.
+        rw = view.maximum_width || view.minimum_width
+        sender.set_number(target, :setRowWidth, rw)
+      end
+
+      # ---------------------------------------------------------------
       # Glass — the Phase 3 "headline visual differentiator". On iOS 26 /
       # macOS 26 the facade routes through `.glassEffect()` for real
       # Liquid Glass; on pre-26 OSes it falls back to `.background(<Material>)`.

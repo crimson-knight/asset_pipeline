@@ -38,12 +38,15 @@ module Voyager
       seed_title = editing ? editing.title : ""
       seed_completed = editing ? editing.completed : false
       seed_note = editing ? editing.note : ""
+      # Phase 10D-refocus — optional deadline (ISO YYYY-MM-DD or empty).
+      seed_deadline = editing ? editing.deadline : ""
       d = Voyager.dispatcher
       unless d.nil?
         fs = d.current_form_state
         fs.register("title", seed_title)
         fs.register("note", seed_note)
         fs.register("completed", seed_completed ? "true" : "false")
+        fs.register("deadline", seed_deadline)
       end
 
       metrics = UI::DesignTokens::DeviceMetrics.current
@@ -76,6 +79,17 @@ module Voyager
       note_field.test_id = "voyager-todo-editor-note"
       note_field.minimum_width = content_width
       note_field.maximum_width = content_width
+
+      # Phase 10D-refocus — optional deadline field. Plain text field
+      # (YYYY-MM-DD format expected); a native DatePicker bridge for
+      # cross-platform deadline parsing is a follow-up. The text-field
+      # path is sufficient for the hand-test acceptance.
+      deadline_field = UI::TextField.new(placeholder: "Deadline (YYYY-MM-DD, optional)", name: "deadline")
+      deadline_field.text = seed_deadline
+      deadline_field.accessibility_label = "Todo deadline"
+      deadline_field.test_id = "voyager-todo-editor-deadline"
+      deadline_field.minimum_width = content_width
+      deadline_field.maximum_width = content_width
 
       completed_toggle = UI::Toggle.new(label: "Completed", is_on: seed_completed)
       completed_toggle.accessibility_label = "Mark as completed"
@@ -142,6 +156,7 @@ module Voyager
       root << title_label.as(UI::View)
       root << title_field.as(UI::View)
       root << note_field.as(UI::View)
+      root << deadline_field.as(UI::View)
       root << completed_toggle.as(UI::View)
       root << actions.as(UI::View)
 

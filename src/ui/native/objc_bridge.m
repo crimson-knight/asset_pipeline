@@ -631,6 +631,28 @@ void objc_pin_child_to_layout_margins(void *parent, void *child) {
     bottom.active = YES;
 }
 
+// Pin a child view to its parent's bounds (no insets). Used by
+// FullScreenCover + Inspector visit paths in the UIKit / AppKit
+// renderers — without this the child UIView/NSView has no Auto
+// Layout constraints and renders with a zero frame inside the parent.
+// Phase 10D-refocus introduced this helper because the existing
+// `objc_pin_child_to_layout_margins` left content invisible inside
+// covers / inspectors that wanted edge-to-edge fill (cover chrome
+// owns its own padding, the parent should NOT subtract margins).
+void objc_pin_child_to_superview_edges(void *parent, void *child) {
+    BridgeView *p = (BridgeView *)parent;
+    BridgeView *c = (BridgeView *)child;
+    c.translatesAutoresizingMaskIntoConstraints = NO;
+    NSLayoutConstraint *leading = [c.leadingAnchor constraintEqualToAnchor:p.leadingAnchor];
+    NSLayoutConstraint *trailing = [c.trailingAnchor constraintEqualToAnchor:p.trailingAnchor];
+    NSLayoutConstraint *top = [c.topAnchor constraintEqualToAnchor:p.topAnchor];
+    NSLayoutConstraint *bottom = [c.bottomAnchor constraintEqualToAnchor:p.bottomAnchor];
+    leading.active = YES;
+    trailing.active = YES;
+    top.active = YES;
+    bottom.active = YES;
+}
+
 // Exact-width arranged subviews should resist horizontal stretching in
 // UIStackView's Fill distribution. Width constraints remain the source of
 // truth; these priorities make the intent visible to stack fitting passes.

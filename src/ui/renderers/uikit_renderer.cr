@@ -98,6 +98,11 @@
       fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
       fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
       fun objc_pin_child_to_layout_margins(parent : Void*, child : Void*) : Void
+      # Phase 10D-refocus — pin a child view to its parent's bounds
+      # (no insets). Used by FullScreenCover + Inspector visit paths
+      # where the parent is a bare UIView/NSView wrapper and the child
+      # needs to fill the parent edge-to-edge.
+      fun objc_pin_child_to_superview_edges(parent : Void*, child : Void*) : Void
       fun objc_set_horizontal_fixed_priority(view : Void*) : Void
       fun uiscrollview_pin_content(scroll_view : Void*, content_view : Void*) : Void
       # Phase 6.11 — swipe-reveal row factory. Builds a horizontal-scroll
@@ -3839,36 +3844,34 @@
         push_native(native)
       end
 
-      # Phase 6.10 / 6.11 — SwipeActionRow.
+      # Phase 6.10 / 6.11 / 10D-refocus — SwipeActionRow.
       #
       # Phase 6.10 shipped an inline trailing-actions UIStackView (actions
-      # always visible). That satisfied the Crystal-side contract but did
-      # NOT give the iOS Mail-style swipe-to-reveal behavior the brief
-      # describes for the Voyager Todos screen.
+      # always visible). Phase 6.11 added a custom horizontal UIScrollView
+      # (`make_swipe_reveal_row`) that surfaced actions as inline buttons
+      # via pan. Neither matched the SwiftUI Mail-style behavior the owner
+      # requested in the Phase 10D hand-test: full-row-height tinted tiles
+      # that slide out from the edge with `.swipeActions(edge:)` chrome.
       #
-      # Phase 6.11 wires a horizontal UIScrollView built by the new
-      # `make_swipe_reveal_row` ObjC helper. Layout: only the row content
-      # is visible at rest; user pans left to reveal the trailing
-      # Edit/Delete actions. Each action is rendered through the standard
-      # UI::Button reactive path so taps fire through the CallbackRegistry.
+      # Phase 10D-refocus routes through the new `APSKSwipeActionRowFacade`
+      # which wraps the content view in a single-row SwiftUI `List` so the
+      # `.swipeActions(edge: .leading)` + `.swipeActions(edge: .trailing)`
+      # modifiers activate. The Swift facade reads parallel action arrays
+      # (labels / icons / tokens / roles / tints) from the populator and
+      # builds SwiftUI Buttons with the correct destructive role wiring.
+      # Tap actions fire through the existing `CallbackBridge.fire` path,
+      # so the Crystal-side `SwipeAction#on_tap` proc executes normally.
       #
-      # The row_width pin comes from `view.maximum_width` (or, if absent,
-      # `view.minimum_width`) — the screen authoring on Todos sets both
-      # to `content_width` so the visible row matches the surrounding
-      # column.
+      # Why we no longer call `make_swipe_reveal_row`: the legacy ObjC
+      # helper produces a horizontal UIScrollView with the action buttons
+      # always present in the layout, which (a) does not match the iOS
+      # HIG swipe gesture (b) leaves the action callbacks broken in the
+      # specific case the owner exercised because the UIButton's `target`
+      # was not retained alongside the scroll view in the production
+      # build. The SwiftUI facade route is honest about the gesture and
+      # uses the same callback-token mechanism every other facade does.
       def visit(view : UI::SwipeActionRow)
-        row_width = (view.maximum_width || view.minimum_width || 320.0).to_f
-
-        # Build the content child (the inner HStack with Checkbox + title).
-        #
-        # Phase 6.11 iter-3 (Codex finding) — previously emitted a silent
-        # empty UIView when `render_detached` returned nil. That hid the
-        # row + its actions while still producing "something," masking
-        # bugs in the row construction path. The 14-row Todos behavior
-        # contract treats a missing row as a hard failure, so the visitor
-        # now raises `UI::RenderError` with the offending view labeled.
-        # Callers that genuinely need a recoverable path can wrap in
-        # begin/rescue UI::RenderError of their own.
+        # 1. Build the content child (the inner HStack with the row body).
         content_native = render_detached(view.content)
         unless content_native
           raise UI::RenderError.new(
@@ -3880,42 +3883,66 @@
           )
         end
 
-        # Build each trailing-action child as a UI::Button. We retain a
-        # reference to each NativeView so the CallbackRegistry IDs are
-        # tracked + released with the outer scroll view.
-        action_natives = [] of UI::NativeView
-        view.trailing_actions.each do |action|
-          inner = UI::Button.new(action.label, role: action.role, style: UI::ButtonStyle::Prominent)
-          inner.accessibility_label = action.label
+        # 2. Build the overrides + populator sender. Populator emits the
+        # per-action labels/icons/roles/tints; we emit the action tokens
+        # after registering them (same pattern as Alert + Toolbar).
+        overrides_ptr = LibSwiftKitBridge.apsk_swipe_action_row_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
+        target_str = overrides_ptr.address.to_s(16)
+        UI::Native::Populator.populate_swipe_action_row(target_str, view, sender)
+
+        # 3. Register leading + trailing action tokens.
+        leading_tokens = [] of UInt64
+        callback_ids = [] of UInt64
+        view.leading_actions.each do |action|
           if tap = action.on_tap
-            inner.on_tap = tap
-          end
-          if action_native = render_detached(inner.as(UI::View))
-            action_natives << action_native
+            tok = UI::CallbackRegistry.register_action(&tap)
+            leading_tokens << tok
+            callback_ids << tok
+          else
+            leading_tokens << 0_u64
           end
         end
+        sender.set_uint64_array(target_str, :setLeadingTokens, leading_tokens)
 
-        # Marshal the action view pointers into a Pointer(Void*) buffer
-        # so the ObjC helper can iterate them.
-        action_count = action_natives.size
-        action_buf = Pointer(Void*).malloc(action_count.to_u64) if action_count > 0
-        action_natives.each_with_index do |an, i|
-          action_buf.not_nil![i] = an.handle.ptr!
+        trailing_tokens = [] of UInt64
+        view.trailing_actions.each do |action|
+          if tap = action.on_tap
+            tok = UI::CallbackRegistry.register_action(&tap)
+            trailing_tokens << tok
+            callback_ids << tok
+          else
+            trailing_tokens << 0_u64
+          end
         end
+        sender.set_uint64_array(target_str, :setTrailingTokens, trailing_tokens)
 
-        scroll_ptr = LibObjCBridge.make_swipe_reveal_row(
+        # 4. Hand the content view + overrides to the SwiftUI facade.
+        ptr = LibSwiftKitBridge.apsk_make_swipe_action_row(
           content_native.handle.ptr!,
-          action_count > 0 ? action_buf.not_nil!.as(Void**) : Pointer(Void*).null,
-          action_count.to_i32,
-          row_width,
+          overrides_ptr,
         )
 
-        outer_handle = ObjC.owned(scroll_ptr, label: "UIScrollView[SwipeActionRow]")
+        outer_handle = ObjC.owned(ptr, label: "UIHostingView[SwipeActionRow]")
         outer_native = NativeView.new(outer_handle)
+        # Track the rendered content view as a child so it is not GC'd.
+        # The Swift hosting wrapper retains it internally; the explicit
+        # add_child here keeps the Crystal-side NativeView graph honest.
         outer_native.add_child(content_native)
-        action_natives.each { |an| outer_native.add_child(an) }
+        callback_ids.each { |id| outer_native.track_callback_id(id) }
 
-        apply_common_properties(scroll_ptr, view)
+        # Optional width pin — when the row author set min == max via
+        # the populator's `setRowWidth`, the SwiftUI facade applied the
+        # frame; we still need the outer UIHostingController.view to
+        # honor that width at the UIKit level so parent UIStackView
+        # alignment=fill does not stretch it.
+        if mw = view.maximum_width
+          LibObjCBridge.objc_constrain_required_width(ptr, mw)
+        elsif mw = view.minimum_width
+          LibObjCBridge.objc_constrain_minimum_width(ptr, mw)
+        end
+
+        apply_common_properties(ptr, view)
         push_native(outer_native)
       end
 
@@ -4100,9 +4127,19 @@
         outer_handle = ObjC.owned(ptr, label: "UIView[FullScreenCover]")
         outer_native = NativeView.new(outer_handle)
 
+        # Phase 10D-refocus — content rendering bug fix. The previous
+        # implementation called `addSubview:` without any Auto Layout
+        # pinning, leaving the child UIView with a zero-sized frame
+        # (UIKit's default frame origin / size for a freshly added
+        # subview that has no constraints + no explicit frame). That
+        # broke the hand-test: only the cover's title showed because
+        # the cover chrome itself rendered, but the body content was
+        # collapsed to 0pt and invisible. Pinning the child to the
+        # cover's edges restores edge-to-edge fill.
         if content = view.content
           if content_native = render_detached(content)
             LibObjCBridge.objc_send_void_id(ptr, sel("addSubview:"), content_native.handle.ptr!)
+            LibObjCBridge.objc_pin_child_to_superview_edges(ptr, content_native.handle.ptr!)
             outer_native.add_child(content_native)
           end
         end
@@ -4124,6 +4161,16 @@
         LibObjCBridge.objc_send_long(stack, sel("setAxis:"), 0_i64) # horizontal
         LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 16.0)
         LibObjCBridge.objc_send_long(stack, sel("setAlignment:"), 0_i64) # fill
+        # Phase 10D-refocus — UIStackViewDistributionFill (0) was the
+        # implicit default and let the first arranged subview's
+        # intrinsic content size win, collapsing the inspector pane to
+        # zero width when present alongside a content-sized primary.
+        # FillProportionally (2) hands proportional widths based on
+        # intrinsic sizes; FillEqually (1) splits the available width.
+        # We pick FillProportionally so the primary keeps its natural
+        # content size and the pane scales relative to it when both
+        # are present. The end result: both columns are visible.
+        LibObjCBridge.objc_send_long(stack, sel("setDistribution:"), 2_i64)
 
         outer_handle = ObjC.owned(stack, label: "UIStackView[Inspector]")
         outer_native = NativeView.new(outer_handle)
@@ -4135,11 +4182,26 @@
           end
         end
 
-        if view.is_presented
-          if inspector = view.inspector_content
-            if pane_native = render_detached(inspector)
-              LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), pane_native.handle.ptr!)
-              outer_native.add_child(pane_native)
+        # Phase 10D-refocus — emit the inspector pane whenever it
+        # exists. Previously the pane was only added when
+        # `is_presented` was true; that made the pane disappear in the
+        # default-presented state when the hand-test exerciser screen
+        # first loaded (intrinsic content width was zero before
+        # `addArrangedSubview` had a chance to apply, so the column
+        # collapsed). The pane visibility is now driven by the pane's
+        # own `setHidden:` flag mirrored from `is_presented`, which
+        # UIStackView honors by removing the pane from the arranged
+        # layout when hidden (UIStackView is `setHidden:`-aware).
+        if inspector = view.inspector_content
+          if pane_native = render_detached(inspector)
+            LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), pane_native.handle.ptr!)
+            LibObjCBridge.objc_send_bool(pane_native.handle.ptr!, sel("setHidden:"), view.is_presented ? 0 : 1)
+            outer_native.add_child(pane_native)
+
+            # Honor preferred_width when the host specified one — pin
+            # the inspector pane to that width via the existing helper.
+            if pw = view.preferred_width
+              LibObjCBridge.objc_constrain_width(pane_native.handle.ptr!, pw)
             end
           end
         end

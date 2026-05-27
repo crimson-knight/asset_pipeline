@@ -21,15 +21,17 @@ module Voyager
         bottom: 24.0 + metrics.safe_area_bottom_pt,
         leading: 20.0 + metrics.safe_area_leading_pt,
       )
-      root.accessibility_label = "Phase 10 exerciser hub"
+      root.accessibility_label = "Phase 10 developer tools hub"
       root.test_id = "phase-10-hub-root"
 
-      title = UI::Label.new("Phase 10 Exerciser")
+      title = UI::Label.new("Phase 10 Developer Tools")
       title.font = UI::Font.new(size: 28.0, weight: :bold)
       title.text_color_role = UI::LabelRole::Primary
 
       subtitle = UI::Label.new(
-        "Hand-test the Phase 10 APIs by walking through each exerciser screen."
+        "Internal verification surface for the Phase 10 intent + widget APIs. " \
+        "Not part of the end-user todo flow — reachable from Settings → " \
+        "Developer / Internals."
       )
       subtitle.font = UI::Font.new(size: 14.0, weight: :regular)
       subtitle.text_color_role = UI::LabelRole::Secondary

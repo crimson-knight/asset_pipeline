@@ -274,6 +274,8 @@ APSK_OVERRIDES_NEW(apsk_surface_overrides_new,               "APSKSurfaceOverrid
 APSK_OVERRIDES_NEW(apsk_menu_button_overrides_new,           "APSKMenuButtonOverrides")
 APSK_OVERRIDES_NEW(apsk_toggle_button_overrides_new,         "APSKToggleButtonOverrides")
 APSK_OVERRIDES_NEW(apsk_list_view_overrides_new,             "APSKListViewOverrides")
+// Phase 10D-refocus — SwipeActionRow facade (SwiftUI .swipeActions edge bridge).
+APSK_OVERRIDES_NEW(apsk_swipe_action_row_overrides_new,      "APSKSwipeActionRowOverrides")
 
 // ---------------------------------------------------------------------------
 // Glass (P1 — Phase 3 "headline visual differentiator").
@@ -530,6 +532,19 @@ void *apsk_make_list_view(const void *child_views, int child_count,
     SEL sel = sel_registerName("makeListViewWithChildViews:overrides:");
     return ((id (*)(Class, SEL, id, id))objc_msgSend)(
         cls, sel, children, (id)overrides);
+}
+
+// Phase 10D-refocus — SwipeActionRow trampoline.
+// Routes Crystal's `UI::SwipeActionRow.visit` into the SwiftUI
+// `.swipeActions(edge:)` modifier via the new Swift facade. The
+// content_view is a single platform-view pointer (the inner HStack
+// rendered detached by the Crystal renderer).
+void *apsk_make_swipe_action_row(void *content_view, void *overrides) {
+    Class cls = objc_getClass("APSKSwipeActionRowFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeSwipeActionRowWithContentView:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, (id)content_view, (id)overrides);
 }
 
 // ---------------------------------------------------------------------------

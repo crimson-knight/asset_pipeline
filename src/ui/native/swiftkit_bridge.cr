@@ -95,6 +95,9 @@
     fun apsk_menu_button_overrides_new : Void*
     fun apsk_toggle_button_overrides_new : Void*
     fun apsk_list_view_overrides_new : Void*
+    # Phase 10D-refocus — SwipeActionRow overrides allocator (SwiftUI
+    # `.swipeActions(edge:)` bridge backing UI::SwipeActionRow on iOS).
+    fun apsk_swipe_action_row_overrides_new : Void*
 
     # ---- Glass (P1 — the Phase 3 "headline visual differentiator") -----
     fun apsk_glass_background_overrides_new : Void*
@@ -240,6 +243,14 @@
     # facade can slice items back into SwiftUI `Section`s.
     fun apsk_make_list_view(child_views : Void*, child_count : Int32,
                             overrides : Void*) : Void*
+    # Phase 10D-refocus — SwipeActionRow facade entry. Wraps a single
+    # content view in a SwiftUI List harness that activates
+    # `.swipeActions(edge: .leading)` + `.swipeActions(edge: .trailing)`
+    # so the row exposes the native iOS Mail-style swipe gesture with
+    # full-row-height tinted tile actions. The action tokens, labels,
+    # icons, roles, and tints are populated on the overrides via the
+    # standard array-setter senders before this call.
+    fun apsk_make_swipe_action_row(content_view : Void*, overrides : Void*) : Void*
 
     # ---- Glass facade (P1) --------------------------------------------
     # `child_view` is a single platform-view pointer (the content the

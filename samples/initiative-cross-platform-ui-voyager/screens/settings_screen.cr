@@ -51,9 +51,27 @@ module Voyager
       back.maximum_width = content_width
       back.on_tap = -> { Voyager.dispatch(:back) }
 
-      # Phase 10D — entry point to the Phase 10 exerciser hub.
-      phase_10_btn = UI::Button.new("Phase 10 Exerciser", style: UI::ButtonStyle::Prominent)
-      phase_10_btn.accessibility_label = "Open Phase 10 exerciser hub"
+      # Phase 10D-refocus — Developer / Internals section. The Phase 10
+      # exerciser hub is a developer tool (intent-dispatch litmus,
+      # capability resolver harness, AX metadata browser, environment
+      # reactivity sandbox, new-widgets isolation surface) — not part
+      # of the end-user flow. Per the refocus brief it lives under a
+      # dedicated section header in Settings so the surfacing is
+      # clearly "internal."
+      dev_section_title = UI::Label.new("Developer / Internals")
+      dev_section_title.font = UI::Font.new(size: 16.0, weight: :semibold)
+      dev_section_title.text_color_role = UI::LabelRole::Secondary
+      dev_section_title.test_id = "voyager-settings-developer-section"
+
+      dev_section_explainer = UI::Label.new(
+        "Internal demos for the Phase 10 intent + widget surface. " \
+        "Not part of the user-facing app."
+      )
+      dev_section_explainer.font = UI::Font.new(size: 12.0, weight: :regular)
+      dev_section_explainer.text_color_role = UI::LabelRole::Tertiary
+
+      phase_10_btn = UI::Button.new("Phase 10 Developer Tools", style: UI::ButtonStyle::Bordered)
+      phase_10_btn.accessibility_label = "Open Phase 10 developer tools"
       phase_10_btn.test_id = "voyager-settings-phase-10"
       phase_10_btn.minimum_width = content_width
       phase_10_btn.maximum_width = content_width
@@ -62,8 +80,10 @@ module Voyager
       root << title.as(UI::View)
       root << explainer.as(UI::View)
       root << hide_toggle.as(UI::View)
-      root << phase_10_btn.as(UI::View)
       root << back.as(UI::View)
+      root << dev_section_title.as(UI::View)
+      root << dev_section_explainer.as(UI::View)
+      root << phase_10_btn.as(UI::View)
 
       root.as(UI::View)
     end

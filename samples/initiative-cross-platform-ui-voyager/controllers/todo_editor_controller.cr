@@ -27,6 +27,8 @@ module Voyager
       title = (context.form_state.values["title"]? || "").strip
       note = context.form_state.values["note"]? || ""
       completed = context.form_state.values["completed"]? == "true"
+      # Phase 10D-refocus — deadline carried as a string (YYYY-MM-DD or empty).
+      deadline = context.form_state.values["deadline"]? || ""
 
       # Defensive fallback: with Phase 8D.3a's title-field on_change closure,
       # save.disabled is true while title is blank, so this branch is
@@ -40,8 +42,9 @@ module Voyager
         existing.title = title
         existing.note = note
         existing.completed = completed
+        existing.deadline = deadline
       else
-        Voyager.state.add_todo(title, note, completed)
+        Voyager.state.add_todo(title, note, completed, deadline)
       end
 
       UI::ActionResult::Pop.new

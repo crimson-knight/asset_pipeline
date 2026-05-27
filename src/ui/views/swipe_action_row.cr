@@ -77,9 +77,11 @@ module UI
     # * `supports_edge_trailing` — iOS uses `make_swipe_reveal_row` to
     #   wire a trailing-only swipe; macOS and web emit inline trailing
     #   buttons. Android `visit(SwipeActionRow)` is a stub.
-    # * `supports_edge_leading` — only the web renderer iterates
-    #   `leading_actions`; iOS and macOS visits silently drop the
-    #   array, Android is a stub.
+    # * `supports_edge_leading` — Phase 10D-refocus enabled iOS / iPadOS
+    #   via the new `APSKSwipeActionRowFacade` (SwiftUI
+    #   `.swipeActions(edge: .leading)`). macOS still routes through
+    #   `UI::InlineActionRow` by intent registry default. Web supports
+    #   leading via inline buttons. Android remains a stub.
     # * `supports_role_default` — true wherever the widget renders at
     #   all (no role-specific styling needed).
     # * `supports_role_destructive` — iOS routes the role through
@@ -101,8 +103,8 @@ module UI
         android:    false,
       },
       supports_edge_leading: {
-        ios:        false,
-        ipados:     false,
+        ios:        true,
+        ipados:     true,
         macos:      false,
         web_wide:   true,
         web_narrow: true,

@@ -1,12 +1,24 @@
 module Voyager
-  # A single todo item — id, title, optional note, completed flag.
+  # A single todo item — id, title, optional note, completed flag,
+  # optional deadline (ISO-8601 date string YYYY-MM-DD or empty),
+  # archived flag (Phase 10D-refocus: archive swipe action moves rows
+  # off the main list without deleting them).
   class Todo
     property id : Int32
     property title : String
     property note : String
     property completed : Bool
+    property deadline : String
+    property archived : Bool
 
-    def initialize(@id : Int32, @title : String, @note : String = "", @completed : Bool = false)
+    def initialize(
+      @id : Int32,
+      @title : String,
+      @note : String = "",
+      @completed : Bool = false,
+      @deadline : String = "",
+      @archived : Bool = false,
+    )
     end
   end
 
@@ -38,8 +50,13 @@ module Voyager
       add_todo("Water plants", "", true)
     end
 
-    def add_todo(title : String, note : String = "", completed : Bool = false) : Todo
-      todo = Todo.new(@next_id, title, note, completed)
+    def add_todo(
+      title : String,
+      note : String = "",
+      completed : Bool = false,
+      deadline : String = "",
+    ) : Todo
+      todo = Todo.new(@next_id, title, note, completed, deadline, false)
       @next_id += 1
       @todos << todo
       todo
@@ -53,13 +70,58 @@ module Voyager
       @todos.reject! { |t| t.id == id }
     end
 
+    # Phase 10D-refocus — archive workflow. Toggling archived hides
+    # the row from `visible_todos` without losing the entry. The
+    # leading-swipe Archive action calls this; an unarchive workflow
+    # is deferred to a later slice.
+    def archive_todo(id : Int32) : Nil
+      if todo = find_todo(id)
+        todo.archived = true
+      end
+    end
+
+    def unarchive_todo(id : Int32) : Nil
+      if todo = find_todo(id)
+        todo.archived = false
+      end
+    end
+
+    # Phase 10D-refocus — move a row from one position to another so
+    # the long-press-drag reorder gesture has a backing mutation. The
+    # `from` / `to` indexes are positions within the `visible_todos`
+    # filtered view (the user can only see and drag what's visible),
+    # so we map them back into the underlying `@todos` indexes before
+    # mutating.
+    def move_todo(from_visible_index : Int32, to_visible_index : Int32) : Nil
+      vis = visible_todos
+      return if from_visible_index < 0 || from_visible_index >= vis.size
+      return if to_visible_index < 0 || to_visible_index >= vis.size
+      return if from_visible_index == to_visible_index
+
+      moving = vis[from_visible_index]
+      target = vis[to_visible_index]
+      from_idx = @todos.index(moving)
+      to_idx = @todos.index(target)
+      return unless from_idx && to_idx
+
+      @todos.delete_at(from_idx)
+      # After delete, the to_idx may shift left by one if from_idx < to_idx.
+      adjusted_to = from_idx < to_idx ? to_idx - 1 : to_idx
+      @todos.insert(adjusted_to, moving)
+    end
+
     # The currently visible todos, after the Settings filter is
-    # applied. This is the field the state-propagation litmus
-    # exercises: toggling hide_completed in Settings + popping back
-    # to Todos must immediately use the filtered result.
+    # applied. Phase 10D-refocus also hides archived rows.
     def visible_todos : Array(Todo)
-      return @todos unless @hide_completed
-      @todos.reject(&.completed)
+      list = @todos.reject(&.archived)
+      return list unless @hide_completed
+      list.reject(&.completed)
+    end
+
+    # Phase 10D-refocus — archived rows for the Settings → Archived
+    # screen (future). Exposed now for symmetry with `visible_todos`.
+    def archived_todos : Array(Todo)
+      @todos.select(&.archived)
     end
 
     # Open count over the visible todos (so the chart reflects the
