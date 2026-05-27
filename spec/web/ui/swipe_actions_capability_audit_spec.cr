@@ -367,23 +367,20 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
   end
 
   describe "leading edge honesty for SwipeActionRow" do
-    it "rejects supports_edge_leading on iOS (UIKit renderer drops leading_actions)" do
-      # The audit cites `uikit_renderer.cr` L3854 as the source of
-      # truth: only `view.trailing_actions` is iterated. The widget
-      # honestly declares `supports_edge_leading.ios = false`, and
-      # the runtime gate must surface that gap.
+    it "honors supports_edge_leading on iOS (Phase 10D-refocus enabled SwiftUI .swipeActions(edge:.leading))" do
+      # Phase 10D-refocus: the UIKit renderer routes through the
+      # APSKSwipeActionRowFacade which emits both leading + trailing
+      # `.swipeActions(edge:)` modifiers. The widget honestly declares
+      # `supports_edge_leading.ios = true`, and the resolver must now
+      # return SwipeActionRow itself (no UnresolvableDefault).
       UI::Intent::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
-      expect_raises(
-        UI::Intent::UnresolvableDefault,
-        /supports_edge_leading/,
-      ) do
-        UI::Intent.resolve(
-          :swipe_actions,
-          audit_native_ctx(:ios),
-          capabilities_required: {:supports_edge_leading => true},
-        )
-      end
+      result = UI::Intent.resolve(
+        :swipe_actions,
+        audit_native_ctx(:ios),
+        capabilities_required: {:supports_edge_leading => true},
+      )
+      result.should eq(UI::SwipeActionRow)
     end
   end
 
@@ -515,7 +512,9 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
     # change-detector: if a future implementer flips a cell without
     # updating the audit doc, this spec is the trip-wire.
 
-    it "SwipeActionRow declares supports_edge_leading false on iOS" do
+    it "SwipeActionRow declares supports_edge_leading true on iOS (Phase 10D-refocus)" do
+      # Phase 10D-refocus flipped this cell from false to true once
+      # the SwiftUI .swipeActions(edge: .leading) facade landed.
       declared = UI::Intent::Registry.declared_capabilities_for(
         UI::SwipeActionRow, :swipe_actions
       )
@@ -523,7 +522,8 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
       d = declared.not_nil!
       value = d[:supports_edge_leading]
       value.is_a?(Hash).should be_true
-      value.as(Hash(Symbol, Bool))[:ios].should be_false
+      value.as(Hash(Symbol, Bool))[:ios].should be_true
+      value.as(Hash(Symbol, Bool))[:ipados].should be_true
       value.as(Hash(Symbol, Bool))[:web_wide].should be_true
     end
 
