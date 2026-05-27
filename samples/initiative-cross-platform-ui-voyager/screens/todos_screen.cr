@@ -121,6 +121,11 @@ module Voyager
       list = UI::ListView.new
       list.minimum_width = content_width
       list.maximum_width = content_width
+      # SwiftUI's List collapses to 0pt inside a parent VStack without
+      # a height pin (UIHostingController has no natural intrinsic
+      # height for List). Compute a height tall enough to show all
+      # visible rows at ~64pt per row (16 + 12 + 12 + line gap + subtitle).
+      list.minimum_height = (visible.size * 72.0).clamp(120.0, 560.0)
       list.shows_separators = true
       list.test_id = "voyager-todos-list"
       list.accessibility_label = "Todo list"
@@ -223,6 +228,14 @@ module Voyager
     # :show_notification intents will no-op).
     private def maybe_request_notification_permission : Nil
       return if @@requested_notification_permission
+      # Phase 10D-final — capture-mode bypass. The simctl screenshot
+      # flow can't dismiss the system permission alert, so the
+      # capture matrix sets VOYAGER_SKIP_NOTIF_PROMPT=1 to suppress
+      # the first-launch :request_permission Class C dispatch.
+      if ENV["VOYAGER_SKIP_NOTIF_PROMPT"]? == "1"
+        @@requested_notification_permission = true
+        return
+      end
       @@requested_notification_permission = true
       UI::SystemAction.perform(:request_permission, kind: "notifications")
       nil
