@@ -399,7 +399,7 @@ module Voyager
                                      else
                                        UI::LabelRole::Primary
                                      end
-      header_label.strikethrough = editing && seed_completed
+      header_label.strikethrough = !editing.nil? && seed_completed
       body << header_label.as(UI::View)
 
       title_field = UI::TextField.new(placeholder: "Title", name: "title")
