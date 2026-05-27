@@ -236,6 +236,131 @@ These 8 ship as `UI::System.*` module-level functions (single Crystal API, rende
 
 † B-021 is deprecated and superseded by B-037 — counted in the class total for ID-history continuity but does not contribute work.
 
+---
+
+## Phase 10D-polish — Widget customization backlog (2026-05-27)
+
+The Phase 10D-polish pass shipped the widget-demonstration-criteria rubric requirement of "no evasive language" override paths. Every "no override yet today" surface gets a backlog item HERE so the next agent (or consumer) reading the usage doc can find the work item.
+
+### B-LIST-MACOS-CHROME — Port ListView default chrome to AppKit
+
+- **Widget:** `UI::ListView`
+- **Platform:** macOS
+- **Gap:** The Phase 10D-polish default chrome (drag handle on right edge, 400ms row-removal animation, 16pt row inset) is wired only in the iOS SwiftKit facade. AppKit renderer (`src/ui/renderers/appkit_renderer.cr:visit(UI::ListView)`) emits NSTableView without these defaults.
+- **Action:** Port the row-level chrome into the AppKit visit: NSTableView row view with trailing-edge NSImageView for the drag handle; NSTableView's existing reorder gesture for the drag; CABasicAnimation on row removal; explicit row insets via NSTableViewRowSizeStyle.
+- **Size:** L.
+- **Priority:** P1.
+
+### B-LIST-ANDROID-CALLBACKS — Wire ListView per-row callbacks on Android
+
+- **Widget:** `UI::ListView`
+- **Platform:** Android
+- **Gap:** The Android renderer's `visit(UI::ListView)` does not yet wire `on_row_tap`, `on_move`, `leading_swipe_actions`, or `trailing_swipe_actions` through to Compose `LazyColumn`'s gesture surface.
+- **Action:** Compose `LazyColumn` + `SwipeToDismissBox` integration; `Modifier.combinedClickable` for tap + long-press; manual drag-reorder via `LongPressDraggable` + per-item position state.
+- **Size:** L.
+- **Priority:** P2 (Android out of scope for near-term release).
+
+### B-LIST-SWIPE-TINT — Per-action tint override on UI::SwipeAction
+
+- **Widget:** `UI::SwipeAction`
+- **Platforms:** iOS, web
+- **Gap:** Today `UI::UIKit::Renderer#default_tint_for_leading/trailing` derives tint from role only. Custom tints (e.g. an Archive tile in indigo rather than green) require editing the renderer.
+- **Action:** Add `tint : Symbol? = nil` property to `UI::SwipeAction`; populator emits the explicit tint when set, falls back to the role-derived default otherwise.
+- **Size:** S.
+- **Priority:** P2.
+
+### B-LIST-SWIPE-LABEL-STYLE — Force icon-only / text-only tile
+
+- **Widget:** `UI::SwipeAction`
+- **Platforms:** iOS, web
+- **Gap:** Today the facade chooses tile content based on icon/label emptiness — no knob for forcing icon-only when both are set.
+- **Action:** Add `label_style : Symbol = :auto` (`:auto` / `:icon` / `:title` / `:title_and_icon`).
+- **Size:** S.
+- **Priority:** P2.
+
+### B-ALERT-CUSTOM-CHROME — Custom alert backdrop / colors
+
+- **Widget:** `UI::Alert`
+- **Platforms:** iOS, macOS
+- **Gap:** SwiftUI `.alert` is system-drawn; `material_semantic` is inert on this path. Custom-branded alerts have no override knob.
+- **Action:** Document the `UI::Sheet(surface_style: :grouped_card)` + custom button row pattern as the explicit workaround. Long term: ship a `UI::CustomAlert` class that uses Sheet under the hood with HIG-compliant button row chrome.
+- **Size:** M (for the new class); S (for documentation alone).
+- **Priority:** P2.
+
+### B-ACTIONSHEET-MULTI-ACTION — Multi-action support beyond binary
+
+- **Widget:** `UI::ActionSheet`
+- **Platforms:** iOS, macOS
+- **Gap:** Today's iOS path degrades to `{primary_action, cancel_action}` because SwiftKit's ConfirmationDialogFacade is binary. Additional actions are dropped.
+- **Action:** Implement a multi-action SwiftUI facade backed by `.confirmationDialog(titleKey:isPresented:titleVisibility:actions:message:)` with a ForEach over the actions array. The catalog's `:confirmation_dialog` intent already names this API.
+- **Size:** M.
+- **Priority:** P1.
+
+### B-SHEET-CUSTOM-DETENT-HEIGHT — Arbitrary detent height
+
+- **Widget:** `UI::Sheet`
+- **Platforms:** iOS, iPadOS
+- **Gap:** Today the facade accepts only `:small` (160pt fixed), `:medium`, `:large`. Custom heights via `PresentationDetent.height(Pt)` not exposed.
+- **Action:** Extend `UI::Sheet.detents` to accept `Tuple(Symbol, Float64)` for custom heights OR add `custom_detent_heights : Array(Float64)`. SwiftKit facade switch grows a custom branch.
+- **Size:** S.
+- **Priority:** P2.
+
+### B-SHEET-INTERACTIVE-DISMISS-DISABLED — Block drag-to-dismiss
+
+- **Widget:** `UI::Sheet`
+- **Platforms:** iOS, iPadOS, macOS
+- **Gap:** Catalog intent `:interactive_dismiss_disabled` is unbacked (no `interactive_dismiss_disabled` property on `UI::Sheet`).
+- **Action:** Add `interactive_dismiss_disabled : Bool = false` property; populator emits; SwiftKit facade applies `.interactiveDismissDisabled(true)` modifier inside the sheet body.
+- **Size:** S.
+- **Priority:** P1.
+
+### B-DATEPICKER-STYLE-PROPERTY — Picker style enum
+
+- **Widget:** `UI::DatePicker`
+- **Platforms:** iOS, iPadOS, macOS, web
+- **Gap:** Catalog intents `:compact_date_picker_style`, `:graphical_date_picker_style`, `:wheel_date_picker_style` are unbacked. Only `mode` (date/time/datetime) ships today.
+- **Action:** Add `date_picker_style : DatePickerStyle = Compact`; populator emits; SwiftKit facade applies `.datePickerStyle(.graphical)` / `.compact` / `.wheels`.
+- **Size:** S.
+- **Priority:** P1 (frequently requested for in-form date entry; falls under Phase 10-pre-2-close.md "new gaps surfaced").
+
+### B-DATEPICKER-EPOCH-CONVERSION — Year display offset bug
+
+- **Widget:** `UI::DatePicker`
+- **Platforms:** iOS, iPadOS
+- **Gap:** The Crystal-to-Swift epoch conversion path (`view.selected_date.to_unix.to_f64` → `Date(timeIntervalSince1970:)`) renders an incorrect year — Phase 10D-polish screenshot `06_datepicker_deadline.png` shows "May 27, **3995**" instead of "May 27, 2026". Day-of-week matches today, so the offset is in the year computation. Possibly Crystal's `Time#to_unix` is returning a value Swift's `Date(timeIntervalSince1970:)` mis-bases.
+- **Action:** Add a Crystal-side spec that asserts `Time.utc(2026, 5, 27).to_unix == 1779916800`. If correct, investigate Swift side: maybe `initialEpoch` is being treated as `timeIntervalSinceReferenceDate` somewhere upstream. Capture an LLDB session at the SwiftKit-bridge boundary.
+- **Size:** S (investigation) / M (fix could be one-line OR could need a Float64 → Int64 + Calendar fix).
+- **Priority:** **P1** — blocks honest DatePicker demo.
+
+### B-POPOVER-ANCHOR-VIEW — Anchor popover to a source view
+
+- **Widget:** `UI::Popover`
+- **Platforms:** iPadOS, macOS, web_wide
+- **Gap:** `UI::PopoverPresenter` accepts an `anchor : View?` but the SwiftKit facade does not yet read it. Popover renders centered on the host instead of anchored to a specific button.
+- **Action:** Thread an anchor token through the populator; on the Swift side, use SwiftUI's `.popover(isPresented:attachmentAnchor: .rect(.rect(.named("anchor-token"))), arrowEdge:)`. Requires the source view to declare `.coordinateSpace(name: "anchor-token")`.
+- **Size:** M.
+- **Priority:** P1.
+
+### B-POPOVER-COMPACT-ADAPTATION — Force popover on iPhone
+
+- **Widget:** `UI::Popover`
+- **Platforms:** iOS
+- **Gap:** SwiftUI's default for iPhone is to fall back from `.popover` to `.sheet`. The catalog row notes "iOS+web_narrow fall back to sheet". For cases where a popover anchored to a small element is genuinely desired on iPhone, no knob exposes `presentationCompactAdaptation(.popover)`.
+- **Action:** Add `compact_adaptation : Symbol = :auto` (`:auto` / `:popover` / `:sheet`); populator emits; SwiftKit facade applies `.presentationCompactAdaptation(.popover)` on iOS 16.4+ when set.
+- **Size:** S.
+- **Priority:** P2.
+
+### B-POPOVER-REACTIVE-PRESENTED — Reactive is_presented setter
+
+- **Widget:** `UI::Popover`
+- **Platforms:** iOS, iPadOS, macOS
+- **Gap:** `UI::Popover#is_presented=` is plain — setting it after mount does not push to SwiftUI. The Voyager pattern is mutate state + Rerender.
+- **Action:** Mirror the `UI::Sheet#is_presented=` pattern: SwiftKit facade returns an `APSKPopoverState : ObservableObject`, store the handle on `NativeHandle#state_handle`, expose `apsk_popover_set_presented` that flips `@Published isPresented`.
+- **Size:** M.
+- **Priority:** P2 (Rerender path works today; this is an optimization to avoid tree rebuilds on present/dismiss).
+
+---
+
 **P0 (5):** B-001, B-002 (Class A defaults — Phase 10B.1a), B-020 (accessibility actions — HIG-mandated for swipe rows; Phase 10B.2b), B-036 (`:swipe_actions` capability honesty — Phase 10B.1b), B-037 (`accessibility_hint` + `accessibility_value` surfacing — Phase 10B.2a).
 **P1 (13):** Mostly Voyager-compliance work + key Class C surfaces.
 **P2 (18):** Nice-to-haves, ships as needed.

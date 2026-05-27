@@ -33,6 +33,11 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **web_equivalent:** No native swipe affordance on desktop; mobile web uses CSS + JS gesture libraries OR inline buttons fallback
 - **coverage_today:** partial on iOS/iPadOS/web (`src/ui/views/swipe_action_row.cr:64-65`; iOS swipe-reveal via `src/ui/renderers/uikit_renderer.cr:3823-3870`; web via `src/ui/renderers/web_renderer.cr:2887-2911`); macOS inline-button degradation (`src/ui/renderers/appkit_renderer.cr:3819-3826`); Android renderer is a STUB (`src/ui/renderers/android_renderer.cr:3148-3152` — defers proper integration to Phase 10B.1c) # caveats: trailing-edge only on iOS/macOS/Android; leading-edge honored only on web (`src/ui/renderers/web_renderer.cr:2909-2911`); destructive role honored on iOS + web; AppKit drops it. Capability block trimmed in 10-pre.1 — see intent-routing-candidates.md.
 - **description:** Reveal trailing or leading actions on a list row via swipe gesture. HIG requires an alternate non-gesture path (button, custom action, keyboard shortcut) per `gestures.md:23,31` and `accessibility.md:134`. Materially different per platform: iOS swipe-reveal vs macOS inline trailing buttons (AppKit `def visit(view : UI::SwipeActionRow)` at `src/ui/renderers/appkit_renderer.cr:3806` renders content + trailing-action NSButtons inline).
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/swipe-action.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:180-205
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/01_drag_handle_visible.png
+- **override_path_status:** public-knobs (label, icon, role, on_tap, on_tap_route on `UI::SwipeAction`; per-action tint + alternative label styles tracked in B-LIST-SWIPE-TINT / B-LIST-SWIPE-LABEL-STYLE)
 
 ---
 
@@ -483,6 +488,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `list = UI::ListView.flat(items: rows)` OR `UI::ListView.new(sections: [UI::ListView::Section.new(items: rows)])`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Vertically-scrolling collection of rows with native row management (separators, selection, swipe actions, reorder support).
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/list-view.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:127-209
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/01_drag_handle_visible.png
+- **override_path_status:** public-knobs (`content_inset_horizontal`, `row_removal_duration_seconds`, `shows_drag_handle` ship as Phase 10D-polish A2/A3/A4 defaults; per-action tint + macOS chrome parity tracked in B-LIST-SWIPE-TINT / B-LIST-MACOS-CHROME)
 
 ### `:list_row_separator`
 
@@ -653,6 +663,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `sheet = UI::Sheet.new(content); presenter = UI::SheetPresenter.new(sheet); presenter.present`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Present content as a modal sheet anchored to bottom (iOS) or floating (macOS).
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/sheet.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:277-294
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/05_sheet_editor_new.png
+- **override_path_status:** public-knobs (`detents`, `shows_drag_indicator`, `on_dismiss`, `surface_style`, `material_semantic`, reactive `is_presented=`; custom detent height + interactive-dismiss-disabled tracked in B-SHEET-CUSTOM-DETENT-HEIGHT / B-SHEET-INTERACTIVE-DISMISS-DISABLED)
 
 ### `:full_screen_cover`
 
@@ -687,6 +702,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `popover = UI::Popover.new(content, :bottom); presenter = UI::PopoverPresenter.new(popover, anchor_view); presenter.present`
 - **platforms:** ipados, macos, web_wide; iOS+web_narrow fall back to sheet
 - **description:** Transient floating panel anchored to a source view. iPad/macOS only — on iPhone falls back to sheet.
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/popover.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:296-340
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/07_popover_overflow.png
+- **override_path_status:** public-knobs (arrow_edge, preferred_width/height, on_dismiss, material_semantic; anchor-to-source-view + force-popover-on-iPhone + reactive `is_presented=` tracked in B-POPOVER-ANCHOR-VIEW / B-POPOVER-COMPACT-ADAPTATION / B-POPOVER-REACTIVE-PRESENTED)
 
 ### `:inspector`
 
@@ -721,6 +741,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `alert = UI::Alert.new("Delete?", "This cannot be undone."); alert.add_button("Delete", :destructive) { state.delete }; alert.add_button("Cancel"); alert.is_presented = true`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Critical attention modal requiring user decision. Sparing use per HIG.
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/alert.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:225-247
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/03_alert_delete_confirm.png
+- **override_path_status:** facade-extension-required (alert chrome is system-resolved per HIG; custom branding requires `UI::Sheet(surface_style: :grouped_card)` workaround OR a future `UI::CustomAlert` class — B-ALERT-CUSTOM-CHROME)
 
 ### `:confirmation_dialog`
 
@@ -738,6 +763,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `dialog = UI::ConfirmationDialog.new("Delete?", "This cannot be undone."); dialog.confirm_style = :destructive; dialog.on_confirm = -> { state.delete }; dialog.is_presented = true`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Sheet-style confirmation for destructive or significant actions. Distinct from alert: confirmation dialogs let the user choose among multiple paths; alerts inform.
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/action-sheet.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:249-275
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/04_actionsheet_share.png
+- **override_path_status:** no-override-yet-tracked-in-backlog (multi-action support beyond binary tracked in B-ACTIONSHEET-MULTI-ACTION; `UI::ActionSheet` is Tier 3 iOS-gated, cross-platform uses `UI::ActionSheetWithWebFallback`)
 
 ### `:presentation_detents`
 
@@ -1129,6 +1159,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `# Not yet implemented — UI::DatePicker (src/ui/views/date_picker.cr:4-22) has no date_picker_style property; only `mode` (a DatePickerMode enum) ships today. Tracked in phase-10-pre-2-close.md "new gaps surfaced".`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Compact field showing the value; tap/click to open calendar popover.
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/date-picker.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:391-422
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/06_datepicker_deadline.png
+- **override_path_status:** no-override-yet-tracked-in-backlog (mode + bounds + on_change are public knobs; style property tracked in B-DATEPICKER-STYLE-PROPERTY; year-display offset tracked in B-DATEPICKER-EPOCH-CONVERSION)
 
 ### `:graphical_date_picker_style`
 
