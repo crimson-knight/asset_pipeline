@@ -84,6 +84,16 @@ module Voyager
       print_btn.test_id = "voyager-todos-print"
       print_btn.on_tap = -> { Voyager.dispatch(:print_list) }
 
+      # Phase 10D-polish B5 — overflow "•••" button. Tapping toggles
+      # `state.show_overflow_menu`; the screen renders a `UI::Popover`
+      # anchored under the button with the options Sort by deadline /
+      # Hide completed / Clear all completed.
+      overflow_btn = UI::Button.new("•••")
+      overflow_btn.role = :secondary
+      overflow_btn.accessibility_label = "More actions"
+      overflow_btn.test_id = "voyager-todos-overflow"
+      overflow_btn.on_tap = -> { Voyager.dispatch(:show_overflow) }
+
       settings_btn = UI::Button.new("Settings")
       settings_btn.role = :secondary
       settings_btn.accessibility_label = "Settings"
@@ -93,6 +103,7 @@ module Voyager
       header << title.as(UI::View)
       header << spacer.as(UI::View)
       header << print_btn.as(UI::View)
+      header << overflow_btn.as(UI::View)
       header << settings_btn.as(UI::View)
 
       chart_row = UI::HStack.new(spacing: 16.0)
@@ -178,6 +189,9 @@ module Voyager
       # Per-row trailing swipe — Mail-app order: [delete, mark_done,
       # share, edit] so SwiftUI fires Delete on full-swipe AND renders
       # it as the rightmost (outermost) tile when fully revealed.
+      # Phase 10D-polish — Delete and Share now route through the
+      # request_* paths so the screen renders an Alert (B1) /
+      # ActionSheet (B2) instead of mutating immediately.
       list.trailing_swipe_actions = ->(idx : Int32) : Array(UI::SwipeAction) {
         if idx < 0 || idx >= visible_ids.size
           [] of UI::SwipeAction
@@ -186,7 +200,7 @@ module Voyager
           [
             UI::SwipeAction.new(
               "Delete",
-              on_tap: -> { Voyager.dispatch(:delete_row, {"todo_id" => todo_id}); nil },
+              on_tap: -> { Voyager.dispatch(:request_delete, {"todo_id" => todo_id}); nil },
               role: :destructive,
               icon: "trash",
             ),
@@ -197,7 +211,7 @@ module Voyager
             ),
             UI::SwipeAction.new(
               "Share",
-              on_tap: -> { Voyager.dispatch(:share_row, {"todo_id" => todo_id}); nil },
+              on_tap: -> { Voyager.dispatch(:request_share, {"todo_id" => todo_id}); nil },
               icon: "square.and.arrow.up",
             ),
             UI::SwipeAction.new(
@@ -224,7 +238,278 @@ module Voyager
       root << list.as(UI::View)
       root << add_btn.as(UI::View)
 
+      # Phase 10D-polish B1 — Alert (delete confirmation). Render when
+      # `pending_delete_todo_id` is set. The Cancel button clears the
+      # pending flag; Delete dispatches :confirm_delete which performs
+      # the mutation AND clears the flag. UI::Alert's `is_presented`
+      # drives SwiftUI's `.alert(_:isPresented:)` reactive path.
+      if delete_id = state.pending_delete_todo_id
+        target = state.find_todo(delete_id)
+        title_text = if target
+                       "Delete \"#{target.title}\"?"
+                     else
+                       "Delete this todo?"
+                     end
+        alert = UI::Alert.new(title_text, "This can't be undone.")
+        alert.add_button("Cancel", :cancel) {
+          Voyager.dispatch(:cancel_pending)
+          nil
+        }
+        alert.add_button("Delete", :destructive) {
+          Voyager.dispatch(:confirm_delete)
+          nil
+        }
+        alert.is_presented = true
+        alert.test_id = "voyager-todos-delete-alert"
+        alert.accessibility_label = "Confirm delete"
+        root << alert.as(UI::View)
+      end
+
+      # Phase 10D-polish B2 — ActionSheet (share menu). Render when
+      # `pending_share_todo_id` is set. Options: Copy / Print / Cancel.
+      # UI::ActionSheet is iOS-gated (Tier 3) — we use the with-fallback
+      # wrapper so non-iOS builds still compile.
+      if share_id = state.pending_share_todo_id
+        target = state.find_todo(share_id)
+        sheet_title = target ? "Share \"#{target.title}\"" : "Share todo"
+        share_sheet = UI::ActionSheetWithWebFallback.new(sheet_title, "Choose how to share this todo.")
+        share_sheet.add_action("Copy to Clipboard") {
+          Voyager.dispatch(:copy_pending_share)
+          nil
+        }
+        share_sheet.add_action("Print This Todo") {
+          Voyager.dispatch(:print_pending_share)
+          nil
+        }
+        share_sheet.add_action("Cancel", :cancel) {
+          Voyager.dispatch(:cancel_pending)
+          nil
+        }
+        share_sheet.is_presented = true
+        share_sheet.test_id = "voyager-todos-share-sheet"
+        share_sheet.accessibility_label = "Share options"
+        root << share_sheet.as(UI::View)
+      end
+
+      # Phase 10D-polish B3 — Sheet (editor as modal). Render when
+      # `pending_editor_todo_id` is set (0 = new draft; >0 = edit
+      # existing). The content view is the existing editor form,
+      # extracted into `build_editor_content` so this screen owns the
+      # form layout used inside the Sheet.
+      if editor_id = state.pending_editor_todo_id
+        editor_view = build_editor_content(state, editor_id)
+        editor_sheet = UI::Sheet.new(editor_view, surface_style: :grouped_card)
+        editor_sheet.detents = [:medium, :large]
+        editor_sheet.shows_drag_indicator = true
+        editor_sheet.on_dismiss = -> { Voyager.dispatch(:close_editor_sheet); nil }
+        editor_sheet.is_presented = true
+        editor_sheet.test_id = "voyager-todos-editor-sheet"
+        editor_sheet.accessibility_label = "Edit todo"
+        root << editor_sheet.as(UI::View)
+      end
+
+      # Phase 10D-polish B5 — Popover (overflow menu). Anchored under
+      # the "•••" toolbar button. Options: Sort by deadline / Hide
+      # completed / Clear all completed. The Popover content is a
+      # VStack of borderless Buttons.
+      if state.show_overflow_menu
+        menu_content = UI::VStack.new(spacing: 4.0)
+        menu_content.alignment = UI::Alignment::Leading
+        menu_content.padding = UI::EdgeInsets.new(top: 8.0, trailing: 12.0, bottom: 8.0, leading: 12.0)
+        menu_content.minimum_width = 220.0
+
+        sort_btn = UI::Button.new("Sort by deadline")
+        sort_btn.role = :secondary
+        sort_btn.accessibility_label = "Sort by deadline"
+        sort_btn.test_id = "voyager-overflow-sort"
+        sort_btn.on_tap = -> { Voyager.dispatch(:sort_by_deadline) }
+
+        hide_label = state.hide_completed ? "Show completed" : "Hide completed"
+        hide_btn = UI::Button.new(hide_label)
+        hide_btn.role = :secondary
+        hide_btn.accessibility_label = hide_label
+        hide_btn.test_id = "voyager-overflow-hide-completed"
+        hide_btn.on_tap = -> { Voyager.dispatch(:toggle_hide_completed) }
+
+        clear_btn = UI::Button.new("Clear all completed")
+        clear_btn.role = :destructive
+        clear_btn.accessibility_label = "Clear all completed todos"
+        clear_btn.test_id = "voyager-overflow-clear-completed"
+        clear_btn.on_tap = -> { Voyager.dispatch(:clear_all_completed) }
+
+        menu_content << sort_btn.as(UI::View)
+        menu_content << hide_btn.as(UI::View)
+        menu_content << clear_btn.as(UI::View)
+
+        overflow_popover = UI::Popover.new(menu_content.as(UI::View), :bottom)
+        overflow_popover.preferred_width = 240.0
+        overflow_popover.on_dismiss = -> { Voyager.dispatch(:hide_overflow); nil }
+        overflow_popover.is_presented = true
+        overflow_popover.test_id = "voyager-todos-overflow-popover"
+        overflow_popover.accessibility_label = "More actions menu"
+        root << overflow_popover.as(UI::View)
+      end
+
       root.as(UI::View)
+    end
+
+    # Phase 10D-polish B3 + B4 — sheet-mode editor content builder.
+    #
+    # Renders the title field, deadline DatePicker, completed toggle,
+    # and the Cancel + Save action row. The form-state seed mirrors the
+    # legacy slug-pushed editor screen (TodoEditorScreen) so save logic
+    # in TodoEditorController#save reads ctx.form_state["title"] etc.
+    # When `editor_id` is 0 we render the "New todo" header; >0 selects
+    # the matching todo for editing.
+    private def build_editor_content(state : State, editor_id : Int32) : UI::View
+      metrics = UI::DesignTokens::DeviceMetrics.current
+      content_width = metrics.compact_horizontal? ? 320.0 : 460.0
+
+      editing = editor_id > 0 ? state.find_todo(editor_id) : nil
+
+      seed_title = editing ? editing.title : ""
+      seed_completed = editing ? editing.completed : false
+      seed_note = editing ? editing.note : ""
+      seed_deadline = editing ? editing.deadline : ""
+
+      # Seed FormState so TodoEditorController#save can read the values
+      # on dispatch. Same shape as TodoEditorScreen.
+      d = Voyager.dispatcher
+      unless d.nil?
+        fs = d.current_form_state
+        fs.register("title", seed_title)
+        fs.register("note", seed_note)
+        fs.register("completed", seed_completed ? "true" : "false")
+        fs.register("deadline", seed_deadline)
+        # Mark the in-sheet edit so TodoEditorController#save knows
+        # which todo it's mutating (the sheet has no route params).
+        fs.register("todo_id", editor_id.to_s)
+      end
+
+      body = UI::VStack.new(spacing: 14.0)
+      body.alignment = UI::Alignment::Leading
+      body.padding = UI::EdgeInsets.new(top: 20.0, trailing: 20.0, bottom: 20.0, leading: 20.0)
+      body.minimum_width = content_width
+      body.test_id = "voyager-todos-editor-sheet-body"
+
+      header_label = UI::Label.new(editing ? "Edit todo" : "New todo")
+      header_label.font = UI::Font.new(size: 20.0, weight: :bold)
+      header_label.text_color_role = if editing && seed_completed
+                                       UI::LabelRole::Secondary
+                                     else
+                                       UI::LabelRole::Primary
+                                     end
+      header_label.strikethrough = editing && seed_completed
+      body << header_label.as(UI::View)
+
+      title_field = UI::TextField.new(placeholder: "Title", name: "title")
+      title_field.text = seed_title
+      title_field.accessibility_label = "Todo title"
+      title_field.test_id = "voyager-editor-sheet-title"
+      title_field.minimum_width = content_width
+      title_field.maximum_width = content_width
+      body << title_field.as(UI::View)
+
+      note_field = UI::TextField.new(placeholder: "Note (optional)", name: "note")
+      note_field.text = seed_note
+      note_field.accessibility_label = "Todo note"
+      note_field.test_id = "voyager-editor-sheet-note"
+      note_field.minimum_width = content_width
+      note_field.maximum_width = content_width
+      body << note_field.as(UI::View)
+
+      # Phase 10D-polish B4 — native DatePicker. Replaces the YYYY-MM-DD
+      # TextField. We initialize from the seeded ISO deadline if it
+      # parses; otherwise today. on_change writes the date back into
+      # FormState under "deadline" as ISO-8601 so the controller's save
+      # reads the same key it always has.
+      deadline_label = UI::Label.new("Deadline")
+      deadline_label.font = UI::Font.new(size: 13.0, weight: :regular)
+      deadline_label.text_color_role = UI::LabelRole::Tertiary
+      body << deadline_label.as(UI::View)
+
+      picker = UI::DatePicker.new(UI::DatePickerMode::Date)
+      picker.label = "Deadline"
+      picker.accessibility_label = "Todo deadline"
+      picker.test_id = "voyager-editor-sheet-deadline"
+      # Seed selected_date from ISO string if parseable.
+      if !seed_deadline.empty?
+        begin
+          picker.selected_date = Time.parse(seed_deadline, "%Y-%m-%d", Time::Location.local)
+        rescue Time::Format::Error
+          picker.selected_date = Time.local
+        end
+      else
+        picker.selected_date = Time.local
+      end
+      picker.on_change = ->(t : Time) {
+        d2 = Voyager.dispatcher
+        unless d2.nil?
+          d2.current_form_state.update("deadline", t.to_s("%Y-%m-%d"))
+        end
+        nil
+      }
+      body << picker.as(UI::View)
+
+      # Allow clearing the deadline by tapping "No deadline" — Crystal
+      # DatePicker has no nilable value today, so we expose a button.
+      clear_deadline_btn = UI::Button.new("No deadline")
+      clear_deadline_btn.role = :secondary
+      clear_deadline_btn.accessibility_label = "Clear deadline"
+      clear_deadline_btn.test_id = "voyager-editor-sheet-clear-deadline"
+      clear_deadline_btn.on_tap = -> {
+        d2 = Voyager.dispatcher
+        unless d2.nil?
+          d2.current_form_state.update("deadline", "")
+        end
+        nil
+      }
+      body << clear_deadline_btn.as(UI::View)
+
+      completed_toggle = UI::Toggle.new(label: "Completed", is_on: seed_completed)
+      completed_toggle.accessibility_label = "Mark as completed"
+      completed_toggle.test_id = "voyager-editor-sheet-completed"
+      completed_toggle.minimum_width = content_width
+      completed_toggle.maximum_width = content_width
+      completed_toggle.on_change = ->(value : Bool) {
+        d2 = Voyager.dispatcher
+        unless d2.nil?
+          d2.current_form_state.update("completed", value ? "true" : "false")
+        end
+      }
+      body << completed_toggle.as(UI::View)
+
+      actions = UI::HStack.new(spacing: 12.0)
+      actions.alignment = UI::Alignment::Center
+      actions.minimum_width = content_width
+      actions.maximum_width = content_width
+
+      half_button_width = (content_width - 12.0) / 2.0
+
+      cancel_btn = UI::Button.new("Cancel")
+      cancel_btn.role = :secondary
+      cancel_btn.accessibility_label = "Cancel and discard changes"
+      cancel_btn.test_id = "voyager-editor-sheet-cancel"
+      cancel_btn.minimum_width = half_button_width
+      cancel_btn.maximum_width = half_button_width
+      cancel_btn.on_tap = -> { Voyager.dispatch(:close_editor_sheet) }
+
+      save_btn = UI::Button.new("Save", style: UI::ButtonStyle::Prominent)
+      save_btn.accessibility_label = "Save todo"
+      save_btn.test_id = "voyager-editor-sheet-save"
+      save_btn.minimum_width = half_button_width
+      save_btn.maximum_width = half_button_width
+      save_btn.disabled = seed_title.strip.empty?
+      save_btn.on_tap = -> { Voyager.dispatch(:save_sheet) }
+      title_field.on_change = ->(value : String) {
+        save_btn.disabled = value.strip.empty?
+      }
+
+      actions << cancel_btn.as(UI::View)
+      actions << save_btn.as(UI::View)
+      body << actions.as(UI::View)
+
+      body.as(UI::View)
     end
 
     # Phase 10D-refocus — first-launch notification permission.

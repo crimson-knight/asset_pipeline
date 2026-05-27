@@ -39,6 +39,7 @@ module Voyager
         # Phase 10D-polish B3 — Sheet (editor as modal).
       when :open_editor_sheet      then open_editor_sheet(context)
       when :close_editor_sheet     then close_editor_sheet(context)
+      when :save_sheet             then save_sheet(context)
         # Phase 10D-polish B5 — Popover (overflow menu).
       when :show_overflow          then show_overflow(context)
       when :hide_overflow          then hide_overflow(context)
@@ -216,6 +217,39 @@ module Voyager
     end
 
     def close_editor_sheet(context : UI::ScreenContext::Native) : UI::ActionResult
+      Voyager.state.pending_editor_todo_id = nil
+      UI::ActionResult::Rerender.new
+    end
+
+    # Phase 10D-polish B3 — Save action for the in-sheet editor. Reads
+    # FormState[title|note|deadline|completed] (seeded by the sheet's
+    # build_editor_content) and mutates the matching todo (or creates a
+    # new one when pending_editor_todo_id == 0). Closes the sheet on
+    # success.
+    def save_sheet(context : UI::ScreenContext::Native) : UI::ActionResult
+      fs = context.form_state
+      title = fs["title"]? || ""
+      note = fs["note"]? || ""
+      deadline = fs["deadline"]? || ""
+      completed = (fs["completed"]? || "false") == "true"
+
+      if title.strip.empty?
+        # No-op — the disabled save button should normally prevent this,
+        # but a defensive guard keeps the sheet open without mutating.
+        return UI::ActionResult::Rerender.new
+      end
+
+      editor_id = Voyager.state.pending_editor_todo_id || 0
+      if editor_id == 0
+        Voyager.state.add_todo(title, note, completed, deadline)
+      else
+        if todo = Voyager.state.find_todo(editor_id)
+          todo.title = title
+          todo.note = note
+          todo.completed = completed
+          todo.deadline = deadline
+        end
+      end
       Voyager.state.pending_editor_todo_id = nil
       UI::ActionResult::Rerender.new
     end
