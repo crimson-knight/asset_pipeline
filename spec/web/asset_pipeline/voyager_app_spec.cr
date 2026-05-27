@@ -12,11 +12,22 @@ require "../../../samples/initiative-cross-platform-ui-voyager/app"
 #     a non-nil view per route.
 
 describe VoyagerApp do
-  it "registers all 4 voyager routes with bootstrap!" do
+  it "registers all voyager routes with bootstrap! (Phase 10D added the 6 exerciser routes)" do
     VoyagerApp.bootstrap!
 
     routes = VoyagerApp.screens.keys.sort_by(&.to_s)
-    routes.should eq([:sign_in, :settings, :todo_editor, :todos].sort_by(&.to_s))
+    routes.should eq([
+      :sign_in,
+      :settings,
+      :todo_editor,
+      :todos,
+      :phase_10_hub,
+      :phase_10_intent_resolver,
+      :phase_10_class_c_dispatch,
+      :phase_10_ax_metadata,
+      :phase_10_environment,
+      :phase_10_new_widgets,
+    ].sort_by(&.to_s))
   end
 
   it "uses :sign_in as the initial route" do

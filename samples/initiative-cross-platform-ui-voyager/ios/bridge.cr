@@ -117,6 +117,21 @@
       UI::Probes::FormRowProbe.reset
       UI::Probes::RuntimeOverrideProbe.reset
 
+      # Phase 10D — iOS class-init gap recovery for the Phase 10 intent
+      # substrates. The module-body bootstrap calls in
+      # `src/ui/intent_bootstrap.cr` + `src/ui/intent/class_c_bootstrap.cr`
+      # only fire when `_main` runs, and iOS hides `_main` for Swift
+      # `@main`. Without these explicit re-installs, the Phase 10
+      # exerciser screens (and every Tier 2 intent resolution call)
+      # crash with EXC_BAD_ACCESS in `Hash#find_entry` because
+      # `UI::Intent::Registry::@@defaults` was never written. Both
+      # bootstrap modules now ship an explicit `install` class method
+      # that re-runs the registrations; this is the same pattern the
+      # rest of `initialize_runtime` uses (probe.reset, etc.). Calls
+      # are idempotent — last-wins on every registry table.
+      UI::Intent::Bootstrap.install
+      UI::Intent::ClassCBootstrap.install
+
       # Allocate the slug buffer here (NOT as a class-var default) so the
       # iOS class-init gap can't strand it as nil. 64 bytes accommodates
       # the longest known Voyager slug (~"voyager-todo-editor" = 19) with
@@ -323,6 +338,12 @@
         design_tokens: dispatcher.design_tokens,
         navigation: dispatcher.navigation,
         action_params: {} of String => String,
+        # Phase 10D — thread dispatcher.platform so screens calling
+        # `UI::Intent.resolve(intent_id, ctx)` get the iOS-keyed widget.
+        # Without this, the resolver would see the default `:macos` and
+        # pick `UI::InlineActionRow` on a `-Dios` build.
+        platform: dispatcher.platform,
+        environment: dispatcher.environment,
       )
       view = screen_class.new.build(ctx)
       view.accessibility_label = "voyager-root-#{current_slug}" if view.accessibility_label.to_s.empty?

@@ -116,6 +116,12 @@ require "../../../src/ui/renderers/appkit_renderer"
         design_tokens: dispatcher.design_tokens,
         navigation: dispatcher.navigation,
         action_params: {} of String => String,
+        # Phase 10D — thread dispatcher.platform so screens calling
+        # `UI::Intent.resolve(intent_id, ctx)` get the platform-correct
+        # widget. macOS resolves `:swipe_actions` to
+        # `UI::InlineActionRow`.
+        platform: dispatcher.platform,
+        environment: dispatcher.environment,
       )
       view = screen_class.new.build(ctx)
       install_view(view)

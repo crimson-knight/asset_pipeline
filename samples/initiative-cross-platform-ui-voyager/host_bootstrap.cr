@@ -32,7 +32,14 @@ module Voyager
     # `dispatcher.mount_screen` for the initial route, assigns
     # `Voyager.state` and `Voyager.dispatcher`. Returns the constructed
     # collaborators for host-level pinning.
-    def self.build(initial_route_id : Symbol = :sign_in) : Result
+    #
+    # Phase 10D — `platform` arg is now wired through to the dispatcher
+    # so `UI::Intent.resolve` returns the correct widget for the running
+    # target. iOS / macOS bridge files set this explicitly; defaults to
+    # the Crystal compile-time flag (`:ios` under `-Dios`, `:macos`
+    # under `-Dmacos`, `:web_wide` otherwise).
+    def self.build(initial_route_id : Symbol = :sign_in,
+                   platform : Symbol = default_platform) : Result
       VoyagerApp.bootstrap!
 
       state = Voyager::State.new
@@ -49,6 +56,7 @@ module Voyager
         session: session,
         flash: flash,
         design_tokens: UI::DesignTokens::Tokens.default,
+        platform: platform,
       )
       dispatcher.mount_screen(coord.current)
       Voyager.dispatcher = dispatcher
@@ -60,6 +68,24 @@ module Voyager
         flash: flash,
         dispatcher: dispatcher,
       )
+    end
+
+    # Compile-time-derived default platform. Mirrors the same
+    # platform-symbol lookup `UI::Environment.platform` does so the
+    # dispatcher's intent resolver picks the right widget on every
+    # build target.
+    def self.default_platform : Symbol
+      {% if flag?(:macos) %}
+        :macos
+      {% elsif flag?(:ipados) %}
+        :ipados
+      {% elsif flag?(:ios) %}
+        :ios
+      {% elsif flag?(:android) %}
+        :android
+      {% else %}
+        :web_wide
+      {% end %}
     end
   end
 end

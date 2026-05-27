@@ -30,58 +30,60 @@ require "./intent"
 module UI
   module Intent
     module Bootstrap
-      # ----- Intent required capability declarations -----
-      #
-      # The `:swipe_actions` requirement set per the platform-honesty
-      # audit in
-      # `docs/initiative-cross-platform-ui/architecture/swipe-actions-capability-audit.md`
-      # (Phase 10B.1b). The previous declaration coded
-      # `supports_role_destructive => :partial`, which collapsed the
-      # AppKit "no destructive tint" gap and the Android stub into a
-      # single fuzzy symbol. 10B.1b replaces that with a platform-keyed
-      # `Hash(Symbol, Bool)` so the registry can detect honesty
-      # mismatches per platform at registration time and at resolve
-      # time (when `capabilities_required:` is passed).
-      UI::Intent::Registry.declare_intent_capabilities(:swipe_actions, {
-        :supports_edge_trailing => true,
-        :supports_role_default  => true,
-        # Destructive tint demanded on iOS / iPadOS / web; not demanded
-        # on macOS until the AppKit button-role facade lands and not on
-        # Android until 10B.1c installs `UI::AndroidSwipeActionRow`.
-        :supports_role_destructive => {
-          :ios        => true,
-          :ipados     => true,
-          :macos      => false,
-          :web_wide   => true,
-          :web_narrow => true,
-          :android    => false,
-        } of Symbol => Bool,
-      } of Symbol => UI::Intent::Registry::CapabilityValue)
+      # Phase 10D — re-callable bootstrap. The original module-body
+      # statements only execute at module-load. On iOS, the
+      # `[[crystal-ios-class-init-gap]]` (see
+      # `project_crystal_ios_class_init_gap` memory) hides `_main` so
+      # the module-body never runs and `UI::Intent::Registry`'s class-
+      # var literal defaults stay uninitialised. The iOS bridge
+      # (`samples/.../ios/bridge.cr#initialize_runtime`) calls
+      # `UI::Intent::Bootstrap.install` explicitly to re-run the
+      # registrations after `Thread.init` / `Fiber.init` /
+      # `Crystal::Once.init`. Idempotent — repeat calls overwrite the
+      # same entries.
+      def self.install : Nil
+        # Phase 10D — iOS class-init gap recovery: also re-run the
+        # per-widget `declares_capabilities` writes the
+        # `declares_capabilities` macro emits as class-load side
+        # effects. The macro compiles to a named class method per
+        # `(widget, intent)` pair so the registration is reachable
+        # post-load. The names follow the macro template
+        # `_declare_capabilities_for_intent_<intent_id>`.
+        UI::SwipeActionRow._declare_capabilities_for_intent_swipe_actions
+        UI::InlineActionRow._declare_capabilities_for_intent_swipe_actions
+        UI::AndroidSwipeActionRow._declare_capabilities_for_intent_swipe_actions
 
-      # ----- Platform default widgets -----
+        # ----- Intent required capability declarations -----
+        UI::Intent::Registry.declare_intent_capabilities(:swipe_actions, {
+          :supports_edge_trailing => true,
+          :supports_role_default  => true,
+          :supports_role_destructive => {
+            :ios        => true,
+            :ipados     => true,
+            :macos      => false,
+            :web_wide   => true,
+            :web_narrow => true,
+            :android    => false,
+          } of Symbol => Bool,
+        } of Symbol => UI::Intent::Registry::CapabilityValue)
+
+        # ----- Platform default widgets -----
+        UI::Intent::Registry.register_default(:swipe_actions, :ios, UI::SwipeActionRow)
+        UI::Intent::Registry.register_default(:swipe_actions, :ipados, UI::SwipeActionRow)
+        UI::Intent::Registry.register_default(:swipe_actions, :web_narrow, UI::SwipeActionRow)
+        UI::Intent::Registry.register_default(:swipe_actions, :macos, UI::InlineActionRow)
+        UI::Intent::Registry.register_default(:swipe_actions, :web_wide, UI::InlineActionRow)
+        UI::Intent::Registry.register_default(:swipe_actions, :android, UI::AndroidSwipeActionRow)
+        nil
+      end
+
+      # ----- Module-load side effect.
       #
-      # `:swipe_actions` defaults — only the platforms whose
-      # implementations actually work today (per
-      # `intent-routing-candidates.md` defaults block + the audit in
-      # `intent-backlog.md`). Other platforms intentionally lack a
-      # default so `UnresolvableDefault` fires.
-      UI::Intent::Registry.register_default(:swipe_actions, :ios, UI::SwipeActionRow)
-      UI::Intent::Registry.register_default(:swipe_actions, :ipados, UI::SwipeActionRow)
-      UI::Intent::Registry.register_default(:swipe_actions, :web_narrow, UI::SwipeActionRow)
-      # Phase 10B.1a — macOS + web_wide back the `:swipe_actions` intent
-      # with `UI::InlineActionRow` (HIG: no swipe-to-reveal on the Mac;
-      # desktop-web mirrors the convention with visible inline buttons).
-      UI::Intent::Registry.register_default(:swipe_actions, :macos, UI::InlineActionRow)
-      UI::Intent::Registry.register_default(:swipe_actions, :web_wide, UI::InlineActionRow)
-      # Phase 10B.1c — Android backs `:swipe_actions` with
-      # `UI::AndroidSwipeActionRow`. The aspirational mapping is
-      # `androidx.compose.material3.SwipeToDismissBox` but the current
-      # JNI bridge is View-system only; the renderer falls back to a
-      # horizontal LinearLayout. The capability declaration on the
-      # widget reflects the fallback (`supports_role_destructive:
-      # :partial`) so registration-time validation stays honest.
-      # See `docs/initiative-cross-platform-ui/handoff/phase-10-b-1c-close.md`.
-      UI::Intent::Registry.register_default(:swipe_actions, :android, UI::AndroidSwipeActionRow)
+      # This invokes `install` so the framework's defaults are present
+      # in every Crystal target whose `_main` runs (web, macOS,
+      # Android host). The iOS bridge calls `install` explicitly after
+      # the runtime bootstrap.
+      install
     end
   end
 end

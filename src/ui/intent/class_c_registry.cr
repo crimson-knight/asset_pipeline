@@ -39,24 +39,29 @@ module UI
     module ClassCRegistry
       # Registered bindings keyed by `intent_id`. Populated by
       # `register(binding)`.
-      @@table = {} of Symbol => PlatformFeatureBinding
+      #
+      # Phase 10D — iOS class-init gap (see
+      # `project_crystal_ios_class_init_gap` memory): the literal
+      # initializer is skipped when `_main` is hidden for Swift @main,
+      # so the table stays as a nil pointer. The `_table` helper
+      # lazy-allocates on first read.
+      @@table : Hash(Symbol, PlatformFeatureBinding)? = nil
+
+      protected def self._table : Hash(Symbol, PlatformFeatureBinding)
+        @@table ||= {} of Symbol => PlatformFeatureBinding
+      end
 
       # ------------------------------------------------------------------
       # Mutation.
       # ------------------------------------------------------------------
 
-      # Register `binding` under its `intent_id`. Idempotent —
-      # re-registering replaces the prior entry without warning
-      # (matches `UI::Intent::Registry.register_default` semantics).
       def self.register(binding : PlatformFeatureBinding) : Nil
-        @@table[binding.intent_id] = binding
+        _table[binding.intent_id] = binding
         nil
       end
 
-      # SPEC-ONLY — clear every binding. Production code does not call
-      # this; the bootstrap installs framework bindings once at load.
       def self.reset_for_spec : Nil
-        @@table.clear
+        _table.clear
         nil
       end
 
@@ -64,34 +69,22 @@ module UI
       # Lookup.
       # ------------------------------------------------------------------
 
-      # Returns the binding registered for `intent_id`, or nil.
       def self.binding_for(intent_id : Symbol) : PlatformFeatureBinding?
-        @@table[intent_id]?
+        _table[intent_id]?
       end
 
-      # Returns `true` when a binding exists for `intent_id` AND the
-      # binding covers `platform` AND the binding's capability check
-      # returns true for `platform`.
-      #
-      # Used by `UI::Environment.feature_supported?` AND the dispatch
-      # path before invoking the platform lambda. Cheaper than
-      # constructing a `DispatchResult.unsupported` and walking three
-      # branches at every call-site.
       def self.supports?(intent_id : Symbol, platform : Symbol) : Bool
-        binding = @@table[intent_id]?
+        binding = _table[intent_id]?
         return false unless binding
         binding.supports?(platform)
       end
 
-      # Returns the count of registered Class C intents. Spec hook.
       def self.registered_count : Int32
-        @@table.size
+        _table.size
       end
 
-      # Returns the sorted list of registered Class C intent ids.
-      # Used by introspection / docs generation.
       def self.registered_intents : Array(Symbol)
-        @@table.keys.sort_by(&.to_s)
+        _table.keys.sort_by(&.to_s)
       end
     end
   end
