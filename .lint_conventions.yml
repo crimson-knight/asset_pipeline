@@ -106,5 +106,11 @@ view_spec_pair:
   # Family 2 spec-side allowlist: spec files that intentionally do not
   # map to a single `src/ui/views/<basename>.cr` (e.g. tier-3 compile-
   # error fixtures, cross-class integration specs). The rule
-  # `family_2/spec_has_view` skips these files. Empty today.
-  orphan_spec_allowlist: []
+  # `family_2/spec_has_view` skips these files.
+  orphan_spec_allowlist:
+    # Phase 10D-refocus — cross-view smoke spec exercising
+    # full_screen_cover.cr + inspector.cr body-rendering together;
+    # there is no single `full_screen_cover_inspector_body_smoke.cr`
+    # source file (and shouldn't be — this is a deliberate cross-view
+    # regression net, not a view of its own).
+    - "spec/web/ui/views/full_screen_cover_inspector_body_smoke_spec.cr"
