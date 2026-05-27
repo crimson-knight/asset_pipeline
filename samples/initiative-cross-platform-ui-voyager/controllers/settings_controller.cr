@@ -14,8 +14,9 @@ module Voyager
   class SettingsController < UI::Controller
     def dispatch_action(name : Symbol, context : UI::ScreenContext::Native) : UI::ActionResult
       case name
-      when :toggle_filter then toggle_filter(context)
-      when :back          then back(context)
+      when :toggle_filter      then toggle_filter(context)
+      when :back               then back(context)
+      when :open_phase_10_hub  then open_phase_10_hub(context)
       else
         raise UI::Controller::UnknownActionError.new(
           "SettingsController has no action :#{name}"
@@ -30,6 +31,11 @@ module Voyager
 
     def back(context : UI::ScreenContext::Native) : UI::ActionResult
       UI::ActionResult::Pop.new
+    end
+
+    # Phase 10D — open the Phase 10 exerciser hub screen.
+    def open_phase_10_hub(context : UI::ScreenContext::Native) : UI::ActionResult
+      UI::ActionResult::Navigate.new(:phase_10_hub)
     end
   end
 end

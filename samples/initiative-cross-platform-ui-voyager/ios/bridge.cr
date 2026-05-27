@@ -323,6 +323,12 @@
         design_tokens: dispatcher.design_tokens,
         navigation: dispatcher.navigation,
         action_params: {} of String => String,
+        # Phase 10D — thread dispatcher.platform so screens calling
+        # `UI::Intent.resolve(intent_id, ctx)` get the iOS-keyed widget.
+        # Without this, the resolver would see the default `:macos` and
+        # pick `UI::InlineActionRow` on a `-Dios` build.
+        platform: dispatcher.platform,
+        environment: dispatcher.environment,
       )
       view = screen_class.new.build(ctx)
       view.accessibility_label = "voyager-root-#{current_slug}" if view.accessibility_label.to_s.empty?

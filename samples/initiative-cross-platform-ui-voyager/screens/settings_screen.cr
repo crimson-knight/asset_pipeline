@@ -51,9 +51,18 @@ module Voyager
       back.maximum_width = content_width
       back.on_tap = -> { Voyager.dispatch(:back) }
 
+      # Phase 10D — entry point to the Phase 10 exerciser hub.
+      phase_10_btn = UI::Button.new("Phase 10 Exerciser", style: UI::ButtonStyle::Prominent)
+      phase_10_btn.accessibility_label = "Open Phase 10 exerciser hub"
+      phase_10_btn.test_id = "voyager-settings-phase-10"
+      phase_10_btn.minimum_width = content_width
+      phase_10_btn.maximum_width = content_width
+      phase_10_btn.on_tap = -> { Voyager.dispatch(:open_phase_10_hub) }
+
       root << title.as(UI::View)
       root << explainer.as(UI::View)
       root << hide_toggle.as(UI::View)
+      root << phase_10_btn.as(UI::View)
       root << back.as(UI::View)
 
       root.as(UI::View)
