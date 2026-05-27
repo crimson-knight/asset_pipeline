@@ -5,26 +5,25 @@ module Voyager
   # `build(ctx : UI::ScreenContext) : UI::View`. All callbacks route
   # through `Voyager.dispatch(action_ref, action_params)`.
   #
-  # Phase 10D-refocus: this screen is now the integrated Phase 10 demo.
-  # The Phase 10 surface exercised here:
+  # Phase 10D-final: Mail-app row rebuild. The screen is the integrated
+  # Phase 10 demo, with the rename from UI::Intent → UI::WidgetRoute +
+  # UI::SystemAction landed in D1. The Phase 10 surface exercised here:
   #
-  #   * UI::WidgetRoute.resolve(:swipe_actions, ctx) — Phase 10B.0 resolver
-  #     picks the platform-appropriate widget class (SwipeActionRow on
-  #     iOS via SwiftKit, InlineActionRow on macOS, etc.). No screen-
-  #     local `UI::SwipeActionRow.new` call site survives.
-  #   * Leading-swipe Archive tile (Phase 10D-refocus enabled iOS leading
-  #     edge via APSKSwipeActionRowFacade).
-  #   * Trailing-swipe Edit + Delete + Share tiles. Share fires the
-  #     Class C :copy_to_clipboard intent.
-  #   * Toolbar Print button fires the Class C :print intent with a
-  #     formatted list.
-  #   * First-launch :request_permission Class C dispatch (notifications)
-  #     guarded so we don't re-prompt every render.
-  #   * Tap-to-edit on each row (whole-row tap navigates to the editor).
+  #   * UI::ListView with per-row callbacks (Phase 10D-final D3):
+  #     `on_row_tap` (whole-row tap → edit), `on_move` (long-press-drag
+  #     reorder → :move_row), `leading_swipe_actions` (Archive),
+  #     `trailing_swipe_actions` (Delete, Done, Share, Edit — ordered
+  #     so SwiftUI full-swipe fires Delete).
+  #   * UI::SystemAction.perform(:print, ...) — Class C OS dispatch
+  #     fired from the toolbar Print button.
+  #   * UI::SystemAction.perform(:request_permission, ...) — first-
+  #     launch notifications dispatch, guarded so re-renders don't
+  #     re-prompt.
   #
-  # Reorder via long-press-drag is wired via a separate :move_row action
-  # the controller mutates state in. The drag gesture itself is wired
-  # in the facade slice (deferred follow-up — see refocus brief).
+  # Rows are plain VStacks of labels (title + optional humanised
+  # deadline subtitle). No checkbox, no borderless-button wrapping —
+  # the list owns all interactivity. Completion is indicated by
+  # strikethrough + Secondary label role on the title.
   class TodosScreen < UI::Screen
     SLUG = "voyager-todos"
 
@@ -109,22 +108,95 @@ module Voyager
         banner = b.as(UI::View)
       end
 
-      list_stack = UI::VStack.new(spacing: 8.0)
-      list_stack.alignment = UI::Alignment::Leading
-      list_stack.minimum_width = content_width
-      list_stack.maximum_width = content_width
-      list_stack.test_id = "voyager-todos-list"
-
-      # Phase 10D-refocus — Phase 10B.0 resolver. Picks the platform-
-      # appropriate widget for `:swipe_actions`. On iOS this returns
-      # `UI::SwipeActionRow` (SwiftKit-backed); on macOS it returns
-      # `UI::InlineActionRow`; on web it depends on viewport.
-      swipe_row_class = UI::WidgetRoute.resolve(:swipe_actions, context)
-
+      # Phase 10D-final — Mail-app row rebuild. Replaces the per-row
+      # `UI::SwipeActionRow` composition with a single `UI::ListView`
+      # that owns per-row tap + leading swipe + trailing swipe + drag
+      # reorder via the new D3 callback surface. Each row is a plain
+      # VStack of labels (title + optional subtitle) — no checkbox, no
+      # borderless-button wrapping, no inline chrome. The interactivity
+      # lives on the list, not the row.
       visible = state.visible_todos
-      visible.each do |todo|
-        list_stack << build_todo_row(todo, content_width, swipe_row_class).as(UI::View)
-      end
+      visible_ids = visible.map(&.id.to_s)
+
+      list = UI::ListView.new
+      list.minimum_width = content_width
+      list.maximum_width = content_width
+      list.shows_separators = true
+      list.test_id = "voyager-todos-list"
+      list.accessibility_label = "Todo list"
+
+      list.sections = [
+        UI::ListView::Section.new(
+          items: visible.map { |todo| build_todo_row(todo).as(UI::View) },
+        ),
+      ]
+
+      # Whole-row tap → edit. The dispatcher resolves the id from the
+      # row index via the visible_ids snapshot captured in the closure
+      # so a stale post-mutation render cannot mis-route.
+      list.on_row_tap = ->(idx : Int32) {
+        if idx >= 0 && idx < visible_ids.size
+          Voyager.dispatch(:edit_row, {"todo_id" => visible_ids[idx]})
+        end
+        nil
+      }
+
+      # Long-press-drag reorder. Forwards absolute indexes to the
+      # existing :move_row controller action.
+      list.on_move = ->(from : Int32, to : Int32) {
+        Voyager.dispatch(:move_row, {"from" => from.to_s, "to" => to.to_s})
+        nil
+      }
+
+      # Per-row leading swipe — single Archive tile.
+      list.leading_swipe_actions = ->(idx : Int32) : Array(UI::SwipeAction) {
+        if idx < 0 || idx >= visible_ids.size
+          [] of UI::SwipeAction
+        else
+          todo_id = visible_ids[idx]
+          [
+            UI::SwipeAction.new(
+              "Archive",
+              on_tap: -> { Voyager.dispatch(:archive_row, {"todo_id" => todo_id}); nil },
+              icon: "archivebox",
+            ),
+          ]
+        end
+      }
+
+      # Per-row trailing swipe — Mail-app order: [delete, mark_done,
+      # share, edit] so SwiftUI fires Delete on full-swipe AND renders
+      # it as the rightmost (outermost) tile when fully revealed.
+      list.trailing_swipe_actions = ->(idx : Int32) : Array(UI::SwipeAction) {
+        if idx < 0 || idx >= visible_ids.size
+          [] of UI::SwipeAction
+        else
+          todo_id = visible_ids[idx]
+          [
+            UI::SwipeAction.new(
+              "Delete",
+              on_tap: -> { Voyager.dispatch(:delete_row, {"todo_id" => todo_id}); nil },
+              role: :destructive,
+              icon: "trash",
+            ),
+            UI::SwipeAction.new(
+              "Done",
+              on_tap: -> { Voyager.dispatch(:toggle_row, {"todo_id" => todo_id}); nil },
+              icon: "checkmark.circle",
+            ),
+            UI::SwipeAction.new(
+              "Share",
+              on_tap: -> { Voyager.dispatch(:share_row, {"todo_id" => todo_id}); nil },
+              icon: "square.and.arrow.up",
+            ),
+            UI::SwipeAction.new(
+              "Edit",
+              on_tap: -> { Voyager.dispatch(:edit_row, {"todo_id" => todo_id}); nil },
+              icon: "pencil",
+            ),
+          ]
+        end
+      }
 
       add_btn = UI::Button.new("Add Todo", style: UI::ButtonStyle::Prominent)
       add_btn.accessibility_label = "Add a new todo"
@@ -138,7 +210,7 @@ module Voyager
       if b = banner
         root << b
       end
-      root << list_stack.as(UI::View)
+      root << list.as(UI::View)
       root << add_btn.as(UI::View)
 
       root.as(UI::View)
@@ -181,137 +253,82 @@ module Voyager
       card.as(UI::View)
     end
 
-    # Phase 10D-refocus — todo row builder.
+    # Phase 10D-final — todo row builder.
     #
-    # Receives the resolved swipe-row widget class from the intent
-    # resolver so the row construction is platform-honest. The Crystal
-    # API surface (leading_actions / trailing_actions) is identical
-    # across `UI::SwipeActionRow` and `UI::InlineActionRow` so the
-    # composition code below can target the common contract.
+    # The row is a plain VStack of labels — title and optional humanised
+    # deadline subtitle. No checkbox, no borderless-button wrapping; the
+    # surrounding `UI::ListView` owns the tap + swipe + drag chrome.
+    # When the todo is completed, the title uses Secondary label role
+    # and a strikethrough so the completed state reads at a glance.
     #
-    # Row composition: HStack containing the checkbox + a label stack
-    # (title + optional deadline subtitle). Whole-row tap navigates to
-    # the editor (tap-to-edit). The checkbox toggles completion. The
-    # swipe-row wraps the content with leading + trailing tiles.
-    private def build_todo_row(
-      todo : Todo,
-      content_width : Float64,
-      swipe_row_class : UI::View.class,
-    ) : UI::View
-      content = UI::HStack.new(spacing: 12.0)
-      content.alignment = UI::Alignment::Center
-      content.padding = UI::EdgeInsets.new(top: 10.0, trailing: 12.0, bottom: 10.0, leading: 12.0)
-      content.test_id = "voyager-todo-row-#{todo.id}"
-
-      check = UI::Checkbox.new(label: "", is_checked: todo.completed)
-      check.accessibility_label = todo.completed ? "Mark '#{todo.title}' as not done" : "Mark '#{todo.title}' as done"
-      check.test_id = "voyager-todo-row-#{todo.id}-check"
-      todo_id_str = todo.id.to_s
-      check.on_change = ->(_value : Bool) {
-        Voyager.dispatch(:toggle_row, {"todo_id" => todo_id_str})
-      }
-
-      # Title + deadline subtitle inside a tap-to-edit Button (the whole
-      # row label area is the tap target; the checkbox stays separate so
-      # tapping the checkbox doesn't also fire the edit nav).
-      label_stack = UI::VStack.new(spacing: 2.0)
-      label_stack.alignment = UI::Alignment::Leading
+    # Mirrors the iOS Mail row visual:
+    #   - Bold title (semibold 16pt)
+    #   - Tertiary 12pt subtitle (humanized "Due Today" / "Due Tomorrow")
+    #   - 10pt vertical inset so 44pt minimum tap target is honored
+    private def build_todo_row(todo : Todo) : UI::View
+      row = UI::VStack.new(spacing: 2.0)
+      row.alignment = UI::Alignment::Leading
+      row.padding = UI::EdgeInsets.new(top: 10.0, trailing: 12.0, bottom: 10.0, leading: 12.0)
+      row.test_id = "voyager-todo-row-#{todo.id}"
+      row.accessibility_label = "Todo: #{todo.title}"
 
       title_label = UI::Label.new(todo.title)
       title_label.font = UI::Font.new(size: 16.0, weight: :semibold)
       title_label.text_color_role = todo.completed ? UI::LabelRole::Secondary : UI::LabelRole::Primary
       title_label.strikethrough = todo.completed
       title_label.test_id = "voyager-todo-row-#{todo.id}-title"
-      label_stack << title_label.as(UI::View)
+      row << title_label.as(UI::View)
 
-      unless todo.deadline.empty?
-        dl = UI::Label.new("Due #{todo.deadline}")
+      if subtitle = humanize_deadline(todo.deadline)
+        dl = UI::Label.new(subtitle)
         dl.font = UI::Font.new(size: 12.0, weight: :regular)
         dl.text_color_role = UI::LabelRole::Tertiary
         dl.test_id = "voyager-todo-row-#{todo.id}-deadline"
-        label_stack << dl.as(UI::View)
+        row << dl.as(UI::View)
       end
 
-      # Phase 10D-refocus — tap-to-edit. The label stack is wrapped in
-      # a Button (borderless style so it visually reads as text, not a
-      # chrome button). Tapping anywhere on the title/subtitle navigates
-      # to the editor populated with the todo's data.
-      tap_btn = UI::Button.new(todo.title, style: UI::ButtonStyle::Borderless)
-      tap_btn.accessibility_label = "Edit todo: #{todo.title}"
-      tap_btn.test_id = "voyager-todo-row-#{todo.id}-tap"
-      tap_btn.on_tap = -> {
-        Voyager.dispatch(:edit_row, {"todo_id" => todo_id_str})
-      }
+      row.as(UI::View)
+    end
 
-      content << check.as(UI::View)
-      content << tap_btn.as(UI::View)
+    # Phase 10D-final D6 — humanize a raw deadline string into a
+    # subtitle suitable for the Mail-app subtitle position.
+    #
+    # Returns:
+    #   - nil if the raw string is empty (no subtitle rendered)
+    #   - "Due Today" / "Due Tomorrow" when the parsed date matches
+    #   - "Due Mon Jun 1" style when the date parses but is further out
+    #   - "Due <raw>" passthrough when the date is not parseable
+    private def humanize_deadline(raw : String) : String?
+      return nil if raw.empty?
 
-      # Phase 10D-refocus — leading swipe: Archive tile.
-      archive_action = UI::SwipeAction.new(
-        "Archive",
-        on_tap: -> {
-          Voyager.dispatch(:archive_row, {"todo_id" => todo_id_str})
-        },
-        icon: "archivebox",
-      )
+      today = Time.local.at_beginning_of_day
+      tomorrow = today + 1.day
 
-      # Phase 10D-refocus — trailing swipe: Edit + Share + Delete tiles.
-      edit_action = UI::SwipeAction.new(
-        "Edit",
-        on_tap: -> {
-          Voyager.dispatch(:edit_row, {"todo_id" => todo_id_str})
-        },
-        icon: "pencil",
-        on_tap_route: "voyager-todo-editor",
-      )
-      share_action = UI::SwipeAction.new(
-        "Share",
-        on_tap: -> {
-          Voyager.dispatch(:share_row, {"todo_id" => todo_id_str})
-        },
-        icon: "square.and.arrow.up",
-      )
-      del_action = UI::SwipeAction.new(
-        "Delete",
-        on_tap: -> {
-          Voyager.dispatch(:delete_row, {"todo_id" => todo_id_str})
-        },
-        role: :destructive,
-        icon: "trash",
-      )
+      # Try to parse the deadline. The Voyager state stores deadlines
+      # as ISO-8601 dates (`YYYY-MM-DD`); fall back to passthrough on
+      # any parse failure rather than masking the raw string.
+      parsed : Time? = nil
+      formats = ["%Y-%m-%d", "%Y/%m/%d"]
+      formats.each do |fmt|
+        begin
+          parsed = Time.parse(raw, fmt, Time::Location.local).at_beginning_of_day
+          break
+        rescue Time::Format::Error
+          # try next format
+        end
+      end
 
-      leading_actions = [archive_action]
-      trailing_actions = [edit_action, share_action, del_action]
-
-      # Phase 10D-refocus — construct the resolved swipe row class.
-      # Both `UI::SwipeActionRow` and `UI::InlineActionRow` share the
-      # same `.new(content)` + `leading_actions=` / `trailing_actions=`
-      # API surface. Dispatch on the runtime class to avoid the
-      # `UI::View.class` static-type erasure that would otherwise hide
-      # the per-row setters.
-      row_view : UI::View = case swipe_row_class
-                            when UI::InlineActionRow.class
-                              r = UI::InlineActionRow.new(content.as(UI::View))
-                              r.leading_actions = leading_actions
-                              r.trailing_actions = trailing_actions
-                              r.accessibility_label = "Todo: #{todo.title}"
-                              r.minimum_width = content_width
-                              r.maximum_width = content_width
-                              r.as(UI::View)
-                            else
-                              # Default to SwipeActionRow — covers the iOS /
-                              # iPadOS / web_narrow path resolved by the
-                              # registry.
-                              r = UI::SwipeActionRow.new(content.as(UI::View))
-                              r.leading_actions = leading_actions
-                              r.trailing_actions = trailing_actions
-                              r.accessibility_label = "Todo: #{todo.title}"
-                              r.minimum_width = content_width
-                              r.maximum_width = content_width
-                              r.as(UI::View)
-                            end
-
-      row_view
+      if t = parsed
+        if t == today
+          "Due Today"
+        elsif t == tomorrow
+          "Due Tomorrow"
+        else
+          "Due #{t.to_s("%a %b %-d")}"
+        end
+      else
+        "Due #{raw}"
+      end
     end
   end
 end
