@@ -173,7 +173,17 @@ module Voyager
     case slug
     when "voyager-sign-in"                  then UI::NavigationCoordinator::Route.new(:sign_in)
     when "voyager-todos"                    then UI::NavigationCoordinator::Route.new(:todos)
-    when "voyager-todo-editor"              then UI::NavigationCoordinator::Route.new(:todo_editor)
+    when "voyager-todo-editor"
+      # Phase 10D-final — capture-mode todo_id seeding. When the screenshot
+      # capture flow launches the editor as the root slug, seed the
+      # route's params with the env-var-supplied todo_id so the editor
+      # mounts as "edit existing" rather than "new draft". Unset/blank
+      # env → empty params (new-todo path).
+      params = {} of Symbol => String
+      if id = ENV["VOYAGER_EDITOR_TODO_ID"]?
+        params[:todo_id] = id unless id.empty?
+      end
+      UI::NavigationCoordinator::Route.new(:todo_editor, params: params)
     when "voyager-settings"                 then UI::NavigationCoordinator::Route.new(:settings)
     when "voyager-phase-10-hub"             then UI::NavigationCoordinator::Route.new(:phase_10_hub)
     when "voyager-phase-10-intent-resolver" then UI::NavigationCoordinator::Route.new(:phase_10_intent_resolver)
