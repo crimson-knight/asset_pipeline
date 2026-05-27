@@ -789,6 +789,22 @@ module UI
         # build (style / sections); per-row arrays are emitted from
         # `visit(UI::ListView)` directly using the same sender so the
         # token registrations and the parallel arrays stay co-located.
+
+        # Phase 10D-polish A4 — default 16pt row inset. nil → use the
+        # SwiftUI platform default. The widget default is 16.0 so iOS
+        # consumers get Mail-style row chrome without intervention.
+        if inset = view.content_inset_horizontal
+          sender.set_number(target, :setContentInsetHorizontal, inset)
+        end
+
+        # Phase 10D-polish A3 — row removal animation duration.
+        # 0.0 disables; default is 0.4s per owner spec.
+        sender.set_number(target, :setRowRemovalDurationSeconds, view.row_removal_duration_seconds)
+
+        # Phase 10D-polish A2 — drag-handle visibility default. The
+        # facade only renders the handle when `moveToken != nil` AND
+        # `showsDragHandle == true`.
+        sender.set_bool(target, :setShowsDragHandle, view.shows_drag_handle)
       end
 
       # ---------------------------------------------------------------

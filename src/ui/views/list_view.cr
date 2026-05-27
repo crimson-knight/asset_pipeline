@@ -64,6 +64,29 @@ module UI
     # returned array is SwiftUI's full-swipe target on iOS.
     property trailing_swipe_actions : Proc(Int32, Array(SwipeAction))? = nil
 
+    # Phase 10D-polish A4 — default horizontal row inset (leading +
+    # trailing). 16pt matches the iOS Mail / Reminders / Settings
+    # idiomatic row edge inset and is now the widget default so
+    # consumers don't have to pad the surrounding stack. The renderer
+    # applies this via SwiftUI's `.listRowInsets(...)` modifier on iOS;
+    # AppKit and web renderers honor it via their own row-padding paths.
+    # Set to nil to delegate to the platform-native default.
+    property content_inset_horizontal : Float64? = 16.0
+
+    # Phase 10D-polish A3 — row-removal animation duration (in seconds).
+    # When set, the iOS facade animates row removal with
+    # `withAnimation(.easeInOut(duration: ...))` so deletes / Mark Done
+    # collapse smoothly instead of vanishing. Default 0.4s matches the
+    # owner-aligned 400-500ms range. Set to 0.0 to disable.
+    property row_removal_duration_seconds : Float64 = 0.4
+
+    # Phase 10D-polish A2 — show a `line.3.horizontal` drag affordance
+    # on the trailing edge of every row when `on_move != nil`. Default
+    # true so any list that wires reorder gets the visual anchor for
+    # free. Set to false on lists where you've wired `on_move` but
+    # don't want the system grip indicator (e.g. a custom drag handle).
+    property shows_drag_handle : Bool = true
+
     def initialize(@sections : Array(Section) = [] of Section, @style : ListStyle = ListStyle::Plain, @layout : ListLayout = ListLayout::List, @columns : Int32 = 3)
     end
 

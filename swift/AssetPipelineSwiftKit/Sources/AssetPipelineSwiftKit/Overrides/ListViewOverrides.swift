@@ -72,5 +72,19 @@ public class ListViewOverrides: ViewOverrides {
     @objc public var trailingActionTints: [String] = []
     @objc public var trailingActionCounts: [NSNumber] = []
 
+    // Phase 10D-polish A4 — default horizontal row inset applied via
+    // SwiftUI `.listRowInsets(...)`. nil → SwiftUI platform default.
+    @objc public var contentInsetHorizontal: NSNumber? = nil
+
+    // Phase 10D-polish A3 — duration (seconds) for row-removal animation.
+    // Wrapped in `withAnimation(.easeInOut(duration:))` and a per-row
+    // `.transition(.opacity.combined(with: .scale(...)))`. 0 disables.
+    @objc public var rowRemovalDurationSeconds: NSNumber? = nil
+
+    // Phase 10D-polish A2 — when true AND moveToken != nil, render a
+    // SF Symbol `line.3.horizontal` drag affordance on the trailing
+    // edge of each row.
+    @objc public var showsDragHandle: NSNumber? = nil
+
     @objc public override init() { super.init() }
 }
