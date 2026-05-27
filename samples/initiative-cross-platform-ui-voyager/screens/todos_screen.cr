@@ -432,20 +432,27 @@ module Voyager
       picker.label = "Deadline"
       picker.accessibility_label = "Todo deadline"
       picker.test_id = "voyager-editor-sheet-deadline"
-      # Seed selected_date from ISO string if parseable.
+      # Seed selected_date from ISO string if parseable. Use Time.utc
+      # rather than Time.local because Crystal's iOS class-init gap
+      # leaves Time::Location.local uninitialized → segfault in
+      # find_zoneinfo_file. The picker doesn't care about timezone for
+      # date-only mode; we re-serialize as ISO date on change.
       if !seed_deadline.empty?
         begin
-          picker.selected_date = Time.parse(seed_deadline, "%Y-%m-%d", Time::Location.local)
+          picker.selected_date = Time.parse_utc(seed_deadline, "%Y-%m-%d")
         rescue Time::Format::Error
-          picker.selected_date = Time.local
+          picker.selected_date = Time.utc
         end
       else
-        picker.selected_date = Time.local
+        picker.selected_date = Time.utc
       end
       picker.on_change = ->(t : Time) {
         d2 = Voyager.dispatcher
         unless d2.nil?
-          d2.current_form_state.update("deadline", t.to_s("%Y-%m-%d"))
+          # Use to_utc + format to avoid Time::Location.local on iOS.
+          # The picker returns a UTC time; the YYYY-MM-DD form is fine
+          # because the user only sees date-resolution chrome.
+          d2.current_form_state.update("deadline", t.to_utc.to_s("%Y-%m-%d"))
         end
         nil
       }
