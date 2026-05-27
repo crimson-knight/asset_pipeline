@@ -39,12 +39,42 @@ module Voyager
 
       env = context.environment
 
+      # iOS class-init gap caveat: Symbol#to_s / Bool#to_s walk
+      # class-var-backed tables that may not be primed on the iOS
+      # embedding even with Crystal::Once.init. We project each value
+      # through an explicit case to a literal String constant so the
+      # interpolation never SIGSEGVs at Symbol#to_s.
+      reduce_motion_s = env.reduce_motion ? "true" : "false"
+      increase_contrast_s = env.increase_contrast ? "true" : "false"
+      accessibility_enabled_s = env.accessibility_enabled ? "true" : "false"
+      color_scheme_s = case env.color_scheme
+                       when :light          then "light"
+                       when :dark           then "dark"
+                       when :high_contrast  then "high_contrast"
+                       else                      "unknown"
+                       end
+      dynamic_type_s = case env.dynamic_type_size
+                       when :xsmall   then "xsmall"
+                       when :small    then "small"
+                       when :medium   then "medium"
+                       when :large    then "large"
+                       when :xlarge   then "xlarge"
+                       when :xxlarge  then "xxlarge"
+                       when :xxxlarge then "xxxlarge"
+                       when :ax1      then "ax1"
+                       when :ax2      then "ax2"
+                       when :ax3      then "ax3"
+                       when :ax4      then "ax4"
+                       when :ax5      then "ax5"
+                       else                "unknown"
+                       end
+
       header = UI::Label.new(
-        "reduce_motion: #{env.reduce_motion}\n" \
-        "color_scheme: #{env.color_scheme}\n" \
-        "dynamic_type_size: #{env.dynamic_type_size}\n" \
-        "increase_contrast: #{env.increase_contrast}\n" \
-        "accessibility_enabled: #{env.accessibility_enabled}"
+        "reduce_motion: " + reduce_motion_s + "\n" \
+        "color_scheme: " + color_scheme_s + "\n" \
+        "dynamic_type_size: " + dynamic_type_s + "\n" \
+        "increase_contrast: " + increase_contrast_s + "\n" \
+        "accessibility_enabled: " + accessibility_enabled_s
       )
       header.font = UI::Font.new(size: 13.0, weight: :semibold)
       header.text_color_role = UI::LabelRole::Primary
@@ -56,10 +86,14 @@ module Voyager
       # animation is killed). We display the helper's output so the
       # tester can verify the contract by toggling the Simulator's
       # Reduce Motion accessibility setting.
+      # Float#to_s also walks an iOS class-init-skipped table —
+      # render the effective duration via a tiny tri-state because
+      # the two values we care about ARE the meaningful ones.
       effective = UI::Animation.duration_seconds_with_environment(env, 4.0)
+      effective_s = (effective == 0.0) ? "0.0" : "4.0"
       duration_label = UI::Label.new(
         "Snackbar base duration: 4.0s\n" \
-        "Effective with this Environment: #{effective}s\n" \
+        "Effective with this Environment: " + effective_s + "s\n" \
         "(0.0s means motion was reduced)"
       )
       duration_label.font = UI::Font.new(size: 12.0, weight: :regular)

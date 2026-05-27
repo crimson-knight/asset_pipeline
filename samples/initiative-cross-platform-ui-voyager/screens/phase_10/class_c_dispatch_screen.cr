@@ -55,21 +55,21 @@ module Voyager
       hint.text_color_role = UI::LabelRole::Secondary
 
       last_intent_label = UI::Label.new(
-        "Last dispatched: #{Phase10ExerciserState.last_dispatched_intent}"
+        "Last dispatched: " + Phase10ExerciserState.last_dispatched_intent
       )
       last_intent_label.font = UI::Font.new(size: 13.0, weight: :semibold)
       last_intent_label.text_color_role = UI::LabelRole::Primary
       last_intent_label.test_id = "phase-10-class-c-last-intent"
 
       result_label = UI::Label.new(
-        "Result: #{Phase10ExerciserState.last_dispatch_result}"
+        "Result: " + Phase10ExerciserState.last_dispatch_result
       )
       result_label.font = UI::Font.new(size: 13.0, weight: :regular)
       result_label.text_color_role = UI::LabelRole::Secondary
       result_label.test_id = "phase-10-class-c-last-result"
 
       paste_label = UI::Label.new(
-        "Last paste: #{Phase10ExerciserState.last_paste_value}"
+        "Last paste: " + Phase10ExerciserState.last_paste_value
       )
       paste_label.font = UI::Font.new(size: 13.0, weight: :regular)
       paste_label.text_color_role = UI::LabelRole::Secondary

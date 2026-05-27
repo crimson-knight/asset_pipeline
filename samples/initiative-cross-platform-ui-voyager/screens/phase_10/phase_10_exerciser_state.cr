@@ -10,17 +10,19 @@ module Voyager
   # the hand-tester; it does not belong in the canonical app state.
   # Module class vars are nilable-by-default so the iOS class-init gap
   # cannot strand them (per
-  # `project_crystal_ios_class_init_gap` memory).
+  # `project_crystal_ios_class_init_gap` memory). Every accessor
+  # lazy-initialises on first read; setters write through the
+  # underlying nilable slot.
   module Phase10ExerciserState
-    @@last_action : String = "(none yet)"
-    @@last_dispatch_result : String = "(none yet)"
-    @@last_paste_value : String = "(empty)"
-    @@last_dispatched_intent : String = "(none yet)"
-    @@full_screen_cover_presented : Bool = false
-    @@inspector_presented : Bool = true
+    @@last_action : String? = nil
+    @@last_dispatch_result : String? = nil
+    @@last_paste_value : String? = nil
+    @@last_dispatched_intent : String? = nil
+    @@full_screen_cover_presented : Bool? = nil
+    @@inspector_presented : Bool? = nil
 
     def self.last_action : String
-      @@last_action
+      @@last_action ||= "(none yet)"
     end
 
     def self.last_action=(value : String) : String
@@ -28,7 +30,7 @@ module Voyager
     end
 
     def self.last_dispatch_result : String
-      @@last_dispatch_result
+      @@last_dispatch_result ||= "(none yet)"
     end
 
     def self.last_dispatch_result=(value : String) : String
@@ -36,7 +38,7 @@ module Voyager
     end
 
     def self.last_paste_value : String
-      @@last_paste_value
+      @@last_paste_value ||= "(empty)"
     end
 
     def self.last_paste_value=(value : String) : String
@@ -44,7 +46,7 @@ module Voyager
     end
 
     def self.last_dispatched_intent : String
-      @@last_dispatched_intent
+      @@last_dispatched_intent ||= "(none yet)"
     end
 
     def self.last_dispatched_intent=(value : String) : String
@@ -52,7 +54,8 @@ module Voyager
     end
 
     def self.full_screen_cover_presented : Bool
-      @@full_screen_cover_presented
+      v = @@full_screen_cover_presented
+      v.nil? ? false : v
     end
 
     def self.full_screen_cover_presented=(value : Bool) : Bool
@@ -60,7 +63,8 @@ module Voyager
     end
 
     def self.inspector_presented : Bool
-      @@inspector_presented
+      v = @@inspector_presented
+      v.nil? ? true : v
     end
 
     def self.inspector_presented=(value : Bool) : Bool
@@ -75,9 +79,9 @@ module Voyager
       when .success?
         "Success"
       when .unsupported?
-        "Unsupported: #{result.reason}"
+        "Unsupported: " + (result.reason || "")
       when .failed?
-        "Failed: #{result.reason}"
+        "Failed: " + (result.reason || "")
       else
         "Unknown DispatchResult"
       end

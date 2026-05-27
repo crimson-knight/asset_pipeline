@@ -72,9 +72,13 @@ module Voyager
       root << spacer.as(UI::View)
 
       # ---- FullScreenCover toggle ----
+      # Avoid Bool#to_s interpolation (iOS class-init gap; see
+      # `[[crystal-ios-class-init-gap]]`). Project the Bool through an
+      # explicit ternary to a literal String constant.
+      fsc_state_s = Phase10ExerciserState.full_screen_cover_presented ? "true" : "false"
       fsc_explainer = UI::Label.new(
         "FullScreenCover — tap to flip is_presented. " \
-        "Currently: #{Phase10ExerciserState.full_screen_cover_presented}."
+        "Currently: " + fsc_state_s + "."
       )
       fsc_explainer.font = UI::Font.new(size: 12.0, weight: :regular)
       fsc_explainer.text_color_role = UI::LabelRole::Secondary

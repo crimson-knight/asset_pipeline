@@ -81,27 +81,48 @@ module UI
 
       # Default widget per (intent_id, platform) pair. Populated by
       # `register_default(intent_id, platform, widget_class)`.
-      @@defaults = {} of Tuple(Symbol, Symbol) => UI::View.class
+      #
+      # Phase 10D — iOS class-init gap (see
+      # `project_crystal_ios_class_init_gap` memory): the literal
+      # initializer is silently skipped when `_main` is hidden for
+      # Swift `@main`, leaving the class var as a nil pointer. Every
+      # accessor in this module routes through the `_defaults` /
+      # `_app_overrides` / etc. helpers below, which lazy-allocate on
+      # first read so reads under the iOS embedding still see a valid
+      # Hash.
+      @@defaults : Hash(Tuple(Symbol, Symbol), UI::View.class)? = nil
 
-      # App-scoped override. Populated by
-      # `register_app_override(app_class, intent_id, widget_class)`.
-      @@app_overrides = {} of Tuple(UI::App.class, Symbol) => UI::View.class
+      @@app_overrides : Hash(Tuple(UI::App.class, Symbol), UI::View.class)? = nil
 
-      # Screen-scoped override. Populated by
-      # `register_screen_override(screen_class, intent_id, widget_class)`.
-      @@screen_overrides = {} of Tuple(UI::Screen.class, Symbol) => UI::View.class
+      @@screen_overrides : Hash(Tuple(UI::Screen.class, Symbol), UI::View.class)? = nil
 
-      # Per-widget declared capabilities — populated by the
-      # `declares_capabilities` macro on the widget class. Key is the
-      # widget class + the intent_id it claims to satisfy. Value is
-      # the capability bag the widget claims to support.
-      @@widget_capabilities = {} of Tuple(UI::View.class, Symbol) => Hash(Symbol, CapabilityValue)
+      @@widget_capabilities : Hash(Tuple(UI::View.class, Symbol), Hash(Symbol, CapabilityValue))? = nil
 
-      # Per-intent required capability set. Populated by
-      # `declare_intent_capabilities(intent_id, required)`. Used at
-      # override-registration time to check the override widget covers
-      # every required capability.
-      @@intent_required_capabilities = {} of Symbol => Hash(Symbol, CapabilityValue)
+      @@intent_required_capabilities : Hash(Symbol, Hash(Symbol, CapabilityValue))? = nil
+
+      # Lazy-allocating accessors. The literal default
+      # `@@defaults = {} of ...` is skipped under the iOS embedding
+      # (no class-var initializer side effects), so every read /
+      # write goes through these helpers.
+      protected def self._defaults : Hash(Tuple(Symbol, Symbol), UI::View.class)
+        @@defaults ||= {} of Tuple(Symbol, Symbol) => UI::View.class
+      end
+
+      protected def self._app_overrides : Hash(Tuple(UI::App.class, Symbol), UI::View.class)
+        @@app_overrides ||= {} of Tuple(UI::App.class, Symbol) => UI::View.class
+      end
+
+      protected def self._screen_overrides : Hash(Tuple(UI::Screen.class, Symbol), UI::View.class)
+        @@screen_overrides ||= {} of Tuple(UI::Screen.class, Symbol) => UI::View.class
+      end
+
+      protected def self._widget_capabilities : Hash(Tuple(UI::View.class, Symbol), Hash(Symbol, CapabilityValue))
+        @@widget_capabilities ||= {} of Tuple(UI::View.class, Symbol) => Hash(Symbol, CapabilityValue)
+      end
+
+      protected def self._intent_required_capabilities : Hash(Symbol, Hash(Symbol, CapabilityValue))
+        @@intent_required_capabilities ||= {} of Symbol => Hash(Symbol, CapabilityValue)
+      end
 
       # ------------------------------------------------------------------
       # Reset hook for specs.
@@ -111,11 +132,11 @@ module UI
       # this — it strands every registered default, override, and
       # capability declaration.
       def self.reset_for_spec : Nil
-        @@defaults.clear
-        @@app_overrides.clear
-        @@screen_overrides.clear
-        @@widget_capabilities.clear
-        @@intent_required_capabilities.clear
+        _defaults.clear
+        _app_overrides.clear
+        _screen_overrides.clear
+        _widget_capabilities.clear
+        _intent_required_capabilities.clear
         nil
       end
 
@@ -126,10 +147,10 @@ module UI
       # need to test the resolver from a clean override state while
       # leaving widget capability declarations intact.
       def self.reset_overrides_for_spec : Nil
-        @@defaults.clear
-        @@app_overrides.clear
-        @@screen_overrides.clear
-        @@intent_required_capabilities.clear
+        _defaults.clear
+        _app_overrides.clear
+        _screen_overrides.clear
+        _intent_required_capabilities.clear
         nil
       end
 
@@ -146,14 +167,14 @@ module UI
         platform : Symbol,
         widget_class : UI::View.class,
       ) : Nil
-        @@defaults[{intent_id, platform}] = widget_class
+        _defaults[{intent_id, platform}] = widget_class
         nil
       end
 
       # Lookup the default widget for the (intent_id, platform) pair.
       # Returns `nil` if no default is registered.
       def self.default_for(intent_id : Symbol, platform : Symbol) : (UI::View.class)?
-        @@defaults[{intent_id, platform}]?
+        _defaults[{intent_id, platform}]?
       end
 
       # ------------------------------------------------------------------
@@ -184,14 +205,14 @@ module UI
         intent_id : Symbol,
         required : Hash(Symbol, CapabilityValue),
       ) : Nil
-        @@intent_required_capabilities[intent_id] = required
+        _intent_required_capabilities[intent_id] = required
         nil
       end
 
       # Returns the recorded required capabilities for `intent_id`, or
       # an empty hash if none declared.
       def self.required_capabilities_for(intent_id : Symbol) : Hash(Symbol, CapabilityValue)
-        @@intent_required_capabilities[intent_id]? || {} of Symbol => CapabilityValue
+        _intent_required_capabilities[intent_id]? || {} of Symbol => CapabilityValue
       end
 
       # ------------------------------------------------------------------
@@ -206,7 +227,7 @@ module UI
         intent_id : Symbol,
         capabilities : Hash(Symbol, CapabilityValue),
       ) : Nil
-        @@widget_capabilities[{widget_class, intent_id}] = capabilities
+        _widget_capabilities[{widget_class, intent_id}] = capabilities
         nil
       end
 
@@ -216,7 +237,7 @@ module UI
         widget_class : UI::View.class,
         intent_id : Symbol,
       ) : Hash(Symbol, CapabilityValue)?
-        @@widget_capabilities[{widget_class, intent_id}]?
+        _widget_capabilities[{widget_class, intent_id}]?
       end
 
       # ------------------------------------------------------------------
@@ -234,7 +255,7 @@ module UI
         widget_class : UI::View.class,
       ) : Nil
         validate_override_capabilities(widget_class, intent_id, scope: "app #{app_class}")
-        @@app_overrides[{app_class, intent_id}] = widget_class
+        _app_overrides[{app_class, intent_id}] = widget_class
         nil
       end
 
@@ -246,7 +267,7 @@ module UI
         widget_class : UI::View.class,
       ) : Nil
         validate_override_capabilities(widget_class, intent_id, scope: "screen #{screen_class}")
-        @@screen_overrides[{screen_class, intent_id}] = widget_class
+        _screen_overrides[{screen_class, intent_id}] = widget_class
         nil
       end
 
@@ -380,7 +401,7 @@ module UI
       # requirement validator to determine which platforms an
       # override-widget's platform-keyed declaration must cover.
       protected def self.platforms_with_default_for(intent_id : Symbol) : Array(Symbol)
-        @@defaults.compact_map do |k, _|
+        _defaults.compact_map do |k, _|
           k[0] == intent_id ? k[1] : nil
         end.uniq.sort_by(&.to_s)
       end
@@ -457,11 +478,11 @@ module UI
         # OR `context.active_screen_class` (iter-9 — the public
         # resolver path always reads it here).
         active_screen = screen_class || context.active_screen_class
-        if active_screen && (hit = @@screen_overrides[{active_screen, intent_id}]?)
+        if active_screen && (hit = _screen_overrides[{active_screen, intent_id}]?)
           return hit
         end
 
-        if (app_class = context.app_class) && (hit = @@app_overrides[{app_class, intent_id}]?)
+        if (app_class = context.app_class) && (hit = _app_overrides[{app_class, intent_id}]?)
           return hit
         end
 
@@ -472,13 +493,13 @@ module UI
       # against `app_class` for `intent_id`. Helps tests assert
       # registration happened without exposing the raw class-var.
       def self.app_override_count_for(app_class : UI::App.class, intent_id : Symbol) : Int32
-        @@app_overrides.count { |k, _| k[0] == app_class && k[1] == intent_id }
+        _app_overrides.count { |k, _| k[0] == app_class && k[1] == intent_id }
       end
 
       # Spec-only accessor: returns the count of screen overrides registered
       # against `screen_class` for `intent_id`.
       def self.screen_override_count_for(screen_class : UI::Screen.class, intent_id : Symbol) : Int32
-        @@screen_overrides.count { |k, _| k[0] == screen_class && k[1] == intent_id }
+        _screen_overrides.count { |k, _| k[0] == screen_class && k[1] == intent_id }
       end
     end
   end
