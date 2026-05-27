@@ -12,6 +12,29 @@
 // macOS bordered list / sidebar). When `listStyle` is nil the facade
 // falls back to `.automatic`.
 //
+// Phase 10D-final — per-row Mail-app row behavior. Three modifiers are
+// applied per row using the absolute row index into the flat
+// childViews array:
+//   1. `.onTapGesture` when `rowTapTokens[absIdx] != 0` — fires the
+//      whole-row tap callback (typically navigation to the editor).
+//   2. `.swipeActions(edge: .leading, allowsFullSwipe: true)` when the
+//      row has any leading actions per `leadingActionCounts`.
+//   3. `.swipeActions(edge: .trailing, allowsFullSwipe: true)` when
+//      the row has any trailing actions per `trailingActionCounts`.
+//
+// SwiftUI's full-swipe fires the FIRST action in the closure for that
+// edge. Crystal-side, the trailing array is ordered
+// `[delete, mark_done, share, edit]` so SwiftUI renders Delete as the
+// outermost (closest to the swipe edge) full-swipe-primary tile, and
+// the visual left→right order when fully revealed is
+// `[edit, share, mark_done, delete]`.
+//
+// `.onMove(perform:)` is applied to the inner `ForEach` (SwiftUI
+// requires it on the ForEach, not the List). When `moveToken != nil`
+// the closure fires `CallbackBridge.fireString(token:value:)` with a
+// `"from=N,to=M"` payload. Crystal-side, the string-channel callback
+// parses this and dispatches `:move_row` with the absolute indices.
+//
 // Selection semantics: this facade currently uses SwiftUI's default
 // (no programmatic selection binding). Wiring `selection_mode` would
 // require a `Binding<Set<ID>>`-style state holder (see the
@@ -49,6 +72,26 @@ public class ListViewFacade: NSObject {
             return !flag.boolValue
         }()
 
+        // Pre-compute per-row leading/trailing action slice offsets so
+        // `actionsForRow(...)` is O(1).
+        let leadingCounts = overrides.leadingActionCounts.map { $0.intValue }
+        let trailingCounts = overrides.trailingActionCounts.map { $0.intValue }
+        var leadingOffsets: [Int] = []
+        var leadingAcc = 0
+        for c in leadingCounts {
+            leadingOffsets.append(leadingAcc)
+            leadingAcc += c
+        }
+        var trailingOffsets: [Int] = []
+        var trailingAcc = 0
+        for c in trailingCounts {
+            trailingOffsets.append(trailingAcc)
+            trailingAcc += c
+        }
+
+        let moveToken: UInt64? = overrides.moveToken?.uint64Value
+        let rowTapTokens = overrides.rowTapTokens
+
         let list = List {
             ForEach(0..<counts.count, id: \.self) { sIdx in
                 let header = sIdx < headers.count ? headers[sIdx] : ""
@@ -56,10 +99,23 @@ public class ListViewFacade: NSObject {
                 let off = offsets[sIdx]
                 let cnt = counts[sIdx]
                 Section {
-                    ForEach(0..<cnt, id: \.self) { iIdx in
+                    moveAwareForEach(
+                        range: 0..<cnt,
+                        offset: off,
+                        moveToken: moveToken
+                    ) { iIdx in
                         let absIdx = off + iIdx
-                        rowBuilder(view: childViews[absIdx],
-                                   hideSeparator: hideSeparators)
+                        rowBuilder(
+                            view: childViews[absIdx],
+                            absIdx: absIdx,
+                            hideSeparator: hideSeparators,
+                            rowTapTokens: rowTapTokens,
+                            overrides: overrides,
+                            leadingOffsets: leadingOffsets,
+                            leadingCounts: leadingCounts,
+                            trailingOffsets: trailingOffsets,
+                            trailingCounts: trailingCounts
+                        )
                     }
                 } header: {
                     if !header.isEmpty { Text(header) }
@@ -74,21 +130,208 @@ public class ListViewFacade: NSObject {
         return HostingHelpers.host(composed)
     }
 
-    // Apply `.listRowSeparator(.hidden)` only when the host platform
-    // supports it (iOS 15+ / macOS 13+). On older targets we fall back
-    // to the SwiftUI default.
+    // Build a `ForEach` that conditionally honors `.onMove`. SwiftUI's
+    // `.onMove(perform:)` is only honored when attached to a `ForEach`
+    // inside a `List`; long-press-drag is the iOS 15+ default activator
+    // (no EditButton wiring required).
     @ViewBuilder
-    private static func rowBuilder(view: APSKPlatformView,
-                                   hideSeparator: Bool) -> some View {
-        if hideSeparator {
-            if #available(iOS 15.0, macOS 13.0, *) {
-                APSKHostedChild(view: view)
-                    .listRowSeparator(.hidden)
-            } else {
-                APSKHostedChild(view: view)
+    private static func moveAwareForEach<Content: View>(
+        range: Range<Int>,
+        offset: Int,
+        moveToken: UInt64?,
+        @ViewBuilder content: @escaping (Int) -> Content
+    ) -> some View {
+        if let token = moveToken {
+            ForEach(range, id: \.self) { i in
+                content(i)
+            }
+            .onMove { src, dst in
+                guard let from = src.first else { return }
+                // SwiftUI passes absolute-to-section indices already; we
+                // forward the per-section indices plus the section
+                // offset so the Crystal side gets absolute row indices.
+                let absFrom = from + offset
+                let absTo = dst + offset
+                CallbackBridge.fireString(
+                    token: token,
+                    value: "from=\(absFrom),to=\(absTo)"
+                )
             }
         } else {
-            APSKHostedChild(view: view)
+            ForEach(range, id: \.self) { i in
+                content(i)
+            }
+        }
+    }
+
+    // Build a single row with all the per-row modifiers (tap + leading
+    // swipe + trailing swipe + separator-hide).
+    @ViewBuilder
+    private static func rowBuilder(
+        view: APSKPlatformView,
+        absIdx: Int,
+        hideSeparator: Bool,
+        rowTapTokens: [NSNumber],
+        overrides: ListViewOverrides,
+        leadingOffsets: [Int],
+        leadingCounts: [Int],
+        trailingOffsets: [Int],
+        trailingCounts: [Int]
+    ) -> some View {
+        let base = APSKHostedChild(view: view)
+
+        let tapToken: UInt64 = {
+            if absIdx < rowTapTokens.count {
+                return rowTapTokens[absIdx].uint64Value
+            }
+            return 0
+        }()
+
+        let leadingCount = absIdx < leadingCounts.count ? leadingCounts[absIdx] : 0
+        let leadingOffset = absIdx < leadingOffsets.count ? leadingOffsets[absIdx] : 0
+        let trailingCount = absIdx < trailingCounts.count ? trailingCounts[absIdx] : 0
+        let trailingOffset = absIdx < trailingOffsets.count ? trailingOffsets[absIdx] : 0
+
+        let withTap: AnyView = {
+            if tapToken != 0 {
+                return AnyView(
+                    base.contentShape(Rectangle())
+                        .onTapGesture {
+                            CallbackBridge.fire(token: tapToken, value: 0.0)
+                        }
+                )
+            } else {
+                return AnyView(base)
+            }
+        }()
+
+        let withLeading: AnyView = {
+            if leadingCount > 0 {
+                return AnyView(
+                    withTap.swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        ForEach(0..<leadingCount, id: \.self) { i in
+                            actionButton(
+                                index: leadingOffset + i,
+                                labels: overrides.leadingActionLabels,
+                                icons: overrides.leadingActionIcons,
+                                tokens: overrides.leadingActionTokens,
+                                roles: overrides.leadingActionRoles,
+                                tints: overrides.leadingActionTints
+                            )
+                        }
+                    }
+                )
+            } else {
+                return withTap
+            }
+        }()
+
+        let withTrailing: AnyView = {
+            if trailingCount > 0 {
+                return AnyView(
+                    withLeading.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        ForEach(0..<trailingCount, id: \.self) { i in
+                            actionButton(
+                                index: trailingOffset + i,
+                                labels: overrides.trailingActionLabels,
+                                icons: overrides.trailingActionIcons,
+                                tokens: overrides.trailingActionTokens,
+                                roles: overrides.trailingActionRoles,
+                                tints: overrides.trailingActionTints
+                            )
+                        }
+                    }
+                )
+            } else {
+                return withLeading
+            }
+        }()
+
+        if hideSeparator {
+            if #available(iOS 15.0, macOS 13.0, *) {
+                withTrailing.listRowSeparator(.hidden)
+            } else {
+                withTrailing
+            }
+        } else {
+            withTrailing
+        }
+    }
+
+    /// Build a SwiftUI Button for one action tile inside a `.swipeActions`
+    /// closure. Identical contract to `SwipeActionRowFacade.actionButton`
+    /// (role + tint + icon + label), parameterized over the parallel
+    /// flat arrays so a single helper services both edges.
+    @ViewBuilder
+    private static func actionButton(
+        index i: Int,
+        labels: [String],
+        icons: [String],
+        tokens: [NSNumber],
+        roles: [String],
+        tints: [String]
+    ) -> some View {
+        let label = i < labels.count ? labels[i] : ""
+        let icon = i < icons.count ? icons[i] : ""
+        let token = i < tokens.count ? tokens[i].uint64Value : 0
+        let role = i < roles.count ? roles[i] : ""
+        let tintKey = i < tints.count ? tints[i] : ""
+
+        let action: () -> Void = {
+            CallbackBridge.fire(token: token, value: 0.0)
+        }
+
+        let button: AnyView = {
+            if role == "destructive" {
+                return AnyView(
+                    Button(role: .destructive, action: action) {
+                        buttonLabel(label: label, icon: icon)
+                    }
+                )
+            } else if role == "cancel" {
+                return AnyView(
+                    Button(role: .cancel, action: action) {
+                        buttonLabel(label: label, icon: icon)
+                    }
+                )
+            } else {
+                return AnyView(
+                    Button(action: action) {
+                        buttonLabel(label: label, icon: icon)
+                    }
+                )
+            }
+        }()
+
+        if let color = colorFor(tintKey: tintKey) {
+            button.tint(color)
+        } else {
+            button
+        }
+    }
+
+    @ViewBuilder
+    private static func buttonLabel(label: String, icon: String) -> some View {
+        if !icon.isEmpty && !label.isEmpty {
+            Label(label, systemImage: icon)
+        } else if !icon.isEmpty {
+            Image(systemName: icon)
+        } else {
+            Text(label)
+        }
+    }
+
+    private static func colorFor(tintKey: String) -> Color? {
+        switch tintKey {
+        case "blue":   return .blue
+        case "green":  return .green
+        case "orange": return .orange
+        case "red":    return .red
+        case "purple": return .purple
+        case "yellow": return .yellow
+        case "pink":   return .pink
+        case "gray":   return .gray
+        default:       return nil
         }
     }
 
