@@ -1,9 +1,9 @@
-# Phase 10A.0c — Family 3 architectural rule: `UI::Intent.resolve(...)`
+# Phase 10A.0c — Family 3 architectural rule: `UI::WidgetRoute.resolve(...)`
 # callers must use the iter-9 signature.
 #
 # The Phase 10B.0 resolver signature is:
 #
-#     UI::Intent.resolve(intent_id, context, capabilities_required: ...)
+#     UI::WidgetRoute.resolve(intent_id, context, capabilities_required: ...)
 #
 # - Positional args: exactly two (`intent_id`, `context`).
 # - Optional kwarg: `capabilities_required:`.
@@ -13,37 +13,37 @@
 #   `screen_class:` are stale.
 #
 # This rule flags:
-# 1. `UI::Intent.resolve` calls that pass a `screen_class:` kwarg.
-# 2. `UI::Intent.resolve` calls with three or more positional args
+# 1. `UI::WidgetRoute.resolve` calls that pass a `screen_class:` kwarg.
+# 2. `UI::WidgetRoute.resolve` calls with three or more positional args
 #    (no kwarg). Callers must use `capabilities_required: ...` for
 #    the third value.
 #
 # Narrow heuristic (per architecture-decisions.md Decision 3):
 #
 # - Only inspect lines containing the literal text
-#   `UI::Intent.resolve(`. Tolerate optional leading `::`.
+#   `UI::WidgetRoute.resolve(`. Tolerate optional leading `::`.
 # - Concatenate continuation lines until parens balance to handle
 #   multi-line calls.
 # - Don't parse Crystal. Treat each top-level (depth-0) comma as an
 #   argument separator. Recognize kwargs by the `name:` prefix
 #   (where `name` is `[A-Za-z_][A-Za-z0-9_]*`).
 # - False-positive shape acknowledged: a doc comment string
-#   containing `UI::Intent.resolve(:foo, ctx, X)` could trip the
+#   containing `UI::WidgetRoute.resolve(:foo, ctx, X)` could trip the
 #   rule. Mitigation: lines whose `lstrip` starts with `#` (a
 #   comment) are skipped at the entry point.
 
 require "../convention_rule"
 
-# Rule: `UI::Intent.resolve(...)` callers must use the
+# Rule: `UI::WidgetRoute.resolve(...)` callers must use the
 # `capabilities_required:` kwarg for the third argument (not
 # positional, not the retired `screen_class:` kwarg).
 class IntentResolveCapabilityArgRule < ConventionRule
-  ENTRY_PATTERN = /(?:::)?UI::Intent\.resolve\s*\(/
+  ENTRY_PATTERN = /(?:::)?UI::WidgetRoute\.resolve\s*\(/
 
   KWARG_PATTERN = /^([A-Za-z_][A-Za-z0-9_]*)\s*:/
 
   def rule_name : String
-    "family_3/intent_resolve_capability_arg"
+    "family_3/widget_route_resolve_capability_arg"
   end
 
   def check(file_path : String, content : String) : Array(Diagnostic)
@@ -79,7 +79,7 @@ class IntentResolveCapabilityArgRule < ConventionRule
   end
 
   # Returns the index inside `line` where the opening `(` after
-  # `UI::Intent.resolve` lives, or `nil` if no entry on this line.
+  # `UI::WidgetRoute.resolve` lives, or `nil` if no entry on this line.
   private def scan_entry(line : String) : Int32?
     if m = ENTRY_PATTERN.match(line)
       m.end
@@ -164,7 +164,7 @@ class IntentResolveCapabilityArgRule < ConventionRule
             file_path: file_path,
             line: line,
             rule_name: rule_name,
-            message: "`UI::Intent.resolve` no longer accepts the `screen_class:` kwarg (retired in 10B.0 iter-9).",
+            message: "`UI::WidgetRoute.resolve` no longer accepts the `screen_class:` kwarg (retired in 10B.0 iter-9).",
             suggested_fix: "remove `screen_class:` — the active screen class travels on `ctx.active_screen_class`"
           )
         end
@@ -177,7 +177,7 @@ class IntentResolveCapabilityArgRule < ConventionRule
         file_path: file_path,
         line: line,
         rule_name: rule_name,
-        message: "`UI::Intent.resolve` accepts only two positional args (`intent_id`, `context`); the third value must be the `capabilities_required:` kwarg.",
+        message: "`UI::WidgetRoute.resolve` accepts only two positional args (`intent_id`, `context`); the third value must be the `capabilities_required:` kwarg.",
         suggested_fix: "convert the third argument to `capabilities_required: {...}`"
       )
     end

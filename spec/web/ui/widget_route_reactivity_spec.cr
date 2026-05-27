@@ -3,8 +3,8 @@ require "../../../src/asset_pipeline/native_app"
 require "../../../src/asset_pipeline/native_context"
 require "../../../src/asset_pipeline/native_controller"
 require "../../../src/asset_pipeline/action_dispatcher"
-require "../../../src/ui/intent"
-require "../../../src/ui/intent_bootstrap"
+require "../../../src/ui/widget_route"
+require "../../../src/ui/widget_route/bootstrap"
 
 # Phase 10B.0 — Reactivity contract integration spec.
 #
@@ -91,7 +91,7 @@ private class ReactivitySpecScreen < UI::Screen
     # `compute_screen_html`) sets it on the context it builds; here
     # the spec sets it directly because we hand-craft the context.
     context.active_screen_class = ReactivitySpecScreen
-    klass = UI::Intent.resolve(:reactivity_test_intent, context)
+    klass = UI::WidgetRoute.resolve(:reactivity_test_intent, context)
     ReactivitySpecCounter.record(klass)
     UI::Label.new("resolved=#{klass}")
   end
@@ -168,11 +168,11 @@ private def build_reactive_setup : Tuple(UI::ActionDispatcher, ReactivitySpecScr
   {dispatcher, screen, initial_ctx}
 end
 
-describe "UI::Intent reactivity invariant" do
+describe "UI::WidgetRoute reactivity invariant" do
   it "calls resolve on every rebuild driven by ActionResult::Rerender" do
     # Install a default for the test intent on iOS so initial resolution
     # works.
-    UI::Intent::Registry.register_default(
+    UI::WidgetRoute::Registry.register_default(
       :reactivity_test_intent,
       :ios,
       ReactivitySpecWidgetA,
@@ -188,7 +188,7 @@ describe "UI::Intent reactivity invariant" do
     #   controller.dispatch_action(:rerender) → ActionResult::Rerender
     #   → ActionDispatcher#translate_result → mount_screen + coord.republish
     #   → coord.on_change fires → host rebuilds (calls screen.build)
-    #   → screen.build calls UI::Intent.resolve → counter increments.
+    #   → screen.build calls UI::WidgetRoute.resolve → counter increments.
     dispatcher.dispatch(:rerender)
 
     # After Rerender: resolve fired again.
@@ -197,7 +197,7 @@ describe "UI::Intent reactivity invariant" do
 
   it "reflects a runtime override change in the NEXT rebuild" do
     # Clear any prior state from sibling tests.
-    UI::Intent::Registry.register_default(
+    UI::WidgetRoute::Registry.register_default(
       :reactivity_test_intent,
       :ios,
       ReactivitySpecWidgetA,
@@ -209,7 +209,7 @@ describe "UI::Intent reactivity invariant" do
     # Mutate the registry mid-flow — swap the default to WidgetB.
     # This is the pattern a settings-change handler uses ("user
     # toggled compact mode → swap default for :list_layout intent").
-    UI::Intent::Registry.register_default(
+    UI::WidgetRoute::Registry.register_default(
       :reactivity_test_intent,
       :ios,
       ReactivitySpecWidgetB,
@@ -224,7 +224,7 @@ describe "UI::Intent reactivity invariant" do
   end
 
   it "preserves form state across a rerender (state + override interaction)" do
-    UI::Intent::Registry.register_default(
+    UI::WidgetRoute::Registry.register_default(
       :reactivity_test_intent,
       :ios,
       ReactivitySpecWidgetA,
@@ -248,7 +248,7 @@ describe "UI::Intent reactivity invariant" do
     dispatcher.current_form_state["user_input"]?.should be_nil
 
     # Change the override mid-flow.
-    UI::Intent::Registry.register_default(
+    UI::WidgetRoute::Registry.register_default(
       :reactivity_test_intent,
       :ios,
       ReactivitySpecWidgetB,

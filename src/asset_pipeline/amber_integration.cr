@@ -97,7 +97,7 @@ module UI
   #
   # # Phase 10B.0 — `platform` field (Tier 2 resolver hook).
   #
-  # `ScreenContext` carries a `platform : Symbol` so `UI::Intent.resolve`
+  # `ScreenContext` carries a `platform : Symbol` so `UI::WidgetRoute.resolve`
   # can branch on the runtime platform identity when picking a widget
   # for a given intent. The supported values are
   # `:ios`, `:ipados`, `:macos`, `:android`, `:web_wide`, `:web_narrow`.
@@ -120,7 +120,7 @@ module UI
     abstract def design_tokens : UI::DesignTokens::Tokens
     abstract def csrf_token : String?
 
-    # The platform identity for this build. `UI::Intent.resolve` reads
+    # The platform identity for this build. `UI::WidgetRoute.resolve` reads
     # this to pick the right widget for the running target. Defaults
     # to `:web_wide` so any code path that constructs a bare context
     # without setting the field is interpreted as "desktop web."
@@ -134,7 +134,7 @@ module UI
     end
 
     # Phase 10B.0 iter-9 (Codex Finding 1): the active `UI::App` class
-    # for this build. `UI::Intent::Registry.resolve_for` reads this to
+    # for this build. `UI::WidgetRoute::Registry.resolve_for` reads this to
     # isolate app-scoped overrides — without an app-class key, an
     # override registered against `AppA` would leak into `AppB`'s
     # resolution path (defeating the purpose of keying the override
@@ -150,17 +150,17 @@ module UI
 
     # Phase 10B.0 iter-9 (Codex Finding 2): the active `UI::Screen`
     # class for this build. Replaces the prior explicit `screen_class:`
-    # kwarg on `UI::Intent.resolve` — the public resolver now reads
+    # kwarg on `UI::WidgetRoute.resolve` — the public resolver now reads
     # the active screen class from the context so the call-site stays
-    # narrow (`UI::Intent.resolve(intent_id, ctx)` matches the brief
+    # narrow (`UI::WidgetRoute.resolve(intent_id, ctx)` matches the brief
     # signature). The host that builds the context — `ActionDispatcher`
     # for native, `compute_screen_html` for web — sets this to the
-    # screen class being built. Screens that call `UI::Intent.resolve`
+    # screen class being built. Screens that call `UI::WidgetRoute.resolve`
     # from their own `build` method can set
     # `ctx.active_screen_class = self.class` defensively when the host
     # didn't set it (e.g. unit tests that instantiate a context bare).
     #
-    # `UI::Intent::Registry.resolve_for` consults this when no
+    # `UI::WidgetRoute::Registry.resolve_for` consults this when no
     # explicit `screen_class:` kwarg is passed. Without either source,
     # the resolver skips the screen-override tier.
     property active_screen_class : (UI::Screen.class)? = nil
@@ -231,7 +231,7 @@ module UI
   # # Phase 10B.0 iter-10 (Codex Finding 1) — `active_app`.
   #
   # The web-target `compute_screen_html` path needs to seed
-  # `ctx.app_class` so `UI::Intent::Registry.resolve_for` can apply
+  # `ctx.app_class` so `UI::WidgetRoute::Registry.resolve_for` can apply
   # app-scoped overrides for the running app. There's no per-request
   # source of the App class on the controller side (controllers are
   # user-authored and only know the screen class they're rendering),
@@ -300,7 +300,7 @@ module UI
     # class itself (not a fresh instance) is the key.
     #
     #     class TodosScreen < UI::Screen
-    #       override_intent :swipe_actions, AcmeFancySwipeRow
+    #       override_widget :swipe_actions, AcmeFancySwipeRow
     #
     #       def build(context)
     #         # ...
@@ -311,9 +311,9 @@ module UI
     # `@type` resolves to the screen subclass at the call site, not
     # the abstract base class. Class-method emission is compile-time
     # code, gap-safe.
-    macro override_intent(intent_id, widget_class)
+    macro override_widget(intent_id, widget_class)
       def self._register_intent_override_{{intent_id.id}} : Nil
-        ::UI::Intent::Registry.register_screen_override(
+        ::UI::WidgetRoute::Registry.register_screen_override(
           {{@type}},
           {{intent_id}},
           {{widget_class}},
@@ -433,7 +433,7 @@ module UI
     # # Phase 10B.0 iter-10 (Codex Finding 1) — `app_class` seeding.
     #
     # The web target seeds `ctx.app_class` so
-    # `UI::Intent::Registry.resolve_for` can apply app-scoped overrides
+    # `UI::WidgetRoute::Registry.resolve_for` can apply app-scoped overrides
     # for this app's running build. Source precedence:
     #
     #   1. Explicit `app_class:` kwarg (most specific — used by
@@ -445,7 +445,7 @@ module UI
     #      platform default remains).
     #
     # `ctx.active_screen_class` is seeded from `screen_class` (the
-    # method's required arg), so screens calling `UI::Intent.resolve`
+    # method's required arg), so screens calling `UI::WidgetRoute.resolve`
     # automatically see the screen-tier override table without
     # boilerplate.
     def compute_screen_html(

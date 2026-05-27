@@ -3191,7 +3191,7 @@ void ap_clipboard_write_ios(const char *value_cstr) {
 
 // :paste_from_clipboard — read UIPasteboard.general.string and route to
 // the Crystal-side callback. `token` is a callback tag returned by
-// `UI::Intent::CallbackRegistry`. The callback fires on the main thread.
+// `UI::CallbackRegistry`. The callback fires on the main thread.
 //
 // Returns 1 if a string was found and the callback was scheduled, 0 if
 // the pasteboard had no string content.

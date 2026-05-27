@@ -148,12 +148,12 @@ These are structurally different views. A single `UI::SwipeActionRow` class with
 ```crystal
 # App-wide override: on macOS-wide, use the new DragHandleRow class instead.
 class VoyagerApp < UI::App
-  override_intent :swipe_actions, with: UI::DragHandleRow, on: [:macos, :web_wide]
+  override_widget :swipe_actions, with: UI::DragHandleRow, on: [:macos, :web_wide]
 end
 
 # Screen-scoped override: SettingsScreen always uses InlineActionRow regardless of platform.
 class SettingsScreen < UI::Screen
-  override_intent :swipe_actions, with: UI::InlineActionRow, on: :all
+  override_widget :swipe_actions, with: UI::InlineActionRow, on: :all
 end
 ```
 
@@ -162,7 +162,7 @@ end
 If an override declares a widget that doesn't satisfy `:swipe_actions`'s capability set, the framework raises with a specific message at registration time:
 
 ```
-UI::Intent::CapabilityMismatchError:
+UI::WidgetRoute::CapabilityMismatchError:
   Override for :swipe_actions with UI::DragHandleRow on platforms [:macos, :web_wide]
   does NOT declare capability `requires_accessibility_custom_actions`.
 

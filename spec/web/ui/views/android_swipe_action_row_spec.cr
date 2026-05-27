@@ -3,7 +3,7 @@ require "../../../../src/asset_pipeline/native_app"
 require "../../../../src/asset_pipeline/native_context"
 require "../../../../src/asset_pipeline/native_controller"
 require "../../../../src/ui"
-require "../../../../src/ui/intent_bootstrap"
+require "../../../../src/ui/widget_route/bootstrap"
 
 # Phase 10B.1c — UI::AndroidSwipeActionRow web rendering + value semantics.
 #
@@ -133,7 +133,7 @@ describe UI::AndroidSwipeActionRow do
         navigation: UI::NavigationCoordinator.new(UI::NavigationCoordinator::Route.new(:test)),
         platform: :android,
       )
-      UI::Intent.resolve(:swipe_actions, ctx).should eq(UI::AndroidSwipeActionRow)
+      UI::WidgetRoute.resolve(:swipe_actions, ctx).should eq(UI::AndroidSwipeActionRow)
     end
   end
 end

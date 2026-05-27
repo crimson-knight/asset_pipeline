@@ -1,4 +1,4 @@
-# Phase 10A.0c — Family 3 architectural rule: `override_intent :foo, Bar`
+# Phase 10A.0c — Family 3 architectural rule: `override_widget :foo, Bar`
 # must reference a Crystal class constant.
 #
 # **Scope (honest):** this rule verifies the second argument *looks
@@ -7,7 +7,7 @@
 # resolution outside regex linting and is intentionally out of scope
 # (see Phase 10A.0c iter 2 Finding 3 close-handoff entry). The
 # Crystal compiler catches unresolved constants at build time, and
-# the `UI::App.override_intent` macro validates the class against
+# the `UI::App.override_widget` macro validates the class against
 # the intent's declared capabilities at registration time — so a
 # typo that yields a valid-looking-but-non-View constant is caught
 # downstream with a less actionable message; this rule's job is to
@@ -15,8 +15,8 @@
 # identifiers, hash/array literals) that produce confusing compiler
 # errors.
 #
-# The Phase 10B.0 macros `UI::App.override_intent(:intent_id, WidgetClass)`
-# and the `override_intent :intent_id, WidgetClass` class-body form on
+# The Phase 10B.0 macros `UI::App.override_widget(:intent_id, WidgetClass)`
+# and the `override_widget :intent_id, WidgetClass` class-body form on
 # `UI::Screen` subclasses both expect a `UI::View.class` as the second
 # argument.
 #
@@ -29,9 +29,9 @@
 #
 # Narrow heuristic (per architecture-decisions.md Decision 3):
 #
-# - Only inspect lines whose `lstrip` starts with `override_intent`
-#   (the macro call). Tolerate `UI::App.override_intent` and
-#   `MyApp.override_intent` forms too.
+# - Only inspect lines whose `lstrip` starts with `override_widget`
+#   (the macro call). Tolerate `UI::App.override_widget` and
+#   `MyApp.override_widget` forms too.
 # - Require exactly two arguments: a Symbol literal first, a class
 #   constant token second.
 # - The class-constant token regex: optional `::`, then
@@ -42,17 +42,17 @@
 #   before regex-matching: replace string-literal interiors with
 #   spaces (preserving quotes + line length so column math stays
 #   sane) and drop everything after a top-level `#`. This means an
-#   inline `# override_intent :foo, BarClass` and a string literal
-#   `"override_intent :foo, BarClass"` are both invisible to the
+#   inline `# override_widget :foo, BarClass` and a string literal
+#   `"override_widget :foo, BarClass"` are both invisible to the
 #   entry regex.
 #
 # False-positive shape acknowledged in fixtures:
 #
-# - A doc comment containing `override_intent :foo, MyBar` is NOT
+# - A doc comment containing `override_widget :foo, MyBar` is NOT
 #   flagged (comment lines skipped).
-# - An inline `# override_intent :foo, BarClass` riding on a
+# - An inline `# override_widget :foo, BarClass` riding on a
 #   non-macro line is NOT flagged (scrubbed before match).
-# - A string literal `"override_intent :foo, BarClass"` is NOT
+# - A string literal `"override_widget :foo, BarClass"` is NOT
 #   flagged (scrubbed before match).
 # - A multiline call with the widget class on a continuation line —
 #   we concatenate continuation lines until parens balance, so the
@@ -60,22 +60,22 @@
 
 require "../convention_rule"
 
-# Rule: `override_intent :foo, Widget` must reference a class constant.
+# Rule: `override_widget :foo, Widget` must reference a class constant.
 class OverrideIntentWidgetSubclassRule < ConventionRule
-  # Match the `override_intent` macro call. Capture the args after the
+  # Match the `override_widget` macro call. Capture the args after the
   # opening paren OR after the bare-form whitespace.
   #
   # Form A (bare macro inside a class body):
-  #   override_intent :foo, BarClass
+  #   override_widget :foo, BarClass
   # Form B (explicit receiver):
-  #   UI::App.override_intent(:foo, BarClass)
-  #   MyApp.override_intent(:foo, BarClass)
-  ENTRY_PATTERN = /(?:^|\s)((?:[A-Za-z_][A-Za-z0-9_:]*\.)?override_intent)\b/
+  #   UI::App.override_widget(:foo, BarClass)
+  #   MyApp.override_widget(:foo, BarClass)
+  ENTRY_PATTERN = /(?:^|\s)((?:[A-Za-z_][A-Za-z0-9_:]*\.)?override_widget)\b/
 
   CLASS_CONSTANT_PATTERN = /\A(?:::)?[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*\z/
 
   def rule_name : String
-    "family_3/override_intent_widget_subclass"
+    "family_3/override_widget_subclass"
   end
 
   def check(file_path : String, content : String) : Array(Diagnostic)
@@ -83,8 +83,8 @@ class OverrideIntentWidgetSubclassRule < ConventionRule
     raw_lines = content.lines
     # Scrub strings + inline comments once up front so neither the
     # entry match nor the arg-region reader can be fooled by string
-    # literals containing `override_intent :foo, Bar` or by inline
-    # `# override_intent :foo, Bar` trailing comments. We preserve
+    # literals containing `override_widget :foo, Bar` or by inline
+    # `# override_widget :foo, Bar` trailing comments. We preserve
     # line count + column positions (string interiors replaced with
     # spaces; comment tail dropped) so diagnostic line numbers are
     # still accurate.
@@ -100,8 +100,8 @@ class OverrideIntentWidgetSubclassRule < ConventionRule
       end
       if (entry = find_entry(raw))
         # Collect args. Two forms:
-        #  - parens form: `override_intent(:foo, Bar)` → args between parens.
-        #  - bare form:   `override_intent :foo, Bar`  → args after token.
+        #  - parens form: `override_widget(:foo, Bar)` → args between parens.
+        #  - bare form:   `override_widget :foo, Bar`  → args after token.
         args_str, end_line = read_args(lines, i, entry[:start_after_token])
         if args_str
           flag_args(args_str, file_path, i + 1, diagnostics)
@@ -152,7 +152,7 @@ class OverrideIntentWidgetSubclassRule < ConventionRule
     end
     # Bare form. Args run to end of logical line — Crystal allows
     # newline continuations via trailing commas, but our heuristic
-    # only scans the same line. Multi-line bare-form `override_intent`
+    # only scans the same line. Multi-line bare-form `override_widget`
     # is documented as out of scope (the parens form is the canonical
     # multi-line shape).
     return {trimmed, start_line}
@@ -223,7 +223,7 @@ class OverrideIntentWidgetSubclassRule < ConventionRule
 
     # First arg must look like a Symbol literal. If not, the call shape
     # is not what we expect — bail (don't false-positive on unrelated
-    # `*.override_intent` overloads that may exist in user code).
+    # `*.override_widget` overloads that may exist in user code).
     return unless intent_id_part.starts_with?(':')
 
     # Strip an optional trailing comment that may have ridden along in
@@ -237,7 +237,7 @@ class OverrideIntentWidgetSubclassRule < ConventionRule
         file_path: file_path,
         line: line,
         rule_name: rule_name,
-        message: "`override_intent` second argument '#{widget_part}' is not a class constant. Expected a class constant that subclasses `UI::View` (e.g. `UI::InlineActionRow`). Note: this rule only checks the constant shape — actual subclass relationship is validated by the `override_intent` macro at registration time.",
+        message: "`override_widget` second argument '#{widget_part}' is not a class constant. Expected a class constant that subclasses `UI::View` (e.g. `UI::InlineActionRow`). Note: this rule only checks the constant shape — actual subclass relationship is validated by the `override_widget` macro at registration time.",
         suggested_fix: "pass the widget class itself (PascalCase identifier or `Module::ClassName`), not a symbol/string/literal"
       )
     end
@@ -271,7 +271,7 @@ class OverrideIntentWidgetSubclassRule < ConventionRule
   # Replace string-literal interiors with spaces and drop any
   # top-level inline `# ...` comment. Quotes themselves are kept (so
   # the line still parses as `... "   " ...`); the goal is to make
-  # the entry/arg regex blind to any `override_intent` text that
+  # the entry/arg regex blind to any `override_widget` text that
   # lives inside a string or after a `#`. Trailing newline preserved.
   private def scrub_strings_and_inline_comments(line : String) : String
     builder = String::Builder.new

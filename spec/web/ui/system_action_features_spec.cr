@@ -1,6 +1,6 @@
 require "../spec_helper"
-require "../../../src/ui/intent"
-require "../../../src/ui/intent/class_c_bootstrap"
+require "../../../src/ui/widget_route"
+require "../../../src/ui/system_action/bootstrap"
 require "../../../src/ui/environment"
 
 # Phase 10B.3.x — 8 Class C feature spec.
@@ -19,10 +19,10 @@ require "../../../src/ui/environment"
 # Reuses the same reinstall pattern as `intent_class_c_spec.cr`.
 
 private def reinstall_class_c_bootstrap : Nil
-  UI::Intent::ClassCRegistry.reset_for_spec
+  UI::SystemAction::Registry.reset_for_spec
   UI::Environment.reset_platform_for_spec
-  UI::Intent::IncomingDeepLink.reset_for_spec
-  UI::Intent::ClassCBootstrap.install
+  UI::SystemAction::IncomingDeepLink.reset_for_spec
+  UI::SystemAction::Bootstrap.install
   nil
 end
 
@@ -31,187 +31,187 @@ describe "Phase 10B.3.x — Class C feature bindings" do
 
   describe ":copy_to_clipboard" do
     it "is registered after install" do
-      UI::Intent::ClassCRegistry.binding_for(:copy_to_clipboard).should_not be_nil
+      UI::SystemAction::Registry.binding_for(:copy_to_clipboard).should_not be_nil
     end
 
     it "is supported on :web_wide and :web_narrow" do
-      UI::Intent::ClassCRegistry.supports?(:copy_to_clipboard, :web_wide).should be_true
-      UI::Intent::ClassCRegistry.supports?(:copy_to_clipboard, :web_narrow).should be_true
+      UI::SystemAction::Registry.supports?(:copy_to_clipboard, :web_wide).should be_true
+      UI::SystemAction::Registry.supports?(:copy_to_clipboard, :web_narrow).should be_true
     end
 
     it "is NOT supported on :macos in a web-only build" do
       # The capability check returns false for :macos when the build
       # isn't compiled with -Dmacos. The web spec suite runs without
       # any -D flag so this is the production path.
-      UI::Intent::ClassCRegistry.supports?(:copy_to_clipboard, :macos).should be_false
+      UI::SystemAction::Registry.supports?(:copy_to_clipboard, :macos).should be_false
     end
 
     it "dispatches successfully on web" do
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:copy_to_clipboard, value: "hello")
+      result = UI::SystemAction.perform(:copy_to_clipboard, value: "hello")
       result.success?.should be_true
     end
 
     it "returns Unsupported when dispatching on :macos in a web build" do
       UI::Environment.set_platform(:macos)
-      result = UI::Intent.dispatch(:copy_to_clipboard, value: "hello")
+      result = UI::SystemAction.perform(:copy_to_clipboard, value: "hello")
       result.unsupported?.should be_true
     end
   end
 
   describe ":paste_from_clipboard" do
     it "is registered after install" do
-      UI::Intent::ClassCRegistry.binding_for(:paste_from_clipboard).should_not be_nil
+      UI::SystemAction::Registry.binding_for(:paste_from_clipboard).should_not be_nil
     end
 
     it "dispatches successfully on web" do
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:paste_from_clipboard)
+      result = UI::SystemAction.perform(:paste_from_clipboard)
       result.success?.should be_true
     end
 
     it "returns Unsupported on :ios in a web build" do
       UI::Environment.set_platform(:ios)
-      result = UI::Intent.dispatch(:paste_from_clipboard)
+      result = UI::SystemAction.perform(:paste_from_clipboard)
       result.unsupported?.should be_true
     end
   end
 
   describe ":request_permission" do
     it "is registered after install" do
-      UI::Intent::ClassCRegistry.binding_for(:request_permission).should_not be_nil
+      UI::SystemAction::Registry.binding_for(:request_permission).should_not be_nil
     end
 
     it "dispatches successfully on web for notifications" do
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:request_permission, permission: "notifications")
+      result = UI::SystemAction.perform(:request_permission, permission: "notifications")
       result.success?.should be_true
     end
 
     it "returns Unsupported on :android in a web build" do
       UI::Environment.set_platform(:android)
-      result = UI::Intent.dispatch(:request_permission, permission: "notifications")
+      result = UI::SystemAction.perform(:request_permission, permission: "notifications")
       result.unsupported?.should be_true
     end
   end
 
   describe ":open_url" do
     it "is registered after install" do
-      UI::Intent::ClassCRegistry.binding_for(:open_url).should_not be_nil
+      UI::SystemAction::Registry.binding_for(:open_url).should_not be_nil
     end
 
     it "dispatches successfully on web with a url arg" do
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:open_url, url: "https://example.com")
+      result = UI::SystemAction.perform(:open_url, url: "https://example.com")
       result.success?.should be_true
     end
 
     it "returns Unsupported on :macos in a web build" do
       UI::Environment.set_platform(:macos)
-      result = UI::Intent.dispatch(:open_url, url: "https://example.com")
+      result = UI::SystemAction.perform(:open_url, url: "https://example.com")
       result.unsupported?.should be_true
     end
   end
 
   describe ":incoming_deep_link" do
     it "is registered after install" do
-      UI::Intent::ClassCRegistry.binding_for(:incoming_deep_link).should_not be_nil
+      UI::SystemAction::Registry.binding_for(:incoming_deep_link).should_not be_nil
     end
 
     it "fires registered handlers when dispatched with a url" do
       captured = [] of String
-      UI::Intent::IncomingDeepLink.on_receive do |url|
+      UI::SystemAction::IncomingDeepLink.on_receive do |url|
         captured << url
       end
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:incoming_deep_link, url: "myapp://session/42")
+      result = UI::SystemAction.perform(:incoming_deep_link, url: "myapp://session/42")
       result.success?.should be_true
       captured.should eq(["myapp://session/42"])
     end
 
     it "supports multiple handlers" do
       counter = 0
-      UI::Intent::IncomingDeepLink.on_receive { |_| counter += 1; nil }
-      UI::Intent::IncomingDeepLink.on_receive { |_| counter += 10; nil }
+      UI::SystemAction::IncomingDeepLink.on_receive { |_| counter += 1; nil }
+      UI::SystemAction::IncomingDeepLink.on_receive { |_| counter += 10; nil }
       UI::Environment.set_platform(:web_wide)
-      UI::Intent.dispatch(:incoming_deep_link, url: "myapp://x")
+      UI::SystemAction.perform(:incoming_deep_link, url: "myapp://x")
       counter.should eq(11)
     end
 
     it "swallows handler exceptions so the chain keeps going" do
       survivor = 0
-      UI::Intent::IncomingDeepLink.on_receive { |_| raise "first handler boom" }
-      UI::Intent::IncomingDeepLink.on_receive { |_| survivor += 1; nil }
+      UI::SystemAction::IncomingDeepLink.on_receive { |_| raise "first handler boom" }
+      UI::SystemAction::IncomingDeepLink.on_receive { |_| survivor += 1; nil }
       UI::Environment.set_platform(:web_wide)
-      UI::Intent.dispatch(:incoming_deep_link, url: "myapp://x")
+      UI::SystemAction.perform(:incoming_deep_link, url: "myapp://x")
       survivor.should eq(1)
     end
 
     it "is supported on every platform (callback-based, no API gate)" do
-      UI::Intent::ClassCRegistry.supports?(:incoming_deep_link, :web_wide).should be_true
-      UI::Intent::ClassCRegistry.supports?(:incoming_deep_link, :macos).should be_true
-      UI::Intent::ClassCRegistry.supports?(:incoming_deep_link, :ios).should be_true
-      UI::Intent::ClassCRegistry.supports?(:incoming_deep_link, :android).should be_true
+      UI::SystemAction::Registry.supports?(:incoming_deep_link, :web_wide).should be_true
+      UI::SystemAction::Registry.supports?(:incoming_deep_link, :macos).should be_true
+      UI::SystemAction::Registry.supports?(:incoming_deep_link, :ios).should be_true
+      UI::SystemAction::Registry.supports?(:incoming_deep_link, :android).should be_true
     end
   end
 
   describe ":print" do
     it "is registered after install" do
-      UI::Intent::ClassCRegistry.binding_for(:print).should_not be_nil
+      UI::SystemAction::Registry.binding_for(:print).should_not be_nil
     end
 
     it "dispatches successfully on web" do
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:print, text: "hello", job_name: "Test Job")
+      result = UI::SystemAction.perform(:print, text: "hello", job_name: "Test Job")
       result.success?.should be_true
     end
 
     it "returns Unsupported on :ios in a web build" do
       UI::Environment.set_platform(:ios)
-      result = UI::Intent.dispatch(:print, text: "hello")
+      result = UI::SystemAction.perform(:print, text: "hello")
       result.unsupported?.should be_true
     end
   end
 
   describe ":open_file_picker" do
     it "is registered after install" do
-      UI::Intent::ClassCRegistry.binding_for(:open_file_picker).should_not be_nil
+      UI::SystemAction::Registry.binding_for(:open_file_picker).should_not be_nil
     end
 
     it "dispatches successfully on web" do
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:open_file_picker, utis: "public.data")
+      result = UI::SystemAction.perform(:open_file_picker, utis: "public.data")
       result.success?.should be_true
     end
 
     it "returns Unsupported on :android in a web build" do
       UI::Environment.set_platform(:android)
-      result = UI::Intent.dispatch(:open_file_picker)
+      result = UI::SystemAction.perform(:open_file_picker)
       result.unsupported?.should be_true
     end
   end
 
   describe ":export_file" do
     it "is registered after install" do
-      UI::Intent::ClassCRegistry.binding_for(:export_file).should_not be_nil
+      UI::SystemAction::Registry.binding_for(:export_file).should_not be_nil
     end
 
     it "dispatches successfully on web" do
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:export_file, suggested_name: "draft.txt")
+      result = UI::SystemAction.perform(:export_file, suggested_name: "draft.txt")
       result.success?.should be_true
     end
 
     it "returns Unsupported on :macos in a web build" do
       UI::Environment.set_platform(:macos)
-      result = UI::Intent.dispatch(:export_file, suggested_name: "x.txt")
+      result = UI::SystemAction.perform(:export_file, suggested_name: "x.txt")
       result.unsupported?.should be_true
     end
   end
 
   describe "registry health" do
     it "has all 9 Class C bindings after install (hello_world_alert + 8 features)" do
-      intents = UI::Intent::ClassCRegistry.registered_intents
+      intents = UI::SystemAction::Registry.registered_intents
       [
         :hello_world_alert,
         :copy_to_clipboard,

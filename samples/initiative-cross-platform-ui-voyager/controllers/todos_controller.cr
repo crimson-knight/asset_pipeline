@@ -82,7 +82,7 @@ module Voyager
       id = (context.action_params["todo_id"]? || "0").to_i? || 0
       if todo = Voyager.state.find_todo(id)
         text = todo.deadline.empty? ? todo.title : "#{todo.title} (due #{todo.deadline})"
-        UI::Intent.dispatch(:copy_to_clipboard, text: text)
+        UI::SystemAction.perform(:copy_to_clipboard, text: text)
       end
       UI::ActionResult::Rerender.new
     end
@@ -97,7 +97,7 @@ module Voyager
         "#{i + 1}. #{status} #{t.title}#{deadline_str}"
       end
       text = "Todos\n=====\n" + lines.join("\n")
-      UI::Intent.dispatch(:print, text: text)
+      UI::SystemAction.perform(:print, text: text)
       UI::ActionResult::Rerender.new
     end
 

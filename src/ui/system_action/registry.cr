@@ -1,7 +1,7 @@
-# Phase 10B.3.0 — UI::Intent::ClassCRegistry
+# Phase 10B.3.0 — UI::SystemAction::Registry
 #
-# Process-global registry of Class C `PlatformFeatureBinding`s.
-# Parallel to `UI::Intent::Registry` (Class A widget routing), but
+# Process-global registry of Class C `PlatformBinding`s.
+# Parallel to `UI::WidgetRoute::Registry` (Class A widget routing), but
 # with a flat shape — Class C has no override tiers because the
 # bindings are framework-owned (a consumer app cannot meaningfully
 # substitute a different `:share_link` implementation; the binding
@@ -29,14 +29,14 @@
 # defaults; spec suites that test the registry directly call this
 # from a `before_each` block to start from a clean state.
 
-require "./platform_feature_binding"
+require "./platform_binding"
 
 module UI
-  module Intent
+  module SystemAction
     # Singleton registry of Class C bindings. The class itself is the
     # API — no instances are constructed (the `@@table` class-var is
     # the only state, and survives the process lifetime).
-    module ClassCRegistry
+    module Registry
       # Registered bindings keyed by `intent_id`. Populated by
       # `register(binding)`.
       #
@@ -45,17 +45,17 @@ module UI
       # initializer is skipped when `_main` is hidden for Swift @main,
       # so the table stays as a nil pointer. The `_table` helper
       # lazy-allocates on first read.
-      @@table : Hash(Symbol, PlatformFeatureBinding)? = nil
+      @@table : Hash(Symbol, PlatformBinding)? = nil
 
-      protected def self._table : Hash(Symbol, PlatformFeatureBinding)
-        @@table ||= {} of Symbol => PlatformFeatureBinding
+      protected def self._table : Hash(Symbol, PlatformBinding)
+        @@table ||= {} of Symbol => PlatformBinding
       end
 
       # ------------------------------------------------------------------
       # Mutation.
       # ------------------------------------------------------------------
 
-      def self.register(binding : PlatformFeatureBinding) : Nil
+      def self.register(binding : PlatformBinding) : Nil
         _table[binding.intent_id] = binding
         nil
       end
@@ -69,7 +69,7 @@ module UI
       # Lookup.
       # ------------------------------------------------------------------
 
-      def self.binding_for(intent_id : Symbol) : PlatformFeatureBinding?
+      def self.binding_for(intent_id : Symbol) : PlatformBinding?
         _table[intent_id]?
       end
 

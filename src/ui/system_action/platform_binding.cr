@@ -1,13 +1,13 @@
-# Phase 10B.3.0 — UI::Intent::PlatformFeatureBinding
+# Phase 10B.3.0 — UI::SystemAction::PlatformBinding
 #
 # Declarative shape that describes how a single Class C intent maps to
 # per-platform native APIs. Each Class C feature constructs one
-# `PlatformFeatureBinding` at bootstrap time and registers it with
-# `UI::Intent::ClassCRegistry.register(binding)`.
+# `PlatformBinding` at bootstrap time and registers it with
+# `UI::SystemAction::Registry.register(binding)`.
 #
 # # Anatomy
 #
-#     UI::Intent::PlatformFeatureBinding.new(
+#     UI::SystemAction::PlatformBinding.new(
 #       intent_id: :share_link,
 #       api_capability_check: ->(platform : Symbol) { ... },
 #       platforms: {
@@ -50,11 +50,11 @@
 # dispatch).
 
 module UI
-  module Intent
+  module SystemAction
     # Immutable descriptor for one Class C feature's per-platform
     # native mappings. Constructed once at bootstrap, stored in
-    # `ClassCRegistry`, looked up by `UI::Intent.dispatch`.
-    struct PlatformFeatureBinding
+    # `ClassCRegistry`, looked up by `UI::SystemAction.perform`.
+    struct PlatformBinding
       # Alias for the Hash(Symbol, String) args bag every platform
       # lambda receives. Exposed publicly so binding authors can spell
       # the signature without re-typing the generic.
@@ -63,7 +63,7 @@ module UI
       # Alias for the per-platform implementation lambda. Takes the
       # args bag, performs the side-effect, returns nothing. The
       # dispatcher catches any raise and rolls it into
-      # `DispatchResult.failed`.
+      # `Result.failed`.
       alias PlatformProc = Args -> Nil
 
       # Alias for the api-capability check lambda. Takes the current

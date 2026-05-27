@@ -71,10 +71,10 @@ module Voyager
       @@inspector_presented = value
     end
 
-    # Format a `UI::Intent::DispatchResult` for visible display in the
+    # Format a `UI::SystemAction::Result` for visible display in the
     # exerciser screen. Three branches: Success, Unsupported(reason),
     # Failed(reason).
-    def self.format_result(result : UI::Intent::DispatchResult) : String
+    def self.format_result(result : UI::SystemAction::Result) : String
       case result
       when .success?
         "Success"

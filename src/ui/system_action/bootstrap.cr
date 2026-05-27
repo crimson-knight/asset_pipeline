@@ -1,11 +1,11 @@
 # Phase 10B.3.0 + 10B.3.x — Class C bootstrap.
 #
-# Installs the framework's Class C `PlatformFeatureBinding`s. This
+# Installs the framework's Class C `PlatformBinding`s. This
 # file is loaded by `src/ui.cr` AFTER the environment + registry are
 # set up. Each Class C feature has an `install_<feature>` class method
 # below — `install` calls all of them in sequence at framework load.
 #
-# # Why a separate file from `intent_bootstrap.cr`?
+# # Why a separate file from `widget_route/bootstrap.cr`?
 #
 # Class A bootstrap registers WIDGET defaults; Class C bootstrap
 # registers FEATURE bindings. Keeping them in separate files makes
@@ -56,7 +56,7 @@
 # bridge isn't compiled in at build time. On a web-only build, a
 # `dispatch(:copy_to_clipboard)` while
 # `UI::Environment.platform == :macos` (test fixture) returns
-# `DispatchResult.unsupported` because the macOS bridge wasn't linked.
+# `Result.unsupported` because the macOS bridge wasn't linked.
 # On a `-Dmacos` build, the same dispatch returns Success.
 #
 # # Bridge signatures
@@ -65,8 +65,8 @@
 # iOS branches) and `src/ui/native/android_bridge.c` (Android JNI).
 # Each binding's docstring names the C function it calls.
 
-require "./class_c_registry"
-require "./platform_feature_binding"
+require "./registry"
+require "./platform_binding"
 require "../native/callback_registry"
 
 {% if flag?(:macos) %}
@@ -98,13 +98,13 @@ require "../native/callback_registry"
 {% end %}
 
 module UI
-  module Intent
+  module SystemAction
     # Namespace for the framework-installed Class C bindings. The
     # `install` class method is called once from
     # `class_c_bootstrap.cr` at framework load. Specs that want to
     # reinstall a clean substrate after `reset_for_spec` call
-    # `UI::Intent::ClassCBootstrap.install` directly.
-    module ClassCBootstrap
+    # `UI::SystemAction::Bootstrap.install` directly.
+    module Bootstrap
       # Install every framework Class C binding. Idempotent —
       # `register` is last-wins, so calling `install` twice produces
       # the same final table.
@@ -154,30 +154,30 @@ module UI
       # place so the existing 23-spec suite continues to pass.
       # ------------------------------------------------------------------
       def self.install_hello_world_alert : Nil
-        UI::Intent::ClassCRegistry.register(
-          UI::Intent::PlatformFeatureBinding.new(
+        UI::SystemAction::Registry.register(
+          UI::SystemAction::PlatformBinding.new(
             intent_id: :hello_world_alert,
             platforms: {
-              :web_wide   => ->web_alert(UI::Intent::PlatformFeatureBinding::Args),
-              :web_narrow => ->web_alert(UI::Intent::PlatformFeatureBinding::Args),
-              :macos      => ->macos_alert(UI::Intent::PlatformFeatureBinding::Args),
-              :ios        => ->ios_alert_stub(UI::Intent::PlatformFeatureBinding::Args),
-              :ipados     => ->ios_alert_stub(UI::Intent::PlatformFeatureBinding::Args),
-              :android    => ->android_toast_stub(UI::Intent::PlatformFeatureBinding::Args),
-            } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+              :web_wide   => ->web_alert(UI::SystemAction::PlatformBinding::Args),
+              :web_narrow => ->web_alert(UI::SystemAction::PlatformBinding::Args),
+              :macos      => ->macos_alert(UI::SystemAction::PlatformBinding::Args),
+              :ios        => ->ios_alert_stub(UI::SystemAction::PlatformBinding::Args),
+              :ipados     => ->ios_alert_stub(UI::SystemAction::PlatformBinding::Args),
+              :android    => ->android_toast_stub(UI::SystemAction::PlatformBinding::Args),
+            } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
           )
         )
         nil
       end
 
-      def self.web_alert(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.web_alert(args : UI::SystemAction::PlatformBinding::Args) : Nil
         message = args[:message]? || ""
         title = args[:title]? || "Hello"
         STDERR.puts "[hello_world_alert/web] #{title}: #{message}"
         nil
       end
 
-      def self.macos_alert(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.macos_alert(args : UI::SystemAction::PlatformBinding::Args) : Nil
         title = args[:title]? || "Hello"
         message = args[:message]? || ""
         {% if flag?(:macos) %}
@@ -188,13 +188,13 @@ module UI
         nil
       end
 
-      def self.ios_alert_stub(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.ios_alert_stub(args : UI::SystemAction::PlatformBinding::Args) : Nil
         raise "hello_world_alert: iOS binding not yet implemented. " \
               "Add ap_alert_show_ios(const char *title, const char *message) to " \
               "src/ui/native/objc_bridge.m and wire LibClassCBridge."
       end
 
-      def self.android_toast_stub(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.android_toast_stub(args : UI::SystemAction::PlatformBinding::Args) : Nil
         raise "hello_world_alert: Android binding not yet implemented. " \
               "Add ap_toast_show(env, context, message) to " \
               "src/ui/native/android_bridge.c invoking Toast.makeText(...).show() " \
@@ -213,30 +213,30 @@ module UI
       #   * Android: `ap_clipboard_write_android(env, context, value, len)`
       # ------------------------------------------------------------------
       def self.install_copy_to_clipboard : Nil
-        UI::Intent::ClassCRegistry.register(
-          UI::Intent::PlatformFeatureBinding.new(
+        UI::SystemAction::Registry.register(
+          UI::SystemAction::PlatformBinding.new(
             intent_id: :copy_to_clipboard,
             api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
             platforms: {
-              :web_wide   => ->web_copy_to_clipboard(UI::Intent::PlatformFeatureBinding::Args),
-              :web_narrow => ->web_copy_to_clipboard(UI::Intent::PlatformFeatureBinding::Args),
-              :macos      => ->macos_copy_to_clipboard(UI::Intent::PlatformFeatureBinding::Args),
-              :ios        => ->ios_copy_to_clipboard(UI::Intent::PlatformFeatureBinding::Args),
-              :ipados     => ->ios_copy_to_clipboard(UI::Intent::PlatformFeatureBinding::Args),
-              :android    => ->android_copy_to_clipboard_stub(UI::Intent::PlatformFeatureBinding::Args),
-            } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+              :web_wide   => ->web_copy_to_clipboard(UI::SystemAction::PlatformBinding::Args),
+              :web_narrow => ->web_copy_to_clipboard(UI::SystemAction::PlatformBinding::Args),
+              :macos      => ->macos_copy_to_clipboard(UI::SystemAction::PlatformBinding::Args),
+              :ios        => ->ios_copy_to_clipboard(UI::SystemAction::PlatformBinding::Args),
+              :ipados     => ->ios_copy_to_clipboard(UI::SystemAction::PlatformBinding::Args),
+              :android    => ->android_copy_to_clipboard_stub(UI::SystemAction::PlatformBinding::Args),
+            } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
           )
         )
         nil
       end
 
-      def self.web_copy_to_clipboard(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.web_copy_to_clipboard(args : UI::SystemAction::PlatformBinding::Args) : Nil
         value = args[:value]? || ""
         STDERR.puts "[copy_to_clipboard/web] #{value}"
         nil
       end
 
-      def self.macos_copy_to_clipboard(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.macos_copy_to_clipboard(args : UI::SystemAction::PlatformBinding::Args) : Nil
         value = args[:value]? || ""
         {% if flag?(:macos) %}
           LibClassCBridge.ap_clipboard_write_macos(value)
@@ -246,7 +246,7 @@ module UI
         nil
       end
 
-      def self.ios_copy_to_clipboard(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.ios_copy_to_clipboard(args : UI::SystemAction::PlatformBinding::Args) : Nil
         value = args[:value]? || ""
         {% if flag?(:ios) || flag?(:ipados) %}
           LibClassCBridge.ap_clipboard_write_ios(value)
@@ -263,7 +263,7 @@ module UI
       # once the renderer exposes a Class C dispatch hook. Until then
       # this proc raises — capability check returns false so dispatch
       # surfaces as `unsupported`.
-      def self.android_copy_to_clipboard_stub(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.android_copy_to_clipboard_stub(args : UI::SystemAction::PlatformBinding::Args) : Nil
         raise "copy_to_clipboard: Android binding not yet wired through " \
               "the renderer surface. C function `ap_clipboard_write_android` " \
               "is implemented in src/ui/native/android_bridge.c; needs JNIEnv " \
@@ -284,29 +284,29 @@ module UI
       #   * Android: `ap_clipboard_read_android(env, context, token) -> int`
       # ------------------------------------------------------------------
       def self.install_paste_from_clipboard : Nil
-        UI::Intent::ClassCRegistry.register(
-          UI::Intent::PlatformFeatureBinding.new(
+        UI::SystemAction::Registry.register(
+          UI::SystemAction::PlatformBinding.new(
             intent_id: :paste_from_clipboard,
             api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
             platforms: {
-              :web_wide   => ->web_paste_from_clipboard(UI::Intent::PlatformFeatureBinding::Args),
-              :web_narrow => ->web_paste_from_clipboard(UI::Intent::PlatformFeatureBinding::Args),
-              :macos      => ->macos_paste_from_clipboard(UI::Intent::PlatformFeatureBinding::Args),
-              :ios        => ->ios_paste_from_clipboard(UI::Intent::PlatformFeatureBinding::Args),
-              :ipados     => ->ios_paste_from_clipboard(UI::Intent::PlatformFeatureBinding::Args),
-              :android    => ->android_paste_from_clipboard_stub(UI::Intent::PlatformFeatureBinding::Args),
-            } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+              :web_wide   => ->web_paste_from_clipboard(UI::SystemAction::PlatformBinding::Args),
+              :web_narrow => ->web_paste_from_clipboard(UI::SystemAction::PlatformBinding::Args),
+              :macos      => ->macos_paste_from_clipboard(UI::SystemAction::PlatformBinding::Args),
+              :ios        => ->ios_paste_from_clipboard(UI::SystemAction::PlatformBinding::Args),
+              :ipados     => ->ios_paste_from_clipboard(UI::SystemAction::PlatformBinding::Args),
+              :android    => ->android_paste_from_clipboard_stub(UI::SystemAction::PlatformBinding::Args),
+            } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
           )
         )
         nil
       end
 
-      def self.web_paste_from_clipboard(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.web_paste_from_clipboard(args : UI::SystemAction::PlatformBinding::Args) : Nil
         STDERR.puts "[paste_from_clipboard/web] (would call navigator.clipboard.readText())"
         nil
       end
 
-      def self.macos_paste_from_clipboard(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.macos_paste_from_clipboard(args : UI::SystemAction::PlatformBinding::Args) : Nil
         {% if flag?(:macos) %}
           token = parse_callback_token(args[:on_paste]?)
           LibClassCBridge.ap_clipboard_read_macos(token)
@@ -316,7 +316,7 @@ module UI
         nil
       end
 
-      def self.ios_paste_from_clipboard(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.ios_paste_from_clipboard(args : UI::SystemAction::PlatformBinding::Args) : Nil
         {% if flag?(:ios) || flag?(:ipados) %}
           token = parse_callback_token(args[:on_paste]?)
           LibClassCBridge.ap_clipboard_read_ios(token)
@@ -326,7 +326,7 @@ module UI
         nil
       end
 
-      def self.android_paste_from_clipboard_stub(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.android_paste_from_clipboard_stub(args : UI::SystemAction::PlatformBinding::Args) : Nil
         raise "paste_from_clipboard: Android binding not yet wired through " \
               "the renderer surface. C function `ap_clipboard_read_android` " \
               "is implemented in src/ui/native/android_bridge.c; needs JNIEnv " \
@@ -357,30 +357,30 @@ module UI
       #             permission-result callback machinery. Documented gap.
       # ------------------------------------------------------------------
       def self.install_request_permission : Nil
-        UI::Intent::ClassCRegistry.register(
-          UI::Intent::PlatformFeatureBinding.new(
+        UI::SystemAction::Registry.register(
+          UI::SystemAction::PlatformBinding.new(
             intent_id: :request_permission,
             api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
             platforms: {
-              :web_wide   => ->web_request_permission(UI::Intent::PlatformFeatureBinding::Args),
-              :web_narrow => ->web_request_permission(UI::Intent::PlatformFeatureBinding::Args),
-              :macos      => ->macos_request_permission(UI::Intent::PlatformFeatureBinding::Args),
-              :ios        => ->ios_request_permission(UI::Intent::PlatformFeatureBinding::Args),
-              :ipados     => ->ios_request_permission(UI::Intent::PlatformFeatureBinding::Args),
-              :android    => ->android_request_permission_stub(UI::Intent::PlatformFeatureBinding::Args),
-            } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+              :web_wide   => ->web_request_permission(UI::SystemAction::PlatformBinding::Args),
+              :web_narrow => ->web_request_permission(UI::SystemAction::PlatformBinding::Args),
+              :macos      => ->macos_request_permission(UI::SystemAction::PlatformBinding::Args),
+              :ios        => ->ios_request_permission(UI::SystemAction::PlatformBinding::Args),
+              :ipados     => ->ios_request_permission(UI::SystemAction::PlatformBinding::Args),
+              :android    => ->android_request_permission_stub(UI::SystemAction::PlatformBinding::Args),
+            } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
           )
         )
         nil
       end
 
-      def self.web_request_permission(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.web_request_permission(args : UI::SystemAction::PlatformBinding::Args) : Nil
         permission = args[:permission]? || "notifications"
         STDERR.puts "[request_permission/web] (would call Notification.requestPermission for #{permission})"
         nil
       end
 
-      def self.macos_request_permission(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.macos_request_permission(args : UI::SystemAction::PlatformBinding::Args) : Nil
         permission = args[:permission]? || "notifications"
         case permission
         when "notifications"
@@ -398,7 +398,7 @@ module UI
         nil
       end
 
-      def self.ios_request_permission(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.ios_request_permission(args : UI::SystemAction::PlatformBinding::Args) : Nil
         permission = args[:permission]? || "notifications"
         case permission
         when "notifications"
@@ -417,7 +417,7 @@ module UI
         nil
       end
 
-      def self.android_request_permission_stub(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.android_request_permission_stub(args : UI::SystemAction::PlatformBinding::Args) : Nil
         raise "request_permission: Android binding not yet implemented. " \
               "ActivityCompat.requestPermissions needs an Activity reference + " \
               "an onRequestPermissionsResult callback wired through JNI. " \
@@ -437,30 +437,30 @@ module UI
       #   * Android: `ap_open_url_android(env, context, url, len) -> int`
       # ------------------------------------------------------------------
       def self.install_open_url : Nil
-        UI::Intent::ClassCRegistry.register(
-          UI::Intent::PlatformFeatureBinding.new(
+        UI::SystemAction::Registry.register(
+          UI::SystemAction::PlatformBinding.new(
             intent_id: :open_url,
             api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
             platforms: {
-              :web_wide   => ->web_open_url(UI::Intent::PlatformFeatureBinding::Args),
-              :web_narrow => ->web_open_url(UI::Intent::PlatformFeatureBinding::Args),
-              :macos      => ->macos_open_url(UI::Intent::PlatformFeatureBinding::Args),
-              :ios        => ->ios_open_url(UI::Intent::PlatformFeatureBinding::Args),
-              :ipados     => ->ios_open_url(UI::Intent::PlatformFeatureBinding::Args),
-              :android    => ->android_open_url_stub(UI::Intent::PlatformFeatureBinding::Args),
-            } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+              :web_wide   => ->web_open_url(UI::SystemAction::PlatformBinding::Args),
+              :web_narrow => ->web_open_url(UI::SystemAction::PlatformBinding::Args),
+              :macos      => ->macos_open_url(UI::SystemAction::PlatformBinding::Args),
+              :ios        => ->ios_open_url(UI::SystemAction::PlatformBinding::Args),
+              :ipados     => ->ios_open_url(UI::SystemAction::PlatformBinding::Args),
+              :android    => ->android_open_url_stub(UI::SystemAction::PlatformBinding::Args),
+            } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
           )
         )
         nil
       end
 
-      def self.web_open_url(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.web_open_url(args : UI::SystemAction::PlatformBinding::Args) : Nil
         url = args[:url]? || ""
         STDERR.puts "[open_url/web] (would call window.open(#{url.inspect}))"
         nil
       end
 
-      def self.macos_open_url(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.macos_open_url(args : UI::SystemAction::PlatformBinding::Args) : Nil
         url = args[:url]? || ""
         raise "open_url: missing :url arg" if url.empty?
         {% if flag?(:macos) %}
@@ -471,7 +471,7 @@ module UI
         nil
       end
 
-      def self.ios_open_url(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.ios_open_url(args : UI::SystemAction::PlatformBinding::Args) : Nil
         url = args[:url]? || ""
         raise "open_url: missing :url arg" if url.empty?
         {% if flag?(:ios) || flag?(:ipados) %}
@@ -482,7 +482,7 @@ module UI
         nil
       end
 
-      def self.android_open_url_stub(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.android_open_url_stub(args : UI::SystemAction::PlatformBinding::Args) : Nil
         raise "open_url: Android binding not yet wired through the renderer " \
               "surface. C function `ap_open_url_android` is implemented in " \
               "src/ui/native/android_bridge.c; needs JNIEnv + Context plumbing " \
@@ -497,7 +497,7 @@ module UI
       # `UIApplication.openURL:options:` (iOS) / `application:openFile:`
       # (macOS) / `Intent.getData()` (Android). The Crystal-side host
       # registers a callback via
-      # `UI::Intent::IncomingDeepLink.on_receive { |url| ... }`; the
+      # `UI::SystemAction::IncomingDeepLink.on_receive { |url| ... }`; the
       # native renderer wires the OS-level event-handler to invoke that
       # callback at launch / foreground time.
       #
@@ -507,26 +507,26 @@ module UI
       # per-platform renderer integrations (10B.4).
       # ------------------------------------------------------------------
       def self.install_incoming_deep_link : Nil
-        UI::Intent::ClassCRegistry.register(
-          UI::Intent::PlatformFeatureBinding.new(
+        UI::SystemAction::Registry.register(
+          UI::SystemAction::PlatformBinding.new(
             intent_id: :incoming_deep_link,
             api_capability_check: ->(_p : Symbol) { true },
             platforms: {
-              :web_wide   => ->incoming_deep_link_dispatch(UI::Intent::PlatformFeatureBinding::Args),
-              :web_narrow => ->incoming_deep_link_dispatch(UI::Intent::PlatformFeatureBinding::Args),
-              :macos      => ->incoming_deep_link_dispatch(UI::Intent::PlatformFeatureBinding::Args),
-              :ios        => ->incoming_deep_link_dispatch(UI::Intent::PlatformFeatureBinding::Args),
-              :ipados     => ->incoming_deep_link_dispatch(UI::Intent::PlatformFeatureBinding::Args),
-              :android    => ->incoming_deep_link_dispatch(UI::Intent::PlatformFeatureBinding::Args),
-            } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+              :web_wide   => ->incoming_deep_link_dispatch(UI::SystemAction::PlatformBinding::Args),
+              :web_narrow => ->incoming_deep_link_dispatch(UI::SystemAction::PlatformBinding::Args),
+              :macos      => ->incoming_deep_link_dispatch(UI::SystemAction::PlatformBinding::Args),
+              :ios        => ->incoming_deep_link_dispatch(UI::SystemAction::PlatformBinding::Args),
+              :ipados     => ->incoming_deep_link_dispatch(UI::SystemAction::PlatformBinding::Args),
+              :android    => ->incoming_deep_link_dispatch(UI::SystemAction::PlatformBinding::Args),
+            } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
           )
         )
         nil
       end
 
-      def self.incoming_deep_link_dispatch(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.incoming_deep_link_dispatch(args : UI::SystemAction::PlatformBinding::Args) : Nil
         url = args[:url]? || ""
-        UI::Intent::IncomingDeepLink.fire(url)
+        UI::SystemAction::IncomingDeepLink.fire(url)
         nil
       end
 
@@ -544,29 +544,29 @@ module UI
       #             adapter class. Documented gap; substrate stub.
       # ------------------------------------------------------------------
       def self.install_print : Nil
-        UI::Intent::ClassCRegistry.register(
-          UI::Intent::PlatformFeatureBinding.new(
+        UI::SystemAction::Registry.register(
+          UI::SystemAction::PlatformBinding.new(
             intent_id: :print,
             api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
             platforms: {
-              :web_wide   => ->web_print(UI::Intent::PlatformFeatureBinding::Args),
-              :web_narrow => ->web_print(UI::Intent::PlatformFeatureBinding::Args),
-              :macos      => ->macos_print(UI::Intent::PlatformFeatureBinding::Args),
-              :ios        => ->ios_print(UI::Intent::PlatformFeatureBinding::Args),
-              :ipados     => ->ios_print(UI::Intent::PlatformFeatureBinding::Args),
-              :android    => ->android_print_stub(UI::Intent::PlatformFeatureBinding::Args),
-            } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+              :web_wide   => ->web_print(UI::SystemAction::PlatformBinding::Args),
+              :web_narrow => ->web_print(UI::SystemAction::PlatformBinding::Args),
+              :macos      => ->macos_print(UI::SystemAction::PlatformBinding::Args),
+              :ios        => ->ios_print(UI::SystemAction::PlatformBinding::Args),
+              :ipados     => ->ios_print(UI::SystemAction::PlatformBinding::Args),
+              :android    => ->android_print_stub(UI::SystemAction::PlatformBinding::Args),
+            } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
           )
         )
         nil
       end
 
-      def self.web_print(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.web_print(args : UI::SystemAction::PlatformBinding::Args) : Nil
         STDERR.puts "[print/web] (would call window.print())"
         nil
       end
 
-      def self.macos_print(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.macos_print(args : UI::SystemAction::PlatformBinding::Args) : Nil
         text = args[:text]? || ""
         job_name = args[:job_name]? || ""
         {% if flag?(:macos) %}
@@ -577,7 +577,7 @@ module UI
         nil
       end
 
-      def self.ios_print(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.ios_print(args : UI::SystemAction::PlatformBinding::Args) : Nil
         text = args[:text]? || ""
         job_name = args[:job_name]? || ""
         {% if flag?(:ios) || flag?(:ipados) %}
@@ -588,7 +588,7 @@ module UI
         nil
       end
 
-      def self.android_print_stub(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.android_print_stub(args : UI::SystemAction::PlatformBinding::Args) : Nil
         raise "print: Android binding not yet implemented. " \
               "PrintManager.print requires a PrintDocumentAdapter subclass; " \
               "ship a small Java helper class (e.g. AssetPipelinePrintHelper) " \
@@ -612,29 +612,29 @@ module UI
       #             through JNI. Documented gap.
       # ------------------------------------------------------------------
       def self.install_open_file_picker : Nil
-        UI::Intent::ClassCRegistry.register(
-          UI::Intent::PlatformFeatureBinding.new(
+        UI::SystemAction::Registry.register(
+          UI::SystemAction::PlatformBinding.new(
             intent_id: :open_file_picker,
             api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
             platforms: {
-              :web_wide   => ->web_open_file_picker(UI::Intent::PlatformFeatureBinding::Args),
-              :web_narrow => ->web_open_file_picker(UI::Intent::PlatformFeatureBinding::Args),
-              :macos      => ->macos_open_file_picker(UI::Intent::PlatformFeatureBinding::Args),
-              :ios        => ->ios_open_file_picker(UI::Intent::PlatformFeatureBinding::Args),
-              :ipados     => ->ios_open_file_picker(UI::Intent::PlatformFeatureBinding::Args),
-              :android    => ->android_open_file_picker_stub(UI::Intent::PlatformFeatureBinding::Args),
-            } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+              :web_wide   => ->web_open_file_picker(UI::SystemAction::PlatformBinding::Args),
+              :web_narrow => ->web_open_file_picker(UI::SystemAction::PlatformBinding::Args),
+              :macos      => ->macos_open_file_picker(UI::SystemAction::PlatformBinding::Args),
+              :ios        => ->ios_open_file_picker(UI::SystemAction::PlatformBinding::Args),
+              :ipados     => ->ios_open_file_picker(UI::SystemAction::PlatformBinding::Args),
+              :android    => ->android_open_file_picker_stub(UI::SystemAction::PlatformBinding::Args),
+            } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
           )
         )
         nil
       end
 
-      def self.web_open_file_picker(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.web_open_file_picker(args : UI::SystemAction::PlatformBinding::Args) : Nil
         STDERR.puts "[open_file_picker/web] (would render <input type=file> or call showOpenFilePicker())"
         nil
       end
 
-      def self.macos_open_file_picker(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.macos_open_file_picker(args : UI::SystemAction::PlatformBinding::Args) : Nil
         utis = args[:utis]? || ""
         {% if flag?(:macos) %}
           token = parse_callback_token(args[:on_pick]?)
@@ -645,7 +645,7 @@ module UI
         nil
       end
 
-      def self.ios_open_file_picker(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.ios_open_file_picker(args : UI::SystemAction::PlatformBinding::Args) : Nil
         utis = args[:utis]? || ""
         {% if flag?(:ios) || flag?(:ipados) %}
           token = parse_callback_token(args[:on_pick]?)
@@ -657,7 +657,7 @@ module UI
         nil
       end
 
-      def self.android_open_file_picker_stub(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.android_open_file_picker_stub(args : UI::SystemAction::PlatformBinding::Args) : Nil
         raise "open_file_picker: Android binding not yet implemented. " \
               "Intent.ACTION_GET_CONTENT requires startActivityForResult + " \
               "onActivityResult plumbing through an Activity-scoped JNI " \
@@ -679,29 +679,29 @@ module UI
       #             as ACTION_GET_CONTENT. Documented gap.
       # ------------------------------------------------------------------
       def self.install_export_file : Nil
-        UI::Intent::ClassCRegistry.register(
-          UI::Intent::PlatformFeatureBinding.new(
+        UI::SystemAction::Registry.register(
+          UI::SystemAction::PlatformBinding.new(
             intent_id: :export_file,
             api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
             platforms: {
-              :web_wide   => ->web_export_file(UI::Intent::PlatformFeatureBinding::Args),
-              :web_narrow => ->web_export_file(UI::Intent::PlatformFeatureBinding::Args),
-              :macos      => ->macos_export_file(UI::Intent::PlatformFeatureBinding::Args),
-              :ios        => ->ios_export_file(UI::Intent::PlatformFeatureBinding::Args),
-              :ipados     => ->ios_export_file(UI::Intent::PlatformFeatureBinding::Args),
-              :android    => ->android_export_file_stub(UI::Intent::PlatformFeatureBinding::Args),
-            } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+              :web_wide   => ->web_export_file(UI::SystemAction::PlatformBinding::Args),
+              :web_narrow => ->web_export_file(UI::SystemAction::PlatformBinding::Args),
+              :macos      => ->macos_export_file(UI::SystemAction::PlatformBinding::Args),
+              :ios        => ->ios_export_file(UI::SystemAction::PlatformBinding::Args),
+              :ipados     => ->ios_export_file(UI::SystemAction::PlatformBinding::Args),
+              :android    => ->android_export_file_stub(UI::SystemAction::PlatformBinding::Args),
+            } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
           )
         )
         nil
       end
 
-      def self.web_export_file(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.web_export_file(args : UI::SystemAction::PlatformBinding::Args) : Nil
         STDERR.puts "[export_file/web] (would render <a download> or call showSaveFilePicker())"
         nil
       end
 
-      def self.macos_export_file(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.macos_export_file(args : UI::SystemAction::PlatformBinding::Args) : Nil
         suggested = args[:suggested_name]? || ""
         {% if flag?(:macos) %}
           token = parse_callback_token(args[:on_export]?)
@@ -712,7 +712,7 @@ module UI
         nil
       end
 
-      def self.ios_export_file(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.ios_export_file(args : UI::SystemAction::PlatformBinding::Args) : Nil
         source = args[:source_url]? || ""
         {% if flag?(:ios) || flag?(:ipados) %}
           raise "export_file: missing :source_url arg" if source.empty?
@@ -725,7 +725,7 @@ module UI
         nil
       end
 
-      def self.android_export_file_stub(args : UI::Intent::PlatformFeatureBinding::Args) : Nil
+      def self.android_export_file_stub(args : UI::SystemAction::PlatformBinding::Args) : Nil
         raise "export_file: Android binding not yet implemented. " \
               "Intent.ACTION_CREATE_DOCUMENT requires startActivityForResult + " \
               "onActivityResult plumbing through an Activity-scoped JNI helper. " \
@@ -739,9 +739,9 @@ module UI
     #
     # A tiny event-bus the framework / host wire OS-level
     # openURL: events into. App code registers a handler via
-    # `UI::Intent::IncomingDeepLink.on_receive { |url| ... }`; the
+    # `UI::SystemAction::IncomingDeepLink.on_receive { |url| ... }`; the
     # platform renderer (or, in tests, a manual
-    # `UI::Intent.dispatch(:incoming_deep_link, url: ...)`) calls
+    # `UI::SystemAction.perform(:incoming_deep_link, url: ...)`) calls
     # `IncomingDeepLink.fire(url)` to notify every registered handler.
     #
     # Last-in stays — callers register once at app boot.
@@ -794,4 +794,4 @@ module UI
 end
 
 # Install the framework's Class C bindings at load. Idempotent.
-UI::Intent::ClassCBootstrap.install
+UI::SystemAction::Bootstrap.install

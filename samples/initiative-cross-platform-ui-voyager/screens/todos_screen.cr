@@ -8,7 +8,7 @@ module Voyager
   # Phase 10D-refocus: this screen is now the integrated Phase 10 demo.
   # The Phase 10 surface exercised here:
   #
-  #   * UI::Intent.resolve(:swipe_actions, ctx) — Phase 10B.0 resolver
+  #   * UI::WidgetRoute.resolve(:swipe_actions, ctx) — Phase 10B.0 resolver
   #     picks the platform-appropriate widget class (SwipeActionRow on
   #     iOS via SwiftKit, InlineActionRow on macOS, etc.). No screen-
   #     local `UI::SwipeActionRow.new` call site survives.
@@ -119,7 +119,7 @@ module Voyager
       # appropriate widget for `:swipe_actions`. On iOS this returns
       # `UI::SwipeActionRow` (SwiftKit-backed); on macOS it returns
       # `UI::InlineActionRow`; on web it depends on viewport.
-      swipe_row_class = UI::Intent.resolve(:swipe_actions, context)
+      swipe_row_class = UI::WidgetRoute.resolve(:swipe_actions, context)
 
       visible = state.visible_todos
       visible.each do |todo|
@@ -152,7 +152,7 @@ module Voyager
     private def maybe_request_notification_permission : Nil
       return if @@requested_notification_permission
       @@requested_notification_permission = true
-      UI::Intent.dispatch(:request_permission, kind: "notifications")
+      UI::SystemAction.perform(:request_permission, kind: "notifications")
       nil
     end
 

@@ -1,4 +1,4 @@
-# fixture_for: family_3/intent_resolve_capability_arg
+# fixture_for: family_3/widget_route_resolve_capability_arg
 # expected: fail
 # synthetic_path: src/screens/stale_caller_screen.cr
 #
@@ -7,7 +7,7 @@
 
 class StaleCallerScreen < UI::Screen
   def build(context : UI::ScreenContext) : UI::View
-    klass = UI::Intent.resolve(:swipe_actions, context, screen_class: self.class)
+    klass = UI::WidgetRoute.resolve(:swipe_actions, context, screen_class: self.class)
     UI::Label.new("oops")
   end
 end

@@ -1,4 +1,4 @@
-# Phase 10B.0 — UI::Intent::Registry
+# Phase 10B.0 — UI::WidgetRoute::Registry
 #
 # Class-scoped storage for Tier 2 intent routing. Per
 # architecture-decisions.md Decision 4 #3, override storage is class-
@@ -24,7 +24,7 @@
 # declared capabilities (recorded via the `declares_capabilities` macro
 # on the widget class) and asserts that they cover the intent's
 # required capability set. Mismatches raise
-# `UI::Intent::IncompatibleOverride` immediately so the author sees
+# `UI::WidgetRoute::IncompatibleOverride` immediately so the author sees
 # the problem at app-boot, not at first render.
 #
 # # Why a registry rather than instance state?
@@ -39,8 +39,8 @@ require "../../asset_pipeline/amber_integration"
 require "../../asset_pipeline/native_app"
 
 module UI
-  module Intent
-    # Raised by `UI::Intent.resolve` when no widget is registered for
+  module WidgetRoute
+    # Raised by `UI::WidgetRoute.resolve` when no widget is registered for
     # the requested `(intent_id, platform)` combination. The error
     # message names the intent and platform so authors can install the
     # missing override without spelunking.
@@ -52,7 +52,7 @@ module UI
     class UnresolvableDefault < Exception
     end
 
-    # Raised by `UI::Intent::Registry.register_*_override` when the
+    # Raised by `UI::WidgetRoute::Registry.register_*_override` when the
     # override widget's `declares_capabilities` block does not cover
     # the intent's required capability set. Names the missing
     # capability + the widget + the intent so the author sees the
@@ -455,7 +455,7 @@ module UI
       # checks screen-scoped overrides first. Iter-9 (Codex Finding 2):
       # the explicit kwarg is retained for back-compat, but the
       # canonical source is `context.active_screen_class` — the public
-      # `UI::Intent.resolve` reads it from there and threads no kwarg.
+      # `UI::WidgetRoute.resolve` reads it from there and threads no kwarg.
       # Without either source, the resolver skips the screen tier.
       #
       # The app tier is consulted ONLY when `context.app_class` is set
@@ -466,7 +466,7 @@ module UI
       # would otherwise be effectively process-global.
       #
       # Returns nil if neither override nor default is registered. The
-      # public `UI::Intent.resolve` wraps this and raises
+      # public `UI::WidgetRoute.resolve` wraps this and raises
       # `UnresolvableDefault` when nil.
       def self.resolve_for(
         intent_id : Symbol,

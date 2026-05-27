@@ -1,6 +1,6 @@
-# Phase 10B.3.0 — UI::Intent::DispatchResult
+# Phase 10B.3.0 — UI::SystemAction::Result
 #
-# Return type for `UI::Intent.dispatch(intent_id, **args)`. Class C
+# Return type for `UI::SystemAction.perform(intent_id, **args)`. Class C
 # intents (cross-platform-bridged features) are fire-and-forget by
 # contract — they invoke a native side-effect (share sheet, alert,
 # clipboard write) and do not produce a `UI::View`. But callers still
@@ -11,7 +11,7 @@
 # # Three states
 #
 # * `Success`    — the platform-specific block ran without raising.
-# * `Unsupported`— no `PlatformFeatureBinding` is registered for the
+# * `Unsupported`— no `PlatformBinding` is registered for the
 #                  intent, OR the binding exists but the running
 #                  platform is not covered by its `platforms` map, OR
 #                  the binding's `api_capability_check` returned
@@ -30,7 +30,7 @@
 # # Why not raise on Unsupported?
 #
 # Class C intents are intentionally optional — a screen that calls
-# `UI::Intent.dispatch(:share_link, ...)` on a platform that doesn't
+# `UI::SystemAction.perform(:share_link, ...)` on a platform that doesn't
 # back sharing should degrade gracefully (e.g. fall back to a copy
 # link). Raising would force every call-site into a `begin/rescue`
 # block and discourage feature-detection. `feature_supported?` exists
@@ -38,17 +38,17 @@
 # callers that prefer to ask forgiveness rather than permission.
 
 module UI
-  module Intent
+  module SystemAction
     # Tagged union for Class C dispatch outcomes. Construct via the
-    # class methods (`DispatchResult.success`, `.unsupported`,
+    # class methods (`Result.success`, `.unsupported`,
     # `.failed(reason)`) — instances are tiny value-style records and
     # safe to discard.
-    abstract struct DispatchResult
+    abstract struct Result
       # Successful dispatch — the platform binding's block ran without
       # raising. No payload (Class C is fire-and-forget; if a feature
       # needs to return data, it does so via a callback, not the
       # dispatch result).
-      struct Success < DispatchResult
+      struct Success < Result
         def success? : Bool
           true
         end
@@ -71,7 +71,7 @@ module UI
       # binding's `platforms` map, or the binding's capability check
       # returned `false`. The `detail` describes which of the three
       # reasons applied so logs / debug output can disambiguate.
-      struct Unsupported < DispatchResult
+      struct Unsupported < Result
         getter detail : String
 
         def initialize(@detail : String)
@@ -98,7 +98,7 @@ module UI
       # exception message. Class C bindings are user-defined, so any
       # exception type may flow through; the substrate normalises to
       # the message string.
-      struct Failed < DispatchResult
+      struct Failed < Result
         getter reason : String
 
         def initialize(@reason : String)
@@ -118,16 +118,16 @@ module UI
       end
 
       # Convenience constructors. Most call-sites read clearer with
-      # `DispatchResult.success` than `DispatchResult::Success.new`.
-      def self.success : DispatchResult
+      # `Result.success` than `Result::Success.new`.
+      def self.success : Result
         Success.new
       end
 
-      def self.unsupported(detail : String) : DispatchResult
+      def self.unsupported(detail : String) : Result
         Unsupported.new(detail)
       end
 
-      def self.failed(reason : String) : DispatchResult
+      def self.failed(reason : String) : Result
         Failed.new(reason)
       end
 

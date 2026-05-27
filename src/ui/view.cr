@@ -563,7 +563,7 @@ module UI
     abstract def accept(visitor : PlatformVisitor)
 
     # Phase 10B.0 — declare which capabilities this view class supports
-    # for a given Tier 2 intent. Used by `UI::Intent::Registry` to
+    # for a given Tier 2 intent. Used by `UI::WidgetRoute::Registry` to
     # validate overrides at registration time. Subclasses call this
     # exactly once per intent they claim to satisfy:
     #
@@ -585,10 +585,10 @@ module UI
     # * `Hash(Symbol, Bool)` — platform-keyed support map. Keys are
     #   platform symbols (`:ios`, `:ipados`, `:macos`, `:web_wide`,
     #   `:web_narrow`, `:android`); the value is whether the renderer for
-    #   that platform actually backs the capability. `UI::Intent::Registry`
+    #   that platform actually backs the capability. `UI::WidgetRoute::Registry`
     #   walks this hash at registration time to detect "claims iOS but
     #   rendered on macOS" mismatches, and again at resolve time when
-    #   `capabilities_required:` is passed to `UI::Intent.resolve`.
+    #   `capabilities_required:` is passed to `UI::WidgetRoute.resolve`.
     #
     # Both NamedTuple shorthand (`{ios: true, macos: false}`) and rocket-
     # style HashLiteral (`{:ios => true, :macos => false}`) are accepted
@@ -597,7 +597,7 @@ module UI
     #
     # The macro emits a class-level hook method
     # `_declare_capabilities_for_intent_<intent_id>` that runs the
-    # `UI::Intent::Registry.declare_widget_capabilities` write. Like
+    # `UI::WidgetRoute::Registry.declare_widget_capabilities` write. Like
     # `UI::App`'s `_bootstrap_screen_*` pattern, method definitions are
     # compile-time-emitted code, unaffected by the iOS class-init gap
     # (see [[project_crystal_ios_class_init_gap]]). The class-load side
@@ -605,7 +605,7 @@ module UI
     # bag into the registry.
     macro declares_capabilities(intent_id, capabilities)
       def self._declare_capabilities_for_intent_{{intent_id.id}} : Nil
-        caps = {} of Symbol => ::UI::Intent::Registry::CapabilityValue
+        caps = {} of Symbol => ::UI::WidgetRoute::Registry::CapabilityValue
         {% for key, value in capabilities %}
           {% if value.is_a?(HashLiteral) || value.is_a?(NamedTupleLiteral) %}
             _cap_h_{{intent_id.id}}_{{key.id}} = {} of Symbol => Bool
@@ -627,7 +627,7 @@ module UI
             caps[{% if key.is_a?(SymbolLiteral) %}{{key}}{% else %}{{key.symbolize}}{% end %}] = {{value}}
           {% end %}
         {% end %}
-        ::UI::Intent::Registry.declare_widget_capabilities(
+        ::UI::WidgetRoute::Registry.declare_widget_capabilities(
           {{@type}},
           {{intent_id}},
           caps,

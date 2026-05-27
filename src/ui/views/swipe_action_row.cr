@@ -89,9 +89,9 @@ module UI
     #   CSS class; the macOS AppKit visit never reads `action.role`
     #   (no destructive tint).
     #
-    # Validated by `UI::Intent::Registry` whenever an app or screen
+    # Validated by `UI::WidgetRoute::Registry` whenever an app or screen
     # registers `UI::SwipeActionRow` as an override, and at resolve
-    # time when `UI::Intent.resolve(..., capabilities_required: ...)`
+    # time when `UI::WidgetRoute.resolve(..., capabilities_required: ...)`
     # is called.
     declares_capabilities :swipe_actions, {
       supports_edge_trailing: {

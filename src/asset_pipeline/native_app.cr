@@ -430,18 +430,18 @@ module UI
     # Apps call this to swap the framework's default widget for a
     # given intent. Capability validation runs at the registration
     # call (inside the Registry) — a widget that doesn't declare
-    # enough capability coverage raises `UI::Intent::IncompatibleOverride`.
+    # enough capability coverage raises `UI::WidgetRoute::IncompatibleOverride`.
     #
     #     class AcmeApp < UI::App
-    #       override_intent :swipe_actions, AcmeFancySwipeRow
+    #       override_widget :swipe_actions, AcmeFancySwipeRow
     #     end
     #
-    # The class-level method writes into `UI::Intent::Registry` so the
+    # The class-level method writes into `UI::WidgetRoute::Registry` so the
     # override survives screen rebuilds. Class methods are compile-time-
     # emitted code, unaffected by the iOS class-init gap (see the
     # `bootstrap!` rationale above).
-    def self.override_intent(intent_id : Symbol, widget_class : UI::View.class) : Nil
-      ::UI::Intent::Registry.register_app_override(self, intent_id, widget_class)
+    def self.override_widget(intent_id : Symbol, widget_class : UI::View.class) : Nil
+      ::UI::WidgetRoute::Registry.register_app_override(self, intent_id, widget_class)
       nil
     end
 

@@ -1,5 +1,5 @@
 module Voyager
-  # Phase 10D exerciser — `UI::Intent.resolve` proof.
+  # Phase 10D exerciser — `UI::WidgetRoute.resolve` proof.
   #
   # Demonstrates the Phase 10B.0 Tier-2 resolver pipeline by asking the
   # registry for the platform-appropriate widget that backs the
@@ -49,7 +49,7 @@ module Voyager
       # Resolve the platform-appropriate widget class via the Tier-2
       # registry. This is the canonical Phase 10B.0 call site —
       # screens never name `SwipeActionRow` directly.
-      resolved_class = UI::Intent.resolve(:swipe_actions, context)
+      resolved_class = UI::WidgetRoute.resolve(:swipe_actions, context)
 
       # Project the resolved class object + platform Symbol into
       # literal String constants without interpolation.
@@ -73,7 +73,7 @@ module Voyager
                       end
 
       header = UI::Label.new(
-        "This row came from UI::Intent.resolve(:swipe_actions, ctx)"
+        "This row came from UI::WidgetRoute.resolve(:swipe_actions, ctx)"
       )
       header.font = UI::Font.new(size: 13.0, weight: :regular)
       header.text_color_role = UI::LabelRole::Secondary

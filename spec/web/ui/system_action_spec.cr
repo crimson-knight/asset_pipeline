@@ -1,9 +1,9 @@
 require "../spec_helper"
-require "../../../src/ui/intent"
-require "../../../src/ui/intent/class_c_bootstrap"
+require "../../../src/ui/widget_route"
+require "../../../src/ui/system_action/bootstrap"
 require "../../../src/ui/environment"
 
-# Phase 10B.3.0 — UI::Intent::ClassCRegistry + UI::Intent.dispatch
+# Phase 10B.3.0 — UI::SystemAction::Registry + UI::SystemAction.perform
 # + UI::Environment.feature_supported? specs.
 #
 # Covers:
@@ -27,79 +27,79 @@ require "../../../src/ui/environment"
 # call `ClassCBootstrap.install` after a reset to put the framework
 # `:hello_world_alert` binding back so the dispatch tests pass.
 private def reinstall_class_c_bootstrap : Nil
-  UI::Intent::ClassCRegistry.reset_for_spec
+  UI::SystemAction::Registry.reset_for_spec
   UI::Environment.reset_platform_for_spec
-  UI::Intent::ClassCBootstrap.install
+  UI::SystemAction::Bootstrap.install
   nil
 end
 
-describe UI::Intent::ClassCRegistry do
+describe UI::SystemAction::Registry do
   before_each { reinstall_class_c_bootstrap }
 
   describe ".binding_for" do
     it "returns the registered binding for :hello_world_alert" do
-      binding = UI::Intent::ClassCRegistry.binding_for(:hello_world_alert)
+      binding = UI::SystemAction::Registry.binding_for(:hello_world_alert)
       binding.should_not be_nil
       binding.not_nil!.intent_id.should eq(:hello_world_alert)
     end
 
     it "returns nil for an unknown intent" do
-      UI::Intent::ClassCRegistry.binding_for(:no_such_intent).should be_nil
+      UI::SystemAction::Registry.binding_for(:no_such_intent).should be_nil
     end
   end
 
   describe ".supports?" do
     it "returns true when a binding covers the platform" do
-      UI::Intent::ClassCRegistry.supports?(:hello_world_alert, :web_wide).should be_true
-      UI::Intent::ClassCRegistry.supports?(:hello_world_alert, :web_narrow).should be_true
-      UI::Intent::ClassCRegistry.supports?(:hello_world_alert, :macos).should be_true
+      UI::SystemAction::Registry.supports?(:hello_world_alert, :web_wide).should be_true
+      UI::SystemAction::Registry.supports?(:hello_world_alert, :web_narrow).should be_true
+      UI::SystemAction::Registry.supports?(:hello_world_alert, :macos).should be_true
     end
 
     it "returns false when the intent isn't registered" do
-      UI::Intent::ClassCRegistry.supports?(:no_such_intent, :web_wide).should be_false
+      UI::SystemAction::Registry.supports?(:no_such_intent, :web_wide).should be_false
     end
 
     it "returns false when the binding's api_capability_check fails" do
-      UI::Intent::ClassCRegistry.register(
-        UI::Intent::PlatformFeatureBinding.new(
+      UI::SystemAction::Registry.register(
+        UI::SystemAction::PlatformBinding.new(
           intent_id: :spec_check_fail,
           api_capability_check: ->(_p : Symbol) { false },
           platforms: {
-            :web_wide => ->(_a : UI::Intent::PlatformFeatureBinding::Args) { nil },
-          } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+            :web_wide => ->(_a : UI::SystemAction::PlatformBinding::Args) { nil },
+          } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
         )
       )
-      UI::Intent::ClassCRegistry.supports?(:spec_check_fail, :web_wide).should be_false
+      UI::SystemAction::Registry.supports?(:spec_check_fail, :web_wide).should be_false
     end
   end
 
   describe ".registered_intents" do
     it "includes :hello_world_alert after bootstrap" do
-      UI::Intent::ClassCRegistry.registered_intents.should contain(:hello_world_alert)
+      UI::SystemAction::Registry.registered_intents.should contain(:hello_world_alert)
     end
   end
 end
 
-describe UI::Intent::PlatformFeatureBinding do
+describe UI::SystemAction::PlatformBinding do
   it "exposes intent_id, api_capability_check, platforms" do
-    binding = UI::Intent::PlatformFeatureBinding.new(
+    binding = UI::SystemAction::PlatformBinding.new(
       intent_id: :spec_binding,
       platforms: {
-        :web_wide => ->(_a : UI::Intent::PlatformFeatureBinding::Args) { nil },
-      } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+        :web_wide => ->(_a : UI::SystemAction::PlatformBinding::Args) { nil },
+      } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
     )
     binding.intent_id.should eq(:spec_binding)
     binding.platforms.has_key?(:web_wide).should be_true
   end
 
   it "supports? consults both the platforms map and the capability check" do
-    binding = UI::Intent::PlatformFeatureBinding.new(
+    binding = UI::SystemAction::PlatformBinding.new(
       intent_id: :spec_binding,
       api_capability_check: ->(p : Symbol) { p == :web_wide },
       platforms: {
-        :web_wide   => ->(_a : UI::Intent::PlatformFeatureBinding::Args) { nil },
-        :web_narrow => ->(_a : UI::Intent::PlatformFeatureBinding::Args) { nil },
-      } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+        :web_wide   => ->(_a : UI::SystemAction::PlatformBinding::Args) { nil },
+        :web_narrow => ->(_a : UI::SystemAction::PlatformBinding::Args) { nil },
+      } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
     )
     binding.supports?(:web_wide).should be_true
     # web_narrow is in the platforms map but the capability check
@@ -110,13 +110,13 @@ describe UI::Intent::PlatformFeatureBinding do
   end
 end
 
-describe UI::Intent do
+describe UI::SystemAction do
   describe ".dispatch" do
     before_each { reinstall_class_c_bootstrap }
 
     it "returns DispatchResult.success for :hello_world_alert on web" do
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:hello_world_alert, {:message => "hi from spec"})
+      result = UI::SystemAction.perform(:hello_world_alert, {:message => "hi from spec"})
       result.success?.should be_true
       result.unsupported?.should be_false
       result.failed?.should be_false
@@ -124,13 +124,13 @@ describe UI::Intent do
 
     it "accepts kwargs and packs them into the args hash" do
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:hello_world_alert, message: "via kwargs")
+      result = UI::SystemAction.perform(:hello_world_alert, message: "via kwargs")
       result.success?.should be_true
     end
 
     it "accepts a custom title arg" do
       UI::Environment.set_platform(:web_narrow)
-      result = UI::Intent.dispatch(
+      result = UI::SystemAction.perform(
         :hello_world_alert,
         {:title => "Greetings", :message => "from web_narrow"}
       )
@@ -139,56 +139,56 @@ describe UI::Intent do
 
     it "returns DispatchResult.unsupported for an unknown intent" do
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:no_such_intent)
+      result = UI::SystemAction.perform(:no_such_intent)
       result.unsupported?.should be_true
-      result.reason.not_nil!.should contain("No Class C binding registered")
+      result.reason.not_nil!.should contain("No system action binding registered")
     end
 
     it "returns DispatchResult.unsupported when the binding does not cover the platform" do
-      UI::Intent::ClassCRegistry.register(
-        UI::Intent::PlatformFeatureBinding.new(
+      UI::SystemAction::Registry.register(
+        UI::SystemAction::PlatformBinding.new(
           intent_id: :web_only_feature,
           platforms: {
-            :web_wide => ->(_a : UI::Intent::PlatformFeatureBinding::Args) { nil },
-          } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+            :web_wide => ->(_a : UI::SystemAction::PlatformBinding::Args) { nil },
+          } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
         )
       )
       UI::Environment.set_platform(:macos)
-      result = UI::Intent.dispatch(:web_only_feature)
+      result = UI::SystemAction.perform(:web_only_feature)
       result.unsupported?.should be_true
       result.reason.not_nil!.should contain("does not cover platform")
     end
 
     it "returns DispatchResult.failed when the platform lambda raises" do
-      UI::Intent::ClassCRegistry.register(
-        UI::Intent::PlatformFeatureBinding.new(
+      UI::SystemAction::Registry.register(
+        UI::SystemAction::PlatformBinding.new(
           intent_id: :raising_feature,
           platforms: {
-            :web_wide => ->(_a : UI::Intent::PlatformFeatureBinding::Args) {
+            :web_wide => ->(_a : UI::SystemAction::PlatformBinding::Args) {
               raise "boom from spec"
               nil
             },
-          } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+          } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
         )
       )
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:raising_feature)
+      result = UI::SystemAction.perform(:raising_feature)
       result.failed?.should be_true
       result.reason.not_nil!.should contain("boom from spec")
     end
 
     it "honours api_capability_check at dispatch time" do
-      UI::Intent::ClassCRegistry.register(
-        UI::Intent::PlatformFeatureBinding.new(
+      UI::SystemAction::Registry.register(
+        UI::SystemAction::PlatformBinding.new(
           intent_id: :gated_feature,
           api_capability_check: ->(_p : Symbol) { false },
           platforms: {
-            :web_wide => ->(_a : UI::Intent::PlatformFeatureBinding::Args) { nil },
-          } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+            :web_wide => ->(_a : UI::SystemAction::PlatformBinding::Args) { nil },
+          } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
         )
       )
       UI::Environment.set_platform(:web_wide)
-      result = UI::Intent.dispatch(:gated_feature)
+      result = UI::SystemAction.perform(:gated_feature)
       result.unsupported?.should be_true
     end
   end
@@ -209,12 +209,12 @@ describe UI::Environment do
     end
 
     it "tracks platform changes" do
-      UI::Intent::ClassCRegistry.register(
-        UI::Intent::PlatformFeatureBinding.new(
+      UI::SystemAction::Registry.register(
+        UI::SystemAction::PlatformBinding.new(
           intent_id: :macos_only_feature,
           platforms: {
-            :macos => ->(_a : UI::Intent::PlatformFeatureBinding::Args) { nil },
-          } of Symbol => UI::Intent::PlatformFeatureBinding::PlatformProc,
+            :macos => ->(_a : UI::SystemAction::PlatformBinding::Args) { nil },
+          } of Symbol => UI::SystemAction::PlatformBinding::PlatformProc,
         )
       )
       UI::Environment.set_platform(:macos)
@@ -241,9 +241,9 @@ describe UI::Environment do
   end
 end
 
-describe UI::Intent::DispatchResult do
+describe UI::SystemAction::Result do
   it "Success predicates" do
-    s = UI::Intent::DispatchResult.success
+    s = UI::SystemAction::Result.success
     s.success?.should be_true
     s.unsupported?.should be_false
     s.failed?.should be_false
@@ -251,13 +251,13 @@ describe UI::Intent::DispatchResult do
   end
 
   it "Unsupported predicates carry the detail in reason" do
-    u = UI::Intent::DispatchResult.unsupported("test detail")
+    u = UI::SystemAction::Result.unsupported("test detail")
     u.unsupported?.should be_true
     u.reason.should eq("test detail")
   end
 
   it "Failed predicates carry the reason" do
-    f = UI::Intent::DispatchResult.failed("boom")
+    f = UI::SystemAction::Result.failed("boom")
     f.failed?.should be_true
     f.reason.should eq("boom")
   end

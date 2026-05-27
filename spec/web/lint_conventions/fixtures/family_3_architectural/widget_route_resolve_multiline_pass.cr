@@ -1,4 +1,4 @@
-# fixture_for: family_3/intent_resolve_capability_arg
+# fixture_for: family_3/widget_route_resolve_capability_arg
 # expected: pass
 # synthetic_path: src/screens/multiline_caller_screen.cr
 #
@@ -8,7 +8,7 @@
 
 class MultilineCallerScreen < UI::Screen
   def build(context : UI::ScreenContext) : UI::View
-    klass = UI::Intent.resolve(
+    klass = UI::WidgetRoute.resolve(
       :swipe_actions,
       context,
       capabilities_required: {
