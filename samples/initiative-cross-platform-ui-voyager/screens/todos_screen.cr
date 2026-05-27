@@ -45,14 +45,20 @@ module Voyager
 
       state = Voyager.state
 
+      # Phase 10D-polish A4 — the row 16pt inset is now a UI::ListView
+      # default (see src/ui/views/list_view.cr:content_inset_horizontal).
+      # The screen still pads the OUTER content (header, chart row, add
+      # button) at 16pt so the chrome aligns with the list rows. The
+      # ListView itself ignores this outer inset; it owns its own
+      # row-level inset via .listRowInsets.
       root = UI::VStack.new(spacing: 16.0)
       root.root_fill = true
       root.alignment = UI::Alignment::Leading
       root.padding = UI::EdgeInsets.new(
         top: 24.0 + metrics.safe_area_top_pt,
-        trailing: 20.0 + metrics.safe_area_trailing_pt,
+        trailing: 16.0 + metrics.safe_area_trailing_pt,
         bottom: 24.0 + metrics.safe_area_bottom_pt,
-        leading: 20.0 + metrics.safe_area_leading_pt,
+        leading: 16.0 + metrics.safe_area_leading_pt,
       )
       root.accessibility_label = "Voyager todos screen"
       root.test_id = "voyager-todos-root"
