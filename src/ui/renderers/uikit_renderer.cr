@@ -3939,6 +3939,13 @@
         callback_ids = [] of UInt64
 
         # Map first non-cancel action -> confirm button.
+        # Phase 10D-polish — confirm/cancel token setters are
+        # `NSNumber?` (UInt64-valued) on the Swift side; we MUST use the
+        # boxed-NSNumber trampoline (`apsk_overrides_set_uint64_boxed`),
+        # not `apsk_overrides_set_int` which passes a raw integer that
+        # the setter then tries to retain as an object → SIGSEGV. Bug
+        # introduced in 10D-refocus when the visit method was hand-rolled
+        # instead of routing through `sender.set_uint64`.
         if primary = view.primary_action
           sender.set_string(target_str, :setConfirmLabel, primary.label)
           if primary.style == :destructive
@@ -3947,8 +3954,8 @@
           if action = primary.action
             tok = UI::CallbackRegistry.register_action(&action)
             callback_ids << tok
-            LibSwiftKitBridge.apsk_overrides_set_int(
-              overrides_ptr, "setConfirmToken:".to_unsafe, tok.to_i64,
+            LibSwiftKitBridge.apsk_overrides_set_uint64_boxed(
+              overrides_ptr, "setConfirmToken:".to_unsafe, tok,
             )
           end
         end
@@ -3959,8 +3966,8 @@
           if action = cancel.action
             tok = UI::CallbackRegistry.register_action(&action)
             callback_ids << tok
-            LibSwiftKitBridge.apsk_overrides_set_int(
-              overrides_ptr, "setCancelToken:".to_unsafe, tok.to_i64,
+            LibSwiftKitBridge.apsk_overrides_set_uint64_boxed(
+              overrides_ptr, "setCancelToken:".to_unsafe, tok,
             )
           end
         end
