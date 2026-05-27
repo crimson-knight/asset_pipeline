@@ -781,6 +781,14 @@ module UI
           sender.set_int_array(target, :setSectionItemCounts,
             view.sections.map { |s| s.items.size })
         end
+
+        # Phase 10D-final — per-row Mail-app row metadata.
+        # The visit method registers tokens + populates the parallel
+        # flat arrays for leading/trailing swipe actions and row taps.
+        # The populator only emits the static fields the visitor cannot
+        # build (style / sections); per-row arrays are emitted from
+        # `visit(UI::ListView)` directly using the same sender so the
+        # token registrations and the parallel arrays stay co-located.
       end
 
       # ---------------------------------------------------------------

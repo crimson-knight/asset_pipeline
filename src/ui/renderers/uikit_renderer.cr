@@ -1112,6 +1112,116 @@
           end
         end
 
+        # Phase 10D-final — per-row swipe + tap + drag-reorder token
+        # registration. The flat-index walk parallels the childViews
+        # ordering above so absolute row index `n` in the facade
+        # corresponds to `children_native[n]`.
+        callback_ids = [] of UInt64
+        total_rows = children_native.size
+
+        # Row tap tokens (one per row; 0 = no whole-row tap).
+        row_tap_tokens = Array(UInt64).new(total_rows, 0_u64)
+        if row_tap = view.on_row_tap
+          (0...total_rows).each do |idx|
+            tok = UI::CallbackRegistry.register_action { row_tap.call(idx) }
+            row_tap_tokens[idx] = tok
+            callback_ids << tok
+          end
+          sender.set_uint64_array(target_str, :setRowTapTokens, row_tap_tokens)
+        end
+
+        # Drag-reorder string-channel token.
+        if move = view.on_move
+          move_tok = UI::CallbackRegistry.register_string(->(payload : String) {
+            # Payload shape: "from=N,to=M". Parse defensively — a
+            # malformed payload is a silent no-op rather than a crash.
+            from_idx = -1
+            to_idx = -1
+            payload.split(",").each do |kv|
+              parts = kv.split("=", 2)
+              next unless parts.size == 2
+              case parts[0]
+              when "from" then from_idx = parts[1].to_i? || -1
+              when "to"   then to_idx = parts[1].to_i? || -1
+              end
+            end
+            if from_idx >= 0 && to_idx >= 0
+              move.call(from_idx, to_idx)
+            end
+            nil
+          })
+          sender.set_uint64(target_str, :setMoveToken, move_tok)
+          callback_ids << move_tok
+        end
+
+        # Per-row leading swipe actions. Build flat + counts arrays.
+        if leading_fn = view.leading_swipe_actions
+          leading_labels = [] of String
+          leading_icons = [] of String
+          leading_tokens = [] of UInt64
+          leading_roles = [] of String
+          leading_tints = [] of String
+          leading_counts = [] of Int32
+
+          (0...total_rows).each do |idx|
+            actions = leading_fn.call(idx)
+            leading_counts << actions.size.to_i32
+            actions.each do |action|
+              leading_labels << action.label
+              leading_icons << (action.icon || "")
+              leading_roles << action.role.to_s
+              leading_tints << default_tint_for_leading(action.role)
+              if tap = action.on_tap
+                tok = UI::CallbackRegistry.register_action(&tap)
+                leading_tokens << tok
+                callback_ids << tok
+              else
+                leading_tokens << 0_u64
+              end
+            end
+          end
+          sender.set_string_array(target_str, :setLeadingActionLabels, leading_labels)
+          sender.set_string_array(target_str, :setLeadingActionIcons, leading_icons)
+          sender.set_uint64_array(target_str, :setLeadingActionTokens, leading_tokens)
+          sender.set_string_array(target_str, :setLeadingActionRoles, leading_roles)
+          sender.set_string_array(target_str, :setLeadingActionTints, leading_tints)
+          sender.set_int_array(target_str, :setLeadingActionCounts, leading_counts)
+        end
+
+        # Per-row trailing swipe actions. Same shape as leading.
+        if trailing_fn = view.trailing_swipe_actions
+          trailing_labels = [] of String
+          trailing_icons = [] of String
+          trailing_tokens = [] of UInt64
+          trailing_roles = [] of String
+          trailing_tints = [] of String
+          trailing_counts = [] of Int32
+
+          (0...total_rows).each do |idx|
+            actions = trailing_fn.call(idx)
+            trailing_counts << actions.size.to_i32
+            actions.each do |action|
+              trailing_labels << action.label
+              trailing_icons << (action.icon || "")
+              trailing_roles << action.role.to_s
+              trailing_tints << default_tint_for_trailing(action.role)
+              if tap = action.on_tap
+                tok = UI::CallbackRegistry.register_action(&tap)
+                trailing_tokens << tok
+                callback_ids << tok
+              else
+                trailing_tokens << 0_u64
+              end
+            end
+          end
+          sender.set_string_array(target_str, :setTrailingActionLabels, trailing_labels)
+          sender.set_string_array(target_str, :setTrailingActionIcons, trailing_icons)
+          sender.set_uint64_array(target_str, :setTrailingActionTokens, trailing_tokens)
+          sender.set_string_array(target_str, :setTrailingActionRoles, trailing_roles)
+          sender.set_string_array(target_str, :setTrailingActionTints, trailing_tints)
+          sender.set_int_array(target_str, :setTrailingActionCounts, trailing_counts)
+        end
+
         child_buf = build_child_buffer(children_native)
         ptr = LibSwiftKitBridge.apsk_make_list_view(
           child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
@@ -1119,7 +1229,27 @@
         handle = ObjC.owned(ptr, label: "UIHostingView[ListView]")
         native = NativeView.new(handle)
         children_native.each { |c| native.add_child(c) }
+        callback_ids.each { |id| native.track_callback_id(id) }
         push_native(native)
+      end
+
+      # Phase 10D-final — default tint per role for leading swipe.
+      # Mirrors `populate_swipe_action_row` (leading positive → green).
+      private def default_tint_for_leading(role : Symbol) : String
+        case role
+        when :destructive then "red"
+        else                   "green"
+        end
+      end
+
+      # Phase 10D-final — default tint per role for trailing swipe.
+      # Destructive returns "" so SwiftUI's `.destructive` role uses the
+      # platform-native danger tint (system red).
+      private def default_tint_for_trailing(role : Symbol) : String
+        case role
+        when :destructive then ""
+        else                   "blue"
+        end
       end
 
       # Legacy UIKit ListView body, retained for reference.
