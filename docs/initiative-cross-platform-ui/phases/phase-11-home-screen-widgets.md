@@ -79,9 +79,26 @@ Adding iOS home-screen widgets is materially heavier than adding an in-app widge
 - Screenshot each size class showing the Voyager widget.
 - Hand-test guide for adding the widget, testing the deep link, verifying snapshot refresh.
 
-### D7 — Documentation
+### D7 — Documentation (per widget-demonstration-criteria rubric)
 
-- New `docs/initiative-cross-platform-ui/architecture/home-screen-widgets.md` documenting the snapshot model + limitations + when to use `UI::HomeScreenWidget` vs in-app surfaces.
+Per `docs/initiative-cross-platform-ui/rubric/widget-demonstration-criteria.md`, this phase MUST ship:
+
+1. **Per-widget usage doc** at `.claude/skills/apple-platform-guide/usage/home-screen-widget.md` with all six sections (default experience per size class, Crystal API + Voyager invocation, behavior contract including the snapshot-publish model, customization knobs, override path, evidence).
+
+2. **`component-api` skill entry** for `UI::HomeScreenWidget` mirroring the docs of other Tier 2 widgets.
+
+3. **Catalog status update** in `docs/initiative-cross-platform-ui/architecture/intent-catalog.md` (and `tier-matrix.md` where applicable):
+   - `demo_status: documented-with-default-experience`
+   - `usage_doc`, `canonical_example` (the Voyager widget source path), `evidence` (screenshot path), `override_path_status`.
+
+4. **Architecture doc** at `docs/initiative-cross-platform-ui/architecture/home-screen-widgets.md` covering:
+   - The WidgetKit snapshot-publish model (Crystal writes JSON to App Group container, Swift extension reads).
+   - Why Crystal can't run inside the extension process.
+   - Supported size families (`small`/`medium`/`large`/`extraLarge` — iPad only).
+   - Timeline refresh policy.
+   - Deep-link / App Intents bridge model (for interactive iOS 17+ widgets).
+   - Override / customization limits.
+   - Backlog items for lock-screen widgets, Live Activities, macOS Desktop widgets.
 
 ## Effort estimate (very rough — actual preflight required)
 

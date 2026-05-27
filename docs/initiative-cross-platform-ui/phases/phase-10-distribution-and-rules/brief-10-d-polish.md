@@ -17,13 +17,15 @@
 
 ## Scope split
 
-This brief covers **two concerns merged into one implementer pass**:
+This brief covers **three concerns merged into one implementer pass**:
 
 **A. Polish the `UI::ListView` widget defaults** so every consumer of that widget gets Mail-style chrome + animations for free. (Not a Voyager tweak — defaults baked into the widget.)
 
 **B. Add five catalog widgets to the todos flow** so the hand-test exercises more of the Phase 10 catalog: Alert, ActionSheet, Sheet, DatePicker, Popover (or ContextMenu).
 
-Both are scoped so they can land in one focused implementer dispatch.
+**C. Ship a per-widget usage doc + catalog status update for every widget exercised here** — per the `docs/initiative-cross-platform-ui/rubric/widget-demonstration-criteria.md` rubric. This is non-negotiable: the social contract with future agents is that demonstrated widgets ship with the canonical default-experience documentation, not just screenshots.
+
+All three are scoped so they can land in one focused implementer dispatch.
 
 ## Deliverables
 
@@ -128,6 +130,30 @@ Add a right-side overflow chrome to expose secondary actions that don't fit on t
 
 **Owner preference unstated** — implementer picks A unless investigating reveals A is harder. Both ship the same intent (demonstrate one of these chromes).
 
+### Deliverable C0 — Per-widget usage docs (NEW, per widget-demonstration-criteria rubric)
+
+For each widget exercised by this brief, ship a usage doc at `.claude/skills/apple-platform-guide/usage/<widget>.md` with all six sections from the rubric template. The widgets covered here:
+
+- `UI::ListView` (the polish — document new default chrome: square swipe tiles, drag handle, removal animation, 16pt inset; override path for each)
+- `UI::SwipeAction` (the per-row action shape — document the four-action vs n-action behavior + role semantics)
+- `UI::Alert` (Deliverable B1)
+- `UI::ActionSheet` (Deliverable B2)
+- `UI::Sheet` (Deliverable B3)
+- `UI::DatePicker` (Deliverable B4)
+- `UI::Popover` OR `UI::ContextMenu` (Deliverable B5 — whichever ships)
+
+Per-doc requirements (per the rubric):
+- Default experience on iOS / iPadOS / macOS / web / Android (or explicit "deferred — backlog item X")
+- Minimal Crystal API + a realistic Voyager invocation pasted verbatim (with file:line cross-link)
+- Behavior contract (callbacks, dismissal, accessibility, reactivity)
+- Customization knobs (every public property)
+- Override path — if no public knobs, state explicitly where the override lives (renderer line or facade file) OR file a backlog item and reference it
+- Evidence (canonical example + screenshot + spec coverage)
+
+**Catalog status update**: `docs/initiative-cross-platform-ui/architecture/intent-catalog.md` (and `tier-matrix.md` if applicable) gets each widget's `demo_status` flipped to `documented-with-default-experience` plus the new fields (`usage_doc`, `canonical_example`, `evidence`, `override_path_status`).
+
+If any widget's override path is genuinely "no override exists today", file a backlog entry in `docs/initiative-cross-platform-ui/architecture/intent-backlog.md` referencing it BEFORE the brief closes.
+
 ### Deliverable C — Build + screenshots + hand-test guide update
 
 iOS build commands per the established pattern. Launch with `SIMCTL_CHILD_VOYAGER_ROOT_SLUG=voyager-todos`.
@@ -165,6 +191,9 @@ Per established 10D-final pattern. Commit after every meaningful unit. Standard 
 - ✅ Screenshots committed.
 - ✅ Hand-test guide updated.
 - ✅ Lint + build green.
+- ✅ **Per-widget usage doc shipped at `.claude/skills/apple-platform-guide/usage/<widget>.md` with all six sections populated for each widget demonstrated (ListView, SwipeAction, Alert, ActionSheet, Sheet, DatePicker, Popover/ContextMenu).**
+- ✅ **`intent-catalog.md` (and `tier-matrix.md` where applicable) status flipped to `documented-with-default-experience` for each demonstrated widget, with `usage_doc`, `canonical_example`, `evidence`, and `override_path_status` fields populated.**
+- ✅ **Override path documented for every demonstrated widget — public knobs OR facade-extension instructions OR explicit backlog item reference. No evasive language.**
 
 ## Out of scope
 

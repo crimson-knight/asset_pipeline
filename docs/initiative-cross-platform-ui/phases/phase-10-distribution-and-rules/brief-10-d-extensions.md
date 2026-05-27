@@ -93,6 +93,33 @@ For each surface that gets glass:
 
 This is a SwiftKit facade adjustment, not a Crystal-side property change — the host views already exist; we're just configuring their background material.
 
+### Deliverable 0 — Per-widget usage docs + catalog status (NEW, per widget-demonstration-criteria rubric)
+
+For each widget exercised by this brief, ship a usage doc at `.claude/skills/apple-platform-guide/usage/<widget>.md` with all six sections from the rubric template at `docs/initiative-cross-platform-ui/rubric/widget-demonstration-criteria.md`. Widgets covered:
+
+- `UI::SearchField` (Deliverable 1)
+- `UI::ChartView` (Deliverable 2 — chart half)
+- `UI::ActivityRings` (Deliverable 2 — rings half)
+- `UI::MapView` (Deliverable 3)
+- `UI::Form` (Deliverable 4)
+- `UI::Picker` (Deliverable 4)
+- `UI::RadioGroup` (Deliverable 4)
+- `UI::Slider` (Deliverable 4)
+- `UI::Stepper` (Deliverable 4)
+- `UI::GlassBackground` (Deliverable 5)
+
+Per-doc requirements (per the rubric, six sections each):
+- Default experience on iOS / iPadOS / macOS / web / Android (or explicit "deferred — backlog item X")
+- Minimal Crystal API + a realistic Voyager invocation pasted verbatim (with file:line cross-link)
+- Behavior contract (callbacks, dismissal, accessibility, reactivity, reduced motion where relevant)
+- Customization knobs (every public property + style hooks)
+- Override path — if no public knobs, state explicitly where the override lives (renderer line or facade file) OR file a backlog item
+- Evidence (canonical example + screenshot + spec coverage)
+
+**Catalog status update**: each widget's `intent-catalog.md` entry (and `tier-matrix.md` if applicable) gets `demo_status: documented-with-default-experience`, plus `usage_doc`, `canonical_example`, `evidence`, `override_path_status` fields.
+
+Backlog items filed for any widget whose override path is "not exposed yet."
+
 ### Deliverable 6 — Build + screenshots + hand-test guide update
 
 Per established pattern. New screenshots:
@@ -122,6 +149,9 @@ Same as 10D-polish + 10D-final. Standard footer: `Co-Authored-By: Claude Opus 4.
 - ✅ Lint + build green.
 - ✅ Screenshots committed.
 - ✅ Hand-test guide updated.
+- ✅ **Per-widget usage doc shipped at `.claude/skills/apple-platform-guide/usage/<widget>.md` with all six sections for SearchField, ChartView, ActivityRings, MapView, Form, Picker, RadioGroup, Slider, Stepper, GlassBackground.**
+- ✅ **`intent-catalog.md` (and `tier-matrix.md` where applicable) status flipped to `documented-with-default-experience` for each.**
+- ✅ **Override path documented for every demonstrated widget — no evasive language.**
 
 ## Out of scope
 
