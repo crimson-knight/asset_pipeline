@@ -37,9 +37,12 @@ module UI
 
       # Where the harness expects to find built app bundles. The build
       # phase (Phase 12.A acceptance) is responsible for placing them.
+      # Codex verification pass CONCERN NEW fix: __DIR__ is at
+      # spec/native_ios/ui_interaction/support, so 4 levels up land at
+      # repo root (not 3 — that lands at spec/, which is wrong).
       DEFAULT_APP_BUNDLE_ROOT = ENV.fetch(
         "APIC_APP_BUNDLE_ROOT",
-        File.join(__DIR__, "../../../tmp/interaction-contracts/bundles")
+        File.expand_path(File.join(__DIR__, "../../../../tmp/interaction-contracts/bundles"))
       )
 
       # Where scenario YAML files live.
@@ -48,7 +51,7 @@ module UI
       # Where the harness writes per-spec evidence (video, marker log).
       EVIDENCE_ROOT = ENV.fetch(
         "APIC_EVIDENCE_ROOT",
-        File.join(__DIR__, "../../../tmp/interaction-contracts/evidence")
+        File.expand_path(File.join(__DIR__, "../../../../tmp/interaction-contracts/evidence"))
       )
 
       # ---------------------------------------------------------------------
@@ -96,6 +99,12 @@ module UI
 
           sim = Simulator.new(udid, bundle_id, scenario_map)
           sim.start_log_stream
+          # Codex verification pass CONCERN NEW fix: wait a short window
+          # for the log-stream subscription to come up before launching
+          # the app. Without this, the one-shot launch marker can fire
+          # before simctl spawn ... log stream is subscribed, and the
+          # harness misses it.
+          sleep 300.milliseconds
 
           launch_with_env = launch_env.merge({"APIC_ENABLED" => "1"})
           sim.launch(launch_with_env)

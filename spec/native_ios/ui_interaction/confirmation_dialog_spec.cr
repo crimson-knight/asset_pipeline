@@ -76,8 +76,13 @@ require "./support/simulator_harness"
           # Explicit dismissal via cancel.
           sim.tap_accessibility_id("voyager-action-sheet-cancel")
 
+          # Codex verification CONCERN 5 fix: ConfirmationDialog binds
+          # BoolStorage token=0 (its dismissal flows through
+          # confirmToken/cancelToken, not BoolStorage). So we assert
+          # `binding-write-false` here, NOT `dismiss-token-fire` — the
+          # latter is reserved for widgets where BoolStorage token != 0.
           sim.wait_for_marker(
-            "[APIC:ConfirmationDialog:dismiss-token-fire]",
+            "[APIC:ConfirmationDialog:binding-write-false]",
             timeout: 1.second
           )
         end

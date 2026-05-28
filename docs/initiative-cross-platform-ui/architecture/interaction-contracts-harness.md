@@ -16,15 +16,18 @@ A Crystal spec runner under `spec/native_ios/ui_interaction/` that:
 4. Asserts on **unique-grep-token NSLog markers** that the renderer + facades emit at lifecycle points.
 5. Records video to `tmp/interaction-contracts/<spec>.mp4` for human review on failure.
 
-## Why not XCTest / XCUITest
+## Hybrid architecture: XCUITest for taps, Crystal harness + APIC markers for assertions
 
-XCUITest is the iOS-native UI testing framework and is more robust. We're not using it as the MVP because:
+**Updated 2026-05-28 per Codex Phase 12.A verification pass (CONCERN 10/11/12).**
 
-- It requires a separate Swift test target with a Apple-signed bundle ID, which complicates the toolchain.
-- It runs as a separate process attached via accessibility, which loses access to the Crystal-side state we need to assert on.
-- The harness owner (the architect) controls the in-app NSLog instrumentation, which gives us tighter assertion semantics than XCUITest's external view of the UI tree.
+The harness splits responsibilities:
 
-The decision is: ship the Crystal-driven harness first, migrate to XCUITest only if/when we hit a wall. The marker-based assertion design is XCUITest-compatible if we want to migrate later.
+- **Tap delivery** → XCUITest helper. The existing `samples/initiative-cross-platform-ui-voyager/ios/UITests/VoyagerVisualTests.swift` already uses `app.otherElements["accessibility-id"]` to find and tap elements. Phase 12.B extends that pattern with a generic `APSKAccessibilityTap.tap(id:)` test-target helper.
+- **Semantic assertions** → Crystal harness + APIC markers. The `[APIC:...]` marker convention lets the Crystal spec assert on lifecycle invariants (present, dismiss, binding-write, heartbeat) without inspecting the SwiftUI view tree.
+
+This replaces the earlier "Crystal-driven simctl io tap with hardcoded coordinates" + "URL-scheme accessibility-frame query" plans. Both were honest MVPs but XCUITest's accessibility tree lookup is more reliable.
+
+Phase 12.A delivers the Crystal harness, marker emission, and the harness smoke test. Phase 12.B ships the XCUITest tap helper plus V1+V2 reproduction.
 
 ## Marker convention
 
@@ -99,15 +102,15 @@ end
 - `Simulator#assert_marker_order(a, b)` — asserts marker a appeared in the buffer before marker b.
 - `Simulator#markers_during_rerender_for(widget, count)` — returns an array of marker arrays, one per Rerender pass, scoped to markers emitted by the named widget.
 
-## Driver: tap delivery
+## Driver: tap delivery (XCUITest helper — Phase 12.B)
 
-The simulator harness MUST resolve interactive elements by stable accessibility identifier, not by coordinate. To make this reliable:
+The simulator harness MUST resolve interactive elements by stable accessibility identifier, not by coordinate. The XCUITest helper Phase 12.B ships handles this:
 
-- Every Voyager screen (and every demo-app screen) MUST set `accessibility_identifier` (NOT `accessibility_label` — that's user-facing) on every interactive element under test, using the convention `ap-test-<widget>-<purpose>-<id>`.
-- The renderer's `accessibility_identifier` property maps to UIView.accessibilityIdentifier on iOS, NSAccessibility identifier on macOS.
-- The harness queries the running app for the element's frame via a small NSLog round-trip OR via accessibilityElement API call — TBD by the implementer.
+- Every screen MUST set `accessibility_identifier` on every interactive element under test, using the convention `<app>-<screen>-<purpose>-<id>` (e.g. `voyager-todos-row-1-share`).
+- `accessibility_identifier` is already on `UI::View` (`src/ui/view.cr:327`) and threaded through UIKit (`src/ui/renderers/uikit_renderer.cr:4754`), AppKit (`src/ui/renderers/appkit_renderer.cr:4546`), and Web (`src/ui/renderers/web_renderer.cr:2684`) renderers.
+- The XCUITest helper (`samples/initiative-cross-platform-ui-voyager/ios/UITests/InteractionContractsHelper.swift`, to be added in Phase 12.B) exposes `tap(accessibilityID:)` via XCUIApplication.otherElements lookup. The Crystal harness invokes the helper as part of its spec lifecycle.
 
-This is a NEW property on `UI::View`. Acceptance for the harness phase MUST include adding `accessibility_identifier : String?` to `UI::View` and threading it through the renderers.
+Phase 12.A's `Simulator#tap_accessibility_id` is a placeholder that reads coordinates from a YAML map — it works for the smoke test and for capturing scenarios manually via `scripts/capture_tap_coordinates.sh`, but the XCUITest helper supersedes it once Phase 12.B ships.
 
 ## Marker instrumentation: where it lives
 
@@ -154,13 +157,14 @@ The harness ships with at least one C1 + C3 spec per presented-state widget, bef
 
 For widgets WITHOUT presented state (Button, Slider, TextField, etc.), interaction contracts are still required but are simpler — typically just "tap fires exactly one action callback" and "value change fires exactly one binding update." Those specs follow the same harness pattern with widget-specific markers documented in their usage doc.
 
-## Phasing
+## Phasing (revised per Codex Phase 12.A verification pass)
 
-The harness ships in three sub-phases under what should be a new top-level phase (let's call it Phase 12 for now — owner to confirm naming):
+The harness ships in four sub-phases under Phase 12:
 
-- **Phase 12.A** — Build the harness support layer (`simulator_harness.cr`), the `InteractionContracts` instrumentation module, and the `accessibility_identifier` property on `UI::View`. Ship C1 + C3 specs for `UI::ConfirmationDialog` as the worked example. Reproduces V1 from the lifecycle contract.
-- **Phase 12.B** — Fix V1 (action-sheet auto-close) and V2 (header-button crash) using the C1/C3 specs as regression tests. Both bugs MUST be reproducible by a failing spec before the fix lands.
-- **Phase 12.C** — Roll out the full marker matrix above to all six presented-state widgets. Update each widget's usage doc with its marker schema. Update the merge-readiness scoreboard.
+- **Phase 12.A** — Harness scaffold. Builds `simulator_harness.cr` (Crystal-driven simctl + log-stream tail), the `InteractionContracts` Crystal/Swift marker emitter, the `apsk_apic_log` NSLog C bridge, and the heartbeat-marker scaffold in Voyager. Ships `harness_smoke_spec.cr` (executable end-to-end smoke test against current main). Pre-stages the V1+V2 reproduction specs at `spec/native_ios/ui_interaction/{confirmation_dialog,voyager_toolbar}_spec.cr` with `pre-staged-pending-worktree-merge` status. DOES NOT reproduce V1 or V2 (their target code lives in `phase-10-d-polish` worktree; see `presentation-lifecycle-contract.md` §"V1/V2 source-of-truth location").
+- **Phase 12.B** — XCUITest tap helper + worktree merge prerequisites. Ships the `APSKAccessibilityTap.tap(id:)` XCUITest helper that supersedes the coordinate-map `tap_accessibility_id`. Merges the polish worktree's todos extensions into main so V1+V2 target code paths exist. Captures real tap coordinates for the V1+V2 specs. Adds host-teardown probe markers (Codex CONCERN 4) and Sheet write-side markers (Codex CONCERN 7). At end of 12.B, V1+V2 specs become executable.
+- **Phase 12.C** — V1 + V2 fixes. Uses the now-executable V1+V2 specs as regression tests. C1/C3 specs flip from failing-on-V1 to passing-with-fix; V2 spec flips from failing-on-crash to passing-with-fix.
+- **Phase 12.D** — Roll out the full marker matrix to all six presented-state widgets (FullScreenCover, Inspector). Update each widget's usage doc with its marker schema. Extend the catalog manifest validator to enforce scenario coordinate freshness (Codex NIT 13).
 
 ## Cross-references
 

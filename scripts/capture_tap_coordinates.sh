@@ -20,9 +20,10 @@
 #      writes it back to the YAML with captured: true.
 #
 # This is a thin helper around `xcrun simctl io` and `cliclick` — neither
-# of which expose accessibility-identifier-based tap. Until the URL-scheme
-# query mechanism lands (Phase 12.B follow-up), this is the honest path
-# for keeping coordinates current.
+# of which expose accessibility-identifier-based tap. Phase 12.B replaces
+# this with an XCUITest helper (`APSKAccessibilityTap.tap(id:)`) per the
+# revised harness architecture; until then, this is the honest path for
+# keeping coordinates current.
 
 set -euo pipefail
 
