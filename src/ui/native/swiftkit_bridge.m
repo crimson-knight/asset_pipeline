@@ -362,6 +362,19 @@ void apsk_overrides_set_uint64_boxed(void *target, const char *setter_name,
     ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, boxed);
 }
 
+// Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — set an `AnyObject?`
+// property from a raw ObjC object pointer. The pointer must already be
+// an `id` (NSObject subclass) — typically a UIView/NSView pointer
+// captured at render time. NULL clears the property. Used by
+// `PopoverOverrides.anchorSourceView` to thread the source view through
+// to the SwiftUI facade for `UIPopoverPresentationController` anchoring.
+void apsk_overrides_set_object_ptr(void *target, const char *setter_name,
+                                   void *object_ptr) {
+    if (target == NULL || setter_name == NULL) return;
+    SEL sel = sel_registerName(setter_name);
+    ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, (id)object_ptr);
+}
+
 // ---------------------------------------------------------------------------
 // Helper: build NSArray<APSKPlatformView*> from a C array of view
 // pointers. Used by every container facade trampoline below.

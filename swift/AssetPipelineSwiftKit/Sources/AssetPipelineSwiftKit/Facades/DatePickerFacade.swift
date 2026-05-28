@@ -24,6 +24,29 @@ public class DatePickerFacade: NSObject {
             DatePicker(label, selection: storage.binding, displayedComponents: components)
         )
 
+        // Phase 10D-polish iter 2 (B-DATEPICKER-STYLE-PROPERTY) — apply
+        // the SwiftUI .datePickerStyle modifier when the Crystal-side
+        // style is non-default. The .compact, .graphical, and .wheel
+        // styles are iOS 14+ / macOS 10.15+ where present.
+        switch overrides.datePickerStyle {
+        case "compact":
+            #if canImport(UIKit)
+            if #available(iOS 14.0, *) {
+                content = AnyView(content.datePickerStyle(.compact))
+            }
+            #else
+            content = AnyView(content.datePickerStyle(.compact))
+            #endif
+        case "graphical":
+            content = AnyView(content.datePickerStyle(.graphical))
+        case "wheels":
+            #if canImport(UIKit)
+            content = AnyView(content.datePickerStyle(.wheel))
+            #endif
+        default:
+            break // "automatic" / nil — platform default
+        }
+
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(DateHost(storage: storage, content: content))
     }

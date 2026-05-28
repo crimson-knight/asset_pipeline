@@ -13,25 +13,26 @@ require "./ui/quick_actions"
 # Phase 10B.0 — Tier 2 intent resolver + registry. Must load BEFORE
 # `views/*` because `UI::SwipeActionRow` (and future Tier 2 widgets)
 # call `declares_capabilities` at class-load, which writes into
-# `UI::Intent::Registry`.
-require "./ui/intent/registry"
-require "./ui/intent/dispatch_result"
-require "./ui/intent/platform_feature_binding"
-require "./ui/intent/class_c_registry"
+# `UI::WidgetRoute::Registry`.
+require "./ui/widget_route/registry"
+require "./ui/system_action/result"
+require "./ui/system_action/platform_binding"
+require "./ui/system_action/registry"
 # Phase 10B.3.0 — UI::Environment is the process-level platform +
 # capability surface read by Class C dispatch. Load before
-# `./ui/intent` so `Intent.dispatch` can reference it.
+# `./ui/widget_route` so `SystemAction.perform` can reference it.
 require "./ui/environment"
-require "./ui/intent"
+require "./ui/widget_route"
+require "./ui/system_action"
 require "./ui/views/*"
-# `intent_bootstrap` installs the framework-default capability
+# `widget_route/bootstrap` installs the framework-default capability
 # declarations + platform defaults. It loads AFTER `views/*` so that
 # `UI::SwipeActionRow` (and future widget classes) are defined before
 # the bootstrap references them.
-require "./ui/intent_bootstrap"
+require "./ui/widget_route/bootstrap"
 # Phase 10B.3.0 — install Class C bindings (currently the
 # :hello_world_alert proof; 10B.3.x grows this).
-require "./ui/intent/class_c_bootstrap"
+require "./ui/system_action/bootstrap"
 require "./ui/menu_bar"
 require "./ui/status_bar"
 require "./ui/platform_visitor"

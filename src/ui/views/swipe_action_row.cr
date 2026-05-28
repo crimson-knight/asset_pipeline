@@ -36,12 +36,31 @@ module UI
     # runtime swipe-button interactivity supply this string.
     property on_tap_route : String?
 
+    # Phase 10D-polish iter 2 (B-LIST-SWIPE-TINT) — semantic tint
+    # override. When nil, the SwiftKit facade falls back to the
+    # role-derived default (red for destructive, system blue for
+    # trailing default, system green for leading default). Set this
+    # to `:blue`, `:green`, `:orange`, `:red`, `:purple`, `:yellow`,
+    # `:pink`, or `:gray` to override; the iOS renderer maps these to
+    # the matching SwiftUI Color.
+    property tint : Symbol?
+
+    # Phase 10D-polish iter 2 (B-LIST-SWIPE-LABEL-STYLE) — controls
+    # which of the (label, icon) pair the tile renders.
+    # `:auto` (default) — facade infers from which fields are set.
+    # `:icon` — icon only; the title becomes accessibilityLabel.
+    # `:title` — title only; icon is dropped.
+    # `:title_and_icon` — render both (SF Symbols Label style).
+    property label_style : Symbol = :auto
+
     def initialize(
       @label : String,
       @on_tap : Proc(Nil)? = nil,
       @role : Symbol = :default,
       @icon : String? = nil,
       @on_tap_route : String? = nil,
+      @tint : Symbol? = nil,
+      @label_style : Symbol = :auto,
     )
     end
   end
@@ -89,9 +108,9 @@ module UI
     #   CSS class; the macOS AppKit visit never reads `action.role`
     #   (no destructive tint).
     #
-    # Validated by `UI::Intent::Registry` whenever an app or screen
+    # Validated by `UI::WidgetRoute::Registry` whenever an app or screen
     # registers `UI::SwipeActionRow` as an override, and at resolve
-    # time when `UI::Intent.resolve(..., capabilities_required: ...)`
+    # time when `UI::WidgetRoute.resolve(..., capabilities_required: ...)`
     # is called.
     declares_capabilities :swipe_actions, {
       supports_edge_trailing: {

@@ -66,6 +66,15 @@ module Voyager
       title_label = UI::Label.new(editing ? "Edit todo" : "New todo")
       title_label.font = UI::Font.new(size: 24.0, weight: :bold)
 
+      # Phase 10D-final D5 — completion styling on the detail title.
+      # When the editing todo is already completed, the header label
+      # uses Secondary role + strikethrough so the state reads at a
+      # glance, matching the list-row visual contract.
+      if editing && seed_completed
+        title_label.text_color_role = UI::LabelRole::Secondary
+        title_label.strikethrough = true
+      end
+
       title_field = UI::TextField.new(placeholder: "Title", name: "title")
       title_field.text = seed_title
       title_field.accessibility_label = "Todo title"
@@ -153,11 +162,31 @@ module Voyager
       actions << cancel.as(UI::View)
       actions << save.as(UI::View)
 
+      # Phase 10D-final D5 — Mark Done button. Stand-alone full-width
+      # button that flips the completed flag and pops back to the list.
+      # Only emitted when editing an existing todo (no-op for new draft).
+      mark_done_btn : UI::View? = nil
+      if editing
+        mdb = UI::Button.new(
+          seed_completed ? "Mark as Not Done" : "Mark Done",
+          style: UI::ButtonStyle::Bordered,
+        )
+        mdb.accessibility_label = seed_completed ? "Mark this todo as not done" : "Mark this todo as done"
+        mdb.test_id = "voyager-todo-editor-mark-done"
+        mdb.minimum_width = content_width
+        mdb.maximum_width = content_width
+        mdb.on_tap = -> { Voyager.dispatch(:mark_done) }
+        mark_done_btn = mdb.as(UI::View)
+      end
+
       root << title_label.as(UI::View)
       root << title_field.as(UI::View)
       root << note_field.as(UI::View)
       root << deadline_field.as(UI::View)
       root << completed_toggle.as(UI::View)
+      if mdb_view = mark_done_btn
+        root << mdb_view
+      end
       root << actions.as(UI::View)
 
       root.as(UI::View)

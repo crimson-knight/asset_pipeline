@@ -255,7 +255,7 @@ platform). Rejected because:
 
 ### Registry validation contract update
 
-The validator (`UI::Intent::Registry.validate_override_capabilities`)
+The validator (`UI::WidgetRoute::Registry.validate_override_capabilities`)
 handles the three permitted shapes:
 
 | Required value | Declared value | Result |
@@ -323,7 +323,7 @@ Implications for downstream apps:
 
 ### `:swipe_actions` intent-requirement update
 
-`src/ui/intent_bootstrap.cr` previously declared:
+`src/ui/widget_route/bootstrap.cr` previously declared:
 
 ```crystal
 :supports_role_destructive => :partial,

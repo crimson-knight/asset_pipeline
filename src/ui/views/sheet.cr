@@ -54,6 +54,14 @@ module UI
     #   :plain        — no chrome; act as a bare container.
     property surface_style : Symbol = :auto
 
+    # Phase 10D-polish iter 2 (B-SHEET-INTERACTIVE-DISMISS-DISABLED) —
+    # when true, threads `.interactiveDismissDisabled()` into the
+    # SwiftUI sheet body so the user cannot swipe-to-dismiss. Programmatic
+    # dismissal via `is_presented = false` and the on_dismiss callback
+    # still fire. Use this for editors mid-edit, multi-step wizards, and
+    # forms with unsaved changes.
+    property interactive_dismiss_disabled : Bool = false
+
     # Phase 5 v2 — Apple semantic material override for the sheet's
     # presented background. nil = HIG-canonical :sheet (NSVisualEffectMaterialSheet
     # on macOS; .thickMaterial via .presentationBackground on iOS 16.4+).

@@ -2,8 +2,8 @@ require "../spec_helper"
 require "../../../src/asset_pipeline/native_app"
 require "../../../src/asset_pipeline/native_context"
 require "../../../src/asset_pipeline/native_controller"
-require "../../../src/ui/intent"
-require "../../../src/ui/intent_bootstrap"
+require "../../../src/ui/widget_route"
+require "../../../src/ui/widget_route/bootstrap"
 
 # Phase 10B.1b — `:swipe_actions` capability honesty audit specs.
 #
@@ -17,7 +17,7 @@ require "../../../src/ui/intent_bootstrap"
 # Covers four guarantees:
 #
 #   1. The audit matrix matches the resolver's runtime answer.
-#      For each platform with a default, `UI::Intent.resolve` returns
+#      For each platform with a default, `UI::WidgetRoute.resolve` returns
 #      the widget the audit lists as the platform default, and the
 #      `capabilities_required:` kwarg gates per-platform honestly.
 #   2. `IncompatibleOverride` fires when a candidate override widget
@@ -57,7 +57,7 @@ require "../../../src/ui/intent_bootstrap"
 # calls in this file don't strand the validator. Mirrors the helper
 # in `intent_spec.cr` but lives here so this file is self-contained.
 private def reinstall_audit_bootstrap : Nil
-  UI::Intent::Registry.declare_intent_capabilities(:swipe_actions, {
+  UI::WidgetRoute::Registry.declare_intent_capabilities(:swipe_actions, {
     :supports_edge_trailing    => true,
     :supports_role_default     => true,
     :supports_role_destructive => {
@@ -68,12 +68,12 @@ private def reinstall_audit_bootstrap : Nil
       :web_narrow => true,
       :android    => false,
     } of Symbol => Bool,
-  } of Symbol => UI::Intent::Registry::CapabilityValue)
-  UI::Intent::Registry.register_default(:swipe_actions, :ios, UI::SwipeActionRow)
-  UI::Intent::Registry.register_default(:swipe_actions, :ipados, UI::SwipeActionRow)
-  UI::Intent::Registry.register_default(:swipe_actions, :web_narrow, UI::SwipeActionRow)
-  UI::Intent::Registry.register_default(:swipe_actions, :macos, UI::InlineActionRow)
-  UI::Intent::Registry.register_default(:swipe_actions, :web_wide, UI::InlineActionRow)
+  } of Symbol => UI::WidgetRoute::Registry::CapabilityValue)
+  UI::WidgetRoute::Registry.register_default(:swipe_actions, :ios, UI::SwipeActionRow)
+  UI::WidgetRoute::Registry.register_default(:swipe_actions, :ipados, UI::SwipeActionRow)
+  UI::WidgetRoute::Registry.register_default(:swipe_actions, :web_narrow, UI::SwipeActionRow)
+  UI::WidgetRoute::Registry.register_default(:swipe_actions, :macos, UI::InlineActionRow)
+  UI::WidgetRoute::Registry.register_default(:swipe_actions, :web_wide, UI::InlineActionRow)
   nil
 end
 
@@ -285,35 +285,35 @@ end
 describe "Phase 10B.1b — :swipe_actions capability audit" do
   describe "matrix matches resolver answers" do
     it "iOS resolves to UI::SwipeActionRow (audit lists it as iOS default)" do
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
-      UI::Intent.resolve(:swipe_actions, audit_native_ctx(:ios)).should eq(UI::SwipeActionRow)
+      UI::WidgetRoute.resolve(:swipe_actions, audit_native_ctx(:ios)).should eq(UI::SwipeActionRow)
     end
 
     it "macOS resolves to UI::InlineActionRow" do
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
-      UI::Intent.resolve(:swipe_actions, audit_native_ctx(:macos)).should eq(UI::InlineActionRow)
+      UI::WidgetRoute.resolve(:swipe_actions, audit_native_ctx(:macos)).should eq(UI::InlineActionRow)
     end
 
     it "web_wide resolves to UI::InlineActionRow" do
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
-      UI::Intent.resolve(:swipe_actions, audit_web_ctx(:web_wide)).should eq(UI::InlineActionRow)
+      UI::WidgetRoute.resolve(:swipe_actions, audit_web_ctx(:web_wide)).should eq(UI::InlineActionRow)
     end
 
     it "web_narrow resolves to UI::SwipeActionRow" do
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
-      UI::Intent.resolve(:swipe_actions, audit_web_ctx(:web_narrow)).should eq(UI::SwipeActionRow)
+      UI::WidgetRoute.resolve(:swipe_actions, audit_web_ctx(:web_narrow)).should eq(UI::SwipeActionRow)
     end
   end
 
   describe "iOS SwipeActionRow honest declarations" do
     it "supports destructive on iOS (capabilities_required passes)" do
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
-      result = UI::Intent.resolve(
+      result = UI::WidgetRoute.resolve(
         :swipe_actions,
         audit_native_ctx(:ios),
         capabilities_required: {:supports_role_destructive => true},
@@ -327,13 +327,13 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
       # `macos: false`. Asking for the capability via the runtime
       # gate must raise UnresolvableDefault rather than handing back
       # a widget that cannot paint the tint.
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
       expect_raises(
-        UI::Intent::UnresolvableDefault,
+        UI::WidgetRoute::UnresolvableDefault,
         /supports_role_destructive.*:macos/,
       ) do
-        UI::Intent.resolve(
+        UI::WidgetRoute.resolve(
           :swipe_actions,
           audit_native_ctx(:macos),
           capabilities_required: {:supports_role_destructive => true},
@@ -344,9 +344,9 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
 
   describe "InlineActionRow on web_wide" do
     it "supports destructive on web_wide (renders as button with .danger styling)" do
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
-      result = UI::Intent.resolve(
+      result = UI::WidgetRoute.resolve(
         :swipe_actions,
         audit_web_ctx(:web_wide),
         capabilities_required: {:supports_role_destructive => true},
@@ -355,9 +355,9 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
     end
 
     it "supports leading edge on web_wide (InlineActionRow renders both edges)" do
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
-      result = UI::Intent.resolve(
+      result = UI::WidgetRoute.resolve(
         :swipe_actions,
         audit_web_ctx(:web_wide),
         capabilities_required: {:supports_edge_leading => true},
@@ -373,9 +373,9 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
       # `.swipeActions(edge:)` modifiers. The widget honestly declares
       # `supports_edge_leading.ios = true`, and the resolver must now
       # return SwipeActionRow itself (no UnresolvableDefault).
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
-      result = UI::Intent.resolve(
+      result = UI::WidgetRoute.resolve(
         :swipe_actions,
         audit_native_ctx(:ios),
         capabilities_required: {:supports_edge_leading => true},
@@ -390,14 +390,14 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
       # true, ...}`. AuditDishonestWebRow declares it as a Hash with
       # `web_wide: false`. Registration must raise IncompatibleOverride
       # naming the platform.
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
 
       expect_raises(
-        UI::Intent::IncompatibleOverride,
+        UI::WidgetRoute::IncompatibleOverride,
         /supports_role_destructive.*:web_wide/,
       ) do
-        UI::Intent::Registry.register_app_override(
+        UI::WidgetRoute::Registry.register_app_override(
           AuditSpecApp,
           :swipe_actions,
           AuditDishonestWebRow,
@@ -412,14 +412,14 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
       # :swipe_actions (UI::InlineActionRow), an override shadowing
       # that default MUST back the capability on macOS — otherwise
       # the override silently drops trailing actions on macOS.
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
 
       expect_raises(
-        UI::Intent::IncompatibleOverride,
+        UI::WidgetRoute::IncompatibleOverride,
         /supports_edge_trailing/,
       ) do
-        UI::Intent::Registry.register_app_override(
+        UI::WidgetRoute::Registry.register_app_override(
           AuditSpecApp,
           :swipe_actions,
           AuditDishonestTrailingRow,
@@ -433,14 +433,14 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
       # the platform-keyed requirement. `:partial` for
       # `supports_role_destructive` does not prove ios/ipados/web_wide
       # are covered, so the registration must raise.
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
 
       expect_raises(
-        UI::Intent::IncompatibleOverride,
+        UI::WidgetRoute::IncompatibleOverride,
         /widget declared :partial/,
       ) do
-        UI::Intent::Registry.register_app_override(
+        UI::WidgetRoute::Registry.register_app_override(
           AuditSpecApp,
           :swipe_actions,
           AuditLegacyPartialRow,
@@ -449,11 +449,11 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
     end
 
     it "accepts an honest override that backs every required (platform, capability)" do
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
 
-      AuditSpecApp.override_intent(:swipe_actions, AuditHonestRow)
-      UI::Intent::Registry.app_override_count_for(AuditSpecApp, :swipe_actions).should eq(1)
+      AuditSpecApp.override_widget(:swipe_actions, AuditHonestRow)
+      UI::WidgetRoute::Registry.app_override_count_for(AuditSpecApp, :swipe_actions).should eq(1)
     end
   end
 
@@ -468,10 +468,10 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
     # resolver gates correctly per platform.
 
     it "stores plain platform symbol keys (not double-symbolized) in the registry" do
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
 
-      declared = UI::Intent::Registry.declared_capabilities_for(
+      declared = UI::WidgetRoute::Registry.declared_capabilities_for(
         AuditRocketHashRow, :swipe_actions
       )
       declared.should_not be_nil
@@ -495,14 +495,14 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
     end
 
     it "rocket-style key declaration accepts as honest override on macOS" do
-      UI::Intent::Registry.reset_overrides_for_spec
+      UI::WidgetRoute::Registry.reset_overrides_for_spec
       reinstall_audit_bootstrap
 
       # AuditRocketHashRow is honest on every required cell (it declares
       # `supports_role_destructive` as `:macos => false`, matching the
       # intent requirement). Registration must succeed.
-      AuditSpecApp.override_intent(:swipe_actions, AuditRocketHashRow)
-      UI::Intent::Registry.app_override_count_for(AuditSpecApp, :swipe_actions).should eq(1)
+      AuditSpecApp.override_widget(:swipe_actions, AuditRocketHashRow)
+      UI::WidgetRoute::Registry.app_override_count_for(AuditSpecApp, :swipe_actions).should eq(1)
     end
   end
 
@@ -515,7 +515,7 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
     it "SwipeActionRow declares supports_edge_leading true on iOS (Phase 10D-refocus)" do
       # Phase 10D-refocus flipped this cell from false to true once
       # the SwiftUI .swipeActions(edge: .leading) facade landed.
-      declared = UI::Intent::Registry.declared_capabilities_for(
+      declared = UI::WidgetRoute::Registry.declared_capabilities_for(
         UI::SwipeActionRow, :swipe_actions
       )
       declared.should_not be_nil
@@ -528,7 +528,7 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
     end
 
     it "SwipeActionRow declares supports_role_destructive false on macOS" do
-      declared = UI::Intent::Registry.declared_capabilities_for(
+      declared = UI::WidgetRoute::Registry.declared_capabilities_for(
         UI::SwipeActionRow, :swipe_actions
       )
       d = declared.not_nil!
@@ -539,7 +539,7 @@ describe "Phase 10B.1b — :swipe_actions capability audit" do
     end
 
     it "InlineActionRow declares supports_role_destructive false on macOS, true on Android" do
-      declared = UI::Intent::Registry.declared_capabilities_for(
+      declared = UI::WidgetRoute::Registry.declared_capabilities_for(
         UI::InlineActionRow, :swipe_actions
       )
       d = declared.not_nil!

@@ -150,6 +150,9 @@
     # `apsk_overrides_set_int`, this boxes the value via NSNumber before
     # calling the setter so the property receives a boxed reference type.
     fun apsk_overrides_set_uint64_boxed(target : Void*, setter_name : UInt8*, value : UInt64)
+    # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — set an `AnyObject?`
+    # property from a raw ObjC pointer (UIView*/NSView*). NULL clears.
+    fun apsk_overrides_set_object_ptr(target : Void*, setter_name : UInt8*, object_ptr : Void*)
 
     # -------------------------------------------------------------------------
     # Facade entry points. Each returns a +1 retained platform view

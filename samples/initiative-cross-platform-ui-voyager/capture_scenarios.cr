@@ -56,6 +56,14 @@ module Voyager
       "row-12-settings-toggled"      => "voyager-settings",
       "row-13-todos-filtered"        => "voyager-todos",
       "row-14-todos-unfiltered"      => "voyager-todos",
+      # Phase 10D-polish — modal capture scenarios. Each pre-seeds the
+      # transient pending_* flag on Voyager.state so the screen
+      # build(ctx) renders the corresponding modal on first mount.
+      "polish-01-delete-alert"       => "voyager-todos",
+      "polish-02-share-actionsheet"  => "voyager-todos",
+      "polish-03-editor-sheet-new"   => "voyager-todos",
+      "polish-04-editor-sheet-edit"  => "voyager-todos",
+      "polish-05-overflow-popover"   => "voyager-todos",
     }
 
     # Apply the named scenario, mutating the runtime substrate into the
@@ -79,9 +87,57 @@ module Voyager
       when "row-12-settings-toggled"      then row_12(state, coord, dispatcher)
       when "row-13-todos-filtered"        then row_13(state, coord, dispatcher)
       when "row-14-todos-unfiltered"      then row_14(state, coord, dispatcher)
+      when "polish-01-delete-alert"       then polish_01_delete_alert(state, coord, dispatcher)
+      when "polish-02-share-actionsheet"  then polish_02_share_actionsheet(state, coord, dispatcher)
+      when "polish-03-editor-sheet-new"   then polish_03_editor_sheet_new(state, coord, dispatcher)
+      when "polish-04-editor-sheet-edit"  then polish_04_editor_sheet_edit(state, coord, dispatcher)
+      when "polish-05-overflow-popover"   then polish_05_overflow_popover(state, coord, dispatcher)
       else
         raise "Unknown VOYAGER_CAPTURE_SCENARIO: #{scenario_id.inspect}"
       end
+    end
+
+    # Phase 10D-polish — modal capture scenarios. Each pre-seeds the
+    # transient pending_* flag on Voyager.state, then mounts the todos
+    # screen so build(ctx) reads the flag and renders the modal on the
+    # first frame. The simulator screenshot capture happens before any
+    # user interaction, so the modal is visible in the screenshot.
+    private def self.polish_01_delete_alert(state, coord, dispatcher) : Result
+      first = state.todos.first?
+      state.pending_delete_todo_id = first ? first.id : 1
+      coord.replace_root(UI::NavigationCoordinator::Route.new(:todos))
+      dispatcher.mount_screen(coord.current)
+      Result.new(route_id: :todos)
+    end
+
+    private def self.polish_02_share_actionsheet(state, coord, dispatcher) : Result
+      first = state.todos.first?
+      state.pending_share_todo_id = first ? first.id : 1
+      coord.replace_root(UI::NavigationCoordinator::Route.new(:todos))
+      dispatcher.mount_screen(coord.current)
+      Result.new(route_id: :todos)
+    end
+
+    private def self.polish_03_editor_sheet_new(state, coord, dispatcher) : Result
+      state.pending_editor_todo_id = 0
+      coord.replace_root(UI::NavigationCoordinator::Route.new(:todos))
+      dispatcher.mount_screen(coord.current)
+      Result.new(route_id: :todos)
+    end
+
+    private def self.polish_04_editor_sheet_edit(state, coord, dispatcher) : Result
+      first = state.todos.first?
+      state.pending_editor_todo_id = first ? first.id : 1
+      coord.replace_root(UI::NavigationCoordinator::Route.new(:todos))
+      dispatcher.mount_screen(coord.current)
+      Result.new(route_id: :todos)
+    end
+
+    private def self.polish_05_overflow_popover(state, coord, dispatcher) : Result
+      state.show_overflow_menu = true
+      coord.replace_root(UI::NavigationCoordinator::Route.new(:todos))
+      dispatcher.mount_screen(coord.current)
+      Result.new(route_id: :todos)
     end
 
     # ------------------------------------------------------------------

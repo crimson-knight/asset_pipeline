@@ -105,7 +105,7 @@ describe "Family 3 architectural rules — regression fixtures" do
     names.should contain("family_3/no_app_domain_mutation_in_screen_build")
     names.should contain("family_3/controller_action_returns_action_result")
     names.should contain("family_3/screen_build_signature")
-    names.should contain("family_3/intent_resolve_capability_arg")
-    names.should contain("family_3/override_intent_widget_subclass")
+    names.should contain("family_3/widget_route_resolve_capability_arg")
+    names.should contain("family_3/override_widget_subclass")
   end
 end

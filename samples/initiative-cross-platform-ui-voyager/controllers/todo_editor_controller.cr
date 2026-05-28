@@ -12,8 +12,9 @@ module Voyager
   class TodoEditorController < UI::Controller
     def dispatch_action(name : Symbol, context : UI::ScreenContext::Native) : UI::ActionResult
       case name
-      when :save   then save(context)
-      when :cancel then cancel(context)
+      when :save      then save(context)
+      when :cancel    then cancel(context)
+      when :mark_done then mark_done(context)
       else
         raise UI::Controller::UnknownActionError.new(
           "TodoEditorController has no action :#{name}"
@@ -51,6 +52,20 @@ module Voyager
     end
 
     def cancel(context : UI::ScreenContext::Native) : UI::ActionResult
+      UI::ActionResult::Pop.new
+    end
+
+    # Phase 10D-final D5 — Mark Done button. Flips the completed flag
+    # for the existing todo (no-op for a new draft) and pops back to
+    # the list. The FormState `completed` write is mirrored so the
+    # editor's Toggle reflects the change if the user navigates back.
+    def mark_done(context : UI::ScreenContext::Native) : UI::ActionResult
+      todo_id_str = context.params["todo_id"]? || "0"
+      todo_id = todo_id_str.to_i? || 0
+      if existing = Voyager.state.find_todo(todo_id)
+        existing.completed = !existing.completed
+        context.form_state.update("completed", existing.completed ? "true" : "false")
+      end
       UI::ActionResult::Pop.new
     end
   end

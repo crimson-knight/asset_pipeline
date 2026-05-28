@@ -126,7 +126,7 @@ module UI
 
     # Phase 10B.0 — native platform identity. Set by the host App at
     # dispatcher / context construction time (one of `:ios`, `:ipados`,
-    # `:macos`, `:android`). `UI::Intent.resolve` reads this on every
+    # `:macos`, `:android`). `UI::WidgetRoute.resolve` reads this on every
     # build to pick the right widget for the running target.
     #
     # Defaults to `:macos` to preserve backwards-compatibility with any

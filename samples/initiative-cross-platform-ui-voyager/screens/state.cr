@@ -39,6 +39,21 @@ module Voyager
     property hide_completed : Bool = false
     @next_id : Int32 = 1
 
+    # Phase 10D-polish — transient UI flags driving the catalog widget
+    # demos integrated into the todos flow. Each flag is set by an
+    # action (delete swipe, share swipe, edit tap, overflow menu) and
+    # cleared when the corresponding modal dismisses.
+    #
+    # Why this lives on State (not on the screen) — Voyager's screen
+    # build(ctx) returns a fresh tree on every Rerender, so any
+    # screen-local @ivar would be reset. The dispatcher's Rerender
+    # action result re-renders the active route from the state we
+    # mutate here.
+    property pending_delete_todo_id : Int32? = nil  # B1 — Alert
+    property pending_share_todo_id : Int32? = nil   # B2 — ActionSheet
+    property pending_editor_todo_id : Int32? = nil  # B3 — Sheet (nil = closed; 0 = new draft; >0 = edit)
+    property show_overflow_menu : Bool = false      # B5 — Popover
+
     def initialize
       @todos = [] of Todo
       # Seed with a few items so the demo has visible content on
@@ -144,6 +159,30 @@ module Voyager
 
     def completed_count_total : Int32
       @todos.count(&.completed)
+    end
+
+    # Phase 10D-polish B5 — overflow menu actions.
+    # Sort by deadline ascending; todos with no deadline (empty string)
+    # sink to the end. ISO-8601 (YYYY-MM-DD) sorts lexicographically so
+    # we use the raw string.
+    def sort_by_deadline! : Nil
+      @todos.sort! do |a, b|
+        a_empty = a.deadline.empty?
+        b_empty = b.deadline.empty?
+        if a_empty && b_empty
+          0
+        elsif a_empty
+          1
+        elsif b_empty
+          -1
+        else
+          a.deadline <=> b.deadline
+        end
+      end
+    end
+
+    def clear_completed_todos : Nil
+      @todos.reject!(&.completed)
     end
   end
 

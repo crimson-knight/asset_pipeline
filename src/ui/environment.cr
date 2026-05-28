@@ -304,7 +304,7 @@ module UI
     end
 
     # Returns the current platform identity. The same symbol used by
-    # `UI::Intent::Registry` lookups and by `PlatformFeatureBinding`
+    # `UI::WidgetRoute::Registry` lookups and by `PlatformFeatureBinding`
     # platform maps.
     def self.platform : Symbol
       @@platform
@@ -338,9 +338,9 @@ module UI
     # Returns `true` when a Class C `PlatformFeatureBinding` exists for
     # `intent_id` on the current platform AND the binding's
     # `api_capability_check` returns `true`. Use to feature-detect
-    # before rendering UI that calls `UI::Intent.dispatch`.
+    # before rendering UI that calls `UI::SystemAction.perform`.
     def self.feature_supported?(intent_id : Symbol) : Bool
-      UI::Intent::ClassCRegistry.supports?(intent_id, @@platform)
+      UI::SystemAction::Registry.supports?(intent_id, @@platform)
     end
 
   end

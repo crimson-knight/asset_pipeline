@@ -1,8 +1,8 @@
 module Voyager
-  # Phase 10D exerciser — `UI::Intent.dispatch` (Class C) proof.
+  # Phase 10D exerciser — `UI::SystemAction.perform` (Class C) proof.
   #
   # Demonstrates the Phase 10B.3.x Class C dispatch substrate by firing
-  # 5 distinct Class C intents through `UI::Intent.dispatch` and
+  # 5 distinct Class C intents through `UI::SystemAction.perform` and
   # surfacing the returned `DispatchResult` to the screen. Each button
   # runs one dispatch, stores the result in
   # `Phase10ExerciserState.last_dispatch_result`, and trips a
@@ -14,7 +14,7 @@ module Voyager
   #                                    system pasteboard.
   #   * `:paste_from_clipboard`     — reads from the pasteboard via a
   #                                    callback token registered against
-  #                                    `UI::Intent::CallbackRegistry`.
+  #                                    `UI::CallbackRegistry`.
   #   * `:open_url`                 — asks the OS to open
   #                                    `https://example.com`.
   #   * `:print`                    — invokes the print subsystem
@@ -23,7 +23,7 @@ module Voyager
   #   * `:request_permission`       — requests notification permission.
   #
   # The "Paste from clipboard" button additionally registers a
-  # `UI::Intent::CallbackRegistry` string-callback so the pasted value
+  # `UI::CallbackRegistry` string-callback so the pasted value
   # round-trips into the visible "Last paste" label.
   class ClassCDispatchScreen < UI::Screen
     SLUG = "voyager-phase-10-class-c-dispatch"
@@ -49,7 +49,7 @@ module Voyager
       title.text_color_role = UI::LabelRole::Primary
 
       hint = UI::Label.new(
-        "Each button fires UI::Intent.dispatch(:intent). The result label\nshows DispatchResult.success / unsupported / failed."
+        "Each button fires UI::SystemAction.perform(:intent). The result label\nshows DispatchResult.success / unsupported / failed."
       )
       hint.font = UI::Font.new(size: 12.0, weight: :regular)
       hint.text_color_role = UI::LabelRole::Secondary
@@ -84,7 +84,7 @@ module Voyager
       # --- Buttons ---
       copy_btn = make_button("Copy 'Hello, asset_pipeline!'", "phase-10-class-c-copy", content_width)
       copy_btn.on_tap = -> {
-        result = UI::Intent.dispatch(:copy_to_clipboard, value: "Hello, asset_pipeline!")
+        result = UI::SystemAction.perform(:copy_to_clipboard, value: "Hello, asset_pipeline!")
         Phase10ExerciserState.last_dispatched_intent = ":copy_to_clipboard"
         Phase10ExerciserState.last_dispatch_result = Phase10ExerciserState.format_result(result)
         Voyager.dispatch(:phase_10_class_c_dispatched)
@@ -97,7 +97,7 @@ module Voyager
           nil
         }
         token = UI::CallbackRegistry.register_string(paste_cb)
-        result = UI::Intent.dispatch(:paste_from_clipboard, on_paste: token.to_s)
+        result = UI::SystemAction.perform(:paste_from_clipboard, on_paste: token.to_s)
         Phase10ExerciserState.last_dispatched_intent = ":paste_from_clipboard"
         Phase10ExerciserState.last_dispatch_result = Phase10ExerciserState.format_result(result)
         Voyager.dispatch(:phase_10_class_c_dispatched)
@@ -105,7 +105,7 @@ module Voyager
 
       open_url_btn = make_button("Open https://example.com", "phase-10-class-c-open-url", content_width)
       open_url_btn.on_tap = -> {
-        result = UI::Intent.dispatch(:open_url, url: "https://example.com")
+        result = UI::SystemAction.perform(:open_url, url: "https://example.com")
         Phase10ExerciserState.last_dispatched_intent = ":open_url"
         Phase10ExerciserState.last_dispatch_result = Phase10ExerciserState.format_result(result)
         Voyager.dispatch(:phase_10_class_c_dispatched)
@@ -113,7 +113,7 @@ module Voyager
 
       print_btn = make_button("Print sample text", "phase-10-class-c-print", content_width)
       print_btn.on_tap = -> {
-        result = UI::Intent.dispatch(:print,
+        result = UI::SystemAction.perform(:print,
           text: "Phase 10D exerciser — print sample",
           job_name: "Phase 10 Exerciser",
         )
@@ -124,7 +124,7 @@ module Voyager
 
       perm_btn = make_button("Request notification permission", "phase-10-class-c-permission", content_width)
       perm_btn.on_tap = -> {
-        result = UI::Intent.dispatch(:request_permission, permission: "notifications")
+        result = UI::SystemAction.perform(:request_permission, permission: "notifications")
         Phase10ExerciserState.last_dispatched_intent = ":request_permission"
         Phase10ExerciserState.last_dispatch_result = Phase10ExerciserState.format_result(result)
         Voyager.dispatch(:phase_10_class_c_dispatched)

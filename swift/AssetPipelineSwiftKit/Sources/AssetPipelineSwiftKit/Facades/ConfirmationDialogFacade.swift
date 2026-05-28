@@ -39,6 +39,17 @@ public class ConfirmationDialogFacade: NSObject {
         let confirmToken = overrides.confirmToken?.uint64Value ?? 0
         let cancelToken = overrides.cancelToken?.uint64Value ?? 0
 
+        // Phase 10D-polish iter 2 — multi-action path. When the
+        // overrides carry a non-empty actionLabels array, iterate every
+        // entry as a SwiftUI Button inside the .confirmationDialog
+        // content closure. SwiftUI natively supports any number of
+        // buttons here; the system pins the cancel-role button at the
+        // bottom and renders destructive buttons in red.
+        let actionLabels = overrides.actionLabels
+        let actionStyles = overrides.actionStyles
+        let actionTokens = overrides.actionTokens
+        let hasMultiAction = !actionLabels.isEmpty
+
         var content: AnyView = AnyView(
             Color.clear
                 .frame(width: 1, height: 1)
@@ -47,16 +58,30 @@ public class ConfirmationDialogFacade: NSObject {
                     isPresented: storage.binding,
                     titleVisibility: .visible
                 ) {
-                    Button(
-                        role: confirmStyle == "destructive" ? .destructive : nil,
-                        action: { CallbackBridge.fire(token: confirmToken, value: 0.0) }
-                    ) {
-                        Text(confirmLabel)
-                    }
-                    Button(role: .cancel, action: {
-                        CallbackBridge.fire(token: cancelToken, value: 0.0)
-                    }) {
-                        Text(cancelLabel)
+                    if hasMultiAction {
+                        ForEach(0..<actionLabels.count, id: \.self) { i in
+                            let style = i < actionStyles.count ? actionStyles[i] : "default"
+                            let token = i < actionTokens.count ? actionTokens[i].uint64Value : 0
+                            let label = actionLabels[i]
+                            Button(
+                                role: ConfirmationDialogFacade.roleFor(style),
+                                action: { CallbackBridge.fire(token: token, value: 0.0) }
+                            ) {
+                                Text(label)
+                            }
+                        }
+                    } else {
+                        Button(
+                            role: confirmStyle == "destructive" ? .destructive : nil,
+                            action: { CallbackBridge.fire(token: confirmToken, value: 0.0) }
+                        ) {
+                            Text(confirmLabel)
+                        }
+                        Button(role: .cancel, action: {
+                            CallbackBridge.fire(token: cancelToken, value: 0.0)
+                        }) {
+                            Text(cancelLabel)
+                        }
                     }
                 } message: {
                     if !message.isEmpty { Text(message) }
@@ -65,6 +90,14 @@ public class ConfirmationDialogFacade: NSObject {
 
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(ConfirmHost(storage: storage, content: content))
+    }
+
+    fileprivate static func roleFor(_ style: String) -> ButtonRole? {
+        switch style {
+        case "destructive": return .destructive
+        case "cancel":      return .cancel
+        default:            return nil
+        }
     }
 }
 

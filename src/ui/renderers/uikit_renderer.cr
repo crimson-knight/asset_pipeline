@@ -211,10 +211,18 @@
       # scheduling its own dismiss.
       property environment : UI::Environment = UI::Environment.default
 
+      # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — registry of
+      # test_id → ObjC view pointer populated as each view is built.
+      # The Popover visit looks the source view up by its
+      # `anchor_view_id` and passes the pointer to the SwiftKit facade
+      # for `UIPopoverPresentationController` anchoring.
+      @test_id_registry : Hash(String, Void*) = {} of String => Void*
+
       def initialize
         @stack = [] of NativeView
         @stack_is_uistack = [] of Bool
         @label_preferred_max_layout_width_stack = [] of Float64
+        @test_id_registry = {} of String => Void*
 
         # Phase 6.10 Rem 4 (Item 2B/2C) — install the runtime device-
         # metrics provider so screens can query `UI::DesignTokens::
@@ -1112,6 +1120,125 @@
           end
         end
 
+        # Phase 10D-final — per-row swipe + tap + drag-reorder token
+        # registration. The flat-index walk parallels the childViews
+        # ordering above so absolute row index `n` in the facade
+        # corresponds to `children_native[n]`.
+        callback_ids = [] of UInt64
+        total_rows = children_native.size
+
+        # Row tap tokens (one per row; 0 = no whole-row tap).
+        row_tap_tokens = Array(UInt64).new(total_rows, 0_u64)
+        if row_tap = view.on_row_tap
+          (0...total_rows).each do |idx|
+            tok = UI::CallbackRegistry.register_action { row_tap.call(idx) }
+            row_tap_tokens[idx] = tok
+            callback_ids << tok
+          end
+          sender.set_uint64_array(target_str, :setRowTapTokens, row_tap_tokens)
+        end
+
+        # Drag-reorder string-channel token.
+        if move = view.on_move
+          move_tok = UI::CallbackRegistry.register_string(->(payload : String) {
+            # Payload shape: "from=N,to=M". Parse defensively — a
+            # malformed payload is a silent no-op rather than a crash.
+            from_idx = -1
+            to_idx = -1
+            payload.split(",").each do |kv|
+              parts = kv.split("=", 2)
+              next unless parts.size == 2
+              case parts[0]
+              when "from" then from_idx = parts[1].to_i? || -1
+              when "to"   then to_idx = parts[1].to_i? || -1
+              end
+            end
+            if from_idx >= 0 && to_idx >= 0
+              move.call(from_idx, to_idx)
+            end
+            nil
+          })
+          sender.set_uint64(target_str, :setMoveToken, move_tok)
+          callback_ids << move_tok
+        end
+
+        # Per-row leading swipe actions. Build flat + counts arrays.
+        # Phase 10D-polish iter 2 — honor SwipeAction#tint when set;
+        # emit SwipeAction#label_style into the parallel label-styles
+        # array so the facade can force icon-only / title-only tiles.
+        if leading_fn = view.leading_swipe_actions
+          leading_labels = [] of String
+          leading_icons = [] of String
+          leading_tokens = [] of UInt64
+          leading_roles = [] of String
+          leading_tints = [] of String
+          leading_label_styles = [] of String
+          leading_counts = [] of Int32
+
+          (0...total_rows).each do |idx|
+            actions = leading_fn.call(idx)
+            leading_counts << actions.size.to_i32
+            actions.each do |action|
+              leading_labels << action.label
+              leading_icons << (action.icon || "")
+              leading_roles << action.role.to_s
+              leading_tints << (action.tint.try(&.to_s) || default_tint_for_leading(action.role))
+              leading_label_styles << action.label_style.to_s
+              if tap = action.on_tap
+                tok = UI::CallbackRegistry.register_action(&tap)
+                leading_tokens << tok
+                callback_ids << tok
+              else
+                leading_tokens << 0_u64
+              end
+            end
+          end
+          sender.set_string_array(target_str, :setLeadingActionLabels, leading_labels)
+          sender.set_string_array(target_str, :setLeadingActionIcons, leading_icons)
+          sender.set_uint64_array(target_str, :setLeadingActionTokens, leading_tokens)
+          sender.set_string_array(target_str, :setLeadingActionRoles, leading_roles)
+          sender.set_string_array(target_str, :setLeadingActionTints, leading_tints)
+          sender.set_string_array(target_str, :setLeadingActionLabelStyles, leading_label_styles)
+          sender.set_int_array(target_str, :setLeadingActionCounts, leading_counts)
+        end
+
+        # Per-row trailing swipe actions. Same shape as leading.
+        if trailing_fn = view.trailing_swipe_actions
+          trailing_labels = [] of String
+          trailing_icons = [] of String
+          trailing_tokens = [] of UInt64
+          trailing_roles = [] of String
+          trailing_tints = [] of String
+          trailing_label_styles = [] of String
+          trailing_counts = [] of Int32
+
+          (0...total_rows).each do |idx|
+            actions = trailing_fn.call(idx)
+            trailing_counts << actions.size.to_i32
+            actions.each do |action|
+              trailing_labels << action.label
+              trailing_icons << (action.icon || "")
+              trailing_roles << action.role.to_s
+              trailing_tints << (action.tint.try(&.to_s) || default_tint_for_trailing(action.role))
+              trailing_label_styles << action.label_style.to_s
+              if tap = action.on_tap
+                tok = UI::CallbackRegistry.register_action(&tap)
+                trailing_tokens << tok
+                callback_ids << tok
+              else
+                trailing_tokens << 0_u64
+              end
+            end
+          end
+          sender.set_string_array(target_str, :setTrailingActionLabels, trailing_labels)
+          sender.set_string_array(target_str, :setTrailingActionIcons, trailing_icons)
+          sender.set_uint64_array(target_str, :setTrailingActionTokens, trailing_tokens)
+          sender.set_string_array(target_str, :setTrailingActionRoles, trailing_roles)
+          sender.set_string_array(target_str, :setTrailingActionTints, trailing_tints)
+          sender.set_string_array(target_str, :setTrailingActionLabelStyles, trailing_label_styles)
+          sender.set_int_array(target_str, :setTrailingActionCounts, trailing_counts)
+        end
+
         child_buf = build_child_buffer(children_native)
         ptr = LibSwiftKitBridge.apsk_make_list_view(
           child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
@@ -1119,7 +1246,27 @@
         handle = ObjC.owned(ptr, label: "UIHostingView[ListView]")
         native = NativeView.new(handle)
         children_native.each { |c| native.add_child(c) }
+        callback_ids.each { |id| native.track_callback_id(id) }
         push_native(native)
+      end
+
+      # Phase 10D-final — default tint per role for leading swipe.
+      # Mirrors `populate_swipe_action_row` (leading positive → green).
+      private def default_tint_for_leading(role : Symbol) : String
+        case role
+        when :destructive then "red"
+        else                   "green"
+        end
+      end
+
+      # Phase 10D-final — default tint per role for trailing swipe.
+      # Destructive returns "" so SwiftUI's `.destructive` role uses the
+      # platform-native danger tint (system red).
+      private def default_tint_for_trailing(role : Symbol) : String
+        case role
+        when :destructive then ""
+        else                   "blue"
+        end
       end
 
       # Legacy UIKit ListView body, retained for reference.
@@ -1438,6 +1585,28 @@
         push_native(native)
       end
 
+      # Phase 10D-polish — iOS class-init-gap workaround for Time#to_unix.
+      # Crystal's `Time::UNIX_EPOCH` constant (62_135_596_800 — seconds from
+      # year 1 to 1970) doesn't initialize on iOS due to the documented
+      # class-init gap (see [[crystal-ios-class-init-gap]] memory). When the
+      # constant evaluates to 0, `Time#to_unix` returns the raw internal
+      # `@seconds` (year-1-rooted) instead of the Unix epoch, producing the
+      # year ~3995 = 2026 + 1969 display bug in the DatePicker.
+      # Workaround: detect a value that's obviously year-1-rooted and
+      # subtract the literal offset ourselves.
+      TIME_UNIX_EPOCH_OFFSET_SECONDS_FROM_YEAR_1 = 62_135_596_800_i64
+
+      private def safe_time_to_unix(t : Time) : Int64
+        raw = t.to_unix
+        # If the raw value is greater than ~year 2100 in seconds (4_102_444_800),
+        # the constant didn't initialize and we got @seconds back. Subtract.
+        if raw > 4_102_444_800_i64
+          raw - TIME_UNIX_EPOCH_OFFSET_SECONDS_FROM_YEAR_1
+        else
+          raw
+        end
+      end
+
       def visit(view : UI::DatePicker)
         overrides_ptr = LibSwiftKitBridge.apsk_date_picker_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
@@ -1451,7 +1620,7 @@
           end
         end
 
-        epoch = view.selected_date.to_unix.to_f64
+        epoch = safe_time_to_unix(view.selected_date).to_f64
         ptr = LibSwiftKitBridge.apsk_make_date_picker(
           view.label.to_unsafe, epoch, overrides_ptr, action_token,
         )
@@ -1758,6 +1927,21 @@
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_popover(target_str, view, sender)
+
+        # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — look up
+        # the anchor source view by test_id in the per-renderer registry.
+        # When found, hand the UIView pointer through to the facade so
+        # UIPopoverPresentationController anchors the bubble's arrow
+        # at the source view's frame.
+        if anchor_id = view.anchor_view_id
+          if anchor_ptr = @test_id_registry[anchor_id]?
+            LibSwiftKitBridge.apsk_overrides_set_object_ptr(
+              overrides_ptr,
+              "setAnchorSourceView:".to_unsafe,
+              anchor_ptr,
+            )
+          end
+        end
 
         dismiss_token = 0_u64
         callback_ids = [] of UInt64
@@ -3785,13 +3969,14 @@
 
       # Phase 4 — Tier 3. iOS rendering of UI::ActionSheet.
       #
-      # The Phase 3 SwiftKit bridge currently exposes only a binary
-      # confirm/cancel ConfirmationDialogFacade. We route ActionSheet
-      # through it with a conservative mapping: the first non-cancel action
-      # becomes the confirm button (inheriting its :destructive style if
-      # set), the explicit cancel-style action (if any) becomes the cancel
-      # button, and any additional actions are dropped at render time.
-      # Phase 5 will extend the SwiftKit bridge with a multi-action facade.
+      # Phase 10D-polish iter 2 (B-ACTIONSHEET-MULTI-ACTION) — we now
+      # emit the full action list into ConfirmationDialogOverrides'
+      # `actionLabels` / `actionStyles` / `actionTokens` parallel
+      # arrays. The SwiftUI facade switches from its binary confirm /
+      # cancel path to a ForEach over the arrays so every action lands
+      # in the system action sheet. The cancel-style action stays in
+      # the array; SwiftUI's `.confirmationDialog` pins the role:.cancel
+      # button at the bottom automatically.
       def visit(view : UI::ActionSheet)
         overrides_ptr = LibSwiftKitBridge.apsk_confirmation_dialog_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
@@ -3808,31 +3993,23 @@
 
         callback_ids = [] of UInt64
 
-        # Map first non-cancel action -> confirm button.
-        if primary = view.primary_action
-          sender.set_string(target_str, :setConfirmLabel, primary.label)
-          if primary.style == :destructive
-            sender.set_string(target_str, :setConfirmStyle, "destructive")
+        # Multi-action path — emit ALL actions to the parallel arrays.
+        unless view.actions.empty?
+          labels = view.actions.map(&.label)
+          styles = view.actions.map(&.style.to_s)
+          tokens = [] of UInt64
+          view.actions.each do |a|
+            if action = a.action
+              tok = UI::CallbackRegistry.register_action(&action)
+              tokens << tok
+              callback_ids << tok
+            else
+              tokens << 0_u64
+            end
           end
-          if action = primary.action
-            tok = UI::CallbackRegistry.register_action(&action)
-            callback_ids << tok
-            LibSwiftKitBridge.apsk_overrides_set_int(
-              overrides_ptr, "setConfirmToken:".to_unsafe, tok.to_i64,
-            )
-          end
-        end
-
-        # Map cancel-style action -> cancel button (when present).
-        if cancel = view.cancel_action
-          sender.set_string(target_str, :setCancelLabel, cancel.label)
-          if action = cancel.action
-            tok = UI::CallbackRegistry.register_action(&action)
-            callback_ids << tok
-            LibSwiftKitBridge.apsk_overrides_set_int(
-              overrides_ptr, "setCancelToken:".to_unsafe, tok.to_i64,
-            )
-          end
+          sender.set_string_array(target_str, :setActionLabels, labels)
+          sender.set_string_array(target_str, :setActionStyles, styles)
+          sender.set_uint64_array(target_str, :setActionTokens, tokens)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog(
@@ -4757,6 +4934,13 @@
         elsif tid = view.test_id
           tid_str = LibObjCBridge.nsstring_from_cstr(tid.to_unsafe)
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), tid_str)
+        end
+
+        # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — register
+        # this view's ObjC pointer under its test_id so a later
+        # UI::Popover visit can look up the anchor source view.
+        if tid = view.test_id
+          @test_id_registry[tid] = ptr
         end
 
         # Phase 10B.2b — Custom accessibility actions. Each action gets

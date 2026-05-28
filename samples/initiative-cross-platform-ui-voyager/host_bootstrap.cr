@@ -34,7 +34,7 @@ module Voyager
     # collaborators for host-level pinning.
     #
     # Phase 10D — `platform` arg is now wired through to the dispatcher
-    # so `UI::Intent.resolve` returns the correct widget for the running
+    # so `UI::WidgetRoute.resolve` returns the correct widget for the running
     # target. iOS / macOS bridge files set this explicitly; defaults to
     # the Crystal compile-time flag (`:ios` under `-Dios`, `:macos`
     # under `-Dmacos`, `:web_wide` otherwise).

@@ -68,7 +68,8 @@ private struct APSKSwipeActionRowHost: View {
                         icons: overrides.leadingIcons,
                         tokens: overrides.leadingTokens,
                         roles: overrides.leadingRoles,
-                        tints: overrides.leadingTints
+                        tints: overrides.leadingTints,
+                        labelStyles: overrides.leadingLabelStyles
                     )
                 }
             }
@@ -80,7 +81,8 @@ private struct APSKSwipeActionRowHost: View {
                         icons: overrides.trailingIcons,
                         tokens: overrides.trailingTokens,
                         roles: overrides.trailingRoles,
-                        tints: overrides.trailingTints
+                        tints: overrides.trailingTints,
+                        labelStyles: overrides.trailingLabelStyles
                     )
                 }
             }
@@ -143,13 +145,15 @@ private struct APSKSwipeActionRowHost: View {
         icons: [String],
         tokens: [NSNumber],
         roles: [String],
-        tints: [String]
+        tints: [String],
+        labelStyles: [String] = []
     ) -> some View {
         let label = i < labels.count ? labels[i] : ""
         let icon = i < icons.count ? icons[i] : ""
         let token = i < tokens.count ? tokens[i].uint64Value : 0
         let role = i < roles.count ? roles[i] : ""
         let tintKey = i < tints.count ? tints[i] : ""
+        let labelStyle = i < labelStyles.count ? labelStyles[i] : "auto"
 
         let action: () -> Void = {
             CallbackBridge.fire(token: token, value: 0.0)
@@ -159,19 +163,19 @@ private struct APSKSwipeActionRowHost: View {
             if role == "destructive" {
                 return AnyView(
                     Button(role: .destructive, action: action) {
-                        Self.buttonLabel(label: label, icon: icon)
+                        Self.buttonLabel(label: label, icon: icon, style: labelStyle)
                     }
                 )
             } else if role == "cancel" {
                 return AnyView(
                     Button(role: .cancel, action: action) {
-                        Self.buttonLabel(label: label, icon: icon)
+                        Self.buttonLabel(label: label, icon: icon, style: labelStyle)
                     }
                 )
             } else {
                 return AnyView(
                     Button(action: action) {
-                        Self.buttonLabel(label: label, icon: icon)
+                        Self.buttonLabel(label: label, icon: icon, style: labelStyle)
                     }
                 )
             }
@@ -184,14 +188,39 @@ private struct APSKSwipeActionRowHost: View {
         }
     }
 
+    // Phase 10D-polish iter 2 (B-LIST-SWIPE-LABEL-STYLE) — forced
+    // styles override the auto inference. "icon" drops the title even
+    // when both are set; "title" drops the icon; "title_and_icon"
+    // forces the SwiftUI Label combination even when one side is
+    // empty (no-op in that case).
     @ViewBuilder
-    private static func buttonLabel(label: String, icon: String) -> some View {
-        if !icon.isEmpty && !label.isEmpty {
-            Label(label, systemImage: icon)
-        } else if !icon.isEmpty {
-            Image(systemName: icon)
-        } else {
+    private static func buttonLabel(label: String, icon: String, style: String = "auto") -> some View {
+        switch style {
+        case "icon":
+            if !icon.isEmpty {
+                Image(systemName: icon)
+                    .accessibilityLabel(Text(label))
+            } else {
+                Text(label)
+            }
+        case "title":
             Text(label)
+        case "title_and_icon":
+            if !icon.isEmpty && !label.isEmpty {
+                Label(label, systemImage: icon)
+            } else if !icon.isEmpty {
+                Image(systemName: icon)
+            } else {
+                Text(label)
+            }
+        default:
+            if !icon.isEmpty && !label.isEmpty {
+                Label(label, systemImage: icon)
+            } else if !icon.isEmpty {
+                Image(systemName: icon)
+            } else {
+                Text(label)
+            }
         }
     }
 

@@ -496,6 +496,12 @@ module UI
         unless view.mode == UI::DatePickerMode::Date
           sender.set_string(target, :setDatePickerMode, view.mode.to_s.downcase)
         end
+        # Phase 10D-polish iter 2 (B-DATEPICKER-STYLE-PROPERTY) — only
+        # emit when non-default; the facade switch reads "compact" /
+        # "graphical" / "wheels" / nil.
+        unless view.style == UI::DatePickerStyle::Automatic
+          sender.set_string(target, :setDatePickerStyle, view.style.to_s.downcase)
+        end
       end
 
       def self.populate_time_picker(target : String, view : UI::TimePicker, sender : Sender)
@@ -577,6 +583,9 @@ module UI
         end
         sender.set_bool(target, :setShowsDragIndicator,
           view.shows_drag_indicator ? nil : false)
+        # Phase 10D-polish iter 2 (B-SHEET-INTERACTIVE-DISMISS-DISABLED)
+        sender.set_bool(target, :setInteractiveDismissDisabled,
+          view.interactive_dismiss_disabled ? true : nil)
         # Phase 5 v2: forward AppleSemantic override (or HIG default :sheet)
         # so the SwiftKit facade applies `.presentationBackground(.thickMaterial)`
         # on the presented sheet body (iOS 16.4+ / macOS 13.3+).
@@ -781,6 +790,30 @@ module UI
           sender.set_int_array(target, :setSectionItemCounts,
             view.sections.map { |s| s.items.size })
         end
+
+        # Phase 10D-final — per-row Mail-app row metadata.
+        # The visit method registers tokens + populates the parallel
+        # flat arrays for leading/trailing swipe actions and row taps.
+        # The populator only emits the static fields the visitor cannot
+        # build (style / sections); per-row arrays are emitted from
+        # `visit(UI::ListView)` directly using the same sender so the
+        # token registrations and the parallel arrays stay co-located.
+
+        # Phase 10D-polish A4 — default 16pt row inset. nil → use the
+        # SwiftUI platform default. The widget default is 16.0 so iOS
+        # consumers get Mail-style row chrome without intervention.
+        if inset = view.content_inset_horizontal
+          sender.set_number(target, :setContentInsetHorizontal, inset)
+        end
+
+        # Phase 10D-polish A3 — row removal animation duration.
+        # 0.0 disables; default is 0.4s per owner spec.
+        sender.set_number(target, :setRowRemovalDurationSeconds, view.row_removal_duration_seconds)
+
+        # Phase 10D-polish A2 — drag-handle visibility default. The
+        # facade only renders the handle when `moveToken != nil` AND
+        # `showsDragHandle == true`.
+        sender.set_bool(target, :setShowsDragHandle, view.shows_drag_handle)
       end
 
       # ---------------------------------------------------------------
@@ -804,6 +837,9 @@ module UI
       def self.populate_swipe_action_row(target : String, view : UI::SwipeActionRow, sender : Sender)
         populate_view_common(target, view, sender)
 
+        # Phase 10D-polish iter 2 (B-LIST-SWIPE-TINT) — honor
+        # `SwipeAction#tint` when explicitly set; fall back to the
+        # role-derived default otherwise.
         unless view.leading_actions.empty?
           sender.set_string_array(target, :setLeadingLabels,
             view.leading_actions.map(&.label))
@@ -813,15 +849,20 @@ module UI
             view.leading_actions.map(&.role.to_s))
           sender.set_string_array(target, :setLeadingTints,
             view.leading_actions.map { |a|
-              # Default tint inference: destructive → red, otherwise
-              # leading swipe defaults to system green (per iOS Mail
-              # convention — leading = positive / archive). Future
-              # SwipeAction#tint property override would land here.
-              case a.role
-              when :destructive then "red"
-              else                   "green"
+              if t = a.tint
+                t.to_s
+              else
+                # Default tint inference: destructive → red, otherwise
+                # leading swipe defaults to system green (per iOS Mail
+                # convention — leading = positive / archive).
+                case a.role
+                when :destructive then "red"
+                else                   "green"
+                end
               end
             })
+          sender.set_string_array(target, :setLeadingLabelStyles,
+            view.leading_actions.map(&.label_style.to_s))
         end
 
         unless view.trailing_actions.empty?
@@ -833,11 +874,17 @@ module UI
             view.trailing_actions.map(&.role.to_s))
           sender.set_string_array(target, :setTrailingTints,
             view.trailing_actions.map { |a|
-              case a.role
-              when :destructive then ""  # SwiftUI .destructive role → red automatically
-              else                   "blue"
+              if t = a.tint
+                t.to_s
+              else
+                case a.role
+                when :destructive then "" # SwiftUI .destructive role → red automatically
+                else                   "blue"
+                end
               end
             })
+          sender.set_string_array(target, :setTrailingLabelStyles,
+            view.trailing_actions.map(&.label_style.to_s))
         end
 
         # Row width pin — when set on the UI::SwipeActionRow (via
