@@ -25,6 +25,15 @@ module UI
     # .regularMaterial via .presentationBackground on iOS 16.4+).
     property material_semantic : Symbol? = nil
 
+    # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — when set, the
+    # iOS visit method looks up the native source view by matching the
+    # `test_id` on any previously-rendered view in the current render
+    # pass and presents the popover via `UIPopoverPresentationController`
+    # anchored to that view. The popover bubble's arrow points at the
+    # source view's frame. When nil, falls back to the SwiftUI default
+    # (centered on the host with no arrow).
+    property anchor_view_id : String? = nil
+
     def initialize(@content : View? = nil, @arrow_edge : Symbol = :bottom)
     end
 

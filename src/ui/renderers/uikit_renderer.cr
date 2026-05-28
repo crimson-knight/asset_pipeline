@@ -211,10 +211,18 @@
       # scheduling its own dismiss.
       property environment : UI::Environment = UI::Environment.default
 
+      # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — registry of
+      # test_id → ObjC view pointer populated as each view is built.
+      # The Popover visit looks the source view up by its
+      # `anchor_view_id` and passes the pointer to the SwiftKit facade
+      # for `UIPopoverPresentationController` anchoring.
+      @test_id_registry : Hash(String, Void*) = {} of String => Void*
+
       def initialize
         @stack = [] of NativeView
         @stack_is_uistack = [] of Bool
         @label_preferred_max_layout_width_stack = [] of Float64
+        @test_id_registry = {} of String => Void*
 
         # Phase 6.10 Rem 4 (Item 2B/2C) — install the runtime device-
         # metrics provider so screens can query `UI::DesignTokens::
@@ -1919,6 +1927,21 @@
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_popover(target_str, view, sender)
+
+        # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — look up
+        # the anchor source view by test_id in the per-renderer registry.
+        # When found, hand the UIView pointer through to the facade so
+        # UIPopoverPresentationController anchors the bubble's arrow
+        # at the source view's frame.
+        if anchor_id = view.anchor_view_id
+          if anchor_ptr = @test_id_registry[anchor_id]?
+            LibSwiftKitBridge.apsk_overrides_set_object_ptr(
+              overrides_ptr,
+              "setAnchorSourceView:".to_unsafe,
+              anchor_ptr,
+            )
+          end
+        end
 
         dismiss_token = 0_u64
         callback_ids = [] of UInt64
@@ -4911,6 +4934,13 @@
         elsif tid = view.test_id
           tid_str = LibObjCBridge.nsstring_from_cstr(tid.to_unsafe)
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), tid_str)
+        end
+
+        # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — register
+        # this view's ObjC pointer under its test_id so a later
+        # UI::Popover visit can look up the anchor source view.
+        if tid = view.test_id
+          @test_id_registry[tid] = ptr
         end
 
         # Phase 10B.2b — Custom accessibility actions. Each action gets

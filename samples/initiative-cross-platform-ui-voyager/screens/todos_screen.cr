@@ -352,6 +352,12 @@ module Voyager
         overflow_popover.is_presented = true
         overflow_popover.test_id = "voyager-todos-overflow-popover"
         overflow_popover.accessibility_label = "More actions menu"
+        # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — anchor the
+        # popover's arrow at the "•••" overflow button by referencing
+        # its test_id. The iOS renderer looks the UIView pointer up in
+        # its per-render registry and threads it into
+        # UIPopoverPresentationController.sourceView.
+        overflow_popover.anchor_view_id = "voyager-todos-overflow"
         root << overflow_popover.as(UI::View)
       end
 
