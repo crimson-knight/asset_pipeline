@@ -170,7 +170,9 @@ module Voyager
         nil
       }
 
-      # Per-row leading swipe — single Archive tile.
+      # Per-row leading swipe — single Archive tile. Phase 10D-polish
+      # iter 2 demonstrates the new `tint:` knob on SwipeAction: Archive
+      # in orange instead of the role-derived default green.
       list.leading_swipe_actions = ->(idx : Int32) : Array(UI::SwipeAction) {
         if idx < 0 || idx >= visible_ids.size
           [] of UI::SwipeAction
@@ -181,6 +183,7 @@ module Voyager
               "Archive",
               on_tap: -> { Voyager.dispatch(:archive_row, {"todo_id" => todo_id}); nil },
               icon: "archivebox",
+              tint: :orange,
             ),
           ]
         end
@@ -189,9 +192,8 @@ module Voyager
       # Per-row trailing swipe — Mail-app order: [delete, mark_done,
       # share, edit] so SwiftUI fires Delete on full-swipe AND renders
       # it as the rightmost (outermost) tile when fully revealed.
-      # Phase 10D-polish — Delete and Share now route through the
-      # request_* paths so the screen renders an Alert (B1) /
-      # ActionSheet (B2) instead of mutating immediately.
+      # Phase 10D-polish iter 2 — Done shows in green, Share in gray,
+      # Edit in blue. Delete stays role-derived red (destructive).
       list.trailing_swipe_actions = ->(idx : Int32) : Array(UI::SwipeAction) {
         if idx < 0 || idx >= visible_ids.size
           [] of UI::SwipeAction
@@ -208,16 +210,19 @@ module Voyager
               "Done",
               on_tap: -> { Voyager.dispatch(:toggle_row, {"todo_id" => todo_id}); nil },
               icon: "checkmark.circle",
+              tint: :green,
             ),
             UI::SwipeAction.new(
               "Share",
               on_tap: -> { Voyager.dispatch(:request_share, {"todo_id" => todo_id}); nil },
               icon: "square.and.arrow.up",
+              tint: :gray,
             ),
             UI::SwipeAction.new(
               "Edit",
               on_tap: -> { Voyager.dispatch(:edit_row, {"todo_id" => todo_id}); nil },
               icon: "pencil",
+              tint: :blue,
             ),
           ]
         end

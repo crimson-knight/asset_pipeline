@@ -281,7 +281,8 @@ public class ListViewFacade: NSObject {
                                 icons: overrides.leadingActionIcons,
                                 tokens: overrides.leadingActionTokens,
                                 roles: overrides.leadingActionRoles,
-                                tints: overrides.leadingActionTints
+                                tints: overrides.leadingActionTints,
+                                labelStyles: overrides.leadingActionLabelStyles
                             )
                         }
                     }
@@ -302,7 +303,8 @@ public class ListViewFacade: NSObject {
                                 icons: overrides.trailingActionIcons,
                                 tokens: overrides.trailingActionTokens,
                                 roles: overrides.trailingActionRoles,
-                                tints: overrides.trailingActionTints
+                                tints: overrides.trailingActionTints,
+                                labelStyles: overrides.trailingActionLabelStyles
                             )
                         }
                     }
@@ -385,13 +387,15 @@ public class ListViewFacade: NSObject {
         icons: [String],
         tokens: [NSNumber],
         roles: [String],
-        tints: [String]
+        tints: [String],
+        labelStyles: [String] = []
     ) -> some View {
         let label = i < labels.count ? labels[i] : ""
         let icon = i < icons.count ? icons[i] : ""
         let token = i < tokens.count ? tokens[i].uint64Value : 0
         let role = i < roles.count ? roles[i] : ""
         let tintKey = i < tints.count ? tints[i] : ""
+        let labelStyle = i < labelStyles.count ? labelStyles[i] : "auto"
 
         let action: () -> Void = {
             CallbackBridge.fire(token: token, value: 0.0)
@@ -401,19 +405,19 @@ public class ListViewFacade: NSObject {
             if role == "destructive" {
                 return AnyView(
                     Button(role: .destructive, action: action) {
-                        swipeTileLabel(label: label, icon: icon)
+                        swipeTileLabel(label: label, icon: icon, style: labelStyle)
                     }
                 )
             } else if role == "cancel" {
                 return AnyView(
                     Button(role: .cancel, action: action) {
-                        swipeTileLabel(label: label, icon: icon)
+                        swipeTileLabel(label: label, icon: icon, style: labelStyle)
                     }
                 )
             } else {
                 return AnyView(
                     Button(action: action) {
-                        swipeTileLabel(label: label, icon: icon)
+                        swipeTileLabel(label: label, icon: icon, style: labelStyle)
                     }
                 )
             }
@@ -435,16 +439,36 @@ public class ListViewFacade: NSObject {
     // visual weight without forcing a custom .buttonStyle (which
     // suppresses the swipe-tile chrome).
     @ViewBuilder
-    private static func swipeTileLabel(label: String, icon: String) -> some View {
-        if !icon.isEmpty && !label.isEmpty {
-            // Use SwiftUI Label so VoiceOver reads both icon + text
-            // and Dynamic Type scales the stacked tile.
-            Label(label, systemImage: icon)
-                .labelStyle(.titleAndIcon)
-        } else if !icon.isEmpty {
-            Image(systemName: icon)
-        } else {
+    private static func swipeTileLabel(label: String, icon: String, style: String = "auto") -> some View {
+        switch style {
+        case "icon":
+            if !icon.isEmpty {
+                Image(systemName: icon)
+                    .accessibilityLabel(Text(label))
+            } else {
+                Text(label)
+            }
+        case "title":
             Text(label)
+        case "title_and_icon":
+            if !icon.isEmpty && !label.isEmpty {
+                Label(label, systemImage: icon).labelStyle(.titleAndIcon)
+            } else if !icon.isEmpty {
+                Image(systemName: icon)
+            } else {
+                Text(label)
+            }
+        default:
+            if !icon.isEmpty && !label.isEmpty {
+                // Use SwiftUI Label so VoiceOver reads both icon + text
+                // and Dynamic Type scales the stacked tile.
+                Label(label, systemImage: icon)
+                    .labelStyle(.titleAndIcon)
+            } else if !icon.isEmpty {
+                Image(systemName: icon)
+            } else {
+                Text(label)
+            }
         }
     }
 

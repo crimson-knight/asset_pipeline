@@ -837,6 +837,9 @@ module UI
       def self.populate_swipe_action_row(target : String, view : UI::SwipeActionRow, sender : Sender)
         populate_view_common(target, view, sender)
 
+        # Phase 10D-polish iter 2 (B-LIST-SWIPE-TINT) — honor
+        # `SwipeAction#tint` when explicitly set; fall back to the
+        # role-derived default otherwise.
         unless view.leading_actions.empty?
           sender.set_string_array(target, :setLeadingLabels,
             view.leading_actions.map(&.label))
@@ -846,15 +849,20 @@ module UI
             view.leading_actions.map(&.role.to_s))
           sender.set_string_array(target, :setLeadingTints,
             view.leading_actions.map { |a|
-              # Default tint inference: destructive → red, otherwise
-              # leading swipe defaults to system green (per iOS Mail
-              # convention — leading = positive / archive). Future
-              # SwipeAction#tint property override would land here.
-              case a.role
-              when :destructive then "red"
-              else                   "green"
+              if t = a.tint
+                t.to_s
+              else
+                # Default tint inference: destructive → red, otherwise
+                # leading swipe defaults to system green (per iOS Mail
+                # convention — leading = positive / archive).
+                case a.role
+                when :destructive then "red"
+                else                   "green"
+                end
               end
             })
+          sender.set_string_array(target, :setLeadingLabelStyles,
+            view.leading_actions.map(&.label_style.to_s))
         end
 
         unless view.trailing_actions.empty?
@@ -866,11 +874,17 @@ module UI
             view.trailing_actions.map(&.role.to_s))
           sender.set_string_array(target, :setTrailingTints,
             view.trailing_actions.map { |a|
-              case a.role
-              when :destructive then ""  # SwiftUI .destructive role → red automatically
-              else                   "blue"
+              if t = a.tint
+                t.to_s
+              else
+                case a.role
+                when :destructive then "" # SwiftUI .destructive role → red automatically
+                else                   "blue"
+                end
               end
             })
+          sender.set_string_array(target, :setTrailingLabelStyles,
+            view.trailing_actions.map(&.label_style.to_s))
         end
 
         # Row width pin — when set on the UI::SwipeActionRow (via

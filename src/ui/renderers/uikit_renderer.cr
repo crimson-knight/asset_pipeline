@@ -1155,12 +1155,16 @@
         end
 
         # Per-row leading swipe actions. Build flat + counts arrays.
+        # Phase 10D-polish iter 2 — honor SwipeAction#tint when set;
+        # emit SwipeAction#label_style into the parallel label-styles
+        # array so the facade can force icon-only / title-only tiles.
         if leading_fn = view.leading_swipe_actions
           leading_labels = [] of String
           leading_icons = [] of String
           leading_tokens = [] of UInt64
           leading_roles = [] of String
           leading_tints = [] of String
+          leading_label_styles = [] of String
           leading_counts = [] of Int32
 
           (0...total_rows).each do |idx|
@@ -1170,7 +1174,8 @@
               leading_labels << action.label
               leading_icons << (action.icon || "")
               leading_roles << action.role.to_s
-              leading_tints << default_tint_for_leading(action.role)
+              leading_tints << (action.tint.try(&.to_s) || default_tint_for_leading(action.role))
+              leading_label_styles << action.label_style.to_s
               if tap = action.on_tap
                 tok = UI::CallbackRegistry.register_action(&tap)
                 leading_tokens << tok
@@ -1185,6 +1190,7 @@
           sender.set_uint64_array(target_str, :setLeadingActionTokens, leading_tokens)
           sender.set_string_array(target_str, :setLeadingActionRoles, leading_roles)
           sender.set_string_array(target_str, :setLeadingActionTints, leading_tints)
+          sender.set_string_array(target_str, :setLeadingActionLabelStyles, leading_label_styles)
           sender.set_int_array(target_str, :setLeadingActionCounts, leading_counts)
         end
 
@@ -1195,6 +1201,7 @@
           trailing_tokens = [] of UInt64
           trailing_roles = [] of String
           trailing_tints = [] of String
+          trailing_label_styles = [] of String
           trailing_counts = [] of Int32
 
           (0...total_rows).each do |idx|
@@ -1204,7 +1211,8 @@
               trailing_labels << action.label
               trailing_icons << (action.icon || "")
               trailing_roles << action.role.to_s
-              trailing_tints << default_tint_for_trailing(action.role)
+              trailing_tints << (action.tint.try(&.to_s) || default_tint_for_trailing(action.role))
+              trailing_label_styles << action.label_style.to_s
               if tap = action.on_tap
                 tok = UI::CallbackRegistry.register_action(&tap)
                 trailing_tokens << tok
@@ -1219,6 +1227,7 @@
           sender.set_uint64_array(target_str, :setTrailingActionTokens, trailing_tokens)
           sender.set_string_array(target_str, :setTrailingActionRoles, trailing_roles)
           sender.set_string_array(target_str, :setTrailingActionTints, trailing_tints)
+          sender.set_string_array(target_str, :setTrailingActionLabelStyles, trailing_label_styles)
           sender.set_int_array(target_str, :setTrailingActionCounts, trailing_counts)
         end
 

@@ -42,11 +42,15 @@ public class SwipeActionRowOverrides: ViewOverrides {
     @objc public var leadingTokens: [NSNumber] = []
     @objc public var leadingRoles: [String] = []
     @objc public var leadingTints: [String] = []
+    // Phase 10D-polish iter 2 (B-LIST-SWIPE-LABEL-STYLE) — parallel
+    // arrays of "auto" | "icon" | "title" | "title_and_icon".
+    @objc public var leadingLabelStyles: [String] = []
     @objc public var trailingLabels: [String] = []
     @objc public var trailingIcons: [String] = []
     @objc public var trailingTokens: [NSNumber] = []
     @objc public var trailingRoles: [String] = []
     @objc public var trailingTints: [String] = []
+    @objc public var trailingLabelStyles: [String] = []
     @objc public var rowWidth: NSNumber? = nil
 
     @objc public override init() { super.init() }

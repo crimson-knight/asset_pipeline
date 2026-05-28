@@ -64,12 +64,16 @@ public class ListViewOverrides: ViewOverrides {
     @objc public var leadingActionTokens: [NSNumber] = []
     @objc public var leadingActionRoles: [String] = []
     @objc public var leadingActionTints: [String] = []
+    // Phase 10D-polish iter 2 (B-LIST-SWIPE-LABEL-STYLE) — parallel
+    // "auto" | "icon" | "title" | "title_and_icon" per leading action.
+    @objc public var leadingActionLabelStyles: [String] = []
     @objc public var leadingActionCounts: [NSNumber] = []
     @objc public var trailingActionLabels: [String] = []
     @objc public var trailingActionIcons: [String] = []
     @objc public var trailingActionTokens: [NSNumber] = []
     @objc public var trailingActionRoles: [String] = []
     @objc public var trailingActionTints: [String] = []
+    @objc public var trailingActionLabelStyles: [String] = []
     @objc public var trailingActionCounts: [NSNumber] = []
 
     // Phase 10D-polish A4 — default horizontal row inset applied via
