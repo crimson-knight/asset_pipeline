@@ -13,16 +13,23 @@
 #   6. On block exit, terminate the app and stop the log stream.
 #
 # Tap delivery: scenarios are defined as YAML files under
-# `spec/ui_interaction/scenarios/<screen>.yml`. Each file maps a stable
-# accessibility_id to an (x, y) screen coordinate captured against a
-# specific simulator device + screen pose. The harness reads the map at
-# launch and provides `tap_accessibility_id(id)` as a thin wrapper over
-# `xcrun simctl io <udid> touch tap <x> <y>`. When a scenario does not
-# define the requested id, the spec example fails with a clear message
-# pointing at the scenario file to update.
+# `spec/native_ios/ui_interaction/scenarios/<screen>.yml`. Each file maps
+# a stable accessibility_id to an (x, y) HOST PIXEL coordinate captured
+# against a specific simulator window pose + zoom. The harness reads the
+# map at launch and provides `tap_accessibility_id(id)` as a wrapper over
+# `cliclick c <x>,<y>`.
 #
-# This harness deliberately does NOT use XCUITest. The trade-offs are
-# documented at the harness doc above.
+# Phase 12.B Codex review (partial) fix: the earlier implementation used
+# `xcrun simctl io <udid> touch tap` — that is NOT a real simctl command.
+# cliclick c (host-pixel click) is the actually-working alternative on
+# macOS and matches `scripts/capture_tap_coordinates.sh`, which already
+# captures via cliclick p (host-pixel position).
+#
+# This harness deliberately does NOT use XCUITest taps. Phase 6.10 Rem 3
+# documented and Phase 8 confirmed: XCUITest tap synthesis does NOT fire
+# `CallbackBridge.fire` on Crystal-rendered buttons in this codebase.
+# cliclick delivers a real OS-level mouse event that flows through the
+# simulator window into the simulator's touch synthesizer correctly.
 
 require "spec"
 require "yaml"
@@ -257,10 +264,14 @@ module UI
         # Tap delivery
         # -------------------------------------------------------------------
 
+        # Tap at host-screen pixel coordinates via cliclick. Coordinates
+        # must match the simulator window's current host pose — they are
+        # captured via `cliclick p` in `scripts/capture_tap_coordinates.sh`
+        # and stored in the scenario YAML.
         def tap_at_point(x : Int32, y : Int32) : Nil
-          Process.run("xcrun",
-            ["simctl", "io", @udid, "touch", "tap", "#{x},#{y}"],
+          status = Process.run("cliclick", ["c:#{x},#{y}"],
             output: Process::Redirect::Inherit, error: Process::Redirect::Inherit)
+          raise "cliclick failed delivering tap at (#{x}, #{y})" unless status.success?
         end
 
         def tap_accessibility_id(id : String) : Nil
