@@ -16,6 +16,22 @@ public class ConfirmationDialogFacade: NSObject {
     ) -> APSKPlatformView {
         let isPresented = overrides.isPresented?.boolValue ?? false
         let storage = BoolStorage(initial: isPresented, token: 0)
+        // Phase 12.A — interaction-contracts marker tag. The accessibility
+        // identifier from the Crystal-side overrides (when set) is used as
+        // the viewID; otherwise the marker carries view=anonymous.
+        storage.markerWidget = "ConfirmationDialog"
+        storage.viewID = overrides.accessibilityIdentifier
+        // Emit an initial "present" marker if the dialog is constructed
+        // already-presented (init's emit path can't see markerWidget,
+        // which is set on the next line).
+        if isPresented {
+            InteractionContracts.emit(
+                widget: "ConfirmationDialog",
+                event: "present",
+                viewID: storage.viewID,
+                kv: ["initial": "true"]
+            )
+        }
 
         let confirmLabel = overrides.confirmLabel ?? "Confirm"
         let cancelLabel = overrides.cancelLabel ?? "Cancel"

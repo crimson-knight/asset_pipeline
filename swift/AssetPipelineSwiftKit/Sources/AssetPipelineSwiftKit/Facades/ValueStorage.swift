@@ -15,23 +15,79 @@ final class BoolStorage: ObservableObject {
     /// — programmatic mutations are NOT user interactions and must not
     /// re-fire the Crystal `on_change` handler.
     var suppressNextFire: Bool = false
+    /// Phase 12.A — Interaction-contracts marker tag. When set, BoolStorage
+    /// emits [APIC:<markerWidget>:<event>] markers via InteractionContracts
+    /// at present / dismiss transitions. Presentation widgets (Sheet,
+    /// Popover, ConfirmationDialog, Alert, FullScreenCover, Inspector) set
+    /// this; non-presentation BoolStorage users (Toggle, etc.) leave it nil.
+    var markerWidget: String? = nil
+    var viewID: String? = nil
     init(initial: Bool, token: UInt64) {
         self.value = initial
         self.token = token
+        // Emit a "present" marker if the dialog/sheet/popover begins
+        // already presented — this matches Crystal pushing isPresented=true
+        // into the renderer at construction time.
+        if initial, let widget = markerWidget {
+            InteractionContracts.emit(
+                widget: widget,
+                event: "present",
+                viewID: viewID,
+                kv: ["initial": "true"]
+            )
+        }
     }
     /// Crystal-driven programmatic mutation entry point. Sets `value`
     /// while flagging the change so the facade's `.onChange` observer
     /// skips its callback fire.
     func setProgrammatically(_ newValue: Bool) {
         suppressNextFire = true
+        let previousValue = value
         value = newValue
+        if let widget = markerWidget {
+            if !previousValue && newValue {
+                InteractionContracts.emit(
+                    widget: widget,
+                    event: "present",
+                    viewID: viewID,
+                    kv: ["trigger": "crystal-push"]
+                )
+            } else if previousValue && !newValue {
+                InteractionContracts.emit(
+                    widget: widget,
+                    event: "platform-dismissed",
+                    viewID: viewID,
+                    kv: ["trigger": "crystal-push"]
+                )
+            }
+        }
     }
     var binding: Binding<Bool> {
         Binding(
             get: { self.value },
             set: { newValue in
+                let previousValue = self.value
+                // Phase 12.A — emit dismiss-token-fire on the true->false
+                // transition so the spec can assert dismiss flows through
+                // the dismissToken callback path.
+                if let widget = self.markerWidget, previousValue && !newValue {
+                    InteractionContracts.emit(
+                        widget: widget,
+                        event: "dismiss-token-fire",
+                        viewID: self.viewID,
+                        kv: ["token": String(self.token)]
+                    )
+                }
                 self.value = newValue
                 CallbackBridge.fire(token: self.token, value: newValue ? 1.0 : 0.0)
+                if let widget = self.markerWidget, previousValue && !newValue {
+                    InteractionContracts.emit(
+                        widget: widget,
+                        event: "platform-dismissed",
+                        viewID: self.viewID,
+                        kv: [:]
+                    )
+                }
             }
         )
     }
