@@ -191,6 +191,13 @@ private struct SheetHost: View {
             Color.clear
                 .frame(width: 1, height: 1)
                 .sheet(isPresented: $state.isPresented, onDismiss: {
+                    // Phase 12.B — mark this dismissal as intentional so the
+                    // upcoming SheetHost.onDisappear (the host-teardown probe)
+                    // can distinguish binding-driven dismissal from Rerender
+                    // host teardown. Both the programmatic dismiss
+                    // (apsk_sheet_set_presented(false)) and the user swipe-
+                    // down path flow through onDismiss before onDisappear.
+                    self.state.apicIntentionalDismiss = true
                     // Phase 12.A — interaction-contracts markers.
                     InteractionContracts.emit(
                         widget: "Sheet",

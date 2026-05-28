@@ -16,18 +16,22 @@ A Crystal spec runner under `spec/native_ios/ui_interaction/` that:
 4. Asserts on **unique-grep-token NSLog markers** that the renderer + facades emit at lifecycle points.
 5. Records video to `tmp/interaction-contracts/<spec>.mp4` for human review on failure.
 
-## Hybrid architecture: XCUITest for taps, Crystal harness + APIC markers for assertions
+## Architecture: coordinate-map taps + APIC markers
 
-**Updated 2026-05-28 per Codex Phase 12.A verification pass (CONCERN 10/11/12).**
+**Reframed 2026-05-28 — see `handoff/2026-05-28-phase-12b-worktree-merge-plan.md` step 1 discovery.**
 
 The harness splits responsibilities:
 
-- **Tap delivery** → XCUITest helper. The existing `samples/initiative-cross-platform-ui-voyager/ios/UITests/VoyagerVisualTests.swift` already uses `app.otherElements["accessibility-id"]` to find and tap elements. Phase 12.B extends that pattern with a generic `APSKAccessibilityTap.tap(id:)` test-target helper.
+- **Tap delivery** → `xcrun simctl io <udid> touch tap <x>,<y>` with coordinates resolved from `spec/native_ios/ui_interaction/scenarios/<app>.yml`. Coordinates are recaptured manually via `scripts/capture_tap_coordinates.sh` whenever screen layouts change.
 - **Semantic assertions** → Crystal harness + APIC markers. The `[APIC:...]` marker convention lets the Crystal spec assert on lifecycle invariants (present, dismiss, binding-write, heartbeat) without inspecting the SwiftUI view tree.
 
-This replaces the earlier "Crystal-driven simctl io tap with hardcoded coordinates" + "URL-scheme accessibility-frame query" plans. Both were honest MVPs but XCUITest's accessibility tree lookup is more reliable.
+**Why not XCUITest taps:** Phase 6.10 Rem 3 documented (handoff/phase-06.10-remediation-3-codex-blocker.md) and Phase 8 collective review confirmed (handoff/phase-08-collective-review-2026-05-25.md) that **XCUITest tap synthesis does NOT fire `CallbackBridge.fire` on Crystal-rendered buttons in this codebase.** XCUITest finds elements correctly via the accessibility tree, but synthesized taps reach `_UIHostingView.hitTest` and stop there — the SwiftUI Button's action closure does not fire. This is a multi-iteration deep bug that was not resolved through Phase 6.10 Rem 3's three remediation iterations and survives in current main.
 
-Phase 12.A delivers the Crystal harness, marker emission, and the harness smoke test. Phase 12.B ships the XCUITest tap helper plus V1+V2 reproduction.
+`simctl io touch tap`, by contrast, delivers a real OS-level touch event that flows through the normal UIKit responder chain and does fire the action closures. This is the same path the existing `capture_tap_coordinates.sh` already relies on.
+
+**XCUITest IS used elsewhere** — `VoyagerVisualTests.swift` uses XCUITest for accessibility-tree DISCOVERABILITY assertions (find element by ID, screenshot it), which works fine. Only the TAP SYNTHESIS path is broken on this codebase.
+
+Phase 12.A delivers the Crystal harness, marker emission, harness smoke test. Phase 12.B ships the polish-worktree merge + coordinate capture + V1+V2 reproduction.
 
 ## Marker convention
 
@@ -102,15 +106,18 @@ end
 - `Simulator#assert_marker_order(a, b)` — asserts marker a appeared in the buffer before marker b.
 - `Simulator#markers_during_rerender_for(widget, count)` — returns an array of marker arrays, one per Rerender pass, scoped to markers emitted by the named widget.
 
-## Driver: tap delivery (XCUITest helper — Phase 12.B)
+## Driver: tap delivery (coordinate-map via simctl io)
 
-The simulator harness MUST resolve interactive elements by stable accessibility identifier, not by coordinate. The XCUITest helper Phase 12.B ships handles this:
+The harness resolves interactive elements by accessibility_identifier mapped to (x, y) coordinates in a per-app scenario YAML:
 
 - Every screen MUST set `accessibility_identifier` on every interactive element under test, using the convention `<app>-<screen>-<purpose>-<id>` (e.g. `voyager-todos-row-1-share`).
 - `accessibility_identifier` is already on `UI::View` (`src/ui/view.cr:327`) and threaded through UIKit (`src/ui/renderers/uikit_renderer.cr:4754`), AppKit (`src/ui/renderers/appkit_renderer.cr:4546`), and Web (`src/ui/renderers/web_renderer.cr:2684`) renderers.
-- The XCUITest helper (`samples/initiative-cross-platform-ui-voyager/ios/UITests/InteractionContractsHelper.swift`, to be added in Phase 12.B) exposes `tap(accessibilityID:)` via XCUIApplication.otherElements lookup. The Crystal harness invokes the helper as part of its spec lifecycle.
+- `Simulator#tap_accessibility_id(id)` looks up the (x, y) from `spec/native_ios/ui_interaction/scenarios/<app>.yml` and invokes `xcrun simctl io <udid> touch tap <x>,<y>`. This delivers a real OS-level touch event that flows through UIKit's responder chain — Crystal action closures fire as expected.
+- Coordinates are RECAPTURED whenever screen layouts change. `scripts/capture_tap_coordinates.sh` walks the operator through capture (uses `cliclick` for cursor position).
 
-Phase 12.A's `Simulator#tap_accessibility_id` is a placeholder that reads coordinates from a YAML map — it works for the smoke test and for capturing scenarios manually via `scripts/capture_tap_coordinates.sh`, but the XCUITest helper supersedes it once Phase 12.B ships.
+The coordinate map is the long-term tap-delivery mechanism per the step 1 reframe — XCUITest tap synthesis is broken on this codebase and a frame-lookup-via-XCUITest workaround was not pursued (would require a parallel XCUITest process kept alive between queries, which the harness's spec-per-process model doesn't support).
+
+A future XCUITest-FRAME-LOOKUP helper that resolves accessibility IDs to frames without synthesizing taps (then simctl io delivers the tap) is queued as a Phase 12.D follow-up if scenario YAML maintenance becomes painful. Until then, manual capture is honest enough.
 
 ## Marker instrumentation: where it lives
 
@@ -162,7 +169,7 @@ For widgets WITHOUT presented state (Button, Slider, TextField, etc.), interacti
 The harness ships in four sub-phases under Phase 12:
 
 - **Phase 12.A** — Harness scaffold. Builds `simulator_harness.cr` (Crystal-driven simctl + log-stream tail), the `InteractionContracts` Crystal/Swift marker emitter, the `apsk_apic_log` NSLog C bridge, and the heartbeat-marker scaffold in Voyager. Ships `harness_smoke_spec.cr` (executable end-to-end smoke test against current main). Pre-stages the V1+V2 reproduction specs at `spec/native_ios/ui_interaction/{confirmation_dialog,voyager_toolbar}_spec.cr` with `pre-staged-pending-worktree-merge` status. DOES NOT reproduce V1 or V2 (their target code lives in `phase-10-d-polish` worktree; see `presentation-lifecycle-contract.md` §"V1/V2 source-of-truth location").
-- **Phase 12.B** — XCUITest tap helper + worktree merge prerequisites. Ships the `APSKAccessibilityTap.tap(id:)` XCUITest helper that supersedes the coordinate-map `tap_accessibility_id`. Merges the polish worktree's todos extensions into main so V1+V2 target code paths exist. Captures real tap coordinates for the V1+V2 specs. Adds host-teardown probe markers (Codex CONCERN 4) and Sheet write-side markers (Codex CONCERN 7). At end of 12.B, V1+V2 specs become executable.
+- **Phase 12.B** — Polish worktree merge + V1+V2 reproduction prerequisites. Merges the `phase-10-d-polish` worktree's todos extensions (action sheet on row tap, sort filters, overflow popover) into main so V1+V2 target code paths exist. Captures real tap coordinates for the V1+V2 specs via `capture_tap_coordinates.sh`. Adds host-teardown probe markers (Codex CONCERN 4 — shipped early as part of step 2) and Sheet write-side markers (Codex CONCERN 7 — shipped early as part of step 2). At end of 12.B, V1+V2 specs become executable. XCUITest tap-by-id helper REJECTED per Phase 6.10 Rem 3 tap synthesis bug.
 - **Phase 12.C** — V1 + V2 fixes. Uses the now-executable V1+V2 specs as regression tests. C1/C3 specs flip from failing-on-V1 to passing-with-fix; V2 spec flips from failing-on-crash to passing-with-fix.
 - **Phase 12.D** — Roll out the full marker matrix to all six presented-state widgets (FullScreenCover, Inspector). Update each widget's usage doc with its marker schema. Extend the catalog manifest validator to enforce scenario coordinate freshness (Codex NIT 13).
 
