@@ -106,6 +106,17 @@ public final class APSKButtonState: NSObject, ObservableObject {
 @objc(APSKSheetState)
 public final class APSKSheetState: NSObject, ObservableObject {
     @Published public var isPresented: Bool
+    // Phase 12.B — interaction-contracts marker metadata. Set by SheetFacade
+    // after construction so write-side mutations via apsk_sheet_set_presented
+    // can emit binding-write-true / binding-write-false markers. Codex
+    // Phase 12.A CONCERN 7 fix.
+    public var apicViewID: String? = nil
+    // True while the user has signaled an intentional dismiss (e.g. tapped
+    // a button whose action returns ActionResult.pop). Used by
+    // SheetHost.onDisappear to distinguish intentional dismiss from
+    // host teardown during Rerender. Codex Phase 12.A CONCERN 4 fix —
+    // the host-removal probe.
+    public var apicIntentionalDismiss: Bool = false
 
     public init(isPresented: Bool) {
         self.isPresented = isPresented
@@ -256,7 +267,30 @@ public func apskSheetSetPresented(
     let state = Unmanaged<APSKSheetState>.fromOpaque(stateHandle)
         .takeUnretainedValue()
     let newValue = (isPresented != 0)
-    apskMainAsync { state.isPresented = newValue }
+    apskMainAsync {
+        let previousValue = state.isPresented
+        state.isPresented = newValue
+        // Phase 12.B — Sheet write-side markers (Codex CONCERN 7 fix).
+        // Emitted only when the value actually changes, so re-applying
+        // an identical state doesn't spam the harness log.
+        if previousValue != newValue {
+            if newValue {
+                InteractionContracts.emit(
+                    widget: "Sheet",
+                    event: "binding-write-true",
+                    viewID: state.apicViewID,
+                    kv: ["source": "crystal-push"]
+                )
+            } else {
+                InteractionContracts.emit(
+                    widget: "Sheet",
+                    event: "binding-write-false",
+                    viewID: state.apicViewID,
+                    kv: ["source": "crystal-push"]
+                )
+            }
+        }
+    }
 }
 
 // Release the +1 retain Crystal acquired when the state object was

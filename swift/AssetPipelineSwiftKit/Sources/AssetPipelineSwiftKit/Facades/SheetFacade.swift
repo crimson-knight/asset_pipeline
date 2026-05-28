@@ -57,6 +57,10 @@ public class SheetFacade: NSObject {
     ) -> APSKPlatformView {
         let initialPresented = overrides.isPresented?.boolValue ?? false
         let state = APSKSheetState(isPresented: initialPresented)
+        // Phase 12.B — interaction-contracts marker metadata. Used by
+        // apsk_sheet_set_presented for write-side markers and by
+        // SheetHost.onDisappear for the host-teardown probe.
+        state.apicViewID = overrides.accessibilityIdentifier
         // Phase 12.A — emit present marker if sheet starts already-presented.
         if initialPresented {
             InteractionContracts.emit(
@@ -147,12 +151,41 @@ private struct SheetHost: View {
     let dismissToken: UInt64
 
     var body: some View {
-        let sheetBody: AnyView
+        var sheetBody: AnyView
         if let child = child {
             sheetBody = AnyView(APSKHostedChild(view: child))
         } else {
             sheetBody = AnyView(EmptyView())
         }
+
+        // Phase 12.B — host-teardown probe (Codex CONCERN 4 fix). The
+        // .onAppear emits a `host-mounted` marker; .onDisappear emits a
+        // `host-disappeared` marker with `intentional=true/false`. The
+        // intentional flag is set by Crystal-side `apsk_sheet_set_presented(0)`
+        // path; if the host disappears with intentional=false, that's a
+        // Rerender-driven teardown — the V1 root-cause class.
+        sheetBody = AnyView(
+            sheetBody
+                .onAppear {
+                    InteractionContracts.emit(
+                        widget: "Sheet",
+                        event: "host-mounted",
+                        viewID: overrides.accessibilityIdentifier,
+                        kv: [:]
+                    )
+                }
+                .onDisappear {
+                    let intentional = self.state.apicIntentionalDismiss
+                    InteractionContracts.emit(
+                        widget: "Sheet",
+                        event: "host-disappeared",
+                        viewID: overrides.accessibilityIdentifier,
+                        kv: ["intentional": intentional ? "true" : "false"]
+                    )
+                    // Reset the flag so a subsequent re-present starts clean.
+                    self.state.apicIntentionalDismiss = false
+                }
+        )
 
         var content: AnyView = AnyView(
             Color.clear
