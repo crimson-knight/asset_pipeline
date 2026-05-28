@@ -1568,6 +1568,28 @@
         push_native(native)
       end
 
+      # Phase 10D-polish — iOS class-init-gap workaround for Time#to_unix.
+      # Crystal's `Time::UNIX_EPOCH` constant (62_135_596_800 — seconds from
+      # year 1 to 1970) doesn't initialize on iOS due to the documented
+      # class-init gap (see [[crystal-ios-class-init-gap]] memory). When the
+      # constant evaluates to 0, `Time#to_unix` returns the raw internal
+      # `@seconds` (year-1-rooted) instead of the Unix epoch, producing the
+      # year ~3995 = 2026 + 1969 display bug in the DatePicker.
+      # Workaround: detect a value that's obviously year-1-rooted and
+      # subtract the literal offset ourselves.
+      TIME_UNIX_EPOCH_OFFSET_SECONDS_FROM_YEAR_1 = 62_135_596_800_i64
+
+      private def safe_time_to_unix(t : Time) : Int64
+        raw = t.to_unix
+        # If the raw value is greater than ~year 2100 in seconds (4_102_444_800),
+        # the constant didn't initialize and we got @seconds back. Subtract.
+        if raw > 4_102_444_800_i64
+          raw - TIME_UNIX_EPOCH_OFFSET_SECONDS_FROM_YEAR_1
+        else
+          raw
+        end
+      end
+
       def visit(view : UI::DatePicker)
         overrides_ptr = LibSwiftKitBridge.apsk_date_picker_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
@@ -1581,7 +1603,7 @@
           end
         end
 
-        epoch = view.selected_date.to_unix.to_f64
+        epoch = safe_time_to_unix(view.selected_date).to_f64
         ptr = LibSwiftKitBridge.apsk_make_date_picker(
           view.label.to_unsafe, epoch, overrides_ptr, action_token,
         )

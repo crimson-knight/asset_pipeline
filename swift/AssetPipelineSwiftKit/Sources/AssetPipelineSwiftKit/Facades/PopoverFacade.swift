@@ -52,7 +52,18 @@ public class PopoverFacade: NSObject {
                             minHeight: overrides.preferredHeight.map { CGFloat($0.doubleValue) }
                         )
                     )
-                    PopoverFacade.applyPresentationBackground(popoverBody, key: materialKey)
+                    // Phase 10D-polish — force popover chrome on iPhone
+                    // compact size class instead of SwiftUI's default
+                    // fallback to a full-screen sheet. iOS 16.4+ /
+                    // macOS 13.3+ API; guard via #available.
+                    if #available(iOS 16.4, macOS 13.3, *) {
+                        Group {
+                            PopoverFacade.applyPresentationBackground(popoverBody, key: materialKey)
+                        }
+                        .presentationCompactAdaptation(.popover)
+                    } else {
+                        PopoverFacade.applyPresentationBackground(popoverBody, key: materialKey)
+                    }
                 }
         )
 
