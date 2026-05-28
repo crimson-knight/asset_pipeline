@@ -21,27 +21,32 @@ bcefba38 [Phase 12.A] Extend marker instrumentation + V2 spec
 6d6cec1a [Phase 12.A] Fix Voyager bundle ID + add capture_tap_coordinates.sh
 8a54f181 [Phase 12.A] Architect session summary — 2026-05-28
 f3a1264e [Phase 12.A] Codex review response — fix 3 BLOCKERs + 7 CONCERNs + 1 NIT
+b8d5ff2a [Phase 12.A] Update session summary with Wave 6 (Codex response) + verify pass
+52b15b39 [Phase 12.A] Codex verification pass — fix 1 BLOCKER NEW + 4 NOT CLEARED items
 ```
 
-Eight commits. All on `phase-10-d-refocus`. Lint clean throughout. Catalog validator clean.
+Ten commits. All on `phase-10-d-refocus`. Lint clean throughout. Catalog validator clean.
 
 ## Codex antagonist loop (this session)
 
-Two Codex passes ran. First pass (NEEDS_WORK) found:
-- BLOCKER 1: V1 spec ids don't match real Voyager (deeper finding: V1 target code is in worktree, not main)
-- BLOCKER 2: spec entirely pending, can't fail
-- BLOCKER 3: simctl listapps doesn't prove process liveness
-- 7 CONCERNs + 1 NIT
+**Two Codex passes ran, each surfaced real defects, each fixed before stopping.**
 
-All addressed in commit `f3a1264e` per `handoff/2026-05-28-architect-response-to-codex-12a.md`. Key architectural changes:
-- Crystal emit via NSLog (apsk_apic_log bridge) — not STDERR
-- BoolStorage marker schema split: binding-write-false (always) + dismiss-token-fire (only when token != 0)
-- V1+V2 reframed as forward-looking; spec status = pre-staged-pending-worktree-merge
-- Heartbeat marker emission added to Voyager app delegate
-- New harness_smoke_spec.cr proves Phase 12.A end-to-end against current main
-- URL-scheme query plan deprecated in favor of XCUITest helper (Phase 12.B)
+**First pass (commit f3a1264e response):** NEEDS_WORK on 3 BLOCKERs + 7 CONCERNs + 1 NIT.
+- BLOCKER 1 reframe: V1 target code lives in `phase-10-d-polish` worktree, not main. Specs marked `pre-staged-pending-worktree-merge`.
+- BLOCKER 2 + 3 + most CONCERNs addressed in commit `f3a1264e`. Architect response doc: `handoff/2026-05-28-architect-response-to-codex-12a.md`.
 
-Second Codex pass (verification) dispatched at end of session — output at `handoff/2026-05-28-codex-phase-12a-verify.md`.
+**Second pass (commit 52b15b39 fixes):** NEEDS_WORK on 1 BLOCKER NEW + 4 NOT_CLEARED items.
+- BLOCKER NEW: V2 spec didn't compile under `-Dios` (def inside describe). Fixed by extracting helpers to top-level functions.
+- BLOCKER 3 NOT_CLEARED: heartbeat helper ignored `since` parameter. Fixed with `assert_new_heartbeat(sim, prior_count)` that records pre-tap count and requires strictly-higher post-tap count.
+- CONCERN 5 PARTIAL: C1 spec still expected `dismiss-token-fire` for ConfirmationDialog. Fixed to expect `binding-write-false`.
+- CONCERN NEW: Bundle root path off by one `..` level. Fixed.
+- CONCERN NEW: Launch-marker race (stream subscription not active at launch). Fixed with 300ms wait.
+- CONCERN 10/11/12 PARTIAL: stale URL-scheme + Why-not-XCUITest text in harness doc. Rewrote sections to describe hybrid XCUITest+APIC architecture and revised 4-phase phasing (12.A/B/C/D).
+- CONCERN 4 + 7 + 8 still NOT CLEARED — acknowledged as required Phase 12.B scope.
+
+**Verdict expected at owner sign-off:** Phase 12.A delivers harness scaffold ONLY. V1+V2 reproduction is Phase 12.B (requires polish-worktree merge). Phase 12.C is V1+V2 fixes. Phase 12.D is full marker rollout + freshness validator.
+
+Codex review files: `handoff/2026-05-28-codex-phase-12a-review.md` (pass 1), `handoff/2026-05-28-codex-phase-12a-verify.md` (pass 2). Architect response: `handoff/2026-05-28-architect-response-to-codex-12a.md`.
 
 ## Artifacts shipped
 
