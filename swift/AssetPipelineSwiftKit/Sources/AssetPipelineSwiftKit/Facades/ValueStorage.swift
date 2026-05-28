@@ -67,16 +67,29 @@ final class BoolStorage: ObservableObject {
             get: { self.value },
             set: { newValue in
                 let previousValue = self.value
-                // Phase 12.A — emit dismiss-token-fire on the true->false
-                // transition so the spec can assert dismiss flows through
-                // the dismissToken callback path.
+                // Phase 12.A — emit `binding-write-false` always on the
+                // true→false transition (proves SwiftUI wrote false). Emit
+                // `dismiss-token-fire` only when token != 0 (proves the
+                // Crystal dismiss handler path fired). Codex Phase 12.A
+                // CONCERN 5 fix: ConfirmationDialog binds token=0 (its
+                // dismissal flows through confirmToken/cancelToken, not the
+                // BoolStorage token), so the prior unconditional
+                // `dismiss-token-fire` was misleading.
                 if let widget = self.markerWidget, previousValue && !newValue {
                     InteractionContracts.emit(
                         widget: widget,
-                        event: "dismiss-token-fire",
+                        event: "binding-write-false",
                         viewID: self.viewID,
-                        kv: ["token": String(self.token)]
+                        kv: [:]
                     )
+                    if self.token != 0 {
+                        InteractionContracts.emit(
+                            widget: widget,
+                            event: "dismiss-token-fire",
+                            viewID: self.viewID,
+                            kv: ["token": String(self.token)]
+                        )
+                    }
                 }
                 self.value = newValue
                 CallbackBridge.fire(token: self.token, value: newValue ? 1.0 : 0.0)

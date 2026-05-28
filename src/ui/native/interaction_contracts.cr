@@ -9,17 +9,18 @@
 # sets SIMCTL_CHILD_APIC_ENABLED=1 when launching the simulator app, which
 # propagates to ENV inside the app process.
 #
-# Output goes to STDERR. iOS simulator's unified log captures STDERR for
-# apps launched via `xcrun simctl launch`; macOS captures it too. The
-# harness reads via `xcrun simctl spawn <udid> log stream --predicate
-# 'eventMessage CONTAINS "[APIC:"'` on iOS and via direct STDERR capture
-# on macOS.
+# Output goes through NSLog via the `apsk_apic_log` C bridge on Apple
+# targets (so markers reliably land in the simulator's unified log
+# captured by `xcrun simctl spawn ... log stream`). On non-Apple targets
+# the emitter falls back to STDERR.
 #
 # Swift facades have a mirror at
 # `swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/InteractionContracts.swift`
-# that uses NSLog for the same marker convention. Both Crystal and Swift
-# emitters write into the same log stream so the harness sees a unified
-# view of contract events regardless of which layer emitted them.
+# that uses NSLog directly. Both emit through the same Foundation log
+# stream so the harness sees a unified view of contract events.
+#
+# Codex Phase 12.A review CONCERN 6 fix — STDERR is not reliably captured
+# on iOS sim; NSLog is.
 
 module UI
   module InteractionContracts
@@ -35,25 +36,33 @@ module UI
       @@enabled.not_nil!
     end
 
+    # Write the marker line via NSLog (Apple) or STDERR (other targets).
+    private def self.write_line(line : String) : Nil
+      {% if flag?(:macos) || flag?(:ios) %}
+        LibSwiftKitBridge.apsk_apic_log(line.to_unsafe)
+      {% else %}
+        STDERR.puts(line)
+        STDERR.flush
+      {% end %}
+    end
+
     # Emit a marker. No-op when APIC_ENABLED is unset.
     #
     # Args:
     #   widget — the cataloged widget name (e.g. "ConfirmationDialog")
-    #   event  — the lifecycle event (e.g. "present", "dismiss-token-fire",
-    #            "platform-dismissed", "action-handler-fire", "binding-read")
+    #   event  — the lifecycle event (e.g. "present", "binding-write-false",
+    #            "platform-dismissed", "action-handler-fire", "tap")
     #   **kv   — additional structured fields; emitted as `key=value`
     #            space-separated
     def self.emit(widget : String, event : String, **kv) : Nil
       return unless enabled?
-      String.build do |io|
+      line = String.build do |io|
         io << "[APIC:" << widget << ":" << event << "]"
         kv.each do |k, v|
           io << ' ' << k << '=' << v
         end
-      end.tap do |line|
-        STDERR.puts(line)
-        STDERR.flush
       end
+      write_line(line)
     end
 
     # Convenience for marker pairs that need a stable identifier so the
@@ -65,15 +74,13 @@ module UI
       merged = Hash(Symbol, String).new
       kv.each { |k, v| merged[k] = v.to_s }
       merged[:view] = (view_id || "anonymous")
-      String.build do |io|
+      line = String.build do |io|
         io << "[APIC:" << widget << ":" << event << "]"
         merged.each do |k, v|
           io << ' ' << k << '=' << v
         end
-      end.tap do |line|
-        STDERR.puts(line)
-        STDERR.flush
       end
+      write_line(line)
     end
 
     # Test-only: reset the cached enabled flag so specs that toggle ENV

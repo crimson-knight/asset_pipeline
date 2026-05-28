@@ -1,17 +1,23 @@
 # spec/native_ios/ui_interaction/voyager_toolbar_spec.cr
 #
-# Reproduces V2 from
-# docs/initiative-cross-platform-ui/architecture/presentation-lifecycle-contract.md
-# ("Voyager todos header sort buttons crash on tap") as a failing
-# regression test.
+# Forward-looking V2 reproduction spec.
 #
-# Crash detection strategy: tap the suspect button, then check whether
-# the app process is still alive. A process exit signals the crash. The
-# log-stream marker buffer is also checked — a process crash typically
-# leaves an incomplete sequence (start marker without end marker).
+# Per `docs/initiative-cross-platform-ui/architecture/presentation-lifecycle-contract.md`
+# §"V1/V2 source-of-truth location", V2 manifested against the
+# `phase-10-d-polish` worktree's todos screen (which has sort filters in
+# the header + an overflow popover). The main checkout of
+# `phase-10-d-refocus` does NOT contain that code — `todos_screen.cr`
+# header has only Print + Settings buttons.
 #
-# Per the harness convention, the spec pends with a clear reason until
-# the scenario tap coordinates are captured.
+# This spec is pre-staged for the polish-worktree merge.
+#
+# Crash detection (Codex Phase 12.A BLOCKER 3 fix): replaces the original
+# `simctl listapps` check (which reports installed apps, not process
+# liveness — false negative factory) with a heartbeat-marker assertion.
+# Voyager emits `[APIC:VoyagerApp:heartbeat]` once per second from the
+# main runloop. A crash kills heartbeats; a hung runloop also kills
+# heartbeats. The spec asserts at least one fresh heartbeat arrives
+# AFTER the tap.
 
 require "./support/simulator_harness"
 
@@ -23,71 +29,80 @@ require "./support/simulator_harness"
     scenario_yaml = File.exists?(scenario_path) ? File.read(scenario_path) : ""
     coordinates_captured = scenario_yaml.includes?("captured: true")
 
-    pending_reason = "Voyager tap-coordinate scenario contains only placeholders. " \
-                     "Run scripts/capture_tap_coordinates.sh to record real coordinates."
+    pending_reason = "V2 target code lives in phase-10-d-polish worktree and is not " \
+                     "present in main; tap coordinates are also placeholders. Spec " \
+                     "becomes executable when both prerequisites are resolved."
 
-    describe "V2 — header sort buttons must not crash on tap" do
-      it "tapping any header sort button leaves the app running" do
+    # Helper — fails if a fresh heartbeat doesn't arrive within `window`
+    # of `since`. Honest crash + hang detection.
+    def self.assert_runloop_alive(sim, since : Time, window : Time::Span = 2.seconds)
+      deadline = Time.utc + window
+      while Time.utc < deadline
+        snap = sim.snapshot_markers
+        fresh_heartbeat = snap.find do |m|
+          m.includes?("[APIC:VoyagerApp:heartbeat]")
+        end
+        # We can't compare timestamps without parsing the marker tick field;
+        # the test relies on a per-test cleared buffer + a window large
+        # enough to catch the next heartbeat after the tap.
+        return if fresh_heartbeat
+        sleep 100.milliseconds
+      end
+      raise "V2 violation: no heartbeat marker arrived within #{window} after tap " \
+            "(suspected crash or main-runloop hang)"
+    end
+
+    describe "V2 — header sort buttons must not crash or hang" do
+      it "tapping sort-newest leaves the runloop alive (fresh heartbeat arrives)" do
         pending!(pending_reason) unless coordinates_captured
 
         Harness.with_voyager(route: "todos") do |sim|
+          # Clear the heartbeat buffer so we only see post-tap heartbeats.
+          sim.clear_markers
+          tap_time = Time.utc
           sim.tap_accessibility_id("voyager-todos-header-sort-newest")
-
-          # The app should remain running. We sleep briefly to let any
-          # crash propagate then verify the process is alive via
-          # `simctl listapps` filter against the bundle id.
-          sleep 1.second
-
-          listing = `xcrun simctl listapps #{sim.udid} 2>/dev/null`
-          unless listing.includes?(sim.bundle_id)
-            fail "V2 violation: app process not found after tapping sort-newest button " \
-                 "(suspected crash). Check simctl spawn log stream for traceback."
-          end
+          assert_runloop_alive(sim, tap_time)
         end
       end
 
-      it "tapping sort-oldest leaves the app running" do
+      it "tapping sort-oldest leaves the runloop alive" do
         pending!(pending_reason) unless coordinates_captured
 
         Harness.with_voyager(route: "todos") do |sim|
+          sim.clear_markers
+          tap_time = Time.utc
           sim.tap_accessibility_id("voyager-todos-header-sort-oldest")
-          sleep 1.second
-          listing = `xcrun simctl listapps #{sim.udid} 2>/dev/null`
-          unless listing.includes?(sim.bundle_id)
-            fail "V2 violation: app process not found after tapping sort-oldest"
-          end
+          assert_runloop_alive(sim, tap_time)
         end
       end
 
-      it "tapping sort-deadline leaves the app running" do
+      it "tapping sort-deadline leaves the runloop alive" do
         pending!(pending_reason) unless coordinates_captured
 
         Harness.with_voyager(route: "todos") do |sim|
+          sim.clear_markers
+          tap_time = Time.utc
           sim.tap_accessibility_id("voyager-todos-header-sort-deadline")
-          sleep 1.second
-          listing = `xcrun simctl listapps #{sim.udid} 2>/dev/null`
-          unless listing.includes?(sim.bundle_id)
-            fail "V2 violation: app process not found after tapping sort-deadline"
-          end
+          assert_runloop_alive(sim, tap_time)
         end
       end
 
-      it "tapping overflow trigger leaves the app running and presents Popover" do
+      it "tapping overflow trigger leaves the runloop alive and presents Popover" do
         pending!(pending_reason) unless coordinates_captured
 
         Harness.with_voyager(route: "todos") do |sim|
+          sim.clear_markers
+          tap_time = Time.utc
           sim.tap_accessibility_id("voyager-todos-overflow-trigger")
 
+          # The Popover present marker must fire (positive assertion that
+          # the tap reached the intended action — Codex CONCERN 8 fix).
           sim.wait_for_marker(
             "[APIC:Popover:present]",
             timeout: 2.seconds
           )
 
-          # Process still alive.
-          listing = `xcrun simctl listapps #{sim.udid} 2>/dev/null`
-          unless listing.includes?(sim.bundle_id)
-            fail "V2 violation: app process not found after tapping overflow trigger"
-          end
+          assert_runloop_alive(sim, tap_time)
         end
       end
     end

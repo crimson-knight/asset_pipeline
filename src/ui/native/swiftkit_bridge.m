@@ -868,3 +868,18 @@ void *apsk_make_sheet_reactive(const void *child_views, int child_count,
 // are linked symbols on the AssetPipelineSwiftKit static library; Crystal
 // declares them in `LibSwiftKitBridge` and the linker resolves them
 // without any ObjC trampoline. No C wrappers required here.
+
+// -----------------------------------------------------------------------------
+// Phase 12.A — Interaction-contracts NSLog bridge
+// -----------------------------------------------------------------------------
+//
+// Crystal-side `UI::InteractionContracts.emit` originally wrote markers to
+// STDERR; Codex's Phase 12.A review flagged that STDERR is not reliably
+// captured by `xcrun simctl spawn ... log stream` on iOS. NSLog IS captured,
+// so we expose a tiny C entry point that wraps NSLog with the message verbatim.
+// Swift emitters use NSLog directly via the Foundation-imported
+// `InteractionContracts.swift` mirror.
+void apsk_apic_log(const char *msg) {
+    if (msg == NULL) return;
+    NSLog(@"%s", msg);
+}

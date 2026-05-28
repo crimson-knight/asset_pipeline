@@ -1,9 +1,21 @@
 # spec/native_ios/ui_interaction/confirmation_dialog_spec.cr
 #
-# Interaction contracts for UI::ConfirmationDialog. Reproduces V1 from
-# docs/initiative-cross-platform-ui/architecture/presentation-lifecycle-contract.md
-# ("UI::ConfirmationDialog auto-closes on Voyager todo row tap") as a
-# failing regression test, then asserts the C3 dismissal-token flow.
+# Forward-looking V1 reproduction spec.
+#
+# Per `docs/initiative-cross-platform-ui/architecture/presentation-lifecycle-contract.md`
+# §"V1/V2 source-of-truth location", V1 manifested against the
+# `phase-10-d-polish` worktree's todos screen (which has an action sheet
+# on row tap). The main checkout of `phase-10-d-refocus` does NOT contain
+# that code path — `todos_screen.cr` tap_btn navigates to editor; no
+# ConfirmationDialog is in use.
+#
+# This spec is pre-staged for the polish-worktree merge. Today it pends
+# because (a) tap coordinates are placeholders, (b) the target code path
+# doesn't exist in main. When the polish worktree merges + coordinates
+# are captured, both `pending!` guards lift naturally.
+#
+# Phase 12.A's executable proof of the harness is at
+# `spec/native_ios/ui_interaction/harness_smoke_spec.cr`.
 #
 # Both specs run against the iOS simulator via the harness defined at
 # spec/native_ios/ui_interaction/support/simulator_harness.cr.
@@ -72,8 +84,15 @@ require "./support/simulator_harness"
       end
     end
 
-    describe "C3 — dismissal flows through dismissToken, not binding-read" do
-      it "fires dismissToken before platform-dismissed; no binding-read during Rerender" do
+    describe "C3 — dismissal flows through the binding write path" do
+      it "fires binding-write-false before platform-dismissed" do
+        # Codex Phase 12.A CONCERN 5: ConfirmationDialog binds token=0
+        # because its dismissal flows through confirmToken/cancelToken,
+        # not the BoolStorage token. So we assert `binding-write-false`
+        # (which fires unconditionally on the true→false transition) and
+        # `platform-dismissed`. We do NOT assert `dismiss-token-fire` for
+        # ConfirmationDialog — that marker is reserved for widgets like
+        # Popover/Sheet whose BoolStorage token != 0.
         pending!(pending_reason) unless coordinates_captured
 
         Harness.with_voyager(route: "todos") do |sim|
@@ -87,7 +106,7 @@ require "./support/simulator_harness"
           sim.tap_accessibility_id("voyager-action-sheet-cancel")
 
           sim.wait_for_marker(
-            "[APIC:ConfirmationDialog:dismiss-token-fire]",
+            "[APIC:ConfirmationDialog:binding-write-false]",
             timeout: 1.second
           )
           sim.wait_for_marker(
@@ -96,15 +115,16 @@ require "./support/simulator_harness"
           )
 
           sim.assert_marker_order(
-            "[APIC:ConfirmationDialog:dismiss-token-fire]",
+            "[APIC:ConfirmationDialog:binding-write-false]",
             "[APIC:ConfirmationDialog:platform-dismissed]"
           )
 
-          # C2 corollary: no binding-read marker emitted during a Rerender pass.
+          # C2 corollary: no binding-write-false marker should fire during
+          # a Rerender pass — only as a result of user action.
           sim.snapshot_markers.each do |marker|
-            if marker.includes?("[APIC:ConfirmationDialog:binding-read]") &&
+            if marker.includes?("[APIC:ConfirmationDialog:binding-write-false]") &&
                marker.includes?("during-rerender=true")
-              fail "C2 violation: binding-read during Rerender pass: #{marker}"
+              fail "C2 violation: binding-write-false during Rerender pass: #{marker}"
             end
           end
         end

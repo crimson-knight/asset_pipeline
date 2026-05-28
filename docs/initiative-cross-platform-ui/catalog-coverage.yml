@@ -938,21 +938,27 @@ blocking_p1_violations:
     title: "UI::ConfirmationDialog auto-closes on Voyager todo row tap"
     affected_widgets: [ConfirmationDialog]
     contract_violated: presentation-lifecycle-contract C1
-    reproduction_spec: spec/native_ios/ui_interaction/confirmation_dialog_spec.cr  # TBD
+    reproduction_spec: spec/native_ios/ui_interaction/confirmation_dialog_spec.cr
     discovered_at: "2026-05-28"
-    discovered_in: owner-hand-test-iter-2
-    status: not-reproduced-by-spec
+    discovered_in: owner-hand-test-iter-2-against-phase-10-d-polish-worktree
+    # Phase 12.A Codex BLOCKER 1 correction: target code path lives in the
+    # phase-10-d-polish worktree, NOT in current main's Voyager. Spec is
+    # pre-staged with marker assertions; becomes executable when the
+    # worktree merges back AND tap coordinates are captured.
+    status: pre-staged-pending-worktree-merge
     fix_status: not-started
+    worktree_source: phase-10-d-polish
 
   - id: V2
     title: "Voyager todos header sort buttons crash on tap"
     affected_widgets: [Button, Popover]
     contract_violated: presentation-lifecycle-contract C4 (suspected) or callback-GC (suspected)
-    reproduction_spec: spec/native_ios/ui_interaction/voyager_toolbar_spec.cr  # TBD
+    reproduction_spec: spec/native_ios/ui_interaction/voyager_toolbar_spec.cr
     discovered_at: "2026-05-28"
-    discovered_in: owner-hand-test-iter-2
-    status: not-reproduced-by-spec
+    discovered_in: owner-hand-test-iter-2-against-phase-10-d-polish-worktree
+    status: pre-staged-pending-worktree-merge
     fix_status: not-started
+    worktree_source: phase-10-d-polish
 
 # Intent coverage scoreboard
 # Keyed to docs/initiative-cross-platform-ui/architecture/intent-catalog.md

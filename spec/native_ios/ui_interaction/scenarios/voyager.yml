@@ -2,19 +2,27 @@
 #
 # Maps accessibility_id (set via UI::View#accessibility_identifier=) to
 # (x, y) coordinates captured against the simulator pose noted below.
-# These coordinates are RECAPTURED whenever the screen layout changes;
-# the source-hash freshness gate (merge-readiness-gate.md §"Source-hash
-# freshness") catches stale coordinates.
 #
 # Pose: iPhone 17 Pro / iOS 26.5 portrait (430x932 logical points).
-# Recapture command: see scripts/capture_tap_coordinates.sh (Phase 12.A
-# follow-up — coordinates below are PLACEHOLDERS until captured).
+# Recapture command: see scripts/capture_tap_coordinates.sh.
+#
+# Codex Phase 12.A NIT 13 correction: coordinate freshness is NOT yet
+# enforced by validate_catalog_coverage.cr. The captured_pose_sha field
+# is reserved for a follow-up validator extension that hashes the
+# capture pose. Until then, freshness is on author's honor.
+#
+# Codex Phase 12.A BLOCKER 1 correction: the ids below are forward-
+# looking — they reference the phase-10-d-polish worktree's todos
+# screen extensions (sort filters in header, action sheet on row tap,
+# overflow popover). Current main has only voyager-todos-print and
+# voyager-todos-settings on the todos screen. Specs using these ids
+# pend until the worktree merges back to main.
 
 device: "iPhone 17 Pro"
 runtime: "iOS 26.5"
 orientation: portrait
 captured_at: "2026-05-28T00:00:00Z"
-captured_pose_sha: null  # set when actual coordinates are recorded
+captured_pose_sha: null  # not yet validator-enforced
 
 taps:
   # ----- Todos screen ----------------------------------------------------

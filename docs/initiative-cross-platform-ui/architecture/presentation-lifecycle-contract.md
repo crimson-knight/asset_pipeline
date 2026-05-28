@@ -94,6 +94,20 @@ Filed against this contract on 2026-05-28 after owner hand-test of iter-2:
 
 Each violation must be reproduced by an interaction-contract spec BEFORE the fix lands. The spec is the regression test.
 
+### V1/V2 source-of-truth location (Phase 12.A Codex review fix)
+
+**Important honesty correction surfaced by Codex's Phase 12.A antagonist review (`handoff/2026-05-28-codex-phase-12a-review.md` BLOCKER 1):**
+
+V1 and V2 manifested in the owner's hand-test against the `phase-10-d-polish` worktree, where Voyager's todos screen had been extended with an action sheet on row tap, sort filters in the header, and an overflow popover. **The main checkout of `phase-10-d-refocus` does NOT contain this code** (see `samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr` — tap_btn navigates to editor, no ConfirmationDialog, header has only Print + Settings buttons).
+
+Therefore:
+
+- **V1 + V2 specs at `spec/native_ios/ui_interaction/{confirmation_dialog,voyager_toolbar}_spec.cr` are pre-staged for the polish-worktree merge.** They pend until both (a) the worktree's todos extensions land in main AND (b) tap coordinates are captured for the new ids.
+- **The harness itself is validated by `spec/native_ios/ui_interaction/harness_smoke_spec.cr`** — a smoke test against current-main code (Voyager launches → emits launch marker → harness sees it). This is the executable proof Phase 12.A delivers.
+- **V1 + V2 fix work moves to Phase 12.B**, scoped specifically to "merge the polish worktree, then reproduce + fix V1 + V2 using the harness".
+
+This is a legitimate Codex BLOCKER 1 correction. The architect's session summary claims that Phase 12.A delivered the harness but did not yet reproduce V1 are now accurate; the spec scaffolding doc-claimed-as-reproducing is corrected here.
+
 ## Cross-references
 
 - [merge-readiness-gate.md](../merge-readiness-gate.md) — the gate this contract feeds into

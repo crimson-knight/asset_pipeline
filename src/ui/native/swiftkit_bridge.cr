@@ -20,6 +20,10 @@
 {% if flag?(:macos) || flag?(:ios) %}
   @[Link(framework: "Foundation")]
   lib LibSwiftKitBridge
+    # Phase 12.A — Interaction-contracts NSLog bridge. See
+    # swiftkit_bridge.m §"Interaction-contracts NSLog bridge".
+    fun apsk_apic_log(msg : UInt8*)
+
     # -------------------------------------------------------------------------
     # Runtime initialization. Called once during app startup, after
     # Crystal's `GC.init`, to hand the address of Crystal's
