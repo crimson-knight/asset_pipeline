@@ -74,6 +74,26 @@ taps:
     description: "Toggle-completion checkbox on first todo row"
     captured: false  # PLACEHOLDER
 
+  # ----- Swipe gesture endpoints (V1 swipe-to-reveal Share) ------------
+
+  - id: "voyager-todo-row-1-swipe-start"
+    x: 380
+    y: 250
+    description: "Right-edge of first todo row — starting point for left-swipe to reveal trailing actions (Share/Edit/Delete tiles)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todo-row-1-swipe-end"
+    x: 80
+    y: 250
+    description: "Left-edge target for the left-swipe — pulls trailing actions ~70% across"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todo-row-1-share-tile"
+    x: 280
+    y: 250
+    description: "Share tile (revealed after left-swipe). Tap fires :request_share"
+    captured: false  # PLACEHOLDER
+
   # ----- Action sheet (share flow — V1 reproduction target) ------------
 
   - id: "voyager-todos-share-sheet-copy"

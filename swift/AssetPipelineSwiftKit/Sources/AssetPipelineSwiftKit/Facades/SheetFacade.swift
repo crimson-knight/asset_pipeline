@@ -187,12 +187,33 @@ private struct SheetHost: View {
                     )
                 }
                 .onDisappear {
+                    // Phase 12.B Codex review-v2 BLOCKER 5 fix — use
+                    // state.isPresented as the discriminator instead of
+                    // the apicIntentionalDismiss flag (which depended on
+                    // unspecified .onDismiss vs .onDisappear ordering).
+                    //
+                    // At onDisappear time:
+                    //   - Binding-driven dismiss: state.isPresented is
+                    //     false (SwiftUI flipped it before animating out).
+                    //   - Programmatic dismiss via apsk_sheet_set_presented(false):
+                    //     state.isPresented is false (Crystal flipped it).
+                    //   - Tree-removal teardown (host removed from parent's
+                    //     body): state.isPresented is still true; nothing
+                    //     flipped it. This is V1's hypothetical root-cause
+                    //     class when a Rerender churns the parent without
+                    //     touching the Sheet's BoolStorage.
+                    let cause: String =
+                        self.state.isPresented ? "tree-removal" : "binding-dismiss"
                     let intentional = self.state.apicIntentionalDismiss
                     InteractionContracts.emit(
                         widget: "Sheet",
                         event: "host-disappeared",
                         viewID: overrides.accessibilityIdentifier,
-                        kv: ["intentional": intentional ? "true" : "false"]
+                        kv: [
+                            "cause": cause,
+                            "intentional": intentional ? "true" : "false",
+                            "state_is_presented": self.state.isPresented ? "true" : "false",
+                        ]
                     )
                     // Reset the flag so a subsequent re-present starts clean.
                     self.state.apicIntentionalDismiss = false

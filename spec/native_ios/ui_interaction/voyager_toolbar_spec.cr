@@ -2,37 +2,32 @@
 #
 # V2 reproduction spec — Voyager overflow popover buttons.
 #
-# Per `presentation-lifecycle-contract.md` §"Today's known violations",
-# V2 was reported by the owner as "tapping the three buttons at the top
-# crashed the app." Investigation of the polish branch (post-merge)
-# reveals: the three buttons live INSIDE the overflow popover, not in
-# the toolbar header. The reproduction path is:
-#
+# Reproduction path (post-merge surface):
 #   1. Tap voyager-todos-overflow → opens UI::Popover anchored to button
-#   2. Popover content: voyager-overflow-sort, voyager-overflow-hide-completed,
-#      voyager-overflow-clear-completed
-#   3. Tap any of those three → owner reported crash
+#      (renders via PopoverFacade.AnchoredPopoverHost, NOT SwiftUI.popover)
+#   2. Popover content has 3 buttons: voyager-overflow-sort,
+#      voyager-overflow-hide-completed, voyager-overflow-clear-completed
+#   3. Owner-reported V2: tapping any of these crashes app
 #
-# Crash + hang detection: heartbeat marker. Voyager emits
-# `[APIC:VoyagerApp:heartbeat]` once per second from the main runloop.
-# Spec asserts a strictly-newer heartbeat after each tap. Crashes stop
-# heartbeats; hung runloops also stop heartbeats.
+# Codex review-v2 BLOCKER 2 fix: AnchoredPopoverHost now emits
+# [APIC:Popover:present] markers (with path=anchored-uikit kv) so the
+# V2 spec assertion lands on the correct code path.
 #
-# Positive tap-reached assertion: the overflow trigger emits
-# `[APIC:Popover:present]` when tapped successfully (Codex CONCERN 8 fix).
+# Crash + hang detection: heartbeat marker pattern. Strictly-newer
+# heartbeat required after each tap.
+#
+# Per-id coordinate gating (Codex BLOCKER 3 fix).
 
 require "./support/simulator_harness"
 
 {% if flag?(:ios) %}
   include UI::InteractionContracts::Spec
 
-  # Helper — heartbeat counter (free function, NOT inside describe).
+  # Helpers (top-level — Crystal rejects def-inside-describe).
   private def heartbeat_count(sim) : Int32
     sim.snapshot_markers.count { |m| m.includes?("[APIC:VoyagerApp:heartbeat]") }
   end
 
-  # Helper — fail if no STRICTLY NEW heartbeat after `prior_count`
-  # within `window`. Detects crash + hung runloop in one assertion.
   private def assert_new_heartbeat(sim, prior_count : Int32, window : Time::Span = 2.seconds)
     deadline = Time.utc + window
     while Time.utc < deadline
@@ -44,22 +39,18 @@ require "./support/simulator_harness"
   end
 
   describe "Voyager overflow popover — V2 interaction contracts" do
-    scenario_path = File.join(__DIR__, "scenarios/voyager.yml")
-    scenario_yaml = File.exists?(scenario_path) ? File.read(scenario_path) : ""
-    coordinates_captured = scenario_yaml.includes?("captured: true")
-
-    pending_reason = "Tap coordinates in scenarios/voyager.yml are placeholders. " \
-                     "Run scripts/capture_tap_coordinates.sh to record real coordinates."
-
     describe "V2 — overflow popover buttons must not crash or hang" do
-      it "opening the overflow popover does not crash" do
-        pending!(pending_reason) unless coordinates_captured
-
+      it "opening the overflow popover does not crash and emits present marker" do
         Harness.with_voyager(route: "voyager-todos") do |sim|
+          unless sim.coords_captured?("voyager-todos-overflow")
+            pending!("Required coordinate 'voyager-todos-overflow' not yet captured.")
+          end
+
           prior = heartbeat_count(sim)
           sim.tap_accessibility_id("voyager-todos-overflow")
 
-          # Positive: tap reached the popover trigger.
+          # AnchoredPopoverHost now emits the present marker
+          # (path=anchored-uikit) per Codex BLOCKER 2 fix.
           sim.wait_for_marker(
             "[APIC:Popover:present]",
             timeout: 2.seconds
@@ -70,9 +61,12 @@ require "./support/simulator_harness"
       end
 
       it "tapping sort INSIDE overflow popover does not crash" do
-        pending!(pending_reason) unless coordinates_captured
-
         Harness.with_voyager(route: "voyager-todos") do |sim|
+          required = ["voyager-todos-overflow", "voyager-overflow-sort"]
+          unless sim.coords_captured?(required)
+            pending!("Required coordinates not yet captured: #{required.join(", ")}.")
+          end
+
           sim.tap_accessibility_id("voyager-todos-overflow")
           sim.wait_for_marker("[APIC:Popover:present]", timeout: 2.seconds)
 
@@ -83,9 +77,12 @@ require "./support/simulator_harness"
       end
 
       it "tapping hide-completed INSIDE overflow popover does not crash" do
-        pending!(pending_reason) unless coordinates_captured
-
         Harness.with_voyager(route: "voyager-todos") do |sim|
+          required = ["voyager-todos-overflow", "voyager-overflow-hide-completed"]
+          unless sim.coords_captured?(required)
+            pending!("Required coordinates not yet captured: #{required.join(", ")}.")
+          end
+
           sim.tap_accessibility_id("voyager-todos-overflow")
           sim.wait_for_marker("[APIC:Popover:present]", timeout: 2.seconds)
 
@@ -96,9 +93,12 @@ require "./support/simulator_harness"
       end
 
       it "tapping clear-completed INSIDE overflow popover does not crash" do
-        pending!(pending_reason) unless coordinates_captured
-
         Harness.with_voyager(route: "voyager-todos") do |sim|
+          required = ["voyager-todos-overflow", "voyager-overflow-clear-completed"]
+          unless sim.coords_captured?(required)
+            pending!("Required coordinates not yet captured: #{required.join(", ")}.")
+          end
+
           sim.tap_accessibility_id("voyager-todos-overflow")
           sim.wait_for_marker("[APIC:Popover:present]", timeout: 2.seconds)
 

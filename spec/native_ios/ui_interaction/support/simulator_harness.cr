@@ -173,6 +173,13 @@ module UI
           taps = parsed["taps"]?
           if taps
             taps.as_a.each do |entry|
+              # Phase 12.B Codex review-v2 BLOCKER 3 fix: only include taps
+              # whose `captured: true` field is set. Placeholder taps
+              # (`captured: false`) are excluded so any spec that requests
+              # them via `tap_accessibility_id` gets a clear failure instead
+              # of a silently-wrong tap on placeholder pixels.
+              captured = entry["captured"]?
+              next unless captured && captured.as_bool? == true
               id = entry["id"].as_s
               x = entry["x"].as_i
               y = entry["y"].as_i
@@ -277,11 +284,50 @@ module UI
         def tap_accessibility_id(id : String) : Nil
           coord = @scenario_map[id]?
           if coord.nil?
-            raise "No coordinate mapped for accessibility_id '#{id}' in scenario " \
-                  "(add to #{SCENARIO_ROOT}/<scenario>.yml taps:)"
+            raise "No CAPTURED coordinate for accessibility_id '#{id}' in scenario. " \
+                  "Either the id is missing from the YAML, or its entry has " \
+                  "captured: false. Run scripts/capture_tap_coordinates.sh to " \
+                  "record real coordinates."
           end
           x, y = coord
           tap_at_point(x, y)
+        end
+
+        # Whether the scenario file has captured coordinates for ALL the
+        # given accessibility ids. Spec describes can use this to pend
+        # examples per-id rather than per-scenario.
+        def coords_captured?(*ids : String) : Bool
+          ids.all? { |id| @scenario_map.has_key?(id) }
+        end
+
+        # Array overload — Crystal's splat works only on tuples, so
+        # spec call sites that build an Array(String) of required ids
+        # use this form to avoid the splat error.
+        def coords_captured?(ids : Array(String)) : Bool
+          ids.all? { |id| @scenario_map.has_key?(id) }
+        end
+
+        # Phase 12.B Codex review-v2 BLOCKER 1 helper — left-swipe a row
+        # to reveal trailing actions. Uses cliclick's drag primitives
+        # (dd: drag-down, dm: drag-move, du: drag-up) to deliver a real
+        # touch-drag gesture into the Simulator's touch synthesizer.
+        # Speed is implicit in cliclick's default easing; pass non-zero
+        # `easing` to slow the gesture if a fast swipe is missed.
+        def swipe_left(from_id : String, to_id : String, easing : Int32 = 0) : Nil
+          from = @scenario_map[from_id]?
+          to = @scenario_map[to_id]?
+          if from.nil? || to.nil?
+            raise "swipe_left requires captured coordinates for both " \
+                  "'#{from_id}' and '#{to_id}'."
+          end
+          fx, fy = from
+          tx, ty = to
+          args = [] of String
+          args << "-e" << easing.to_s if easing > 0
+          args << "dd:#{fx},#{fy}" << "dm:#{tx},#{ty}" << "du:#{tx},#{ty}"
+          status = Process.run("cliclick", args,
+            output: Process::Redirect::Inherit, error: Process::Redirect::Inherit)
+          raise "cliclick swipe failed (#{fx},#{fy} → #{tx},#{ty})" unless status.success?
         end
 
         # -------------------------------------------------------------------

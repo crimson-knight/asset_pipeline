@@ -19,11 +19,11 @@
 #      script grabs the (x,y) from the simulator's pointer log, and
 #      writes it back to the YAML with captured: true.
 #
-# This is a thin helper around `xcrun simctl io` and `cliclick` — neither
-# of which expose accessibility-identifier-based tap. Phase 12.B replaces
-# this with an XCUITest helper (`APSKAccessibilityTap.tap(id:)`) per the
-# revised harness architecture; until then, this is the honest path for
-# keeping coordinates current.
+# This is a thin helper around `cliclick p` (capture cursor pos) and the
+# scenario YAML. cliclick c delivers the same coordinates from
+# Simulator#tap_accessibility_id at spec runtime. A future XCUITest
+# frame-lookup helper may automate coordinate discovery (queued for
+# Phase 12.D); until then, manual capture is the honest path.
 
 set -euo pipefail
 

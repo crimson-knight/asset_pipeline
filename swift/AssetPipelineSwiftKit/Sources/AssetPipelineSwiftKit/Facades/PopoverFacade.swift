@@ -273,6 +273,16 @@ final class AnchoredPopoverHost: UIView, UIPopoverPresentationControllerDelegate
 
         presenter.present(content, animated: true, completion: nil)
         presentedController = content
+        // Phase 12.B Codex review-v2 BLOCKER 2 fix — the anchored UIKit
+        // popover path now emits the same [APIC:Popover:present] marker
+        // the SwiftUI .popover path does, so V2 spec assertions land on
+        // both paths uniformly.
+        InteractionContracts.emit(
+            widget: "Popover",
+            event: "present",
+            viewID: overrides.accessibilityIdentifier,
+            kv: ["path": "anchored-uikit"]
+        )
     }
 
     private func closestViewController() -> UIViewController? {
@@ -324,7 +334,24 @@ final class AnchoredPopoverHost: UIView, UIPopoverPresentationControllerDelegate
     func popoverPresentationControllerDidDismissPopover(
         _ popoverPresentationController: UIPopoverPresentationController
     ) {
+        // Phase 12.B Codex review-v2 BLOCKER 2 fix — anchored popover
+        // emits dismiss-token-fire + platform-dismissed analogous to
+        // BoolStorage.binding.set (token != 0).
+        if dismissToken != 0 {
+            InteractionContracts.emit(
+                widget: "Popover",
+                event: "dismiss-token-fire",
+                viewID: overrides.accessibilityIdentifier,
+                kv: ["token": String(dismissToken), "path": "anchored-uikit"]
+            )
+        }
         CallbackBridge.fire(token: dismissToken, value: 0.0)
+        InteractionContracts.emit(
+            widget: "Popover",
+            event: "platform-dismissed",
+            viewID: overrides.accessibilityIdentifier,
+            kv: ["path": "anchored-uikit"]
+        )
         presentedController = nil
     }
 }

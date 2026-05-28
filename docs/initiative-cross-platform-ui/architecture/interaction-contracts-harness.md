@@ -12,7 +12,7 @@ A Crystal spec runner under `spec/native_ios/ui_interaction/` that:
 
 1. Builds + installs the relevant demo app on the iOS simulator.
 2. Launches it with a known entry route (`SIMCTL_CHILD_VOYAGER_ROOT_SLUG=<screen>`).
-3. Drives the running app via `xcrun simctl io` (taps), `cliclick` (fallback), and `xcrun simctl spawn ... log stream` (assertion source).
+3. Drives the running app via `cliclick c:<x>,<y>` (host-pixel taps into the Simulator window) and `xcrun simctl spawn ... log stream` (assertion source).
 4. Asserts on **unique-grep-token NSLog markers** that the renderer + facades emit at lifecycle points.
 5. Records video to `tmp/interaction-contracts/<spec>.mp4` for human review on failure.
 
@@ -22,12 +22,12 @@ A Crystal spec runner under `spec/native_ios/ui_interaction/` that:
 
 The harness splits responsibilities:
 
-- **Tap delivery** → `xcrun simctl io <udid> touch tap <x>,<y>` with coordinates resolved from `spec/native_ios/ui_interaction/scenarios/<app>.yml`. Coordinates are recaptured manually via `scripts/capture_tap_coordinates.sh` whenever screen layouts change.
+- **Tap delivery** → `cliclick c:<x>,<y>` (host-pixel click into the Simulator window) with coordinates resolved from `spec/native_ios/ui_interaction/scenarios/<app>.yml`. Coordinates are recaptured manually via `scripts/capture_tap_coordinates.sh` whenever screen layouts change.
 - **Semantic assertions** → Crystal harness + APIC markers. The `[APIC:...]` marker convention lets the Crystal spec assert on lifecycle invariants (present, dismiss, binding-write, heartbeat) without inspecting the SwiftUI view tree.
 
 **Why not XCUITest taps:** Phase 6.10 Rem 3 documented (handoff/phase-06.10-remediation-3-codex-blocker.md) and Phase 8 collective review confirmed (handoff/phase-08-collective-review-2026-05-25.md) that **XCUITest tap synthesis does NOT fire `CallbackBridge.fire` on Crystal-rendered buttons in this codebase.** XCUITest finds elements correctly via the accessibility tree, but synthesized taps reach `_UIHostingView.hitTest` and stop there — the SwiftUI Button's action closure does not fire. This is a multi-iteration deep bug that was not resolved through Phase 6.10 Rem 3's three remediation iterations and survives in current main.
 
-`simctl io touch tap`, by contrast, delivers a real OS-level touch event that flows through the normal UIKit responder chain and does fire the action closures. This is the same path the existing `capture_tap_coordinates.sh` already relies on.
+`cliclick c:<x>,<y>` by contrast generates a host-level mouse click; when the point lies inside the Simulator viewport, Simulator converts it through its normal touch synthesizer and fires the SwiftUI Button action closures as expected. (The earlier draft of this doc proposed `xcrun simctl io touch tap` — that command does NOT exist; `simctl io` only supports enumerate/poll/recordVideo. Codex Phase 12.B partial review caught the hallucination; the harness has used cliclick since commit `7271464d`.)
 
 **XCUITest IS used elsewhere** — `VoyagerVisualTests.swift` uses XCUITest for accessibility-tree DISCOVERABILITY assertions (find element by ID, screenshot it), which works fine. Only the TAP SYNTHESIS path is broken on this codebase.
 
@@ -100,24 +100,24 @@ end
 `spec/native_ios/ui_interaction/support/simulator_harness.cr` provides:
 
 - `Harness.with_voyager(route: String, &block : Simulator -> Nil)` — boots simulator, installs Voyager, launches with route env var, starts log-stream subscription, yields, terminates and cleans up.
-- `Simulator#tap_accessibility_id(id)` — invokes `xcrun simctl io <udid> touch tap` at the resolved point for the accessibility identifier (resolves via a small JS helper injected into the WebKit view OR via a hardcoded coordinate map for the demo screen).
+- `Simulator#tap_accessibility_id(id)` — invokes `cliclick c:<x>,<y>` at the host pixel coordinate resolved from the scenario YAML for the accessibility identifier.
 - `Simulator#wait_for_marker(token, timeout)` — tails log stream, fails the example if the marker doesn't appear in time.
 - `Simulator#assert_no_marker(token)` — checks the marker buffer doesn't contain the token over the next 500ms.
 - `Simulator#assert_marker_order(a, b)` — asserts marker a appeared in the buffer before marker b.
 - `Simulator#markers_during_rerender_for(widget, count)` — returns an array of marker arrays, one per Rerender pass, scoped to markers emitted by the named widget.
 
-## Driver: tap delivery (coordinate-map via simctl io)
+## Driver: tap delivery (coordinate-map via cliclick)
 
 The harness resolves interactive elements by accessibility_identifier mapped to (x, y) coordinates in a per-app scenario YAML:
 
 - Every screen MUST set `accessibility_identifier` on every interactive element under test, using the convention `<app>-<screen>-<purpose>-<id>` (e.g. `voyager-todos-row-1-share`).
 - `accessibility_identifier` is already on `UI::View` (`src/ui/view.cr:327`) and threaded through UIKit (`src/ui/renderers/uikit_renderer.cr:4754`), AppKit (`src/ui/renderers/appkit_renderer.cr:4546`), and Web (`src/ui/renderers/web_renderer.cr:2684`) renderers.
-- `Simulator#tap_accessibility_id(id)` looks up the (x, y) from `spec/native_ios/ui_interaction/scenarios/<app>.yml` and invokes `xcrun simctl io <udid> touch tap <x>,<y>`. This delivers a real OS-level touch event that flows through UIKit's responder chain — Crystal action closures fire as expected.
+- `Simulator#tap_accessibility_id(id)` looks up the (x, y) host pixel from `spec/native_ios/ui_interaction/scenarios/<app>.yml` and invokes `cliclick c:<x>,<y>`. cliclick generates a host mouse click; Simulator converts it via its normal touch synthesizer and Crystal action closures fire correctly.
 - Coordinates are RECAPTURED whenever screen layouts change. `scripts/capture_tap_coordinates.sh` walks the operator through capture (uses `cliclick` for cursor position).
 
 The coordinate map is the long-term tap-delivery mechanism per the step 1 reframe — XCUITest tap synthesis is broken on this codebase and a frame-lookup-via-XCUITest workaround was not pursued (would require a parallel XCUITest process kept alive between queries, which the harness's spec-per-process model doesn't support).
 
-A future XCUITest-FRAME-LOOKUP helper that resolves accessibility IDs to frames without synthesizing taps (then simctl io delivers the tap) is queued as a Phase 12.D follow-up if scenario YAML maintenance becomes painful. Until then, manual capture is honest enough.
+A future XCUITest-FRAME-LOOKUP helper that resolves accessibility IDs to host-pixel frames without synthesizing taps (then `cliclick c` delivers the host click) is queued as a Phase 12.D follow-up if scenario YAML maintenance becomes painful. XCUITest rejection is scoped to tap synthesis only — XCUITest is still acceptable for AX discoverability assertions (the existing `VoyagerVisualTests.swift` precedent) and for frame lookup.
 
 ## Marker instrumentation: where it lives
 
