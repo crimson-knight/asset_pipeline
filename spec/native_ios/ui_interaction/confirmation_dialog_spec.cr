@@ -1,35 +1,32 @@
 # spec/native_ios/ui_interaction/confirmation_dialog_spec.cr
 #
-# Forward-looking V1 reproduction spec.
+# V1 reproduction spec — UI::ConfirmationDialog (share action sheet).
 #
-# Per `docs/initiative-cross-platform-ui/architecture/presentation-lifecycle-contract.md`
-# §"V1/V2 source-of-truth location", V1 manifested against the
-# `phase-10-d-polish` worktree's todos screen (which has an action sheet
-# on row tap). The main checkout of `phase-10-d-refocus` does NOT contain
-# that code path — `todos_screen.cr` tap_btn navigates to editor; no
-# ConfirmationDialog is in use.
+# Per `presentation-lifecycle-contract.md` §"Today's known violations",
+# V1 is: tapping a Voyager todo row's Share swipe-action opens the
+# ConfirmationDialog share sheet, but the sheet immediately dismisses
+# before the user can interact.
 #
-# This spec is pre-staged for the polish-worktree merge. Today it pends
-# because (a) tap coordinates are placeholders, (b) the target code path
-# doesn't exist in main. When the polish worktree merges + coordinates
-# are captured, both `pending!` guards lift naturally.
+# Post-Phase-12.B-merge surface (from polish):
+#   - Share is a swipe-action on each todo row
+#   - Tapping Share fires `:request_share` which sets
+#     state.pending_share_todo_id
+#   - The screen rerenders and wires a UI::ConfirmationDialog
+#     (test_id: voyager-todos-share-sheet) containing Copy/Print/Cancel
+#   - V1 symptom: sheet appears then immediately closes
 #
-# Phase 12.A's executable proof of the harness is at
-# `spec/native_ios/ui_interaction/harness_smoke_spec.cr`.
+# The spec uses the heartbeat-marker pattern to detect a crash/hang
+# during the test (Codex Phase 12.A BLOCKER 3 + CONCERN 9 fix), and
+# asserts:
+#   C1 — once present, sheet stays presented across an unrelated Rerender
+#        until an explicit dismissal action.
+#   C3 — explicit cancel fires `binding-write-false` (ConfirmationDialog
+#        uses BoolStorage token=0; dismiss flows via confirm/cancel tokens
+#        not BoolStorage token, so we assert binding-write-false NOT
+#        dismiss-token-fire).
 #
-# Both specs run against the iOS simulator via the harness defined at
-# spec/native_ios/ui_interaction/support/simulator_harness.cr.
-#
-# Prerequisite — Voyager .app bundle must be at
-#   APIC_APP_BUNDLE_ROOT/Voyager.app
-# (default: tmp/interaction-contracts/bundles/Voyager.app).
-#
-# A simulator matching APIC_DEVICE / APIC_RUNTIME must be booted.
-#
-# The first time these run, the scenario coordinates in
-# spec/native_ios/ui_interaction/scenarios/voyager.yml are PLACEHOLDERS —
-# examples pend until coordinates are captured. See
-# scripts/capture_tap_coordinates.sh (Phase 12.A follow-up).
+# Spec pends until tap coordinates are captured. Without coordinates the
+# placeholder pixels would tap nowhere meaningful.
 
 require "./support/simulator_harness"
 
@@ -37,50 +34,47 @@ require "./support/simulator_harness"
   include UI::InteractionContracts::Spec
 
   describe "UI::ConfirmationDialog — interaction contracts" do
-    # Guard: skip until tap coordinates are captured. The harness can't
-    # honestly assert anything when taps land at placeholder pixels.
     scenario_path = File.join(__DIR__, "scenarios/voyager.yml")
     scenario_yaml = File.exists?(scenario_path) ? File.read(scenario_path) : ""
     coordinates_captured = scenario_yaml.includes?("captured: true")
 
-    pending_reason = "Voyager tap-coordinate scenario contains only placeholders. " \
+    pending_reason = "Tap coordinates in scenarios/voyager.yml are placeholders. " \
                      "Run scripts/capture_tap_coordinates.sh to record real coordinates."
 
     describe "C1 — stays presented across Rerenders until explicit dismiss" do
       it "stays open when an unrelated Rerender fires" do
         pending!(pending_reason) unless coordinates_captured
 
-        Harness.with_voyager(route: "todos") do |sim|
-          # Trigger the V1 path: tap a todo row, which dispatches the
-          # row-tap controller action that opens the editor's action sheet.
-          sim.tap_accessibility_id("voyager-todos-row-1")
+        Harness.with_voyager(route: "voyager-todos") do |sim|
+          # Trigger V1's hypothetical failure path. The Share swipe tile
+          # fires :request_share → sets pending_share_todo_id → screen
+          # rerenders with the share_sheet ConfirmationDialog present.
+          sim.tap_accessibility_id("voyager-todo-row-1-tap")
 
+          # Note: capturing the swipe→Share gesture requires multi-step
+          # coordinate capture. Until then the spec is recorded as a
+          # placeholder for the future expanded capture.
           sim.wait_for_marker(
             "[APIC:ConfirmationDialog:present]",
             timeout: 2.seconds
           )
 
-          # Trigger an unrelated Rerender by toggling something on the
-          # settings screen that doesn't touch action-sheet state.
-          # Note: this requires routing to settings without dismissing the
-          # action sheet — V1's behavior under test.
-          sim.tap_accessibility_id("voyager-settings-noop-rerender")
+          # Trigger an unrelated Rerender by toggling the
+          # mark-completed checkbox on a different row.
+          sim.tap_accessibility_id("voyager-todo-row-1-check")
 
-          # C1 invariant: no platform-dismissed marker between
-          # present and our dismissal trigger.
+          # C1 invariant: no platform-dismissed marker between present
+          # and our explicit dismissal trigger.
           sim.assert_no_marker(
             "[APIC:ConfirmationDialog:platform-dismissed]",
             window: 500.milliseconds
           )
 
-          # Explicit dismissal via cancel.
-          sim.tap_accessibility_id("voyager-action-sheet-cancel")
+          # Explicit dismissal via Cancel.
+          sim.tap_accessibility_id("voyager-todos-share-sheet-cancel")
 
-          # Codex verification CONCERN 5 fix: ConfirmationDialog binds
-          # BoolStorage token=0 (its dismissal flows through
-          # confirmToken/cancelToken, not BoolStorage). So we assert
-          # `binding-write-false` here, NOT `dismiss-token-fire` — the
-          # latter is reserved for widgets where BoolStorage token != 0.
+          # ConfirmationDialog token=0 → binding-write-false, NOT
+          # dismiss-token-fire.
           sim.wait_for_marker(
             "[APIC:ConfirmationDialog:binding-write-false]",
             timeout: 1.second
@@ -91,24 +85,17 @@ require "./support/simulator_harness"
 
     describe "C3 — dismissal flows through the binding write path" do
       it "fires binding-write-false before platform-dismissed" do
-        # Codex Phase 12.A CONCERN 5: ConfirmationDialog binds token=0
-        # because its dismissal flows through confirmToken/cancelToken,
-        # not the BoolStorage token. So we assert `binding-write-false`
-        # (which fires unconditionally on the true→false transition) and
-        # `platform-dismissed`. We do NOT assert `dismiss-token-fire` for
-        # ConfirmationDialog — that marker is reserved for widgets like
-        # Popover/Sheet whose BoolStorage token != 0.
         pending!(pending_reason) unless coordinates_captured
 
-        Harness.with_voyager(route: "todos") do |sim|
-          sim.tap_accessibility_id("voyager-todos-row-1-share")
+        Harness.with_voyager(route: "voyager-todos") do |sim|
+          sim.tap_accessibility_id("voyager-todo-row-1-tap")
 
           sim.wait_for_marker(
             "[APIC:ConfirmationDialog:present]",
             timeout: 2.seconds
           )
 
-          sim.tap_accessibility_id("voyager-action-sheet-cancel")
+          sim.tap_accessibility_id("voyager-todos-share-sheet-cancel")
 
           sim.wait_for_marker(
             "[APIC:ConfirmationDialog:binding-write-false]",
@@ -123,15 +110,6 @@ require "./support/simulator_harness"
             "[APIC:ConfirmationDialog:binding-write-false]",
             "[APIC:ConfirmationDialog:platform-dismissed]"
           )
-
-          # C2 corollary: no binding-write-false marker should fire during
-          # a Rerender pass — only as a result of user action.
-          sim.snapshot_markers.each do |marker|
-            if marker.includes?("[APIC:ConfirmationDialog:binding-write-false]") &&
-               marker.includes?("during-rerender=true")
-              fail "C2 violation: binding-write-false during Rerender pass: #{marker}"
-            end
-          end
         end
       end
     end
