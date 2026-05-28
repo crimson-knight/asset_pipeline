@@ -68,6 +68,7 @@ end
 | `preferred_height` | `Float64?` | `nil` | Preferred popover height (pt). |
 | `on_dismiss` | `Proc(Nil)?` | `nil` | Dismiss handler. |
 | `material_semantic` | `Symbol?` | `nil` | HIG-canonical default is `:popover` (NSVisualEffectMaterialPopover / regularMaterial). Override with other Phase 5 v2 keys. |
+| `anchor_view_id` | `String?` | `nil` | **Phase 10D-polish iter 2.** When set, the iOS renderer looks the source view up by its `test_id` in a per-render registry and presents the popover via `UIPopoverPresentationController` anchored to that view. The popover bubble's arrow points at the source view's frame. When nil, falls back to centered SwiftUI presentation. |
 
 ## Override path
 
@@ -75,10 +76,10 @@ end
 
 **Override paths:**
 
-- **Anchor binding:** SwiftUI's `.popover(isPresented:attachmentAnchor:arrowEdge:)` supports anchoring to a specific source view via `PopoverPresenter#anchor`. Today the `UI::PopoverPresenter` accepts an anchor but the SwiftKit facade does not yet wire it through — popover renders centered on the host. **Backlog item: `B-POPOVER-ANCHOR-VIEW`** — `docs/initiative-cross-platform-ui/architecture/intent-backlog.md`.
-- **iPhone behavior (force popover, no sheet fallback):** SwiftUI's `.popover(arrowEdge:)` accepts a `presentationCompactAdaptation(.popover)` modifier on iOS 16.4+. Not yet exposed via knob. **Backlog item: `B-POPOVER-COMPACT-ADAPTATION`**.
+- **Anchor binding:** RESOLVED by Phase 10D-polish iter 2 (`B-POPOVER-ANCHOR-VIEW`). Set `popover.anchor_view_id = "<some-view-test-id>"` to anchor the popover bubble's arrow at that view via `UIPopoverPresentationController`.
+- **iPhone behavior (force popover, no sheet fallback):** The default SwiftUI path applies `.presentationCompactAdaptation(.popover)` on iOS 16.4+. When `anchor_view_id` is set, the UIKit-anchored path also forces popover style via the adaptive presentation delegate. `B-POPOVER-COMPACT-ADAPTATION` covers the unanchored fine-grain knob.
 - **iOS 26 Liquid Glass override:** override `material_semantic` to one of the Phase 5 v2 keys.
-- **Reactive `is_presented`:** like `UI::Toggle#is_on=` and `UI::Sheet#is_presented=`, a reactive setter would dispatch through the SwiftKit bridge to flip an `@Published` field. Not yet wired. **Backlog item: `B-POPOVER-REACTIVE-PRESENTED`**.
+- **Reactive `is_presented`:** the Rerender path drives present/dismiss today by rebuilding the tree. A reactive setter (mirroring `UI::Sheet#is_presented=`) is tracked at `B-POPOVER-REACTIVE-PRESENTED` as a future optimization.
 
 ## Evidence
 

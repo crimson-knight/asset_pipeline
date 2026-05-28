@@ -815,8 +815,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `sheets.md:85`
 - **android_equivalent:** `ModalBottomSheet` `shouldDismissOnBackPress = false`
 - **web_equivalent:** Disable backdrop-click + ESC handling
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — no interactive_dismiss_disabled property on UI::Sheet (src/ui/views/sheet.cr:1-50). Tracked in phase-10-pre-2-close.md "new gaps surfaced".`
+- **coverage_today:** full (Phase 10D-polish iter 2)
+- **crystal_api_shape:** `UI::Sheet#interactive_dismiss_disabled : Bool = false` (`src/ui/views/sheet.cr`). SheetOverrides carries the field; SheetFacade applies `.interactiveDismissDisabled(true)` inside the sheet body when true.
 - **platforms:** ios, ipados, android, web_wide, web_narrow; macos uses modal-only mode
 - **description:** Prevent the user from dismissing a sheet via swipe-down or background tap (typically because unsaved changes need confirmation).
 
@@ -1155,15 +1155,15 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `date-pickers.md`
 - **android_equivalent:** Material `DatePicker` modal
 - **web_equivalent:** `<input type="date">`
-- **coverage_today:** partial (`src/ui/views/date_picker.cr:4-10` — `class DatePicker < View` with `selected_date`, `mode`, `minimum_date`, `maximum_date`, `on_change`; visitors at `src/ui/renderers/uikit_renderer.cr:1408`, `src/ui/renderers/appkit_renderer.cr:1353`, `src/ui/renderers/web_renderer.cr:957`, `src/ui/renderers/android_renderer.cr:1456`. No `date_picker_style` switch — only one rendering mode per platform today.)
-- **crystal_api_shape:** `# Not yet implemented — UI::DatePicker (src/ui/views/date_picker.cr:4-22) has no date_picker_style property; only `mode` (a DatePickerMode enum) ships today. Tracked in phase-10-pre-2-close.md "new gaps surfaced".`
+- **coverage_today:** full (Phase 10D-polish iter 2 — `UI::DatePicker#style = UI::DatePickerStyle::Compact` ships; DatePickerFacade applies `.datePickerStyle(.compact)`.)
+- **crystal_api_shape:** `picker.style = UI::DatePickerStyle::Compact` (`src/ui/views/date_picker.cr`).
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Compact field showing the value; tap/click to open calendar popover.
 - **demo_status:** documented-with-default-experience
 - **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/date-picker.md
-- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:391-422
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr (editor sheet picker)
 - **evidence:** ../handoff/phase-10-d-polish-screenshots/06_datepicker_deadline.png
-- **override_path_status:** no-override-yet-tracked-in-backlog (mode + bounds + on_change are public knobs; style property tracked in B-DATEPICKER-STYLE-PROPERTY; year-display offset tracked in B-DATEPICKER-EPOCH-CONVERSION)
+- **override_path_status:** public-knobs (mode + bounds + style + on_change). Year-display offset tracked separately in B-DATEPICKER-EPOCH-CONVERSION.
 
 ### `:graphical_date_picker_style`
 
@@ -1177,8 +1177,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `date-pickers.md`
 - **android_equivalent:** Material `DatePicker` inline mode
 - **web_equivalent:** Calendar grid widget
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — UI::DatePicker has no date_picker_style property (same gap as :compact_date_picker_style).`
+- **coverage_today:** full (Phase 10D-polish iter 2 — `UI::DatePickerStyle::Graphical` → `.datePickerStyle(.graphical)`)
+- **crystal_api_shape:** `picker.style = UI::DatePickerStyle::Graphical`
 - **platforms:** ios, ipados, macos, android, web_wide
 - **description:** Expanded calendar view inline. Suitable for date-pickers in forms with space.
 
@@ -1194,8 +1194,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `date-pickers.md`
 - **android_equivalent:** —
 - **web_equivalent:** Custom wheel/drum
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — UI::DatePicker has no date_picker_style property (same gap as :compact_date_picker_style).`
+- **coverage_today:** full (Phase 10D-polish iter 2 — `UI::DatePickerStyle::Wheels` → `.datePickerStyle(.wheel)` on iOS)
+- **crystal_api_shape:** `picker.style = UI::DatePickerStyle::Wheels`
 - **platforms:** ios, ipados
 - **description:** iOS-classic wheel picker. Use sparingly per HIG; compact is preferred.
 

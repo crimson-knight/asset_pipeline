@@ -64,14 +64,15 @@ body << picker.as(UI::View)
 | `maximum_date` | `Time?` | `nil` | Latest selectable date (inclusive). |
 | `label` | `String` | `""` | Caption shown alongside the picker. |
 | `on_change` | `Proc(Time, Nil)?` | `nil` | Change handler. |
+| `style` | `DatePickerStyle` | `Automatic` | **Phase 10D-polish iter 2.** `Automatic` / `Compact` / `Graphical` / `Wheels`. Maps to SwiftUI `.datePickerStyle(.compact)` / `.graphical` / `.wheel`. `Automatic` lets the platform pick (iOS date mode defaults to `.graphical`; we recommend `Compact` for in-form usage so the picker shows as an inline button with a calendar popover). |
 
 ## Override path
 
-**Public knobs cover mode + bounds + change handler.** No knob for the picker style itself today (`.compact`, `.graphical`, `.wheels`) — see backlog.
+**Public knobs cover mode + bounds + change handler + style.**
 
 **Override paths:**
 
-- **Picker style (compact vs graphical vs wheels):** the `:compact_date_picker_style`, `:graphical_date_picker_style`, `:wheel_date_picker_style` intents are in the catalog but unbacked — no `date_picker_style` property on `UI::DatePicker`. **Backlog item: `B-DATEPICKER-STYLE-PROPERTY`** — referenced in `docs/initiative-cross-platform-ui/handoff/phase-10-pre-2-close.md "new gaps surfaced"`.
+- **Picker style (compact vs graphical vs wheels):** RESOLVED by Phase 10D-polish iter 2 (`B-DATEPICKER-STYLE-PROPERTY`). Set `picker.style = UI::DatePickerStyle::Compact` / `Graphical` / `Wheels` / `Automatic`.
 - **Nilable / clearable state:** today the picker has no nil value; "no date" must be represented in app state. The Voyager pattern uses a sibling `Clear` button that resets the FormState entry to empty string (`samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:432-444`).
 - **iOS class-init gap with `Time.local`:** `Time.local` segfaults on iOS due to `[[crystal-ios-class-init-gap]]`. Use `Time.utc` for seed values; date-only mode doesn't care about timezone. Backlog: `B-CRYSTAL-IOS-TIME-LOCAL` (covered by the broader iOS class-init gap remediation).
 - **Date display year offset:** the Crystal-to-Swift epoch conversion path (`view.selected_date.to_unix.to_f64` → `Date(timeIntervalSince1970:)`) currently shows an incorrect year (`May 27, 3995` instead of `May 27, 2026` in the editor screenshot). **Backlog item: `B-DATEPICKER-EPOCH-CONVERSION`** — needs investigation of whether Crystal `to_unix` is returning the wrong base, or Swift is misinterpreting the Float64. Tracked in `docs/initiative-cross-platform-ui/architecture/intent-backlog.md`.

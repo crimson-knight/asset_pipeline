@@ -68,18 +68,20 @@ list.trailing_swipe_actions = ->(idx : Int32) : Array(UI::SwipeAction) {
 | `icon` | `String?` | `nil` | SF Symbol name (iOS / macOS). Empty / nil → label only. |
 | `on_tap` | `Proc(Nil)?` | `nil` | Tap handler. |
 | `on_tap_route` | `String?` | `nil` | Static-site web fallback route id. |
+| `tint` | `Symbol?` | `nil` | **Phase 10D-polish iter 2.** Explicit tile tint override. `:blue` / `:green` / `:orange` / `:red` / `:purple` / `:yellow` / `:pink` / `:gray`. Nil → role-derived default. |
+| `label_style` | `Symbol` | `:auto` | **Phase 10D-polish iter 2.** `:auto` (infer from which fields are set), `:icon` (icon only, title becomes accessibilityLabel), `:title` (title only, icon dropped), `:title_and_icon` (force SwiftUI Label combination). |
 
 ## Override path
 
-**Tint colors** are derived from the action role today by the iOS visit method:
+**Tint colors** default to role-derived values when `tint` is unset:
 
 - Leading: `default → green`, `destructive → red` (`src/ui/renderers/uikit_renderer.cr:1238-1243`).
 - Trailing: `default → blue`, `destructive → ""` (SwiftUI .destructive paints red automatically) (`src/ui/renderers/uikit_renderer.cr:1246-1253`).
 
 **Override paths:**
 
-- **Different tint per action:** no public knob today. To customize, edit the `default_tint_for_*` private methods on `UI::UIKit::Renderer` OR extend `UI::SwipeAction` with a `tint : Symbol?` field. **Backlog item: `B-LIST-SWIPE-TINT`** — `docs/initiative-cross-platform-ui/architecture/intent-backlog.md`.
-- **Custom label style (icon-only, text-only):** today the facade chooses based on icon/label emptiness (`ListViewFacade.swift:swipeTileLabel`). For a label-only tile, omit `icon`. No knob for forcing icon-only when both are set; backlog as `B-LIST-SWIPE-LABEL-STYLE`.
+- **Different tint per action:** RESOLVED by Phase 10D-polish iter 2 (`B-LIST-SWIPE-TINT`). Set `tint: :orange` (or any of the 8 semantic colors) on `UI::SwipeAction.new`. Voyager demos: Archive orange (leading), Done green, Share gray, Edit blue, Delete role-derived red.
+- **Custom label style (icon-only, text-only):** RESOLVED by Phase 10D-polish iter 2 (`B-LIST-SWIPE-LABEL-STYLE`). Set `label_style: :icon` / `:title` / `:title_and_icon` / `:auto`.
 
 ## Evidence
 

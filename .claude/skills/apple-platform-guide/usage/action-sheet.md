@@ -4,7 +4,7 @@ A modal sheet of choices presented at the bottom of the screen on iOS. **Tier 3 
 
 ## Default experience
 
-- **iOS:** Currently routes through SwiftKit's `ConfirmationDialogFacade` which exposes a **binary confirm/cancel surface**. An ActionSheet with more than one non-cancel action degrades to `{first non-cancel action, cancel action}` pending a Phase 5 multi-action SwiftUI facade. The bottom-anchored sheet with title + message + button card uses SwiftUI's `.confirmationDialog(titleKey:isPresented:titleVisibility:actions:message:)`.
+- **iOS:** Routes through SwiftKit's `ConfirmationDialogFacade` which uses SwiftUI's `.confirmationDialog(titleKey:isPresented:titleVisibility:actions:message:)`. **Phase 10D-polish iter 2 (2026-05-27)** extended the facade to take parallel `actionLabels` / `actionStyles` / `actionTokens` arrays so the iOS surface honors any number of actions. The cancel-style button is automatically pinned at the bottom by SwiftUI; destructive-style buttons render in red.
 - **iPadOS:** Same as iOS but presented as a popover anchored to the source view by SwiftUI default.
 - **macOS:** `NSAlert(alertStyle: .informational)` with the actions as alert buttons (system-drawn).
 - **web (wide / narrow):** Use `UI::ActionSheetWithWebFallback`. Wide → modal centered card; narrow → bottom-anchored sheet with vanilla-JS swipe-to-dismiss.
@@ -54,7 +54,7 @@ end
 
 ## Behavior contract
 
-- **Callbacks:** Each `Action#action : Proc(Nil)?` fires when the user taps that button. Today on iOS only the first non-cancel action AND the cancel action actually fire — additional actions are dropped by the ConfirmationDialogFacade degradation path.
+- **Callbacks:** Each `Action#action : Proc(Nil)?` fires when the user taps that button. **Phase 10D-polish iter 2:** all actions fire (no longer dropped at the binary-degradation boundary).
 - **Dismissal paths:**
   - Tap action → dismisses, fires the chosen action's Proc.
   - Tap Cancel → dismisses, fires cancel action (if any).
@@ -78,8 +78,8 @@ end
 
 **Override paths:**
 
-- **Multi-action support beyond binary:** today's iOS path only honors `primary_action + cancel_action`. To present a >2-action sheet, render a `UI::Sheet` with `surface_style: :grouped_card` containing a VStack of buttons. **Backlog item: `B-ACTIONSHEET-MULTI-ACTION`** — `docs/initiative-cross-platform-ui/architecture/intent-backlog.md`.
-- **Material override:** ActionSheet does not currently support material override (the Tier 3 gate has no material knob today). Tracked under same backlog.
+- **Multi-action support:** RESOLVED by Phase 10D-polish iter 2 (`B-ACTIONSHEET-MULTI-ACTION`). The iOS facade now iterates `view.actions` natively; all actions render and fire callbacks. The action list can be any length; SwiftUI handles layout.
+- **Material override:** ActionSheet does not support material override (system-drawn chrome by HIG mandate).
 - **Tier 3 gating:** building without `-Dios` fails compile at any `UI::ActionSheet.new(...)` site. Use `UI::ActionSheetWithWebFallback` for cross-platform code.
 
 ## Evidence

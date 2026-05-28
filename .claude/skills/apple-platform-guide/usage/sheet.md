@@ -58,6 +58,7 @@ end
 | `on_dismiss` | `Proc(Nil)?` | `nil` | Dismiss callback. |
 | `surface_style` | `Symbol` | `:auto` | Controls inline (non-presented) chrome. `:auto` / `:grouped_card` → HIG-style grouped card; `:plain` → bare container. |
 | `material_semantic` | `Symbol?` | `nil` | HIG-canonical default is `:sheet` (NSVisualEffectMaterialSheet on macOS; `.thickMaterial` via `.presentationBackground` on iOS 16.4+). Override with `:menu`, `:hud`, etc. per the Phase 5 v2 semantic material palette. |
+| `interactive_dismiss_disabled` | `Bool` | `false` | **Phase 10D-polish iter 2.** When true, threads `.interactiveDismissDisabled()` into the SwiftUI sheet body so the user cannot swipe-to-dismiss. Programmatic dismissal via `is_presented = false` and `on_dismiss` still fire. Use for editors mid-edit / forms with unsaved changes. |
 
 ## Override path
 
@@ -66,7 +67,7 @@ end
 **Override paths:**
 
 - **Custom detent height:** today only `[:small, :medium, :large]` are accepted by the facade (`SheetFacade.swift:applyDetents`). A custom `.height(Pt)` requires extending the facade switch. **Backlog item: `B-SHEET-CUSTOM-DETENT-HEIGHT`** — `docs/initiative-cross-platform-ui/architecture/intent-backlog.md`.
-- **Disable drag-to-dismiss:** today not exposed; SwiftUI offers `.interactiveDismissDisabled(true)`. **Backlog item: `B-SHEET-INTERACTIVE-DISMISS-DISABLED`** — tracked separately in the catalog under `:interactive_dismiss_disabled`.
+- **Disable drag-to-dismiss:** RESOLVED by Phase 10D-polish iter 2 (`B-SHEET-INTERACTIVE-DISMISS-DISABLED`). Set `interactive_dismiss_disabled = true`.
 - **Edge-to-edge content (no padding):** use `surface_style: :plain`.
 - **Custom Liquid Glass on iOS 26:** override `material_semantic` to one of the Phase 5 v2 keys (`:menu`, `:hud`, `:sidebar`, etc.). For a fully custom material, wrap content in `UI::GlassBackground` and pass `surface_style: :plain`.
 

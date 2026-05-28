@@ -260,21 +260,23 @@ The Phase 10D-polish pass shipped the widget-demonstration-criteria rubric requi
 - **Size:** L.
 - **Priority:** P2 (Android out of scope for near-term release).
 
-### B-LIST-SWIPE-TINT — Per-action tint override on UI::SwipeAction
+### B-LIST-SWIPE-TINT — Per-action tint override on UI::SwipeAction — RESOLVED 2026-05-27
 
 - **Widget:** `UI::SwipeAction`
 - **Platforms:** iOS, web
-- **Gap:** Today `UI::UIKit::Renderer#default_tint_for_leading/trailing` derives tint from role only. Custom tints (e.g. an Archive tile in indigo rather than green) require editing the renderer.
-- **Action:** Add `tint : Symbol? = nil` property to `UI::SwipeAction`; populator emits the explicit tint when set, falls back to the role-derived default otherwise.
+- **Status:** **RESOLVED by Phase 10D-polish iter 2** (commit `0802efac`). `UI::SwipeAction#tint : Symbol?` shipped. Populator routes `tint` through to `setLeadingTints` / `setTrailingTints`; SwiftKit facade maps to SwiftUI Color.
+- **Original gap:** Today `UI::UIKit::Renderer#default_tint_for_leading/trailing` derives tint from role only. Custom tints (e.g. an Archive tile in indigo rather than green) require editing the renderer.
+- **Resolution:** Added `tint : Symbol? = nil` property to `UI::SwipeAction`; populator emits the explicit tint when set, falls back to the role-derived default otherwise. Voyager exercises `:orange` / `:green` / `:gray` / `:blue` overrides.
 - **Size:** S.
 - **Priority:** P2.
 
-### B-LIST-SWIPE-LABEL-STYLE — Force icon-only / text-only tile
+### B-LIST-SWIPE-LABEL-STYLE — Force icon-only / text-only tile — RESOLVED 2026-05-27
 
 - **Widget:** `UI::SwipeAction`
 - **Platforms:** iOS, web
-- **Gap:** Today the facade chooses tile content based on icon/label emptiness — no knob for forcing icon-only when both are set.
-- **Action:** Add `label_style : Symbol = :auto` (`:auto` / `:icon` / `:title` / `:title_and_icon`).
+- **Status:** **RESOLVED by Phase 10D-polish iter 2** (commit `0802efac`). `label_style : Symbol = :auto` property shipped on `UI::SwipeAction`. ListView + SwipeActionRow facades both honor it via `leadingActionLabelStyles` / `trailingActionLabelStyles` parallel arrays.
+- **Original gap:** Today the facade chooses tile content based on icon/label emptiness — no knob for forcing icon-only when both are set.
+- **Resolution:** Added `label_style : Symbol = :auto` (`:auto` / `:icon` / `:title` / `:title_and_icon`). When `:icon`, the title becomes `accessibilityLabel` instead.
 - **Size:** S.
 - **Priority:** P2.
 
@@ -287,12 +289,13 @@ The Phase 10D-polish pass shipped the widget-demonstration-criteria rubric requi
 - **Size:** M (for the new class); S (for documentation alone).
 - **Priority:** P2.
 
-### B-ACTIONSHEET-MULTI-ACTION — Multi-action support beyond binary
+### B-ACTIONSHEET-MULTI-ACTION — Multi-action support beyond binary — RESOLVED 2026-05-27
 
 - **Widget:** `UI::ActionSheet`
-- **Platforms:** iOS, macOS
-- **Gap:** Today's iOS path degrades to `{primary_action, cancel_action}` because SwiftKit's ConfirmationDialogFacade is binary. Additional actions are dropped.
-- **Action:** Implement a multi-action SwiftUI facade backed by `.confirmationDialog(titleKey:isPresented:titleVisibility:actions:message:)` with a ForEach over the actions array. The catalog's `:confirmation_dialog` intent already names this API.
+- **Platforms:** iOS, macOS (Tier 3 — iOS-gated; macOS uses NSAlert via the WithWebFallback path)
+- **Status:** **RESOLVED by Phase 10D-polish iter 2** (commit `772a3235`). ConfirmationDialogOverrides now carries `actionLabels` / `actionStyles` / `actionTokens` parallel arrays; the SwiftUI facade `ForEach`s over them when non-empty. The Crystal `visit(UI::ActionSheet)` emits every entry in `view.actions` so Copy / Print / Cancel (or any number) all surface.
+- **Original gap:** Today's iOS path degrades to `{primary_action, cancel_action}` because SwiftKit's ConfirmationDialogFacade is binary. Additional actions are dropped.
+- **Resolution:** Implemented multi-action SwiftUI path backed by `.confirmationDialog(titleKey:isPresented:titleVisibility:actions:message:)` with a ForEach over the actions array. SwiftUI's `.confirmationDialog` natively pins role:.cancel buttons at the bottom and paints destructive buttons red.
 - **Size:** M.
 - **Priority:** P1.
 
@@ -305,21 +308,23 @@ The Phase 10D-polish pass shipped the widget-demonstration-criteria rubric requi
 - **Size:** S.
 - **Priority:** P2.
 
-### B-SHEET-INTERACTIVE-DISMISS-DISABLED — Block drag-to-dismiss
+### B-SHEET-INTERACTIVE-DISMISS-DISABLED — Block drag-to-dismiss — RESOLVED 2026-05-27
 
 - **Widget:** `UI::Sheet`
 - **Platforms:** iOS, iPadOS, macOS
-- **Gap:** Catalog intent `:interactive_dismiss_disabled` is unbacked (no `interactive_dismiss_disabled` property on `UI::Sheet`).
-- **Action:** Add `interactive_dismiss_disabled : Bool = false` property; populator emits; SwiftKit facade applies `.interactiveDismissDisabled(true)` modifier inside the sheet body.
+- **Status:** **RESOLVED by Phase 10D-polish iter 2** (commit `1b8619a1`). `UI::Sheet#interactive_dismiss_disabled : Bool = false` shipped. SheetOverrides carries the field; SheetFacade applies `.interactiveDismissDisabled(true)` inside the sheet body when true.
+- **Original gap:** Catalog intent `:interactive_dismiss_disabled` is unbacked (no `interactive_dismiss_disabled` property on `UI::Sheet`).
+- **Resolution:** Added the property; populator emits via `setInteractiveDismissDisabled:`; facade applies the modifier via `applyInteractiveDismissDisabled`.
 - **Size:** S.
 - **Priority:** P1.
 
-### B-DATEPICKER-STYLE-PROPERTY — Picker style enum
+### B-DATEPICKER-STYLE-PROPERTY — Picker style enum — RESOLVED 2026-05-27
 
 - **Widget:** `UI::DatePicker`
 - **Platforms:** iOS, iPadOS, macOS, web
-- **Gap:** Catalog intents `:compact_date_picker_style`, `:graphical_date_picker_style`, `:wheel_date_picker_style` are unbacked. Only `mode` (date/time/datetime) ships today.
-- **Action:** Add `date_picker_style : DatePickerStyle = Compact`; populator emits; SwiftKit facade applies `.datePickerStyle(.graphical)` / `.compact` / `.wheels`.
+- **Status:** **RESOLVED by Phase 10D-polish iter 2** (commit `45a2ebd2`). `UI::DatePickerStyle` enum (Automatic / Compact / Graphical / Wheels) shipped; `UI::DatePicker#style : DatePickerStyle = Automatic` property shipped. Populator emits via `setDatePickerStyle:`; DatePickerFacade switches on the string and applies `.datePickerStyle(.compact|.graphical|.wheel)`.
+- **Original gap:** Catalog intents `:compact_date_picker_style`, `:graphical_date_picker_style`, `:wheel_date_picker_style` are unbacked. Only `mode` (date/time/datetime) ships today.
+- **Resolution:** Added enum + property + populator + facade switch. Voyager's editor sheet picker now uses `:compact` so the deadline shows as an inline button with a calendar popover.
 - **Size:** S.
 - **Priority:** P1 (frequently requested for in-form date entry; falls under Phase 10-pre-2-close.md "new gaps surfaced").
 
@@ -332,12 +337,16 @@ The Phase 10D-polish pass shipped the widget-demonstration-criteria rubric requi
 - **Size:** S (investigation) / M (fix could be one-line OR could need a Float64 → Int64 + Calendar fix).
 - **Priority:** **P1** — blocks honest DatePicker demo.
 
-### B-POPOVER-ANCHOR-VIEW — Anchor popover to a source view
+### B-POPOVER-ANCHOR-VIEW — Anchor popover to a source view — RESOLVED 2026-05-27
 
 - **Widget:** `UI::Popover`
-- **Platforms:** iPadOS, macOS, web_wide
-- **Gap:** `UI::PopoverPresenter` accepts an `anchor : View?` but the SwiftKit facade does not yet read it. Popover renders centered on the host instead of anchored to a specific button.
-- **Action:** Thread an anchor token through the populator; on the Swift side, use SwiftUI's `.popover(isPresented:attachmentAnchor: .rect(.rect(.named("anchor-token"))), arrowEdge:)`. Requires the source view to declare `.coordinateSpace(name: "anchor-token")`.
+- **Platforms:** iOS (iPhone + iPad), macOS pending, web_wide pending
+- **Status:** **RESOLVED by Phase 10D-polish iter 2** (commit `9e3001cf`) on iOS. `UI::Popover#anchor_view_id : String?` shipped. The iOS visit method looks the source view up by `test_id` in a per-renderer registry and passes the UIView pointer through to `PopoverOverrides.anchorSourceView`. PopoverFacade returns a hidden `APSKAnchoredPopoverHost` UIView that owns a `UIPopoverPresentationController`-backed presentation anchored to the source view's frame.
+- **Original gap:** `UI::PopoverPresenter` accepts an `anchor : View?` but the SwiftKit facade does not yet read it. Popover renders centered on the host instead of anchored to a specific button.
+- **Resolution:** Took a different design than the original action (test_id lookup + UIKit popover controller rather than SwiftUI coordinate-space). The new path uses UIKit's native popover anchoring which is more robust across iPhone compact size class and gives correct arrow chrome out of the box. Adaptive presentation is forced to `.none` so the popover stays as a popover on iPhone (no auto-fallback to sheet).
+- **Follow-ups still tracked:**
+  - macOS NSPopover anchoring via the AppKit renderer (use same test_id registry pattern).
+  - web_wide CSS-position anchoring.
 - **Size:** M.
 - **Priority:** P1.
 
