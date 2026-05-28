@@ -64,6 +64,11 @@ require "./ui/native/jni_collections"
 require "./ui/native/swiftkit_bridge"
 require "./ui/native/swiftkit_overrides"
 
+# Phase 12.A — Interaction-contracts marker emitter. See
+# docs/initiative-cross-platform-ui/architecture/interaction-contracts-harness.md.
+# No-op when ENV["APIC_ENABLED"] is unset.
+require "./ui/native/interaction_contracts"
+
 # Platform-specific renderers (compile-time gated)
 require "./ui/renderers/appkit_renderer"
 require "./ui/renderers/uikit_renderer"

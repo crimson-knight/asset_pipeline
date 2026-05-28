@@ -42,7 +42,7 @@ widgets:
       file: samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr
       line: 318
       deep_link: voyager://todos?action_sheet=share&todo=1
-      capture_scenario: spec/ui_interaction/scenarios/confirmation_dialog_share.md
+      capture_scenario: spec/native_ios/ui_interaction/scenarios/confirmation_dialog_share.md
       source_hash: <sha256 of the example file at last evidence refresh>
     usage_doc:
       path: .claude/skills/apple-platform-guide/usage/confirmation-dialog.md
@@ -114,7 +114,7 @@ For every Tier 1 + Tier 2 widget in the manifest:
 
 3. **Demo app is icon-launchable on iOS simulator** — the demo app builds, installs, appears on the iPhone simulator home screen, and tapping its icon launches it without crash. This is the iOS gate; web fallback routes are gated separately (cross-cutting gate B below) (Codex CONCERN 8).
 
-4. **Interaction contract spec passes** — applies to widget classes where the taxonomy requires it (modal-presentation, form-control, button-cluster, navigation, list-presentation). The spec lives under `spec/ui_interaction/` and is exercised by the harness defined in [interaction-contracts-harness.md](architecture/interaction-contracts-harness.md). The harness MUST be executable, not design-only, before this item can pass (Codex BLOCKER 2).
+4. **Interaction contract spec passes** — applies to widget classes where the taxonomy requires it (modal-presentation, form-control, button-cluster, navigation, list-presentation). The spec lives under `spec/native_ios/ui_interaction/` and is exercised by the harness defined in [interaction-contracts-harness.md](architecture/interaction-contracts-harness.md). The harness MUST be executable, not design-only, before this item can pass (Codex BLOCKER 2).
 
 5. **Override path documented with hard restrictions** — `override_path_status` is one of `public-knobs` or `facade-extension-required`. The backlog-item escape (`no-override-yet-tracked-in-backlog`) is permitted ONLY for non-default, non-critical customization. If the default experience depends on a value, the public knob or facade extension MUST exist before merge (Codex CONCERN 10).
 
@@ -165,7 +165,7 @@ Phase 6.5's audit harness against the committed baselines passes (`docs/initiati
 
 ### G. Interaction-contracts CI job green and executable
 
-`make test-interaction-contracts` exists, runs on a `macos-latest` runner, exercises `spec/ui_interaction/`, exits 0. The CI job MUST be executable — not design-only. Codex BLOCKER 2.
+`make test-interaction-contracts` exists, runs on a `macos-latest` runner, exercises `spec/native_ios/ui_interaction/`, exits 0. The CI job MUST be executable — not design-only. Codex BLOCKER 2.
 
 ### H. Cross-widget feature stories pass
 

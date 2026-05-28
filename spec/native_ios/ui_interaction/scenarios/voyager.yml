@@ -1,0 +1,76 @@
+# Voyager simulator-tap coordinate scenario.
+#
+# Maps accessibility_id (set via UI::View#accessibility_identifier=) to
+# (x, y) coordinates captured against the simulator pose noted below.
+# These coordinates are RECAPTURED whenever the screen layout changes;
+# the source-hash freshness gate (merge-readiness-gate.md §"Source-hash
+# freshness") catches stale coordinates.
+#
+# Pose: iPhone 17 Pro / iOS 26.5 portrait (430x932 logical points).
+# Recapture command: see scripts/capture_tap_coordinates.sh (Phase 12.A
+# follow-up — coordinates below are PLACEHOLDERS until captured).
+
+device: "iPhone 17 Pro"
+runtime: "iOS 26.5"
+orientation: portrait
+captured_at: "2026-05-28T00:00:00Z"
+captured_pose_sha: null  # set when actual coordinates are recorded
+
+taps:
+  # ----- Todos screen ----------------------------------------------------
+
+  - id: "voyager-todos-row-1"
+    x: 215
+    y: 200
+    description: "First todo row in the list — used by V1 reproduction (C1 spec)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todos-row-1-share"
+    x: 380
+    y: 200
+    description: "Share swipe-action button on first todo row"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todos-header-sort-newest"
+    x: 130
+    y: 120
+    description: "Newest-first sort filter (V2 reproduction)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todos-header-sort-oldest"
+    x: 215
+    y: 120
+    description: "Oldest-first sort filter (V2 reproduction)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todos-header-sort-deadline"
+    x: 300
+    y: 120
+    description: "Deadline sort filter (V2 reproduction)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todos-overflow-trigger"
+    x: 400
+    y: 60
+    description: "••• overflow popover trigger in toolbar"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-action-sheet-cancel"
+    x: 215
+    y: 800
+    description: "Cancel button in ConfirmationDialog action sheet"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-action-sheet-copy"
+    x: 215
+    y: 600
+    description: "Copy button in ConfirmationDialog action sheet"
+    captured: false  # PLACEHOLDER
+
+  # ----- Settings screen -------------------------------------------------
+
+  - id: "voyager-settings-noop-rerender"
+    x: 215
+    y: 400
+    description: "Toggle that triggers a Rerender without affecting modal state — used by C1 to force Rerender churn during a modal present"
+    captured: false  # PLACEHOLDER

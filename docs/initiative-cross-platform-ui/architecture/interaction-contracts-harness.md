@@ -8,7 +8,7 @@ This doc closes that gap. The harness is gate item F in the [merge-readiness gat
 
 ## What the harness is
 
-A Crystal spec runner under `spec/ui_interaction/` that:
+A Crystal spec runner under `spec/native_ios/ui_interaction/` that:
 
 1. Builds + installs the relevant demo app on the iOS simulator.
 2. Launches it with a known entry route (`SIMCTL_CHILD_VOYAGER_ROOT_SLUG=<screen>`).
@@ -45,7 +45,7 @@ The marker schema is documented per widget in its usage doc's "Behavior contract
 ## Per-spec structure
 
 ```crystal
-# spec/ui_interaction/confirmation_dialog_spec.cr
+# spec/native_ios/ui_interaction/confirmation_dialog_spec.cr
 require "spec"
 require "../../src/asset_pipeline/ui"
 require "./support/simulator_harness"
@@ -90,7 +90,7 @@ end
 
 ## Harness support layer
 
-`spec/ui_interaction/support/simulator_harness.cr` provides:
+`spec/native_ios/ui_interaction/support/simulator_harness.cr` provides:
 
 - `Harness.with_voyager(route: String, &block : Simulator -> Nil)` — boots simulator, installs Voyager, launches with route env var, starts log-stream subscription, yields, terminates and cleans up.
 - `Simulator#tap_accessibility_id(id)` — invokes `xcrun simctl io <udid> touch tap` at the resolved point for the accessibility identifier (resolves via a small JS helper injected into the WebKit view OR via a hardcoded coordinate map for the demo screen).
@@ -127,7 +127,7 @@ A new make target `make test-interaction-contracts`:
 test-interaction-contracts:
 	@./scripts/boot-simulator.sh "iPhone 17 Pro" "iOS 26.5"
 	@xcodebuild -workspace ... build-for-testing
-	@crystal-alpha spec spec/ui_interaction/ -Dios \
+	@crystal-alpha spec spec/native_ios/ui_interaction/ -Dios \
 	  --link-flags="-framework ApplicationServices -framework CoreFoundation"
 ```
 
