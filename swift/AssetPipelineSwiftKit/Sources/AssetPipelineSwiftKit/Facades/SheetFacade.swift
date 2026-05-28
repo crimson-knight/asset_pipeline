@@ -109,6 +109,18 @@ public class SheetFacade: NSObject {
     // with `.glassEffect()` rather than chaining `.presentationBackground`.
     // This mirrors the GlassBackgroundFacade.swift:64-70 reference pattern.
     // SystemResolved still suppresses (no modifier on either branch).
+    // Phase 10D-polish iter 2 (B-SHEET-INTERACTIVE-DISMISS-DISABLED) —
+    // when overrides.interactiveDismissDisabled is true, apply the
+    // SwiftUI modifier that blocks user drag-to-dismiss. The modifier
+    // is iOS 15+ / macOS 12+ so no availability guard is needed for our
+    // platform floor.
+    fileprivate static func applyInteractiveDismissDisabled(
+        _ v: AnyView, overrides: SheetOverrides
+    ) -> AnyView {
+        guard overrides.interactiveDismissDisabled?.boolValue == true else { return v }
+        return AnyView(v.interactiveDismissDisabled(true))
+    }
+
     fileprivate static func applyPresentationBackground(
         _ v: AnyView, overrides: SheetOverrides
     ) -> AnyView {
@@ -159,8 +171,11 @@ private struct SheetHost: View {
                     // (iOS 16.4+ / macOS 13.3+) inside the sheet body so
                     // the presented modal carries the resolved material.
                     // applyDetents stays in the chain for sheet sizing.
-                    SheetFacade.applyPresentationBackground(
-                        SheetFacade.applyDetents(sheetBody, overrides: overrides),
+                    SheetFacade.applyInteractiveDismissDisabled(
+                        SheetFacade.applyPresentationBackground(
+                            SheetFacade.applyDetents(sheetBody, overrides: overrides),
+                            overrides: overrides
+                        ),
                         overrides: overrides
                     )
                 }

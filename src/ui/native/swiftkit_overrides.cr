@@ -577,6 +577,9 @@ module UI
         end
         sender.set_bool(target, :setShowsDragIndicator,
           view.shows_drag_indicator ? nil : false)
+        # Phase 10D-polish iter 2 (B-SHEET-INTERACTIVE-DISMISS-DISABLED)
+        sender.set_bool(target, :setInteractiveDismissDisabled,
+          view.interactive_dismiss_disabled ? true : nil)
         # Phase 5 v2: forward AppleSemantic override (or HIG default :sheet)
         # so the SwiftKit facade applies `.presentationBackground(.thickMaterial)`
         # on the presented sheet body (iOS 16.4+ / macOS 13.3+).
