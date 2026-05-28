@@ -20,6 +20,11 @@ module UI
     # Invoked when the user changes the control's value.
     property on_change : Proc(Time, Nil)? = nil
 
+    # Phase 10D-polish iter 2 (B-DATEPICKER-STYLE-PROPERTY) — visual style.
+    # Defaults to `:automatic` (platform's HIG default); pass `:compact`
+    # for the inline-button-with-popover idiom most apps want in forms.
+    property style : DatePickerStyle = DatePickerStyle::Automatic
+
     def initialize(@mode : DatePickerMode = DatePickerMode::Date)
     end
 

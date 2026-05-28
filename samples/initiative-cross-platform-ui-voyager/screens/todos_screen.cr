@@ -432,6 +432,10 @@ module Voyager
       picker.label = "Deadline"
       picker.accessibility_label = "Todo deadline"
       picker.test_id = "voyager-editor-sheet-deadline"
+      # Phase 10D-polish iter 2 — show as inline tappable button that
+      # pops a calendar overlay instead of the full-page graphical
+      # calendar. This is the in-form idiom most apps want.
+      picker.style = UI::DatePickerStyle::Compact
       # Seed selected_date from ISO string if parseable. Use Time.utc
       # rather than Time.local because Crystal's iOS class-init gap
       # leaves Time::Location.local uninitialized → segfault in

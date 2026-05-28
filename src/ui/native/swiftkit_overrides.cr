@@ -496,6 +496,12 @@ module UI
         unless view.mode == UI::DatePickerMode::Date
           sender.set_string(target, :setDatePickerMode, view.mode.to_s.downcase)
         end
+        # Phase 10D-polish iter 2 (B-DATEPICKER-STYLE-PROPERTY) — only
+        # emit when non-default; the facade switch reads "compact" /
+        # "graphical" / "wheels" / nil.
+        unless view.style == UI::DatePickerStyle::Automatic
+          sender.set_string(target, :setDatePickerStyle, view.style.to_s.downcase)
+        end
       end
 
       def self.populate_time_picker(target : String, view : UI::TimePicker, sender : Sender)

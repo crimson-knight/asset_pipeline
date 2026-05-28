@@ -90,6 +90,23 @@ module UI
     DateAndTime # Both date and time
   end
 
+  # Visual style for date/time pickers.
+  # Phase 10D-polish iter 2 (B-DATEPICKER-STYLE-PROPERTY).
+  #
+  # * `Automatic` — let the platform pick the HIG-correct style for the
+  #   mode (`.date` → graphical on iOS; `.compact` on macOS).
+  # * `Compact` — inline button that pops a wheel/calendar overlay when
+  #   tapped. The asset_pipeline default for in-form usage.
+  # * `Graphical` — full inline calendar / clock face. SwiftUI's
+  #   `.graphical` (iOS) / `.field` (macOS) date picker style.
+  # * `Wheels` — spinning wheel picker. SwiftUI `.wheel`.
+  enum DatePickerStyle
+    Automatic
+    Compact
+    Graphical
+    Wheels
+  end
+
   # Style for progress indicators
   enum ProgressStyle
     Linear   # Horizontal progress bar
