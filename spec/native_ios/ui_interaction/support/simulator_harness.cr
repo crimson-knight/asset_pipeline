@@ -59,8 +59,8 @@ module UI
         # Boot + install + launch + yield + teardown.
         def self.with_voyager(route : String, & : Simulator -> _) : Nil
           with_app(
-            bundle_id: "com.assetpipeline.voyager",
-            bundle_name: "Voyager.app",
+            bundle_id: "com.assetpipeline.voyager.VoyagerDemo",
+            bundle_name: "VoyagerDemo.app",
             scenario: "voyager",
             launch_env: {"VOYAGER_ROOT_SLUG" => route},
           ) do |sim|
@@ -68,10 +68,13 @@ module UI
           end
         end
 
+        # Demo apps queued behind Voyager (per demo-app-ladder.md). Each
+        # follows the same shape; bundle ids land when the respective
+        # Phase 13/14/.../17 brief authors the app.
         def self.with_notes(route : String, & : Simulator -> _) : Nil
           with_app(
-            bundle_id: "com.assetpipeline.notes",
-            bundle_name: "Notes.app",
+            bundle_id: "com.assetpipeline.notes.NotesDemo",
+            bundle_name: "NotesDemo.app",
             scenario: "notes",
             launch_env: {"NOTES_ROOT_SLUG" => route},
           ) do |sim|
