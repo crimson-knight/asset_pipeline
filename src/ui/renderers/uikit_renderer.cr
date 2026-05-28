@@ -3937,13 +3937,14 @@
 
       # Phase 4 — Tier 3. iOS rendering of UI::ActionSheet.
       #
-      # The Phase 3 SwiftKit bridge currently exposes only a binary
-      # confirm/cancel ConfirmationDialogFacade. We route ActionSheet
-      # through it with a conservative mapping: the first non-cancel action
-      # becomes the confirm button (inheriting its :destructive style if
-      # set), the explicit cancel-style action (if any) becomes the cancel
-      # button, and any additional actions are dropped at render time.
-      # Phase 5 will extend the SwiftKit bridge with a multi-action facade.
+      # Phase 10D-polish iter 2 (B-ACTIONSHEET-MULTI-ACTION) — we now
+      # emit the full action list into ConfirmationDialogOverrides'
+      # `actionLabels` / `actionStyles` / `actionTokens` parallel
+      # arrays. The SwiftUI facade switches from its binary confirm /
+      # cancel path to a ForEach over the arrays so every action lands
+      # in the system action sheet. The cancel-style action stays in
+      # the array; SwiftUI's `.confirmationDialog` pins the role:.cancel
+      # button at the bottom automatically.
       def visit(view : UI::ActionSheet)
         overrides_ptr = LibSwiftKitBridge.apsk_confirmation_dialog_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
@@ -3960,38 +3961,23 @@
 
         callback_ids = [] of UInt64
 
-        # Map first non-cancel action -> confirm button.
-        # Phase 10D-polish — confirm/cancel token setters are
-        # `NSNumber?` (UInt64-valued) on the Swift side; we MUST use the
-        # boxed-NSNumber trampoline (`apsk_overrides_set_uint64_boxed`),
-        # not `apsk_overrides_set_int` which passes a raw integer that
-        # the setter then tries to retain as an object → SIGSEGV. Bug
-        # introduced in 10D-refocus when the visit method was hand-rolled
-        # instead of routing through `sender.set_uint64`.
-        if primary = view.primary_action
-          sender.set_string(target_str, :setConfirmLabel, primary.label)
-          if primary.style == :destructive
-            sender.set_string(target_str, :setConfirmStyle, "destructive")
+        # Multi-action path — emit ALL actions to the parallel arrays.
+        unless view.actions.empty?
+          labels = view.actions.map(&.label)
+          styles = view.actions.map(&.style.to_s)
+          tokens = [] of UInt64
+          view.actions.each do |a|
+            if action = a.action
+              tok = UI::CallbackRegistry.register_action(&action)
+              tokens << tok
+              callback_ids << tok
+            else
+              tokens << 0_u64
+            end
           end
-          if action = primary.action
-            tok = UI::CallbackRegistry.register_action(&action)
-            callback_ids << tok
-            LibSwiftKitBridge.apsk_overrides_set_uint64_boxed(
-              overrides_ptr, "setConfirmToken:".to_unsafe, tok,
-            )
-          end
-        end
-
-        # Map cancel-style action -> cancel button (when present).
-        if cancel = view.cancel_action
-          sender.set_string(target_str, :setCancelLabel, cancel.label)
-          if action = cancel.action
-            tok = UI::CallbackRegistry.register_action(&action)
-            callback_ids << tok
-            LibSwiftKitBridge.apsk_overrides_set_uint64_boxed(
-              overrides_ptr, "setCancelToken:".to_unsafe, tok,
-            )
-          end
+          sender.set_string_array(target_str, :setActionLabels, labels)
+          sender.set_string_array(target_str, :setActionStyles, styles)
+          sender.set_uint64_array(target_str, :setActionTokens, tokens)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog(
