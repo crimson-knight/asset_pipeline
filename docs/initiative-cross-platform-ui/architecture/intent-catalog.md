@@ -767,7 +767,7 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/action-sheet.md
 - **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:249-275
 - **evidence:** ../handoff/phase-10-d-polish-screenshots/04_actionsheet_share.png
-- **override_path_status:** no-override-yet-tracked-in-backlog (multi-action support beyond binary tracked in B-ACTIONSHEET-MULTI-ACTION; `UI::ActionSheet` is Tier 3 iOS-gated, cross-platform uses `UI::ActionSheetWithWebFallback`)
+- **override_path_status:** public-knobs (multi-action support shipped in Phase 10D-polish iter 2 — `B-ACTIONSHEET-MULTI-ACTION` resolved; ConfirmationDialogOverrides now carries actionLabels/actionStyles/actionTokens arrays. `UI::ActionSheet` is Tier 3 iOS-gated; cross-platform uses `UI::ActionSheetWithWebFallback`.)
 
 ### `:presentation_detents`
 
