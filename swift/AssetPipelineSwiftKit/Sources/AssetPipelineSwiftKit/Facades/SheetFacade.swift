@@ -57,6 +57,15 @@ public class SheetFacade: NSObject {
     ) -> APSKPlatformView {
         let initialPresented = overrides.isPresented?.boolValue ?? false
         let state = APSKSheetState(isPresented: initialPresented)
+        // Phase 12.A — emit present marker if sheet starts already-presented.
+        if initialPresented {
+            InteractionContracts.emit(
+                widget: "Sheet",
+                event: "present",
+                viewID: overrides.accessibilityIdentifier,
+                kv: ["initial": "true"]
+            )
+        }
 
         if let outState = outState {
             outState.pointee = Unmanaged.passRetained(state).toOpaque()
@@ -149,11 +158,24 @@ private struct SheetHost: View {
             Color.clear
                 .frame(width: 1, height: 1)
                 .sheet(isPresented: $state.isPresented, onDismiss: {
+                    // Phase 12.A — interaction-contracts markers.
+                    InteractionContracts.emit(
+                        widget: "Sheet",
+                        event: "dismiss-token-fire",
+                        viewID: overrides.accessibilityIdentifier,
+                        kv: ["token": String(dismissToken)]
+                    )
                     // Always fire the dismiss-token callback. Crystal-side
                     // explicit-flag (DismissProbe.handle_dismiss) decides
                     // whether to record "swipe" or honour a previously
                     // marked explicit reason.
                     CallbackBridge.fire(token: dismissToken, value: 0.0)
+                    InteractionContracts.emit(
+                        widget: "Sheet",
+                        event: "platform-dismissed",
+                        viewID: overrides.accessibilityIdentifier,
+                        kv: [:]
+                    )
                 }) {
                     // Phase 5 v2: apply .presentationBackground(Material)
                     // (iOS 16.4+ / macOS 13.3+) inside the sheet body so

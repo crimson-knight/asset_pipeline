@@ -17,6 +17,17 @@ public class PopoverFacade: NSObject {
     ) -> APSKPlatformView {
         let isPresented = overrides.isPresented?.boolValue ?? false
         let storage = BoolStorage(initial: isPresented, token: dismissToken)
+        // Phase 12.A — interaction-contracts marker tag.
+        storage.markerWidget = "Popover"
+        storage.viewID = overrides.accessibilityIdentifier
+        if isPresented {
+            InteractionContracts.emit(
+                widget: "Popover",
+                event: "present",
+                viewID: storage.viewID,
+                kv: ["initial": "true"]
+            )
+        }
 
         let body: AnyView
         if let first = childViews.first {
