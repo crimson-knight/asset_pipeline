@@ -3,6 +3,10 @@
 
 require "./native_handle"
 require "./callback_registry"
+{% if flag?(:macos) || flag?(:ios) %}
+  require "./swiftkit_bridge"
+  require "./interaction_contracts"
+{% end %}
 
 module UI
   # A rendered native view tree node wrapping a platform-specific handle.
@@ -187,6 +191,92 @@ module UI
     # Returns `true` if the view has been torn down.
     def torn_down? : Bool
       @state.torn_down?
+    end
+
+    # Phase 12.C — depth-first walk that yields every NativeHandle in
+    # this subtree carrying a non-nil `reactive_kind`. Used by the
+    # renderer-side cross-render sweep
+    # (`UIKit::Renderer.dismiss_reactive_presentations!`) to flip the
+    # bindings of modal presentations BEFORE the next render's tree
+    # swap so SwiftUI sees `cause=binding-dismiss` instead of
+    # `cause=tree-removal` (see presentation-lifecycle-contract.md C1).
+    #
+    # Torn-down views yield nothing — their handles are already
+    # released and dispatching through them would crash.
+    def walk_reactive_handles(& : NativeHandle ->) : Nil
+      collect_reactive_handles.each { |h| yield h }
+    end
+
+    # Iterative depth-first collector — Crystal forbids recursive
+    # yields (the block would inline indefinitely), so we materialise
+    # the handles into an array first.
+    protected def collect_reactive_handles : Array(NativeHandle)
+      result = [] of NativeHandle
+      stack = [self]
+      until stack.empty?
+        node = stack.pop
+        next if node.state.torn_down?
+        h = node.handle
+        result << h if h.reactive_kind && !h.released?
+        node.children.reverse_each { |c| stack << c }
+      end
+      result
+    end
+
+    # Phase 12.C — cross-render reactive-presentation sweep (Path A
+    # of the V1 lifecycle fix).
+    #
+    # Hosts that hold a `NativeView` across re-render calls (the
+    # Voyager iOS bridge's `@@last_native`, the macOS host's
+    # `@@active_native`) MUST call this BEFORE installing the NEW
+    # render's tree. The sweep walks the prior tree depth-first and,
+    # for every handle tagged `reactive_kind == :sheet`, flips the
+    # SwiftUI binding to `false` via `apsk_sheet_set_presented`.
+    #
+    # Why this exists:
+    #   When a controller dispatches a Rerender, the entire view tree
+    #   is rebuilt. Without this sweep, the OLD UIHostingView /
+    #   NSHostingView carrying a presented sheet gets discarded by
+    #   the host's tree swap WHILE `state.isPresented` is still
+    #   `true` — SwiftUI fires `.onDisappear` with
+    #   `cause=tree-removal` and the user sees the sheet
+    #   appear-then-disappear (V1).
+    #
+    #   By flipping the binding first, SwiftUI's `.onDisappear`
+    #   fires with `cause=binding-dismiss`. The animation reads as
+    #   an intentional dismissal, and the Sheet's APIC markers fire
+    #   in the correct order (`binding-write-false` before
+    #   `host-disappeared`).
+    #
+    # Idempotent: tearing down an already-dismissed handle is a
+    # SwiftUI no-op. Safe with a `nil` prior tree (first-render).
+    #
+    # Currently sweeps only `:sheet` handles. Extend the case as
+    # Popover / ConfirmationDialog / Alert migrate to the reactive-
+    # state pattern.
+    def self.dismiss_reactive_presentations!(prior : NativeView?) : Nil
+      return if prior.nil?
+      {% if flag?(:macos) || flag?(:ios) %}
+        prior.walk_reactive_handles do |handle|
+          state_ptr = handle.state_handle
+          next if state_ptr.nil?
+          case handle.reactive_kind
+          when :sheet
+            LibSwiftKitBridge.apsk_sheet_set_presented(state_ptr, 0)
+            UI::InteractionContracts.emit_for(
+              "Sheet",
+              "programmatic-dismiss-on-rerender",
+              handle.label,
+              reason: "cross-render-sweep",
+            )
+          else
+            # Unknown reactive_kind — silently skip; future
+            # presentations (Popover / Alert / ConfirmationDialog)
+            # extend the case above.
+          end
+        end
+      {% end %}
+      nil
     end
 
     private def check_not_torn_down! : Nil

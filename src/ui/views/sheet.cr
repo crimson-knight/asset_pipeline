@@ -4,6 +4,7 @@
 require "../view"
 {% if flag?(:macos) || flag?(:ios) %}
   require "../native/swiftkit_bridge"
+  require "../native/interaction_contracts"
 {% end %}
 
 # Top-level namespace for the asset_pipeline cross-platform UI system.
@@ -32,6 +33,30 @@ module UI
         end
       {% end %}
       new_value
+    end
+
+    # Phase 12.C — explicit dismissal API (Path B of the V1 lifecycle
+    # fix). Flips the SwiftUI binding to `false` and emits an APIC
+    # `programmatic-dismiss` marker so the interaction-contracts
+    # harness can distinguish controller-driven dismissals from
+    # binding-driven (user gesture) and tree-removal teardowns.
+    #
+    # Prefer `dismiss!` over `is_presented = false` when a controller
+    # intentionally closes a sheet (vs. when state-clearing for an
+    # unrelated reason happens to remove the sheet from the next
+    # render). Path A handles the latter automatically via the
+    # renderer-side cross-render sweep.
+    def dismiss! : Nil
+      self.is_presented = false
+      {% if flag?(:macos) || flag?(:ios) %}
+        UI::InteractionContracts.emit_for(
+          "Sheet",
+          "programmatic-dismiss",
+          accessibility_label,
+          reason: "explicit-dismiss",
+        )
+      {% end %}
+      nil
     end
 
     # Boolean toggle.

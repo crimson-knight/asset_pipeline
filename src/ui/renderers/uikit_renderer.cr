@@ -271,6 +271,18 @@
         result
       end
 
+      # Phase 12.C — cross-render reactive-presentation sweep (Path A
+      # of the V1 lifecycle fix). See
+      # `UI::NativeView.dismiss_reactive_presentations!` for the
+      # canonical implementation. Re-exposed here so existing call sites
+      # that reach for `UIKit::Renderer.dismiss_reactive_presentations!`
+      # continue to work; new callers should prefer the NativeView class
+      # method directly (it is platform-agnostic — same call works on
+      # macOS).
+      def self.dismiss_reactive_presentations!(prior : NativeView?) : Nil
+        NativeView.dismiss_reactive_presentations!(prior)
+      end
+
       # -----------------------------------------------------------------
       # Visit: Label -> UILabel
       # -----------------------------------------------------------------
@@ -1894,6 +1906,11 @@
         handle = ObjC.owned(ptr, label: "UIHostingView[Sheet]")
         unless state_slot.null?
           handle.state_handle = state_slot
+          # Phase 12.C — tag this handle so the cross-render sweep in
+          # `UIKit::Renderer.dismiss_reactive_presentations!` can route
+          # it through `apsk_sheet_set_presented` before the next render
+          # discards the underlying UIView (C1 invariant).
+          handle.reactive_kind = :sheet
           view.swiftkit_state_handle = state_slot
         end
         native = NativeView.new(handle)

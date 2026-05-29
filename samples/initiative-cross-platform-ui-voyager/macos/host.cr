@@ -78,6 +78,14 @@ require "../../../src/ui/renderers/appkit_renderer"
     @@is_capture_path : Bool = false
 
     def self.install_view(view : UI::View) : Nil
+      # Phase 12.C — cross-render reactive-presentation sweep (Path A,
+      # V1 fix). Before swapping the window's contentView (which tears
+      # down the prior NSHostingView tree), flip every prior reactive
+      # sheet's binding to `false` so SwiftUI sees `cause=binding-dismiss`
+      # instead of `cause=tree-removal`. Idempotent on first render
+      # (@@active_native is nil).
+      UI::NativeView.dismiss_reactive_presentations!(@@active_native)
+
       renderer = @@renderer.not_nil!
       native = renderer.render(view)
       @@active_native = native
