@@ -99,8 +99,18 @@ final class ShareActionSheetTests: XCTestCase {
     /// native UIAlertController. Re-enable this test when the action sheet
     /// renders as a proper bottom sheet with Cancel.
     func testShareActionSheetCancelDismisses() throws {
-        throw XCTSkip("Known open issue: iOS action sheet presents as a popover " +
-            "and drops the Cancel button. See project_voyager_action_sheet_popover.")
+        throw XCTSkip("Known open issue: the iOS action sheet presents as a " +
+            "regular-width popover (which hides the cancel-role button) because " +
+            "the embedded-host trait context reports regular width. Three fixes " +
+            "were tried and did NOT defeat the adaptation: (1) SwiftUI " +
+            ".environment(\\.horizontalSizeClass, .compact); (2) UIKit " +
+            "traitOverrides.horizontalSizeClass = .compact on the hosted view; " +
+            "(3) native UIAlertController(.actionSheet) presented from the key " +
+            "window's top controller. The sheet is still functional (opens, " +
+            "stays, actions fire, tap-outside dismisses); only the explicit " +
+            "Cancel button + bottom-sheet styling are missing. Next lead: " +
+            "instrument why the window root reports regular width. See " +
+            "project_voyager_action_sheet_popover.")
         let app = launchTodos()
         swipeFirstRowAndTapShare(app)
 
