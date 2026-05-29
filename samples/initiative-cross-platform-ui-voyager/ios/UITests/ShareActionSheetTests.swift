@@ -99,17 +99,20 @@ final class ShareActionSheetTests: XCTestCase {
     /// native UIAlertController. Re-enable this test when the action sheet
     /// renders as a proper bottom sheet with Cancel.
     func testShareActionSheetCancelDismisses() throws {
-        throw XCTSkip("Known open issue: the iOS action sheet presents as a " +
-            "regular-width popover (which hides the cancel-role button) because " +
-            "the embedded-host trait context reports regular width. Three fixes " +
-            "were tried and did NOT defeat the adaptation: (1) SwiftUI " +
-            ".environment(\\.horizontalSizeClass, .compact); (2) UIKit " +
-            "traitOverrides.horizontalSizeClass = .compact on the hosted view; " +
-            "(3) native UIAlertController(.actionSheet) presented from the key " +
-            "window's top controller. The sheet is still functional (opens, " +
-            "stays, actions fire, tap-outside dismisses); only the explicit " +
-            "Cancel button + bottom-sheet styling are missing. Next lead: " +
-            "instrument why the window root reports regular width. See " +
+        throw XCTSkip("Known open issue — the iOS action sheet renders without a " +
+            "visible Cancel button. Instrumentation (2026-05-29) CONFIRMED the " +
+            "presenting context is correct: key-window root VC is compact / phone " +
+            "/ full-screen (hSizeClass=1, idiom=0, 402x874). FOUR fixes failed to " +
+            "produce a Cancel: SwiftUI .environment(hSizeClass), UIKit " +
+            "traitOverrides, and a native UIAlertController(.actionSheet) presented " +
+            "from BOTH the window's top VC and its compact root VC. Even from a " +
+            "verified-compact UIHostingController the .actionSheet renders as a " +
+            "centered card with the actions but no Cancel — an iOS 26 presentation " +
+            "behavior. The sheet IS functional (opens, stays per V1, actions fire, " +
+            "tap-outside dismisses). Robust fix = render the action sheet as a " +
+            "custom bottom sheet built from the working UI::Sheet primitives " +
+            "(full control over the Cancel button) rather than relying on " +
+            "UIAlertController/.confirmationDialog adaptation. See " +
             "project_voyager_action_sheet_popover.")
         let app = launchTodos()
         swipeFirstRowAndTapShare(app)
