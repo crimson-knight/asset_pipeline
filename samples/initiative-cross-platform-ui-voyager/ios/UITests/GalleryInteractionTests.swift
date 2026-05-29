@@ -112,6 +112,37 @@ final class GalleryInteractionTests: XCTestCase {
             "TextField did not accept typed input.")
     }
 
+    /// A Slider drag must update the shared readout (Float64 callback path).
+    func testSliderUpdatesReadout() throws {
+        let app = launchGallery()
+        let slider = app.sliders["voyager-gallery-slider"]
+        scrollToHittable(app, slider)
+        XCTAssertTrue(slider.isHittable, "Slider not reachable.")
+        slider.adjust(toNormalizedSliderPosition: 0.1)
+        // Value is imprecise; assert the readout now reports a Slider event.
+        let readout = app.staticTexts.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "Last interaction: Slider")
+        ).firstMatch
+        XCTAssertTrue(readout.waitForExistence(timeout: 4),
+            "Dragging the Slider did not update the readout (Float64 callback path).")
+    }
+
+    /// A Stepper increment must update the shared readout (Float64 path).
+    func testStepperUpdatesReadout() throws {
+        let app = launchGallery()
+        let stepper = app.steppers["voyager-gallery-stepper"]
+        scrollToHittable(app, stepper)
+        XCTAssertTrue(stepper.isHittable, "Stepper not reachable.")
+        // SwiftUI Stepper exposes Increment/Decrement child buttons.
+        let inc = stepper.buttons["Increment"]
+        if inc.exists { inc.tap() } else { stepper.buttons.element(boundBy: 1).tap() }
+        let readout = app.staticTexts.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "Last interaction: Stepper")
+        ).firstMatch
+        XCTAssertTrue(readout.waitForExistence(timeout: 4),
+            "Incrementing the Stepper did not update the readout (Float64 path).")
+    }
+
     /// Selecting a segment must update the "Mode:" readout.
     func testSegmentedControlUpdatesMode() throws {
         let app = launchGallery()
