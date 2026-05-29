@@ -95,6 +95,14 @@ module Voyager
         "More Controls & Display",
         "TimePicker sets a time; DisclosureGroup expands/collapses; RichText composes styled runs; PageControl shows paged position.",
         content_width, more_section(content_width))
+      root << section(
+        "Layout",
+        "Structure primitives. ZStack overlays children; Grid arranges cells in rows and columns.",
+        content_width, layout_section(content_width))
+      root << section(
+        "Data & Indicators",
+        "Visualize values. ChartView plots a series; ActivityRings shows ring progress; Snackbar is a transient status bar.",
+        content_width, data_section(content_width))
 
       back = UI::Button.new("Back")
       back.role = :secondary
@@ -489,6 +497,83 @@ module Voyager
       end
 
       [captioned("Image (system symbols)", row.as(UI::View))]
+    end
+
+    private def layout_section(width : Float64) : Array(UI::View)
+      out = [] of UI::View
+
+      # ZStack — a label overlaid on a filled rounded rectangle.
+      z = UI::ZStack.new(alignment: UI::Alignment::Center)
+      z_bg = UI::RoundedRectangle.new(corner_radius: 12.0, width: 220.0, height: 72.0)
+      z_bg.fill_color = UI::Color.new(r: 0.0, g: 0.478, b: 1.0)
+      size_shape(z_bg, 220.0, 72.0)
+      z << z_bg.as(UI::View)
+      z_label = UI::Label.new("ZStack overlay")
+      z_label.font = UI::Font.new(size: 15.0, weight: :semibold)
+      z_label.text_color_role = UI::LabelRole::Primary
+      z << z_label.as(UI::View)
+      z.accessibility_label = "Z stack sample"
+      z.test_id = "voyager-gallery-zstack"
+      out << captioned("ZStack (overlay)", z.as(UI::View))
+
+      # Grid — 2 columns x 2 rows of labels.
+      grid = UI::Grid.new(columns: [UI::Grid::Column.new, UI::Grid::Column.new])
+      grid.row_spacing = 8.0
+      grid.column_spacing = 16.0
+      grid.accessibility_label = "Grid sample"
+      grid.test_id = "voyager-gallery-grid"
+      grid.add_row([grid_cell("Cell A1"), grid_cell("Cell B1")])
+      grid.add_row([grid_cell("Cell A2"), grid_cell("Cell B2")])
+      out << captioned("Grid (2×2)", grid.as(UI::View))
+
+      out
+    end
+
+    private def grid_cell(text : String) : UI::View
+      l = UI::Label.new(text)
+      l.font = UI::Font.new(size: 14.0, weight: :regular)
+      l.text_color_role = UI::LabelRole::Secondary
+      l.as(UI::View)
+    end
+
+    private def data_section(width : Float64) : Array(UI::View)
+      out = [] of UI::View
+
+      chart = UI::ChartView.new
+      chart.chart_type = :bar
+      chart.title = "This week"
+      chart.data_points = [
+        UI::ChartDataPoint.new(label: "Mon", value: 3.0),
+        UI::ChartDataPoint.new(label: "Tue", value: 5.0),
+        UI::ChartDataPoint.new(label: "Wed", value: 2.0),
+        UI::ChartDataPoint.new(label: "Thu", value: 6.0),
+        UI::ChartDataPoint.new(label: "Fri", value: 4.0),
+      ]
+      chart.accessibility_label = "Chart sample"
+      chart.test_id = "voyager-gallery-chart"
+      chart.minimum_width = width
+      chart.maximum_width = width
+      chart.minimum_height = 180.0
+      out << captioned("ChartView (bar)", chart.as(UI::View))
+
+      rings = UI::ActivityRings.new(move: 0.8, exercise: 0.6, stand: 0.45)
+      rings.accessibility_label = "Activity rings sample"
+      rings.test_id = "voyager-gallery-rings"
+      rings.minimum_width = 130.0
+      rings.maximum_width = 130.0
+      rings.minimum_height = 130.0
+      rings.maximum_height = 130.0
+      out << captioned("ActivityRings", rings.as(UI::View))
+
+      snack = UI::Snackbar.new("Todo saved", "Undo")
+      snack.is_presented = true
+      snack.accessibility_label = "Snackbar sample"
+      snack.test_id = "voyager-gallery-snackbar"
+      snack.minimum_width = width
+      snack.maximum_width = width
+      out << captioned("Snackbar", snack.as(UI::View))
+
+      out
     end
 
     private def more_section(width : Float64) : Array(UI::View)

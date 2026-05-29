@@ -54,6 +54,9 @@ final class ComponentGalleryTests: XCTestCase {
             ("other",   "Time picker sample"),
             ("other",   "Disclosure group sample"),
             ("other",   "Page control sample"),
+            ("other",   "Chart sample"),
+            ("other",   "Activity rings sample"),
+            ("other",   "Snackbar sample"),
         ]
 
         var missing: [String] = []
