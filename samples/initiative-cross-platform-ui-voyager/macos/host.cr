@@ -78,15 +78,36 @@ require "../../../src/ui/renderers/appkit_renderer"
     @@is_capture_path : Bool = false
 
     def self.install_view(view : UI::View) : Nil
-      renderer = @@renderer.not_nil!
+      # Phase 12.C iter-4 (V1 fix Option A) — macOS doesn't currently
+      # exhibit V1 (no .id()-bump equivalent in the host loop), but we
+      # apply the same architectural pattern so the cross-platform
+      # contract is symmetric. The macOS renderer was already
+      # constructed once at startup, so we rebuild it per-install
+      # with the reuse registry. The prior renderer is dropped; this
+      # is acceptable because UI::Environment / DeviceMetrics installs
+      # are idempotent.
+      reuse_registry = {} of String => UI::NativeView
+      if prior_for_reuse = @@active_native
+        prior_for_reuse.walk_reactive_views do |reactive_view|
+          if id = reactive_view.handle.presentation_identity
+            reuse_registry[id] = reactive_view
+          end
+        end
+      end
+
+      renderer = UI::AppKit::Renderer.new(reuse_registry: reuse_registry)
+      @@renderer = renderer
       native = renderer.render(view)
 
+      # Extract reused NativeViews from prior tree so its GC pass
+      # doesn't double-release shared NativeHandles.
+      if prior_for_detach = @@active_native
+        prior_for_detach.detach_reused!
+      end
+
       # Phase 12.C — identity-aware cross-render presentation sweep
-      # (Path A, V1 fix; C1 invariant per Codex iter-1 BLOCKER 2).
-      # AFTER rendering so we know which identities survive; BEFORE
-      # the contentView swap so binding-flips land before SwiftUI
-      # tears down the old NSHostingViews. Idempotent on first
-      # render (@@active_native is nil).
+      # for ORPHANED handles. After detach, only orphans remain in
+      # the prior tree; the sweep flips their bindings cleanly.
       UI::NativeView.dismiss_reactive_presentations!(@@active_native, fresh: native)
 
       @@active_native = native

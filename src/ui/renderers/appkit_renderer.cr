@@ -186,9 +186,13 @@
       # code that queries it for its own dismiss scheduling.
       property environment : UI::Environment = UI::Environment.default
 
-      def initialize
+      # Phase 12.C iter-4 (V1 fix Option A) — symmetric to UIKit.
+      @reuse_registry : Hash(String, NativeView)?
+
+      def initialize(reuse_registry : Hash(String, NativeView)? = nil)
         @stack = [] of NativeView
         @stack_is_nsstack = [] of Bool
+        @reuse_registry = reuse_registry
         LibObjCBridge.register_crystal_action_dispatcher
 
         # Phase 6.10 Rem 4 (Item 2B/2C) — install the runtime device-
@@ -209,6 +213,25 @@
             vertical_size_class: size_class_from_int(LibObjCBridge.objc_vertical_size_class),
           )
         end
+      end
+
+      # Phase 12.C iter-4 (V1 fix Option A) — AppKit-side reuse check.
+      # Mirrors UIKit::Renderer#try_reuse; lives on its own helper here
+      # because the renderer classes don't share a base beyond
+      # PlatformVisitor and Crystal doesn't let a subclass private
+      # method punch through the visitor abstraction.
+      private def appkit_try_reuse(identity : String?, kind : Symbol) : NativeView?
+        return nil if identity.nil?
+        registry = @reuse_registry
+        return nil if registry.nil?
+        existing = registry[identity]?
+        return nil if existing.nil?
+        return nil if existing.state.torn_down?
+        return nil if existing.handle.released?
+        return nil unless existing.handle.reactive_kind == kind
+        return nil if existing.handle.state_handle.nil?
+        existing.reused = true
+        existing
       end
 
       private def size_class_from_int(value : Int32) : UI::DesignTokens::SizeClass
@@ -1666,6 +1689,16 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Visit: Sheet -> NSVisualEffectView + inner NSStackView (Liquid Glass)
       # -----------------------------------------------------------------
       def visit(view : UI::Sheet)
+        # Phase 12.C iter-4 (V1 fix Option A) — reuse path. See UIKit
+        # renderer for the architectural rationale; the AppKit branch
+        # is symmetric and exists so the same fix applies to macOS
+        # hosts that suffer the equivalent .id()-style discard.
+        identity = view.test_id || view.accessibility_label
+        if @reuse_registry && (existing = appkit_try_reuse(identity, :sheet))
+          push_native(existing)
+          return
+        end
+
         # SwiftUI .sheet(isPresented:) facade. The Sheet's content is
         # rendered detached; the facade hosts a 1pt clear rect that
         # carries the .sheet modifier, presenting the content modally.
@@ -1780,6 +1813,13 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Visit: ConfirmationDialog -> NSAlert
       # -----------------------------------------------------------------
       def visit(view : UI::ConfirmationDialog)
+        # Phase 12.C iter-4 — reuse path.
+        identity = view.test_id || view.accessibility_label
+        if @reuse_registry && (existing = appkit_try_reuse(identity, :confirmation_dialog))
+          push_native(existing)
+          return
+        end
+
         # SwiftUI .confirmationDialog(...) facade.
         overrides_ptr = LibSwiftKitBridge.apsk_confirmation_dialog_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)

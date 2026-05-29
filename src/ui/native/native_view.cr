@@ -221,6 +221,52 @@ module UI
       end
     end
 
+    # Phase 12.C iter-4 (V1 fix Option A) — depth-first walk that yields
+    # every NativeView (not handle) in this subtree with a non-nil
+    # `reactive_kind`. Used by the host bridges to build the reuse
+    # registry passed into the next render's renderer.
+    def walk_reactive_views(& : NativeView ->) : Nil
+      stack = [self]
+      until stack.empty?
+        node = stack.pop
+        next if node.state.torn_down?
+        if (kind = node.handle.reactive_kind) && !node.handle.released?
+          yield node
+        end
+        node.children.reverse_each { |c| stack << c }
+      end
+    end
+
+    # Phase 12.C iter-4 (V1 fix Option A) — marker set by the renderer
+    # when it carries this NativeView into the new render's tree
+    # instead of allocating a fresh one. Read by the bridge after
+    # render to remove the reused NativeView from its prior parent so
+    # the prior tree's GC pass doesn't release the shared NativeHandle.
+    property? reused : Bool = false
+
+    # Phase 12.C iter-4 (V1 fix Option A) — recursively prunes any
+    # descendant whose `reused?` flag is set. Called on the prior
+    # `@@last_native` after the next render completes so the prior tree
+    # holds NO references to NativeViews that the new tree now owns.
+    # When the prior tree's GC/finalize chain fires, it doesn't reach
+    # the reused subtree.
+    def detach_reused! : Nil
+      return if @state.torn_down?
+      @children.reject! do |child|
+        if child.reused?
+          # The NEW tree now owns this NativeView and its descendants;
+          # do NOT recurse into it. Clear the reused flag so the new
+          # tree's own detach pass (next render) doesn't treat it as
+          # already-extracted.
+          child.reused = false
+          true # remove from this parent's children array
+        else
+          child.detach_reused!
+          false
+        end
+      end
+    end
+
     # Phase 12.C — cross-render reactive-presentation sweep (Path A
     # of the V1 lifecycle fix, presentation-lifecycle-contract C1).
     #

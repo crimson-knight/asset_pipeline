@@ -218,11 +218,24 @@
       # for `UIPopoverPresentationController` anchoring.
       @test_id_registry : Hash(String, Void*) = {} of String => Void*
 
-      def initialize
+      # Phase 12.C iter-4 (V1 fix Option A) — when the bridge passes a
+      # reuse registry, the renderer's visit methods for reactive
+      # presentations (Sheet, ConfirmationDialog, ActionSheet) check
+      # for a matching identity. On hit, they return the EXISTING
+      # NativeView verbatim instead of allocating a fresh
+      # UIHostingView + APSKSheetState. This preserves the SwiftUI
+      # .sheet modifier's presentation across Voyager rerenders —
+      # without it, the .id() bump in ContentView.swift forces the
+      # parent UIView to be discarded, unmounting the SheetHost and
+      # causing the V1 auto-dismiss.
+      @reuse_registry : Hash(String, NativeView)?
+
+      def initialize(reuse_registry : Hash(String, NativeView)? = nil)
         @stack = [] of NativeView
         @stack_is_uistack = [] of Bool
         @label_preferred_max_layout_width_stack = [] of Float64
         @test_id_registry = {} of String => Void*
+        @reuse_registry = reuse_registry
 
         # Phase 6.10 Rem 4 (Item 2B/2C) — install the runtime device-
         # metrics provider so screens can query `UI::DesignTokens::
@@ -269,6 +282,25 @@
         ensure_swiftkit_runtime!
         view.accept(self)
         result
+      end
+
+      # Phase 12.C iter-4 (V1 fix Option A) — check the reuse registry
+      # for a presentation with the given identity + kind. Returns the
+      # existing NativeView (with `reused = true` flagged) when there's
+      # a hit; nil otherwise. Called from each reactive-presentation
+      # visit method before allocating a fresh UIHostingView.
+      private def try_reuse(identity : String?, kind : Symbol) : NativeView?
+        return nil if identity.nil?
+        registry = @reuse_registry
+        return nil if registry.nil?
+        existing = registry[identity]?
+        return nil if existing.nil?
+        return nil if existing.state.torn_down?
+        return nil if existing.handle.released?
+        return nil unless existing.handle.reactive_kind == kind
+        return nil if existing.handle.state_handle.nil?
+        existing.reused = true
+        existing
       end
 
       # Phase 12.C — cross-render reactive-presentation sweep
@@ -1870,6 +1902,19 @@
       # Visit: Sheet -> UIVisualEffectView + inner UIStackView (Liquid Glass)
       # -----------------------------------------------------------------
       def visit(view : UI::Sheet)
+        # Phase 12.C iter-4 (V1 fix Option A) — REUSE PATH. If the
+        # prior tree had a sheet at this identity, reuse its NativeView
+        # so the SheetHost UIHostingView (and its APSKSheetState +
+        # SwiftUI .sheet modifier presentation) survive the Voyager
+        # rerender. Without this, the .id() bump in ContentView.swift
+        # would discard the parent UIView, unmount the SheetHost, and
+        # SwiftUI would dismiss the modal (V1).
+        identity = view.test_id || view.accessibility_label
+        if existing = try_reuse(identity, :sheet)
+          push_native(existing)
+          return
+        end
+
         overrides_ptr = LibSwiftKitBridge.apsk_sheet_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
         target_str = overrides_ptr.address.to_s(16)
@@ -1993,6 +2038,13 @@
       # Visit: ConfirmationDialog -> UIAlertController (action sheet style)
       # -----------------------------------------------------------------
       def visit(view : UI::ConfirmationDialog)
+        # Phase 12.C iter-4 (V1 fix Option A) — reuse path.
+        identity = view.test_id || view.accessibility_label
+        if existing = try_reuse(identity, :confirmation_dialog)
+          push_native(existing)
+          return
+        end
+
         overrides_ptr = LibSwiftKitBridge.apsk_confirmation_dialog_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
         target_str = overrides_ptr.address.to_s(16)
@@ -4010,6 +4062,13 @@
       # the array; SwiftUI's `.confirmationDialog` pins the role:.cancel
       # button at the bottom automatically.
       def visit(view : UI::ActionSheet)
+        # Phase 12.C iter-4 (V1 fix Option A) — reuse path.
+        identity = view.test_id || view.accessibility_label
+        if existing = try_reuse(identity, :confirmation_dialog)
+          push_native(existing)
+          return
+        end
+
         overrides_ptr = LibSwiftKitBridge.apsk_confirmation_dialog_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
         target_str = overrides_ptr.address.to_s(16)

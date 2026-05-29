@@ -286,6 +286,21 @@
       reg = VoyagerApp.registration_for(coord.current.id)
       screen_class = reg.screen_class
 
+      # Phase 12.C iter-4 (V1 fix Option A) — build the reuse registry
+      # from the prior render's reactive-presentation NativeViews. The
+      # renderer will hand back these EXISTING NativeViews verbatim for
+      # any sheet/dialog whose identity persists in the new tree,
+      # preserving the SwiftUI .sheet modifier's presentation across
+      # the Voyager rerender. Empty on first render (@@last_native nil).
+      reuse_registry = {} of String => UI::NativeView
+      if prior_for_reuse = @@last_native
+        prior_for_reuse.walk_reactive_views do |reactive_view|
+          if id = reactive_view.handle.presentation_identity
+            reuse_registry[id] = reactive_view
+          end
+        end
+      end
+
       # Phase 6.10 Rem 1 — fresh renderer per render call to match
       # Cascade's proven-working pattern. Reusing a single renderer
       # across slug changes produced inverted-order / collapsed-field
@@ -307,7 +322,7 @@
       # The macOS host avoids this by constructing the renderer ONCE
       # at startup; iOS uses a fresh renderer per call but must still
       # honor the install-before-query ordering.
-      renderer = UI::UIKit::Renderer.new
+      renderer = UI::UIKit::Renderer.new(reuse_registry: reuse_registry)
 
       # Defensive guard — not robust unknown-slug handling
       # (route_for_slug already maps unknown slugs to :sign_in).
@@ -351,15 +366,23 @@
 
       native = renderer.render(view)
 
-      # Phase 12.C — identity-aware cross-render presentation sweep
-      # (Path A, V1 fix; C1 invariant compliance per Codex iter-1
-      # BLOCKER 2). Runs AFTER the new render so the sweep knows
-      # which presentation identities survive in the new tree;
-      # surviving handles are spared so an unrelated Rerender
-      # doesn't close an open sheet. Runs BEFORE the return to Swift
-      # so the binding-flip lands before SwiftUI swaps the root
-      # UIView and the OLD UIHostingView's onDisappear fires.
-      # Idempotent on first render (@@last_native is nil).
+      # Phase 12.C iter-4 (V1 fix Option A) — extract reused
+      # NativeViews from the prior tree. Any reactive presentation
+      # whose identity survived into the new render has had its
+      # NativeView returned by the renderer's visit method WITH
+      # `reused = true` set. Detach those from the prior tree so when
+      # `@@last_native` drops out of scope, Crystal's GC pass on the
+      # prior tree does NOT recurse into the surviving NativeViews —
+      # which would double-release the shared NativeHandle.
+      if prior_for_detach = @@last_native
+        prior_for_detach.detach_reused!
+      end
+
+      # Phase 12.C iter-1 — identity-aware cross-render presentation
+      # sweep. Runs AFTER detach so the survivors are out of the prior
+      # tree; the sweep then only flips bindings on ORPHANED handles
+      # (the editor sheet that the user closed, the share sheet that
+      # was completed, etc.). Idempotent on first render.
       UI::NativeView.dismiss_reactive_presentations!(@@last_native, fresh: native)
 
       @@last_native = native

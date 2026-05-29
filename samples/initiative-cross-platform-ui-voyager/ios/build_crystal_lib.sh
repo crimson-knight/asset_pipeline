@@ -95,6 +95,21 @@ if [[ -f "$SWIFTKIT_SRC_LIB" ]]; then
     ok "SwiftKit static library staged at $SWIFTKIT_BUILD_TARGET"
 fi
 
+# Stage the Swift module so `import AssetPipelineSwiftKit` in
+# VoyagerApp.swift resolves under xcodebuild. The .swiftmodule +
+# .swiftdoc + .abi.json live alongside the .a in SPM's build dir;
+# Xcode finds them via SWIFT_INCLUDE_PATHS pointing at
+# $(PROJECT_DIR)/build/Modules (configured in project.yml).
+SWIFTKIT_SRC_MODULE_DIR="$SWIFTKIT_PACKAGE_DIR/.build/$LLVM_TARGET/release/Modules"
+SWIFTKIT_DEST_MODULE_DIR="$BUILD_DIR/Modules"
+if [[ -d "$SWIFTKIT_SRC_MODULE_DIR" ]]; then
+    info "Staging AssetPipelineSwiftKit Swift module..."
+    mkdir -p "$SWIFTKIT_DEST_MODULE_DIR"
+    cp -f "$SWIFTKIT_SRC_MODULE_DIR/"AssetPipelineSwiftKit.* \
+        "$SWIFTKIT_DEST_MODULE_DIR/"
+    ok "Swift module staged at $SWIFTKIT_DEST_MODULE_DIR"
+fi
+
 # Step 3: cross-compile Crystal bridge.
 info "Cross-compiling Crystal bridge..."
 "$CRYSTAL" build "$BRIDGE_SRC" --cross-compile \
