@@ -47,15 +47,18 @@ module UI
     # render). Path A handles the latter automatically via the
     # renderer-side cross-render sweep.
     #
-    # Marker semantics (Codex iter-1 CONCERN 3): emits ONLY when the
-    # sheet was actually mounted (state handle bound) AND was
-    # previously presented. A `dismiss!` on a never-presented sheet
-    # is a no-op — no phantom marker.
+    # Marker semantics (Codex iter-2 CONCERN 3): emits whenever the
+    # sheet is bound to a Swift-side state handle. This is the honest
+    # signal — if Swift state may diverge from Crystal's
+    # `@is_presented` (e.g., a user-driven dismiss already ran but
+    # Crystal hasn't been told yet), calling `dismiss!` still drives
+    # Swift through the binding, so a marker IS observable on Swift's
+    # side. Skipping the marker only when no state handle exists
+    # preserves the "never-mounted = no phantom" guarantee.
     def dismiss! : Nil
-      was_presented = @is_presented
       self.is_presented = false
       {% if flag?(:macos) || flag?(:ios) %}
-        if was_presented && @swiftkit_state_handle
+        if @swiftkit_state_handle
           UI::InteractionContracts.emit_for(
             "Sheet",
             "programmatic-dismiss",

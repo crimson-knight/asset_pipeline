@@ -108,6 +108,46 @@ Therefore:
 
 This is a legitimate Codex BLOCKER 1 correction. The architect's session summary claims that Phase 12.A delivered the harness but did not yet reproduce V1 are now accurate; the spec scaffolding doc-claimed-as-reproducing is corrected here.
 
+### Phase 12.C iter-2 — open lifecycle hazards deferred to 12.D
+
+Codex's antagonist review of Phase 12.C iter-2 (commit `34a87c78`) flagged
+three lifecycle hazards that are real but out of scope for the V1
+auto-dismiss fix. Each is logged here so it lands explicitly on Phase
+12.D's slate:
+
+- **C5 ordering — action-fire vs platform-dismiss completion.**
+  ConfirmationDialog's chosen actions call `CallbackBridge.fire(token, …)`
+  synchronously from the SwiftUI button closure
+  (`swift/.../Facades/ConfirmationDialogFacade.swift` multi-action +
+  binary paths). Voyager controllers clear `pending_*_id` state and
+  return `Rerender` synchronously inside that fire path. C5 says
+  Crystal-side state mutation MUST follow the platform's dismissal
+  COMPLETION callback — today's path mutates state before SwiftUI has
+  finished its `.confirmationDialog` dismiss animation. Fix scope:
+  dispatcher async pattern + iOS completion-handler bridge. Phase 12.D.
+
+- **Dismiss animation not proven complete before tree swap.** The
+  cross-render sweep flips bindings on the main thread (via
+  `apskMainAsync`'s sync fast-path), but SwiftUI's actual dismiss
+  animation continues across runloop ticks. The host's tree swap
+  (`UIViewRepresentable.updateUIView` on iOS,
+  `setContentView:` on macOS) tears the old hosting view down before
+  the animation completes — visually acceptable for V1 (the user
+  WANTS the modal gone) but logged for the completion-handler
+  follow-up.
+
+- **Main-thread invariant documented, not enforced.** The sweep
+  reads mutable NativeHandle fields with the
+  "NativeHandle is not thread-safe" caveat the type itself declares.
+  Today both Voyager hosts enter on main; future off-main hosts
+  would race. Phase 12.D candidate: add a debug-build assertion via
+  `Thread.is_main_thread`.
+
+These are tracked-and-deferred, NOT punted. The V1 auto-dismiss spec
+should pass with the iter-2 sweep + identity logic in place; the
+deferred items are about polish, ordering proofs, and future-host
+safety.
+
 ## Cross-references
 
 - [merge-readiness-gate.md](../merge-readiness-gate.md) — the gate this contract feeds into

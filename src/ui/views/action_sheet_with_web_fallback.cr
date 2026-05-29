@@ -60,6 +60,14 @@ module UI
         @inner.title = @title
         @inner.message = @message
         @inner.is_presented = @is_presented
+        # Phase 12.C iter-2 (Codex BLOCKER 1) — propagate identity onto
+        # the inner ActionSheet so the renderer's `presentation_identity`
+        # capture sees the wrapper's test_id / accessibility_label. Without
+        # this, Voyager's share sheet renders anonymously and the
+        # cross-render sweep cannot identify it as a surviving
+        # presentation across rerenders.
+        @inner.test_id = test_id if test_id
+        @inner.accessibility_label = accessibility_label if accessibility_label
         @inner.accept(visitor)
       end
     {% else %}

@@ -271,16 +271,15 @@
         result
       end
 
-      # Phase 12.C — cross-render reactive-presentation sweep (Path A
-      # of the V1 lifecycle fix). See
-      # `UI::NativeView.dismiss_reactive_presentations!` for the
-      # canonical implementation. Re-exposed here so existing call sites
-      # that reach for `UIKit::Renderer.dismiss_reactive_presentations!`
-      # continue to work; new callers should prefer the NativeView class
-      # method directly (it is platform-agnostic — same call works on
-      # macOS).
-      def self.dismiss_reactive_presentations!(prior : NativeView?) : Nil
-        NativeView.dismiss_reactive_presentations!(prior)
+      # Phase 12.C — cross-render reactive-presentation sweep
+      # delegate. The canonical implementation is
+      # `UI::NativeView.dismiss_reactive_presentations!(prior, fresh)`.
+      # This shim forwards both args so identity-aware skipping
+      # (Codex iter-1 BLOCKER 2) works for callers that still reach
+      # for the renderer class method. New callers should prefer the
+      # NativeView class method directly — it is platform-agnostic.
+      def self.dismiss_reactive_presentations!(prior : NativeView?, fresh : NativeView? = nil) : Nil
+        NativeView.dismiss_reactive_presentations!(prior, fresh: fresh)
       end
 
       # -----------------------------------------------------------------

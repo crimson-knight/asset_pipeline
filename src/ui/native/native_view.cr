@@ -207,7 +207,10 @@ module UI
     # their handles are released — dispatching through them would
     # crash.
     def walk_reactive_handles(& : NativeHandle ->) : Nil
-      return if @state.torn_down?
+      # Per-node `next if node.state.torn_down?` inside the loop covers
+      # both root and descendant torn-down skipping (Codex iter-2
+      # observation: the prior outer `return if @state.torn_down?` was
+      # redundant with this check).
       stack = [self]
       until stack.empty?
         node = stack.pop
@@ -268,9 +271,18 @@ module UI
           state_ptr = handle.state_handle
           next if state_ptr.nil?
           identity = handle.presentation_identity
+          # Codex iter-2 BLOCKER 2 — DEFENSIVE nil-identity policy.
+          # If the handle has no identity, we cannot prove it's an
+          # orphan; sweeping it would violate C1 (Rerender MUST NOT
+          # dismiss a modal without explicit dismissal). Skip it.
+          # Authors who want their sheet to participate in C1
+          # cross-render survival MUST set `test_id` or
+          # `accessibility_label` so the sweep can pair the prior +
+          # fresh handles.
+          next if identity.nil?
           # Skip identities the new tree still presents — those are
           # CONTINUING presentations, not orphans.
-          next if identity && surviving.includes?(identity)
+          next if surviving.includes?(identity)
 
           case handle.reactive_kind
           when :sheet
