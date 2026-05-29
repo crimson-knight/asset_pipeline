@@ -1,0 +1,68 @@
+module Voyager
+  # Module-singleton state for the Component Gallery's live-interaction
+  # section. Holds the observable results of interacting with the demo
+  # widgets so the screen can render a readout that updates on every
+  # dispatch → Rerender cycle — proving the widgets actually FUNCTION,
+  # not just render.
+  #
+  # Nilable-by-default class vars + lazy accessors per the iOS class-init
+  # gap (see `project_crystal_ios_class_init_gap` memory): no class-var
+  # initializer side effects that the iOS embedding would strand.
+  module GalleryState
+    @@tap_count : Int32? = nil
+    @@toggle_on : Bool? = nil
+    @@segment_index : Int32? = nil
+    @@stepper_value : Int32? = nil
+
+    def self.tap_count : Int32
+      @@tap_count ||= 0
+    end
+
+    def self.bump_tap : Int32
+      @@tap_count = tap_count + 1
+    end
+
+    def self.toggle_on : Bool
+      v = @@toggle_on
+      v.nil? ? false : v
+    end
+
+    def self.toggle_on=(value : Bool) : Bool
+      @@toggle_on = value
+    end
+
+    def self.segment_index : Int32
+      @@segment_index ||= 0
+    end
+
+    def self.segment_index=(value : Int32) : Int32
+      @@segment_index = value
+    end
+
+    # NB: deliberately NOT a module constant. Module/class-level Array
+    # constants are initialized via `Crystal.once`, which does NOT run
+    # under the iOS embedding (the class-init gap — see
+    # `project_crystal_ios_class_init_gap` memory), so accessing such a
+    # constant null-derefs on iOS. Returning a fresh array from a method
+    # (runtime allocation) sidesteps the gap entirely.
+    def self.segment_labels : Array(String)
+      ["Day", "Week", "Month"]
+    end
+
+    def self.segment_label : String
+      case segment_index
+      when 1 then "Week"
+      when 2 then "Month"
+      else        "Day"
+      end
+    end
+
+    def self.stepper_value : Int32
+      @@stepper_value ||= 0
+    end
+
+    def self.stepper_value=(value : Int32) : Int32
+      @@stepper_value = value
+    end
+  end
+end

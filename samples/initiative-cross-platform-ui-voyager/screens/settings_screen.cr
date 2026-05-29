@@ -34,6 +34,17 @@ module Voyager
       explainer.font = UI::Font.new(size: 14.0, weight: :regular)
       explainer.text_color_role = UI::LabelRole::Secondary
 
+      # Component Gallery — the "show me the library" catalog. A native
+      # showcase of the asset_pipeline UI widgets. Surfaced prominently
+      # (above the toggle) because demonstrating the component library is
+      # the primary purpose of the Voyager sample.
+      gallery_btn = UI::Button.new("Component Gallery", style: UI::ButtonStyle::Prominent)
+      gallery_btn.accessibility_label = "Open the component gallery"
+      gallery_btn.test_id = "voyager-settings-component-gallery"
+      gallery_btn.minimum_width = content_width
+      gallery_btn.maximum_width = content_width
+      gallery_btn.on_tap = -> { Voyager.dispatch(:open_component_gallery) }
+
       hide_toggle = UI::Toggle.new(label: "Hide completed", is_on: state.hide_completed)
       hide_toggle.accessibility_label = "Hide completed todos"
       hide_toggle.test_id = "voyager-settings-hide-completed"
@@ -79,6 +90,7 @@ module Voyager
 
       root << title.as(UI::View)
       root << explainer.as(UI::View)
+      root << gallery_btn.as(UI::View)
       root << hide_toggle.as(UI::View)
       root << back.as(UI::View)
       root << dev_section_title.as(UI::View)

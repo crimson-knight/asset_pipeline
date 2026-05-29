@@ -14,9 +14,10 @@ module Voyager
   class SettingsController < UI::Controller
     def dispatch_action(name : Symbol, context : UI::ScreenContext::Native) : UI::ActionResult
       case name
-      when :toggle_filter      then toggle_filter(context)
-      when :back               then back(context)
-      when :open_phase_10_hub  then open_phase_10_hub(context)
+      when :toggle_filter          then toggle_filter(context)
+      when :back                   then back(context)
+      when :open_phase_10_hub      then open_phase_10_hub(context)
+      when :open_component_gallery then UI::ActionResult::Navigate.new(:component_gallery)
       else
         raise UI::Controller::UnknownActionError.new(
           "SettingsController has no action :#{name}"

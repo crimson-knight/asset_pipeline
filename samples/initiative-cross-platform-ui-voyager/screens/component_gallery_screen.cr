@@ -1,0 +1,498 @@
+module Voyager
+  # Voyager — Component Gallery screen.
+  #
+  # A single scrollable catalog that demonstrates the asset_pipeline
+  # cross-platform UI widgets rendering NATIVELY on the current device.
+  # This is the "show me the library" surface: each section instantiates
+  # a family of widgets with representative defaults so a developer can
+  # see the real native rendering (Liquid Glass materials, SF Symbols,
+  # system controls) without writing any code.
+  #
+  # Reached via the Settings screen ("Component Gallery") and the
+  # `voyager-component-gallery` slug on the static-site web build.
+  #
+  # Widgets are instantiated for DISPLAY — interactive controls manage
+  # their own SwiftUI local state when tapped; callbacks are intentionally
+  # light so the gallery stays a pure showcase. iOS class-init-gap rules
+  # apply: no Bool#to_s interpolation, no Time.local.
+  class ComponentGalleryScreen < UI::Screen
+    SLUG = "voyager-component-gallery"
+
+    def build(context : UI::ScreenContext) : UI::View
+      context.active_screen_class = self.class
+
+      metrics = UI::DesignTokens::DeviceMetrics.current
+      content_width = metrics.compact_horizontal? ? 340.0 : 480.0
+
+      root = UI::VStack.new(spacing: 22.0)
+      root.root_fill = true
+      root.alignment = UI::Alignment::Leading
+      root.padding = UI::EdgeInsets.new(
+        top: 24.0 + metrics.safe_area_top_pt,
+        trailing: 20.0 + metrics.safe_area_trailing_pt,
+        bottom: 24.0 + metrics.safe_area_bottom_pt,
+        leading: 20.0 + metrics.safe_area_leading_pt,
+      )
+      root.accessibility_label = "Component gallery"
+      root.test_id = "voyager-component-gallery-root"
+
+      title = UI::Label.new("Component Gallery")
+      title.font = UI::Font.new(size: 28.0, weight: :bold)
+      title.text_color_role = UI::LabelRole::Primary
+      title.test_id = "voyager-gallery-title"
+      root << title.as(UI::View)
+
+      subtitle = UI::Label.new("Live native rendering of the asset_pipeline UI widgets on this device. The first section is interactive — try it.")
+      subtitle.font = UI::Font.new(size: 14.0, weight: :regular)
+      subtitle.text_color_role = UI::LabelRole::Secondary
+      root << subtitle.as(UI::View)
+
+      root << section(
+        "Live Interaction — tap to see it work",
+        "These widgets are wired to the controller: each interaction dispatches an action, mutates state, and re-renders. The readout below updates live, proving the widgets function (not just render).",
+        content_width, live_section(content_width))
+      root << section(
+        "Buttons & Actions",
+        "Tappable controls. Prominent is the primary call-to-action; Secondary/Destructive convey role; Icon/Link/Toggle/Menu are specialized button styles.",
+        content_width, buttons_section(content_width))
+      root << section(
+        "Selection Controls",
+        "Pick one or more values. Toggle/Checkbox are binary; SegmentedControl/RadioGroup/Picker choose one option from a set.",
+        content_width, selection_section(content_width))
+      root << section(
+        "Value Inputs",
+        "Adjust a continuous or bounded value. Slider/Stepper set numbers; DatePicker/ColorPicker pick a date or color.",
+        content_width, value_section(content_width))
+      root << section(
+        "Text Entry",
+        "Capture typed input. TextField is single-line; SecureField masks; SearchField adds search affordances; TextArea is multi-line.",
+        content_width, text_section(content_width))
+      root << section(
+        "Feedback & Progress",
+        "Communicate status. ProgressView/ActivityIndicator show ongoing work; RatingIndicator/Gauge display a value.",
+        content_width, feedback_section(content_width))
+      root << section(
+        "Shapes",
+        "Geometric primitives for custom drawing and decoration. Each takes a fill color and explicit size.",
+        content_width, shapes_section)
+      root << section(
+        "Imagery (SF Symbols)",
+        "Image renders asset-catalog images or, as here, Apple SF Symbols by name.",
+        content_width, imagery_section)
+      root << section(
+        "Containers",
+        "Group and elevate content. Card and Surface provide grouped backgrounds with system materials.",
+        content_width, containers_section(content_width))
+
+      back = UI::Button.new("Back")
+      back.role = :secondary
+      back.accessibility_label = "Back"
+      back.test_id = "voyager-gallery-back"
+      back.minimum_width = content_width
+      back.maximum_width = content_width
+      back.on_tap = -> { Voyager.dispatch(:back) }
+      root << back.as(UI::View)
+
+      root.as(UI::View)
+    end
+
+    # ------------------------------------------------------------------
+    # Section chrome — a header label + divider + the widget column,
+    # width-pinned so controls don't stretch past the content rail.
+    # ------------------------------------------------------------------
+    private def section(name : String, description : String, width : Float64, widgets : Array(UI::View)) : UI::View
+      col = UI::VStack.new(spacing: 12.0)
+      col.alignment = UI::Alignment::Leading
+      col.minimum_width = width
+      col.maximum_width = width
+
+      header = UI::Label.new(name)
+      header.font = UI::Font.new(size: 18.0, weight: :semibold)
+      header.text_color_role = UI::LabelRole::Primary
+      col << header.as(UI::View)
+
+      desc = UI::Label.new(description)
+      desc.font = UI::Font.new(size: 12.0, weight: :regular)
+      desc.text_color_role = UI::LabelRole::Secondary
+      col << desc.as(UI::View)
+
+      col << UI::Divider.new(:horizontal).as(UI::View)
+
+      widgets.each { |w| col << w }
+      col.as(UI::View)
+    end
+
+    # Caption + widget, stacked. Gives unlabeled widgets a readable name.
+    private def captioned(caption : String, widget : UI::View) : UI::View
+      box = UI::VStack.new(spacing: 4.0)
+      box.alignment = UI::Alignment::Leading
+      label = UI::Label.new(caption)
+      label.font = UI::Font.new(size: 12.0, weight: :regular)
+      label.text_color_role = UI::LabelRole::Tertiary
+      box << label.as(UI::View)
+      box << widget
+      box.as(UI::View)
+    end
+
+    # ------------------------------------------------------------------
+    # Live, wired widgets — each dispatches an action that mutates
+    # GalleryState and re-renders, so the readout updates on interaction.
+    # This is the proof that the catalog widgets FUNCTION on-device.
+    # ------------------------------------------------------------------
+    private def live_section(width : Float64) : Array(UI::View)
+      out = [] of UI::View
+
+      # Live readout — one label per tracked value, with stable test_ids
+      # so an XCUITest can assert the text changes after interaction.
+      taps = UI::Label.new("Taps: #{GalleryState.tap_count}")
+      taps.font = UI::Font.new(size: 15.0, weight: :semibold)
+      taps.text_color_role = UI::LabelRole::Primary
+      taps.test_id = "voyager-gallery-live-taps"
+      out << taps.as(UI::View)
+
+      toggle_state = UI::Label.new(GalleryState.toggle_on ? "Toggle: ON" : "Toggle: OFF")
+      toggle_state.font = UI::Font.new(size: 15.0, weight: :semibold)
+      toggle_state.text_color_role = UI::LabelRole::Primary
+      toggle_state.test_id = "voyager-gallery-live-toggle-state"
+      out << toggle_state.as(UI::View)
+
+      mode_state = UI::Label.new("Mode: #{GalleryState.segment_label}")
+      mode_state.font = UI::Font.new(size: 15.0, weight: :semibold)
+      mode_state.text_color_role = UI::LabelRole::Primary
+      mode_state.test_id = "voyager-gallery-live-mode-state"
+      out << mode_state.as(UI::View)
+
+      step_state = UI::Label.new("Stepper: #{GalleryState.stepper_value}")
+      step_state.font = UI::Font.new(size: 15.0, weight: :semibold)
+      step_state.text_color_role = UI::LabelRole::Primary
+      step_state.test_id = "voyager-gallery-live-stepper-state"
+      out << step_state.as(UI::View)
+
+      # Wired Button — increments the tap counter.
+      tap_btn = UI::Button.new("Tap me", style: UI::ButtonStyle::Prominent)
+      tap_btn.accessibility_label = "Tap me to increment the counter"
+      tap_btn.test_id = "voyager-gallery-live-tap-button"
+      tap_btn.minimum_width = width
+      tap_btn.maximum_width = width
+      tap_btn.on_tap = -> { Voyager.dispatch(:gallery_tap) }
+      out << tap_btn.as(UI::View)
+
+      # Wired Toggle — flips Toggle: ON/OFF in the readout.
+      live_toggle = UI::Toggle.new(label: "Live toggle", is_on: GalleryState.toggle_on)
+      live_toggle.accessibility_label = "Live toggle"
+      live_toggle.test_id = "voyager-gallery-live-toggle"
+      live_toggle.minimum_width = width
+      live_toggle.maximum_width = width
+      live_toggle.on_change = ->(value : Bool) {
+        Voyager.dispatch(:gallery_toggle, {"on" => value ? "true" : "false"})
+      }
+      out << live_toggle.as(UI::View)
+
+      # Wired SegmentedControl — updates Mode in the readout.
+      live_seg = UI::SegmentedControl.new(segments: GalleryState.segment_labels, selected_index: GalleryState.segment_index)
+      live_seg.accessibility_label = "Live segmented control"
+      live_seg.test_id = "voyager-gallery-live-segmented"
+      live_seg.minimum_width = width
+      live_seg.maximum_width = width
+      live_seg.on_change = ->(index : Int32) {
+        Voyager.dispatch(:gallery_segment, {"index" => index.to_s})
+      }
+      out << captioned("SegmentedControl (wired)", live_seg.as(UI::View))
+
+      # Wired Stepper — updates Stepper value in the readout.
+      live_step = UI::Stepper.new(minimum: 0.0, maximum: 20.0, value: GalleryState.stepper_value.to_f)
+      live_step.accessibility_label = "Live stepper"
+      live_step.test_id = "voyager-gallery-live-stepper"
+      live_step.on_change = ->(value : Float64) {
+        Voyager.dispatch(:gallery_stepper, {"value" => value.to_i.to_s})
+      }
+      out << captioned("Stepper (wired)", live_step.as(UI::View))
+
+      out
+    end
+
+    # ------------------------------------------------------------------
+    private def buttons_section(width : Float64) : Array(UI::View)
+      out = [] of UI::View
+
+      prominent = UI::Button.new("Prominent Button", style: UI::ButtonStyle::Prominent)
+      prominent.accessibility_label = "Prominent button sample"
+      prominent.test_id = "voyager-gallery-button-prominent"
+      prominent.minimum_width = width
+      prominent.maximum_width = width
+      out << prominent.as(UI::View)
+
+      secondary = UI::Button.new("Secondary Button")
+      secondary.role = :secondary
+      secondary.accessibility_label = "Secondary button sample"
+      secondary.test_id = "voyager-gallery-button-secondary"
+      out << secondary.as(UI::View)
+
+      destructive = UI::Button.new("Destructive Button")
+      destructive.role = :destructive
+      destructive.accessibility_label = "Destructive button sample"
+      destructive.test_id = "voyager-gallery-button-destructive"
+      out << destructive.as(UI::View)
+
+      row = UI::HStack.new(spacing: 16.0)
+      row.alignment = UI::Alignment::Center
+
+      icon = UI::IconButton.new("square.and.arrow.up")
+      icon.accessibility_label = "Share icon button"
+      icon.test_id = "voyager-gallery-iconbutton"
+      row << icon.as(UI::View)
+
+      link = UI::LinkButton.new("Open Link", "https://example.com")
+      link.accessibility_label = "Link button sample"
+      link.test_id = "voyager-gallery-linkbutton"
+      row << link.as(UI::View)
+
+      toggle_btn = UI::ToggleButton.new("Bookmark", is_selected: true)
+      toggle_btn.accessibility_label = "Toggle button sample"
+      toggle_btn.test_id = "voyager-gallery-togglebutton"
+      row << toggle_btn.as(UI::View)
+      out << row.as(UI::View)
+
+      menu = UI::MenuButton.new("Menu Button")
+      menu.accessibility_label = "Menu button sample"
+      menu.test_id = "voyager-gallery-menubutton"
+      menu.add_item("First action") { nil }
+      menu.add_item("Second action") { nil }
+      menu.add_item("Delete", is_destructive: true) { nil }
+      out << menu.as(UI::View)
+
+      out
+    end
+
+    private def selection_section(width : Float64) : Array(UI::View)
+      out = [] of UI::View
+
+      toggle = UI::Toggle.new(label: "Toggle", is_on: true)
+      toggle.accessibility_label = "Toggle sample"
+      toggle.test_id = "voyager-gallery-toggle"
+      toggle.minimum_width = width
+      toggle.maximum_width = width
+      out << toggle.as(UI::View)
+
+      checkbox = UI::Checkbox.new(label: "Checkbox", is_checked: true)
+      checkbox.accessibility_label = "Checkbox sample"
+      checkbox.test_id = "voyager-gallery-checkbox"
+      out << checkbox.as(UI::View)
+
+      seg = UI::SegmentedControl.new(segments: ["List", "Grid", "Columns"], selected_index: 1)
+      seg.accessibility_label = "Segmented control sample"
+      seg.test_id = "voyager-gallery-segmented"
+      seg.minimum_width = width
+      seg.maximum_width = width
+      out << captioned("SegmentedControl", seg.as(UI::View))
+
+      radio = UI::RadioGroup.new(options: ["Low", "Medium", "High"], selected_index: 0)
+      radio.accessibility_label = "Radio group sample"
+      radio.test_id = "voyager-gallery-radiogroup"
+      out << captioned("RadioGroup", radio.as(UI::View))
+
+      picker = UI::Picker.new(options: ["Red", "Green", "Blue"], selected_index: 2)
+      picker.label = "Color"
+      picker.accessibility_label = "Picker sample"
+      picker.test_id = "voyager-gallery-picker"
+      out << captioned("Picker", picker.as(UI::View))
+
+      out
+    end
+
+    private def value_section(width : Float64) : Array(UI::View)
+      out = [] of UI::View
+
+      slider = UI::Slider.new(minimum: 0.0, maximum: 100.0, value: 65.0)
+      slider.accessibility_label = "Slider sample"
+      slider.test_id = "voyager-gallery-slider"
+      slider.minimum_width = width
+      slider.maximum_width = width
+      out << captioned("Slider", slider.as(UI::View))
+
+      stepper = UI::Stepper.new(minimum: 0.0, maximum: 10.0, value: 3.0)
+      stepper.accessibility_label = "Stepper sample"
+      stepper.test_id = "voyager-gallery-stepper"
+      out << captioned("Stepper", stepper.as(UI::View))
+
+      date = UI::DatePicker.new(UI::DatePickerMode::Date)
+      date.label = "Date"
+      date.style = UI::DatePickerStyle::Compact
+      date.accessibility_label = "Date picker sample"
+      date.test_id = "voyager-gallery-datepicker"
+      date.selected_date = Time.utc
+      out << captioned("DatePicker", date.as(UI::View))
+
+      color = UI::ColorPicker.new
+      color.label = "Accent color"
+      color.accessibility_label = "Color picker sample"
+      color.test_id = "voyager-gallery-colorpicker"
+      out << captioned("ColorPicker", color.as(UI::View))
+
+      out
+    end
+
+    private def text_section(width : Float64) : Array(UI::View)
+      out = [] of UI::View
+
+      field = UI::TextField.new(placeholder: "Text field")
+      field.accessibility_label = "Text field sample"
+      field.test_id = "voyager-gallery-textfield"
+      field.minimum_width = width
+      field.maximum_width = width
+      out << field.as(UI::View)
+
+      secure = UI::SecureField.new(placeholder: "Password")
+      secure.accessibility_label = "Secure field sample"
+      secure.test_id = "voyager-gallery-securefield"
+      secure.minimum_width = width
+      secure.maximum_width = width
+      out << secure.as(UI::View)
+
+      search = UI::SearchField.new(placeholder: "Search")
+      search.accessibility_label = "Search field sample"
+      search.test_id = "voyager-gallery-searchfield"
+      search.minimum_width = width
+      search.maximum_width = width
+      out << search.as(UI::View)
+
+      area = UI::TextArea.new(placeholder: "Multi-line text area")
+      area.accessibility_label = "Text area sample"
+      area.test_id = "voyager-gallery-textarea"
+      area.minimum_width = width
+      area.maximum_width = width
+      area.minimum_height = 80.0
+      out << captioned("TextArea", area.as(UI::View))
+
+      out
+    end
+
+    private def feedback_section(width : Float64) : Array(UI::View)
+      out = [] of UI::View
+
+      bar = UI::ProgressView.new(value: 0.6, style: UI::ProgressStyle::Linear)
+      bar.accessibility_label = "Linear progress sample"
+      bar.minimum_width = width
+      bar.maximum_width = width
+      out << captioned("ProgressView (linear)", bar.as(UI::View))
+
+      spinner_row = UI::HStack.new(spacing: 16.0)
+      spinner_row.alignment = UI::Alignment::Center
+
+      spinner = UI::ProgressView.new(value: nil, style: UI::ProgressStyle::Circular)
+      spinner.accessibility_label = "Circular progress sample"
+      spinner_row << spinner.as(UI::View)
+
+      activity = UI::ActivityIndicator.new(is_animating: true, size: :medium)
+      activity.accessibility_label = "Activity indicator sample"
+      spinner_row << activity.as(UI::View)
+
+      rating = UI::RatingIndicator.new(value: 3.0, max: 5)
+      rating.accessibility_label = "Rating indicator sample"
+      spinner_row << rating.as(UI::View)
+      out << captioned("Spinner · Activity · Rating", spinner_row.as(UI::View))
+
+      gauge = UI::Gauge.new(value: 72.0, minimum_value: 0.0, maximum_value: 100.0, label: "Speed")
+      gauge.accessibility_label = "Gauge sample"
+      gauge.minimum_width = width
+      gauge.maximum_width = width
+      out << captioned("Gauge", gauge.as(UI::View))
+
+      out
+    end
+
+    # Shape primitives render as bare UIViews whose width/height come from
+    # the common min/max sizing properties — the `size`/`width`/`height`
+    # constructor args only drive cornerRadius, NOT the frame. So each
+    # shape MUST be explicitly dimensioned here or it collapses to 0x0 and
+    # renders invisible. Distinct fills make the family legible at a glance.
+    private def shapes_section : Array(UI::View)
+      row = UI::HStack.new(spacing: 16.0)
+      row.alignment = UI::Alignment::Center
+
+      circle = UI::Circle.new(size: 56.0)
+      circle.fill_color = UI::Color.new(r: 0.0, g: 0.478, b: 1.0)
+      size_shape(circle, 56.0, 56.0)
+      circle.accessibility_label = "Circle"
+      row << circle.as(UI::View)
+
+      rect = UI::Rectangle.new(width: 72.0, height: 56.0)
+      rect.fill_color = UI::Color.new(r: 0.20, g: 0.78, b: 0.35)
+      size_shape(rect, 72.0, 56.0)
+      rect.accessibility_label = "Rectangle"
+      row << rect.as(UI::View)
+
+      rounded = UI::RoundedRectangle.new(corner_radius: 12.0, width: 72.0, height: 56.0)
+      rounded.fill_color = UI::Color.new(r: 1.0, g: 0.58, b: 0.0)
+      size_shape(rounded, 72.0, 56.0)
+      rounded.accessibility_label = "Rounded rectangle"
+      row << rounded.as(UI::View)
+
+      capsule = UI::Capsule.new(width: 88.0, height: 40.0)
+      capsule.fill_color = UI::Color.new(r: 0.69, g: 0.32, b: 0.87)
+      size_shape(capsule, 88.0, 40.0)
+      capsule.accessibility_label = "Capsule"
+      row << capsule.as(UI::View)
+
+      [captioned("Circle · Rectangle · RoundedRectangle · Capsule", row.as(UI::View))]
+    end
+
+    private def size_shape(view : UI::View, w : Float64, h : Float64) : Nil
+      view.minimum_width = w
+      view.maximum_width = w
+      view.minimum_height = h
+      view.maximum_height = h
+    end
+
+    private def imagery_section : Array(UI::View)
+      row = UI::HStack.new(spacing: 20.0)
+      row.alignment = UI::Alignment::Center
+
+      ["leaf.fill", "sparkles", "sun.max.fill", "cloud.rain.fill", "star.fill"].each do |symbol|
+        img = UI::Image.new(symbol)
+        img.accessibility_label = "#{symbol} symbol"
+        row << img.as(UI::View)
+      end
+
+      [captioned("Image (system symbols)", row.as(UI::View))]
+    end
+
+    private def containers_section(width : Float64) : Array(UI::View)
+      out = [] of UI::View
+
+      card_body = UI::VStack.new(spacing: 6.0)
+      card_body.alignment = UI::Alignment::Leading
+      card_body.padding = UI::EdgeInsets.new(top: 14.0, trailing: 16.0, bottom: 14.0, leading: 16.0)
+      card_title = UI::Label.new("Card")
+      card_title.font = UI::Font.new(size: 16.0, weight: :semibold)
+      card_title.text_color_role = UI::LabelRole::Primary
+      card_body_text = UI::Label.new("A grouped surface with elevation and rounded corners.")
+      card_body_text.font = UI::Font.new(size: 13.0, weight: :regular)
+      card_body_text.text_color_role = UI::LabelRole::Secondary
+      card_body << card_title.as(UI::View)
+      card_body << card_body_text.as(UI::View)
+
+      card = UI::Card.new(card_body.as(UI::View))
+      card.accessibility_label = "Card sample"
+      card.minimum_width = width
+      card.maximum_width = width
+      out << card.as(UI::View)
+
+      surface_body = UI::VStack.new(spacing: 6.0)
+      surface_body.alignment = UI::Alignment::Leading
+      surface_body.padding = UI::EdgeInsets.new(top: 14.0, trailing: 16.0, bottom: 14.0, leading: 16.0)
+      surface_title = UI::Label.new("Surface")
+      surface_title.font = UI::Font.new(size: 16.0, weight: :semibold)
+      surface_title.text_color_role = UI::LabelRole::Primary
+      surface_body << surface_title.as(UI::View)
+
+      surface = UI::Surface.new(surface_body.as(UI::View))
+      surface.accessibility_label = "Surface sample"
+      surface.minimum_width = width
+      surface.maximum_width = width
+      out << surface.as(UI::View)
+
+      out
+    end
+  end
+end

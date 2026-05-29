@@ -40,6 +40,8 @@ require "./screens/sign_in_screen"
 require "./screens/todos_screen"
 require "./screens/todo_editor_screen"
 require "./screens/settings_screen"
+require "./screens/component_gallery_state"
+require "./screens/component_gallery_screen"
 require "./screens/phase10_hub_screen"
 require "./screens/phase_10/phase_10_exerciser_state"
 require "./screens/phase_10/intent_resolver_screen"
@@ -52,6 +54,7 @@ require "./controllers/sign_in_controller"
 require "./controllers/todos_controller"
 require "./controllers/todo_editor_controller"
 require "./controllers/settings_controller"
+require "./controllers/component_gallery_controller"
 require "./controllers/phase10_hub_controller"
 require "./controllers/phase10_intent_resolver_controller"
 require "./controllers/phase10_class_c_dispatch_controller"
@@ -71,6 +74,7 @@ module Voyager
     "voyager-todos",
     "voyager-todo-editor",
     "voyager-settings",
+    "voyager-component-gallery",
     "voyager-phase-10-hub",
     "voyager-phase-10-intent-resolver",
     "voyager-phase-10-class-c-dispatch",
@@ -171,8 +175,8 @@ module Voyager
   # pre-build a route by name.
   def self.route_for_slug(slug : String) : UI::NavigationCoordinator::Route
     case slug
-    when "voyager-sign-in"                  then UI::NavigationCoordinator::Route.new(:sign_in)
-    when "voyager-todos"                    then UI::NavigationCoordinator::Route.new(:todos)
+    when "voyager-sign-in" then UI::NavigationCoordinator::Route.new(:sign_in)
+    when "voyager-todos"   then UI::NavigationCoordinator::Route.new(:todos)
     when "voyager-todo-editor"
       # Phase 10D-final — capture-mode todo_id seeding. When the screenshot
       # capture flow launches the editor as the root slug, seed the
@@ -184,14 +188,15 @@ module Voyager
         params[:todo_id] = id unless id.empty?
       end
       UI::NavigationCoordinator::Route.new(:todo_editor, params: params)
-    when "voyager-settings"                 then UI::NavigationCoordinator::Route.new(:settings)
-    when "voyager-phase-10-hub"             then UI::NavigationCoordinator::Route.new(:phase_10_hub)
-    when "voyager-phase-10-intent-resolver" then UI::NavigationCoordinator::Route.new(:phase_10_intent_resolver)
+    when "voyager-settings"                  then UI::NavigationCoordinator::Route.new(:settings)
+    when "voyager-component-gallery"         then UI::NavigationCoordinator::Route.new(:component_gallery)
+    when "voyager-phase-10-hub"              then UI::NavigationCoordinator::Route.new(:phase_10_hub)
+    when "voyager-phase-10-intent-resolver"  then UI::NavigationCoordinator::Route.new(:phase_10_intent_resolver)
     when "voyager-phase-10-class-c-dispatch" then UI::NavigationCoordinator::Route.new(:phase_10_class_c_dispatch)
-    when "voyager-phase-10-ax-metadata"     then UI::NavigationCoordinator::Route.new(:phase_10_ax_metadata)
-    when "voyager-phase-10-environment"     then UI::NavigationCoordinator::Route.new(:phase_10_environment)
-    when "voyager-phase-10-new-widgets"     then UI::NavigationCoordinator::Route.new(:phase_10_new_widgets)
-    else                                         UI::NavigationCoordinator::Route.new(:sign_in)
+    when "voyager-phase-10-ax-metadata"      then UI::NavigationCoordinator::Route.new(:phase_10_ax_metadata)
+    when "voyager-phase-10-environment"      then UI::NavigationCoordinator::Route.new(:phase_10_environment)
+    when "voyager-phase-10-new-widgets"      then UI::NavigationCoordinator::Route.new(:phase_10_new_widgets)
+    else                                          UI::NavigationCoordinator::Route.new(:sign_in)
     end
   end
 
@@ -203,6 +208,7 @@ module Voyager
     when :todos                     then "voyager-todos"
     when :todo_editor               then "voyager-todo-editor"
     when :settings                  then "voyager-settings"
+    when :component_gallery         then "voyager-component-gallery"
     when :phase_10_hub              then "voyager-phase-10-hub"
     when :phase_10_intent_resolver  then "voyager-phase-10-intent-resolver"
     when :phase_10_class_c_dispatch then "voyager-phase-10-class-c-dispatch"
@@ -219,17 +225,18 @@ end
 # gap recovery hatch — see src/asset_pipeline/native_app.cr).
 class VoyagerApp < UI::App
   initial_route :sign_in
-  screen :sign_in,                   Voyager::SignInController
-  screen :todos,                     Voyager::TodosController
-  screen :todo_editor,               Voyager::TodoEditorController
-  screen :settings,                  Voyager::SettingsController
+  screen :sign_in, Voyager::SignInController
+  screen :todos, Voyager::TodosController
+  screen :todo_editor, Voyager::TodoEditorController
+  screen :settings, Voyager::SettingsController
+  screen :component_gallery, Voyager::ComponentGalleryController, screen_class: Voyager::ComponentGalleryScreen
   # Phase 10D — exerciser routes. Reachable from the Settings screen
   # via a "Phase 10 Exerciser" entry, or directly via /phase-10 on the
   # static-site web build.
-  screen :phase_10_hub,              Voyager::Phase10HubController,                 screen_class: Voyager::Phase10HubScreen
-  screen :phase_10_intent_resolver,  Voyager::Phase10IntentResolverController,      screen_class: Voyager::IntentResolverScreen
-  screen :phase_10_class_c_dispatch, Voyager::Phase10ClassCDispatchController,      screen_class: Voyager::ClassCDispatchScreen
-  screen :phase_10_ax_metadata,      Voyager::Phase10AxMetadataController,          screen_class: Voyager::AxMetadataScreen
-  screen :phase_10_environment,      Voyager::Phase10EnvironmentReactivityController, screen_class: Voyager::EnvironmentReactivityScreen
-  screen :phase_10_new_widgets,      Voyager::Phase10NewWidgetsController,          screen_class: Voyager::NewWidgetsScreen
+  screen :phase_10_hub, Voyager::Phase10HubController, screen_class: Voyager::Phase10HubScreen
+  screen :phase_10_intent_resolver, Voyager::Phase10IntentResolverController, screen_class: Voyager::IntentResolverScreen
+  screen :phase_10_class_c_dispatch, Voyager::Phase10ClassCDispatchController, screen_class: Voyager::ClassCDispatchScreen
+  screen :phase_10_ax_metadata, Voyager::Phase10AxMetadataController, screen_class: Voyager::AxMetadataScreen
+  screen :phase_10_environment, Voyager::Phase10EnvironmentReactivityController, screen_class: Voyager::EnvironmentReactivityScreen
+  screen :phase_10_new_widgets, Voyager::Phase10NewWidgetsController, screen_class: Voyager::NewWidgetsScreen
 end
