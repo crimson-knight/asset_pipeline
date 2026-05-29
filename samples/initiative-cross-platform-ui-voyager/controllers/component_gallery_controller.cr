@@ -14,6 +14,7 @@ module Voyager
       when :gallery_toggle  then set_toggle(context)
       when :gallery_segment then set_segment(context)
       when :gallery_stepper then set_stepper(context)
+      when :gallery_event   then record_event(context)
       else
         raise UI::Controller::UnknownActionError.new(
           "ComponentGalleryController has no action :#{name}"
@@ -38,6 +39,11 @@ module Voyager
 
     private def set_stepper(context : UI::ScreenContext::Native) : UI::ActionResult
       GalleryState.stepper_value = (context.action_params["value"]? || "0").to_i? || 0
+      UI::ActionResult::Rerender.new
+    end
+
+    private def record_event(context : UI::ScreenContext::Native) : UI::ActionResult
+      GalleryState.last_event = context.action_params["text"]? || "(event)"
       UI::ActionResult::Rerender.new
     end
   end

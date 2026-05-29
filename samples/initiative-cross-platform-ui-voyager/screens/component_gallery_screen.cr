@@ -42,10 +42,18 @@ module Voyager
       title.test_id = "voyager-gallery-title"
       root << title.as(UI::View)
 
-      subtitle = UI::Label.new("Live native rendering of the asset_pipeline UI widgets on this device. The first section is interactive — try it.")
+      subtitle = UI::Label.new("Live native rendering of the asset_pipeline UI widgets on this device. Every interactive widget is wired — interact and watch the readout.")
       subtitle.font = UI::Font.new(size: 14.0, weight: :regular)
       subtitle.text_color_role = UI::LabelRole::Secondary
       root << subtitle.as(UI::View)
+
+      # Shared readout — updates for every wired showcase widget below, so
+      # each one visibly DOES something when you interact with it.
+      last_event = UI::Label.new("Last interaction: #{GalleryState.last_event}")
+      last_event.font = UI::Font.new(size: 14.0, weight: :semibold)
+      last_event.text_color_role = UI::LabelRole::Primary
+      last_event.test_id = "voyager-gallery-last-event"
+      root << last_event.as(UI::View)
 
       root << section(
         "Live Interaction — tap to see it work",
@@ -120,6 +128,13 @@ module Voyager
 
       widgets.each { |w| col << w }
       col.as(UI::View)
+    end
+
+    # Dispatch a one-line interaction event to the shared readout. Every
+    # wired showcase widget calls this so interacting with it produces a
+    # visible result, proving the widget functions.
+    private def emit(text : String) : Nil
+      Voyager.dispatch(:gallery_event, {"text" => text})
     end
 
     # Caption + widget, stacked. Gives unlabeled widgets a readable name.
@@ -220,18 +235,21 @@ module Voyager
       prominent.test_id = "voyager-gallery-button-prominent"
       prominent.minimum_width = width
       prominent.maximum_width = width
+      prominent.on_tap = -> { emit("Prominent Button tapped") }
       out << prominent.as(UI::View)
 
       secondary = UI::Button.new("Secondary Button")
       secondary.role = :secondary
       secondary.accessibility_label = "Secondary button sample"
       secondary.test_id = "voyager-gallery-button-secondary"
+      secondary.on_tap = -> { emit("Secondary Button tapped") }
       out << secondary.as(UI::View)
 
       destructive = UI::Button.new("Destructive Button")
       destructive.role = :destructive
       destructive.accessibility_label = "Destructive button sample"
       destructive.test_id = "voyager-gallery-button-destructive"
+      destructive.on_tap = -> { emit("Destructive Button tapped") }
       out << destructive.as(UI::View)
 
       row = UI::HStack.new(spacing: 16.0)
@@ -240,25 +258,28 @@ module Voyager
       icon = UI::IconButton.new("square.and.arrow.up")
       icon.accessibility_label = "Share icon button"
       icon.test_id = "voyager-gallery-iconbutton"
+      icon.on_tap = -> { emit("IconButton tapped") }
       row << icon.as(UI::View)
 
       link = UI::LinkButton.new("Open Link", "https://example.com")
       link.accessibility_label = "Link button sample"
       link.test_id = "voyager-gallery-linkbutton"
+      link.on_tap = -> { emit("LinkButton tapped") }
       row << link.as(UI::View)
 
       toggle_btn = UI::ToggleButton.new("Bookmark", is_selected: true)
       toggle_btn.accessibility_label = "Toggle button sample"
       toggle_btn.test_id = "voyager-gallery-togglebutton"
+      toggle_btn.on_toggle = ->(on : Bool) { emit(on ? "ToggleButton selected" : "ToggleButton deselected") }
       row << toggle_btn.as(UI::View)
       out << row.as(UI::View)
 
       menu = UI::MenuButton.new("Menu Button")
       menu.accessibility_label = "Menu button sample"
       menu.test_id = "voyager-gallery-menubutton"
-      menu.add_item("First action") { nil }
-      menu.add_item("Second action") { nil }
-      menu.add_item("Delete", is_destructive: true) { nil }
+      menu.add_item("First action") { emit("MenuButton: First action") }
+      menu.add_item("Second action") { emit("MenuButton: Second action") }
+      menu.add_item("Delete", is_destructive: true) { emit("MenuButton: Delete") }
       out << menu.as(UI::View)
 
       out
@@ -272,11 +293,13 @@ module Voyager
       toggle.test_id = "voyager-gallery-toggle"
       toggle.minimum_width = width
       toggle.maximum_width = width
+      toggle.on_change = ->(v : Bool) { emit(v ? "Toggle → on" : "Toggle → off") }
       out << toggle.as(UI::View)
 
       checkbox = UI::Checkbox.new(label: "Checkbox", is_checked: true)
       checkbox.accessibility_label = "Checkbox sample"
       checkbox.test_id = "voyager-gallery-checkbox"
+      checkbox.on_change = ->(v : Bool) { emit(v ? "Checkbox → checked" : "Checkbox → unchecked") }
       out << checkbox.as(UI::View)
 
       seg = UI::SegmentedControl.new(segments: ["List", "Grid", "Columns"], selected_index: 1)
@@ -284,17 +307,20 @@ module Voyager
       seg.test_id = "voyager-gallery-segmented"
       seg.minimum_width = width
       seg.maximum_width = width
+      seg.on_change = ->(i : Int32) { emit("Segmented → index #{i}") }
       out << captioned("SegmentedControl", seg.as(UI::View))
 
       radio = UI::RadioGroup.new(options: ["Low", "Medium", "High"], selected_index: 0)
       radio.accessibility_label = "Radio group sample"
       radio.test_id = "voyager-gallery-radiogroup"
+      radio.on_change = ->(i : Int32) { emit("RadioGroup → index #{i}") }
       out << captioned("RadioGroup", radio.as(UI::View))
 
       picker = UI::Picker.new(options: ["Red", "Green", "Blue"], selected_index: 2)
       picker.label = "Color"
       picker.accessibility_label = "Picker sample"
       picker.test_id = "voyager-gallery-picker"
+      picker.on_change = ->(i : Int32) { emit("Picker → index #{i}") }
       out << captioned("Picker", picker.as(UI::View))
 
       out
@@ -308,11 +334,13 @@ module Voyager
       slider.test_id = "voyager-gallery-slider"
       slider.minimum_width = width
       slider.maximum_width = width
+      slider.on_change = ->(v : Float64) { emit("Slider → #{v.to_i}") }
       out << captioned("Slider", slider.as(UI::View))
 
       stepper = UI::Stepper.new(minimum: 0.0, maximum: 10.0, value: 3.0)
       stepper.accessibility_label = "Stepper sample"
       stepper.test_id = "voyager-gallery-stepper"
+      stepper.on_change = ->(v : Float64) { emit("Stepper → #{v.to_i}") }
       out << captioned("Stepper", stepper.as(UI::View))
 
       date = UI::DatePicker.new(UI::DatePickerMode::Date)
@@ -321,12 +349,14 @@ module Voyager
       date.accessibility_label = "Date picker sample"
       date.test_id = "voyager-gallery-datepicker"
       date.selected_date = Time.utc
+      date.on_change = ->(_t : Time) { emit("DatePicker changed") }
       out << captioned("DatePicker", date.as(UI::View))
 
       color = UI::ColorPicker.new
       color.label = "Accent color"
       color.accessibility_label = "Color picker sample"
       color.test_id = "voyager-gallery-colorpicker"
+      color.on_change = ->(_c : UI::Color) { emit("ColorPicker changed") }
       out << captioned("ColorPicker", color.as(UI::View))
 
       out

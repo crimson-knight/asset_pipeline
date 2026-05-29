@@ -65,6 +65,53 @@ final class GalleryInteractionTests: XCTestCase {
             "The Toggle on_change callback did not fire end-to-end.")
     }
 
+    // Scroll the gallery until `el` is hittable (the showcase widgets are
+    // below the fold).
+    private func scrollToHittable(_ app: XCUIApplication, _ el: XCUIElement, max: Int = 10) {
+        var n = 0
+        while !el.isHittable && n < max {
+            app.swipeUp()
+            n += 1
+        }
+    }
+
+    /// A showcase Button (below the fold) must update the shared readout —
+    /// proves the wiring works for widgets beyond the live section.
+    func testShowcaseButtonUpdatesReadout() throws {
+        let app = launchGallery()
+        let btn = app.buttons["voyager-gallery-button-secondary"]
+        scrollToHittable(app, btn)
+        XCTAssertTrue(btn.isHittable, "Secondary showcase button not reachable.")
+        btn.tap()
+        XCTAssertTrue(app.staticTexts["Last interaction: Secondary Button tapped"].waitForExistence(timeout: 4),
+            "Tapping the showcase Secondary Button did not update the shared readout.")
+    }
+
+    /// A showcase Toggle must update the shared readout.
+    func testShowcaseToggleUpdatesReadout() throws {
+        let app = launchGallery()
+        let toggle = app.switches["voyager-gallery-toggle"]
+        scrollToHittable(app, toggle)
+        XCTAssertTrue(toggle.isHittable, "Showcase toggle not reachable.")
+        toggle.tap()
+        // Starts on (is_on: true) → tapping turns it off.
+        XCTAssertTrue(app.staticTexts["Last interaction: Toggle → off"].waitForExistence(timeout: 4),
+            "Flipping the showcase Toggle did not update the shared readout.")
+    }
+
+    /// A TextField must accept typed input (native SwiftUI behavior, no
+    /// dispatch needed) — the honest "it works" for text entry.
+    func testTextFieldAcceptsInput() throws {
+        let app = launchGallery()
+        let field = app.textFields["voyager-gallery-textfield"]
+        scrollToHittable(app, field)
+        XCTAssertTrue(field.isHittable, "Text field not reachable.")
+        field.tap()
+        field.typeText("hello")
+        XCTAssertEqual(field.value as? String, "hello",
+            "TextField did not accept typed input.")
+    }
+
     /// Selecting a segment must update the "Mode:" readout.
     func testSegmentedControlUpdatesMode() throws {
         let app = launchGallery()

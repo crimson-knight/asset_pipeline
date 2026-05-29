@@ -13,6 +13,19 @@ module Voyager
     @@toggle_on : Bool? = nil
     @@segment_index : Int32? = nil
     @@stepper_value : Int32? = nil
+    @@last_event : String? = nil
+
+    # Shared readout for the showcase sections: the most recent
+    # interaction with any wired widget. Lets every widget demonstrate it
+    # FUNCTIONS (interaction → visible result) without a dedicated label
+    # per widget.
+    def self.last_event : String
+      @@last_event ||= "(interact with any widget below)"
+    end
+
+    def self.last_event=(value : String) : String
+      @@last_event = value
+    end
 
     def self.tap_count : Int32
       @@tap_count ||= 0
