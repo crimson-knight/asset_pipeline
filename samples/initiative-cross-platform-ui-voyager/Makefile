@@ -41,7 +41,15 @@ AP_BRIDGE     := $(SHARD_ROOT)/src/ui/native/objc_bridge.o
 AP_BRIDGE_SRC := $(SHARD_ROOT)/src/ui/native/objc_bridge.m
 
 SWIFTKIT_DIR        := $(SHARD_ROOT)/swift/AssetPipelineSwiftKit
-SWIFTKIT_LIB        := $(SWIFTKIT_DIR)/.build/release/libAssetPipelineSwiftKit.a
+# Reference the arch-specific build product, NOT the shared `.build/release`
+# symlink. SPM repoints `.build/release` to whichever triple was built last,
+# so an iOS build (`swift build --triple arm64-apple-ios-simulator`, see
+# ios/build_crystal_lib.sh) would otherwise leave `.build/release` pointing at
+# iOS objects — and the macOS link then fails with "building for 'macOS' but
+# linking object built for 'iOS-simulator'". Pinning the macOS slice path lets
+# the iOS and macOS targets coexist without clobbering each other. (arm64 host
+# assumed, consistent with the iOS script's arm64-apple-ios-simulator triple.)
+SWIFTKIT_LIB        := $(SWIFTKIT_DIR)/.build/arm64-apple-macosx/release/libAssetPipelineSwiftKit.a
 SWIFTKIT_BRIDGE     := $(SHARD_ROOT)/src/ui/native/swiftkit_bridge.o
 SWIFTKIT_BRIDGE_SRC := $(SHARD_ROOT)/src/ui/native/swiftkit_bridge.m
 
