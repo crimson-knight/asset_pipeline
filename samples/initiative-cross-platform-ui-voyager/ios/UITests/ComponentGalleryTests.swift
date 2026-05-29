@@ -85,7 +85,7 @@ final class ComponentGalleryTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["voyager-gallery-title"].waitForExistence(timeout: 10),
             "Gallery did not mount.")
 
-        for i in 0..<6 {
+        for i in 0..<7 {
             Thread.sleep(forTimeInterval: 0.4)
             let shot = XCUIScreen.main.screenshot()
             let att = XCTAttachment(screenshot: shot)

@@ -514,6 +514,12 @@ module Voyager
       z << z_label.as(UI::View)
       z.accessibility_label = "Z stack sample"
       z.test_id = "voyager-gallery-zstack"
+      # Reserve the ZStack's own height so the following Grid doesn't draw
+      # over it (ZStack overlays its children and has no intrinsic height).
+      z.minimum_height = 72.0
+      z.maximum_height = 72.0
+      z.minimum_width = 220.0
+      z.maximum_width = 220.0
       out << captioned("ZStack (overlay)", z.as(UI::View))
 
       # Grid — 2 columns x 2 rows of labels.
