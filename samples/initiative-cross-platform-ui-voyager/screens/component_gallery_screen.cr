@@ -91,6 +91,10 @@ module Voyager
         "Containers",
         "Group and elevate content. Card and Surface provide grouped backgrounds with system materials.",
         content_width, containers_section(content_width))
+      root << section(
+        "More Controls & Display",
+        "TimePicker sets a time; DisclosureGroup expands/collapses; RichText composes styled runs; PageControl shows paged position.",
+        content_width, more_section(content_width))
 
       back = UI::Button.new("Back")
       back.role = :secondary
@@ -485,6 +489,42 @@ module Voyager
       end
 
       [captioned("Image (system symbols)", row.as(UI::View))]
+    end
+
+    private def more_section(width : Float64) : Array(UI::View)
+      out = [] of UI::View
+
+      time = UI::TimePicker.new(shows_24_hour: false)
+      time.label = "Time"
+      time.accessibility_label = "Time picker sample"
+      time.test_id = "voyager-gallery-timepicker"
+      time.selected_time = Time.utc
+      time.on_change = ->(_t : Time) { emit("TimePicker changed") }
+      out << captioned("TimePicker", time.as(UI::View))
+
+      disc_body = UI::Label.new("Hidden detail revealed by expanding the group.")
+      disc_body.font = UI::Font.new(size: 13.0, weight: :regular)
+      disc_body.text_color_role = UI::LabelRole::Secondary
+      disclosure = UI::DisclosureGroup.new("Disclosure group", expanded: false, content: [disc_body.as(UI::View)])
+      disclosure.accessibility_label = "Disclosure group sample"
+      disclosure.test_id = "voyager-gallery-disclosure"
+      disclosure.minimum_width = width
+      disclosure.maximum_width = width
+      out << disclosure.as(UI::View)
+
+      rich = UI::RichText.new
+      rich.add_span("Rich", bold: true)
+      rich.add_span("Text", italic: true, color: UI::Color.new(r: 0.0, g: 0.478, b: 1.0))
+      rich.add_span(" composes styled runs.")
+      rich.accessibility_label = "Rich text sample"
+      out << captioned("RichText", rich.as(UI::View))
+
+      page = UI::PageControl.new(total: 5, current: 2)
+      page.accessibility_label = "Page control sample"
+      page.test_id = "voyager-gallery-pagecontrol"
+      out << captioned("PageControl", page.as(UI::View))
+
+      out
     end
 
     private def containers_section(width : Float64) : Array(UI::View)
