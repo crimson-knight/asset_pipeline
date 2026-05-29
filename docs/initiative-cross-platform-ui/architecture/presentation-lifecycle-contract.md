@@ -148,6 +148,34 @@ should pass with the iter-2 sweep + identity logic in place; the
 deferred items are about polish, ordering proofs, and future-host
 safety.
 
+### Phase 12.C iter-3 — additional Codex findings (Phase 12.D)
+
+Codex iter-3 (commit `9d681e29` review) gave **READY for UIKit/Voyager
+V1 hand-test**, **NOT READY for cross-platform Phase 12.C** until the
+following land:
+
+- **Popover sweep coverage.** `UIKit::Renderer#visit(UI::Popover)`
+  calls the non-reactive `apsk_make_popover`; the handle never gets
+  `state_handle` / `reactive_kind` / `presentation_identity`. Voyager's
+  overflow popover has `test_id = "voyager-todos-overflow-popover"`
+  but that ID is currently anchor metadata only, NOT sweep identity.
+  V2 (overflow popover buttons crash) is a button-tap-chain bug, NOT
+  a popover lifecycle issue — so this gap does not block V2's fix
+  scope. But a Popover that gets stranded by an unrelated Rerender
+  would still tear down with cause=tree-removal. Phase 12.D: add
+  `apsk_make_popover_reactive` + `apsk_popover_set_presented` Swift +
+  Crystal bridges + tag handles `:popover`.
+
+- **Path B + Path A double-mark.** `UI::Sheet#dismiss!` emits
+  `programmatic-dismiss`; if the next rerender removes the same
+  identity, the sweep then emits `programmatic-dismiss-on-rerender`
+  for the same logical dismissal. Voyager doesn't currently call
+  `dismiss!` directly, so this isn't observable today. Phase 12.D:
+  either suppress the sweep marker for handles that Path B already
+  marked, or document the dedup expectation in the harness.
+
+These two are explicitly downstream of V1's fix scope.
+
 ## Cross-references
 
 - [merge-readiness-gate.md](../merge-readiness-gate.md) — the gate this contract feeds into

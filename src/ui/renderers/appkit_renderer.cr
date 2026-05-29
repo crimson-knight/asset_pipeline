@@ -3990,6 +3990,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         cancel = view.actions.find { |a| a.style == :cancel }
         dialog = UI::ConfirmationDialog.new(view.title, view.message)
         dialog.is_presented = view.is_presented
+        # Phase 12.C iter-3 (Codex BLOCKER) — propagate identity onto the
+        # synthesized dialog so the macOS cross-render sweep can pair the
+        # prior + fresh handles. Without this, the AppKit V1-equivalent
+        # share dialog renders anonymously and falls into the
+        # nil-identity defensive skip — meaning a rerender that should
+        # close it also can't, AND a stale dialog can't be swept either.
+        # Mirrors the iOS path in `ActionSheetWithWebFallback#accept`.
+        dialog.test_id = view.test_id if view.test_id
+        dialog.accessibility_label = view.accessibility_label if view.accessibility_label
         if primary
           dialog.confirm_label = primary.label
           dialog.confirm_style = primary.style == :destructive ? :destructive : :default
