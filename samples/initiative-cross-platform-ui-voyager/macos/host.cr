@@ -78,16 +78,17 @@ require "../../../src/ui/renderers/appkit_renderer"
     @@is_capture_path : Bool = false
 
     def self.install_view(view : UI::View) : Nil
-      # Phase 12.C — cross-render reactive-presentation sweep (Path A,
-      # V1 fix). Before swapping the window's contentView (which tears
-      # down the prior NSHostingView tree), flip every prior reactive
-      # sheet's binding to `false` so SwiftUI sees `cause=binding-dismiss`
-      # instead of `cause=tree-removal`. Idempotent on first render
-      # (@@active_native is nil).
-      UI::NativeView.dismiss_reactive_presentations!(@@active_native)
-
       renderer = @@renderer.not_nil!
       native = renderer.render(view)
+
+      # Phase 12.C — identity-aware cross-render presentation sweep
+      # (Path A, V1 fix; C1 invariant per Codex iter-1 BLOCKER 2).
+      # AFTER rendering so we know which identities survive; BEFORE
+      # the contentView swap so binding-flips land before SwiftUI
+      # tears down the old NSHostingViews. Idempotent on first
+      # render (@@active_native is nil).
+      UI::NativeView.dismiss_reactive_presentations!(@@active_native, fresh: native)
+
       @@active_native = native
       if @@is_capture_path
         LibWindowHelper.objc_install_content_view(@@window_ptr, native.handle.ptr!)

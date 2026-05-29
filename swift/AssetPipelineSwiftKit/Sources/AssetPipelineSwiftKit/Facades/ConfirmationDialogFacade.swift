@@ -9,10 +9,33 @@ import Foundation
 
 @objc(APSKConfirmationDialogFacade)
 public class ConfirmationDialogFacade: NSObject {
+    // Legacy non-reactive entry. Shimmed through the reactive variant
+    // with outState = nil so callers that haven't migrated keep working
+    // (matches the SheetFacade migration pattern).
     @objc public static func makeConfirmationDialog(
         title: String,
         message: String,
         overrides: ConfirmationDialogOverrides
+    ) -> APSKPlatformView {
+        return makeReactiveConfirmationDialog(
+            title: title,
+            message: message,
+            overrides: overrides,
+            outState: nil
+        )
+    }
+
+    // Phase 12.C — reactive entry (Codex iter-1 BLOCKER 1 fix). Returns
+    // a +1 retained `BoolStorage` pointer through `outState` so Crystal
+    // can later flip presentation via
+    // `apsk_confirmation_dialog_set_presented(state, 0)` during the
+    // cross-render sweep. Mirrors the `makeReactiveSheet` pattern in
+    // SheetFacade.
+    @objc public static func makeReactiveConfirmationDialog(
+        title: String,
+        message: String,
+        overrides: ConfirmationDialogOverrides,
+        outState: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
     ) -> APSKPlatformView {
         let isPresented = overrides.isPresented?.boolValue ?? false
         let storage = BoolStorage(initial: isPresented, token: 0)
@@ -31,6 +54,10 @@ public class ConfirmationDialogFacade: NSObject {
                 viewID: storage.viewID,
                 kv: ["initial": "true"]
             )
+        }
+
+        if let outState = outState {
+            outState.pointee = Unmanaged.passRetained(storage).toOpaque()
         }
 
         let confirmLabel = overrides.confirmLabel ?? "Confirm"

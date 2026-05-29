@@ -293,6 +293,30 @@ public func apskSheetSetPresented(
     }
 }
 
+// Phase 12.C — programmatic presentation flip for ConfirmationDialog
+// (Codex iter-1 BLOCKER 1 fix). ConfirmationDialog facades back the
+// SwiftUI `.confirmationDialog(isPresented:)` modifier with a
+// `BoolStorage`. Routing through `setProgrammatically(_:)` (NOT
+// `binding.set`) means:
+//   * `value` updates so SwiftUI's `.confirmationDialog` modifier sees
+//     `isPresented = false` and animates the dismiss.
+//   * APIC markers fire ("platform-dismissed" / "present" on transitions)
+//     so the harness can correlate the binding flip with the host
+//     teardown.
+//   * `CallbackBridge.fire` does NOT fire — Crystal initiated the
+//     mutation; re-firing would double-dispatch. (`binding.set` fires
+//     the callback unconditionally; `setProgrammatically` does not.)
+@_cdecl("apsk_confirmation_dialog_set_presented")
+public func apskConfirmationDialogSetPresented(
+    _ stateHandle: UnsafeMutableRawPointer,
+    _ isPresented: Int32
+) {
+    let state = Unmanaged<BoolStorage>.fromOpaque(stateHandle)
+        .takeUnretainedValue()
+    let newValue = (isPresented != 0)
+    apskMainAsync { state.setProgrammatically(newValue) }
+}
+
 // Release the +1 retain Crystal acquired when the state object was
 // constructed inside the `apsk_make_*` trampoline. Calling this with a
 // NULL pointer is a no-op so Crystal-side `NativeHandle#release!` can

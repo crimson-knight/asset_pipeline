@@ -1907,10 +1907,14 @@
         unless state_slot.null?
           handle.state_handle = state_slot
           # Phase 12.C — tag this handle so the cross-render sweep in
-          # `UIKit::Renderer.dismiss_reactive_presentations!` can route
-          # it through `apsk_sheet_set_presented` before the next render
-          # discards the underlying UIView (C1 invariant).
+          # `NativeView.dismiss_reactive_presentations!` can route it
+          # through `apsk_sheet_set_presented` before the next render
+          # discards the underlying UIView (C1 invariant). The
+          # presentation_identity (test_id, falling back to
+          # accessibility label) gates the sweep — surviving identities
+          # are NOT flipped.
           handle.reactive_kind = :sheet
+          handle.presentation_identity = view.test_id || view.accessibility_label
           view.swiftkit_state_handle = state_slot
         end
         native = NativeView.new(handle)
@@ -2011,10 +2015,22 @@
           )
         end
 
-        ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog(
-          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr,
+        # Phase 12.C — reactive entry (Codex iter-1 BLOCKER 1). Returns the
+        # BoolStorage pointer through state_box so the cross-render sweep
+        # can flip the presentation binding before the next render's tree
+        # swap. Without this, V1 (auto-dismiss-on-rerender) still hits the
+        # ConfirmationDialog share flow.
+        state_slot = Pointer(Void).null.as(Void*)
+        state_box = pointerof(state_slot)
+        ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog_reactive(
+          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr, state_box,
         )
         handle = ObjC.owned(ptr, label: "UIHostingView[ConfirmationDialog]")
+        unless state_slot.null?
+          handle.state_handle = state_slot
+          handle.reactive_kind = :confirmation_dialog
+          handle.presentation_identity = view.test_id || view.accessibility_label
+        end
         native = NativeView.new(handle)
         callback_ids.each { |id| native.track_callback_id(id) }
         push_native(native)
@@ -4029,10 +4045,23 @@
           sender.set_uint64_array(target_str, :setActionTokens, tokens)
         end
 
-        ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog(
-          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr,
+        # Phase 12.C — reactive entry (Codex iter-1 BLOCKER 1). UI::ActionSheet
+        # delegates to the SwiftUI .confirmationDialog modifier on iOS; we
+        # route through the reactive variant so the BoolStorage pointer
+        # lands on the handle and the cross-render sweep can flip it. This
+        # is the primary V1 fix: Voyager's share flow builds an action sheet
+        # whose dismiss previously fired with cause=tree-removal on rerender.
+        state_slot = Pointer(Void).null.as(Void*)
+        state_box = pointerof(state_slot)
+        ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog_reactive(
+          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr, state_box,
         )
         handle = ObjC.owned(ptr, label: "UIHostingView[ActionSheet]")
+        unless state_slot.null?
+          handle.state_handle = state_slot
+          handle.reactive_kind = :confirmation_dialog
+          handle.presentation_identity = view.test_id || view.accessibility_label
+        end
         native = NativeView.new(handle)
         callback_ids.each { |id| native.track_callback_id(id) }
         push_native(native)

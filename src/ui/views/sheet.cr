@@ -46,15 +46,23 @@ module UI
     # unrelated reason happens to remove the sheet from the next
     # render). Path A handles the latter automatically via the
     # renderer-side cross-render sweep.
+    #
+    # Marker semantics (Codex iter-1 CONCERN 3): emits ONLY when the
+    # sheet was actually mounted (state handle bound) AND was
+    # previously presented. A `dismiss!` on a never-presented sheet
+    # is a no-op — no phantom marker.
     def dismiss! : Nil
+      was_presented = @is_presented
       self.is_presented = false
       {% if flag?(:macos) || flag?(:ios) %}
-        UI::InteractionContracts.emit_for(
-          "Sheet",
-          "programmatic-dismiss",
-          accessibility_label,
-          reason: "explicit-dismiss",
-        )
+        if was_presented && @swiftkit_state_handle
+          UI::InteractionContracts.emit_for(
+            "Sheet",
+            "programmatic-dismiss",
+            test_id || accessibility_label,
+            reason: "explicit-dismiss",
+          )
+        end
       {% end %}
       nil
     end

@@ -876,6 +876,24 @@ void *apsk_make_sheet_reactive(const void *child_views, int child_count,
         cls, sel, children, (id)overrides, dismiss_token, out_state);
 }
 
+// Phase 12.C — reactive ConfirmationDialog trampoline (Codex iter-1
+// BLOCKER 1 fix). Writes a +1 retained `BoolStorage` pointer through
+// `out_state` so Crystal can flip presentation via
+// `apsk_confirmation_dialog_set_presented` during the cross-render
+// sweep. Mirrors `apsk_make_sheet_reactive`.
+void *apsk_make_confirmation_dialog_reactive(const char *title,
+                                             const char *message,
+                                             void *overrides,
+                                             void **out_state) {
+    Class cls = objc_getClass("APSKConfirmationDialogFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName(
+        "makeReactiveConfirmationDialogWithTitle:message:overrides:outState:");
+    return ((id (*)(Class, SEL, id, id, id, void **))objc_msgSend)(
+        cls, sel, apsk_nsstring(title),
+        apsk_nsstring(message ? message : ""), (id)overrides, out_state);
+}
+
 // The `apsk_*_set_*` and `apsk_state_release` functions themselves are
 // emitted directly by Swift via `@_cdecl` (see ReactiveState.swift). They
 // are linked symbols on the AssetPipelineSwiftKit static library; Crystal

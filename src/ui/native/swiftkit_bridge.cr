@@ -298,6 +298,17 @@
                                  overrides : Void*, dismiss_token : UInt64,
                                  out_state : Void**) : Void*
 
+    # Phase 12.C — reactive ConfirmationDialog facade entry (Codex iter-1
+    # BLOCKER 1 fix). `out_state` receives a +1 retained `BoolStorage*` so
+    # `NativeView.dismiss_reactive_presentations!` can flip the SwiftUI
+    # `.confirmationDialog(isPresented:)` binding during the cross-render
+    # sweep. Mirrors `apsk_make_sheet_reactive`. The legacy
+    # `apsk_make_confirmation_dialog` remains as a shim that calls this
+    # with `out_state = NULL`.
+    fun apsk_make_confirmation_dialog_reactive(title : UInt8*, message : UInt8*,
+                                               overrides : Void*,
+                                               out_state : Void**) : Void*
+
     # -------------------------------------------------------------------------
     # State mutators. Implemented directly in Swift via `@_cdecl` (see
     # `swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/
@@ -323,6 +334,12 @@
     fun apsk_slider_set_value(state : Void*, value : Float64)
     # Phase 3 Remediation 10 — Sheet presentation mutator.
     fun apsk_sheet_set_presented(state : Void*, is_presented : Int32)
+    # Phase 12.C — ConfirmationDialog presentation mutator (Codex iter-1
+    # BLOCKER 1). Routes through `BoolStorage.setProgrammatically(_:)` on
+    # the Swift side so the SwiftUI `.confirmationDialog` modifier sees
+    # the new value, APIC markers fire, but the CallbackBridge is NOT
+    # invoked (Crystal initiated the mutation).
+    fun apsk_confirmation_dialog_set_presented(state : Void*, is_presented : Int32)
 
     # Drop the +1 retain Swift's `Unmanaged.passRetained` placed on the
     # state object inside the matching `apsk_make_*_reactive` call. Safe

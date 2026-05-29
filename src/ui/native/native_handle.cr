@@ -84,6 +84,19 @@ module UI
     # they are not modal hosts and don't need the cross-render sweep.
     property reactive_kind : Symbol? = nil
 
+    # Phase 12.C — identity key for the cross-render presentation sweep
+    # (C1 compliance). When the renderer emits a reactive presentation
+    # (Sheet, ConfirmationDialog, Popover, Alert), it stores the source
+    # view's `test_id` (or `accessibility_identifier`) here so the sweep
+    # can determine whether the SAME presentation persists in the next
+    # render — in which case it MUST NOT flip the binding.
+    #
+    # Without this, an unrelated Rerender (e.g., a checkbox toggle while
+    # an editor sheet is open) would close every open sheet. With it,
+    # only handles whose identity is absent from (or closed in) the new
+    # tree are swept. See `presentation-lifecycle-contract.md` C1.
+    property presentation_identity : String? = nil
+
     def initialize(@ptr : Void*, @strategy : ReleaseStrategy, @label : String? = nil)
       {% if flag?(:ui_debug) %}
         UI::NativeHandleTracker.register(self)

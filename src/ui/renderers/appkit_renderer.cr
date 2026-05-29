@@ -1706,6 +1706,11 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         unless state_slot.null?
           handle.state_handle = state_slot
           handle.reactive_kind = :sheet
+          # Phase 12.C — identity-aware sweep (C1). presentation_identity
+          # gates `NativeView.dismiss_reactive_presentations!` so
+          # surviving sheets in the next render aren't unconditionally
+          # closed.
+          handle.presentation_identity = view.test_id || view.accessibility_label
           view.swiftkit_state_handle = state_slot
         end
         native = NativeView.new(handle)
@@ -1797,10 +1802,20 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           )
         end
 
-        ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog(
-          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr,
+        # Phase 12.C — reactive entry (Codex iter-1 BLOCKER 1). Returns
+        # BoolStorage pointer through state_box so the cross-render sweep
+        # can flip the binding on macOS rerenders.
+        state_slot = Pointer(Void).null.as(Void*)
+        state_box = pointerof(state_slot)
+        ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog_reactive(
+          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr, state_box,
         )
         handle = ObjC.owned(ptr, label: "NSHostingView[ConfirmationDialog]")
+        unless state_slot.null?
+          handle.state_handle = state_slot
+          handle.reactive_kind = :confirmation_dialog
+          handle.presentation_identity = view.test_id || view.accessibility_label
+        end
         native = NativeView.new(handle)
         callback_ids.each { |id| native.track_callback_id(id) }
         push_native(native)

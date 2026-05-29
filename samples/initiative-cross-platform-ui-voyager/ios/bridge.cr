@@ -286,20 +286,6 @@
       reg = VoyagerApp.registration_for(coord.current.id)
       screen_class = reg.screen_class
 
-      # Phase 12.C — cross-render reactive-presentation sweep (Path A,
-      # V1 fix). Before constructing the new renderer (which will
-      # rebuild the entire tree wholesale and trigger Swift to swap
-      # the root UIView), walk the PRIOR tree and flip every reactive
-      # sheet binding to `false`. Without this, the OLD UIHostingView
-      # carrying a presented sheet gets discarded by Swift's tree swap
-      # while `state.isPresented` is still true — SwiftUI fires
-      # `.onDisappear` with `cause=tree-removal` and the user sees the
-      # sheet appear-then-disappear.
-      #
-      # Idempotent for the first-render case (`@@last_native` is nil)
-      # and for handles whose bindings are already false.
-      UI::NativeView.dismiss_reactive_presentations!(@@last_native)
-
       # Phase 6.10 Rem 1 — fresh renderer per render call to match
       # Cascade's proven-working pattern. Reusing a single renderer
       # across slug changes produced inverted-order / collapsed-field
@@ -364,6 +350,18 @@
       view.test_id = "voyager-root-#{current_slug}" if view.test_id.to_s.empty?
 
       native = renderer.render(view)
+
+      # Phase 12.C — identity-aware cross-render presentation sweep
+      # (Path A, V1 fix; C1 invariant compliance per Codex iter-1
+      # BLOCKER 2). Runs AFTER the new render so the sweep knows
+      # which presentation identities survive in the new tree;
+      # surviving handles are spared so an unrelated Rerender
+      # doesn't close an open sheet. Runs BEFORE the return to Swift
+      # so the binding-flip lands before SwiftUI swaps the root
+      # UIView and the OLD UIHostingView's onDisappear fires.
+      # Idempotent on first render (@@last_native is nil).
+      UI::NativeView.dismiss_reactive_presentations!(@@last_native, fresh: native)
+
       @@last_native = native
       native
     end
