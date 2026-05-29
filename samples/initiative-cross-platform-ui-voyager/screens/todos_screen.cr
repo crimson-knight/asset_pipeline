@@ -270,26 +270,68 @@ module Voyager
         root << alert.as(UI::View)
       end
 
-      # Phase 10D-polish B2 — ActionSheet (share menu). Render when
-      # `pending_share_todo_id` is set. Options: Copy / Print / Cancel.
-      # UI::ActionSheet is iOS-gated (Tier 3) — we use the with-fallback
-      # wrapper so non-iOS builds still compile.
+      # Share menu — rendered as a real bottom UI::Sheet (the same proven
+      # presentation the editor sheet uses) with explicit action buttons,
+      # NOT a system action sheet. iOS 26 renders UIAlertController/
+      # SwiftUI `.confirmationDialog` action sheets as a floating card that
+      # does not surface a tappable Cancel in this embedded-host context
+      # (verified: presenting VC is compact/phone yet no Cancel — see the
+      # project_voyager_action_sheet_popover note). Building the buttons
+      # ourselves inside a Sheet gives full control: a guaranteed
+      # bottom-sheet presentation AND a real, tappable, AX-discoverable
+      # Cancel button. Each button dispatches the same action the old
+      # ActionSheet did.
       if share_id = state.pending_share_todo_id
         target = state.find_todo(share_id)
         sheet_title = target ? "Share \"#{target.title}\"" : "Share todo"
-        share_sheet = UI::ActionSheetWithWebFallback.new(sheet_title, "Choose how to share this todo.")
-        share_sheet.add_action("Copy to Clipboard") {
-          Voyager.dispatch(:copy_pending_share)
-          nil
-        }
-        share_sheet.add_action("Print This Todo") {
-          Voyager.dispatch(:print_pending_share)
-          nil
-        }
-        share_sheet.add_action("Cancel", :cancel) {
-          Voyager.dispatch(:cancel_pending)
-          nil
-        }
+        share_width = metrics.compact_horizontal? ? 320.0 : 460.0
+
+        share_body = UI::VStack.new(spacing: 12.0)
+        share_body.alignment = UI::Alignment::Leading
+        share_body.padding = UI::EdgeInsets.new(top: 20.0, trailing: 20.0, bottom: 20.0, leading: 20.0)
+        share_body.minimum_width = share_width
+        share_body.test_id = "voyager-todos-share-sheet-body"
+
+        share_heading = UI::Label.new(sheet_title)
+        share_heading.font = UI::Font.new(size: 20.0, weight: :bold)
+        share_heading.text_color_role = UI::LabelRole::Primary
+        share_body << share_heading.as(UI::View)
+
+        share_subtitle = UI::Label.new("Choose how to share this todo.")
+        share_subtitle.font = UI::Font.new(size: 13.0, weight: :regular)
+        share_subtitle.text_color_role = UI::LabelRole::Secondary
+        share_body << share_subtitle.as(UI::View)
+
+        copy_btn = UI::Button.new("Copy to Clipboard", style: UI::ButtonStyle::Prominent)
+        copy_btn.accessibility_label = "Copy to Clipboard"
+        copy_btn.test_id = "voyager-share-copy"
+        copy_btn.minimum_width = share_width
+        copy_btn.maximum_width = share_width
+        copy_btn.on_tap = -> { Voyager.dispatch(:copy_pending_share) }
+        share_body << copy_btn.as(UI::View)
+
+        print_btn = UI::Button.new("Print This Todo")
+        print_btn.role = :secondary
+        print_btn.accessibility_label = "Print This Todo"
+        print_btn.test_id = "voyager-share-print"
+        print_btn.minimum_width = share_width
+        print_btn.maximum_width = share_width
+        print_btn.on_tap = -> { Voyager.dispatch(:print_pending_share) }
+        share_body << print_btn.as(UI::View)
+
+        cancel_btn = UI::Button.new("Cancel")
+        cancel_btn.role = :secondary
+        cancel_btn.accessibility_label = "Cancel"
+        cancel_btn.test_id = "voyager-share-cancel"
+        cancel_btn.minimum_width = share_width
+        cancel_btn.maximum_width = share_width
+        cancel_btn.on_tap = -> { Voyager.dispatch(:cancel_pending) }
+        share_body << cancel_btn.as(UI::View)
+
+        share_sheet = UI::Sheet.new(share_body.as(UI::View), surface_style: :grouped_card)
+        share_sheet.detents = [:medium]
+        share_sheet.shows_drag_indicator = true
+        share_sheet.on_dismiss = -> { Voyager.dispatch(:cancel_pending); nil }
         share_sheet.is_presented = true
         share_sheet.test_id = "voyager-todos-share-sheet"
         share_sheet.accessibility_label = "Share options"

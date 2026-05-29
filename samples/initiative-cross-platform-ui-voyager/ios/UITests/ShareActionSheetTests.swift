@@ -45,15 +45,27 @@ final class ShareActionSheetTests: XCTestCase {
         XCTAssertTrue(firstRow.waitForExistence(timeout: 10),
             "'Buy groceries' row not found — seeded-state or AX regression.")
 
-        // A plain swipeLeft() on a SwiftUI List row reveals the trailing
-        // actions without triggering the full-swipe destructive action.
-        firstRow.swipeLeft()
-
-        let shareTile = app.buttons["Share"]
-        XCTAssertTrue(shareTile.waitForExistence(timeout: 4),
-            "'Share' trailing-swipe tile did not appear after swiping the " +
-            "first row left. Either swipe-action exposure regressed or the " +
-            "swipe full-swiped (check for a Delete alert instead).")
+        // A fast `swipeLeft()` is flaky on a SwiftUI List row: at high
+        // velocity it triggers the FULL-swipe (firing the destructive
+        // Delete) instead of revealing the trailing action tiles. Use a
+        // slow press-and-drag across ~80% of the row width so the row only
+        // REVEALS its [Delete, Done, Share, Edit] tiles. Retry once if the
+        // Share tile doesn't surface.
+        func revealTrailingActions() {
+            let start = firstRow.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
+            let end = firstRow.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5))
+            start.press(forDuration: 0.25, thenDragTo: end)
+        }
+        revealTrailingActions()
+        var shareTile = app.buttons["Share"]
+        if !shareTile.waitForExistence(timeout: 2) {
+            revealTrailingActions()
+            shareTile = app.buttons["Share"]
+        }
+        XCTAssertTrue(shareTile.waitForExistence(timeout: 3),
+            "'Share' trailing-swipe tile did not appear after revealing the " +
+            "first row's actions. Either swipe-action exposure regressed or " +
+            "the gesture full-swiped (check for a Delete alert instead).")
         shareTile.tap()
     }
 
@@ -88,6 +100,21 @@ final class ShareActionSheetTests: XCTestCase {
             "exact 'tap Share, it instantly closes' bug.")
     }
 
+    /// Launch with the share sheet already presented (capture scenario),
+    /// avoiding the flaky swipe gesture. Same runtime path — the screen
+    /// renders the UI::Sheet with is_presented=true — so the Cancel button
+    /// and its dispatch are exactly what the real flow produces.
+    private func launchTodosWithShareOpen() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment = [
+            "VOYAGER_ROOT_SLUG": "voyager-todos",
+            "VOYAGER_CAPTURE_SCENARIO": "polish-02-share-actionsheet",
+            "VOYAGER_SKIP_NOTIF_PROMPT": "1",
+        ]
+        app.launch()
+        return app
+    }
+
     /// The sheet must be INTERACTIVE — tapping Cancel dismisses it
     /// cleanly (proving it isn't just a frozen one-frame flash).
     ///
@@ -99,38 +126,24 @@ final class ShareActionSheetTests: XCTestCase {
     /// native UIAlertController. Re-enable this test when the action sheet
     /// renders as a proper bottom sheet with Cancel.
     func testShareActionSheetCancelDismisses() throws {
-        throw XCTSkip("Known open issue — the iOS action sheet renders without a " +
-            "visible Cancel button. Instrumentation (2026-05-29) CONFIRMED the " +
-            "presenting context is correct: key-window root VC is compact / phone " +
-            "/ full-screen (hSizeClass=1, idiom=0, 402x874). FOUR fixes failed to " +
-            "produce a Cancel: SwiftUI .environment(hSizeClass), UIKit " +
-            "traitOverrides, and a native UIAlertController(.actionSheet) presented " +
-            "from BOTH the window's top VC and its compact root VC. Even from a " +
-            "verified-compact UIHostingController the .actionSheet renders as a " +
-            "centered card with the actions but no Cancel — an iOS 26 presentation " +
-            "behavior. The sheet IS functional (opens, stays per V1, actions fire, " +
-            "tap-outside dismisses). Robust fix = render the action sheet as a " +
-            "custom bottom sheet built from the working UI::Sheet primitives " +
-            "(full control over the Cancel button) rather than relying on " +
-            "UIAlertController/.confirmationDialog adaptation. See " +
-            "project_voyager_action_sheet_popover.")
-        let app = launchTodos()
-        swipeFirstRowAndTapShare(app)
+        let app = launchTodosWithShareOpen()
 
         let copyAction = app.buttons["Copy to Clipboard"]
-        XCTAssertTrue(copyAction.waitForExistence(timeout: 4),
-            "Share action sheet did not present.")
+        XCTAssertTrue(copyAction.waitForExistence(timeout: 6),
+            "Share sheet did not present (capture scenario).")
 
         let cancel = app.buttons["Cancel"]
         XCTAssertTrue(cancel.waitForExistence(timeout: 2),
-            "Cancel action not found in the share sheet.")
+            "Cancel button not found in the share sheet — the sheet must " +
+            "render an explicit, tappable Cancel.")
         cancel.tap()
 
-        // After Cancel, the sheet's actions must be gone.
-        let gone = !app.buttons["Copy to Clipboard"].waitForExistence(timeout: 2)
+        // After Cancel, the sheet's actions must be gone (Cancel fired its
+        // callback → :cancel_pending → state cleared → Rerender → sheet
+        // unmounted).
+        let gone = !app.buttons["Copy to Clipboard"].waitForExistence(timeout: 3)
         XCTAssertTrue(gone,
-            "Share action sheet did not dismiss after tapping Cancel — the " +
-            "sheet is presented but not interactive, OR the dismiss path is " +
-            "broken.")
+            "Share sheet did not dismiss after tapping Cancel — the Cancel " +
+            "button is present but its callback did not fire / dismiss.")
     }
 }
