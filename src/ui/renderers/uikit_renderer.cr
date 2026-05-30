@@ -129,6 +129,7 @@
       fun video_player_view_new(url : UInt8*, shows_controls : Int32, auto_play : Int32, muted : Int32, loop : Int32) : Void*
       fun ap_ring_view_new(width : Float64, height : Float64, center_x : Float64, center_y : Float64, radius : Float64, track_start_angle : Float64, track_end_angle : Float64, progress_start_angle : Float64, progress_end_angle : Float64, line_width : Float64, track_r : Float64, track_g : Float64, track_b : Float64, track_a : Float64, progress_r : Float64, progress_g : Float64, progress_b : Float64, progress_a : Float64) : Void*
       fun ap_activity_rings_view_new(size : Float64, thickness : Float64, gap : Float64, move_progress : Float64, exercise_progress : Float64, stand_progress : Float64) : Void*
+      fun ap_path_view_new(width : Float64, height : Float64, seg_data : Float64*, seg_count : Int32, has_fill : Int32, fr : Float64, fg : Float64, fb : Float64, fa : Float64, sr : Float64, sg : Float64, sb : Float64, sa : Float64, line_width : Float64) : Void*
       fun uiactivityview_present(anchor_view : Void*, text : UInt8*, url : UInt8*, subject : UInt8*) : Void
 
       # --- ObjC runtime ---
@@ -2904,9 +2905,41 @@
       end
 
       def visit(view : UI::PathView)
-        ptr = alloc_init("UIView")
-        rect = LibObjCBridge::CGRect.new(x: 0.0, y: 0.0, width: view.width, height: view.height)
-        LibObjCBridge.objc_set_frame(ptr, rect)
+        # Serialize segments into a flat Float64 array (7 per segment:
+        # command, x, y, cx1, cy1, cx2, cy2) and hand them to the native
+        # CAShapeLayer builder. command codes mirror ap_path_view_new:
+        # 0=MoveTo 1=LineTo 2=QuadCurveTo 3=CurveTo 4=Close.
+        segs = view.segments
+        flat = Array(Float64).new(segs.size * 7)
+        segs.each do |s|
+          cmd = case s.command
+                when UI::PathCommand::MoveTo      then 0.0
+                when UI::PathCommand::LineTo      then 1.0
+                when UI::PathCommand::QuadCurveTo then 2.0
+                when UI::PathCommand::CurveTo     then 3.0
+                when UI::PathCommand::Close       then 4.0
+                else                                   1.0
+                end
+          flat << cmd << s.x << s.y << s.control_x1 << s.control_y1 << s.control_x2 << s.control_y2
+        end
+
+        fill = view.fill_color
+        has_fill = fill ? 1 : 0
+        fr = fill ? fill.r : 0.0
+        fg = fill ? fill.g : 0.0
+        fb = fill ? fill.b : 0.0
+        fa = fill ? fill.a : 0.0
+        stroke = view.stroke_color
+
+        ptr = LibObjCBridge.ap_path_view_new(
+          view.width, view.height,
+          flat.to_unsafe, segs.size, has_fill,
+          fr, fg, fb, fa,
+          stroke.r, stroke.g, stroke.b, stroke.a,
+          view.stroke_width,
+        )
+        ptr = alloc_init("UIView") if ptr.null?
+        LibObjCBridge.objc_constrain_size(ptr, view.width, view.height)
         apply_common_properties(ptr, view)
         emit(ptr, "UIView[path]")
       end

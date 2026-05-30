@@ -57,6 +57,7 @@ final class ComponentGalleryTests: XCTestCase {
             ("other",   "Chart sample"),
             ("other",   "Activity rings sample"),
             ("other",   "Snackbar sample"),
+            ("other",   "Path view sample"),
         ]
 
         var missing: [String] = []
@@ -85,7 +86,7 @@ final class ComponentGalleryTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["voyager-gallery-title"].waitForExistence(timeout: 10),
             "Gallery did not mount.")
 
-        for i in 0..<7 {
+        for i in 0..<9 {
             Thread.sleep(forTimeInterval: 0.4)
             let shot = XCUIScreen.main.screenshot()
             let att = XCTAttachment(screenshot: shot)

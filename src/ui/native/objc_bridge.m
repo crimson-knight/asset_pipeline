@@ -2161,6 +2161,71 @@ void *ap_activity_rings_view_new(double size,
     return (void *)view;
 }
 
+// PathView — build a CGPath from a flattened segment array and render it
+// via a CAShapeLayer with optional fill + stroke. seg_data holds 7 doubles
+// per segment: [command, x, y, cx1, cy1, cx2, cy2]; command is
+// 0=MoveTo 1=LineTo 2=QuadCurveTo 3=CurveTo 4=Close. Path coordinates use
+// the top-left, y-down convention (matching iOS/UIKit and the
+// cross-platform authoring convention); on macOS the layer geometry is
+// flipped so the same coordinates render identically.
+void *ap_path_view_new(double width, double height,
+                       const double *seg_data, int seg_count,
+                       int has_fill, double fr, double fg, double fb, double fa,
+                       double sr, double sg, double sb, double sa,
+                       double line_width) {
+#if TARGET_OS_OSX
+    NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0.0, 0.0, width, height)];
+    if (!view) return NULL;
+    [view setWantsLayer:YES];
+    if (!view.layer) {
+        view.layer = [CALayer layer];
+    }
+    view.layer.backgroundColor = NSColor.clearColor.CGColor;
+    view.layer.geometryFlipped = YES; // top-left, y-down to match iOS
+#else
+    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0.0, 0.0, width, height)];
+    if (!view) return NULL;
+    view.backgroundColor = UIColor.clearColor;
+#endif
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    if (seg_data) {
+        for (int i = 0; i < seg_count; i++) {
+            const double *s = seg_data + (i * 7);
+            int cmd = (int)s[0];
+            CGFloat x = (CGFloat)s[1], y = (CGFloat)s[2];
+            CGFloat cx1 = (CGFloat)s[3], cy1 = (CGFloat)s[4];
+            CGFloat cx2 = (CGFloat)s[5], cy2 = (CGFloat)s[6];
+            switch (cmd) {
+                case 0: CGPathMoveToPoint(path, NULL, x, y); break;
+                case 1: CGPathAddLineToPoint(path, NULL, x, y); break;
+                case 2: CGPathAddQuadCurveToPoint(path, NULL, cx1, cy1, x, y); break;
+                case 3: CGPathAddCurveToPoint(path, NULL, cx1, cy1, cx2, cy2, x, y); break;
+                case 4: CGPathCloseSubpath(path); break;
+                default: break;
+            }
+        }
+    }
+
+    CAShapeLayer *shape = [CAShapeLayer layer];
+    shape.frame = CGRectMake(0.0, 0.0, width, height);
+    shape.path = path;
+    shape.lineWidth = (CGFloat)line_width;
+
+    id stroke_color = nscolor_rgba(sr, sg, sb, sa);
+    shape.strokeColor = stroke_color ? [stroke_color CGColor] : NULL;
+    if (has_fill) {
+        id fill_color = nscolor_rgba(fr, fg, fb, fa);
+        shape.fillColor = fill_color ? [fill_color CGColor] : NULL;
+    } else {
+        shape.fillColor = NULL;
+    }
+
+    [view.layer addSublayer:shape];
+    CGPathRelease(path);
+    return (void *)view;
+}
+
 static NSMutableArray *ap_share_items_from_payload(NSString *text, NSString *url_string) {
     NSMutableArray *items = [NSMutableArray array];
     if (text && text.length) {

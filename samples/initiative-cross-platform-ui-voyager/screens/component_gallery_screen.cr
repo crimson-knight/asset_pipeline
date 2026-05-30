@@ -103,6 +103,10 @@ module Voyager
         "Data & Indicators",
         "Visualize values. ChartView plots a series; ActivityRings shows ring progress; Snackbar is a transient status bar.",
         content_width, data_section(content_width))
+      root << section(
+        "Drawing",
+        "Vector drawing. PathView strokes and fills a custom path built from move/line/curve segments.",
+        content_width, drawing_section)
 
       back = UI::Button.new("Back")
       back.role = :secondary
@@ -531,6 +535,30 @@ module Voyager
       grid.add_row([grid_cell("Cell A1"), grid_cell("Cell B1")])
       grid.add_row([grid_cell("Cell A2"), grid_cell("Cell B2")])
       out << captioned("Grid (2×2)", grid.as(UI::View))
+
+      out
+    end
+
+    private def drawing_section : Array(UI::View)
+      out = [] of UI::View
+
+      # PathView — a filled + stroked custom triangle, drawn via the iOS
+      # CAShapeLayer path renderer.
+      path = UI::PathView.new(width: 140.0, height: 120.0)
+      path.fill_color = UI::Color.new(r: 1.0, g: 0.58, b: 0.0)
+      path.stroke_color = UI::Color.new(r: 0.0, g: 0.0, b: 0.0)
+      path.stroke_width = 2.0
+      path.move_to(70.0, 12.0)
+      path.line_to(128.0, 108.0)
+      path.line_to(12.0, 108.0)
+      path.close
+      path.accessibility_label = "Path view sample"
+      path.test_id = "voyager-gallery-path"
+      path.minimum_width = 140.0
+      path.maximum_width = 140.0
+      path.minimum_height = 120.0
+      path.maximum_height = 120.0
+      out << captioned("PathView (filled triangle)", path.as(UI::View))
 
       out
     end
