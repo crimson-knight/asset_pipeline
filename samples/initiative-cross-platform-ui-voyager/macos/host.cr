@@ -40,6 +40,7 @@ require "../../../src/ui/renderers/appkit_renderer"
     fun hig_run_app(window : Void*) : Void
     fun objc_create_capture_window(width : Float64, height : Float64, appearance : UInt8*) : Void*
     fun objc_install_content_view(window : Void*, content_view : Void*) : Void
+    fun objc_scroll_wrap(content_view : Void*) : Void*
     fun objc_capture_view_offscreen(window : Void*, output_path : UInt8*, width : Float64, height : Float64) : Int32
     fun objc_capture_window_to_png(window : Void*, output_path : UInt8*) : Int32
     fun objc_close_capture_window(window : Void*) : Void
@@ -111,11 +112,20 @@ require "../../../src/ui/renderers/appkit_renderer"
       UI::NativeView.dismiss_reactive_presentations!(@@active_native, fresh: native)
 
       @@active_native = native
+      # Wrap the rendered content in a vertically-scrolling NSScrollView so
+      # tall screens (e.g. the Component Gallery) scroll instead of being
+      # compressed into the window and overlapping — the macOS parallel to
+      # the iOS host's UIScrollView wrap. Short screens still fill the
+      # viewport, so existing captures are unaffected. Falls back to the
+      # raw content view if the wrap fails.
+      content_ptr = native.handle.ptr!
+      scroll_ptr = LibWindowHelper.objc_scroll_wrap(content_ptr)
+      install_ptr = scroll_ptr.null? ? content_ptr : scroll_ptr
       if @@is_capture_path
-        LibWindowHelper.objc_install_content_view(@@window_ptr, native.handle.ptr!)
+        LibWindowHelper.objc_install_content_view(@@window_ptr, install_ptr)
       else
         LibObjCBridgeVoyager.objc_send_void_id(
-          @@window_ptr, @@set_content_sel, native.handle.ptr!,
+          @@window_ptr, @@set_content_sel, install_ptr,
         )
       end
     end

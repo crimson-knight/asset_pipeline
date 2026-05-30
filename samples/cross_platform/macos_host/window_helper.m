@@ -216,6 +216,62 @@ int objc_install_backdrop(void *pair_ptr, const char *image_path) {
 // Use objc_install_content_view_centered for modal card components (sheets,
 // alerts, popovers, action-sheets, activity-views) that should be centered
 // with content-hugging height.
+// A flipped document view so an NSScrollView lays its content out
+// top-to-bottom (default NSView is bottom-left origin, which makes a
+// scroll view show the BOTTOM of tall content first).
+@interface APFlippedDocumentView : NSView
+@end
+@implementation APFlippedDocumentView
+- (BOOL)isFlipped { return YES; }
+@end
+
+// Wrap a rendered content view in a vertically-scrolling NSScrollView so
+// tall screens scroll instead of overlapping (the macOS parallel to the
+// iOS host's UIScrollView wrap). Short content still fills the viewport
+// (document height >= clip height), so existing short-screen captures are
+// unaffected; only content taller than the viewport scrolls.
+//
+// Returns a +1-retained NSScrollView* (MRC); the caller installs it as the
+// window's content view, which takes ownership.
+void *objc_scroll_wrap(void *content_view_ptr) {
+    if (!content_view_ptr) return NULL;
+    NSView *content = (NSView *)content_view_ptr;
+
+    NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSZeroRect];
+    scroll.hasVerticalScroller = YES;
+    scroll.hasHorizontalScroller = NO;
+    scroll.drawsBackground = NO;
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    scroll.autohidesScrollers = YES;
+
+    APFlippedDocumentView *doc = [[APFlippedDocumentView alloc] initWithFrame:NSZeroRect];
+    doc.translatesAutoresizingMaskIntoConstraints = NO;
+    content.translatesAutoresizingMaskIntoConstraints = NO;
+    [doc addSubview:content];
+    [NSLayoutConstraint activateConstraints:@[
+        [content.topAnchor constraintEqualToAnchor:doc.topAnchor],
+        [content.leadingAnchor constraintEqualToAnchor:doc.leadingAnchor],
+        [content.trailingAnchor constraintEqualToAnchor:doc.trailingAnchor],
+        [content.bottomAnchor constraintEqualToAnchor:doc.bottomAnchor],
+    ]];
+
+    scroll.documentView = doc;
+    NSClipView *clip = scroll.contentView;
+    NSLayoutConstraint *minHeight =
+        [doc.heightAnchor constraintGreaterThanOrEqualToAnchor:clip.heightAnchor];
+    minHeight.priority = NSLayoutPriorityDefaultLow; // fill when short, scroll when tall
+    [NSLayoutConstraint activateConstraints:@[
+        [doc.topAnchor constraintEqualToAnchor:clip.topAnchor],
+        [doc.leadingAnchor constraintEqualToAnchor:clip.leadingAnchor],
+        [doc.trailingAnchor constraintEqualToAnchor:clip.trailingAnchor],
+        [doc.widthAnchor constraintEqualToAnchor:clip.widthAnchor],
+        minHeight,
+    ]];
+    [doc release]; // scroll.documentView retains it
+
+    return (void *)scroll;
+}
+
 void objc_install_content_view(void *pair_ptr, void *content_view_ptr) {
     if (!pair_ptr || !content_view_ptr) return;
     void **pair = (void **)pair_ptr;
