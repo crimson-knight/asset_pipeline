@@ -2226,6 +2226,90 @@ void *ap_path_view_new(double width, double height,
     return (void *)view;
 }
 
+// Canvas — replay an immediate-mode drawing command stream. op_data holds
+// 14 doubles per op: [command, x, y, x2, y2, x3, y3, radius, start_angle,
+// end_angle, r, g, b, a]. command ordinals match UI::DrawCommand:
+// 0=MoveTo 1=LineTo 2=Arc 3=QuadCurveTo 4=BezierCurveTo 5=ClosePath
+// 6=Fill 7=Stroke 8=SetFillColor 9=SetStrokeColor 10=SetLineWidth
+// 11=BeginPath. Fill/Stroke each emit a CAShapeLayer snapshot of the
+// current path with the current fill/stroke state, so a path can be both
+// filled and stroked.
+void *ap_canvas_view_new(double width, double height,
+                         const double *op_data, int op_count) {
+#if TARGET_OS_OSX
+    NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0.0, 0.0, width, height)];
+    if (!view) return NULL;
+    [view setWantsLayer:YES];
+    if (!view.layer) {
+        view.layer = [CALayer layer];
+    }
+    view.layer.backgroundColor = NSColor.clearColor.CGColor;
+    view.layer.geometryFlipped = YES;
+#else
+    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0.0, 0.0, width, height)];
+    if (!view) return NULL;
+    view.backgroundColor = UIColor.clearColor;
+#endif
+    if (!op_data) return (void *)view;
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    double fr = 0, fg = 0, fb = 0, fa = 1;        // current fill color
+    double kr = 0, kg = 0, kb = 0, ka = 1;        // current stroke color
+    double line_width = 1.0;
+
+    for (int i = 0; i < op_count; i++) {
+        const double *o = op_data + (i * 14);
+        int cmd = (int)o[0];
+        CGFloat x = (CGFloat)o[1], y = (CGFloat)o[2];
+        CGFloat x2 = (CGFloat)o[3], y2 = (CGFloat)o[4];
+        CGFloat x3 = (CGFloat)o[5], y3 = (CGFloat)o[6];
+        CGFloat radius = (CGFloat)o[7], sa = (CGFloat)o[8], ea = (CGFloat)o[9];
+        double r = o[10], g = o[11], b = o[12], a = o[13];
+        switch (cmd) {
+            case 0: CGPathMoveToPoint(path, NULL, x, y); break;
+            case 1: CGPathAddLineToPoint(path, NULL, x, y); break;
+            case 2: CGPathAddArc(path, NULL, x, y, radius, sa, ea, false); break;
+            case 3: CGPathAddQuadCurveToPoint(path, NULL, x2, y2, x, y); break;
+            case 4: CGPathAddCurveToPoint(path, NULL, x2, y2, x3, y3, x, y); break;
+            case 5: CGPathCloseSubpath(path); break;
+            case 8: fr = r; fg = g; fb = b; fa = a; break;  // SetFillColor
+            case 9: kr = r; kg = g; kb = b; ka = a; break;  // SetStrokeColor
+            case 10: line_width = o[1]; break;              // SetLineWidth (in x)
+            case 11: {                                       // BeginPath
+                CGPathRelease(path);
+                path = CGPathCreateMutable();
+                break;
+            }
+            case 6: {                                        // Fill
+                CAShapeLayer *layer = [CAShapeLayer layer];
+                layer.frame = CGRectMake(0.0, 0.0, width, height);
+                layer.path = CGPathCreateCopy(path);
+                id fc = nscolor_rgba(fr, fg, fb, fa);
+                layer.fillColor = fc ? [fc CGColor] : NULL;
+                layer.strokeColor = NULL;
+                [view.layer addSublayer:layer];
+                break;
+            }
+            case 7: {                                        // Stroke
+                CAShapeLayer *layer = [CAShapeLayer layer];
+                layer.frame = CGRectMake(0.0, 0.0, width, height);
+                layer.path = CGPathCreateCopy(path);
+                layer.fillColor = NULL;
+                id sc = nscolor_rgba(kr, kg, kb, ka);
+                layer.strokeColor = sc ? [sc CGColor] : NULL;
+                layer.lineWidth = (CGFloat)line_width;
+                layer.lineCap = kCALineCapRound;
+                layer.lineJoin = kCALineJoinRound;
+                [view.layer addSublayer:layer];
+                break;
+            }
+            default: break;
+        }
+    }
+    CGPathRelease(path);
+    return (void *)view;
+}
+
 static NSMutableArray *ap_share_items_from_payload(NSString *text, NSString *url_string) {
     NSMutableArray *items = [NSMutableArray array];
     if (text && text.length) {

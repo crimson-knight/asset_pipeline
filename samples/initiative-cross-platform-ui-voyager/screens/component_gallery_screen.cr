@@ -542,6 +542,26 @@ module Voyager
     private def drawing_section : Array(UI::View)
       out = [] of UI::View
 
+      # Canvas — immediate-mode replay: a stroked blue triangle plus a
+      # filled orange disc (begin_path / move / line / arc / stroke / fill).
+      canvas = UI::Canvas.new(width: 220.0, height: 120.0)
+      canvas.begin_path
+      canvas.move_to(20.0, 100.0)
+      canvas.line_to(70.0, 20.0)
+      canvas.line_to(120.0, 100.0)
+      canvas.close_path
+      canvas.stroke(UI::Color.new(r: 0.0, g: 0.478, b: 1.0), width: 3.0)
+      canvas.begin_path
+      canvas.arc(175.0, 60.0, 35.0)
+      canvas.fill(UI::Color.new(r: 1.0, g: 0.58, b: 0.0))
+      canvas.accessibility_label = "Canvas sample"
+      canvas.test_id = "voyager-gallery-canvas"
+      canvas.minimum_width = 220.0
+      canvas.maximum_width = 220.0
+      canvas.minimum_height = 120.0
+      canvas.maximum_height = 120.0
+      out << captioned("Canvas (triangle + disc)", canvas.as(UI::View))
+
       # PathView — a filled + stroked custom triangle, drawn via the iOS
       # CAShapeLayer path renderer.
       path = UI::PathView.new(width: 140.0, height: 120.0)

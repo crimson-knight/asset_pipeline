@@ -57,6 +57,7 @@ final class ComponentGalleryTests: XCTestCase {
             ("other",   "Chart sample"),
             ("other",   "Activity rings sample"),
             ("other",   "Snackbar sample"),
+            ("other",   "Canvas sample"),
             ("other",   "Path view sample"),
         ]
 

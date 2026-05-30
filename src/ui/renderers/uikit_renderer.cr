@@ -130,6 +130,7 @@
       fun ap_ring_view_new(width : Float64, height : Float64, center_x : Float64, center_y : Float64, radius : Float64, track_start_angle : Float64, track_end_angle : Float64, progress_start_angle : Float64, progress_end_angle : Float64, line_width : Float64, track_r : Float64, track_g : Float64, track_b : Float64, track_a : Float64, progress_r : Float64, progress_g : Float64, progress_b : Float64, progress_a : Float64) : Void*
       fun ap_activity_rings_view_new(size : Float64, thickness : Float64, gap : Float64, move_progress : Float64, exercise_progress : Float64, stand_progress : Float64) : Void*
       fun ap_path_view_new(width : Float64, height : Float64, seg_data : Float64*, seg_count : Int32, has_fill : Int32, fr : Float64, fg : Float64, fb : Float64, fa : Float64, sr : Float64, sg : Float64, sb : Float64, sa : Float64, line_width : Float64) : Void*
+      fun ap_canvas_view_new(width : Float64, height : Float64, op_data : Float64*, op_count : Int32) : Void*
       fun uiactivityview_present(anchor_view : Void*, text : UInt8*, url : UInt8*, subject : UInt8*) : Void
 
       # --- ObjC runtime ---
@@ -2834,11 +2835,36 @@
       end
 
       def visit(view : UI::Canvas)
+        # Keep the optimized ring special-case (used by ActivityRing); fall
+        # back to a general op-stream replay instead of a blank UIView.
         ptr = native_ring_canvas_view(view)
         if ptr.null?
-          ptr = alloc_init("UIView")
-          rect = LibObjCBridge::CGRect.new(x: 0.0, y: 0.0, width: view.width, height: view.height)
-          LibObjCBridge.objc_set_frame(ptr, rect)
+          ops = view.operations
+          flat = Array(Float64).new(ops.size * 14)
+          ops.each do |op|
+            cmd = case op.command
+                  when UI::DrawCommand::MoveTo        then 0.0
+                  when UI::DrawCommand::LineTo        then 1.0
+                  when UI::DrawCommand::Arc           then 2.0
+                  when UI::DrawCommand::QuadCurveTo   then 3.0
+                  when UI::DrawCommand::BezierCurveTo then 4.0
+                  when UI::DrawCommand::ClosePath     then 5.0
+                  when UI::DrawCommand::Fill          then 6.0
+                  when UI::DrawCommand::Stroke        then 7.0
+                  when UI::DrawCommand::SetFillColor  then 8.0
+                  when UI::DrawCommand::SetStrokeColor then 9.0
+                  when UI::DrawCommand::SetLineWidth  then 10.0
+                  when UI::DrawCommand::BeginPath     then 11.0
+                  else                                     0.0
+                  end
+            c = op.color
+            flat << cmd << op.x << op.y << op.x2 << op.y2 << op.x3 << op.y3 \
+                 << op.radius << op.start_angle << op.end_angle \
+                 << c.r << c.g << c.b << c.a
+          end
+          ptr = LibObjCBridge.ap_canvas_view_new(view.width, view.height, flat.to_unsafe, ops.size)
+          ptr = alloc_init("UIView") if ptr.null?
+          LibObjCBridge.objc_constrain_size(ptr, view.width, view.height)
         end
         apply_common_properties(ptr, view)
         emit(ptr, "UIView[canvas]")
