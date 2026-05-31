@@ -1558,16 +1558,19 @@
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_secure_field(target_str, view, sender)
 
-        # Phase 8B iter 3 — same FormState-wiring pattern as TextField.
-        # The legacy on_change receives "" (the SwiftUI bridge doesn't
-        # yet carry the cleartext); FormState records that "" until a
-        # future iteration carries the typed password through.
+        # FormState wiring — identical to TextField. The SecureField
+        # SwiftUI facade reuses TextFieldFacade's `TextStorage`, whose
+        # binding fires `CallbackBridge.fireString(token, newValue)` with
+        # the REAL typed cleartext. So we register on the string channel
+        # (`register_string`) exactly like TextField, and the typed
+        # password flows into FormState under the field's `name` key.
+        # (Earlier this used the numeric channel + `call("")`, which
+        # silently dropped the password — making any form that gates on a
+        # non-empty password, e.g. sign-in, impossible to submit.)
         wrapped_handler = UI::FormStateRendererHook.wrap_secure_handler(view)
         action_token = 0_u64
         if wrapped_handler
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            wrapped_handler.call("")
-          end
+          action_token = UI::CallbackRegistry.register_string(wrapped_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_secure_field(
@@ -2843,24 +2846,24 @@
           flat = Array(Float64).new(ops.size * 14)
           ops.each do |op|
             cmd = case op.command
-                  when UI::DrawCommand::MoveTo        then 0.0
-                  when UI::DrawCommand::LineTo        then 1.0
-                  when UI::DrawCommand::Arc           then 2.0
-                  when UI::DrawCommand::QuadCurveTo   then 3.0
-                  when UI::DrawCommand::BezierCurveTo then 4.0
-                  when UI::DrawCommand::ClosePath     then 5.0
-                  when UI::DrawCommand::Fill          then 6.0
-                  when UI::DrawCommand::Stroke        then 7.0
-                  when UI::DrawCommand::SetFillColor  then 8.0
+                  when UI::DrawCommand::MoveTo         then 0.0
+                  when UI::DrawCommand::LineTo         then 1.0
+                  when UI::DrawCommand::Arc            then 2.0
+                  when UI::DrawCommand::QuadCurveTo    then 3.0
+                  when UI::DrawCommand::BezierCurveTo  then 4.0
+                  when UI::DrawCommand::ClosePath      then 5.0
+                  when UI::DrawCommand::Fill           then 6.0
+                  when UI::DrawCommand::Stroke         then 7.0
+                  when UI::DrawCommand::SetFillColor   then 8.0
                   when UI::DrawCommand::SetStrokeColor then 9.0
-                  when UI::DrawCommand::SetLineWidth  then 10.0
-                  when UI::DrawCommand::BeginPath     then 11.0
-                  else                                     0.0
+                  when UI::DrawCommand::SetLineWidth   then 10.0
+                  when UI::DrawCommand::BeginPath      then 11.0
+                  else                                      0.0
                   end
             c = op.color
             flat << cmd << op.x << op.y << op.x2 << op.y2 << op.x3 << op.y3 \
-                 << op.radius << op.start_angle << op.end_angle \
-                 << c.r << c.g << c.b << c.a
+              << op.radius << op.start_angle << op.end_angle \
+              << c.r << c.g << c.b << c.a
           end
           ptr = LibObjCBridge.ap_canvas_view_new(view.width, view.height, flat.to_unsafe, ops.size)
           ptr = alloc_init("UIView") if ptr.null?

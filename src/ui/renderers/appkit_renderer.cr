@@ -1319,20 +1319,19 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_secure_field(target_str, view, sender)
 
-        # Phase 8B iter 3 — same FormState-wiring pattern as TextField.
-        # The legacy on_change for SecureField receives "" (the SwiftUI
-        # bridge doesn't yet carry the cleartext through). FormState
-        # therefore stores "" for the SecureField's name; the controller
-        # sees the empty string in ctx.params. Authors who need true
-        # password capture on macOS for Phase 8B should use a plain
-        # UI::TextField for now. A future SwiftKit bridge iteration
-        # will carry the typed cleartext through.
+        # FormState wiring — identical to TextField. The SecureField
+        # SwiftUI facade reuses TextFieldFacade's `TextStorage`, whose
+        # binding fires `CallbackBridge.fireString(token, newValue)` with
+        # the REAL typed cleartext. So we register on the string channel
+        # (`register_string`) exactly like TextField, and the typed
+        # password flows into FormState under the field's `name` key.
+        # (Earlier this used the numeric channel + `call("")`, which
+        # silently dropped the password — making any form that gates on a
+        # non-empty password, e.g. sign-in, impossible to submit.)
         wrapped_handler = UI::FormStateRendererHook.wrap_secure_handler(view)
         action_token = 0_u64
         if wrapped_handler
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            wrapped_handler.call("")
-          end
+          action_token = UI::CallbackRegistry.register_string(wrapped_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_secure_field(
