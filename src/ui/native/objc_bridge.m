@@ -3313,6 +3313,94 @@ int ap_view_resign_first_responder(void *view_ptr) {
     return 1;
 }
 
+// -----------------------------------------------------------------
+// Raw UITextField string-change wiring (ComboBox value-drop fix).
+//
+// ComboBox renders as a bare UITextField (no SwiftUI facade / TextStorage),
+// so the `fireString` trampoline never runs for it. We attach a
+// CrystalStringFieldDispatcher via addTarget:action:forControlEvents: that,
+// on every edit + commit, reads [field text] and routes it through the
+// existing raw string channel `crystal_ui_string_callback_dispatch(token, utf8)`
+// -> UI::CallbackRegistry.call_string. The dispatcher carries the u64 token
+// in an ivar and is pinned to the field via an associated object so BoehmGC
+// + ObjC retain both keep it alive for the field's lifetime.
+// -----------------------------------------------------------------
+static const void *ap_text_field_string_dispatcher_key = &ap_text_field_string_dispatcher_key;
+
+// IMP for setToken: — store the u64 callback token in the _token ivar.
+static void ap_string_field_set_token(id self, SEL _cmd, unsigned long long token) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (ivar) {
+        *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar)) = token;
+    }
+}
+
+// IMP for fieldChanged: — read the sender's text and dispatch it to Crystal.
+static void ap_string_field_changed(id self, SEL _cmd, id sender) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (!ivar) return;
+    unsigned long long token =
+        *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar));
+    if (token == 0ULL) return;
+
+    NSString *text = nil;
+    SEL text_sel = sel_registerName("text");
+    if (sender && [sender respondsToSelector:text_sel]) {
+        text = ((id (*)(id, SEL))objc_msgSend)(sender, text_sel);
+    }
+    const char *utf8 = text ? [text UTF8String] : "";
+    crystal_ui_string_callback_dispatch(token, utf8 ? utf8 : "");
+}
+
+static Class ap_register_string_field_dispatcher(void) {
+    Class cls = objc_getClass("CrystalStringFieldDispatcher");
+    if (cls) return cls;
+
+    cls = objc_allocateClassPair([NSObject class], "CrystalStringFieldDispatcher", 0);
+    if (!cls) return Nil;
+
+    class_addIvar(cls, "_token", sizeof(unsigned long long),
+                  __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addMethod(cls, sel_registerName("setToken:"),
+                    (IMP)ap_string_field_set_token, "v@:Q");
+    class_addMethod(cls, sel_registerName("fieldChanged:"),
+                    (IMP)ap_string_field_changed, "v@:@");
+
+    objc_registerClassPair(cls);
+    return cls;
+}
+
+// Wire a raw UITextField's editing-changed + editing-did-end events to the
+// Crystal string callback `token`. Idempotent: re-wiring the same field
+// updates the token on the existing dispatcher rather than stacking targets.
+// Returns 1 on success, 0 on no-op (nil field / class registration failure).
+int ap_text_field_wire_string_change(void *field_ptr, unsigned long long token) {
+    if (field_ptr == NULL) return 0;
+
+    id field = (__bridge id)field_ptr;
+    SEL action = sel_registerName("fieldChanged:");
+    UIControlEvents events = UIControlEventEditingChanged | UIControlEventEditingDidEnd;
+
+    id dispatcher = objc_getAssociatedObject(field, ap_text_field_string_dispatcher_key);
+    if (!dispatcher) {
+        Class cls = ap_register_string_field_dispatcher();
+        if (!cls) return 0;
+
+        dispatcher = ((id (*)(Class, SEL))objc_msgSend)(cls, sel_registerName("new"));
+        objc_setAssociatedObject(field, ap_text_field_string_dispatcher_key,
+                                 dispatcher, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        ((void (*)(id, SEL, id, SEL, NSUInteger))objc_msgSend)(
+            field, sel_registerName("addTarget:action:forControlEvents:"),
+            dispatcher, action, (NSUInteger)events);
+        [dispatcher release]; // objc_bridge.m compiles with -fno-objc-arc
+    }
+
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(
+        dispatcher, sel_registerName("setToken:"), token);
+
+    return 1;
+}
+
 // =============================================================================
 // Phase 10B.3.x — Class C feature bridge functions (iOS / iPadOS branch).
 //

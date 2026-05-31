@@ -69,6 +69,10 @@
       # Focus management.
       fun ap_view_become_first_responder(view : Void*) : Int32
       fun ap_view_resign_first_responder(view : Void*) : Int32
+      # ComboBox value-drop fix — wire a raw UITextField's editing events
+      # (EditingChanged | EditingDidEnd) to the Crystal string callback
+      # `token`, routing the field text via crystal_ui_string_callback_dispatch.
+      fun ap_text_field_wire_string_change(field : Void*, token : UInt64) : Int32
 
       # --- Section 4: Convenience helpers ---
       fun nsstring_from_cstr(str : UInt8*) : Void*
@@ -4051,8 +4055,34 @@
           LibObjCBridge.objc_send_id(tf, sel("setAccessibilityLabel:"), hint_str)
         end
 
+        # ComboBox value-drop fix. The raw UITextField has no SwiftUI
+        # TextStorage binding, so we wire on_change through the raw string
+        # channel: register a Proc(String, Nil) and attach a UIControl
+        # target-action that reads the field text on every edit/commit and
+        # fires crystal_ui_string_callback_dispatch(token, text).
+        # NOTE: ComboBox#on_change is Proc(String, Void)?; register_string
+        # takes Proc(String, Nil), so adapt with an explicit nil-returning
+        # wrapper.
+        action_token = 0_u64
+        if change_handler = view.on_change
+          action_token = UI::CallbackRegistry.register_string(
+            ->(s : String) { change_handler.call(s); nil }
+          )
+        end
+
         apply_common_properties(tf, view)
-        emit(tf, "UITextField[combo-box]")
+
+        # emit() drops the NativeView, so reproduce its body here to keep a
+        # NativeView that tracks the callback id for teardown (mirrors the
+        # SearchField/TextField pattern).
+        LibObjCBridge.objc_send_bool(tf, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+        unless action_token == 0_u64
+          LibObjCBridge.ap_text_field_wire_string_change(tf, action_token)
+        end
+        handle = ObjC.owned(tf, label: "UITextField[combo-box]")
+        native = NativeView.new(handle)
+        native.track_callback_id(action_token) unless action_token == 0_u64
+        push_native(native)
       end
 
       # -----------------------------------------------------------------

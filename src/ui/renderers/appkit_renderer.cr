@@ -3796,6 +3796,11 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), acc_str)
         end
 
+        # TODO(combo-box on_change, macOS follow-up): NSComboBox value
+        # delivery needs an NSControl target-action / NSComboBoxDelegate
+        # (controlTextDidChange: + comboBoxSelectionDidChange:) routing to
+        # crystal_ui_string_callback_dispatch. iOS is wired via
+        # ap_text_field_wire_string_change; macOS is deliberately deferred.
         apply_common_properties(ptr, view)
         emit(ptr, "NSComboBox")
       end

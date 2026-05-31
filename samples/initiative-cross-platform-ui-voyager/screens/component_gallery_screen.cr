@@ -491,6 +491,20 @@ module Voyager
       editor.on_change = ->(v : String) { GalleryState.captured_text = "TextEditor: #{v}"; nil }
       out << captioned("TextEditor", editor.as(UI::View))
 
+      # ComboBox — value-drop fix: on_change is now wired (iOS) via the raw
+      # UITextField string channel. Capture-without-rerender like the other
+      # text inputs; the "Tap me" button reveals the captured value.
+      combo = UI::ComboBox.new(
+        value: "",
+        options: ["Apple", "Banana", "Cherry"],
+        placeholder: "Fruit",
+        width: width,
+      )
+      combo.accessibility_label = "Combo box sample"
+      combo.test_id = "voyager-gallery-combobox"
+      combo.on_change = ->(v : String) { GalleryState.captured_text = "ComboBox: #{v}"; nil }
+      out << captioned("ComboBox", combo.as(UI::View))
+
       out
     end
 

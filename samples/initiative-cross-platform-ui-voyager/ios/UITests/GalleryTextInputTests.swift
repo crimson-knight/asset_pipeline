@@ -118,4 +118,15 @@ final class GalleryTextInputTests: XCTestCase {
         typeAndAssert(app, fieldId: "voyager-gallery-texteditor",
             label: "TextEditor", text: "delta", expected: "TextEditor: delta")
     }
+
+    /// ComboBox value-drop fix: on_change was never wired (iOS). The combo
+    /// renders as a raw UITextField; the fix attaches a target-action that
+    /// routes the field text through the raw string channel. Typing must
+    /// now reach the Crystal handler.
+    func testComboBoxDeliversTypedText() throws {
+        let app = launchGallery()
+        XCTAssertTrue(app.staticTexts["voyager-gallery-title"].waitForExistence(timeout: 10))
+        typeAndAssert(app, fieldId: "voyager-gallery-combobox",
+            label: "ComboBox", text: "echo", expected: "ComboBox: echo")
+    }
 }
