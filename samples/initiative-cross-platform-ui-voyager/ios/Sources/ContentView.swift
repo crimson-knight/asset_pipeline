@@ -153,6 +153,10 @@ struct VoyagerHost: UIViewRepresentable {
         scroll.alwaysBounceVertical = true
         scroll.alwaysBounceHorizontal = false
         scroll.showsHorizontalScrollIndicator = false
+        // Dismiss the keyboard when the user drags the scroll view — the
+        // expected iOS behavior on a long scrolling form, and it keeps
+        // controls below the keyboard reachable after typing into a field.
+        scroll.keyboardDismissMode = .onDrag
         // Re-use the same AX identifier the bare-root path uses so
         // XCUITest selectors stay stable across the wrap / no-wrap
         // branches.

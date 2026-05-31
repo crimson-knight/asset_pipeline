@@ -1709,9 +1709,12 @@
 
         action_token = 0_u64
         if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            change_handler.call("")
-          end
+          # The SwiftUI facade reuses TextStorage, whose binding fires
+          # CallbackBridge.fireString(token, value) with the REAL typed
+          # text. Register on the STRING channel so the handler receives
+          # the actual text — NOT the numeric channel + call(""), which
+          # silently dropped every keystroke (the SecureField bug class).
+          action_token = UI::CallbackRegistry.register_string(change_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_search_field(
@@ -1732,9 +1735,12 @@
 
         action_token = 0_u64
         if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            change_handler.call("")
-          end
+          # The SwiftUI facade reuses TextStorage, whose binding fires
+          # CallbackBridge.fireString(token, value) with the REAL typed
+          # text. Register on the STRING channel so the handler receives
+          # the actual text — NOT the numeric channel + call(""), which
+          # silently dropped every keystroke (the SecureField bug class).
+          action_token = UI::CallbackRegistry.register_string(change_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_text_area(
@@ -2744,9 +2750,12 @@
 
         action_token = 0_u64
         if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            change_handler.call("")
-          end
+          # The SwiftUI facade reuses TextStorage, whose binding fires
+          # CallbackBridge.fireString(token, value) with the REAL typed
+          # text. Register on the STRING channel so the handler receives
+          # the actual text — NOT the numeric channel + call(""), which
+          # silently dropped every keystroke (the SecureField bug class).
+          action_token = UI::CallbackRegistry.register_string(change_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_text_editor(

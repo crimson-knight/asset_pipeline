@@ -14,6 +14,7 @@ module Voyager
     @@segment_index : Int32? = nil
     @@stepper_value : Int32? = nil
     @@last_event : String? = nil
+    @@captured_text : String? = nil
 
     # Shared readout for the showcase sections: the most recent
     # interaction with any wired widget. Lets every widget demonstrate it
@@ -25,6 +26,21 @@ module Voyager
 
     def self.last_event=(value : String) : String
       @@last_event = value
+    end
+
+    # Capture-then-reveal readout for text inputs (SearchField, TextArea,
+    # TextEditor). Their on_change stores the REAL typed text here without
+    # dispatching — so we don't rerender mid-keystroke and steal focus —
+    # and a "reveal" button later rerenders to surface the captured value.
+    # An XCUITest types real text, taps reveal, and asserts this label
+    # shows it, proving the typed string reached the Crystal handler (the
+    # SecureField bug class: the string channel must carry real text).
+    def self.captured_text : String
+      @@captured_text ||= "(nothing captured yet)"
+    end
+
+    def self.captured_text=(value : String) : String
+      @@captured_text = value
     end
 
     def self.tap_count : Int32

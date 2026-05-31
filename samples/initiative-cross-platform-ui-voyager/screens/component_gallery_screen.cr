@@ -199,6 +199,18 @@ module Voyager
       step_state.test_id = "voyager-gallery-live-stepper-state"
       out << step_state.as(UI::View)
 
+      # Captured-text readout for the Text Entry section's inputs. Those
+      # inputs store their real typed value into GalleryState.captured_text
+      # WITHOUT rerendering (to avoid losing keyboard focus); tapping "Tap
+      # me" below triggers the rerender that surfaces it here. NO
+      # accessibility_label, so the behavior test reads its text via
+      # XCUIElement.label.
+      captured_state = UI::Label.new(GalleryState.captured_text)
+      captured_state.font = UI::Font.new(size: 15.0, weight: :semibold)
+      captured_state.text_color_role = UI::LabelRole::Primary
+      captured_state.test_id = "voyager-gallery-captured-text"
+      out << captured_state.as(UI::View)
+
       # Wired Button — increments the tap counter.
       tap_btn = UI::Button.new("Tap me", style: UI::ButtonStyle::Prominent)
       tap_btn.accessibility_label = "Tap me to increment the counter"
@@ -381,11 +393,23 @@ module Voyager
     private def text_section(width : Float64) : Array(UI::View)
       out = [] of UI::View
 
+      # Each text input's on_change stores the REAL typed string into
+      # GalleryState.captured_text WITHOUT dispatching — so we do NOT
+      # rerender mid-keystroke. (Rerendering on every keystroke destroys
+      # the field's keyboard focus: NativeView reuse does not preserve
+      # first-responder across a rebuild — see GalleryState.captured_text
+      # and the "captured text" readout in the Live Interaction section.)
+      # The behavior test types a full word, then taps the live "Tap me"
+      # button once to trigger a single rerender that surfaces the captured
+      # value — proving the typed text round-tripped to the Crystal handler
+      # (the SecureField value-drop bug class).
+
       field = UI::TextField.new(placeholder: "Text field")
       field.accessibility_label = "Text field sample"
       field.test_id = "voyager-gallery-textfield"
       field.minimum_width = width
       field.maximum_width = width
+      field.on_change = ->(v : String) { GalleryState.captured_text = "TextField: #{v}"; nil }
       out << field.as(UI::View)
 
       secure = UI::SecureField.new(placeholder: "Password")
@@ -400,6 +424,7 @@ module Voyager
       search.test_id = "voyager-gallery-searchfield"
       search.minimum_width = width
       search.maximum_width = width
+      search.on_change = ->(v : String) { GalleryState.captured_text = "Search: #{v}"; nil }
       out << search.as(UI::View)
 
       area = UI::TextArea.new(placeholder: "Multi-line text area")
@@ -408,7 +433,17 @@ module Voyager
       area.minimum_width = width
       area.maximum_width = width
       area.minimum_height = 80.0
+      area.on_change = ->(v : String) { GalleryState.captured_text = "TextArea: #{v}"; nil }
       out << captioned("TextArea", area.as(UI::View))
+
+      editor = UI::TextEditor.new(placeholder: "Rich text editor")
+      editor.accessibility_label = "Text editor sample"
+      editor.test_id = "voyager-gallery-texteditor"
+      editor.minimum_width = width
+      editor.maximum_width = width
+      editor.minimum_height = 80.0
+      editor.on_change = ->(v : String) { GalleryState.captured_text = "TextEditor: #{v}"; nil }
+      out << captioned("TextEditor", editor.as(UI::View))
 
       out
     end
