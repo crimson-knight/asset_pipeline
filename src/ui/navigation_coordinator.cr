@@ -38,14 +38,30 @@ module UI
     # round-trip through a C ABI.
     record Route, id : Symbol, params : Hash(Symbol, String) = {} of Symbol => String
 
+    # Distinguishes a stack mutation (push/pop/replace_root) from a
+    # same-route re-publish (republish, i.e. an ActionResult::Rerender).
+    # The iOS host uses this to choose between a full host teardown
+    # (navigation) and an in-place reconcile (rerender) — the latter
+    # preserves keyboard focus on a controlled text field. See
+    # docs/initiative-cross-platform-ui/handoff/inplace-reconciliation-design-2026-05-31.md.
+    enum ChangeKind
+      Navigation
+      Rerender
+    end
+
+    # A coordinator change: the new current route + why it changed.
+    record Change, route : Route, kind : ChangeKind
+
     # The full stack, root-first. `routes.last` is the visible route.
     getter routes : Array(Route)
 
     @on_change_callbacks : Array(Proc(Route, Nil))
+    @on_change_event_callbacks : Array(Proc(Change, Nil))
 
     def initialize(root : Route)
       @routes = [root] of Route
       @on_change_callbacks = [] of Proc(Route, Nil)
+      @on_change_event_callbacks = [] of Proc(Change, Nil)
     end
 
     # The visible route (top of stack).
@@ -61,7 +77,7 @@ module UI
     # Push a new route onto the stack and notify subscribers.
     def push(route : Route) : Nil
       @routes << route
-      notify
+      notify(ChangeKind::Navigation)
     end
 
     # Pop the visible route. Returns the popped route or nil if at root
@@ -69,7 +85,7 @@ module UI
     def pop : Route?
       return nil if @routes.size <= 1
       popped = @routes.pop
-      notify
+      notify(ChangeKind::Navigation)
       popped
     end
 
@@ -78,7 +94,7 @@ module UI
     def pop_to_root : Nil
       return if @routes.size <= 1
       @routes = [@routes.first]
-      notify
+      notify(ChangeKind::Navigation)
     end
 
     # Replace the entire stack with a single new root. Use after sign-in,
@@ -86,7 +102,7 @@ module UI
     # meaningful (e.g. session reset).
     def replace_root(route : Route) : Nil
       @routes = [route]
-      notify
+      notify(ChangeKind::Navigation)
     end
 
     # Subscribe to coordinator changes. Block receives the new current
@@ -95,6 +111,14 @@ module UI
     # order.
     def on_change(&block : Route ->) : Nil
       @on_change_callbacks << block
+    end
+
+    # Subscribe to coordinator changes WITH the change kind (Navigation
+    # vs Rerender). Additive to `on_change` — existing route-only
+    # subscribers keep working. The iOS host uses this to reconcile in
+    # place on a same-route Rerender instead of tearing down the host.
+    def on_change_event(&block : Change ->) : Nil
+      @on_change_event_callbacks << block
     end
 
     # Returns the number of registered subscribers — exposed for specs.
@@ -109,12 +133,14 @@ module UI
     # state. Equivalent semantics to push/pop of the same route, minus
     # the stack churn.
     def republish : Nil
-      notify
+      notify(ChangeKind::Rerender)
     end
 
-    private def notify : Nil
+    private def notify(kind : ChangeKind) : Nil
       current_route = current
       @on_change_callbacks.each { |cb| cb.call(current_route) }
+      change = Change.new(current_route, kind)
+      @on_change_event_callbacks.each { |cb| cb.call(change) }
     end
   end
 end

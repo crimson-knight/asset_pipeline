@@ -37,7 +37,6 @@
 # samples/initiative-cross-platform-ui-demo/ios/build_crystal_lib.sh.
 
 {% if flag?(:ios) %}
-
   require "../app"
   require "../host_bootstrap"
   require "../../../src/ui/renderers/uikit_renderer"
@@ -69,7 +68,11 @@
     @@dispatcher : UI::ActionDispatcher? = nil
     @@last_native : UI::NativeView? = nil
     @@current_slug_buf : Bytes? = nil
-    @@swift_route_changed_cb : (LibC::Char* -> Void)? = nil
+    # Carries (slug, change_kind) to Swift. kind: 0 = Navigation,
+    # 1 = Rerender. Swift uses kind to choose host teardown (navigation)
+    # vs in-place reconcile (rerender) — see the in-place reconciliation
+    # design doc + project_reactive_text_focus_loss memory.
+    @@swift_route_changed_cb : (LibC::Char*, Int32 -> Void)? = nil
     # Phase 6.10 Rem 4 — suppress the Swift route-changed callback
     # during the initial coord/slug resync (see render_slug). Without
     # this guard, replace_root → notify → Swift cb → render_slug →
@@ -187,15 +190,19 @@
       # Phase 8B Codex iter-4 finding #1 + 8D.1 macOS pattern).
       # Re-mounting here would double-bump the token.
       coord = @@coord.not_nil!
-      coord.on_change do |route|
-        slug = Voyager.slug_for_route_id(route.id)
+      # Subscribe with the change KIND so Swift can distinguish a
+      # navigation (host teardown) from a same-route Rerender (in-place
+      # reconcile that preserves text-field focus).
+      coord.on_change_event do |change|
+        slug = Voyager.slug_for_route_id(change.route.id)
         copy_slug_to_buf(slug)
         cb = @@swift_route_changed_cb
         buf = @@current_slug_buf
+        kind = change.kind.rerender? ? 1 : 0
         if @@suppress_route_changed
           # Initial resync — Swift callback intentionally suppressed.
         elsif !cb.nil? && !buf.nil?
-          cb.call(buf.to_unsafe.as(LibC::Char*))
+          cb.call(buf.to_unsafe.as(LibC::Char*), kind)
         end
       end
 
@@ -221,8 +228,23 @@
       @@current_slug_buf.not_nil!.to_unsafe.as(LibC::Char*)
     end
 
-    def self.register_route_changed(cb : LibC::Char* -> Void) : Nil
+    def self.register_route_changed(cb : (LibC::Char*, Int32) -> Void) : Nil
       @@swift_route_changed_cb = cb
+    end
+
+    # Stage 1 of in-place reconciliation. Swift calls this on a same-route
+    # Rerender (kind == 1) INSTEAD of tearing down the host, hoping to
+    # update the mounted native tree in place (preserving text-field
+    # focus). Returns true if the in-place update was applied; false means
+    # "couldn't reconcile — fall back to the destructive render path".
+    #
+    # Stage 1 scaffold: always returns false (so behavior is identical to
+    # today) until the renderer-side leaf reconciliation lands. This lets
+    # the event-kind plumbing + ContentView split ship with zero behavior
+    # change first.
+    def self.reconcile_slug(slug : String) : Bool
+      initialize_runtime
+      false
     end
 
     # Build + render the requested slug. The slug Swift passes is the
@@ -409,8 +431,13 @@
     VoyagerBridge.current_slug_ptr
   end
 
-  fun voyager_register_route_changed_callback(cb : LibC::Char* -> Void) : Void
+  fun voyager_register_route_changed_callback(cb : (LibC::Char*, Int32) -> Void) : Void
     VoyagerBridge.register_route_changed(cb)
   end
 
+  # Returns 1 if the same-route Rerender was reconciled in place, 0 if the
+  # caller should fall back to the destructive render path.
+  fun voyager_reconcile(slug_ptr : LibC::Char*) : Int32
+    VoyagerBridge.reconcile_slug(String.new(slug_ptr)) ? 1 : 0
+  end
 {% end %}
