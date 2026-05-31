@@ -14,6 +14,8 @@ module Voyager
       when :gallery_toggle  then set_toggle(context)
       when :gallery_segment then set_segment(context)
       when :gallery_stepper then set_stepper(context)
+      when :gallery_tab     then set_tab(context)
+      when :gallery_color   then set_color(context)
       when :gallery_event   then record_event(context)
       else
         raise UI::Controller::UnknownActionError.new(
@@ -39,6 +41,16 @@ module Voyager
 
     private def set_stepper(context : UI::ScreenContext::Native) : UI::ActionResult
       GalleryState.stepper_value = (context.action_params["value"]? || "0").to_i? || 0
+      UI::ActionResult::Rerender.new
+    end
+
+    private def set_tab(context : UI::ScreenContext::Native) : UI::ActionResult
+      GalleryState.tab_index = (context.action_params["index"]? || "0").to_i? || 0
+      UI::ActionResult::Rerender.new
+    end
+
+    private def set_color(context : UI::ScreenContext::Native) : UI::ActionResult
+      GalleryState.color_label = "Color: #{context.action_params["rgb"]? || "?"}"
       UI::ActionResult::Rerender.new
     end
 

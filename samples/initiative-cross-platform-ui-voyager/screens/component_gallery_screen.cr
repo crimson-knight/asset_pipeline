@@ -199,6 +199,18 @@ module Voyager
       step_state.test_id = "voyager-gallery-live-stepper-state"
       out << step_state.as(UI::View)
 
+      tab_state = UI::Label.new("Tab: #{GalleryState.tab_label}")
+      tab_state.font = UI::Font.new(size: 15.0, weight: :semibold)
+      tab_state.text_color_role = UI::LabelRole::Primary
+      tab_state.test_id = "voyager-gallery-live-tab-state"
+      out << tab_state.as(UI::View)
+
+      color_state = UI::Label.new(GalleryState.color_label)
+      color_state.font = UI::Font.new(size: 15.0, weight: :semibold)
+      color_state.text_color_role = UI::LabelRole::Primary
+      color_state.test_id = "voyager-gallery-live-color-state"
+      out << color_state.as(UI::View)
+
       # Captured-text readout for the Text Entry section's inputs. Those
       # inputs store their real typed value into GalleryState.captured_text
       # WITHOUT rerendering (to avoid losing keyboard focus); tapping "Tap
@@ -250,6 +262,40 @@ module Voyager
         Voyager.dispatch(:gallery_stepper, {"value" => value.to_i.to_s})
       }
       out << captioned("Stepper (wired)", live_step.as(UI::View))
+
+      # Wired TabView — selecting a tab updates the "Tab:" readout. Proves
+      # the tab-change token now threads through to Crystal.
+      live_tabs = UI::TabView.new(
+        tabs: [
+          UI::TabView::Tab.new(label: "Home", icon: "house", content: UI::Label.new("Home tab content")),
+          UI::TabView::Tab.new(label: "Stats", icon: "chart.bar", content: UI::Label.new("Stats tab content")),
+          UI::TabView::Tab.new(label: "Profile", icon: "person", content: UI::Label.new("Profile tab content")),
+        ],
+        selected_index: GalleryState.tab_index,
+      )
+      live_tabs.accessibility_label = "Live tab view"
+      live_tabs.test_id = "voyager-gallery-live-tabview"
+      live_tabs.minimum_width = width
+      live_tabs.maximum_width = width
+      live_tabs.on_change = ->(index : Int32) {
+        Voyager.dispatch(:gallery_tab, {"index" => index.to_s})
+      }
+      out << captioned("TabView (wired)", live_tabs.as(UI::View))
+
+      # Wired ColorPicker — updates the Color readout with the NEW pick
+      # (the picked UI::Color's RGB), proving the colour value channel.
+      live_color = UI::ColorPicker.new
+      live_color.label = "Live color"
+      live_color.selected_color = UI::Color.new(r: 0.0, g: 0.478, b: 1.0)
+      live_color.supports_alpha = true
+      live_color.accessibility_label = "Live color picker"
+      live_color.test_id = "voyager-gallery-live-color"
+      live_color.on_change = ->(c : UI::Color) {
+        Voyager.dispatch(:gallery_color, {
+          "rgb" => "#{(c.r * 255).round.to_i},#{(c.g * 255).round.to_i},#{(c.b * 255).round.to_i}",
+        })
+      }
+      out << captioned("ColorPicker (wired)", live_color.as(UI::View))
 
       out
     end

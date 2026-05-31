@@ -5,6 +5,12 @@
 
 import SwiftUI
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+import CoreGraphics
 
 final class BoolStorage: ObservableObject {
     @Published var value: Bool
@@ -179,10 +185,48 @@ final class ColorStorage: ObservableObject {
             get: { self.value },
             set: { newValue in
                 self.value = newValue
-                // Value channel carries 1.0 = "changed"; richer
-                // colour-change dispatch is a future hook.
-                CallbackBridge.fire(token: self.token, value: 1.0)
+                // Colour value channel: encode the NEW pick as "r,g,b,a"
+                // (sRGB, 0...1, POSIX '.' via String(format:)) and fire the
+                // STRING trampoline — mirrors the TextField string channel.
+                // The Crystal renderer registers a register_string callback
+                // that parses this into a UI::Color. The old
+                // fire(token, 1.0) dropped the pick entirely.
+                let (r, g, b, a) = ColorStorage.rgbaComponents(newValue)
+                let encoded = String(format: "%.6f,%.6f,%.6f,%.6f", r, g, b, a)
+                CallbackBridge.fireString(token: self.token, value: encoded)
             }
         )
     }
+
+    /// Extract display-sRGB RGBA components (0...1) from a SwiftUI Color,
+    /// resilient to wide-gamut (Display P3) picks via CGColor sRGB
+    /// conversion (clamping raw extended/P3 channels would mis-map them).
+    static func rgbaComponents(_ color: Color) -> (Double, Double, Double, Double) {
+        if let cg = color.cgColor,
+           let srgbSpace = CGColorSpace(name: CGColorSpace.sRGB),
+           let converted = cg.converted(to: srgbSpace, intent: .defaultIntent, options: nil),
+           let comps = converted.components, comps.count >= 3 {
+            let a = comps.count >= 4 ? comps[3] : 1.0
+            return (Double(comps[0]).clampedUnit, Double(comps[1]).clampedUnit,
+                    Double(comps[2]).clampedUnit, Double(a).clampedUnit)
+        }
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 1
+        #if canImport(UIKit)
+        if UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a) {
+            return (Double(r).clampedUnit, Double(g).clampedUnit,
+                    Double(b).clampedUnit, Double(a).clampedUnit)
+        }
+        #elseif canImport(AppKit)
+        if let srgb = NSColor(color).usingColorSpace(.sRGB) {
+            srgb.getRed(&r, green: &g, blue: &b, alpha: &a)
+            return (Double(r).clampedUnit, Double(g).clampedUnit,
+                    Double(b).clampedUnit, Double(a).clampedUnit)
+        }
+        #endif
+        return (0.0, 0.0, 0.0, 1.0)
+    }
+}
+
+private extension Double {
+    var clampedUnit: Double { Swift.min(1.0, Swift.max(0.0, self)) }
 }

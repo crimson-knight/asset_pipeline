@@ -951,7 +951,7 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         child_buf = build_child_buffer(children_native)
         ptr = LibSwiftKitBridge.apsk_make_tab_view(
-          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
+          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr, action_token,
         )
         handle = ObjC.owned(ptr, label: "NSHostingView[TabView]")
         native = NativeView.new(handle)
@@ -3128,14 +3128,19 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_color_picker(target_str, view, sender)
 
+        # The Swift ColorStorage binding fires CallbackBridge.fireString(
+        # token, "r,g,b,a") with the NEW pick (sRGB 0..1). Register on the
+        # STRING channel and parse the RGBA back into a UI::Color, calling
+        # the original on_change with the actual picked colour. (Previously
+        # the float channel re-emitted the ORIGINAL selected_color.)
         action_token = 0_u64
         if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            # The Swift facade fires value=1.0 on any change; the Crystal
-            # proc receives the original colour — richer round-trip is a
-            # Phase 5 follow-up (Color value channel needs encoding).
-            change_handler.call(view.selected_color)
-          end
+          action_token = UI::CallbackRegistry.register_string(->(payload : String) {
+            if color = UI::ColorPicker.parse_rgba(payload)
+              change_handler.call(color)
+            end
+            nil
+          })
         end
 
         c = view.selected_color

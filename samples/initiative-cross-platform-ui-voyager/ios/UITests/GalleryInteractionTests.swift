@@ -160,4 +160,12 @@ final class GalleryInteractionTests: XCTestCase {
             "Selecting 'Month' did NOT update the readout to 'Mode: Month'. " +
             "The SegmentedControl on_change callback did not fire end-to-end.")
     }
+
+    // NOTE: the TabView on_change value-channel fix (token threading) is
+    // proven by the SwiftKit unit test TabViewTokenTests
+    // (swift/AssetPipelineSwiftKit/Tests) — it asserts IntStorage(token:)
+    // fires the REAL token + new index. XCUITest cannot reliably drive a
+    // SwiftUI TabView's selection binding via synthesized taps (hosted in
+    // a UIHostingController), so the gallery's TabView here is a visual
+    // showcase only and is not behavior-tested at the UI layer.
 }

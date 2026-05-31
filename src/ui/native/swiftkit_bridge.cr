@@ -223,7 +223,7 @@
     fun apsk_make_navigation_split_view(child_views : Void*, child_count : Int32,
                                         overrides : Void*) : Void*
     fun apsk_make_tab_view(child_views : Void*, child_count : Int32,
-                           overrides : Void*) : Void*
+                           overrides : Void*, action_token : UInt64) : Void*
     fun apsk_make_sheet(child_views : Void*, child_count : Int32,
                         overrides : Void*, dismiss_token : UInt64) : Void*
     fun apsk_make_popover(child_views : Void*, child_count : Int32,

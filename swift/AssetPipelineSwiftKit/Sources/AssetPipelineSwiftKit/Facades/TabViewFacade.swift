@@ -14,12 +14,16 @@ import Foundation
 public class TabViewFacade: NSObject {
     @objc public static func makeTabView(
         childViews: [APSKPlatformView],
-        overrides: TabViewOverrides
+        overrides: TabViewOverrides,
+        actionToken: UInt64
     ) -> APSKPlatformView {
         let labels = overrides.tabLabels
         let icons = overrides.tabIcons
         let count = childViews.count
-        let storage = IntStorage(initial: overrides.selectedIndex, token: 0)
+        // Thread the Crystal callback token so a tab change fires
+        // CallbackBridge.fire(token, Double(index)) — previously hardcoded
+        // to 0, so the on_change handler never received the new index.
+        let storage = IntStorage(initial: overrides.selectedIndex, token: actionToken)
 
         var content: AnyView = AnyView(
             TabView(selection: storage.binding) {

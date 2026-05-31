@@ -15,6 +15,8 @@ module Voyager
     @@stepper_value : Int32? = nil
     @@last_event : String? = nil
     @@captured_text : String? = nil
+    @@tab_index : Int32? = nil
+    @@color_label : String? = nil
 
     # Shared readout for the showcase sections: the most recent
     # interaction with any wired widget. Lets every widget demonstrate it
@@ -26,6 +28,34 @@ module Voyager
 
     def self.last_event=(value : String) : String
       @@last_event = value
+    end
+
+    # TabView readout — proves the tab-change callback threads through to
+    # Crystal (the value-drop bug: TabViewFacade hardcoded the token to 0).
+    def self.tab_index : Int32
+      @@tab_index ||= 0
+    end
+
+    def self.tab_index=(value : Int32) : Int32
+      @@tab_index = value
+    end
+
+    def self.tab_label : String
+      case tab_index
+      when 1 then "Stats"
+      when 2 then "Profile"
+      else        "Home"
+      end
+    end
+
+    # ColorPicker readout — proves the colour value channel: on_change must
+    # receive the NEW pick, not the original selected_color.
+    def self.color_label : String
+      @@color_label ||= "Color: (no pick yet)"
+    end
+
+    def self.color_label=(value : String) : String
+      @@color_label = value
     end
 
     # Capture-then-reveal readout for text inputs (SearchField, TextArea,

@@ -19,6 +19,20 @@ module UI
     def initialize
     end
 
+    # Parse the Swift colour value-channel payload "r,g,b,a" (four sRGB
+    # floats on 0.0..1.0, comma-separated, '.'-decimal) into a UI::Color.
+    # Returns nil for a malformed payload so the renderer's on_change only
+    # fires on a well-formed pick (mirrors the string trampoline's
+    # silent-no-op-on-garbage policy). Channels are clamped to 0.0..1.0.
+    def self.parse_rgba(payload : String) : Color?
+      parts = payload.split(',')
+      return nil unless parts.size == 4
+      vals = parts.map(&.strip.to_f?)
+      return nil if vals.any?(&.nil?)
+      r, g, b, a = vals.map { |v| v.not_nil!.clamp(0.0, 1.0) }
+      Color.new(r: r, g: g, b: b, a: a)
+    end
+
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end

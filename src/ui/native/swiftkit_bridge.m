@@ -426,13 +426,13 @@ void *apsk_make_navigation_split_view(const void *child_views, int child_count,
 }
 
 void *apsk_make_tab_view(const void *child_views, int child_count,
-                        void *overrides) {
+                        void *overrides, unsigned long long action_token) {
     Class cls = objc_getClass("APSKTabViewFacade");
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
-    SEL sel = sel_registerName("makeTabViewWithChildViews:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, children, (id)overrides);
+    SEL sel = sel_registerName("makeTabViewWithChildViews:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, children, (id)overrides, action_token);
 }
 
 void *apsk_make_sheet(const void *child_views, int child_count,
