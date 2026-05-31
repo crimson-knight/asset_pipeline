@@ -266,6 +266,33 @@ Use the `ax-test` skill. Write specs in `spec/ui/` that:
 
 **Do NOT ship a build without running UI tests.** The AXTest library queries the real accessibility tree of the running app — if elements are missing or windows don't render, the tests fail.
 
+#### Definition of Done for interactive views (NON-NEGOTIABLE)
+
+Element-discoverability ("the control exists in the AX tree") is necessary but
+**NEVER sufficient** and never counts as proof that a feature works. An app that
+could not be logged into once shipped with every test green, because no test ever
+typed a password and submitted (the SecureField password-drop bug). Verifying a
+control *exists* is not verifying it *functions*.
+
+When you build or change a view that is expected to DO something — carry a value,
+fire an action, mutate state, navigate, present/dismiss — you MUST prove it works
+the way a real user experiences it, using every available tool to imitate that
+user. A passing interactive-view change requires a behavior test that:
+
+1. **Drives the real native control through the accessibility API** the user/
+   VoiceOver uses — XCUITest (iOS), `UI::AXTest` (macOS), the DOM/web path (web).
+   Tap, type, toggle, select, drag the actual control.
+2. **Supplies real user input** — real text into fields (incl. `SecureField`),
+   real selections, real slider/stepper values, real dates/colors — never a
+   synthetic "something changed" signal.
+3. **Asserts the functional OUTCOME** observed through the AX tree the user sees:
+   the value reached `FormState`/the handler, state mutated, the readout updated,
+   the screen navigated/presented/dismissed.
+
+Do this on every target platform the widget supports. If the build is slow, still
+write and run the behavior test before declaring done — do not substitute a
+render/discoverability check.
+
 ### 4. Verify Accessibility
 Use the `accessibility` skill for WCAG 2.2 AA compliance. Use `ax-test` to verify VoiceOver can discover all interactive elements.
 
