@@ -232,19 +232,96 @@
       @@swift_route_changed_cb = cb
     end
 
-    # Stage 1 of in-place reconciliation. Swift calls this on a same-route
-    # Rerender (kind == 1) INSTEAD of tearing down the host, hoping to
-    # update the mounted native tree in place (preserving text-field
-    # focus). Returns true if the in-place update was applied; false means
-    # "couldn't reconcile — fall back to the destructive render path".
+    # In-place reconciliation for a same-route Rerender. Swift calls this
+    # INSTEAD of tearing down the host. We rebuild the NEW UI::View tree,
+    # walk it in parallel with the MOUNTED native tree (@@last_native),
+    # and — only if the structure matches exactly — push changed leaf
+    # values (Label text) onto the EXISTING native views in place. The
+    # mounted text input is left untouched, so its first responder + live
+    # editing buffer survive. Returns true if applied in place; false on
+    # ANY mismatch (caller falls back to the destructive render — safe).
     #
-    # Stage 1 scaffold: always returns false (so behavior is identical to
-    # today) until the renderer-side leaf reconciliation lands. This lets
-    # the event-kind plumbing + ContentView split ship with zero behavior
-    # change first.
+    # Two-phase: collect ops first (a deep mismatch aborts BEFORE any
+    # mutation), then apply. Does NOT render a new native tree, does NOT
+    # swap @@last_native, does NOT teardown anything.
     def self.reconcile_slug(slug : String) : Bool
       initialize_runtime
+
+      mounted = @@last_native
+      return false if mounted.nil?
+      return false if mounted.state.torn_down? || mounted.handle.released?
+
+      coord = @@coord.not_nil!
+      dispatcher = @@dispatcher.not_nil!
+      route = Voyager.route_for_slug(slug)
+      current_slug = Voyager.slug_for_route_id(coord.current.id)
+      # Same-route only — reconcile never crosses a navigation, and must
+      # NOT trip render_slug's initial-resync (depth==1 mismatch) block.
+      return false unless route.id == coord.current.id
+      return false unless slug == current_slug
+
+      reg = VoyagerApp.registration_for(coord.current.id)
+      screen_class = reg.screen_class
+      return false if screen_class.nil?
+
+      # Construct a renderer for its provider-install side effect only
+      # (installs DesignTokens::Device provider that screens query during
+      # build). We do NOT render with it. Same ordering as render_slug.
+      UI::UIKit::Renderer.new
+
+      ctx = UI::ScreenContext::Native.new(
+        form_state: dispatcher.current_form_state,
+        session: dispatcher.session,
+        flash: dispatcher.flash,
+        design_tokens: dispatcher.design_tokens,
+        navigation: dispatcher.navigation,
+        action_params: {} of String => String,
+        platform: dispatcher.platform,
+        environment: dispatcher.environment,
+      )
+
+      view = screen_class.new.build(ctx)
+      view.accessibility_label = "voyager-root-#{current_slug}" if view.accessibility_label.to_s.empty?
+      view.test_id = "voyager-root-#{current_slug}" if view.test_id.to_s.empty?
+
+      ops = [] of Tuple(Void*, String)
+      return false unless collect_reconcile_ops(view, mounted, ops)
+
+      ops.each do |state, text|
+        LibSwiftKitBridge.apsk_label_set_text(state, text.to_unsafe)
+      end
+      true
+    rescue
+      # Any unexpected error → fall back to the safe destructive path.
       false
+    end
+
+    # Walk (new UI::View node, mounted NativeView node) in parallel.
+    # Returns false on ANY structural/kind mismatch WITHOUT having
+    # mutated anything (ops are only appended, applied by the caller after
+    # a full successful walk). Records Label text updates as (state_ptr,
+    # text) ops against the MOUNTED label's reactive state handle.
+    private def self.collect_reconcile_ops(view : UI::View, native : UI::NativeView, ops : Array(Tuple(Void*, String))) : Bool
+      return false if native.state.torn_down? || native.handle.released?
+
+      native_kind = native.view_kind
+      return false if native_kind.nil?
+      return false unless native_kind == view.reconcile_kind
+
+      if view.is_a?(UI::Label)
+        state = native.handle.state_handle
+        return false if state.nil? || state.null?
+        ops << {state, view.text}
+      end
+      # Text inputs: intentionally NOT updated — preserve first responder
+      # + live buffer. Other leaves: no-op for Stage 1.
+
+      children = view.reconcile_children
+      return false unless children.size == native.children.size
+      children.each_with_index do |child, idx|
+        return false unless collect_reconcile_ops(child, native.children[idx], ops)
+      end
+      true
     end
 
     # Build + render the requested slug. The slug Swift passes is the

@@ -579,6 +579,27 @@ module UI
     # Each concrete view type calls `visitor.visit(self)`.
     abstract def accept(visitor : PlatformVisitor)
 
+    # ------------------------------------------------------------------
+    # In-place reconciliation hooks (iOS Rerender focus preservation).
+    #
+    # The reconciler walks a freshly-built view tree against the mounted
+    # native tree, aligning by position. `reconcile_kind` must equal the
+    # `NativeView#view_kind` the renderer stamped for this view's native
+    # node; `reconcile_children` must return this view's children in the
+    # SAME order the renderer adds native children. The default is a leaf
+    # with no children — containers override `reconcile_children`. Any
+    # mismatch (kind or child count) makes the reconciler abort to the
+    # safe destructive render path, so an unhandled container/widget is
+    # never silently mis-reconciled — it just falls back.
+    # ------------------------------------------------------------------
+    def reconcile_kind : String
+      self.class.name
+    end
+
+    def reconcile_children : Array(View)
+      [] of View
+    end
+
     # Phase 10B.0 — declare which capabilities this view class supports
     # for a given Tier 2 intent. Used by `UI::WidgetRoute::Registry` to
     # validate overrides at registration time. Subclasses call this

@@ -67,9 +67,45 @@ module UI
     # this view. Cleaned up during `teardown!`.
     @callback_ids : Array(UInt64)
 
+    # The UI::View class name this native view was produced from (e.g.
+    # "UI::Label"). Used by the in-place reconciler to align + gate the
+    # mounted native tree against a freshly-built view tree. Inferred from
+    # the handle's debug label so the renderer visits don't each need a
+    # change; an unknown label leaves this nil, which makes the reconciler
+    # abort safely (fall back to a destructive render). See
+    # docs/.../handoff/inplace-reconciliation-design-2026-05-31.md.
+    getter view_kind : String?
+
     def initialize(@handle : NativeHandle, @children : Array(NativeView) = [] of NativeView)
+      @view_kind = NativeView.infer_view_kind(@handle.label)
       @state = State::Created
       @callback_ids = [] of UInt64
+    end
+
+    # Map a renderer debug label (passed to `ObjC.owned(ptr, label: ...)`)
+    # to the originating UI::View class name. Only labels the reconciler
+    # needs are mapped; anything else returns nil so the reconciler aborts
+    # to the safe destructive path. Keep in sync with the UIKit renderer's
+    # `ObjC.owned(..., label:)` strings.
+    def self.infer_view_kind(label : String?) : String?
+      return nil if label.nil?
+      case label
+      when "UIHostingController[Label]"       then "UI::Label"
+      when "UIHostingController[Button]"      then "UI::Button"
+      when "UIStackView[v]"                   then "UI::VStack"
+      when "UIStackView[h]"                   then "UI::HStack"
+      when "UIView[zstack]"                   then "UI::ZStack"
+      when "UIScrollView"                     then "UI::ScrollView"
+      when "UIView[spacer]"                   then "UI::Spacer"
+      when "UIHostingController[Image]"       then "UI::Image"
+      when "UIHostingController[Divider]"     then "UI::Divider"
+      when "UIHostingController[TextField]"   then "UI::TextField"
+      when "UIHostingController[SecureField]" then "UI::SecureField"
+      when "UIHostingController[SearchField]" then "UI::SearchField"
+      when "UIHostingController[TextArea]"    then "UI::TextArea"
+      when "UIHostingController[TextEditor]"  then "UI::TextEditor"
+      else                                         nil
+      end
     end
 
     # Add a child to this view's children array.

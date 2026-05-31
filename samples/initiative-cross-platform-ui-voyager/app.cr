@@ -42,6 +42,7 @@ require "./screens/todo_editor_screen"
 require "./screens/settings_screen"
 require "./screens/component_gallery_state"
 require "./screens/component_gallery_screen"
+require "./screens/reconcile_probe_screen"
 require "./screens/phase10_hub_screen"
 require "./screens/phase_10/phase_10_exerciser_state"
 require "./screens/phase_10/intent_resolver_screen"
@@ -55,6 +56,7 @@ require "./controllers/todos_controller"
 require "./controllers/todo_editor_controller"
 require "./controllers/settings_controller"
 require "./controllers/component_gallery_controller"
+require "./controllers/reconcile_probe_controller"
 require "./controllers/phase10_hub_controller"
 require "./controllers/phase10_intent_resolver_controller"
 require "./controllers/phase10_class_c_dispatch_controller"
@@ -75,6 +77,7 @@ module Voyager
     "voyager-todo-editor",
     "voyager-settings",
     "voyager-component-gallery",
+    "voyager-reconcile-probe",
     "voyager-phase-10-hub",
     "voyager-phase-10-intent-resolver",
     "voyager-phase-10-class-c-dispatch",
@@ -190,6 +193,7 @@ module Voyager
       UI::NavigationCoordinator::Route.new(:todo_editor, params: params)
     when "voyager-settings"                  then UI::NavigationCoordinator::Route.new(:settings)
     when "voyager-component-gallery"         then UI::NavigationCoordinator::Route.new(:component_gallery)
+    when "voyager-reconcile-probe"           then UI::NavigationCoordinator::Route.new(:reconcile_probe)
     when "voyager-phase-10-hub"              then UI::NavigationCoordinator::Route.new(:phase_10_hub)
     when "voyager-phase-10-intent-resolver"  then UI::NavigationCoordinator::Route.new(:phase_10_intent_resolver)
     when "voyager-phase-10-class-c-dispatch" then UI::NavigationCoordinator::Route.new(:phase_10_class_c_dispatch)
@@ -209,6 +213,7 @@ module Voyager
     when :todo_editor               then "voyager-todo-editor"
     when :settings                  then "voyager-settings"
     when :component_gallery         then "voyager-component-gallery"
+    when :reconcile_probe           then "voyager-reconcile-probe"
     when :phase_10_hub              then "voyager-phase-10-hub"
     when :phase_10_intent_resolver  then "voyager-phase-10-intent-resolver"
     when :phase_10_class_c_dispatch then "voyager-phase-10-class-c-dispatch"
@@ -230,6 +235,7 @@ class VoyagerApp < UI::App
   screen :todo_editor, Voyager::TodoEditorController
   screen :settings, Voyager::SettingsController
   screen :component_gallery, Voyager::ComponentGalleryController, screen_class: Voyager::ComponentGalleryScreen
+  screen :reconcile_probe, Voyager::ReconcileProbeController, screen_class: Voyager::ReconcileProbeScreen
   # Phase 10D — exerciser routes. Reachable from the Settings screen
   # via a "Phase 10 Exerciser" entry, or directly via /phase-10 on the
   # static-site web build.
