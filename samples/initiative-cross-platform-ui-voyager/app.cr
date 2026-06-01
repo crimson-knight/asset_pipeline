@@ -51,7 +51,9 @@ require "./screens/phase_10/class_c_dispatch_screen"
 require "./screens/phase_10/ax_metadata_screen"
 require "./screens/phase_10/environment_reactivity_screen"
 require "./screens/phase_10/new_widgets_screen"
+require "./screens/welcome_screen"
 
+require "./controllers/welcome_controller"
 require "./controllers/sign_in_controller"
 require "./controllers/todos_controller"
 require "./controllers/todo_editor_controller"
@@ -87,6 +89,7 @@ module Voyager
     "voyager-phase-10-ax-metadata",
     "voyager-phase-10-environment",
     "voyager-phase-10-new-widgets",
+    "voyager-welcome",
   ]
 
   # Host-set dispatcher.
@@ -181,6 +184,7 @@ module Voyager
   # pre-build a route by name.
   def self.route_for_slug(slug : String) : UI::NavigationCoordinator::Route
     case slug
+    when "voyager-welcome" then UI::NavigationCoordinator::Route.new(:welcome)
     when "voyager-sign-in" then UI::NavigationCoordinator::Route.new(:sign_in)
     when "voyager-todos"   then UI::NavigationCoordinator::Route.new(:todos)
     when "voyager-todo-editor"
@@ -212,6 +216,7 @@ module Voyager
   # web renderer's UIRouteHost push glue.
   def self.slug_for_route_id(route_id : Symbol) : String
     case route_id
+    when :welcome                   then "voyager-welcome"
     when :sign_in                   then "voyager-sign-in"
     when :todos                     then "voyager-todos"
     when :todo_editor               then "voyager-todo-editor"
@@ -235,6 +240,7 @@ end
 # gap recovery hatch — see src/asset_pipeline/native_app.cr).
 class VoyagerApp < UI::App
   initial_route :sign_in
+  screen :welcome, Voyager::WelcomeController, screen_class: Voyager::WelcomeScreen
   screen :sign_in, Voyager::SignInController
   screen :todos, Voyager::TodosController
   screen :todo_editor, Voyager::TodoEditorController
