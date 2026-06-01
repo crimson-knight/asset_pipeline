@@ -164,6 +164,17 @@ require "../../../src/ui/renderers/appkit_renderer"
         environment: dispatcher.environment,
       )
       view = screen_class.new.build(ctx)
+
+      # Track 2 metric-contract instrumentation. Set VOYAGER_DEBUG_METRICS=1
+      # to print the live DeviceMetrics the screen just authored against —
+      # a unique grep token so capture/AX runs can assert the size class
+      # tracks the actual window/capture width (the fix that makes narrow
+      # windows reflow to the compact column). No-op when unset.
+      if ENV["VOYAGER_DEBUG_METRICS"]?
+        m = UI::DesignTokens::DeviceMetrics.current
+        STDERR.puts "[VOYAGER_METRICS] width=#{m.content_width_pt} hsize=#{m.horizontal_size_class} compact=#{m.compact_horizontal?}"
+      end
+
       install_view(view)
     end
 

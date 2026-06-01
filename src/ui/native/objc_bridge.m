@@ -549,9 +549,16 @@ double objc_safe_area_trailing(void) {
 // using the 768pt breakpoint (same threshold web uses for `md`).
 int32_t objc_horizontal_size_class(void) {
 #if TARGET_OS_OSX
-    NSWindow *win = [NSApp mainWindow];
-    if (!win) return 0;
-    return (win.frame.size.width >= 768.0) ? 2 : 1;
+    // Track 2 metric-contract fix: derive the size class from the SAME
+    // active-window content rect that objc_macos_screen_width reports, not
+    // from a bare [NSApp mainWindow]. The previous mainWindow-only lookup
+    // returned nil (→ Unspecified → never Compact) during offscreen capture
+    // — the capture window is visible but not "main" — so narrow captures
+    // never reflowed to the compact column. ap_macos_active_window_content_rect
+    // falls back keyWindow→mainWindow→any-visible→screen, matching width.
+    double w = ap_macos_active_window_content_rect().size.width;
+    if (w <= 0.0) return 0;
+    return (w >= 768.0) ? 2 : 1;
 #else
     UIWindow *win = nil;
     for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
@@ -571,9 +578,11 @@ int32_t objc_horizontal_size_class(void) {
 
 int32_t objc_vertical_size_class(void) {
 #if TARGET_OS_OSX
-    NSWindow *win = [NSApp mainWindow];
-    if (!win) return 0;
-    return (win.frame.size.height >= 768.0) ? 2 : 1;
+    // Same metric-contract fix as objc_horizontal_size_class — use the
+    // active-window content rect (capture-path safe) rather than mainWindow.
+    double h = ap_macos_active_window_content_rect().size.height;
+    if (h <= 0.0) return 0;
+    return (h >= 768.0) ? 2 : 1;
 #else
     UIWindow *win = nil;
     for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
