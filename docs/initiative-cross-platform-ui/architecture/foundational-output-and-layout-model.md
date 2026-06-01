@@ -250,9 +250,18 @@ the Crystal tree must be REBUILT with updated environment on resize.* That's why
   `rebuild_for(coord.current)` hook yet (`host.cr` rebuilds only on
   `coord.on_change`). Needs an `NSWindow` delegate C-bridge callback into Crystal
   + a GUI/AX resize test. Until then only *launch-width* adaptation works;
-  dragging the window does not re-run `build`. NOTE: the visible column still
-  stretches edge-to-edge because the `content_width` cap isn't authoritative on
-  NSStackView — that's step 3, below, not this fix.
+  dragging the window does not re-run `build`.
+- **CORRECTION (2026-06-01) — the "column stretches edge-to-edge" claim was
+  WRONG.** It was a misread of two screenshots captured at different pixel scales
+  (460pt→920px image vs 900pt→1800px image), which made a 340pt and a 400pt column
+  look similarly proportioned. Pixel-measuring the captures shows the column IS
+  capped and centered: 460pt window → **342pt** field, 900pt → **402pt** field.
+  The `content_width` equality (`objc_constrain_width` @999) IS authoritative on a
+  fixed-width column because VStack alignment is Leading/Center (not a fill that
+  would stretch). **Implication:** the fluid-wrapper (step 3) is NOT needed for
+  fixed-width columns — it only matters for genuinely *fluid* `Fill` containers
+  whose leaf controls must stretch. Most "responsive" forms want a capped centered
+  column, which already works.
 
 **2. Responsive Crystal authoring primitives + migrate Voyager off hard-coded values.**
 - Spacing / padding / axis / repositioning are chosen by Crystal view
@@ -260,6 +269,15 @@ the Crystal tree must be REBUILT with updated environment on resize.* That's why
   rebuild. Add a responsive API (e.g. size-class-aware values) and migrate
   Voyager's hard-coded `content_width`/spacing/padding to it.
 - Verifiable by offscreen capture at compact + regular widths.
+- **LANDED (2026-06-01).** Added `DeviceMetrics#responsive(compact:, regular:)` +
+  `#responsive_vertical` (generic `forall T`; Unspecified → regular). Migrated the
+  Voyager sign-in screen so the WHOLE composition adapts: content_width 340↔400,
+  root spacing 16↔24, fields spacing 10↔14, padding 28/20↔48/32, wordmark 28↔34.
+  PROVEN by capture-measurement: 460pt → 35pt top-pad / 342pt column; 900pt → 57pt
+  top-pad / 402pt column. Both clean + centered. Suite 2107 ex / 0 fail.
+  REMAINING migration: the other Voyager screens (todos, settings, editor, gallery,
+  hub) still use the older `compact_horizontal? ? a : b` width-only idiom — migrate
+  them to `responsive` for spacing too as they're touched.
 
 **3. Fluid wrapper for VStack/HStack (continuous box sizing — solves the collapse).**
 The plain wrapper becomes the logical emitted native view:
