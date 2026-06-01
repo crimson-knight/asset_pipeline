@@ -305,7 +305,7 @@ they do **not** render in-app or perform live registration.
 | **Live Activities / Dynamic Island** | — | 🟡 | — | ⚪ | — | `live_activities.cr` (`export_activitykit_scaffold`); no Dynamic Island layout, no push-update path. |
 | **Notifications** | ⚠️ | 🟢 auth wired | 🟢 | 🟡 | ⚪ | `notifications.cr` — the most complete; real Apple auth binding. |
 | **Controls (Control Center / Lock Screen, iOS 18)** | — | ⚪ | — | ⚪ | — | Greenfield. Parity peer: Android QS tiles. |
-| **Complications** | — | — | — | — | ⚪ | **watchOS-exclusive.** Greenfield; the `accessory*` families in `widgets.cr` are the reuse seam. |
+| **Complications** | — | — | — | — | 🟡 model+gate | **watchOS-exclusive.** `UI::Complication` (`views/complication.cr`) ships now: Tier 3, compile-gated to `:watchos` (naming it off-watch is a compile error — *verified*), with `ComplicationWithWebFallback` (card preview, AX-proven in the Voyager gallery). The `UI::WatchKit::Renderer` that draws it natively is 📋 Phase 12. |
 | **Handoff / Continuity** | — | ⚪ | ⚪ | — | — | Greenfield (`NSUserActivity`). |
 | **Spotlight / CoreSpotlight** | — | ⚪ | ⚪ | ⚪ | — | Greenfield. |
 | **System Drag & Drop (cross-app)** | ⚪ | ⚪ | ⚪ | ⚪ | — | Greenfield for *cross-app* DnD. (In-list reorder via `ListView#on_move` **is** wired through SwiftUI `.onMove` — `list_view.cr:49`, `uikit_renderer.cr:1191`, `ListViewFacade.swift:180`.) |
