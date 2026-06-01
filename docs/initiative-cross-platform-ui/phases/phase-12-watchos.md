@@ -404,6 +404,41 @@ field names. This is vision, not in-scope work for Phase 12.
 > facade (Label) — that validates the model before building the renderer. This
 > preflight is itself a deliverable; do it first.
 
+### Facade-bucket audit — REAL watchOS-build errors (2026-06-01)
+
+`.watchOS(.v10)` added to `Package.swift` (macOS build unaffected, verified). A
+`swift build --triple arm64-apple-watchos-simulator` produces the concrete audit
+below (error counts per file). The macOS/iOS builds are untouched — watchOS only
+compiles when explicitly targeted.
+
+**Root blockers (must fix FIRST — nothing compiles until then):**
+- `Overrides/ViewOverrides.swift` — `APSKPlatformView` typealias is undefined on
+  watchOS (`#if canImport(UIKit)`/`#elseif canImport(AppKit)`, neither true).
+- `HostingHelpers.swift` (29 errors) — `UIView`/`UIViewController`/`UIHostingController`
+  are `API_UNAVAILABLE(watchos)`. The `host(_:)` seam must become a passthrough
+  (`APSKPlatformView = AnyView` or a watch box; `host(v) = AnyView(v)`).
+
+**Watch-specific bucket (hard UIKit / SwiftUI-unavailable — reimpl or gate out):**
+- `PopoverFacade` (26 — `AnchoredPopoverHost: UIView` + `UIPopoverPresentationController`)
+- `NavigationStackFacade` (20) / `NavigationSplitViewFacade` (4) — `UIViewController`
+- `ToggleFacade` (11 — `UISwitch` unavailable on watchOS)
+- `TextFieldFacade` (9 — `.keyboardType`), `PickerFacade`/`DatePickerFacade`/`ColorPickerFacade`
+- `ToolbarFacade` (6) / `GridFacade` (6) / `ListViewFacade` (5) — SwiftUI `Grid`/`Table`/
+  `inset` list style unavailable on watchOS
+- `SwipeActionRowFacade` (4), `MenuButtonFacade` (4)
+- `Modifiers/MaterialSemantic.swift` (3 — `Material.bar` unavailable),
+  `Modifiers/CommonModifiers.swift` (3 — `APSKPlatformColor`)
+- `TabViewFacade`/`SheetFacade`/`GlassBackgroundFacade` (2 each — mostly transitive
+  via `APSKPlatformView`; likely compile once the root is fixed)
+
+**Portable bucket (not in the error list — work once the root compiles):**
+`LabelFacade`, `ButtonFacade`, and the other leaf facades that compose pure SwiftUI.
+
+**Implication:** D2 ≈ fix the 2 root files + a `#if os(watchOS)` gate/reimpl on the
+~12 watch-specific facades (most of which are NOT in the watch catalog subset
+anyway — Popover/Nav/Grid/Toolbar/Toggle-as-UISwitch). Then the portable facades
++ the watch subset compile, and the `WatchKit::Renderer` can be built on top.
+
 ### D3 — WCSession + complication snapshot bridge
 - `WCSessionFacade.swift` + `apsk_wcsession_*` in `swiftkit_bridge.cr`/`.m`.
 - Reuse/generalize Phase 11's `SnapshotWriter` for the watch App Group path.
