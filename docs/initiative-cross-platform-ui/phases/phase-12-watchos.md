@@ -444,7 +444,21 @@ modifiers fixed; 22 watch-specific facades gated `#if !os(watchOS)`; Label/Butto
 all portable facades compile). `swift build --triple arm64-apple-watchos-simulator`
 → Build complete!, 0 errors. macOS/iOS unaffected.
 
-### ⚠️ Crystal toolchain blocker (2026-06-01) — `crystal-alpha` cannot target watchOS yet
+### ✅ RESOLVED (2026-06-01) — Crystal UI lib now cross-compiles for watchOS
+
+Both layers compile for watchOS. **Recipe:** `crystal-alpha build <require ./src/ui>
+--cross-compile --target=arm64-apple-watchos-simulator -Dwatchos -Ddarwin -Dunix`
+→ green `.o`. Needs: (1) watchOS `lib_c` dirs in the crystal-alpha stdlib (copies
+of `aarch64-ios[-simulator]`); (2) the `-Ddarwin -Dunix` flags (the `*-watchos`
+triple sets `:apple` but not `:darwin`/`:unix`, so they must be supplied to select
+the Kqueue event loop); (3) the watchos-gated `visit(Complication)` Web-renderer
+fallback (web_renderer.cr). **Source-repo TODO** (for clean-machine builds):
+`github.com/crimson-knight/crystal@incremental-compilation` — add the `lib_c/
+aarch64-watchos*` dirs + derive `darwin`/`unix`/`apple` from a `*-watchos` triple
+(then `-Ddarwin -Dunix` is unnecessary). Until then the lib_c dirs are a local
+Cellar mod. The blocker write-up below is kept for history.
+
+### ⚠️ (HISTORICAL) Crystal toolchain blocker — `crystal-alpha` cannot target watchOS yet
 
 The Swift layer compiles, but the **Crystal `WatchKit::Renderer` cannot be built
 because `crystal-alpha` (agent-crystal) has no watchOS target support.** Probed via
