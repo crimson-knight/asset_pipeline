@@ -439,6 +439,38 @@ compiles when explicitly targeted.
 anyway — Popover/Nav/Grid/Toolbar/Toggle-as-UISwitch). Then the portable facades
 + the watch subset compile, and the `WatchKit::Renderer` can be built on top.
 
+**UPDATE (2026-06-01): the SwiftKit layer is now GREEN for watchOS** (root + shared
+modifiers fixed; 22 watch-specific facades gated `#if !os(watchOS)`; Label/Button +
+all portable facades compile). `swift build --triple arm64-apple-watchos-simulator`
+→ Build complete!, 0 errors. macOS/iOS unaffected.
+
+### ⚠️ Crystal toolchain blocker (2026-06-01) — `crystal-alpha` cannot target watchOS yet
+
+The Swift layer compiles, but the **Crystal `WatchKit::Renderer` cannot be built
+because `crystal-alpha` (agent-crystal) has no watchOS target support.** Probed via
+`crystal-alpha build … --cross-compile --target=arm64-apple-watchos-simulator
+-Dwatchos`:
+1. **`lib_c` gap:** `can't find file 'c/dlfcn'`. `src/lib_c/` has `aarch64-ios`,
+   `aarch64-ios-simulator`, `aarch64-darwin`, `x86_64-*` — but **no `*-watchos*`**.
+   *PROVEN FIX:* copying `aarch64-ios[-simulator]` → `aarch64-watchos[-simulator]`
+   gets past this (watchOS shares iOS's Darwin C ABI). A reversible test confirmed
+   it; the test copies were removed (the real fix belongs in agent-crystal source).
+2. **Event-loop gap (next blocker, surfaced after #1):** `Error: Event loop not
+   supported` — `src/crystal/event_loop.cr` has no watchOS branch (watchOS is
+   Darwin and should select the same kqueue/libevent loop as iOS/macOS; likely a
+   flag guard that excludes watchOS).
+3. Expect more, one at a time (like the Swift facade audit).
+
+**These are `crimson-knight/homebrew-agent-crystal` (compiler) changes, not
+asset_pipeline changes** — and they're the gate for the WatchKit renderer. Until
+agent-crystal gains a watchOS target (lib_c + event_loop, both small since watchOS
+≈ iOS-on-Darwin), Phase D cannot proceed past the (now-green) Swift layer. Owner
+owns that tap; this is a heads-up that finishing watch requires a compiler-side
+watchOS target first. Meanwhile the UNBLOCKED high-value work is the beauty /
+full-adaptive-layout north star (the whole design must adapt — inputs/spacing/
+reflow — not just window resize) on Mac/iOS, per the foundational model's
+"Phase B implementation findings".
+
 ### D3 — WCSession + complication snapshot bridge
 - `WCSessionFacade.swift` + `apsk_wcsession_*` in `swiftkit_bridge.cr`/`.m`.
 - Reuse/generalize Phase 11's `SnapshotWriter` for the watch App Group path.
