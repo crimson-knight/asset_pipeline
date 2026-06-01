@@ -246,11 +246,18 @@ the Crystal tree must be REBUILT with updated environment on resize.* That's why
   (keyWindow→mainWindow→any-visible→screen), consistent with width. Proven via new
   `VOYAGER_DEBUG_METRICS=1` host instrumentation: width 460→Compact, 760→Compact,
   900→Regular (threshold 768); pre-fix all three were Unspecified.
-- **STILL PENDING — the live-resize half.** No `windowDidResize` →
-  `rebuild_for(coord.current)` hook yet (`host.cr` rebuilds only on
-  `coord.on_change`). Needs an `NSWindow` delegate C-bridge callback into Crystal
-  + a GUI/AX resize test. Until then only *launch-width* adaptation works;
-  dragging the window does not re-run `build`.
+- **LANDED (2026-06-01) — the live-resize half.** `window_helper.m`'s
+  `APWindowResizeObserver` registers for `NSWindowDidResizeNotification` and
+  bridges back into Crystal via the existing `crystal_ui_callback_dispatch(tag)`
+  → `CallbackRegistry.call` trampoline; the host registers a Proc →
+  `VoyagerHost.on_window_resized` → `rebuild_for(coord.current)` (coalesced: skips
+  when content width is unchanged). Wired into the interactive window. PROVEN
+  headless via `VOYAGER_RESIZE_PROBE="460,900"` + `objc_window_set_content_size`
+  + `objc_window_order_front`: initial 460→Compact, programmatic resize 900→Regular,
+  the second build triggered ONLY by the resize (no navigation). A resized window
+  now re-runs `build` so the whole composition reflows live. **Follow-ups:** a true
+  time-debounce (per-pixel rebuild can be heavy for large trees) and a GUI/AX
+  interactive-drag test — the mechanism itself is proven.
 - **CORRECTION (2026-06-01) — the "column stretches edge-to-edge" claim was
   WRONG.** It was a misread of two screenshots captured at different pixel scales
   (460pt→920px image vs 900pt→1800px image), which made a 340pt and a 400pt column
