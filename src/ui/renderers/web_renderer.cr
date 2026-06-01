@@ -1511,6 +1511,18 @@ module UI
         end
       end
 
+      {% if flag?(:watchos) %}
+        # watchOS fallback: a `-Dwatchos` build currently selects THIS Web renderer
+        # (PlatformVisitor selection) because `UI::WatchKit::Renderer` doesn't exist
+        # yet. Render the complication's content directly so the watchos-gated
+        # abstract `visit(Complication)` is satisfied and the Crystal UI library
+        # cross-compiles for watchOS. Real watch rendering lands with the WatchKit
+        # renderer; this is the honest stop-gap that keeps the lib buildable.
+        def visit(view : UI::Complication)
+          view.content.accept(self)
+        end
+      {% end %}
+
       def visit(view : UI::Card)
         el = Components::Elements::Div.new
         el.add_class("am-card")
