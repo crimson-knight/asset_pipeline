@@ -99,6 +99,9 @@ module Voyager
         {"Drawing",
          "Vector drawing. PathView strokes and fills a custom path built from move/line/curve segments.",
          -> { drawing_section }},
+        {"Watch — Complication (cross-platform fallback)",
+         "ComplicationWithWebFallback renders a real watchOS WidgetKit complication on -Dwatchos and, on every other target, a card-style preview of the same content. UI::Complication itself is compile-gated to watchOS (naming it off-watch is a compile error).",
+         -> { complication_section }},
       ]
 
       limit = ENV["VOYAGER_GALLERY_MAX_SECTION"]?.try(&.to_i?) || sections.size
@@ -163,6 +166,22 @@ module Voyager
       box << label.as(UI::View)
       box << widget
       box.as(UI::View)
+    end
+
+    # Watch complication — demonstrates the cross-platform companion. On this
+    # (non-watchOS) build it renders the card-style preview fallback; on
+    # -Dwatchos it would delegate to the native WidgetKit complication.
+    private def complication_section : Array(UI::View)
+      out = [] of UI::View
+      comp = UI::ComplicationWithWebFallback.new(
+        kind: :next_todos,
+        content: UI::Label.new("2 todos due today").as(UI::View),
+        family: UI::ComplicationFamily::AccessoryRectangular,
+      )
+      comp.test_id = "voyager-gallery-complication"
+      comp.accessibility_label = "Next todos complication"
+      out << captioned("ComplicationWithWebFallback (preview)", comp.as(UI::View))
+      out
     end
 
     # ------------------------------------------------------------------

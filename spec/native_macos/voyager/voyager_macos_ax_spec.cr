@@ -100,6 +100,7 @@
             voyager-gallery-live-color
             voyager-gallery-textfield
             voyager-gallery-combobox
+            voyager-gallery-complication
           ].each do |id|
             VoyagerAX.find_in(win, identifier: id).should_not(be_nil, "AX element '#{id}' not discoverable")
           end

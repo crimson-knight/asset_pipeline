@@ -57,6 +57,16 @@ module UI
       def accept(visitor : PlatformVisitor)
         preview = UI::VStack.new(spacing: 4.0)
         caption = UI::Label.new("Complication · #{@family}")
+        # Preserve identity on the caption Label, which reliably surfaces a
+        # test_id as an AX identifier (decorative containers like Card do not),
+        # so the fallback is discoverable / labelled the same as the
+        # complication it stands in for.
+        if t = test_id
+          caption.test_id = t
+        end
+        if a = accessibility_label
+          caption.accessibility_label = a
+        end
         preview << caption.as(UI::View)
         preview << @content
         card = UI::Card.new(preview.as(UI::View))
