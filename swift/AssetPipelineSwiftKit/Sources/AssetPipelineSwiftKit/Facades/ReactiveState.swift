@@ -118,6 +118,14 @@ public final class APSKSheetState: NSObject, ObservableObject {
     // the host-removal probe.
     public var apicIntentionalDismiss: Bool = false
 
+    // Usability-bar motion (platform-capability-matrix.md §1, U1–U3).
+    // The bounded present/dismiss animation resolved by SheetFacade from the
+    // SheetOverrides motion fields + the baked MotionScale tokens. nil means
+    // "no override resolved" (legacy callers / makeSheet shim) — in that case
+    // apsk_sheet_set_presented still applies a SAFE library default so the
+    // transition can never collapse to an instant snap (U1 floor).
+    public var presentationAnimation: SwiftUI.Animation? = nil
+
     public init(isPresented: Bool) {
         self.isPresented = isPresented
         super.init()
@@ -269,7 +277,18 @@ public func apskSheetSetPresented(
     let newValue = (isPresented != 0)
     apskMainAsync {
         let previousValue = state.isPresented
-        state.isPresented = newValue
+        // Usability bar U1: wrap the binding flip in `withAnimation` so the
+        // .sheet present/dismiss is perceptible and bounded. A Crystal-pushed
+        // true→true / false→false is a no-op below (previousValue == newValue),
+        // but when it does change we drive a floored, bounded transition —
+        // never an instant snap. `presentationAnimation` is resolved by
+        // SheetFacade; the `?? .spring(...)` guard protects legacy `makeSheet`
+        // callers that never set it.
+        let animation = state.presentationAnimation
+            ?? .spring(response: 0.240, dampingFraction: 0.86)
+        withAnimation(animation) {
+            state.isPresented = newValue
+        }
         // Phase 12.B — Sheet write-side markers (Codex CONCERN 7 fix).
         // Emitted only when the value actually changes, so re-applying
         // an identical state doesn't spam the harness log.

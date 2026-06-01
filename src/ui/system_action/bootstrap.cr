@@ -128,9 +128,10 @@ module UI
       # `platform`. Used by every binding's `api_capability_check` so
       # `feature_supported?` is truthful: a dispatch on the macOS proc
       # only succeeds when the build was compiled with `-Dmacos`.
-      # Web platforms (`:web_wide`, `:web_narrow`) are always supported
-      # since the web procs are pure Crystal — they STDERR-puts as the
-      # test stand-in and a future renderer integration emits real JS.
+      # Web platforms (`:web_wide`, `:web_narrow`) report `true` here: the
+      # native build-flag gate has no say over web. Whether a *given* web
+      # intent is honest is decided separately by `web_effect_wired?` and
+      # composed into the relevant bindings via `web_aware_capability`.
       # ------------------------------------------------------------------
       def self.platform_built_in?(platform : Symbol) : Bool
         case platform
@@ -146,6 +147,61 @@ module UI
           {% if flag?(:android) %} true {% else %} false {% end %}
         else
           false
+        end
+      end
+
+      # ------------------------------------------------------------------
+      # Web honesty gate (false-success fix — platform-capability-matrix
+      # §11.1).
+      #
+      # The web procs for these intents only `STDERR.puts` — nothing
+      # reaches the browser (no `navigator.clipboard`, `window.open`,
+      # `window.print`, file picker, etc.). Returning `Result.success`
+      # for an effect that never happened is the exact "reports success,
+      # does nothing" bug class the SecureField password-drop taught us to
+      # refuse. The dispatch path (`UI::SystemAction.perform`) only has the
+      # `Args` bag — it has NO handle to a web renderer / script sink — so
+      # there is no clean seam to emit real JS from here. Until a future
+      # phase threads the web renderer's emit channel into dispatch, the
+      # honest answer on web is `unsupported`, not fake success.
+      #
+      # This is the documented set of "web STDERR stand-in" intents. Any
+      # intent NOT in this set either (a) performs a real web effect today
+      # (none currently), (b) is pure-Crystal and platform-agnostic
+      # (`:incoming_deep_link` — its dispatch genuinely fires registered
+      # handlers and is intentionally always-supported), or (c) is the
+      # `:hello_world_alert` proof binding, which is deliberately a
+      # STDERR stand-in on web and intentionally left always-supported so
+      # the proof-of-substrate suite keeps exercising the happy path.
+      WEB_UNWIRED_INTENTS = [
+        :copy_to_clipboard,
+        :paste_from_clipboard,
+        :open_url,
+        :print,
+        :open_file_picker,
+        :export_file,
+        :request_permission,
+      ]
+
+      # True when this intent's web proc performs a real, observable
+      # browser effect. Currently always false for the STDERR stand-ins;
+      # flip an intent out of `WEB_UNWIRED_INTENTS` once its web renderer
+      # emit is actually wired.
+      def self.web_effect_wired?(intent_id : Symbol) : Bool
+        !WEB_UNWIRED_INTENTS.includes?(intent_id)
+      end
+
+      # Capability check for bindings whose web path is a STDERR stand-in:
+      # web is `unsupported` (not fake success) until real JS is wired,
+      # while native platforms keep the exact `platform_built_in?` gate.
+      def self.web_aware_capability(intent_id : Symbol) : UI::SystemAction::PlatformBinding::CapabilityCheck
+        ->(p : Symbol) do
+          case p
+          when :web_wide, :web_narrow
+            web_effect_wired?(intent_id)
+          else
+            platform_built_in?(p)
+          end
         end
       end
 
@@ -216,7 +272,7 @@ module UI
         UI::SystemAction::Registry.register(
           UI::SystemAction::PlatformBinding.new(
             intent_id: :copy_to_clipboard,
-            api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
+            api_capability_check: web_aware_capability(:copy_to_clipboard),
             platforms: {
               :web_wide   => ->web_copy_to_clipboard(UI::SystemAction::PlatformBinding::Args),
               :web_narrow => ->web_copy_to_clipboard(UI::SystemAction::PlatformBinding::Args),
@@ -287,7 +343,7 @@ module UI
         UI::SystemAction::Registry.register(
           UI::SystemAction::PlatformBinding.new(
             intent_id: :paste_from_clipboard,
-            api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
+            api_capability_check: web_aware_capability(:paste_from_clipboard),
             platforms: {
               :web_wide   => ->web_paste_from_clipboard(UI::SystemAction::PlatformBinding::Args),
               :web_narrow => ->web_paste_from_clipboard(UI::SystemAction::PlatformBinding::Args),
@@ -360,7 +416,7 @@ module UI
         UI::SystemAction::Registry.register(
           UI::SystemAction::PlatformBinding.new(
             intent_id: :request_permission,
-            api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
+            api_capability_check: web_aware_capability(:request_permission),
             platforms: {
               :web_wide   => ->web_request_permission(UI::SystemAction::PlatformBinding::Args),
               :web_narrow => ->web_request_permission(UI::SystemAction::PlatformBinding::Args),
@@ -440,7 +496,7 @@ module UI
         UI::SystemAction::Registry.register(
           UI::SystemAction::PlatformBinding.new(
             intent_id: :open_url,
-            api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
+            api_capability_check: web_aware_capability(:open_url),
             platforms: {
               :web_wide   => ->web_open_url(UI::SystemAction::PlatformBinding::Args),
               :web_narrow => ->web_open_url(UI::SystemAction::PlatformBinding::Args),
@@ -501,10 +557,34 @@ module UI
       # native renderer wires the OS-level event-handler to invoke that
       # callback at launch / foreground time.
       #
-      # The substrate ships a callback-registration helper + a dispatch
-      # that emits the registered callback for the in-`args[:url]` URL
-      # (the test-time path). Full wire-through-OS-events lands with the
-      # per-platform renderer integrations (10B.4).
+      # WHAT IS REAL TODAY (Crystal-side seam, all platforms):
+      #   `incoming_deep_link_dispatch` calls `IncomingDeepLink.fire(url)`,
+      #   which iterates every handler registered via
+      #   `IncomingDeepLink.on_receive { |url| ... }` and invokes it with
+      #   the URL (swallowing per-handler exceptions). So a host that has
+      #   registered a handler and either dispatches `:incoming_deep_link`
+      #   itself OR calls `IncomingDeepLink.fire` from its native event
+      #   hook gets a genuine, routed dispatch — not a stub. This is the
+      #   seam Phase 11 D5 depends on
+      #   (`phases/phase-11-home-screen-widgets.md:73` — "the host app's
+      #   IncomingDeepLink action handles the link").
+      #
+      # WHAT IS NATIVE-LINK-PENDING (no Crystal stub hides it — it simply
+      # does not exist yet):
+      #   The OS → Crystal edge is NOT wired. Nothing in the renderers or
+      #   `objc_bridge.m` registers a URL scheme or calls
+      #   `IncomingDeepLink.fire`. To actually receive an OS-delivered
+      #   deep link, a future phase must:
+      #     * iOS/iPadOS: declare `CFBundleURLTypes` / `CFBundleURLSchemes`
+      #       in Info.plist and forward `scene(_:openURLContexts:)` /
+      #       `application(_:open:options:)` to `IncomingDeepLink.fire`.
+      #     * macOS: register the scheme + forward
+      #       `application(_:open:)` (or the `kAEGetURL` Apple Event).
+      #     * Android: declare an `<intent-filter>` with `VIEW`/`BROWSABLE`
+      #       and forward `Intent.getData()` from the launched Activity.
+      #   Until that native registration exists, deep links arrive only
+      #   when the host fires them manually (the test-time + Phase 11
+      #   App-Intent-URL-launch path).
       # ------------------------------------------------------------------
       def self.install_incoming_deep_link : Nil
         UI::SystemAction::Registry.register(
@@ -547,7 +627,7 @@ module UI
         UI::SystemAction::Registry.register(
           UI::SystemAction::PlatformBinding.new(
             intent_id: :print,
-            api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
+            api_capability_check: web_aware_capability(:print),
             platforms: {
               :web_wide   => ->web_print(UI::SystemAction::PlatformBinding::Args),
               :web_narrow => ->web_print(UI::SystemAction::PlatformBinding::Args),
@@ -615,7 +695,7 @@ module UI
         UI::SystemAction::Registry.register(
           UI::SystemAction::PlatformBinding.new(
             intent_id: :open_file_picker,
-            api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
+            api_capability_check: web_aware_capability(:open_file_picker),
             platforms: {
               :web_wide   => ->web_open_file_picker(UI::SystemAction::PlatformBinding::Args),
               :web_narrow => ->web_open_file_picker(UI::SystemAction::PlatformBinding::Args),
@@ -649,8 +729,20 @@ module UI
         utis = args[:utis]? || ""
         {% if flag?(:ios) || flag?(:ipados) %}
           token = parse_callback_token(args[:on_pick]?)
+          # Anchor is null here — the SystemAction path has no concrete
+          # view. The bridge resolves the key window's rootViewController
+          # as the presenter (objc_bridge.m ap_open_file_picker_ios), so
+          # this actually presents a UIDocumentPickerViewController. The
+          # bridge returns 0 only when no presenter can be scheduled; we
+          # raise in that case so dispatch surfaces a not-performed result
+          # instead of fake success (the SecureField lesson).
           anchor = Pointer(Void).null
-          LibClassCBridge.ap_open_file_picker_ios(anchor, utis, token)
+          scheduled = LibClassCBridge.ap_open_file_picker_ios(anchor, utis, token)
+          if scheduled == 0
+            raise "open_file_picker: the iOS bridge could not schedule a " \
+                  "document picker (no key window / presenter resolvable). " \
+                  "Ensure the app has an active UIWindow before invoking."
+          end
         {% else %}
           raise "ios_open_file_picker called from non-ios build"
         {% end %}
@@ -682,7 +774,7 @@ module UI
         UI::SystemAction::Registry.register(
           UI::SystemAction::PlatformBinding.new(
             intent_id: :export_file,
-            api_capability_check: ->(p : Symbol) { platform_built_in?(p) },
+            api_capability_check: web_aware_capability(:export_file),
             platforms: {
               :web_wide   => ->web_export_file(UI::SystemAction::PlatformBinding::Args),
               :web_narrow => ->web_export_file(UI::SystemAction::PlatformBinding::Args),
@@ -717,8 +809,17 @@ module UI
         {% if flag?(:ios) || flag?(:ipados) %}
           raise "export_file: missing :source_url arg" if source.empty?
           token = parse_callback_token(args[:on_export]?)
+          # Null anchor — bridge resolves the key window's presenter (see
+          # ios_open_file_picker). Bridge returns 0 when it cannot schedule
+          # (no presenter, or a nil/invalid source URL); raise so dispatch
+          # reports not-performed rather than fake success.
           anchor = Pointer(Void).null
-          LibClassCBridge.ap_export_file_ios(anchor, source, token)
+          scheduled = LibClassCBridge.ap_export_file_ios(anchor, source, token)
+          if scheduled == 0
+            raise "export_file: the iOS bridge could not schedule a document " \
+                  "export (no key window / presenter resolvable, or the " \
+                  ":source_url could not be parsed as a file URL)."
+          end
         {% else %}
           raise "ios_export_file called from non-ios build"
         {% end %}

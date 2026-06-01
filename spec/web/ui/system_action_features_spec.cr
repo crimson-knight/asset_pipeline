@@ -7,8 +7,14 @@ require "../../../src/ui/environment"
 #
 # Each describe block exercises:
 #   * the binding is registered after `install`
-#   * `feature_supported?` is truthful on web (the substrate uses
-#     STDERR-puts as the cross-platform proof; web is always supported)
+#   * `feature_supported?` is truthful on web. NOTE (false-success fix,
+#     platform-capability-matrix §11.1): the web procs for clipboard /
+#     paste / open_url / print / file-picker / export / request_permission
+#     only STDERR-puts — they perform NO real browser effect — so they are
+#     now reported `unsupported` on web rather than fake `success`. The
+#     dispatch path has no web-renderer handle to emit real JS, so honesty
+#     (unsupported) beats fake success until that seam is threaded.
+#     `:incoming_deep_link` remains genuinely web-supported (pure Crystal).
 #   * `feature_supported?` is falsy on non-built-in native platforms
 #     (e.g. `:macos` on a web-only build returns false because the
 #     binding's `api_capability_check` consults `platform_built_in?`)
@@ -34,9 +40,11 @@ describe "Phase 10B.3.x — Class C feature bindings" do
       UI::SystemAction::Registry.binding_for(:copy_to_clipboard).should_not be_nil
     end
 
-    it "is supported on :web_wide and :web_narrow" do
-      UI::SystemAction::Registry.supports?(:copy_to_clipboard, :web_wide).should be_true
-      UI::SystemAction::Registry.supports?(:copy_to_clipboard, :web_narrow).should be_true
+    it "is NOT supported on web (STDERR stand-in performs no real effect)" do
+      # False-success fix: the web proc only STDERR-puts; nothing reaches
+      # the clipboard. Honest answer is unsupported, not fake success.
+      UI::SystemAction::Registry.supports?(:copy_to_clipboard, :web_wide).should be_false
+      UI::SystemAction::Registry.supports?(:copy_to_clipboard, :web_narrow).should be_false
     end
 
     it "is NOT supported on :macos in a web-only build" do
@@ -46,10 +54,10 @@ describe "Phase 10B.3.x — Class C feature bindings" do
       UI::SystemAction::Registry.supports?(:copy_to_clipboard, :macos).should be_false
     end
 
-    it "dispatches successfully on web" do
+    it "returns Unsupported on web (no real clipboard effect wired)" do
       UI::Environment.set_platform(:web_wide)
       result = UI::SystemAction.perform(:copy_to_clipboard, value: "hello")
-      result.success?.should be_true
+      result.unsupported?.should be_true
     end
 
     it "returns Unsupported when dispatching on :macos in a web build" do
@@ -64,10 +72,10 @@ describe "Phase 10B.3.x — Class C feature bindings" do
       UI::SystemAction::Registry.binding_for(:paste_from_clipboard).should_not be_nil
     end
 
-    it "dispatches successfully on web" do
+    it "returns Unsupported on web (no real clipboard read wired)" do
       UI::Environment.set_platform(:web_wide)
       result = UI::SystemAction.perform(:paste_from_clipboard)
-      result.success?.should be_true
+      result.unsupported?.should be_true
     end
 
     it "returns Unsupported on :ios in a web build" do
@@ -82,10 +90,10 @@ describe "Phase 10B.3.x — Class C feature bindings" do
       UI::SystemAction::Registry.binding_for(:request_permission).should_not be_nil
     end
 
-    it "dispatches successfully on web for notifications" do
+    it "returns Unsupported on web (no real Notification.requestPermission wired)" do
       UI::Environment.set_platform(:web_wide)
       result = UI::SystemAction.perform(:request_permission, permission: "notifications")
-      result.success?.should be_true
+      result.unsupported?.should be_true
     end
 
     it "returns Unsupported on :android in a web build" do
@@ -100,10 +108,10 @@ describe "Phase 10B.3.x — Class C feature bindings" do
       UI::SystemAction::Registry.binding_for(:open_url).should_not be_nil
     end
 
-    it "dispatches successfully on web with a url arg" do
+    it "returns Unsupported on web (no real window.open wired)" do
       UI::Environment.set_platform(:web_wide)
       result = UI::SystemAction.perform(:open_url, url: "https://example.com")
-      result.success?.should be_true
+      result.unsupported?.should be_true
     end
 
     it "returns Unsupported on :macos in a web build" do
@@ -160,10 +168,10 @@ describe "Phase 10B.3.x — Class C feature bindings" do
       UI::SystemAction::Registry.binding_for(:print).should_not be_nil
     end
 
-    it "dispatches successfully on web" do
+    it "returns Unsupported on web (no real window.print wired)" do
       UI::Environment.set_platform(:web_wide)
       result = UI::SystemAction.perform(:print, text: "hello", job_name: "Test Job")
-      result.success?.should be_true
+      result.unsupported?.should be_true
     end
 
     it "returns Unsupported on :ios in a web build" do
@@ -178,10 +186,10 @@ describe "Phase 10B.3.x — Class C feature bindings" do
       UI::SystemAction::Registry.binding_for(:open_file_picker).should_not be_nil
     end
 
-    it "dispatches successfully on web" do
+    it "returns Unsupported on web (no real file picker wired)" do
       UI::Environment.set_platform(:web_wide)
       result = UI::SystemAction.perform(:open_file_picker, utis: "public.data")
-      result.success?.should be_true
+      result.unsupported?.should be_true
     end
 
     it "returns Unsupported on :android in a web build" do
@@ -196,10 +204,10 @@ describe "Phase 10B.3.x — Class C feature bindings" do
       UI::SystemAction::Registry.binding_for(:export_file).should_not be_nil
     end
 
-    it "dispatches successfully on web" do
+    it "returns Unsupported on web (no real download/save wired)" do
       UI::Environment.set_platform(:web_wide)
       result = UI::SystemAction.perform(:export_file, suggested_name: "draft.txt")
-      result.success?.should be_true
+      result.unsupported?.should be_true
     end
 
     it "returns Unsupported on :macos in a web build" do
@@ -229,17 +237,18 @@ describe "Phase 10B.3.x — Class C feature bindings" do
   end
 
   describe "Environment.feature_supported?" do
-    it "returns true for web-resident features on web platform" do
+    it "returns false for STDERR-stand-in features on web platform" do
+      # False-success fix: these web procs perform no real browser effect,
+      # so feature_supported? is honestly false on web (was incorrectly
+      # true when the stand-ins faked success).
       UI::Environment.set_platform(:web_wide)
-      UI::Environment.feature_supported?(:copy_to_clipboard).should be_true
-      UI::Environment.feature_supported?(:open_url).should be_true
-      UI::Environment.feature_supported?(:print).should be_true
+      UI::Environment.feature_supported?(:copy_to_clipboard).should be_false
+      UI::Environment.feature_supported?(:open_url).should be_false
+      UI::Environment.feature_supported?(:print).should be_false
     end
 
     it "returns false for native-only features on web platform" do
-      # All 8 features ship a web stand-in so they're all supported on
-      # web. Test the inverse: switch to :macos and expect false on
-      # builds without -Dmacos.
+      # Switch to :macos and expect false on builds without -Dmacos.
       UI::Environment.set_platform(:macos)
       UI::Environment.feature_supported?(:copy_to_clipboard).should be_false
       UI::Environment.feature_supported?(:open_url).should be_false

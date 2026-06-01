@@ -403,7 +403,7 @@ Single Crystal API surface, different native implementation per platform. **NOT 
 - **hig_page:** `system-experiences.md`
 - **android_equivalent:** `Intent.ACTION_VIEW` with URI
 - **web_equivalent:** `window.open(url)` or `location.href = url`
-- **coverage_today:** missing
+- **coverage_today:** partial — wired on macOS (`NSWorkspace`, `objc_bridge.m ap_open_url_macos`) and iOS (`UIApplication.open`, `ap_open_url_ios`) via the `:open_url` Class C binding (`src/ui/system_action/bootstrap.cr`); **web now returns `Result.unsupported`** (false-success fix 2026-06-01 — the STDERR stand-in performed no `window.open`, so it no longer fakes success); Android raises (unsupported). Real web `window.open` emit is the remaining gap (no JS-emit seam in the `Args`-only dispatch path).
 - **description:** Open a URL in the system default handler (browser for web, mail client for mailto:, etc.).
 
 ### `:on_open_url`
@@ -418,7 +418,7 @@ Single Crystal API surface, different native implementation per platform. **NOT 
 - **hig_page:** `system-experiences.md`
 - **android_equivalent:** App Links / `Intent` filters
 - **web_equivalent:** URL routing handled by the framework's router
-- **coverage_today:** missing
+- **coverage_today:** partial — the **Crystal-side dispatch seam is real and routes** on every platform: `:incoming_deep_link` → `incoming_deep_link_dispatch` → `UI::SystemAction::IncomingDeepLink.fire(url)` invokes every handler registered via `IncomingDeepLink.on_receive` (`src/ui/system_action/bootstrap.cr`; verified by `spec/web/ui/system_action_features_spec.cr` — handlers fire, multiple handlers, exception isolation). This is the seam Phase 11 D5 assumes (`phases/phase-11-home-screen-widgets.md:73`). **Native OS→Crystal edge is pending** (not faked, simply unwired): no URL-scheme registration / `scene(_:openURLContexts:)` (iOS) / `application(_:open:)` (macOS) / `<intent-filter>` + `Intent.getData()` (Android) yet forwards to `IncomingDeepLink.fire`. So incoming links arrive only when the host fires them (the App-Intent-URL-launch path D5 uses).
 - **description:** Handle incoming URL/deep-link to navigate to a specific app state.
 
 ### `:ui_print_interaction_controller`

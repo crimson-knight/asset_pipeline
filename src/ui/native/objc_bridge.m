@@ -3534,8 +3534,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 int ap_open_file_picker_ios(void *anchor_view_ptr, const char *utis_cstr,
                             unsigned long long token) {
+    // A null anchor is allowed: `ap_top_presenting_view_controller(nil)`
+    // resolves the key window's rootViewController, so a Class C dispatch
+    // that has no concrete view to anchor to (the SystemAction path) still
+    // presents a real picker instead of silently no-oping. We only return 0
+    // when NO presenter can be resolved at all (see the main-queue block),
+    // never merely because the anchor was null.
     UIView *anchor = (UIView *)anchor_view_ptr;
-    if (!anchor) return 0;
     NSString *utis = ap_string_from_cstr(utis_cstr);
     // Default to public.data when caller doesn't specify a UTI list.
     NSArray<NSString *> *types = nil;
@@ -3569,8 +3574,11 @@ int ap_open_file_picker_ios(void *anchor_view_ptr, const char *utis_cstr,
 // Returns 1 if scheduled, 0 if anchor / source-url is nil.
 int ap_export_file_ios(void *anchor_view_ptr, const char *source_url_cstr,
                        unsigned long long token) {
+    // A null anchor is allowed (see ap_open_file_picker_ios). We still
+    // require a real source URL — exporting nothing is a programmer error,
+    // not a degrade — so a nil source returns 0 and the Crystal proc maps
+    // that to a not-performed result.
     UIView *anchor = (UIView *)anchor_view_ptr;
-    if (!anchor) return 0;
     NSURL *source = ap_url_from_cstr(source_url_cstr);
     if (!source) return 0;
     dispatch_async(dispatch_get_main_queue(), ^{

@@ -189,6 +189,32 @@ describe "UI::Animation duration helpers (Phase 10B.2c)" do
     UI::Animation.duration_seconds_with_environment(on, 4.0).should eq(0.0)
     UI::Animation.duration_seconds_with_environment(off, 4.0).should eq(4.0)
   end
+
+  # Usability bar U2 — reduce-motion FADES a transition, it does not kill it.
+  it "transition_duration_with_environment fades (non-zero) under reduce_motion" do
+    on = UI::Environment.new(reduce_motion: true)
+    # A present/dismiss transition must NOT collapse to 0ms under reduce-motion.
+    UI::Animation.transition_duration_with_environment(on, 300).should eq(150.0)
+    UI::Animation.transition_duration_with_environment(on, 300).should_not eq(0.0)
+  end
+
+  it "transition_duration_with_environment returns base_ms when reduce_motion=false" do
+    off = UI::Environment.default
+    UI::Animation.transition_duration_with_environment(off, 300).should eq(300.0)
+  end
+
+  it "transition_duration_with_environment honors a custom fade duration" do
+    on = UI::Environment.new(reduce_motion: true)
+    UI::Animation.transition_duration_with_environment(on, 300, fade_ms: 120).should eq(120.0)
+  end
+
+  it "transition_duration_seconds_with_environment fades (non-zero) under reduce_motion" do
+    on = UI::Environment.new(reduce_motion: true)
+    off = UI::Environment.default
+    UI::Animation.transition_duration_seconds_with_environment(on, 0.4).should eq(0.150)
+    UI::Animation.transition_duration_seconds_with_environment(on, 0.4).should_not eq(0.0)
+    UI::Animation.transition_duration_seconds_with_environment(off, 0.4).should eq(0.4)
+  end
 end
 
 describe "UI::ScreenContext.environment threading (Phase 10B.2c)" do

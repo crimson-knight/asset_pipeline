@@ -57,6 +57,12 @@ public class SheetFacade: NSObject {
     ) -> APSKPlatformView {
         let initialPresented = overrides.isPresented?.boolValue ?? false
         let state = APSKSheetState(isPresented: initialPresented)
+        // Usability bar U1–U3: resolve a bounded present/dismiss animation
+        // from the overrides + baked MotionScale tokens and carry it on the
+        // state so `apsk_sheet_set_presented` can wrap the binding flip in
+        // `withAnimation`. Without this, SwiftUI's implicit `.sheet` animation
+        // could collapse to an imperceptible snap (the too-fast-sheet bug).
+        state.presentationAnimation = resolvePresentationAnimation(overrides: overrides)
         // Phase 12.B — interaction-contracts marker metadata. Used by
         // apsk_sheet_set_presented for write-side markers and by
         // SheetHost.onDisappear for the host-teardown probe.
@@ -84,6 +90,63 @@ public class SheetFacade: NSObject {
                 dismissToken: dismissToken
             )
         )
+    }
+
+    // ------------------------------------------------------------------
+    // Usability-bar motion (platform-capability-matrix.md §1, U1–U3).
+    //
+    // U1 — Present/dismiss must be perceptible and bounded: a floor so it is
+    //      never instant, and a ceiling so it never drags. HIG motion.md:31,35.
+    // U2 — Under reduce-motion the transition must FADE, not be killed. The
+    //      old web helper (environment.cr) returned 0.0 (instant) — wrong.
+    //      Here we use a short crossfade (`.easeInOut`, no spring, no bounce).
+    // U3 — Native motion reads the MotionScale tokens. The default duration is
+    //      MotionScale base = 240ms, baked as
+    //      `AssetPipelineTokens.Motion.durationBase` (= 0.240s). We restate the
+    //      literals here because the generated tokens module is not (yet) a
+    //      Swift package dependency of this target; keep these in sync with
+    //      `src/ui/design_tokens.cr#motion_scale` if the scale changes.
+    // ------------------------------------------------------------------
+
+    /// Floor in seconds — a present/dismiss shorter than this reads as a snap
+    /// (U1: "≥~200ms, never instant"). MotionScale fast = 150ms is below the
+    /// floor on purpose; we never go faster than 200ms for a modal present.
+    static let motionFloorSeconds: Double = 0.200
+    /// Ceiling in seconds — longer than this makes people wait (U1: "<1s").
+    static let motionCeilingSeconds: Double = 0.900
+    /// Default present/dismiss duration = MotionScale base
+    /// (AssetPipelineTokens.Motion.durationBase = 0.240s).
+    static let motionBaseSeconds: Double = 0.240
+    /// Reduce-motion crossfade duration. A short, non-zero fade (U2) — NOT 0.
+    static let reduceMotionFadeSeconds: Double = 0.150
+
+    /// Clamp any requested duration into the U1 [floor, ceiling] window.
+    static func clampMotionSeconds(_ seconds: Double) -> Double {
+        return min(max(seconds, motionFloorSeconds), motionCeilingSeconds)
+    }
+
+    /// Whether reduce-motion is effectively on for this sheet: an explicit
+    /// override wins; otherwise the SwiftUI environment decides at apply time.
+    /// Here we only read the explicit override (the environment value is read
+    /// in `SheetHost` via `@Environment`); a nil override means "no forced
+    /// value" and the env-driven fade is applied in the host.
+    static func resolvePresentationAnimation(overrides: SheetOverrides) -> SwiftUI.Animation {
+        // Reduce-motion FORCED on → crossfade (U2). Forced off / nil → motion.
+        if overrides.reduceMotion?.boolValue == true {
+            return .easeInOut(duration: reduceMotionFadeSeconds)
+        }
+        let requested = overrides.presentDurationMs.map { $0.doubleValue / 1000.0 } ?? motionBaseSeconds
+        let duration = clampMotionSeconds(requested)
+        // Spring is the HIG-idiomatic default for a modal present (U1). When a
+        // brand opts out (useSpring == false) we use an eased curve of the same
+        // bounded duration. SwiftUI manages the spring curve internally; this
+        // is the documented `.spring()` default the capability matrix permits.
+        let wantsSpring = overrides.useSpring?.boolValue ?? true
+        if wantsSpring {
+            // response ~ perceived duration; modest damping for a gentle settle.
+            return .spring(response: duration, dampingFraction: 0.86)
+        }
+        return .easeInOut(duration: duration)
     }
 
     fileprivate static func applyDetents(
@@ -161,6 +224,24 @@ private struct SheetHost: View {
     let child: APSKPlatformView?
     let overrides: SheetOverrides
     let dismissToken: UInt64
+
+    // Usability bar U2 — system reduce-motion. When the user has Reduce Motion
+    // enabled (and the brand did NOT force a value via overrides.reduceMotion),
+    // we replace the spring/eased present with a short crossfade — never a kill.
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+
+    // Reconcile the stored animation against the live system setting (U2).
+    // Explicit overrides.reduceMotion already baked the right value in
+    // resolvePresentationAnimation; this only adjusts when the brand left it
+    // nil and the SYSTEM has Reduce Motion on. Done off the body-evaluation
+    // path (in .onAppear / .onChange) so we never mutate state mid-update.
+    private func reconcileReduceMotion() {
+        guard overrides.reduceMotion == nil else { return }
+        if systemReduceMotion {
+            state.presentationAnimation =
+                .easeInOut(duration: SheetFacade.reduceMotionFadeSeconds)
+        }
+    }
 
     var body: some View {
         var sheetBody: AnyView
@@ -261,6 +342,16 @@ private struct SheetHost: View {
                         ),
                         overrides: overrides
                     )
+                }
+                // Usability bar U2 — reconcile the present/dismiss animation to
+                // the live system Reduce-Motion setting on the PERSISTENT host
+                // (the 1x1 Color.clear), so the right animation is in place
+                // BEFORE the user opens the sheet, and updates if the system
+                // setting changes while mounted. `.task(id:)` re-runs whenever
+                // `systemReduceMotion` flips — not deprecated like
+                // `.onChange(of:perform:)` on the current toolchain.
+                .task(id: systemReduceMotion) {
+                    reconcileReduceMotion()
                 }
         )
 

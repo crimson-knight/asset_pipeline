@@ -19,6 +19,12 @@
 # view tree renders differently across two `ScreenContext`s that differ
 # only in their environment.
 #
+# For PRESENT/DISMISS-style transitions, prefer the fade-aware helpers
+# `UI::Animation.transition_duration_with_environment(env, base_ms)` /
+# `...seconds_with_environment` — under reduce_motion they return a short
+# *fade* duration (150ms) rather than `0.0`, per the usability bar (U2):
+# Reduce Motion replaces transitions with fades, it does not kill them.
+#
 # # Per-platform source map (see close-handoff for the full table)
 #
 #   * Web (server-side): `UI::Environment.from_request_hints(hints)`
@@ -279,6 +285,7 @@ module UI
         accessibility_enabled: talk_back_active,
       )
     end
+
     # ------------------------------------------------------------------
     # Phase 10B.3.0 — Process-level platform identity (for Class C
     # intent dispatch).
@@ -342,7 +349,6 @@ module UI
     def self.feature_supported?(intent_id : Symbol) : Bool
       UI::SystemAction::Registry.supports?(intent_id, @@platform)
     end
-
   end
 
   # Animation helper namespace. Phase 10B.2c ships only
@@ -371,6 +377,50 @@ module UI
     # reduce_motion is on, otherwise base_s.
     def self.duration_seconds_with_environment(env : UI::Environment, base_s : Float64) : Float64
       return 0.0 if env.reduce_motion
+      base_s
+    end
+
+    # ------------------------------------------------------------------
+    # Usability bar U2 — reduce-motion is a FADE, not a KILL.
+    #
+    # `platform-capability-matrix.md` §1 (criterion U2) and HIG
+    # `accessibility.md:174` say: under Reduce Motion, *replace transitions
+    # with fades* — do NOT remove the transition entirely. The original
+    # `duration_with_environment` returns `0.0` (an instant snap / kill),
+    # which is the WRONG default for a *present/dismiss-style transition*:
+    # a 0ms present is exactly the too-fast-sheet false-pass, just triggered
+    # by an accessibility setting instead of a Rerender.
+    #
+    # These fade-aware helpers are ADDITIVE — the legacy helpers above keep
+    # their absolute `0.0`-when-reduce_motion contract (Snackbar's
+    # `effective_duration` proof depends on it, and an auto-dismiss *display
+    # duration* is not a transition). New transition code should prefer the
+    # fade-aware helpers below.
+    #
+    # `fade_ms` defaults to MotionScale.fast (150ms) — long enough to read as
+    # a crossfade, short enough to honor "aim for brevity." Callers may pass a
+    # brand fade duration. The non-reduce-motion branch returns `base_ms`
+    # unchanged.
+    DEFAULT_REDUCE_MOTION_FADE_MS = 150.0
+
+    def self.transition_duration_with_environment(
+      env : UI::Environment,
+      base_ms : Int32 | Float64,
+      fade_ms : Int32 | Float64 = DEFAULT_REDUCE_MOTION_FADE_MS,
+    ) : Float64
+      return fade_ms.to_f64 if env.reduce_motion
+      base_ms.to_f64
+    end
+
+    # Seconds-valued sibling of `transition_duration_with_environment`.
+    DEFAULT_REDUCE_MOTION_FADE_S = 0.150
+
+    def self.transition_duration_seconds_with_environment(
+      env : UI::Environment,
+      base_s : Float64,
+      fade_s : Float64 = DEFAULT_REDUCE_MOTION_FADE_S,
+    ) : Float64
+      return fade_s if env.reduce_motion
       base_s
     end
   end

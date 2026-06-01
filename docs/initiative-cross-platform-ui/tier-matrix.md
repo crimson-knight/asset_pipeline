@@ -10,6 +10,13 @@ reconciled against Codex Checkpoint 1 feedback.
 See the Tier model section of [MASTER_PLAN.md](MASTER_PLAN.md) for the
 definitions.
 
+> **Looking for "what's available only on macOS / only on iOS"?** This matrix
+> covers *widgets* only. The consolidated per-platform exclusivity picture —
+> widgets **plus** capability surfaces (menu bar, windows, status bar, quick
+> actions, notifications) **plus** the system-experiences surface (widgets,
+> complications, live activities) and the watchOS roadmap — lives in
+> [`platform-capability-matrix.md`](platform-capability-matrix.md).
+
 ## How to use this matrix
 
 * New widget? Pick a tier and add it here in the same commit that adds

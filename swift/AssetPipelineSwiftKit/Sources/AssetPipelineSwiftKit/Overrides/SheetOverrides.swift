@@ -24,5 +24,30 @@ public class SheetOverrides: ViewOverrides {
     // .presentationBackground() modifier (let Apple defaults apply).
     @objc public var materialSemantic: String? = nil
 
+    // ------------------------------------------------------------------
+    // Usability-bar motion control (platform-capability-matrix.md §1, U1–U3).
+    //
+    // BEFORE this field set, `SheetFacade` drove present/dismiss with bare
+    // `.sheet(isPresented:)` and SwiftUI's implicit animation — there was no
+    // duration, no spring, no floor, and no reduce-motion path. A Rerender
+    // that re-seeded `isPresented` true→true could collapse the transition to
+    // no perceptible motion. That is exactly the "too-fast sheet" false-pass
+    // (U1/U4). These fields let the library *bound* the transition.
+    //
+    //   presentDurationMs : NSNumber (ms). nil → MotionScale base (240ms,
+    //                       baked AssetPipelineTokens.Motion.durationBase).
+    //                       Clamped by the facade to [U1 floor, U1 ceiling].
+    //   useSpring         : NSNumber bool. nil/true → spring present/dismiss
+    //                       (HIG-idiomatic). false → eased curve of the
+    //                       resolved duration.
+    //   reduceMotion      : NSNumber bool. nil → honor the system environment
+    //                       (\.accessibilityReduceMotion). true/false → force.
+    //                       When effective, the transition becomes a short
+    //                       *crossfade* (U2: fade, never a kill / instant snap).
+    // ------------------------------------------------------------------
+    @objc public var presentDurationMs: NSNumber? = nil
+    @objc public var useSpring: NSNumber? = nil
+    @objc public var reduceMotion: NSNumber? = nil
+
     @objc public override init() { super.init() }
 }
