@@ -213,6 +213,57 @@ audit is tractable.
   (compact?340:400) remains the correct, good-looking pattern for FORMS** — and
   Phase C (the designed demo) should use it rather than block on continuous-fluid.
 
+## Track 2 — full adaptive layout: Codex-validated plan (2026-06-01)
+
+The owner's north star ("the inputs have to move, the spacing has to change, the
+design in its entirety adapts — not just the window"). Codex's verdict, in
+priority order. **Key truth:** *constraints alone can resize boxes but cannot
+change tree shape or spacing after first render — for the whole design to adapt,
+the Crystal tree must be REBUILT with updated environment on resize.* That's why
+"the window resizes but nothing moves" today.
+
+**1. Resize → re-render plumbing + a real window-metric contract (THE prerequisite).**
+- The macOS host (`host.cr`) rebuilds the tree only on `coord.on_change`
+  (nav/state) — **never on window resize** (`host.cr:259`). Auto-Layout
+  relayouts existing native views, but Crystal-side responsive decisions stay
+  frozen. Wire an `NSWindow` frame-change / resize callback to the same
+  `rebuild_for(coord.current)` path (debounced).
+- `DeviceMetrics.content_width_pt` derives from **screen** width
+  (`appkit_renderer.cr:212 objc_macos_screen_width`), not the window/container —
+  so even a resize-rebuild won't adapt correctly. The metrics provider must read
+  the actual **window/content** size. (This is also why the earlier
+  clamp-against-content_width idea failed.)
+- Verifiable by offscreen captures at two window widths showing the rebuilt
+  layout differs; the live callback needs an AX resize/integration test.
+
+**2. Responsive Crystal authoring primitives + migrate Voyager off hard-coded values.**
+- Spacing / padding / axis / repositioning are chosen by Crystal view
+  construction + renderer visits — so adaptation is authored, then re-run on
+  rebuild. Add a responsive API (e.g. size-class-aware values) and migrate
+  Voyager's hard-coded `content_width`/spacing/padding to it.
+- Verifiable by offscreen capture at compact + regular widths.
+
+**3. Fluid wrapper for VStack/HStack (continuous box sizing — solves the collapse).**
+The plain wrapper becomes the logical emitted native view:
+- `wrapper = NSView/UIView`; added to parent normally.
+- inner stack added as a plain subview of the wrapper; pinned `top/leading/
+  trailing/bottom == wrapper`.
+- `objc_constrain_fluid_width` applied to the **wrapper** (not the inner stack):
+  `width >= min` @700, `width <= max` @800, `width <= parent.width` @900,
+  `width == parent.width` @500.
+- **Reconciliation safety:** wrapper handle label `"NSView[vstack-wrapper]"` /
+  `"UIView[vstack-wrapper]"`, but the wrapper `NativeView.children` MUST equal
+  the authored `VStack` children, and `view_kind` must still resolve to
+  `UI::VStack` (model after the existing `ZStack` plain-view-owns-logical-children
+  pattern). The inner stack is a retained native object that must NOT appear as a
+  logical child (internal-owned-child slot / explicit ownership).
+- **Caveat:** only fills when an ancestor provides real available width
+  (root-fill / pinned parent); a rootless offscreen stack can't infer width.
+- Verifiable by offscreen capture at two widths + measuring column/control widths.
+
+**Order matters:** #1 first (nothing adapts without rebuild-on-resize + correct
+window metrics), then #2 (the authored responsiveness), then #3 (continuous width).
+
 ## Resolved by Codex review (2026-06-01)
 
 1. **watchOS boundary:** NOT a bare box — an explicit `APSKWatchNode` (NSObject +
