@@ -17,24 +17,34 @@ module Voyager
       # See screens/sign_in.cr pre-8D.1 history for the layout rationale
       # (root_fill + content_width cap + safe-area aware padding).
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.compact_horizontal? ? 340.0 : 400.0
+      # Track 2 — the WHOLE composition adapts to width, not just the column.
+      # Every dimension here is authored through `metrics.responsive(...)` so a
+      # narrow (compact) window gets a tighter, denser layout and a roomy
+      # (regular) window breathes. content_width reflows the field column;
+      # the spacings/padding/type-scale reflow the rhythm around it.
+      content_width = metrics.responsive(compact: 340.0, regular: 400.0)
+      root_spacing = metrics.responsive(compact: 16.0, regular: 24.0)
+      fields_spacing = metrics.responsive(compact: 10.0, regular: 14.0)
+      pad_v = metrics.responsive(compact: 28.0, regular: 48.0)
+      pad_h = metrics.responsive(compact: 20.0, regular: 32.0)
+      wordmark_size = metrics.responsive(compact: 28.0, regular: 34.0)
 
       state = Voyager.state
 
-      root = UI::VStack.new(spacing: 24.0)
+      root = UI::VStack.new(spacing: root_spacing)
       root.root_fill = true
       root.alignment = UI::Alignment::Center
       root.padding = UI::EdgeInsets.new(
-        top: 48.0 + metrics.safe_area_top_pt,
-        trailing: 32.0 + metrics.safe_area_trailing_pt,
-        bottom: 48.0 + metrics.safe_area_bottom_pt,
-        leading: 32.0 + metrics.safe_area_leading_pt,
+        top: pad_v + metrics.safe_area_top_pt,
+        trailing: pad_h + metrics.safe_area_trailing_pt,
+        bottom: pad_v + metrics.safe_area_bottom_pt,
+        leading: pad_h + metrics.safe_area_leading_pt,
       )
       root.accessibility_label = "Voyager sign in screen"
       root.test_id = "voyager-sign-in-root"
 
       wordmark = UI::Label.new("Voyager")
-      wordmark.font = UI::Font.new(size: 34.0, weight: :bold)
+      wordmark.font = UI::Font.new(size: wordmark_size, weight: :bold)
       wordmark.text_color_role = UI::LabelRole::Primary
       wordmark.text_alignment = UI::Alignment::Center
       wordmark.accessibility_label = "Voyager brand wordmark"
@@ -44,7 +54,7 @@ module Voyager
       subtitle.text_color_role = UI::LabelRole::Secondary
       subtitle.text_alignment = UI::Alignment::Center
 
-      fields = UI::VStack.new(spacing: 12.0)
+      fields = UI::VStack.new(spacing: fields_spacing)
       fields.alignment = UI::Alignment::Leading
       fields.minimum_width = content_width
       fields.maximum_width = content_width

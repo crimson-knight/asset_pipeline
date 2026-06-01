@@ -12,7 +12,7 @@ require "../../../samples/initiative-cross-platform-ui-voyager/app"
 #     a non-nil view per route.
 
 describe VoyagerApp do
-  it "registers all voyager routes with bootstrap! (4 core + 3 probe/gallery + 6 Phase 10D exerciser routes)" do
+  it "registers all voyager routes with bootstrap! (4 core + 1 welcome + 3 probe/gallery + 6 Phase 10D exerciser routes)" do
     VoyagerApp.bootstrap!
 
     routes = VoyagerApp.screens.keys.sort_by(&.to_s)
@@ -22,6 +22,8 @@ describe VoyagerApp do
       :settings,
       :todo_editor,
       :todos,
+      # Phase C — intentionally-designed, size-class-adaptive welcome screen.
+      :welcome,
       # Probe / gallery harness screens.
       :component_gallery,
       :reconcile_probe,
