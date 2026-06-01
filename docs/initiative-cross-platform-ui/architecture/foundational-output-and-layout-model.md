@@ -182,16 +182,23 @@ audit is tractable.
   wrapped SwiftUI controls hug their intrinsic width and `Fill` alignment does
   not stretch them. **Reverted** (sign-in is back on the working size-class
   `content_width` pins).
-- **Built so far:** `objc_constrain_equal_width(child, container)` leaf-fill (in
-  `visit(VStack)`), and `objc_constrain_fluid_width(view, min, max)` (bound≤parent
-  900 > cap≤max 800 > floor≥min 700 > fill==parent 500, per Codex) applied
-  post-`push_native` (when `superview` exists). **The CAP case works** (gallery
-  label whose content exceeds max → capped at 340, AX-verified 5/5).
-- **DEEP BLOCKER — NSStackView resists being made WIDER than its content.** The
-  *fill-up* case (a fluid VStack whose content is NARROWER than the parent, e.g. a
-  form of ~120pt controls that should fill a 296–420pt column) does **not** work:
-  empirically the form stays ~120pt at both 360 and 900pt windows. NSStackView
-  sizes its width to its arranged-subview content at a priority that **drops** the
+- **Built (and PARKED — does not work):** `objc_constrain_equal_width(child,
+  container)` leaf-fill and `objc_constrain_fluid_width(view, min, max)`
+  (bound≤parent 900 > cap≤max 800 > floor≥min 700 > fill==parent 500, per Codex,
+  applied post-`push_native`). **CORRECTION (do not trust the earlier "cap works
+  5/5"): that was a FALSE PASS.** The gallery cap test asserted the label width
+  ≤360, which a COLLAPSED column (~120pt) also satisfies — so it passed while the
+  column was actually collapsed. The fluid gallery demo + that test have been
+  REMOVED. Native fluid containers do not work *at all* on NSStackView (see below);
+  the renderer primitives remain in the tree, unused/parked, as a starting point
+  for the wrapper-NSView redo.
+- **DEEP BLOCKER — NSStackView fluid containers COLLAPSE to their content minimum.**
+  Both the fill-up case (a form of ~120pt controls) AND a content column (a fluid
+  VStack of long text — the Welcome v1 attempt) collapse to ~120pt and clip,
+  because every direct child is pinned `== container` (leaf-fill) so content can't
+  push the container wide, and `fill==parent` is dropped by NSStackView. Verified
+  via offscreen capture: the Welcome v1 fluid column was ~120pt and fully clipped
+  at a 900pt window. NSStackView
   `floor≥min (700)` and `fill==parent (500)` constraints. So you cannot make a
   vertical NSStackView wider than its content via width constraints on the stack
   itself. Sign-in re-migrated + reverted **twice**; it stays on `content_width`.

@@ -123,23 +123,11 @@
         end
       end
 
-      it "Gallery: a UI::Fluid-width label is capped at its max (Phase B — Fluid native)" do
-        VoyagerAX.with_app("voyager-component-gallery") do |app|
-          win = VoyagerAX.content_window(app).not_nil!
-          fluid = VoyagerAX.find_in(win, identifier: "voyager-gallery-fluid-label")
-          fluid.should_not be_nil
-          w = fluid.not_nil!.size.try(&.[](:width))
-          w.should_not be_nil
-          # The section rail is ~480pt; the label's UI::Fluid max is 340pt. Without
-          # the max<= constraint this long label would wrap near the rail (>>340).
-          # The cap holds its rendered width at <=340 (+tolerance) — direct proof
-          # the Fluid native range engaged through the existing constraint pins.
-          (w.not_nil! <= 360.0).should(be_true,
-            "fluid label width #{w} not capped at max 340 — Fluid native didn't engage")
-          # Sanity: a real rendered width, not a degenerate container frame.
-          (w.not_nil! >= 100.0).should be_true
-        end
-      end
+      # NOTE: a former "Fluid-width label capped at max" test was REMOVED — it was
+      # a false pass. It asserted width <= 360, which a COLLAPSED fluid column
+      # (NSStackView fluid containers collapse to their content minimum, ~120pt)
+      # also satisfies. Native fluid containers are a confirmed dead-end pending a
+      # wrapper-NSView redo; see foundational-output-and-layout-model.md §"Phase B".
     end
   end
 {% end %}

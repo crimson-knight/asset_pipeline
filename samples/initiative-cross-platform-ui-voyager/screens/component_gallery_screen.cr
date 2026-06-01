@@ -102,9 +102,6 @@ module Voyager
         {"Watch — Complication (cross-platform fallback)",
          "ComplicationWithWebFallback renders a real watchOS WidgetKit complication on -Dwatchos and, on every other target, a card-style preview of the same content. UI::Complication itself is compile-gated to watchOS (naming it off-watch is a compile error).",
          -> { complication_section }},
-        {"Layout — Fluid (resizable column)",
-         "Phase B: a label with UI::Fluid native width (min 200, ideal 280, max 340). It grows with available space up to its max, then wraps — a readable column that resizes instead of sprawling across the full section rail. Maps to the existing min>=/max<= Auto-Layout pins (no NSStackView replacement).",
-         -> { fluid_section }},
       ]
 
       limit = ENV["VOYAGER_GALLERY_MAX_SECTION"]?.try(&.to_i?) || sections.size
@@ -184,33 +181,6 @@ module Voyager
       comp.test_id = "voyager-gallery-complication"
       comp.accessibility_label = "Next todos complication"
       out << captioned("ComplicationWithWebFallback (preview)", comp.as(UI::View))
-      out
-    end
-
-    # Phase B — UI::Fluid native width demo. A long label with a fluid width
-    # range; the renderer maps it to the existing min>=/max<= constraint pins, so
-    # the label wraps at <= max (340pt) instead of filling the full section rail
-    # (~480pt). The AX test asserts the rendered width is capped (proving the
-    # max<= constraint engaged) — fluid actually does something, not just compiles.
-    private def fluid_section : Array(UI::View)
-      out = [] of UI::View
-      label = UI::Label.new(
-        "This column uses UI::Fluid native width (min 200, ideal 280, max 340): it " \
-        "grows with available space up to its maximum, then wraps — a readable " \
-        "column that resizes instead of sprawling across the full section rail."
-      )
-      label.font = UI::Font.new(size: 13.0, weight: :regular)
-      label.test_id = "voyager-gallery-fluid-label"
-      label.accessibility_label = "Fluid width demo label"
-      # Fluid width goes on the CONTAINER (containers run apply_common_properties,
-      # where the Fluid→min>=/max<= mapping lives; leaf facades like Label do not).
-      # Capping the column at max 340 wraps the long label inside it at <=340,
-      # which the AX test measures.
-      column = UI::VStack.new(spacing: 0.0)
-      column.fluid_width = UI::Fluid.px(200, 280, 340)
-      column.test_id = "voyager-gallery-fluid-column"
-      column << label.as(UI::View)
-      out << column.as(UI::View)
       out
     end
 
