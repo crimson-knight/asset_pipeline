@@ -15,14 +15,37 @@
 
 import SwiftUI
 import Foundation
+// NOTE on watchOS: `canImport(UIKit)` is TRUE (the framework ships) but the VIEW
+// types (UIView/UIViewController/UIHostingController) are `API_UNAVAILABLE(watchos)`.
+// UIColor/UIFont/UIImage ARE available. So the color typealias stays under
+// `canImport(UIKit)`, but APSKPlatformView must be gated by `os(watchOS)` FIRST
+// (a SwiftUI-native box) since watchOS has no UIView host.
 #if canImport(UIKit)
 import UIKit
-public typealias APSKPlatformView = UIView
 public typealias APSKPlatformColor = UIColor
 #elseif canImport(AppKit)
 import AppKit
-public typealias APSKPlatformView = NSView
 public typealias APSKPlatformColor = NSColor
+#endif
+
+#if os(watchOS)
+// watchOS Apple output node: a reference-type (NSObject) box carrying the SwiftUI
+// content, so the Crystal bridge holds it as a +1-retained opaque pointer (same
+// ObjC retain/release contract as a UIView/NSView handle) and the WatchKit
+// renderer composes children by reading `.content`. See
+// foundational-output-and-layout-model.md §"Phase B".
+public final class APSKWatchHostView: NSObject {
+    public let content: AnyView
+    public init(content: AnyView) {
+        self.content = content
+        super.init()
+    }
+}
+public typealias APSKPlatformView = APSKWatchHostView
+#elseif canImport(UIKit)
+public typealias APSKPlatformView = UIView
+#elseif canImport(AppKit)
+public typealias APSKPlatformView = NSView
 #endif
 
 @objc(APSKViewOverrides)
