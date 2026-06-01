@@ -1,10 +1,31 @@
 # Foundational output + layout model (cross-platform)
 
-**Status:** Design proposal, 2026-06-01. Written because the Phase 12 watchOS
-preflight exposed that the SwiftKit facade layer is UIKit/AppKit-bound, which
-forces a foundational decision the remaining phases (B adaptive layout, C
-designed demo, D watchOS) all rest on. This doc is the foundation; it is to be
-Codex-reviewed before implementation.
+**Status:** Design proposal, 2026-06-01, **revised after Codex (gpt-5.5) review.**
+Written because the Phase 12 watchOS preflight exposed that the SwiftKit facade
+layer is UIKit/AppKit-bound, which forces a foundational decision the remaining
+phases (B adaptive layout, C designed demo, D watchOS) all rest on.
+
+> **Codex verdict on the v1 model: NOT safe to build on as-is.** Three corrections
+> are now incorporated below (search "[Codex]"):
+> 1. The watchOS boundary is **not** a bare `class { AnyView }` — the Crystal
+>    bridge requires an explicit ownership + **identity** contract: a stable
+>    `view_kind` (reconciliation infers kind from the handle debug label and
+>    *aborts* if nil/mismatched — `native_view.cr:70-109`, `ios/bridge.cr:304-323`),
+>    child topology, an update channel, and a release strategy matching either
+>    `ObjCRelease` or the `Unmanaged.passRetained`/`apsk_*_release` pattern
+>    (`ReactiveState.swift:18-27,352-363`). So watchOS needs a real **Apple output
+>    node**, not a value-type box.
+> 2. **B must be additive, not a replacement.** The iOS/macOS path deliberately
+>    uses exact/min/max Auto-Layout constraints + root-fill pins
+>    (`uikit_renderer.cr:5008-5050`, `appkit_renderer.cr:4550-4582`); button hit
+>    targets need host constraints *because* SwiftUI `.frame(minHeight:)` was
+>    insufficient (`uikit_renderer.cr:421-434`). Replacing Auto-Layout with SwiftUI
+>    intrinsic sizing would destabilize stack sizing, row widths, AX frames, and
+>    screenshots. B = map `Fluid` *into* the existing constraint model.
+> 3. **Not "one facade body."** Core `VStack`/`HStack` compose imperatively in
+>    `UIStackView`/`NSStackView` (`uikit_renderer.cr:445-525`), not via facades;
+>    ~3 facades are hard UIView-bound (Toggle=`UISwitch`, Popover, SwipeActionRow).
+>    Facades classify into **portable / child-adapter / watch-specific** buckets.
 
 ## The problem this resolves
 
@@ -45,41 +66,73 @@ the single adapter:
 |---|---|---|---|
 | iOS | `UIView` | `UIHostingController().view` | renderer threads UIView pointers via ObjC |
 | macOS | `NSView` | `NSHostingView` | same |
-| **watchOS** | **`APSKViewBox`** (a `final class { let content: AnyView }`) | `APSKViewBox(AnyView(view))` | watchOS is pure SwiftUI — no UIView host. A **class** (reference type), not bare `AnyView` (a value type), so Crystal can hold it as a +1-retained opaque pointer through the existing bridge model. |
+| **watchOS** | **`APSKWatchNode`** — an `NSObject` subclass carrying `content: AnyView` **plus the bridge contract** (see below) | `APSKWatchNode(content: AnyView(view), kind: …)` | watchOS is pure SwiftUI — no UIView host. |
 
-The facades' SwiftUI-building logic is then **shared across all three Apple
-platforms unchanged** — a parent reads each child (UIView to embed via
-`UIViewRepresentable`, or on watchOS `child.content` the `AnyView`) and composes
-a SwiftUI container. `Package.swift` gains `.watchOS(.v10)`.
+**[Codex] The watchOS boundary is an explicit Apple output node, not a bare box.**
+`APSKWatchNode` must satisfy the same contract a `UIView`/`NSView` handle does for
+the Crystal bridge + reconciler, or it breaks ownership and identity:
+- **Ownership:** be an `NSObject` with a real ObjC retain/release path
+  (`NativeHandle` → `ReleaseStrategy::ObjCRelease` → `objc_release`,
+  `native_handle.cr:111-117`), **or** adopt the reactive
+  `Unmanaged.passRetained`/`apsk_*_release` contract (`ReactiveState.swift:18-27`).
+  A bare Swift value-type box has neither.
+- **Identity / `view_kind`:** carry a stable kind discoverable the way
+  `native_view.cr:70-109` infers it (debug label), because the in-place reconciler
+  **aborts** when `view_kind` is nil or mismatched (`ios/bridge.cr:304-323`).
+- **Child topology + update channel:** hold its children and a way to be updated
+  in place, so reconcile (which preserves focus across rerender) works on watch
+  too.
 
-### Principle 2 — Composition stays "children-up", layout becomes SwiftUI-native.
+With that contract, parent facades compose children by reading each node's
+`content` `AnyView` into a SwiftUI container — the *composition shape* is shared,
+but the node is a first-class bridge object, not a thin wrapper. `Package.swift`
+gains `.watchOS(.v10)`.
 
-The renderer keeps building children and passing them to parent facades. What
-changes for adaptive layout: facades stop receiving fixed pixel widths and
-instead receive **`Fluid`/intrinsic sizing intent** that maps to SwiftUI's
-layout system:
+### Principle 2 — `Fluid` maps INTO the existing constraint model (additive). [Codex-corrected]
 
-- `Fluid(min, ideal, max)` → `.frame(minWidth:idealWidth:maxWidth:)` + layout
-  priority on Apple; `clamp(min, ideal, max)` on web (already done).
-- Container width → SwiftUI intrinsic sizing + `@Environment(\.horizontalSizeClass)`
-  instead of `content_width = 340/480`. Screens express *intent* ("readable
-  column", "fill"), not pixels.
-- This subsumes the Card width-pin gotcha: a SwiftUI-sized card reflows; the
-  `preferredMaxLayoutWidth` hack is only needed where we still impose NSStackView
-  Auto-Layout.
+**[Codex] Do NOT replace Auto-Layout with SwiftUI intrinsic sizing** — the
+iOS/macOS path's exact/min/max constraints and root-fill pins are load-bearing
+(hit targets, row widths, AX frames, screenshots). Adaptive layout is *additive*:
 
-### Principle 3 — Two Apple composition boundaries, one facade body.
+- `Fluid(min, ideal, max)` → on Apple, drive the **existing** constraint helpers
+  (`objc_constrain_required_width` and the min/max-width pins,
+  `uikit_renderer.cr:5008-5050`) with the resolved value instead of a hard-coded
+  pixel; on web, `clamp(min, ideal, max)` (already real, `web_renderer.cr:2544`).
+- Size-class: resolve `Fluid`'s value per `@Environment(\.horizontalSizeClass)` /
+  `DeviceMetrics.compact_horizontal`, so screens express *intent* ("readable
+  column", "fill") and the renderer picks the width — replacing the hand-coded
+  `content_width = compact ? 340 : 480` in the Voyager screens.
+- The Card width-pin (`preferredMaxLayoutWidth`) is still needed where NSStackView
+  Auto-Layout governs; B does **not** remove the pins, it feeds them `Fluid`.
 
-- **iOS / macOS (imperative boundary):** facades return a UIView/NSView pointer;
-  the renderer threads `NativeView` handles through ObjC; SwiftUI lives *inside*
-  each hosted view.
-- **watchOS (declarative boundary):** facades return an `APSKViewBox`; the
-  renderer composes boxes' `AnyView`s into SwiftUI containers; the watch `@main`
-  App body renders the root box's `.content`. No ObjC pointer threading for
-  layout — composition is the SwiftUI tree itself.
+This keeps the AX-proven path intact (no host-identity / constraint / focus
+changes) while making screens genuinely resizable — the safe B.
 
-The divergence is confined to the *boundary*; the facade SwiftUI bodies and the
-Crystal renderer's "children-up" structure are shared.
+### Principle 3 — Classify facades into three buckets (not "one body"). [Codex-corrected]
+
+**[Codex] 40 facades; "one unchanged body" is false.** The honest split, which
+scopes the watchOS work per-bucket:
+
+- **Portable (pure SwiftUI):** Label, Button, the controls that are already
+  SwiftUI inside — watch path is the passthrough host, minimal change.
+- **Child-adapter (~14):** Card, Form, GlassBackground, Grid, ListView,
+  Navigation{Link,SplitView,Stack}, Popover, Sheet, Surface, SwipeActionRow,
+  TabView, Toolbar — they embed children via `APSKHostedChild`
+  (`CardFacade.swift:17-28`). On watch, the child-embed adapter changes
+  (`APSKWatchNode.content` instead of `UIViewRepresentable`); the composition
+  shape stays.
+- **Watch-specific (hard UIView-bound):** `ToggleFacade` (wraps `UISwitch`
+  because SwiftUI Toggle failed XCUITest, `ToggleFacade.swift:7-23`),
+  `PopoverFacade` (`UIPopoverPresentationController`), `SwipeActionRowFacade`
+  (`intrinsicContentSize` from platform views), `ImageFacade` (`UIImage`/`NSImage`
+  probe), and `CommonModifiers`'s `APSKPlatformColor` — each needs a SwiftUI-native
+  watch reimplementation or to be out of the watch catalog subset.
+
+Also note: **core `VStack`/`HStack` compose imperatively in `UIStackView`/
+`NSStackView`** on iOS/macOS (`uikit_renderer.cr:445-525`), *not* via facades — so
+the watchOS renderer's stack composition is genuinely a separate (declarative)
+implementation, not a facade reuse. The shared asset is the SwiftUI *content* of
+leaf facades, not the container composition.
 
 ### What must be gated per platform (the audit)
 
@@ -97,12 +150,14 @@ audit is tractable.
 
 ## Sequencing for the four phases
 
-1. **B — adaptive layout (do first; foundation for C and a clean watch story).**
-   Land `Fluid`→SwiftUI-frame mapping + size-class environment on the iOS/macOS
-   facades; migrate the Voyager screens off fixed `content_width` to intent-based
-   sizing; close the Card width-pin via intrinsic sizing. Verify: existing AX
-   behavior suites stay green + screens reflow at two window sizes (macOS) / size
-   classes (iOS).
+1. **B — adaptive layout (do first; narrowed per [Codex]).** **Additive only:**
+   resolve `Fluid` values into the *existing* iOS/macOS constraint helpers + the
+   `horizontalSizeClass`/`DeviceMetrics` size-class, and migrate the Voyager
+   screens off hard-coded `content_width` to `Fluid` intent. Do **not** touch
+   host identity, the NSStackView/UIStackView composition, the constraint pins, AX
+   grouping, or the focus/reconcile path. Verify: the green web suite stays green,
+   the macOS AX behavior suites stay green, and a screen reflows at two window
+   widths (macOS) without losing AX frames or focus.
 2. **C — designed demo (uses B).** One intentionally-designed, resizable screen
    on iOS + macOS. Forcing function for the last layout gaps; AX + motion-evidence.
 3. **D — watchOS (the heaviest; gated on the boundary work).** Implement Principle
@@ -113,16 +168,23 @@ audit is tractable.
    core iOS/macOS, capability guide as the stability matrix, watch/Android marked
    not-yet.
 
-## Open questions for Codex (architect-antagonist)
+## Resolved by Codex review (2026-06-01)
 
-1. Is `APSKViewBox` (class wrapping `AnyView`) the right watchOS boundary, or does
-   the +1-retained-pointer bridge model break for a Swift value-type-backed box
-   (lifetime, identity, reconciliation)?
-2. Does moving layout from fixed Auto-Layout widths to SwiftUI intrinsic sizing
-   conflict with the existing NSStackView-based AppKit/UIKit composition — i.e. is
-   B a clean addition or a destabilizing refactor of the proven iOS/macOS path?
-3. Is the "two boundaries, one facade body" split honest, or will the watchOS
-   declarative path force enough facade divergence that a separate watch facade
-   layer is actually cleaner?
-4. Sequencing: is B-before-C-before-D correct, and is anything in B likely to
-   regress the now-green suite or the AX-proven iOS/macOS behavior?
+1. **watchOS boundary:** NOT a bare box — an explicit `APSKWatchNode` (NSObject +
+   ownership + stable `view_kind` + child topology + update channel). See
+   Principle 1.
+2. **iOS/macOS layout:** do NOT replace Auto-Layout; B feeds `Fluid` *into* the
+   existing constraints (additive). See Principle 2.
+3. **Facades:** three buckets (portable / child-adapter / watch-specific); core
+   stacks are imperative and need a separate watch composition. See Principle 3.
+4. **Sequencing:** B→C→D holds **only with B narrowed to additive**; the risk is B
+   regressing host identity / constraints / AX / focus, so B is bounded to not
+   touch those. See "Sequencing".
+
+**Codex's single biggest risk to watch for:** treating the watchOS node as "just
+another `APSKPlatformView`" when its real contract is ownership + identity + child
+topology + native sizing + AX behavior. The Principle-1 node contract is the guard.
+
+The 3 pre-implementation changes Codex required are now in this doc: explicit
+Apple-output-node contract (P1), additive-only B (P2), facade bucket
+classification (P3).
