@@ -94,6 +94,7 @@
       fun objc_constrain_width(view : Void*, w : Float64) : Void
       fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
       fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
+      fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
       fun objc_constrain_height(view : Void*, h : Float64) : Void
       # ComboBox value-drop fix (macOS) — wire an NSComboBox's text +
       # selection changes (controlTextDidChange: / comboBoxSelectionDidChange:)
@@ -487,6 +488,22 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         # Each child NativeView was added to native.children and its raw
         # ptr was added as an arranged subview during push_native.
+
+        # Phase B — a fluid container fills its leaf children. A VStack's "Fill"
+        # alignment only leading-pins children at intrinsic width (see the
+        # alignment mapping above), so a fluid container's facade-hosted controls
+        # (TextField/Button — NSHostingView hugs intrinsic width) would render as
+        # tiny pills. Pin each child's width == the stack so they fill the
+        # resizable column, but only when the child has no width intent of its own
+        # (an explicit pin or its own fluid_width wins).
+        if view.fluid_width
+          view.children.each_with_index do |child_view, i|
+            next if child_view.minimum_width || child_view.maximum_width || child_view.fluid_width
+            cn = native.children[i]?
+            next unless cn && cn.handle.valid?
+            LibObjCBridge.objc_constrain_equal_width(cn.handle.ptr!, ptr)
+          end
+        end
 
         push_native(native)
       end

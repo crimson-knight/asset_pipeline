@@ -483,6 +483,20 @@
         end
         pop_stack
 
+        # Phase B — a fluid container fills its leaf children. UIStackView fill
+        # alignment doesn't stretch facade-hosted controls (UIHostingController
+        # hugs intrinsic width), so a fluid container's controls would render at
+        # intrinsic width. Pin each child's width == the stack so they fill the
+        # resizable column, unless the child has its own width intent.
+        if view.fluid_width
+          view.children.each_with_index do |child_view, i|
+            next if child_view.minimum_width || child_view.maximum_width || child_view.fluid_width
+            cn = native.children[i]?
+            next unless cn && cn.handle.valid?
+            LibObjCBridge.objc_constrain_equal_width(cn.handle.ptr!, ptr)
+          end
+        end
+
         push_native(native)
       end
 
