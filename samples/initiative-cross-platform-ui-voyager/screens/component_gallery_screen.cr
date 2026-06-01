@@ -55,58 +55,58 @@ module Voyager
       last_event.test_id = "voyager-gallery-last-event"
       root << last_event.as(UI::View)
 
-      root << section(
-        "Live Interaction — tap to see it work",
-        "These widgets are wired to the controller: each interaction dispatches an action, mutates state, and re-renders. The readout below updates live, proving the widgets function (not just render).",
-        content_width, live_section(content_width))
-      root << section(
-        "Buttons & Actions",
-        "Tappable controls. Prominent is the primary call-to-action; Secondary/Destructive convey role; Icon/Link/Toggle/Menu are specialized button styles.",
-        content_width, buttons_section(content_width))
-      root << section(
-        "Selection Controls",
-        "Pick one or more values. Toggle/Checkbox are binary; SegmentedControl/RadioGroup/Picker choose one option from a set.",
-        content_width, selection_section(content_width))
-      root << section(
-        "Value Inputs",
-        "Adjust a continuous or bounded value. Slider/Stepper set numbers; DatePicker/ColorPicker pick a date or color.",
-        content_width, value_section(content_width))
-      root << section(
-        "Text Entry",
-        "Capture typed input. TextField is single-line; SecureField masks; SearchField adds search affordances; TextArea is multi-line.",
-        content_width, text_section(content_width))
-      root << section(
-        "Feedback & Progress",
-        "Communicate status. ProgressView/ActivityIndicator show ongoing work; RatingIndicator/Gauge display a value.",
-        content_width, feedback_section(content_width))
-      root << section(
-        "Shapes",
-        "Geometric primitives for custom drawing and decoration. Each takes a fill color and explicit size.",
-        content_width, shapes_section)
-      root << section(
-        "Imagery (SF Symbols)",
-        "Image renders asset-catalog images or, as here, Apple SF Symbols by name.",
-        content_width, imagery_section)
-      root << section(
-        "Containers",
-        "Group and elevate content. Card and Surface provide grouped backgrounds with system materials.",
-        content_width, containers_section(content_width))
-      root << section(
-        "More Controls & Display",
-        "TimePicker sets a time; DisclosureGroup expands/collapses; RichText composes styled runs; PageControl shows paged position.",
-        content_width, more_section(content_width))
-      root << section(
-        "Layout",
-        "Structure primitives. ZStack overlays children; Grid arranges cells in rows and columns.",
-        content_width, layout_section(content_width))
-      root << section(
-        "Data & Indicators",
-        "Visualize values. ChartView plots a series; ActivityRings shows ring progress; Snackbar is a transient status bar.",
-        content_width, data_section(content_width))
-      root << section(
-        "Drawing",
-        "Vector drawing. PathView strokes and fills a custom path built from move/line/curve segments.",
-        content_width, drawing_section)
+      # Section table — each entry is {name, description, builder}. Built
+      # + added in order. VOYAGER_GALLERY_MAX_SECTION (diagnostic env)
+      # caps how many sections are built/added so a crash can be bisected
+      # by section without recompiling.
+      sections = [
+        {"Live Interaction — tap to see it work",
+         "These widgets are wired to the controller: each interaction dispatches an action, mutates state, and re-renders. The readout below updates live, proving the widgets function (not just render).",
+         -> { live_section(content_width) }},
+        {"Buttons & Actions",
+         "Tappable controls. Prominent is the primary call-to-action; Secondary/Destructive convey role; Icon/Link/Toggle/Menu are specialized button styles.",
+         -> { buttons_section(content_width) }},
+        {"Selection Controls",
+         "Pick one or more values. Toggle/Checkbox are binary; SegmentedControl/RadioGroup/Picker choose one option from a set.",
+         -> { selection_section(content_width) }},
+        {"Value Inputs",
+         "Adjust a continuous or bounded value. Slider/Stepper set numbers; DatePicker/ColorPicker pick a date or color.",
+         -> { value_section(content_width) }},
+        {"Text Entry",
+         "Capture typed input. TextField is single-line; SecureField masks; SearchField adds search affordances; TextArea is multi-line.",
+         -> { text_section(content_width) }},
+        {"Feedback & Progress",
+         "Communicate status. ProgressView/ActivityIndicator show ongoing work; RatingIndicator/Gauge display a value.",
+         -> { feedback_section(content_width) }},
+        {"Shapes",
+         "Geometric primitives for custom drawing and decoration. Each takes a fill color and explicit size.",
+         -> { shapes_section }},
+        {"Imagery (SF Symbols)",
+         "Image renders asset-catalog images or, as here, Apple SF Symbols by name.",
+         -> { imagery_section }},
+        {"Containers",
+         "Group and elevate content. Card and Surface provide grouped backgrounds with system materials.",
+         -> { containers_section(content_width) }},
+        {"More Controls & Display",
+         "TimePicker sets a time; DisclosureGroup expands/collapses; RichText composes styled runs; PageControl shows paged position.",
+         -> { more_section(content_width) }},
+        {"Layout",
+         "Structure primitives. ZStack overlays children; Grid arranges cells in rows and columns.",
+         -> { layout_section(content_width) }},
+        {"Data & Indicators",
+         "Visualize values. ChartView plots a series; ActivityRings shows ring progress; Snackbar is a transient status bar.",
+         -> { data_section(content_width) }},
+        {"Drawing",
+         "Vector drawing. PathView strokes and fills a custom path built from move/line/curve segments.",
+         -> { drawing_section }},
+      ]
+
+      limit = ENV["VOYAGER_GALLERY_MAX_SECTION"]?.try(&.to_i?) || sections.size
+      sections.each_with_index do |entry, i|
+        break if i >= limit
+        name, description, builder = entry
+        root << section(name, description, content_width, builder.call)
+      end
 
       back = UI::Button.new("Back")
       back.role = :secondary

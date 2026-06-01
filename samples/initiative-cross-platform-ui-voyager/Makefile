@@ -80,7 +80,7 @@ macos-build: $(MACOS_BIN)
 
 $(MACOS_BIN): $(MACOS_SRC) $(AP_BRIDGE) $(SWIFTKIT_BRIDGE) $(SWIFTKIT_LIB) $(WIN_HELPER)
 	@mkdir -p $(PROJECT_DIR)/macos/bin
-	$(CRYSTAL_NATIVE) build $(MACOS_SRC) -o $(MACOS_BIN) -Dmacos \
+	$(CRYSTAL_NATIVE) build $(MACOS_SRC) -o $(MACOS_BIN) -Dmacos $(MACOS_EXTRA_FLAGS) \
 		--link-flags="$(MACOS_LINK_FLAGS)"
 	@if [ "$(CODESIGN_IDENTITY)" != "-" ]; then \
 		codesign --force --sign "$(CODESIGN_IDENTITY)" --timestamp=none $(MACOS_BIN); \
@@ -97,7 +97,15 @@ $(AP_BRIDGE): $(AP_BRIDGE_SRC)
 $(SWIFTKIT_BRIDGE): $(SWIFTKIT_BRIDGE_SRC)
 	clang -c $(SWIFTKIT_BRIDGE_SRC) -o $(SWIFTKIT_BRIDGE) -fno-objc-arc
 
-$(SWIFTKIT_LIB):
+# The macOS SwiftKit static lib MUST rebuild when any Swift facade source
+# changes — otherwise a facade change (e.g. a new selector parameter) leaves
+# a STALE .a whose missing selector segfaults at objc_msgSend on the next
+# run. (The iOS path already rebuilds SwiftKit every time via
+# build_crystal_lib.sh; this rule is the macOS equivalent.) `swift build` is
+# incremental, so listing the sources as prerequisites is cheap + correct.
+SWIFTKIT_SOURCES := $(shell find $(SWIFTKIT_DIR)/Sources -name '*.swift' 2>/dev/null)
+
+$(SWIFTKIT_LIB): $(SWIFTKIT_SOURCES)
 	swift build -c release --package-path $(SWIFTKIT_DIR)
 
 $(WIN_HELPER): $(WIN_HELPER_SRC)
