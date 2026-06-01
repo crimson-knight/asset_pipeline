@@ -168,6 +168,29 @@ audit is tractable.
    core iOS/macOS, capability guide as the stability matrix, watch/Android marked
    not-yet.
 
+## Phase B implementation findings (2026-06-01)
+
+- **Fluid works on a container whose content NATURALLY fills it** — proven: a
+  long `Label` inside a `fluid_width` `VStack(max:340)` wraps at ≤340 (gallery
+  cap test, AX-verified). The label fills because wrapping text expands to the
+  available width.
+- **But facade-hosted LEAF controls do NOT fill a fluid container.** Migrating
+  the sign-in form to a `fluid_width` column with `Fill` alignment + pins removed
+  rendered the `TextField`/`SecureField`/`Button` as tiny intrinsic-width pills
+  (offscreen capture caught it; the AX test passed because the controls still
+  exist + function — the classic "passed but unusable" trap). The NSHostingView-
+  wrapped SwiftUI controls hug their intrinsic width and `Fill` alignment does
+  not stretch them. **Reverted** (sign-in is back on the working size-class
+  `content_width` pins).
+- **Consequence / TODO before fluid FORMS work:** the renderer needs a "stretch
+  Fill-aligned leaf children to the fluid container width" mechanism — e.g.
+  `objc_constrain_equal_width(child, fluid_container)` applied when a container
+  has `fluid_width` and a child has no explicit width, or lowering the hosted
+  view's horizontal content-hugging. Until then, `fluid_width` is for containers
+  with self-filling content (text, images), not forms of intrinsic-width controls.
+  Size-class-adaptive `content_width` (compact?340:400) remains the correct
+  pattern for forms.
+
 ## Resolved by Codex review (2026-06-01)
 
 1. **watchOS boundary:** NOT a bare box — an explicit `APSKWatchNode` (NSObject +

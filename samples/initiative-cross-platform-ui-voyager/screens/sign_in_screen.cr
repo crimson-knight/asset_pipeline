@@ -17,12 +17,7 @@ module Voyager
       # See screens/sign_in.cr pre-8D.1 history for the layout rationale
       # (root_fill + content_width cap + safe-area aware padding).
       metrics = UI::DesignTokens::DeviceMetrics.current
-      # Phase B/C — the form is a resizable "readable column" via UI::Fluid:
-      # it tracks available width between min and max instead of a hard pin, so
-      # the screen reflows on window resize / size-class change. `ideal` keeps the
-      # prior per-size-class width as the comfortable default.
-      ideal_width = metrics.compact_horizontal? ? 340.0 : 400.0
-      form_fluid = UI::Fluid.px(280, ideal_width, 420)
+      content_width = metrics.compact_horizontal? ? 340.0 : 400.0
 
       state = Voyager.state
 
@@ -50,8 +45,9 @@ module Voyager
       subtitle.text_alignment = UI::Alignment::Center
 
       fields = UI::VStack.new(spacing: 12.0)
-      # Fill so the controls stretch to the fluid form column's resolved width.
-      fields.alignment = UI::Alignment::Fill
+      fields.alignment = UI::Alignment::Leading
+      fields.minimum_width = content_width
+      fields.maximum_width = content_width
 
       # Phase 8D.1 — the renderer's wire-time TextField hook
       # (UI::FormStateRendererHook.wrap_text_handler) reads
@@ -64,7 +60,8 @@ module Voyager
       email.accessibility_label = "Email address"
       email.test_id = "voyager-sign-in-email"
       email.keyboard_type = UI::KeyboardType::EmailAddress
-      # No width pin — fills the fluid form column via the Fill alignment above.
+      email.minimum_width = content_width
+      email.maximum_width = content_width
       # NOTE on `state.current_user`: this is a UX-courtesy mirror so the
       # pre-populated email survives a re-render. The authoritative store
       # for the dispatched submit is FormState (renderer-wired). We keep
@@ -74,6 +71,8 @@ module Voyager
       password = UI::SecureField.new(placeholder: "Password", name: "password")
       password.accessibility_label = "Password"
       password.test_id = "voyager-sign-in-password"
+      password.minimum_width = content_width
+      password.maximum_width = content_width
 
       fields << email.as(UI::View)
       fields << password.as(UI::View)
@@ -81,25 +80,16 @@ module Voyager
       submit = UI::Button.new("Sign in", style: UI::ButtonStyle::Prominent)
       submit.accessibility_label = "Sign in"
       submit.test_id = "voyager-sign-in-submit"
+      submit.minimum_width = content_width
+      submit.maximum_width = content_width
       # Phase 8D.1 — Symbol action ref `:submit` routes to
       # SignInController#submit per the brief's action-ref convention.
       submit.on_tap = -> { Voyager.dispatch(:submit) }
 
-      # Fluid form column: a resizable, centered readable column. fluid_width on
-      # the CONTAINER maps to the renderer's min>=/max<= constraint pins (leaf
-      # facades don't honor fluid_width); Fill alignment stretches the fields +
-      # submit to the column's resolved width. root stays Center, so the column
-      # is centered in the window and reflows between 280 and 420pt.
-      form = UI::VStack.new(spacing: 16.0)
-      form.alignment = UI::Alignment::Fill
-      form.fluid_width = form_fluid
-      form.test_id = "voyager-sign-in-form"
-      form << fields.as(UI::View)
-      form << submit.as(UI::View)
-
       root << wordmark.as(UI::View)
       root << subtitle.as(UI::View)
-      root << form.as(UI::View)
+      root << fields.as(UI::View)
+      root << submit.as(UI::View)
 
       root.as(UI::View)
     end
