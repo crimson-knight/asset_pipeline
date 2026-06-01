@@ -367,6 +367,43 @@ field names. This is vision, not in-scope work for Phase 12.
   `DesignTokens::Device` provider screens query — same gotcha as UIKit; build the
   renderer *before* `screen.build`).
 
+> ## ⚠️ PREFLIGHT FINDING (2026-06-01) — the SwiftKit facade layer is UIKit/AppKit-bound; it does NOT extend to watchOS as-is. READ BEFORE STARTING D2.
+>
+> **Toolchain is fine** — `WatchSimulator26.5.sdk` is installed and `crystal-alpha`
+> can target a watchOS triple, so the build path exists.
+>
+> **But the Swift facade layer cannot be reused unchanged.** Evidence from the
+> current tree:
+> - `APSKPlatformView` (the type every `apsk_make_*` facade returns) is declared
+>   `#if canImport(UIKit) → UIView / #elseif canImport(AppKit) → NSView / #endif`
+>   (`Overrides/ViewOverrides.swift:18-26`). **watchOS has neither UIKit nor
+>   AppKit**, so `APSKPlatformView` is *undefined* there → the whole package
+>   fails to compile for watchOS.
+> - SwiftUI is hosted into that platform view via `UIHostingController` /
+>   `NSHostingView` (`HostingHelpers.swift:26,34`). **Neither exists on watchOS**
+>   (modern watchOS apps are pure SwiftUI — SwiftUI *is* the native layer, there
+>   is no UIView host).
+> - `Package.swift` declares only `.iOS(.v16)` and `.macOS(.v13)` — **no
+>   `.watchOS`** platform at all.
+>
+> **Implication:** D2 is NOT "add a renderer subclass that reuses the facades."
+> It requires a foundational decision on the watchOS output model FIRST.
+> **Recommended architecture (lowest divergence):** on watchOS, make
+> `APSKPlatformView = AnyView` (a type-erased SwiftUI view) and
+> `HostingHelpers.host(_:)` a passthrough (`AnyView(view)`, no UIView wrapping),
+> both gated `#elseif os(watchOS)`; add `.watchOS(.v10)` to `Package.swift`; then
+> **audit every facade** — most compose SwiftUI internally and will work through
+> the AnyView passthrough, but any that touch UIView/objc-bridge APIs
+> (focus/first-responder, accessibility custom actions, the ObjC-drawn views like
+> ActivityRings/Canvas/Map/WebView/Video) must be gated out or given a
+> SwiftUI-native watch path. The watch catalog subset (§"Catalog subset on watch")
+> is deliberately small precisely so this audit is tractable.
+> **De-risking step before full D2:** add the watchOS typealias + passthrough host
+> + `.watchOS` platform, gate the facade layer down to the watch subset, and
+> compile `swift build --triple arm64-apple-watchos-simulator` green with ONE
+> facade (Label) — that validates the model before building the renderer. This
+> preflight is itself a deliverable; do it first.
+
 ### D3 — WCSession + complication snapshot bridge
 - `WCSessionFacade.swift` + `apsk_wcsession_*` in `swiftkit_bridge.cr`/`.m`.
 - Reuse/generalize Phase 11's `SnapshotWriter` for the watch App Group path.
