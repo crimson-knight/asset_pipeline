@@ -224,6 +224,10 @@ enum CommonModifiers {
         // takes a `KeyEquivalent` + `EventModifiers`. We map a single-
         // character key directly; named keys (`return`, `escape`, …)
         // map onto SwiftUI's special-key constants when available.
+        // watchOS: KeyEquivalent / .keyboardShortcut are unavailable (no hardware
+        // keyboard), so the whole block is gated off — a watch app has no key
+        // commands to honor.
+        #if !os(watchOS)
         if let key = overrides.apskKeyboardShortcutKey, let maskBox = overrides.apskKeyboardShortcutModifiers, !key.isEmpty {
             let mask = maskBox.uint64Value
             var modifiers: EventModifiers = []
@@ -255,6 +259,7 @@ enum CommonModifiers {
                 current = AnyView(current.keyboardShortcut(eq, modifiers: modifiers))
             }
         }
+        #endif
 
         // Phase 10B.2b — Focus management. SwiftUI requires a
         // `@FocusState` binding to call `.accessibilityFocused`, which
