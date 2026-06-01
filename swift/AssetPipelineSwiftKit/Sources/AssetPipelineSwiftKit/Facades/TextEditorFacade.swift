@@ -9,6 +9,10 @@
 import SwiftUI
 import Foundation
 
+// watchOS: this facade is not in the watch catalog subset and/or uses UIKit-only
+// APIs (UIView/UIControl/SwiftUI-on-watch-unavailable). Gated off watchOS for the
+// initial one-facade green compile; watch-native re-enable is a Phase 12 follow-up.
+#if !os(watchOS)
 @objc(APSKTextEditorFacade)
 public class TextEditorFacade: NSObject {
     @objc public static func makeTextEditor(
@@ -34,3 +38,4 @@ private struct TextEditorStorageHost<Content: View>: View {
     let content: Content
     var body: some View { content }
 }
+#endif

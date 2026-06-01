@@ -8,6 +8,8 @@
 import SwiftUI
 import Foundation
 
+// watchOS: gated off for the initial watch compile (UIKit-only / not in watch subset).
+#if !os(watchOS)
 @objc(APSKTimePickerFacade)
 public class TimePickerFacade: NSObject {
     @objc public static func makeTimePicker(
@@ -28,3 +30,4 @@ public class TimePickerFacade: NSObject {
         return HostingHelpers.host(DateHost(storage: storage, content: content))
     }
 }
+#endif
