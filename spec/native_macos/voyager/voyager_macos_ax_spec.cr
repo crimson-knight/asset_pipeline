@@ -50,18 +50,33 @@
         VoyagerAX.with_app("voyager-sign-in") do |app|
           win = VoyagerAX.content_window(app).not_nil!
 
+          # Use REAL keystrokes (CGEvents to the focused field), not
+          # set_value — only real typing fires the SwiftUI change binding
+          # that delivers the value to FormState (set_value writes the
+          # displayed text without the change path, so submit would see
+          # empty creds).
+          # Focus the first field by clicking it (AXPress focuses a fresh
+          # field), then move BETWEEN fields with Tab — AXPress does NOT
+          # reliably move focus once a field is editing.
           email = VoyagerAX.find_in(win, identifier: "voyager-sign-in-email").not_nil!
-          email.set_value("captain@voyager.app")
-          password = VoyagerAX.find_in(win, identifier: "voyager-sign-in-password").not_nil!
-          password.set_value("hunter2")
+          email.click
+          sleep(0.2.seconds)
+          UI::AXTest::Keys.type("captain@voyager.app")
+          sleep(0.2.seconds)
+
+          UI::AXTest::Keys.tab! # email -> password (AXPress won't move focus mid-edit)
+          sleep(0.2.seconds)
+          UI::AXTest::Keys.type("hunter2")
+          sleep(0.2.seconds)
+
           submit = (VoyagerAX.find_in(win, identifier: "voyager-sign-in-submit") ||
                     VoyagerAX.find_in(win, role: "AXButton", label: "Sign in")).not_nil!
           submit.click
-          sleep(0.6.seconds)
+          sleep(0.8.seconds)
 
           # Post-sign-in the host rerenders to Todos; re-fetch the window and
-          # assert the Todos "Add" control is now present (proves the typed
-          # credentials reached the controller and ReplaceRoot(:todos) fired).
+          # assert the Todos "Add" control is present (proves the typed creds
+          # reached the controller and ReplaceRoot(:todos) fired).
           todos_win = VoyagerAX.content_window(app).not_nil!
           add = VoyagerAX.find_in(todos_win, identifier: "voyager-todos-add") ||
                 VoyagerAX.find_in(todos_win, role: "AXButton", label: "Add todo")
