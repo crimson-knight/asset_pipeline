@@ -3549,6 +3549,23 @@ int ap_open_file_picker_ios(void *anchor_view_ptr, const char *utis_cstr,
     } else {
         types = @[@"public.data"];
     }
+    // Resolve the presenter SYNCHRONOUSLY so the int return honestly reflects
+    // whether a picker can actually be presented. Returning 1 unconditionally
+    // with the presenter check only inside the async block would let a missing
+    // presenter silently no-op while Crystal reported success — the
+    // false-success class this binding must avoid (the SecureField lesson).
+    // UIKit must be touched on the main thread; guard for an off-main caller.
+    // A BOOL (not the VC pointer) crosses back so there is no MRC lifetime
+    // issue; the async block re-resolves a fresh (autoreleased) presenter.
+    __block BOOL can_present = NO;
+    if ([NSThread isMainThread]) {
+        can_present = (ap_top_presenting_view_controller(anchor) != nil);
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            can_present = (ap_top_presenting_view_controller(anchor) != nil);
+        });
+    }
+    if (!can_present) return 0;
     dispatch_async(dispatch_get_main_queue(), ^{
         UIViewController *presenter = ap_top_presenting_view_controller(anchor);
         if (!presenter) return;
@@ -3581,6 +3598,17 @@ int ap_export_file_ios(void *anchor_view_ptr, const char *source_url_cstr,
     UIView *anchor = (UIView *)anchor_view_ptr;
     NSURL *source = ap_url_from_cstr(source_url_cstr);
     if (!source) return 0;
+    // Honest synchronous presenter check (see ap_open_file_picker_ios) so a
+    // missing presenter returns 0 rather than reporting fake success.
+    __block BOOL can_present = NO;
+    if ([NSThread isMainThread]) {
+        can_present = (ap_top_presenting_view_controller(anchor) != nil);
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            can_present = (ap_top_presenting_view_controller(anchor) != nil);
+        });
+    }
+    if (!can_present) return 0;
     dispatch_async(dispatch_get_main_queue(), ^{
         UIViewController *presenter = ap_top_presenting_view_controller(anchor);
         if (!presenter) return;

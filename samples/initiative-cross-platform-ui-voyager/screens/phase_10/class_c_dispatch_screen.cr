@@ -130,11 +130,25 @@ module Voyager
         Voyager.dispatch(:phase_10_class_c_dispatched)
       }
 
+      # :open_file_picker — presents a UIDocumentPickerViewController on iOS
+      # via the key-window presenter (the SystemAction path has no anchor view).
+      # Before the anchor fix this silently no-oped while reporting success;
+      # this button is the reachable surface the XCUITest drives to prove the
+      # picker actually presents.
+      file_picker_btn = make_button("Open file picker", "phase-10-class-c-file-picker", content_width)
+      file_picker_btn.on_tap = -> {
+        result = UI::SystemAction.perform(:open_file_picker)
+        Phase10ExerciserState.last_dispatched_intent = ":open_file_picker"
+        Phase10ExerciserState.last_dispatch_result = Phase10ExerciserState.format_result(result)
+        Voyager.dispatch(:phase_10_class_c_dispatched)
+      }
+
       root << copy_btn.as(UI::View)
       root << paste_btn.as(UI::View)
       root << open_url_btn.as(UI::View)
       root << print_btn.as(UI::View)
       root << perm_btn.as(UI::View)
+      root << file_picker_btn.as(UI::View)
 
       back = UI::Button.new("Back to Phase 10 hub")
       back.role = :secondary

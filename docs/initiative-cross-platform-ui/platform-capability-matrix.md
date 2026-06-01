@@ -127,18 +127,24 @@ produced two corrections that are themselves the usability bar working:
    (`SheetFacade.resolvePresentationAnimation`, swift-build-verified) + the
    recorded motion-evidence artifact — not AX geometry.
 
-2. **Rerender-mounted presents don't animate yet (scoped follow-up).** The
-   imperative `is_presented=` binding-flip path *is* animated
-   (`apsk_sheet_set_presented` wraps the flip in `withAnimation`), but the
-   common pattern — a `Rerender` that rebuilds the tree with a `UI::Sheet`
-   already `is_presented=true` (e.g. Voyager's editor: `todos_screen.cr:346`) —
-   mounts the sheet already-presented, which SwiftUI shows without a slide.
-   Closing this means mounting `isPresented=false` and flipping it in
-   `onAppear`, which touches the Codex-hardened V1-dismiss-discriminator in
-   `SheetHost.onDisappear` (`SheetFacade.swift:270-301`). That is **deliberately
-   deferred** to a dedicated effort with recorded motion-evidence + Codex
-   re-review of the dismiss logic — not a risky drive-by, since the present/
-   dismiss currently works and is proven.
+2. **Rerender-mounted presents now animate (CLOSED, 2026-06-01).** Previously
+   the imperative `is_presented=` binding-flip path animated
+   (`apsk_sheet_set_presented` wraps the flip in `withAnimation`) but the common
+   pattern — a `Rerender` rebuilding the tree with a `UI::Sheet` already
+   `is_presented=true` (Voyager's editor: `todos_screen.cr:346`) — mounted the
+   sheet already-presented, which SwiftUI snaps in without a slide. **Fix (Phase
+   12.D):** `makeReactiveSheet` now starts `isPresented=false` and arms
+   `pendingInitialPresent`; the persistent host's `.onAppear` flips it true on
+   the next runloop wrapped in the resolved animation, so SwiftUI plays the
+   present transition. The Codex-hardened dismiss discriminator in
+   `SheetHost.onDisappear` is untouched (it only sees `state.isPresented` once
+   the sheet content has appeared, i.e. after the flip), and the flip is
+   one-shot guarded against `onAppear` re-fire. **Verified:** `swift build` green;
+   macOS Sheet behavior AX suite 5/5 green; iOS regression — **V1ContractTests
+   (the "sheet shouldn't instantly close" contract), ShareActionSheetTests,
+   ReconcileTests, FilePickerTests — 6/6 green** on the iOS 26.5 simulator. The
+   *animation timing itself* is still a code-layer + recorded-evidence guarantee
+   (AX can't observe it, per finding 1); behavior/no-regression is proven.
 
 ---
 
@@ -270,8 +276,8 @@ stub-raises.** Apple cells are 🟢 (bridge-proven, not timed-usability-proven).
 | `open_url` | ⚠️ STDERR | 🟢 | 🟢 | ⚠️ raises → `Failed` |
 | `incoming_deep_link` | ⚠️ callback-bus + test-dispatch only | ⚠️ same | ⚠️ same | ⚠️ same |
 | `print` | ⚠️ STDERR | 🟢 | 🟢 | ⚠️ raises → `Failed` |
-| `open_file_picker` | ⚠️ STDERR | ⚠️ null anchor → **no-op but returns success** | 🟢 | ⚠️ raises → `Failed` |
-| `export_file` | ⚠️ STDERR | ⚠️ null anchor → **no-op but returns success** | 🟢 | ⚠️ raises → `Failed` |
+| `open_file_picker` | ⚠️ STDERR | 🟢 presents via key-window presenter (XCUITest-verified) | 🟢 | ⚠️ raises → `Failed` |
+| `export_file` | ⚠️ STDERR | 🟢 presents (honest 0 return if no presenter / nil source) | 🟢 | ⚠️ raises → `Failed` |
 | `request_permission` | ⚠️ STDERR | 🟢 notifications / ⚠️ other resources raise | 🟢 notifications / ⚠️ other | ⚠️ raises → `Failed` |
 | `hello_world_alert` | ⚠️ STDERR | ⚠️ raises (demo binding never finished) | 🟢 | ⚠️ raises → `Failed` |
 
@@ -391,9 +397,14 @@ is the recurring shape:
 1. **Web SystemActions are `STDERR` stand-ins.** `copy_to_clipboard`,
    `paste`, `open_url`, `print` return `success` on web but only print to STDERR
    — nothing reaches the browser (`bootstrap.cr:131-134`).
-2. **iOS file-picker / export report success but no-op** — null anchor passed,
-   bridge no-ops (`bootstrap.cr:92-95`). Same class as the SecureField bug; not
-   behavior-proven.
+2. ~~**iOS file-picker / export report success but no-op**~~ **RESOLVED + PROVEN
+   (2026-06-01).** The bridge now resolves the key window's `rootViewController`
+   as presenter (a null anchor is fine) and presents a real
+   `UIDocumentPickerViewController`; the presenter is resolved **synchronously**
+   so the int return is honest (0 → Crystal raises → not-performed, never fake
+   success). Runtime-proven by `FilePickerTests` (XCUITest, iOS 26.5 sim): tapping
+   the Class-C exerciser's "Open file picker" presents the picker (its `Cancel`
+   chrome appears). The earlier "returns success, no-ops" false-success is gone.
 3. **Android SystemActions all raise** — "cross-platform system actions" is
    really web(fake) / macOS / iOS today; Android = none.
 4. **Live Activities / App Shortcuts / Widgets are export-only** — emit Swift,

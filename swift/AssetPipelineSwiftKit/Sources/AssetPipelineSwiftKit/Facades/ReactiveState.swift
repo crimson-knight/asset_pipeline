@@ -126,6 +126,19 @@ public final class APSKSheetState: NSObject, ObservableObject {
     // transition can never collapse to an instant snap (U1 floor).
     public var presentationAnimation: SwiftUI.Animation? = nil
 
+    // Phase 12.D — true when the sheet was CREATED already-presented (the
+    // declarative rerender-mount path: a Rerender rebuilds the tree with a
+    // UI::Sheet whose is_presented is already true). SwiftUI does NOT animate a
+    // `.sheet` whose isPresented is true at first render — it snaps in. So
+    // SheetHost starts NOT presented and, on the persistent host's .onAppear,
+    // flips isPresented true on the next runloop wrapped in
+    // `presentationAnimation`, which makes SwiftUI play the present transition.
+    // This brings the declarative mount path to parity with the imperative
+    // binding-flip path (apsk_sheet_set_presented), which already animates.
+    // Plain var (not @Published): it gates a one-shot side effect in onAppear,
+    // not observable view state.
+    public var pendingInitialPresent: Bool = false
+
     public init(isPresented: Bool) {
         self.isPresented = isPresented
         super.init()

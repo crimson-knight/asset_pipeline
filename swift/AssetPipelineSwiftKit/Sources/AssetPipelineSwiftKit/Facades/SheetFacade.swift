@@ -56,12 +56,22 @@ public class SheetFacade: NSObject {
         outState: UnsafeMutablePointer<UnsafeMutableRawPointer?>?
     ) -> APSKPlatformView {
         let initialPresented = overrides.isPresented?.boolValue ?? false
-        let state = APSKSheetState(isPresented: initialPresented)
+        // Phase 12.D — animate the rerender-mounted present. Even when the sheet
+        // is created already-presented (the declarative path: a Rerender rebuilds
+        // the tree with is_presented already true), we start NOT presented and
+        // let SheetHost flip it true on .onAppear (next runloop). SwiftUI does
+        // not animate a `.sheet` that is true at first render — it snaps in — so
+        // starting false + deferring the flip is what makes the present slide.
+        // Parity with the imperative apsk_sheet_set_presented path, which
+        // already animates in-place mutations.
+        let state = APSKSheetState(isPresented: false)
+        state.pendingInitialPresent = initialPresented
         // Usability bar U1–U3: resolve a bounded present/dismiss animation
         // from the overrides + baked MotionScale tokens and carry it on the
-        // state so `apsk_sheet_set_presented` can wrap the binding flip in
-        // `withAnimation`. Without this, SwiftUI's implicit `.sheet` animation
-        // could collapse to an imperceptible snap (the too-fast-sheet bug).
+        // state so the present flip (deferred here, or `apsk_sheet_set_presented`
+        // for in-place mutation) can wrap the binding flip in `withAnimation`.
+        // Without this, SwiftUI's implicit `.sheet` animation could collapse to
+        // an imperceptible snap (the too-fast-sheet bug).
         state.presentationAnimation = resolvePresentationAnimation(overrides: overrides)
         // Phase 12.B — interaction-contracts marker metadata. Used by
         // apsk_sheet_set_presented for write-side markers and by
@@ -352,6 +362,27 @@ private struct SheetHost: View {
                 // `.onChange(of:perform:)` on the current toolchain.
                 .task(id: systemReduceMotion) {
                     reconcileReduceMotion()
+                }
+                // Phase 12.D — animated rerender-mounted present. The persistent
+                // 1x1 Color.clear host appears immediately on mount; defer the
+                // present flip one runloop (DispatchQueue.main.async) so the first
+                // render commits with the sheet NOT presented, then SwiftUI
+                // animates the false→true present. `pendingInitialPresent` is a
+                // one-shot guard so a re-render of the persistent host (which can
+                // re-fire onAppear) never re-presents a sheet the user dismissed.
+                // The dismiss discriminator in sheetBody.onDisappear is unaffected:
+                // it only ever sees state.isPresented once the sheet content has
+                // actually appeared (i.e. after this flip).
+                .onAppear {
+                    guard state.pendingInitialPresent else { return }
+                    state.pendingInitialPresent = false
+                    let animation = state.presentationAnimation
+                        ?? .spring(response: 0.240, dampingFraction: 0.86)
+                    DispatchQueue.main.async {
+                        withAnimation(animation) {
+                            state.isPresented = true
+                        }
+                    }
                 }
         )
 
