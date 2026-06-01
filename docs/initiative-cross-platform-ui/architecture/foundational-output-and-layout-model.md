@@ -215,6 +215,17 @@ audit is tractable.
 
 ## Track 2 — full adaptive layout: Codex-validated plan (2026-06-01)
 
+> **STATUS (2026-06-01): Track 2 core COMPLETE on macOS.** All three prioritized
+> steps landed and proven: (1) size-class metric contract + live `windowDidResize`
+> → `rebuild` (the whole tree re-runs `build` on drag); (2) `DeviceMetrics#responsive`
+> authoring primitive (sign-in + welcome migrated — width, spacing, padding, type all
+> reflow); (3) determined the fluid-wrapper is NOT needed for fixed-width columns
+> (the "stretch" claim was a measurement misread). **Phase C proof artifact:**
+> `docs/initiative-cross-platform-ui/handoff/phase-c-evidence/welcome-reflow-macos.png`
+> — the welcome demo at compact (420pt/340 column) vs regular (980pt/600 column).
+> Remaining: time-debounce, iOS host trait/bounds-change → rebuild equivalent,
+> migrate the other Voyager screens, GUI/AX interactive-drag test.
+
 The owner's north star ("the inputs have to move, the spacing has to change, the
 design in its entirety adapts — not just the window"). Codex's verdict, in
 priority order. **Key truth:** *constraints alone can resize boxes but cannot
