@@ -1,35 +1,37 @@
 module Voyager
   # Voyager — Welcome / About. Phase C: an intentionally-designed demo screen.
   #
-  # Uses the PROVEN fixed-width "readable column" pattern (size-class content
-  # width, like sign-in), NOT native fluid_width: NSStackView fluid containers
-  # collapse to their content minimum (a confirmed dead-end parked for a
-  # wrapper-NSView redo — see foundational-output-and-layout-model.md §"Phase B").
-  # Each text element is pinned to the column width so it wraps at a comfortable
-  # measure; the root centers the column, so it reads as a centered article.
+  # The "readable column" pattern: a fixed, size-class-adaptive content width
+  # capped at a comfortable measure, centered by the root so it reads as an
+  # article. Every dimension — column width, spacing, padding, AND type scale —
+  # is authored through DeviceMetrics#responsive, so the WHOLE composition
+  # reflows when the size class changes (live, via the host's windowDidResize →
+  # rebuild hook on macOS). See foundational-output-and-layout-model.md §"Track 2"
+  # — the earlier "fluid collapses / stretches" worry was a measurement misread;
+  # a capped centered column IS authoritative and is the right pattern here.
   class WelcomeScreen < UI::Screen
     SLUG = "voyager-welcome"
 
     def build(context : UI::ScreenContext) : UI::View
       metrics = UI::DesignTokens::DeviceMetrics.current
-      w = metrics.compact_horizontal? ? 340.0 : 600.0
+      w = metrics.responsive(compact: 340.0, regular: 600.0)
 
-      root = UI::VStack.new(spacing: 16.0)
+      root = UI::VStack.new(spacing: metrics.responsive(compact: 14.0, regular: 20.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Center
       root.padding = UI::EdgeInsets.new(
-        top: 56.0 + metrics.safe_area_top_pt,
-        trailing: 24.0 + metrics.safe_area_trailing_pt,
-        bottom: 40.0 + metrics.safe_area_bottom_pt,
-        leading: 24.0 + metrics.safe_area_leading_pt,
+        top: metrics.responsive(compact: 40.0, regular: 64.0) + metrics.safe_area_top_pt,
+        trailing: metrics.responsive(compact: 18.0, regular: 28.0) + metrics.safe_area_trailing_pt,
+        bottom: metrics.responsive(compact: 32.0, regular: 48.0) + metrics.safe_area_bottom_pt,
+        leading: metrics.responsive(compact: 18.0, regular: 28.0) + metrics.safe_area_leading_pt,
       )
       root.accessibility_label = "Voyager welcome screen"
       root.test_id = "voyager-welcome-root"
 
-      root << pinned(heading("Voyager", 40.0, :bold, UI::LabelRole::Primary, "voyager-welcome-wordmark"), w)
+      root << pinned(heading("Voyager", metrics.responsive(compact: 32.0, regular: 44.0), :bold, UI::LabelRole::Primary, "voyager-welcome-wordmark"), w)
       root << pinned(heading(
         "One Crystal source. Native on iPhone, iPad, and Mac — and soon your wrist.",
-        17.0, :regular, UI::LabelRole::Secondary), w)
+        metrics.responsive(compact: 16.0, regular: 19.0), :regular, UI::LabelRole::Secondary), w)
       root << pinned(UI::Divider.new(:horizontal).as(UI::View), w)
       root << pinned(heading(
         "Voyager is a sample built on asset_pipeline: a single declarative UI tree " \
