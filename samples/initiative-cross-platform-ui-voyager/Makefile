@@ -78,7 +78,18 @@ macos: macos-build
 
 macos-build: $(MACOS_BIN)
 
-$(MACOS_BIN): $(MACOS_SRC) $(AP_BRIDGE) $(SWIFTKIT_BRIDGE) $(SWIFTKIT_LIB) $(WIN_HELPER)
+# The macOS host binary must relink when ANY Crystal source it transitively
+# requires changes — not just host.cr. Without these prerequisites, editing a
+# screen / controller / renderer and running `make macos` silently keeps the
+# stale binary (host.cr is unchanged), masking the change. Same staleness
+# class as the SwiftKit-lib gap above. `crystal-alpha build` caches, so the
+# extra prerequisites only relink when something actually changed.
+MACOS_CRYSTAL_SOURCES := $(shell find $(SHARD_ROOT)/src \
+	$(PROJECT_DIR)/screens $(PROJECT_DIR)/controllers $(PROJECT_DIR)/macos \
+	$(PROJECT_DIR)/app.cr $(PROJECT_DIR)/host_bootstrap.cr \
+	$(PROJECT_DIR)/capture_scenarios.cr -name '*.cr' 2>/dev/null)
+
+$(MACOS_BIN): $(MACOS_SRC) $(MACOS_CRYSTAL_SOURCES) $(AP_BRIDGE) $(SWIFTKIT_BRIDGE) $(SWIFTKIT_LIB) $(WIN_HELPER)
 	@mkdir -p $(PROJECT_DIR)/macos/bin
 	$(CRYSTAL_NATIVE) build $(MACOS_SRC) -o $(MACOS_BIN) -Dmacos $(MACOS_EXTRA_FLAGS) \
 		--link-flags="$(MACOS_LINK_FLAGS)"
