@@ -136,6 +136,7 @@ cross-platform fallback.
 | ActionSheet | `src/ui/views/action_sheet.cr` | `:ios` | `ActionSheetWithWebFallback` | New in Phase 4. SwiftUI `.confirmationDialog` on iOS via `ConfirmationDialogFacade`. Current iOS routing degrades multi-action to {first non-cancel, cancel}; Phase 5 will add a multi-action SwiftKit facade. |
 | ContextMenu | `src/ui/views/context_menu.cr` | `:macos` or `:ios` | `ContextMenuWithWebFallback` | Right-click / long-press menu. Vanilla-JS positioned dropdown on web with arrow-key nav, Tab/Shift+Tab focus trap, Escape close, click-outside dismiss, Shift+F10 / ContextMenu key open. |
 | PathControl | `src/ui/views/path_control.cr` | `:macos` | `PathControlWithWebFallback` | NSPathControl is macOS-only. Web fallback emits a semantic `<nav aria-label="Breadcrumb"><ol>...</ol></nav>` with `aria-current="page"` on the leaf. |
+| Complication | `src/ui/views/complication.cr` | `:watchos` | `ComplicationWithWebFallback` | Phase 12 — WidgetKit watch-face/smart-stack complication; no honest non-watch analog. Naming it off-watchOS is a compile error (`_gate_stubs/complication.cr`). The companion renders a card-style preview everywhere else **via composition** (Card/VStack/Label) so no renderer needs a bespoke visit. Renderer (`UI::WatchKit::Renderer`) is deferred to Phase 12; the gate + companion + model ship now. |
 
 Cross-platform companion classes (Tier-2-behavior on the target where
 the gated class exists, full local rendering everywhere else):
@@ -145,6 +146,7 @@ the gated class exists, full local rendering everywhere else):
 | ActionSheetWithWebFallback | `src/ui/views/action_sheet_with_web_fallback.cr` | none | Delegates to UI::ActionSheet on iOS; renders a bottom-sheet on web; synthesises a UI::ConfirmationDialog on macOS / Android. |
 | ContextMenuWithWebFallback | `src/ui/views/context_menu_with_web_fallback.cr` | none | Delegates to UI::ContextMenu on Apple-family targets; renders a positioned vanilla-JS dropdown on web; renders a LinearLayout on Android. Carries an optional `trigger : View?` that the renderer emits as the host's first child so the fallback JS can bind contextmenu / Shift+F10 listeners. |
 | PathControlWithWebFallback | `src/ui/views/path_control_with_web_fallback.cr` | none | Delegates to UI::PathControl on macOS; renders a semantic breadcrumb everywhere else. |
+| ComplicationWithWebFallback | `src/ui/views/complication_with_web_fallback.cr` | none | Delegates to UI::Complication on -Dwatchos; on every other target composes a labelled Card preview of the content and delegates `accept` to it (no bespoke renderer visit). |
 
 `UI::PathControlStyle` (enum) remains universal so non-macOS callers
 can still annotate their `PathControlWithWebFallback` instances.

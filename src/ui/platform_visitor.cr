@@ -112,6 +112,13 @@ module UI
     {% if flag?(:macos) %}
       abstract def visit(view : PathControl)
     {% end %}
+    # Tier 3 — watchOS-only complication. Gated so non-watchOS renderers do not
+    # have to implement a method referencing a class that only exists under
+    # -Dwatchos. The cross-platform ComplicationWithWebFallback renders via
+    # composition (Card/VStack/Label) and needs no bespoke visit. (Phase 12.)
+    {% if flag?(:watchos) %}
+      abstract def visit(view : Complication)
+    {% end %}
     abstract def visit(view : MapView)
     abstract def visit(view : ChartView)
     abstract def visit(view : WebViewComponent)
