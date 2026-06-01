@@ -182,14 +182,29 @@ audit is tractable.
   wrapped SwiftUI controls hug their intrinsic width and `Fill` alignment does
   not stretch them. **Reverted** (sign-in is back on the working size-class
   `content_width` pins).
-- **Consequence / TODO before fluid FORMS work:** the renderer needs a "stretch
-  Fill-aligned leaf children to the fluid container width" mechanism — e.g.
-  `objc_constrain_equal_width(child, fluid_container)` applied when a container
-  has `fluid_width` and a child has no explicit width, or lowering the hosted
-  view's horizontal content-hugging. Until then, `fluid_width` is for containers
-  with self-filling content (text, images), not forms of intrinsic-width controls.
-  Size-class-adaptive `content_width` (compact?340:400) remains the correct
-  pattern for forms.
+- **Built so far:** `objc_constrain_equal_width(child, container)` leaf-fill (in
+  `visit(VStack)`), and `objc_constrain_fluid_width(view, min, max)` (bound≤parent
+  900 > cap≤max 800 > floor≥min 700 > fill==parent 500, per Codex) applied
+  post-`push_native` (when `superview` exists). **The CAP case works** (gallery
+  label whose content exceeds max → capped at 340, AX-verified 5/5).
+- **DEEP BLOCKER — NSStackView resists being made WIDER than its content.** The
+  *fill-up* case (a fluid VStack whose content is NARROWER than the parent, e.g. a
+  form of ~120pt controls that should fill a 296–420pt column) does **not** work:
+  empirically the form stays ~120pt at both 360 and 900pt windows. NSStackView
+  sizes its width to its arranged-subview content at a priority that **drops** the
+  `floor≥min (700)` and `fill==parent (500)` constraints. So you cannot make a
+  vertical NSStackView wider than its content via width constraints on the stack
+  itself. Sign-in re-migrated + reverted **twice**; it stays on `content_width`.
+- **What actually unblocks fluid forms (future, not churned now):** don't fight
+  NSStackView — either (a) wrap the fluid column in a plain `NSView`/`UIView`
+  pinned to fill its parent (capped at max) and put the stack inside it pinned to
+  the wrapper's edges, or (b) set the stack's `huggingPriority`/distribution so it
+  yields width, or (c) use a non-stack container for fluid columns. This needs a
+  dedicated investigation, not a drive-by.
+- **For NOW:** `fluid_width` is correct for containers with self-filling content
+  (text/images — the gallery proof). **Size-class-adaptive `content_width`
+  (compact?340:400) remains the correct, good-looking pattern for FORMS** — and
+  Phase C (the designed demo) should use it rather than block on continuous-fluid.
 
 ## Resolved by Codex review (2026-06-01)
 

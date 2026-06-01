@@ -95,6 +95,7 @@
       fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
       fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
       fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
+      fun objc_constrain_fluid_width(view : Void*, min_w : Float64, max_w : Float64) : Void
       fun objc_constrain_height(view : Void*, h : Float64) : Void
       # ComboBox value-drop fix (macOS) — wire an NSComboBox's text +
       # selection changes (controlTextDidChange: / comboBoxSelectionDidChange:)
@@ -506,6 +507,16 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         end
 
         push_native(native)
+
+        # Phase B — fluid container fills its parent (greedy, capped at max,
+        # floored at min) so the column reflows with the window/size class. Must
+        # run AFTER push_native: the view's superview (the parent stack) is set
+        # only once it's added as an arranged subview, and the fill relation needs
+        # the superview width anchor. See objc_constrain_fluid_width.
+        if fw = view.fluid_width
+          LibObjCBridge.objc_constrain_fluid_width(
+            ptr, fw.native_min_px || 0.0, fw.native_max_px || 100_000.0)
+        end
       end
 
       # -----------------------------------------------------------------
@@ -4571,19 +4582,11 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         # When only minimum_width is set: minimum-width constraint (>=) at priority 500
         #   so content panels expand to at least that width without fighting exact pins.
         # When only maximum_width is set: exact pin at that width (capping behavior).
-        # Phase B — UI::Fluid native (additive): a resizable RANGE [min, max].
-        # width >= min AND width <= max (both priority 500) so the view grows with
-        # the window/container up to max then stops (a "readable column"), instead
-        # of an exact pin. Only when fluid_width is set; otherwise the existing
-        # fixed min/max logic below is untouched.
-        if fw = view.fluid_width
-          if nmin = fw.native_min_px
-            LibObjCBridge.objc_constrain_minimum_width(ptr, nmin)
-          end
-          if nmax = fw.native_max_px
-            LibObjCBridge.objc_constrain_maximum_width(ptr, nmax)
-          end
-        elsif min_w = view.minimum_width
+        # Fixed width pins. UI::Fluid width is NOT handled here — it is applied in
+        # the container visits (visit(VStack) etc.) via objc_constrain_fluid_width
+        # AFTER the view is added to its superview, because the fluid "fill the
+        # parent, capped at max" relation needs the superview's width anchor.
+        if min_w = view.minimum_width
           if max_w = view.maximum_width
             # Both set: exact pin at min_w (== max_w for fixed-width columns).
             LibObjCBridge.objc_constrain_width(ptr, min_w)

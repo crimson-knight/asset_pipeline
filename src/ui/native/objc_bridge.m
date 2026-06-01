@@ -719,6 +719,39 @@ void objc_constrain_minimum_width(void *view, double min_w) {
     wc.active = YES;
 }
 
+// Apply the full UI::Fluid "readable column" width behavior to a view that is
+// ALREADY in its superview: greedily fill the parent's width, floored at min and
+// capped at max, so it reflows when the parent/window resizes. Priority ordering
+// (per Codex review): bound-to-parent (900) > cap≤max (800) > floor≥min (700) >
+// fill==parent (500). The fill must beat the view's content hugging (default 250)
+// so the container stops hugging its intrinsic content width; cap/floor/bound are
+// stronger so the column never exceeds max or the parent and never drops below
+// min (min yields only if the parent is narrower than min, to stay solvable).
+// min_w<=0 means "no floor"; max_w>=1e5 means "no cap".
+void objc_constrain_fluid_width(void *view, double min_w, double max_w) {
+    BridgeView *v = (BridgeView *)view;
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    if (min_w > 0.0) {
+        NSLayoutConstraint *floorc = [v.widthAnchor constraintGreaterThanOrEqualToConstant:(CGFloat)min_w];
+        floorc.priority = 700;
+        floorc.active = YES;
+    }
+    if (max_w < 100000.0) {
+        NSLayoutConstraint *capc = [v.widthAnchor constraintLessThanOrEqualToConstant:(CGFloat)max_w];
+        capc.priority = 800;
+        capc.active = YES;
+    }
+    BridgeView *parent = v.superview;
+    if (parent) {
+        NSLayoutConstraint *bound = [v.widthAnchor constraintLessThanOrEqualToAnchor:parent.widthAnchor];
+        bound.priority = 900;
+        bound.active = YES;
+        NSLayoutConstraint *fill = [v.widthAnchor constraintEqualToAnchor:parent.widthAnchor];
+        fill.priority = 500;
+        fill.active = YES;
+    }
+}
+
 // Apply a MAXIMUM width constraint (<=) to a view. Pairs with
 // objc_constrain_minimum_width to express a resizable RANGE [min, max]: the view
 // grows with available space up to max, then stops — a "readable column" that

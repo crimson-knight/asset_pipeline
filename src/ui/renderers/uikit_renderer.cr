@@ -101,6 +101,7 @@
       fun objc_constrain_minimum_height(view : Void*, min_h : Float64) : Void
       fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
       fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
+      fun objc_constrain_fluid_width(view : Void*, min_w : Float64, max_w : Float64) : Void
       fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
       fun objc_pin_child_to_layout_margins(parent : Void*, child : Void*) : Void
       # Phase 10D-refocus — pin a child view to its parent's bounds
@@ -498,6 +499,14 @@
         end
 
         push_native(native)
+
+        # Phase B — fluid container fills its parent (capped at max, floored at
+        # min) so the column reflows. Must run AFTER push_native (superview set on
+        # add). See objc_constrain_fluid_width.
+        if fw = view.fluid_width
+          LibObjCBridge.objc_constrain_fluid_width(
+            ptr, fw.native_min_px || 0.0, fw.native_max_px || 100_000.0)
+        end
       end
 
       # -----------------------------------------------------------------
@@ -5032,19 +5041,11 @@
         # screenshot edge.
         min_w = view.minimum_width
         max_w = view.maximum_width
-        if fw = view.fluid_width
-          # Phase B — UI::Fluid native (additive): a resizable RANGE [min, max].
-          # width >= min AND width <= max (priority 500) so the view grows with
-          # available space up to max then stops (a "readable column"), instead
-          # of the exact required-width pin used for fixed components. Only when
-          # fluid_width is set; the fixed min/max path below is untouched otherwise.
-          if nmin = fw.native_min_px
-            LibObjCBridge.objc_constrain_minimum_width(ptr, nmin)
-          end
-          if nmax = fw.native_max_px
-            LibObjCBridge.objc_constrain_maximum_width(ptr, nmax)
-          end
-        elsif !min_w.nil? && !max_w.nil? && min_w == max_w
+        # UI::Fluid width is NOT handled here — it is applied in the container
+        # visits (visit(VStack) etc.) via objc_constrain_fluid_width AFTER the
+        # view is added to its superview, because the fluid "fill the parent,
+        # capped at max" relation needs the superview's width anchor.
+        if !min_w.nil? && !max_w.nil? && min_w == max_w
           LibObjCBridge.objc_constrain_required_width(ptr, min_w.not_nil!)
           LibObjCBridge.objc_set_horizontal_fixed_priority(ptr)
         else
