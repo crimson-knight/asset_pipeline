@@ -235,6 +235,24 @@ the Crystal tree must be REBUILT with updated environment on resize.* That's why
   clamp-against-content_width idea failed.)
 - Verifiable by offscreen captures at two window widths showing the rebuilt
   layout differs; the live callback needs an AX resize/integration test.
+- **LANDED (2026-06-01) — the metric-contract half.** Codex's read was partly
+  stale: `objc_macos_screen_width` *already* reads the active-window content rect
+  (a prior P2 fix). The real bug was in `objc_horizontal/vertical_size_class`,
+  which still used a bare `[NSApp mainWindow]` — nil during offscreen capture
+  (the capture window is visible but never "main") and a *different* window than
+  the width helper. So size class returned `Unspecified` → `compact_horizontal?`
+  false → every screen always picked its WIDE column even in a narrow window.
+  Fix: both size-class helpers now derive from `ap_macos_active_window_content_rect()`
+  (keyWindow→mainWindow→any-visible→screen), consistent with width. Proven via new
+  `VOYAGER_DEBUG_METRICS=1` host instrumentation: width 460→Compact, 760→Compact,
+  900→Regular (threshold 768); pre-fix all three were Unspecified.
+- **STILL PENDING — the live-resize half.** No `windowDidResize` →
+  `rebuild_for(coord.current)` hook yet (`host.cr` rebuilds only on
+  `coord.on_change`). Needs an `NSWindow` delegate C-bridge callback into Crystal
+  + a GUI/AX resize test. Until then only *launch-width* adaptation works;
+  dragging the window does not re-run `build`. NOTE: the visible column still
+  stretches edge-to-edge because the `content_width` cap isn't authoritative on
+  NSStackView — that's step 3, below, not this fix.
 
 **2. Responsive Crystal authoring primitives + migrate Voyager off hard-coded values.**
 - Spacing / padding / axis / repositioning are chosen by Crystal view
