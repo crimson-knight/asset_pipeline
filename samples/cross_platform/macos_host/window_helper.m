@@ -35,6 +35,75 @@ static CGWindowListCreateImageFn resolve_cgwindowlist_create_image(void) {
 }
 
 // ============================================================
+// Track 2 — live window-resize → Crystal rebuild hook.
+//
+// The macOS host rebuilds its UI::View tree only on navigation
+// (coord.on_change). A resized window therefore relayouts the existing
+// native views via Auto Layout but never re-runs build(ctx) with the new
+// size class — so size-class-driven decisions (column width, spacing,
+// type scale authored via DeviceMetrics#responsive) stay frozen. This
+// observer bridges NSWindowDidResizeNotification back into Crystal using
+// the SAME exported trampoline the renderer's other callbacks use
+// (crystal_ui_callback_dispatch(tag) -> CallbackRegistry.call(tag)),
+// so the host registers a Proc that calls rebuild_for(coord.current).
+//
+// crystal_ui_callback_dispatch is defined in
+// src/ui/native/callback_registry.cr and linked into the same binary.
+// ============================================================
+extern void crystal_ui_callback_dispatch(uint64_t tag);
+
+@interface APWindowResizeObserver : NSObject
+@property (nonatomic) uint64_t tag;
+@end
+@implementation APWindowResizeObserver
+- (void)windowDidResize:(NSNotification *)note {
+    crystal_ui_callback_dispatch(self.tag);
+}
+@end
+
+// Observers are retained for process lifetime (one per host window). No
+// teardown path: the host installs the observer once and lives until quit.
+static NSMutableArray *g_resize_observers = nil;
+
+// Register a Crystal callback (by CallbackRegistry tag) to fire on every
+// resize of `window_ptr`. Reuses crystal_ui_callback_dispatch.
+void objc_window_install_resize_observer(void *window_ptr, uint64_t tag) {
+    NSWindow *win = (NSWindow *)window_ptr;
+    if (!win) return;
+    if (!g_resize_observers) g_resize_observers = [[NSMutableArray alloc] init];
+    APWindowResizeObserver *obs = [[APWindowResizeObserver alloc] init];
+    obs.tag = tag;
+    [g_resize_observers addObject:obs]; // strong ref so it survives
+    [[NSNotificationCenter defaultCenter] addObserver:obs
+                                             selector:@selector(windowDidResize:)
+                                                 name:NSWindowDidResizeNotification
+                                               object:win];
+}
+
+// Programmatically resize a window's content area. Used by the headless
+// resize-probe to drive windowDidResize without a GUI session; also a
+// legitimate host primitive (e.g. snap-to-size menu commands).
+void objc_window_set_content_size(void *window_ptr, double w, double h) {
+    NSWindow *win = (NSWindow *)window_ptr;
+    if (!win) return;
+    [win setContentSize:NSMakeSize((CGFloat)w, (CGFloat)h)];
+    [win displayIfNeeded];
+}
+
+// Make a window key + front (and initialize NSApp) so the active-window
+// content-rect heuristic (DeviceMetrics) resolves to THIS window rather
+// than falling back to the physical screen. Headless-safe: uses the
+// Accessory activation policy so no Dock icon / focus steal.
+void objc_window_order_front(void *window_ptr) {
+    NSWindow *win = (NSWindow *)window_ptr;
+    if (!win) return;
+    NSApplication *app = [NSApplication sharedApplication];
+    [app setActivationPolicy:NSApplicationActivationPolicyAccessory];
+    [app activateIgnoringOtherApps:YES];
+    [win makeKeyAndOrderFront:nil];
+}
+
+// ============================================================
 // Live-window capture path (Phase 0.1)
 //
 // CGWindowListCreateImage composites the actual CoreAnimation layer tree,

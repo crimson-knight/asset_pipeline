@@ -45,6 +45,10 @@ require "../../../src/ui/renderers/appkit_renderer"
     fun objc_capture_window_to_png(window : Void*, output_path : UInt8*) : Int32
     fun objc_close_capture_window(window : Void*) : Void
     fun objc_run_loop_for(seconds : Float64) : Void
+    # Track 2 — live window-resize → Crystal rebuild.
+    fun objc_window_install_resize_observer(window : Void*, tag : UInt64) : Void
+    fun objc_window_set_content_size(window : Void*, w : Float64, h : Float64) : Void
+    fun objc_window_order_front(window : Void*) : Void
   end
 
   lib LibObjCBridgeVoyager
@@ -77,6 +81,24 @@ require "../../../src/ui/renderers/appkit_renderer"
     # or the regular NSWindow path (setContentView: via objc_send_void_id).
     # Set in `run!` once the window is created.
     @@is_capture_path : Bool = false
+    # Track 2 — last content width the tree was built against. Used to
+    # coalesce the windowDidResize storm: a resize that doesn't change the
+    # content width (e.g. a duplicate notification) skips the rebuild.
+    @@last_content_width : Float64 = 0.0
+
+    # Track 2 — fired by the NSWindow resize observer (via CallbackRegistry).
+    # Re-runs build(ctx) for the current route so size-class-driven
+    # decisions (column width, spacing, type scale authored through
+    # DeviceMetrics#responsive) reflow live as the window resizes — the
+    # piece that makes "the window resizes but nothing moves" actually move.
+    def self.on_window_resized : Nil
+      coord = @@coord
+      return if coord.nil?
+      w = UI::DesignTokens::DeviceMetrics.current.content_width_pt
+      return if (w - @@last_content_width).abs < 1.0
+      @@last_content_width = w
+      rebuild_for(coord.current)
+    end
 
     def self.install_view(view : UI::View) : Nil
       # Phase 12.C iter-4 (V1 fix Option A) — macOS doesn't currently
@@ -224,6 +246,40 @@ require "../../../src/ui/renderers/appkit_renderer"
         Voyager::CaptureScenarios.apply(scenario, Voyager.state, coord, dispatcher)
       end
 
+      # Track 2 — headless resize-probe. VOYAGER_RESIZE_PROBE="460,900" creates
+      # a real titled/resizable NSWindow at the first width, installs the live
+      # resize observer, renders once, then programmatically resizes to the
+      # second width and pumps the run loop so windowDidResize fires the
+      # observer → on_window_resized → rebuild_for. With VOYAGER_DEBUG_METRICS=1
+      # this prints two [VOYAGER_METRICS] lines (the second triggered ONLY by
+      # the resize, no navigation) — proof the live-resize→rebuild path works
+      # without needing a GUI session. No-op when unset.
+      if probe = ENV["VOYAGER_RESIZE_PROBE"]?
+        widths = probe.split(",").map(&.strip.to_f)
+        w0 = widths[0]? || 460.0
+        w1 = widths[1]? || 900.0
+        h = (ENV["VOYAGER_CAPTURE_HEIGHT"]?.try(&.to_f?) || 720.0)
+        window = LibWindowHelper.hig_create_window_with_min(
+          120.0, 120.0, w0, h, MIN_WIDTH, MIN_HEIGHT,
+          "Voyager".to_unsafe, APPEARANCE.to_unsafe,
+        )
+        @@window_ptr = window
+        @@set_content_sel = LibObjCBridgeVoyager.sel_registerName("setContentView:".to_unsafe)
+        @@is_capture_path = false
+        resize_tag = UI::CallbackRegistry.register { VoyagerHost.on_window_resized }
+        LibWindowHelper.objc_window_install_resize_observer(window, resize_tag)
+        # Order the window front so DeviceMetrics resolves to it (not the screen).
+        LibWindowHelper.objc_window_order_front(window)
+        LibWindowHelper.objc_run_loop_for(0.2)
+        STDERR.puts "[VOYAGER_RESIZE_PROBE] initial width=#{w0}"
+        rebuild_for(coord.current)
+        STDERR.puts "[VOYAGER_RESIZE_PROBE] resizing #{w0} -> #{w1}"
+        LibWindowHelper.objc_window_set_content_size(window, w1, h)
+        LibWindowHelper.objc_run_loop_for(0.4)
+        STDERR.puts "[VOYAGER_RESIZE_PROBE] done"
+        exit(0)
+      end
+
       screenshot_path = ENV["VOYAGER_SCREENSHOT_PATH"]? || ENV["HIG_SCREENSHOT_PATH"]?
       if screenshot_path
         # Offscreen capture path — capture window is a Void** pair.
@@ -260,6 +316,12 @@ require "../../../src/ui/renderers/appkit_renderer"
 
       # Initial render of the bootstrap route.
       rebuild_for(coord.current)
+
+      # Track 2 — live window-resize → rebuild. Register a CallbackRegistry
+      # Proc and attach it to this window's NSWindowDidResizeNotification so a
+      # user dragging the window re-runs build(ctx) with the new size class.
+      resize_tag = UI::CallbackRegistry.register { VoyagerHost.on_window_resized }
+      LibWindowHelper.objc_window_install_resize_observer(window, resize_tag)
 
       # The reactive substrate: every dispatcher-routed Navigate / Pop /
       # ReplaceRoot fires `translate_result`, which calls mount_screen
