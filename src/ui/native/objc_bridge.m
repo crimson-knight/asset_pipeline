@@ -719,6 +719,21 @@ void objc_constrain_minimum_width(void *view, double min_w) {
     wc.active = YES;
 }
 
+// Apply a MAXIMUM width constraint (<=) to a view. Pairs with
+// objc_constrain_minimum_width to express a resizable RANGE [min, max]: the view
+// grows with available space up to max, then stops — a "readable column" that
+// resizes with the window/size class but never sprawls. Used by UI::Fluid native
+// resolution (Phase B). Priority 500 so it defers to any required exact pins and
+// cooperates with the >= floor; a low-priority (≤500) "fill" tendency from the
+// stack/root makes the view want to be as wide as allowed within [min, max].
+void objc_constrain_maximum_width(void *view, double max_w) {
+    BridgeView *v = (BridgeView *)view;
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    NSLayoutConstraint *wc = [v.widthAnchor constraintLessThanOrEqualToConstant:(CGFloat)max_w];
+    wc.priority = 500;
+    wc.active = YES;
+}
+
 // Constrain only the height of a view, leaving width unconstrained.
 // Use this for scroll views embedded in stack views where the stack
 // provides the width and only the height needs an explicit value.

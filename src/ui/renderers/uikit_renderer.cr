@@ -100,6 +100,7 @@
       fun objc_constrain_height(view : Void*, h : Float64) : Void
       fun objc_constrain_minimum_height(view : Void*, min_h : Float64) : Void
       fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
+      fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
       fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
       fun objc_pin_child_to_layout_margins(parent : Void*, child : Void*) : Void
       # Phase 10D-refocus — pin a child view to its parent's bounds
@@ -5017,7 +5018,19 @@
         # screenshot edge.
         min_w = view.minimum_width
         max_w = view.maximum_width
-        if !min_w.nil? && !max_w.nil? && min_w == max_w
+        if fw = view.fluid_width
+          # Phase B — UI::Fluid native (additive): a resizable RANGE [min, max].
+          # width >= min AND width <= max (priority 500) so the view grows with
+          # available space up to max then stops (a "readable column"), instead
+          # of the exact required-width pin used for fixed components. Only when
+          # fluid_width is set; the fixed min/max path below is untouched otherwise.
+          if nmin = fw.native_min_px
+            LibObjCBridge.objc_constrain_minimum_width(ptr, nmin)
+          end
+          if nmax = fw.native_max_px
+            LibObjCBridge.objc_constrain_maximum_width(ptr, nmax)
+          end
+        elsif !min_w.nil? && !max_w.nil? && min_w == max_w
           LibObjCBridge.objc_constrain_required_width(ptr, min_w.not_nil!)
           LibObjCBridge.objc_set_horizontal_fixed_priority(ptr)
         else
@@ -5041,7 +5054,7 @@
         # Crucially this does NOT bake a per-device number into tokens
         # — `DeviceMetrics.current` queries `UIScreen.main.bounds` +
         # `keyWindow.safeAreaInsets` at render time.
-        if view.root_fill && view.minimum_width.nil? && view.maximum_width.nil?
+        if view.root_fill && view.minimum_width.nil? && view.maximum_width.nil? && view.fluid_width.nil?
           metrics = UI::DesignTokens::DeviceMetrics.current
           fill_width = metrics.content_width_pt
           if fill_width > 0.0

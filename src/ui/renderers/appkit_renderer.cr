@@ -93,6 +93,7 @@
       fun objc_constrain_size(view : Void*, w : Float64, h : Float64) : Void
       fun objc_constrain_width(view : Void*, w : Float64) : Void
       fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
+      fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
       fun objc_constrain_height(view : Void*, h : Float64) : Void
       # ComboBox value-drop fix (macOS) — wire an NSComboBox's text +
       # selection changes (controlTextDidChange: / comboBoxSelectionDidChange:)
@@ -4553,7 +4554,19 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         # When only minimum_width is set: minimum-width constraint (>=) at priority 500
         #   so content panels expand to at least that width without fighting exact pins.
         # When only maximum_width is set: exact pin at that width (capping behavior).
-        if min_w = view.minimum_width
+        # Phase B — UI::Fluid native (additive): a resizable RANGE [min, max].
+        # width >= min AND width <= max (both priority 500) so the view grows with
+        # the window/container up to max then stops (a "readable column"), instead
+        # of an exact pin. Only when fluid_width is set; otherwise the existing
+        # fixed min/max logic below is untouched.
+        if fw = view.fluid_width
+          if nmin = fw.native_min_px
+            LibObjCBridge.objc_constrain_minimum_width(ptr, nmin)
+          end
+          if nmax = fw.native_max_px
+            LibObjCBridge.objc_constrain_maximum_width(ptr, nmax)
+          end
+        elsif min_w = view.minimum_width
           if max_w = view.maximum_width
             # Both set: exact pin at min_w (== max_w for fixed-width columns).
             LibObjCBridge.objc_constrain_width(ptr, min_w)
@@ -4574,7 +4587,7 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         # `view.root_fill = true`. macOS has no safe-area concept so
         # the full screen width is used; the host window honors the
         # constraint by setting the contentView to match.
-        if view.root_fill && view.minimum_width.nil? && view.maximum_width.nil?
+        if view.root_fill && view.minimum_width.nil? && view.maximum_width.nil? && view.fluid_width.nil?
           metrics = UI::DesignTokens::DeviceMetrics.current
           fill_width = metrics.content_width_pt
           if fill_width > 0.0
