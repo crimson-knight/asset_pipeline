@@ -3887,4 +3887,111 @@ int ap_export_file_macos(const char *suggested_name_cstr,
     return 1;
 }
 
+// -----------------------------------------------------------------
+// NSComboBox value-change wiring (macOS ComboBox value-drop fix).
+//
+// NSComboBox has no SwiftUI facade. iOS wires its raw UITextField via a
+// UIControl target-action (ap_text_field_wire_string_change); AppKit
+// instead delivers combo-box changes through delegate notifications:
+//   - controlTextDidChange:        (typed text — NSControl editing delegate)
+//   - comboBoxSelectionDidChange:  (list pick — NSComboBoxDelegate)
+// A dynamically-registered CrystalComboBoxDelegate carries the u64 token,
+// reads the combo box's current value from the notification's object on
+// each change, and routes it through crystal_ui_string_callback_dispatch.
+// The delegate is pinned via objc_setAssociatedObject for the box's life.
+// (Note: in comboBoxSelectionDidChange: the combo's -stringValue is not yet
+// updated to the new selection, so we read -objectValueOfSelectedItem.)
+// -----------------------------------------------------------------
+static const void *ap_combo_box_delegate_key = &ap_combo_box_delegate_key;
+
+static unsigned long long ap_combo_read_token(id self) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (!ivar) return 0ULL;
+    return *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar));
+}
+
+static void ap_combo_set_token(id self, SEL _cmd, unsigned long long token) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (ivar) {
+        *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar)) = token;
+    }
+}
+
+static void ap_combo_dispatch_value(unsigned long long token, NSString *s) {
+    if (token == 0ULL) return;
+    const char *utf8 = s ? [s UTF8String] : "";
+    crystal_ui_string_callback_dispatch(token, utf8 ? utf8 : "");
+}
+
+static void ap_combo_control_text_did_change(id self, SEL _cmd, id note) {
+    unsigned long long token = ap_combo_read_token(self);
+    id combo = note ? ((id (*)(id, SEL))objc_msgSend)(note, sel_registerName("object")) : nil;
+    NSString *s = nil;
+    if (combo && [combo respondsToSelector:sel_registerName("stringValue")]) {
+        s = ((id (*)(id, SEL))objc_msgSend)(combo, sel_registerName("stringValue"));
+    }
+    ap_combo_dispatch_value(token, s);
+}
+
+static void ap_combo_selection_did_change(id self, SEL _cmd, id note) {
+    unsigned long long token = ap_combo_read_token(self);
+    id combo = note ? ((id (*)(id, SEL))objc_msgSend)(note, sel_registerName("object")) : nil;
+    NSString *s = nil;
+    if (combo && [combo respondsToSelector:sel_registerName("objectValueOfSelectedItem")]) {
+        id val = ((id (*)(id, SEL))objc_msgSend)(combo, sel_registerName("objectValueOfSelectedItem"));
+        if ([val isKindOfClass:[NSString class]]) {
+            s = val;
+        } else if (val) {
+            s = [val description];
+        }
+    }
+    ap_combo_dispatch_value(token, s);
+}
+
+static Class ap_register_combo_box_delegate(void) {
+    Class cls = objc_getClass("CrystalComboBoxDelegate");
+    if (cls) return cls;
+
+    cls = objc_allocateClassPair([NSObject class], "CrystalComboBoxDelegate", 0);
+    if (!cls) return Nil;
+
+    class_addIvar(cls, "_token", sizeof(unsigned long long),
+                  __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addMethod(cls, sel_registerName("setToken:"),
+                    (IMP)ap_combo_set_token, "v@:Q");
+    class_addMethod(cls, sel_registerName("controlTextDidChange:"),
+                    (IMP)ap_combo_control_text_did_change, "v@:@");
+    class_addMethod(cls, sel_registerName("comboBoxSelectionDidChange:"),
+                    (IMP)ap_combo_selection_did_change, "v@:@");
+
+    objc_registerClassPair(cls);
+    return cls;
+}
+
+// Wire an NSComboBox's text + selection changes to the Crystal string
+// callback `token`. Idempotent: re-wiring updates the token on the
+// existing delegate. Returns 1 on success, 0 on no-op.
+int ap_combo_box_wire_string_change(void *combo_ptr, unsigned long long token) {
+    if (combo_ptr == NULL) return 0;
+
+    id combo = (__bridge id)combo_ptr;
+    id delegate = objc_getAssociatedObject(combo, ap_combo_box_delegate_key);
+    if (!delegate) {
+        Class cls = ap_register_combo_box_delegate();
+        if (!cls) return 0;
+
+        delegate = ((id (*)(Class, SEL))objc_msgSend)(cls, sel_registerName("new"));
+        objc_setAssociatedObject(combo, ap_combo_box_delegate_key,
+                                 delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        ((void (*)(id, SEL, id))objc_msgSend)(
+            combo, sel_registerName("setDelegate:"), delegate);
+        [delegate release]; // objc_bridge.m compiles with -fno-objc-arc
+    }
+
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(
+        delegate, sel_registerName("setToken:"), token);
+
+    return 1;
+}
+
 #endif

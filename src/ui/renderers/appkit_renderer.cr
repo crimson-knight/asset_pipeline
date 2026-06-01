@@ -94,6 +94,10 @@
       fun objc_constrain_width(view : Void*, w : Float64) : Void
       fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
       fun objc_constrain_height(view : Void*, h : Float64) : Void
+      # ComboBox value-drop fix (macOS) — wire an NSComboBox's text +
+      # selection changes (controlTextDidChange: / comboBoxSelectionDidChange:)
+      # to the Crystal string callback `token` via a CrystalComboBoxDelegate.
+      fun ap_combo_box_wire_string_change(combo : Void*, token : UInt64) : Int32
       fun nsscrollview_set_document_view(scroll_view : Void*, doc_view : Void*) : Void
       fun nsbutton_set_colored_title(button : Void*, title : Void*, color : Void*, font : Void*) : Void
       fun nsslider_set_track_fill_color(slider : Void*, color : Void*) : Void
@@ -3796,13 +3800,30 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), acc_str)
         end
 
-        # TODO(combo-box on_change, macOS follow-up): NSComboBox value
-        # delivery needs an NSControl target-action / NSComboBoxDelegate
-        # (controlTextDidChange: + comboBoxSelectionDidChange:) routing to
-        # crystal_ui_string_callback_dispatch. iOS is wired via
-        # ap_text_field_wire_string_change; macOS is deliberately deferred.
+        # ComboBox value-drop fix (macOS). NSComboBox has no SwiftUI
+        # facade; wire its text + selection changes through the raw string
+        # channel via a CrystalComboBoxDelegate (controlTextDidChange: +
+        # comboBoxSelectionDidChange:). on_change is Proc(String, Void)?;
+        # register_string takes Proc(String, Nil), so adapt with an
+        # explicit nil-returning wrapper.
+        action_token = 0_u64
+        if change_handler = view.on_change
+          action_token = UI::CallbackRegistry.register_string(
+            ->(s : String) { change_handler.call(s); nil }
+          )
+        end
+
         apply_common_properties(ptr, view)
-        emit(ptr, "NSComboBox")
+
+        # Inline emit() so we keep a NativeView that tracks the callback id
+        # for teardown (emit drops it).
+        unless action_token == 0_u64
+          LibObjCBridge.ap_combo_box_wire_string_change(ptr, action_token)
+        end
+        handle = ObjC.owned(ptr, label: "NSComboBox")
+        native = NativeView.new(handle)
+        native.track_callback_id(action_token) unless action_token == 0_u64
+        push_native(native)
       end
 
       # -----------------------------------------------------------------
