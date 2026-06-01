@@ -94,7 +94,7 @@ they are also the gap list.
 | U1 | **Present/dismiss is perceptible and bounded** — lands in ~300–500ms with a spring; a **floor** (≥~200ms, never instant) *and* a **ceiling** (<1s). | HIG `motion.md:31,35` ("aim for brevity"; "don't make people wait"). Today: no floor, no control on native. |
 | U2 | **Reduce-motion swaps to a *fade*, not a *kill*.** | HIG `accessibility.md:174` ("replace transitions with fades"). Today `environment.cr:364` returns `0.0` (instant) — wrong; and native Sheet ignores reduce-motion entirely. |
 | U3 | **Native motion reads the MotionScale tokens** (`design_tokens.cr:1120` → baked into `AssetPipelineTokens.swift:132`), or the doc explicitly states "native motion is intentionally system-default." Today no facade reads them; web does, native doesn't. | Brand-contract consistency. |
-| U4 | **Proven by a *timed behavior test*, not a still** — drive the real control (XCUITest / `UI::AXTest` / DOM), assert it is *not yet* fully on-screen at t=0 and *is* interactive by t≈400ms, then dismiss and assert it left. | CLAUDE.md Definition of Done. |
+| U4 | **Proven by a *behavior test*, not a still** — drive the real control (XCUITest / `UI::AXTest` / DOM): present it, prove its action is correctly gated on real input, then dismiss and assert it left. **Caveat (live finding, see §1.4): AX cannot observe a SwiftUI present *animation* — assert observable behavior + input-gating, and prove motion via the code-layer floor + the recorded motion-evidence artifact, not AX geometry.** | CLAUDE.md Definition of Done. |
 | U5 | **≥44pt hit target** on every interactive control. | HIG; `touch_target_minimum_px` exists in tokens but nothing asserts rendered size. |
 | U6 | **Dismiss is never gesture-only** — when interactive-dismiss is disabled (`sheet.cr:99`) a visible Close/Done affordance must exist. | A no-gesture, no-button sheet is a trap. |
 | U7 | **No silent `animated:NO` on a user-facing present.** | `objc_bridge.m:2443` (activity view), `:1793` (map) present instantly — fine for those, but flag any surface that does it. |
@@ -108,6 +108,37 @@ timed behavior test from U4 and a reduce-motion variant asserting a fade (not a
 snap, not a kill). Until a surface ships that evidence, it stays 🟡 — a still
 frame can no longer promote anything to ✅. **This is the concrete fix for the
 class of bug that let the too-fast sheet pass.**
+
+### 1.4 Live findings (2026-06-01, macOS GUI session)
+
+Running the timed Sheet test against the live macOS host (screen unlocked)
+produced two corrections that are themselves the usability bar working:
+
+1. **AX cannot observe a SwiftUI `.sheet` present animation.** Sampling the
+   sheet body's AX frame at t≈0 vs t≈500ms returned `1.0pt` at *both* — the AX
+   tree exposes a degenerate container frame, not transient animation geometry.
+   So the original geometry-over-time test was the wrong instrument. The Sheet
+   behavior spec (`spec/native_macos/voyager/voyager_sheet_motion_spec.cr`) was
+   **reframed** to assert what AX reliably proves and what matters to a user:
+   the sheet presents, **Save is correctly gated** (disabled until a real typed
+   title reaches it — the SecureField value-fidelity lesson), and **Cancel
+   dismisses** leaving the sheet gone. *Verified live, green.* Motion
+   perceptibility (U1) is guaranteed at the SwiftUI layer
+   (`SheetFacade.resolvePresentationAnimation`, swift-build-verified) + the
+   recorded motion-evidence artifact — not AX geometry.
+
+2. **Rerender-mounted presents don't animate yet (scoped follow-up).** The
+   imperative `is_presented=` binding-flip path *is* animated
+   (`apsk_sheet_set_presented` wraps the flip in `withAnimation`), but the
+   common pattern — a `Rerender` that rebuilds the tree with a `UI::Sheet`
+   already `is_presented=true` (e.g. Voyager's editor: `todos_screen.cr:346`) —
+   mounts the sheet already-presented, which SwiftUI shows without a slide.
+   Closing this means mounting `isPresented=false` and flipping it in
+   `onAppear`, which touches the Codex-hardened V1-dismiss-discriminator in
+   `SheetHost.onDisappear` (`SheetFacade.swift:270-301`). That is **deliberately
+   deferred** to a dedicated effort with recorded motion-evidence + Codex
+   re-review of the dismiss logic — not a risky drive-by, since the present/
+   dismiss currently works and is proven.
 
 ---
 
