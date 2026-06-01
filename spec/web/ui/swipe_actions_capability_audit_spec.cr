@@ -74,6 +74,12 @@ private def reinstall_audit_bootstrap : Nil
   UI::WidgetRoute::Registry.register_default(:swipe_actions, :web_narrow, UI::SwipeActionRow)
   UI::WidgetRoute::Registry.register_default(:swipe_actions, :macos, UI::InlineActionRow)
   UI::WidgetRoute::Registry.register_default(:swipe_actions, :web_wide, UI::InlineActionRow)
+  # Phase 10B.1c — the `:android` default must be restored too, otherwise
+  # this file's mid-flow `reset_overrides_for_spec` calls (which clear the
+  # entire defaults table) strand the framework's android registration and
+  # pollute later specs (e.g. android_swipe_action_row_spec). Mirror the
+  # full framework bootstrap in src/ui/widget_route/bootstrap.cr.
+  UI::WidgetRoute::Registry.register_default(:swipe_actions, :android, UI::AndroidSwipeActionRow)
   nil
 end
 

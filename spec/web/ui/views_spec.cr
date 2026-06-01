@@ -3300,9 +3300,15 @@ describe UI::Theme do
     css.should contain("rgba(")
   end
 
-  it "web renderer inject_theme_css returns empty string with no theme" do
+  it "web renderer inject_theme_css emits the design-system default tokens with no theme" do
     renderer = UI::Web::Renderer.new
-    renderer.inject_theme_css.should eq("")
+    css = renderer.inject_theme_css
+    # With no explicit theme set, the renderer falls back to
+    # UI::Theme.design_system_default and always emits a <style> block
+    # carrying the unified design-token custom properties.
+    css.should contain("<style>")
+    css.should contain(":root")
+    css.should contain("--ap-")
   end
 
   it "web renderer inject_theme_css returns style block with theme" do
