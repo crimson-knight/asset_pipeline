@@ -131,7 +131,29 @@ module Voyager
       trimmed = text.strip
       return if trimmed.empty?
       @chat_messages << ChatMessage.new(trimmed, false)
-      @chat_messages << ChatMessage.new("On it — I'll take care of that.", true)
+      @chat_messages << ChatMessage.new(coach_reply(trimmed), true)
+    end
+
+    # A lightly-contextual, coach-toned agent reply so the chat feels alive instead
+    # of echoing one canned line. Deterministic (no RNG — unavailable on the native
+    # embedding): keyword-matched, else cycled by reply count. All string ops are
+    # class-init-gap-safe (no Float#to_s / String#to_f).
+    private def coach_reply(text : String) : String
+      lower = text.downcase
+      return "Got it — I'll remind you." if lower.includes?("remind") || lower.includes?("remember")
+      return "Anytime — I've got your back." if lower.includes?("thank")
+      if lower.includes?("tired") || lower.includes?("stress") || lower.includes?("overwhelm")
+        return "Let's take it one step at a time. What's the smallest next move?"
+      end
+      return "Good question — let me look into that and follow up." if text.ends_with?("?")
+
+      acks = [
+        "On it — I'll take care of that.",
+        "Noted. I'll keep you on track.",
+        "Done. Want me to check in on this later?",
+        "Nice — logged it for you.",
+      ]
+      acks[@chat_messages.count(&.is_agent) % acks.size]
     end
 
     def add_todo(
