@@ -20,7 +20,8 @@ public class WatchStackFacade: NSObject {
         axis: Int,
         spacing: Double,
         alignment: Int,
-        overrides: ViewOverrides
+        overrides: ViewOverrides,
+        rootFill: Int
     ) -> APSKPlatformView {
         let stack: AnyView
         if axis == 1 {
@@ -47,7 +48,18 @@ public class WatchStackFacade: NSObject {
         // the same adaptive layout props the imperative UIKit/AppKit stacks do. Without
         // this the watch dropped ALL container layout (root padding incl. safe-area
         // top, content-width pins) and shared screens couldn't reflow to the wrist.
-        let content = CommonModifiers.apply(stack, overrides: overrides)
+        var content = CommonModifiers.apply(stack, overrides: overrides)
+        // root_fill on watch: fill the WIDTH only and top-align. We deliberately do NOT
+        // force maxHeight:.infinity here — watchOS hosts app content in a vertical
+        // scroll context, and an infinite-height frame inside it is pathological (the
+        // scroll view proposes unbounded height, so an inter-section Spacer + the fill
+        // can't resolve and children collapse/overlap). Content taller than the watch
+        // simply scrolls; content shorter is top-aligned by the leading frame alignment.
+        if rootFill != 0 {
+            content = AnyView(
+                content.frame(maxWidth: .infinity, alignment: .top)
+            )
+        }
         return HostingHelpers.host(content, kind: axis == 1 ? "HStack" : "VStack")
     }
 }

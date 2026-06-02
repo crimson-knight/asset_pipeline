@@ -153,8 +153,13 @@
         o = LibSwiftKitBridge.apsk_view_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(o)
         UI::Native::Populator.populate_view_common(o.address.to_s(16), view, sender)
+        # root_fill: the root container should fill the watch canvas and top-align so
+        # content packs from the top and any inter-section Spacer expands to pin the
+        # compose/action row to the bottom (the messaging-app rhythm). Other renderers
+        # special-case root_fill (UIKit/AppKit/web); the watch honors it via the facade.
         ptr = LibSwiftKitBridge.apsk_make_watch_stack(
           buf.as(Void*), kids.size.to_i32, axis, spacing, alignment_int(align), o,
+          view.root_fill ? 1 : 0,
         )
         emit(ptr)
       end

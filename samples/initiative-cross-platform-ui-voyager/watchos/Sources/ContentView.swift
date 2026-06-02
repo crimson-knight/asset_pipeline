@@ -13,7 +13,15 @@ import SwiftUI
 // DeviceMetrics provider and the screen clamps its content width to the device.
 struct ContentView: View {
     var body: some View {
-        crystalScreen
+        // Wrap the Crystal-rendered screen in a ScrollView. watchOS hosts app content
+        // in a height-constrained context; without an enclosing scroll view the root
+        // VStack divides the small screen height among its children, so multi-line
+        // labels truncate (or overflow and overlap). A ScrollView proposes unbounded
+        // height, so each label gets its full wrapped height and content taller than
+        // the watch scrolls — the same role the macOS host's NSScrollView plays.
+        ScrollView {
+            crystalScreen
+        }
     }
 
     @ViewBuilder
