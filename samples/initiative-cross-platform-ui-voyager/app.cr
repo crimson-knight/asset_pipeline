@@ -52,8 +52,10 @@ require "./screens/phase_10/ax_metadata_screen"
 require "./screens/phase_10/environment_reactivity_screen"
 require "./screens/phase_10/new_widgets_screen"
 require "./screens/welcome_screen"
+require "./screens/agent_chat_screen"
 
 require "./controllers/welcome_controller"
+require "./controllers/agent_chat_controller"
 require "./controllers/sign_in_controller"
 require "./controllers/todos_controller"
 require "./controllers/todo_editor_controller"
@@ -90,6 +92,7 @@ module Voyager
     "voyager-phase-10-environment",
     "voyager-phase-10-new-widgets",
     "voyager-welcome",
+    "voyager-agent-chat",
   ]
 
   # Host-set dispatcher.
@@ -184,8 +187,9 @@ module Voyager
   # pre-build a route by name.
   def self.route_for_slug(slug : String) : UI::NavigationCoordinator::Route
     case slug
-    when "voyager-welcome" then UI::NavigationCoordinator::Route.new(:welcome)
-    when "voyager-sign-in" then UI::NavigationCoordinator::Route.new(:sign_in)
+    when "voyager-welcome"    then UI::NavigationCoordinator::Route.new(:welcome)
+    when "voyager-agent-chat" then UI::NavigationCoordinator::Route.new(:agent_chat)
+    when "voyager-sign-in"    then UI::NavigationCoordinator::Route.new(:sign_in)
     when "voyager-todos"   then UI::NavigationCoordinator::Route.new(:todos)
     when "voyager-todo-editor"
       # Phase 10D-final — capture-mode todo_id seeding. When the screenshot
@@ -217,6 +221,7 @@ module Voyager
   def self.slug_for_route_id(route_id : Symbol) : String
     case route_id
     when :welcome                   then "voyager-welcome"
+    when :agent_chat                then "voyager-agent-chat"
     when :sign_in                   then "voyager-sign-in"
     when :todos                     then "voyager-todos"
     when :todo_editor               then "voyager-todo-editor"
@@ -241,6 +246,7 @@ end
 class VoyagerApp < UI::App
   initial_route :sign_in
   screen :welcome, Voyager::WelcomeController, screen_class: Voyager::WelcomeScreen
+  screen :agent_chat, Voyager::AgentChatController, screen_class: Voyager::AgentChatScreen
   screen :sign_in, Voyager::SignInController
   screen :todos, Voyager::TodosController
   screen :todo_editor, Voyager::TodoEditorController
