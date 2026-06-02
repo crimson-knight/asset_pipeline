@@ -1,24 +1,25 @@
 import SwiftUI
 
-// ContentView — the Voyager watch app's purpose surface: an AGENT CHAT on the wrist
-// (chat notifications + a compose row to reply). It is composed entirely from
-// asset_pipeline SwiftKit facades — Label (message text + title), Card (the message
-// bubble chrome), TextField (the compose field), IconButton (send) — by embedding
-// each facade's `APSKWatchHostView.content` (the SwiftUI body the Crystal renderer
-// would compose) into a SwiftUI watch layout. This drives the facades from Swift so
-// the surface renders on a real watch while the Crystal UI::WatchKit::Renderer is
-// blocked on the toolchain fix.
+// ContentView — the Voyager watch app's purpose surface: an AGENT CHAT on the wrist.
 //
-// actionToken 0 throughout: with no Crystal callback registry, CallbackBridge.fire
-// is a no-op — fine for a render demo.
+// The transcript BUBBLES are rendered by asset_pipeline SwiftKit facades (Label +
+// Card), embedding each facade's `APSKWatchHostView.content` — the same SwiftUI the
+// Crystal renderer would compose. The transcript matches the iOS/macOS seed so the
+// design is cohesive across all three platforms.
+//
+// App LOGIC (the @State transcript + Send) is plain SwiftUI: on watchOS the kit's
+// FormState input path runs through the Crystal UI::WatchKit::Renderer, which is
+// blocked on the compiler fix — so until then the watch app wires its own input with
+// SwiftUI @State (as any watch app would), while still rendering the kit's facades.
+// Honest split: facades render the UI; the app owns its state.
 struct ContentView: View {
-    // (text, isAgent) — agent messages hug the leading edge, the user's reply trails.
-    // Kept short so the title, a bubble exchange, AND the compose row all fit one
-    // watch screen for the render proof.
-    private let messages: [(String, Bool)] = [
-        ("Meeting moved to 10:00.", true),
-        ("Remind me at 9:45", false),
+    // (text, isAgent). Seeded to match the iOS/macOS agent-chat transcript.
+    @State private var messages: [(String, Bool)] = [
+        ("Morning! Your first meeting moved to 10:00.", true),
+        ("Thanks — remind me at 9:45", false),
+        ("Done. I'll buzz your wrist at 9:45.", true),
     ]
+    @State private var draft: String = ""
 
     var body: some View {
         ScrollView {
@@ -34,7 +35,7 @@ struct ContentView: View {
                     }
                 }
 
-                composeRow()
+                composeRow
             }
             .padding(8)
         }
@@ -47,19 +48,28 @@ struct ContentView: View {
         return facade(card)
     }
 
-    // The compose row: a TextField facade + a paperplane IconButton facade.
-    private func composeRow() -> some View {
-        let field = TextFieldFacade.makeTextField(
-            placeholder: "Message…", initialText: "",
-            overrides: TextFieldOverrides(), actionToken: 0)
-        let send = IconButtonFacade.makeIconButton(
-            icon: "paperplane.fill",
-            overrides: IconButtonOverrides(), actionToken: 0)
-        return HStack(spacing: 6) {
-            facade(field)
-            facade(send)
+    // Compose row — the app's own SwiftUI input + Send (see file header on why this
+    // is native, not facade-driven, on watch). Send appends the typed reply plus a
+    // canned agent acknowledgement, mirroring the iOS/macOS controller behaviour.
+    private var composeRow: some View {
+        HStack(spacing: 6) {
+            TextField("Message…", text: $draft)
+                .textFieldStyle(.plain)
+            Button(action: send) {
+                Image(systemName: "paperplane.fill")
+            }
+            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+            .accessibilityIdentifier("voyager-agent-chat-send")
         }
         .padding(.top, 4)
+    }
+
+    private func send() {
+        let text = draft.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return }
+        messages.append((text, false))
+        messages.append(("On it — I'll take care of that.", true))
+        draft = ""
     }
 
     @ViewBuilder
