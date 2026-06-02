@@ -6,10 +6,12 @@
 import SwiftUI
 import Foundation
 
-// watchOS: this facade is not in the watch catalog subset and/or uses UIKit-only
-// APIs (UIView/UIControl/SwiftUI-on-watch-unavailable). Gated off watchOS for the
-// initial one-facade green compile; watch-native re-enable is a Phase 12 follow-up.
-#if !os(watchOS)
+// watchOS: ENABLED (Phase D Bucket-2 P1 port, 2026-06-02). Mirrors TextField:
+// `PromptOverlayField` (declared in TextFieldFacade, watch-enabled) + `SecureField`
+// are pure SwiftUI and valid on watchOS. Only `.textFieldStyle(.roundedBorder)`
+// (RoundedBorderTextFieldStyle is `@available(watchOS, unavailable)`) is gated for
+// non-watch; the watch styles the field through its row/Form chrome. See
+// watch-facade-bucket-audit.md.
 @objc(APSKSecureFieldFacade)
 public class SecureFieldFacade: NSObject {
     @objc public static func makeSecureField(
@@ -45,7 +47,11 @@ public class SecureFieldFacade: NSObject {
         // Beauty-by-default border chrome — matches the TextFieldFacade
         // change. Without this, the iOS default plain SecureField renders
         // as a bare strip of placeholder text with no field affordance.
+        // watchOS: `.roundedBorder` is unavailable; the watch uses its row/Form
+        // chrome, so the style is left at the default there.
+        #if !os(watchOS)
         content = AnyView(content.textFieldStyle(.roundedBorder))
+        #endif
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(SecureStorageHost(storage: storage, content: content))
     }
@@ -56,4 +62,3 @@ private struct SecureStorageHost<Content: View>: View {
     let content: Content
     var body: some View { content }
 }
-#endif

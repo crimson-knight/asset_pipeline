@@ -10,10 +10,12 @@
 import SwiftUI
 import Foundation
 
-// watchOS: this facade is not in the watch catalog subset and/or uses UIKit-only
-// APIs (UIView/UIControl/SwiftUI-on-watch-unavailable). Gated off watchOS for the
-// initial one-facade green compile; watch-native re-enable is a Phase 12 follow-up.
-#if !os(watchOS)
+// watchOS: ENABLED (Phase D Bucket-2 P1 port, 2026-06-02). `TabView(selection:)`,
+// `.tabItem`, `.tag`, and `.tint` are valid on watchOS (vertical-page paging is the
+// watch idiom). The tab-bar chrome block (`.toolbarBackground` is
+// `@available(watchOS, unavailable)`, `.glassEffect()` uncertain on watch) is gated
+// for non-watch — the watch presents TabView with its native page chrome. See
+// watch-facade-bucket-audit.md.
 @objc(APSKTabViewFacade)
 public class TabViewFacade: NSObject {
     @objc public static func makeTabView(
@@ -73,6 +75,10 @@ public class TabViewFacade: NSObject {
         // advisory only on this path — the system resolves material strength
         // regardless of the AppleSemantic + intensity inputs. This mirrors
         // the GlassBackgroundFacade.swift:64-70 reference pattern.
+        // watchOS: `.toolbarBackground` is unavailable and `.glassEffect()` is not
+        // a watch presentation idiom; the watch shows TabView with its native page
+        // chrome, so the bar-background block is skipped entirely on watch.
+        #if !os(watchOS)
         if #available(iOS 26.0, macOS 26.0, *) {
             content = AnyView(content.glassEffect())
         } else if #available(iOS 16.0, macOS 13.0, *) {
@@ -80,6 +86,7 @@ public class TabViewFacade: NSObject {
             let mat: Material = MaterialSemanticResolver.material(for: materialKey) ?? .bar
             content = AnyView(content.toolbarBackground(mat, for: .automatic))
         }
+        #endif
 
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(TabHost(storage: storage, content: content))
@@ -91,4 +98,3 @@ private struct TabHost<Content: View>: View {
     let content: Content
     var body: some View { content }
 }
-#endif
