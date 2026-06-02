@@ -40,8 +40,14 @@ module Voyager
       # First-launch notification permission. Guarded so it fires once.
       maybe_request_notification_permission
 
+      # Phase D Track 2 — the WHOLE composition adapts via DeviceMetrics#responsive
+      # (not just width): column width, root spacing, outer padding, and the title
+      # type scale all reflow when the size class changes (live, via the macOS
+      # windowDidResize→rebuild hook and the iOS live-metrics provider). Matches the
+      # sign-in / welcome migration. See foundational-output-and-layout-model.md
+      # §"Track 2".
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.compact_horizontal? ? 340.0 : 480.0
+      content_width = metrics.responsive(compact: 340.0, regular: 480.0)
 
       state = Voyager.state
 
@@ -51,14 +57,16 @@ module Voyager
       # button) at 16pt so the chrome aligns with the list rows. The
       # ListView itself ignores this outer inset; it owns its own
       # row-level inset via .listRowInsets.
-      root = UI::VStack.new(spacing: 16.0)
+      root = UI::VStack.new(spacing: metrics.responsive(compact: 14.0, regular: 18.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Leading
+      pad_v = metrics.responsive(compact: 20.0, regular: 28.0)
+      pad_h = metrics.responsive(compact: 16.0, regular: 24.0)
       root.padding = UI::EdgeInsets.new(
-        top: 24.0 + metrics.safe_area_top_pt,
-        trailing: 16.0 + metrics.safe_area_trailing_pt,
-        bottom: 24.0 + metrics.safe_area_bottom_pt,
-        leading: 16.0 + metrics.safe_area_leading_pt,
+        top: pad_v + metrics.safe_area_top_pt,
+        trailing: pad_h + metrics.safe_area_trailing_pt,
+        bottom: pad_v + metrics.safe_area_bottom_pt,
+        leading: pad_h + metrics.safe_area_leading_pt,
       )
       root.accessibility_label = "Voyager todos screen"
       root.test_id = "voyager-todos-root"
@@ -69,7 +77,7 @@ module Voyager
       header.maximum_width = content_width
 
       title = UI::Label.new("Todos")
-      title.font = UI::Font.new(size: 28.0, weight: :bold)
+      title.font = UI::Font.new(size: metrics.responsive(compact: 26.0, regular: 30.0), weight: :bold)
       title.text_color_role = UI::LabelRole::Primary
 
       spacer = UI::Spacer.new
@@ -284,7 +292,7 @@ module Voyager
       if share_id = state.pending_share_todo_id
         target = state.find_todo(share_id)
         sheet_title = target ? "Share \"#{target.title}\"" : "Share todo"
-        share_width = metrics.compact_horizontal? ? 320.0 : 460.0
+        share_width = metrics.responsive(compact: 320.0, regular: 460.0)
 
         share_body = UI::VStack.new(spacing: 12.0)
         share_body.alignment = UI::Alignment::Leading
@@ -416,7 +424,7 @@ module Voyager
     # the matching todo for editing.
     private def build_editor_content(state : State, editor_id : Int32) : UI::View
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.compact_horizontal? ? 320.0 : 460.0
+      content_width = metrics.responsive(compact: 320.0, regular: 460.0)
 
       editing = editor_id > 0 ? state.find_todo(editor_id) : nil
 
