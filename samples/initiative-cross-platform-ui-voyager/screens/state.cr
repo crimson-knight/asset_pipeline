@@ -46,6 +46,12 @@ module Voyager
     property current_user : String = ""
     property todos : Array(Todo)
     property hide_completed : Bool = false
+    # Daily Check-in surface (CheckInScreen) — exercises the interactive control widgets
+    # (Slider / Stepper / Toggle) cohesively across platforms. Primitive defaults are set
+    # when State.new runs (HostBootstrap.build), so no class-init-gap concern.
+    property checkin_mood : Int32 = 7       # 0..10, via Slider
+    property checkin_goal : Int32 = 5       # daily task goal, via Stepper
+    property checkin_reminder : Bool = true # remind tomorrow, via Toggle
     # Agent Chat transcript (the cross-platform agent-chat surface). A nilable
     # default would be safest for the iOS class-init gap, but it's assigned in
     # `initialize` (instance init runs in voyager_init via HostBootstrap.build),

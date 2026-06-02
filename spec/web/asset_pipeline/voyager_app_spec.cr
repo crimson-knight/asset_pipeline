@@ -12,7 +12,7 @@ require "../../../samples/initiative-cross-platform-ui-voyager/app"
 #     a non-nil view per route.
 
 describe VoyagerApp do
-  it "registers all voyager routes with bootstrap! (4 core + 1 welcome + 1 agent-chat + 3 probe/gallery + 6 Phase 10D exerciser routes)" do
+  it "registers all voyager routes with bootstrap! (4 core + 1 welcome + agent-chat + check-in + 3 probe/gallery + 6 Phase 10D exerciser routes)" do
     VoyagerApp.bootstrap!
 
     routes = VoyagerApp.screens.keys.sort_by(&.to_s)
@@ -24,8 +24,10 @@ describe VoyagerApp do
       :todos,
       # Phase C — intentionally-designed, size-class-adaptive welcome screen.
       :welcome,
-      # Phase D — cross-platform agent-chat surface (same design as the watch app).
+      # Phase D — cross-platform surfaces (same design as the watch app): agent chat +
+      # the control-rich daily check-in (Slider / Stepper / Toggle).
       :agent_chat,
+      :check_in,
       # Probe / gallery harness screens.
       :component_gallery,
       :reconcile_probe,

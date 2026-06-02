@@ -53,9 +53,11 @@ require "./screens/phase_10/environment_reactivity_screen"
 require "./screens/phase_10/new_widgets_screen"
 require "./screens/welcome_screen"
 require "./screens/agent_chat_screen"
+require "./screens/check_in_screen"
 
 require "./controllers/welcome_controller"
 require "./controllers/agent_chat_controller"
+require "./controllers/check_in_controller"
 require "./controllers/sign_in_controller"
 require "./controllers/todos_controller"
 require "./controllers/todo_editor_controller"
@@ -93,6 +95,7 @@ module Voyager
     "voyager-phase-10-new-widgets",
     "voyager-welcome",
     "voyager-agent-chat",
+    "voyager-check-in",
   ]
 
   # Host-set dispatcher.
@@ -189,6 +192,7 @@ module Voyager
     case slug
     when "voyager-welcome"    then UI::NavigationCoordinator::Route.new(:welcome)
     when "voyager-agent-chat" then UI::NavigationCoordinator::Route.new(:agent_chat)
+    when "voyager-check-in"   then UI::NavigationCoordinator::Route.new(:check_in)
     when "voyager-sign-in"    then UI::NavigationCoordinator::Route.new(:sign_in)
     when "voyager-todos"   then UI::NavigationCoordinator::Route.new(:todos)
     when "voyager-todo-editor"
@@ -222,6 +226,7 @@ module Voyager
     case route_id
     when :welcome                   then "voyager-welcome"
     when :agent_chat                then "voyager-agent-chat"
+    when :check_in                  then "voyager-check-in"
     when :sign_in                   then "voyager-sign-in"
     when :todos                     then "voyager-todos"
     when :todo_editor               then "voyager-todo-editor"
@@ -247,6 +252,7 @@ class VoyagerApp < UI::App
   initial_route :sign_in
   screen :welcome, Voyager::WelcomeController, screen_class: Voyager::WelcomeScreen
   screen :agent_chat, Voyager::AgentChatController, screen_class: Voyager::AgentChatScreen
+  screen :check_in, Voyager::CheckInController, screen_class: Voyager::CheckInScreen
   screen :sign_in, Voyager::SignInController
   screen :todos, Voyager::TodosController
   screen :todo_editor, Voyager::TodoEditorController

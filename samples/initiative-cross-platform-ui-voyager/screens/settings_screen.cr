@@ -53,6 +53,16 @@ module Voyager
       gallery_btn.maximum_width = content_width
       gallery_btn.on_tap = -> { Voyager.dispatch(:open_component_gallery) }
 
+      # Daily Check-in — the control-rich coaching surface (Slider/Stepper/Toggle),
+      # reachable here so it's a live part of the navigable app, not just a captured demo.
+      check_in_btn = UI::Button.new("Daily check-in")
+      check_in_btn.role = :secondary
+      check_in_btn.accessibility_label = "Open daily check-in"
+      check_in_btn.test_id = "voyager-settings-check-in"
+      check_in_btn.minimum_width = content_width
+      check_in_btn.maximum_width = content_width
+      check_in_btn.on_tap = -> { Voyager.dispatch(:open_check_in) }
+
       hide_toggle = UI::Toggle.new(label: "Hide completed", is_on: state.hide_completed)
       hide_toggle.accessibility_label = "Hide completed todos"
       hide_toggle.test_id = "voyager-settings-hide-completed"
@@ -101,6 +111,7 @@ module Voyager
       root << title.as(UI::View)
       root << explainer.as(UI::View)
       root << gallery_btn.as(UI::View)
+      root << check_in_btn.as(UI::View)
       root << hide_toggle.as(UI::View)
       root << back.as(UI::View)
       root << dev_section_title.as(UI::View)

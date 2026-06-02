@@ -17,6 +17,7 @@ module Voyager
       when :toggle_filter          then toggle_filter(context)
       when :back                   then back(context)
       when :open_phase_10_hub      then open_phase_10_hub(context)
+      when :open_check_in          then UI::ActionResult::Navigate.new(:check_in)
       when :open_component_gallery then UI::ActionResult::Navigate.new(:component_gallery)
       else
         raise UI::Controller::UnknownActionError.new(
