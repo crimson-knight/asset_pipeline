@@ -63,6 +63,25 @@ struct ContentView: View {
             maybeAutoNotif()
             maybeAutoSpeak()
             maybeAutoFgSpeak()
+            maybeAutoVoiceGate()
+        }
+    }
+
+    // Verification hook for the header mute toggle: with VOYAGER_WATCH_TEST_GATE=1,
+    // drive a real agent reply MUTED (expect not speaking) then UNMUTED (expect
+    // speaking), each checked after a beat (speech is async). Proves the toggle
+    // genuinely gates UI::Speech via the real controller path. No-op in normal use.
+    private func maybeAutoVoiceGate() {
+        guard ProcessInfo.processInfo.environment["VOYAGER_WATCH_TEST_GATE"] == "1" else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            voyager_watch_test_voice_gate(1) // muted
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                NSLog("VOYAGER_GATE_RESULT muted_speaking=\(voyager_watch_speaking())")
+                voyager_watch_test_voice_gate(0) // unmuted
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    NSLog("VOYAGER_GATE_RESULT unmuted_speaking=\(voyager_watch_speaking())")
+                }
+            }
         }
     }
 

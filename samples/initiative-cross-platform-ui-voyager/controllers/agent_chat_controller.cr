@@ -5,6 +5,7 @@ module Voyager
       case name
       when :back         then UI::ActionResult::Pop.new
       when :send_message then send_message(context)
+      when :toggle_voice then toggle_voice(context)
       else
         raise UI::Controller::UnknownActionError.new(
           "AgentChatController has no action :#{name}"
@@ -25,8 +26,17 @@ module Voyager
       # conversation (dictation input is native to the compose TextField). The
       # last appended message is the agent's reply. No-op on web.
       if reply = Voyager.state.chat_messages.last?
-        UI::Speech.speak(reply.text) if reply.is_agent
+        UI::Speech.speak(reply.text) if reply.is_agent && Voyager.state.speak_replies
       end
+      UI::ActionResult::Rerender.new
+    end
+
+    # Toggle whether the agent reads its replies aloud (the speaker control in the
+    # chat header). Stops any in-progress speech when muting so it goes quiet
+    # immediately. Rerender so the header glyph/label reflects the new state.
+    def toggle_voice(context : UI::ScreenContext::Native) : UI::ActionResult
+      Voyager.state.speak_replies = !Voyager.state.speak_replies
+      UI::Speech.stop unless Voyager.state.speak_replies
       UI::ActionResult::Rerender.new
     end
   end

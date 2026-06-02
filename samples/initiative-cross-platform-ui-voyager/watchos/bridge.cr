@@ -222,6 +222,19 @@
         delay_seconds: 3.0, repeats: false, sound: true, thread_id: "voyager-coach",
       ))
     end
+
+    # Drive a real agent reply through the REAL controller path (seed the compose
+    # field + dispatch :send_message), with the voice mute pref set to `muted`.
+    # Proves the header's mute toggle actually gates speech: muted → the agent reply
+    # is NOT spoken; unmuted → it is. The caller checks `speaking` after a beat
+    # (speech is async). Root the watch at :voyager-agent-chat.
+    def self.test_voice_gate(muted : Int32) : Nil
+      initialize_runtime
+      Voyager.state.speak_replies = (muted == 0)
+      UI::Speech.stop
+      @@dispatcher.not_nil!.current_form_state.update("chat_message", "are you there?")
+      Voyager.dispatch(:send_message)
+    end
   end
 
   fun voyager_watch_render : Void*
@@ -254,5 +267,9 @@
 
   fun voyager_watch_test_fg_speak : Void
     VoyagerWatchBridge.test_fg_speak
+  end
+
+  fun voyager_watch_test_voice_gate(muted : Int32) : Void
+    VoyagerWatchBridge.test_voice_gate(muted)
   end
 {% end %}

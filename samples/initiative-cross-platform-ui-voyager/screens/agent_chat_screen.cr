@@ -45,15 +45,41 @@ module Voyager
       root.accessibility_label = "Voyager agent chat"
       root.test_id = "voyager-agent-chat-root"
 
-      # Title carries a live message count — a glanceable header that also makes the
-      # reactive update obvious: when Send appends to the transcript and the screen
-      # re-renders, the count ticks up. Same on every platform.
-      title_text = messages.empty? ? "Agent" : "Agent · #{messages.size}"
+      # Header row: a glanceable live-count title beside a voice mute/unmute control.
+      # The title carries a message count so the reactive update is obvious (Send
+      # appends → re-render → count ticks up). The speaker IconButton lets the user
+      # silence the agent's spoken replies (gates UI::Speech in AgentChatController) —
+      # a beautiful, in-context control rather than a buried setting; its glyph and
+      # label reflect the live state. Same on every platform.
+      speak_on = Voyager.state.speak_replies
+      header = UI::HStack.new(spacing: 8.0)
+      header.alignment = UI::Alignment::Center
+      header.minimum_width = content_width
+      header.maximum_width = content_width
+
+      # On the narrow wrist column the live count won't fit on one line beside the
+      # voice control (it wrapped mid-word), and the growing bubbles already show the
+      # reactive update there — so drop the count on compact, keep "Agent · N" where
+      # there's room (phone / desktop).
+      title_text =
+        if metrics.compact_canvas?
+          "Agent"
+        else
+          messages.empty? ? "Agent" : "Agent · #{messages.size}"
+        end
       title = UI::Label.new(title_text)
-      title.font = UI::Font.new(size: metrics.responsive(compact: 26.0, regular: 30.0), weight: :bold)
+      title.font = UI::Font.new(size: metrics.responsive(compact: 22.0, regular: 30.0), weight: :bold)
       title.text_color_role = UI::LabelRole::Primary
-      title.maximum_width = content_width
-      root << title.as(UI::View)
+      title.fill_horizontal = true # grow so the voice control sits at the trailing edge
+      header << title.as(UI::View)
+
+      voice = UI::IconButton.new(speak_on ? "speaker.wave.2.fill" : "speaker.slash.fill")
+      voice.accessibility_label = speak_on ? "Mute agent voice" : "Unmute agent voice"
+      voice.test_id = "voyager-agent-chat-voice"
+      voice.on_tap = -> { Voyager.dispatch(:toggle_voice) }
+      header << voice.as(UI::View)
+
+      root << header.as(UI::View)
 
       messages.each_with_index do |msg, i|
         root << bubble_row(msg.text, msg.is_agent, content_width, bubble_w, i)

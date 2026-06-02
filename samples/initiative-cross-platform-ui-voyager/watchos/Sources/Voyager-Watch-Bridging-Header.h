@@ -46,4 +46,9 @@ int voyager_watch_speaking(void);
 // UI::Speech reads it aloud. Check voyager_watch_speaking() a few seconds later.
 void voyager_watch_test_fg_speak(void);
 
+// Drive a real agent reply through the controller with the voice mute pref set
+// (muted=1 → agent should NOT speak; muted=0 → it should). Check voyager_watch_speaking()
+// after a beat to prove the header mute toggle gates speech.
+void voyager_watch_test_voice_gate(int muted);
+
 #endif /* VOYAGER_WATCH_BRIDGING_HEADER_H */

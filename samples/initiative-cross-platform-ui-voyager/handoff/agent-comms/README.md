@@ -73,3 +73,22 @@ speaks it, and after delivery:
 i.e. the agent's notification arrived AND the synthesizer is actively reading it
 on the wrist. iOS regression-checked: CheckInTests + AgentChatNavTests all pass
 after adding the delegate + on_foreground registration.
+
+## Voice control in the flagship screen (mute/unmute the agent)
+
+A beautiful, in-context speaker control in the Agent Chat header (not a buried
+setting) lets the user silence the agent's spoken replies. The glyph + label
+reflect live state (`speaker.wave.2.fill` "Mute agent voice" ↔ `speaker.slash.fill`
+"Unmute agent voice"); it gates `UI::Speech` in AgentChatController. The header
+reflows for the wrist: the live "· N" count is dropped on the narrow watch column
+(the growing bubbles already show reactivity there) so the title + control fit on
+one line. See `ios-agent-chat-voice-control.png` (Agent · 3 + speaker) and
+`watchos-agent-chat-voice-control.png` (Agent + speaker, uncramped).
+
+Verified:
+- iOS XCUITest `VoiceToggleTests.testVoiceToggleFlipsState` — tapping the control
+  flips its accessibility label Mute→Unmute→Mute (state mutated + screen rebuilt).
+- watchOS real-path gate (`VOYAGER_WATCH_TEST_GATE=1`): drive a real agent reply
+  through the controller muted then unmuted →
+  `VOYAGER_GATE_RESULT muted_speaking=0` and `unmuted_speaking=1` — the toggle
+  genuinely gates speech (the agent is silent when muted, speaks when not).

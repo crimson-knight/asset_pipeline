@@ -58,6 +58,9 @@ module Voyager
     # Empty until the user saves. Honest signal — derived from UI::Notifications
     # pending state, not a synthetic "saved" flag.
     property checkin_status : String = ""
+    # Whether the agent reads its chat replies aloud (UI::Speech). Toggled by the
+    # speaker control in the Agent Chat header; gates AgentChatController's auto-speak.
+    property speak_replies : Bool = true
 
     # Coaching focus areas offered by the check-in Picker. A METHOD, not a constant: a
     # class-level `CHECKIN_FOCUSES = [...]` array literal is NOT reliably initialized on
