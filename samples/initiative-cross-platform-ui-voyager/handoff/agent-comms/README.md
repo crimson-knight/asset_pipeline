@@ -109,3 +109,19 @@ Verified:
 - watchOS (`VOYAGER_WATCH_TEST_PREFS=1`): a counter pref grows across relaunches —
   `VOYAGER_PREFS_RESULT counter=0` then `counter=1` — proving NSUserDefaults
   persisted across launches on the wrist.
+
+## macOS render verification (AppKit)
+
+The agent-comms UI added this session renders natively on macOS too, closing the
+three-platform cohesion claim at the render level (not just compile):
+- `macos-agent-chat-voice-control.png` — "Agent · 3" + the speaker voice control,
+  chat bubbles, paper-plane compose (AppKit).
+- `macos-settings-voice-speed.png` — the Voice section: "Voice speed: 50%" readout,
+  an NSSlider, "Preview voice" (NSButton).
+- `macos-check-in.png` — NSSlider (mood), NSStepper (goal), NSPopUpButton (focus),
+  NSButton checkbox (reminder).
+
+Captured offscreen via `VOYAGER_ROOT_SLUG=<slug> VOYAGER_SCREENSHOT_PATH=… macos/bin/voyager`.
+Runtime note: macOS speech uses the same AVSpeechSynthesizer path proven on iOS/watch
+(no audio session needed on macOS); local notifications require a real .app bundle, so
+on the sample's bare `macos/bin/voyager` binary they degrade honestly to no-op.
