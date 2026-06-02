@@ -1,5 +1,10 @@
 # Foundational output + layout model (cross-platform)
 
+> **Practical companion:** for the day-to-day recipe of writing one `UI::Screen` that
+> adapts across watch / phone / Mac (the `adaptive_content_width` / `fill_horizontal` /
+> `compact_canvas?` primitives, the reflow pattern, and the cross-platform gotchas), see
+> [`../adaptive-layout-patterns.md`](../adaptive-layout-patterns.md).
+
 **Status:** Design proposal, 2026-06-01, **revised after Codex (gpt-5.5) review.**
 Written because the Phase 12 watchOS preflight exposed that the SwiftKit facade
 layer is UIKit/AppKit-bound, which forces a foundational decision the remaining
