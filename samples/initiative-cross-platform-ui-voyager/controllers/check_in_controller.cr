@@ -9,6 +9,7 @@ module Voyager
       case name
       when :set_mood        then set_mood(context)
       when :set_goal        then set_goal(context)
+      when :set_focus       then set_focus(context)
       when :toggle_reminder then toggle_reminder(context)
       when :save_checkin    then UI::ActionResult::Pop.new
       when :back            then UI::ActionResult::Pop.new
@@ -29,6 +30,13 @@ module Voyager
     def set_goal(context : UI::ScreenContext::Native) : UI::ActionResult
       if v = context.action_params["value"]?.try(&.to_i?)
         Voyager.state.checkin_goal = v.clamp(1, 20)
+      end
+      UI::ActionResult::Rerender.new
+    end
+
+    def set_focus(context : UI::ScreenContext::Native) : UI::ActionResult
+      if v = context.action_params["value"]?.try(&.to_i?)
+        Voyager.state.checkin_focus_index = v.clamp(0, Voyager::State.checkin_focuses.size - 1)
       end
       UI::ActionResult::Rerender.new
     end

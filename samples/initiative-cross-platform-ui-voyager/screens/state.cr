@@ -49,9 +49,19 @@ module Voyager
     # Daily Check-in surface (CheckInScreen) — exercises the interactive control widgets
     # (Slider / Stepper / Toggle) cohesively across platforms. Primitive defaults are set
     # when State.new runs (HostBootstrap.build), so no class-init-gap concern.
-    property checkin_mood : Int32 = 7       # 0..10, via Slider
-    property checkin_goal : Int32 = 5       # daily task goal, via Stepper
-    property checkin_reminder : Bool = true # remind tomorrow, via Toggle
+    property checkin_mood : Int32 = 7        # 0..10, via Slider
+    property checkin_goal : Int32 = 5        # daily task goal, via Stepper
+    property checkin_reminder : Bool = true  # remind tomorrow, via Toggle
+    property checkin_focus_index : Int32 = 0 # focus area, via Picker (see .checkin_focuses)
+
+    # Coaching focus areas offered by the check-in Picker. A METHOD, not a constant: a
+    # class-level `CHECKIN_FOCUSES = [...]` array literal is NOT reliably initialized on
+    # iOS (the class-init gap skips constant initializers when _main is hidden for Swift
+    # @main — the same trap that crashed SystemAction's WEB_UNWIRED_INTENTS). Building the
+    # array at call time sidesteps it entirely.
+    def self.checkin_focuses : Array(String)
+      ["Sleep", "Movement", "Nutrition", "Mindfulness"]
+    end
     # Agent Chat transcript (the cross-platform agent-chat surface). A nilable
     # default would be safest for the iOS class-init gap, but it's assigned in
     # `initialize` (instance init runs in voyager_init via HostBootstrap.build),

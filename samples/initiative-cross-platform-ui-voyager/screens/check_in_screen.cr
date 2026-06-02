@@ -75,6 +75,20 @@ module Voyager
       goal.on_change = ->(v : Float64) { Voyager.dispatch(:set_goal, {"value" => v.round.to_i.to_s}) }
       root << goal.as(UI::View)
 
+      # Focus area — Picker (coaching focus for the day).
+      focuses = State.checkin_focuses
+      focus_label = UI::Label.new("Focus: #{focuses[state.checkin_focus_index]? || focuses.first}")
+      focus_label.maximum_width = content_width
+      root << focus_label.as(UI::View)
+      focus = UI::Picker.new(focuses, state.checkin_focus_index)
+      focus.label = "Focus area"
+      focus.accessibility_label = "Focus area"
+      focus.test_id = "voyager-check-in-focus"
+      focus.minimum_width = content_width
+      focus.maximum_width = content_width
+      focus.on_change = ->(i : Int32) { Voyager.dispatch(:set_focus, {"value" => i.to_s}) }
+      root << focus.as(UI::View)
+
       # Reminder — Toggle.
       reminder = UI::Toggle.new("Remind me tomorrow", state.checkin_reminder)
       reminder.accessibility_label = "Remind me tomorrow"
