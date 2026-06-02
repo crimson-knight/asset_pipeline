@@ -20,8 +20,8 @@ and `ImageFacade` (reachable: `UIImage`/`NSImage` probe with a watch-valid
 `canImport(UIKit)` branch).
 
 **Result (original scan): 18 of 40 facades reachable on watch; 22 compiled out.**
-**Update 2026-06-02:** TextField + ListView ported → **20 reachable / 20 compiled
-out** (see Bucket 2).
+**Update 2026-06-02:** TextField + ListView + Sheet ported (all three Bucket-2 P0s)
+→ **21 reachable / 19 compiled out** (see Bucket 2).
 
 ## Bucket 1 — Watch-reachable now (18)
 
@@ -54,7 +54,7 @@ TabView**.
 | ~~TextField~~ **PORTED 2026-06-02** | available (dictation/Scribble input) — now watch-reachable: dropped the `#if !os(watchOS)` exclusion, gated `.roundedBorder` (unavailable on watch) + `keyboardType` for non-watch; the `PromptOverlayField` body is pure SwiftUI. Compiles clean on watchOS-sim/iOS-sim/macOS. | **P0** — message entry ✅ |
 | SecureField | available | P1 — auth |
 | ~~ListView (`List`)~~ **PORTED 2026-06-02** | core watch control — now watch-reachable: gated `.listRowSeparator(.hidden)` (watch-unavailable) + mapped `.inset`/`.sidebar`/`.grouped`/`.insetGrouped` styles → `.plain`/`.automatic`; `.swipeActions`/`.onMove`/`.listRowInsets` are watch-valid. Compiles clean on watchOS-sim/iOS-sim/macOS. | **P0** — message/feed list ✅ |
-| Sheet (`.sheet`) | available | **P0** — modal compose/confirm |
+| ~~Sheet (`.sheet`)~~ **PORTED 2026-06-02** | available — now watch-reachable: gated `.presentationDetents`/`PresentationDetent` (watch-unavailable; `canImport(UIKit)` is true on watch so needs `!os(watchOS)`) and `.presentationBackground`/`.glassEffect()` (watch presents full-screen with system chrome); `.sheet`/`.interactiveDismissDisabled`/`.task`/reduce-motion are watch-valid. Compiles clean on watchOS-sim/iOS-sim/macOS. | **P0** — modal compose/confirm ✅ |
 | TabView | available (vertical page style) | P1 — section switch |
 | Toggle | available | P1 — settings |
 | Slider | available (Digital Crown) | P2 |

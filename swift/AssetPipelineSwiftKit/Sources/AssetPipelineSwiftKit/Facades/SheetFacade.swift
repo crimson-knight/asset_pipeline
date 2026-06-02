@@ -34,10 +34,13 @@
 import SwiftUI
 import Foundation
 
-// watchOS: this facade is not in the watch catalog subset and/or uses UIKit-only
-// APIs (UIView/UIControl/SwiftUI-on-watch-unavailable). Gated off watchOS for the
-// initial one-facade green compile; watch-native re-enable is a Phase 12 follow-up.
-#if !os(watchOS)
+// watchOS: ENABLED (Phase D Bucket-2 P0 port, 2026-06-02). `.sheet(isPresented:)`,
+// `.interactiveDismissDisabled`, `.task(id:)`, the reduce-motion environment, and
+// the deferred-present animation are all valid on watchOS 8+. Watch-incompatible
+// presentation chrome is gated below: `.presentationDetents`/`PresentationDetent`
+// and `.presentationBackground`/`.glassEffect()` are `@available(watchOS,
+// unavailable)` — watch sheets present full-screen with system chrome, so those
+// modifiers are skipped on watch. See watch-facade-bucket-audit.md.
 @objc(APSKSheetFacade)
 public class SheetFacade: NSObject {
     @objc public static func makeSheet(
@@ -168,7 +171,10 @@ public class SheetFacade: NSObject {
     ) -> AnyView {
         guard !overrides.detents.isEmpty else { return v }
         if #available(iOS 16.0, macOS 13.0, *) {
-            #if canImport(UIKit)
+            // `PresentationDetent` / `.presentationDetents` are unavailable on
+            // watchOS (sheets present full-screen there); `canImport(UIKit)` is
+            // true on watch, so the `!os(watchOS)` guard is required.
+            #if canImport(UIKit) && !os(watchOS)
             let detents: [PresentationDetent] = overrides.detents.compactMap { name in
                 switch name {
                 case "small":  return .height(160)
@@ -214,6 +220,12 @@ public class SheetFacade: NSObject {
     fileprivate static func applyPresentationBackground(
         _ v: AnyView, overrides: SheetOverrides
     ) -> AnyView {
+        // `.presentationBackground` / `.glassEffect()` are unavailable on watchOS;
+        // watch sheets present full-screen with system chrome, so the body is
+        // returned unmodified there.
+        #if os(watchOS)
+        return v
+        #else
         let key: String = overrides.materialSemantic ?? "sheet"
         if MaterialSemanticResolver.shouldSkipModifier(key) { return v }
         if #available(iOS 26.0, macOS 26.0, *) {
@@ -225,6 +237,7 @@ public class SheetFacade: NSObject {
             }
         }
         return v
+        #endif
     }
 }
 
@@ -394,4 +407,3 @@ private struct SheetHost: View {
         return content
     }
 }
-#endif
