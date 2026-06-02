@@ -47,7 +47,6 @@ module Voyager
       # sign-in / welcome migration. See foundational-output-and-layout-model.md
       # §"Track 2".
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.responsive(compact: 340.0, regular: 480.0)
 
       state = Voyager.state
 
@@ -64,6 +63,9 @@ module Voyager
       root.alignment = UI::Alignment::Leading
       pad_v = metrics.responsive_vertical(compact: 16.0, regular: 28.0)
       pad_h = metrics.responsive(compact: 16.0, regular: 24.0)
+      # Adaptive column width (shared helper) — clamps to the device so the todos
+      # header, chart, list and add button reflow onto the watch.
+      content_width = metrics.adaptive_content_width(compact: 340.0, regular: 480.0, horizontal_padding: pad_h)
       root.padding = UI::EdgeInsets.new(
         top: pad_v + metrics.safe_area_top_pt,
         trailing: pad_h + metrics.safe_area_trailing_pt,
@@ -435,7 +437,9 @@ module Voyager
     # the matching todo for editing.
     private def build_editor_content(state : State, editor_id : Int32) : UI::View
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.responsive(compact: 320.0, regular: 460.0)
+      # Adaptive column width (shared helper) — the inline editor's body padding is
+      # 20pt each side, so clamp to that; reflows the editor fields onto the watch.
+      content_width = metrics.adaptive_content_width(compact: 320.0, regular: 460.0, horizontal_padding: 20.0)
 
       editing = editor_id > 0 ? state.find_todo(editor_id) : nil
 

@@ -26,11 +26,13 @@ module Voyager
       # breathes. This is the axis-correct model: vertical space governs vertical
       # rhythm. Proven on macOS by capturing the same width at a tall vs short
       # height (macOS derives vertical size class from window content height).
-      content_width = metrics.responsive(compact: 340.0, regular: 400.0)
       root_spacing = metrics.responsive_vertical(compact: 12.0, regular: 24.0)
       fields_spacing = metrics.responsive_vertical(compact: 8.0, regular: 14.0)
       pad_v = metrics.responsive_vertical(compact: 20.0, regular: 48.0)
       pad_h = metrics.responsive(compact: 20.0, regular: 32.0)
+      # Adaptive column width (shared helper) — clamps to the device so the sign-in
+      # fields/button reflow onto the watch instead of overflowing its ~176pt screen.
+      content_width = metrics.adaptive_content_width(compact: 340.0, regular: 400.0, horizontal_padding: pad_h)
       wordmark_size = metrics.responsive(compact: 28.0, regular: 34.0)
 
       state = Voyager.state
