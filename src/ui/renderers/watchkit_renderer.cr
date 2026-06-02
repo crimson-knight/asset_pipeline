@@ -121,11 +121,47 @@
       end
 
       # -------------------------------------------------------------------------
+      # Core leaves wired to real facades (Button / Image / TextField).
+      # -------------------------------------------------------------------------
+      def visit(view : UI::Button)
+        o = LibSwiftKitBridge.apsk_button_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_button(o.address.to_s(16), view, sender)
+        token = 0_u64
+        if handler = view.on_tap
+          token = UI::CallbackRegistry.register_action(&handler)
+        end
+        label = view.label
+        emit(LibSwiftKitBridge.apsk_make_button(label.to_unsafe, o, token))
+      end
+
+      def visit(view : UI::Image)
+        o = LibSwiftKitBridge.apsk_image_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_image(o.address.to_s(16), view, sender)
+        src = view.source
+        emit(LibSwiftKitBridge.apsk_make_image(src.to_unsafe, o))
+      end
+
+      def visit(view : UI::TextField)
+        o = LibSwiftKitBridge.apsk_text_field_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_text_field(o.address.to_s(16), view, sender)
+        token = 0_u64
+        if wrapped = UI::FormStateRendererHook.wrap_text_handler(view)
+          token = UI::CallbackRegistry.register_string(wrapped)
+        end
+        placeholder = view.placeholder
+        text = view.text
+        emit(LibSwiftKitBridge.apsk_make_text_field(placeholder.to_unsafe, text.to_unsafe, o, token))
+      end
+
+      # -------------------------------------------------------------------------
       # Long tail — fallback placeholders (upgraded to real facades incrementally).
       # Generated for every remaining abstract visit so the renderer compiles.
       # -------------------------------------------------------------------------
       {% for t in %w(
-                    Button ZStack Image TextField ScrollView Spacer Toggle Checkbox RadioGroup
+                    ZStack ScrollView Spacer Toggle Checkbox RadioGroup
                     Slider NavigationStack NavigationLink TabView ProgressView
                     ActivityIndicator Alert Picker IconButton ListView OutlineView
                     SecureField Stepper SegmentedControl DatePicker TimePicker SearchField
