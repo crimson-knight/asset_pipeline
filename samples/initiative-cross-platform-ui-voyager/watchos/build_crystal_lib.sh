@@ -67,6 +67,13 @@ ok "swiftkit_bridge.m compiled"
     -arch arm64 -isysroot "$SDK_PATH" $MIN_FLAG -fno-objc-arc
 ok "notifications_bridge.m compiled"
 
+# Step 1c: portable AVSpeechSynthesizer bridge — the agent speaks on the wrist.
+# AVFoundation is available on watchOS; this TU imports only Foundation +
+# AVFoundation. Requires -framework AVFoundation at app link (see project.yml).
+"$CLANG" -c "$PROJECT_ROOT/src/ui/native/speech_bridge.m" -o "$BUILD_DIR/speech_bridge_watch.o" \
+    -arch arm64 -isysroot "$SDK_PATH" $MIN_FLAG -fno-objc-arc
+ok "speech_bridge.m compiled"
+
 SWIFTKIT_PACKAGE_DIR="$PROJECT_ROOT/swift/AssetPipelineSwiftKit"
 # SwiftPM normalizes the triple for its .build dir (drops the OS version):
 # --triple arm64-apple-watchos10.0-simulator -> .build/arm64-apple-watchos-simulator
@@ -94,5 +101,5 @@ mv "$BUILD_DIR/bridge_fixed.o" "$BRIDGE_BASE.o"
 # Step 5: pack into a static library (bridge + SwiftKit trampolines +
 # notifications bridge; no objc_bridge).
 ar rcs "$OUTPUT_LIB" "$BRIDGE_BASE.o" "$BUILD_DIR/swiftkit_bridge_watch.o" \
-    "$BUILD_DIR/notifications_bridge_watch.o"
+    "$BUILD_DIR/notifications_bridge_watch.o" "$BUILD_DIR/speech_bridge_watch.o"
 ok "Static library: $OUTPUT_LIB"

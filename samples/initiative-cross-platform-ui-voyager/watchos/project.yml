@@ -45,6 +45,10 @@ targets:
         # can schedule a real local notification on the wrist.
         - -framework
         - UserNotifications
+        # UI::Speech on watchOS uses AVSpeechSynthesizer via speech_bridge.m —
+        # the agent reads its reply aloud on the wrist.
+        - -framework
+        - AVFoundation
     info:
       path: Sources/Info.plist
       properties:

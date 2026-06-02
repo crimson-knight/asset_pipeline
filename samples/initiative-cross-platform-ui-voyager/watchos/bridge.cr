@@ -192,6 +192,20 @@
       Voyager.dispatch(:save_checkin)
       UI::Notifications.pending_count
     end
+
+    # Speak a phrase via UI::Speech (AVSpeechSynthesizer) — the same call the
+    # AgentChatController makes when the agent replies. Speech starts
+    # asynchronously, so the caller checks `speaking` after a beat.
+    def self.test_speak : Nil
+      initialize_runtime
+      UI::Speech.speak("Hello — this is your agent, speaking from your wrist.")
+    end
+
+    # 1 while the synthesizer is actively speaking — the honest runtime proof that
+    # TTS started on the watch (audio session + AVSpeechSynthesizer working).
+    def self.speaking : Int32
+      UI::Speech.speaking? ? 1 : 0
+    end
   end
 
   fun voyager_watch_render : Void*
@@ -212,5 +226,13 @@
 
   fun voyager_watch_test_notif : Int32
     VoyagerWatchBridge.test_notif
+  end
+
+  fun voyager_watch_test_speak : Void
+    VoyagerWatchBridge.test_speak
+  end
+
+  fun voyager_watch_speaking : Int32
+    VoyagerWatchBridge.speaking
   end
 {% end %}

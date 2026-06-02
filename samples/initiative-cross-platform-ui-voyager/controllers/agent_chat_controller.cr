@@ -20,6 +20,13 @@ module Voyager
       return UI::ActionResult::Rerender.new if text.empty?
       Voyager.state.send_chat_message(text)
       context.form_state.update("chat_message", "")
+      # Voice: the agent reads its reply aloud via UI::Speech (AVSpeechSynthesizer),
+      # cohesively on macOS / iOS / watchOS — the OUTPUT half of a wrist voice
+      # conversation (dictation input is native to the compose TextField). The
+      # last appended message is the agent's reply. No-op on web.
+      if reply = Voyager.state.chat_messages.last?
+        UI::Speech.speak(reply.text) if reply.is_agent
+      end
       UI::ActionResult::Rerender.new
     end
   end

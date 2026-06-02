@@ -38,6 +38,7 @@ require "./ui/status_bar"
 require "./ui/platform_visitor"
 require "./ui/theme"
 require "./ui/notifications"
+require "./ui/speech"
 require "./ui/renderers/web_renderer"
 
 # Reactive state and component bridge

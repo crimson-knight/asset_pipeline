@@ -61,6 +61,21 @@ struct ContentView: View {
             maybeAutoSend()
             maybeAutoNav()
             maybeAutoNotif()
+            maybeAutoSpeak()
+        }
+    }
+
+    // Verification hook: with VOYAGER_WATCH_TEST_SPEAK=1, speak a phrase via
+    // UI::Speech (AVSpeechSynthesizer) and, after a beat (speech starts async),
+    // log whether the synthesizer is actually speaking — the honest runtime proof
+    // that TTS works on the wrist. No-op in normal use.
+    private func maybeAutoSpeak() {
+        guard ProcessInfo.processInfo.environment["VOYAGER_WATCH_TEST_SPEAK"] == "1" else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            voyager_watch_test_speak()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                NSLog("VOYAGER_SPEAK_RESULT speaking=\(voyager_watch_speaking())")
+            }
         }
     }
 

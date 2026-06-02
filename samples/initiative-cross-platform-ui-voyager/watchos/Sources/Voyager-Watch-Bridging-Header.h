@@ -34,4 +34,11 @@ void voyager_watch_test_nav(void);
 // (which has no XCUITest). Bootstrap at :voyager-check-in.
 int voyager_watch_test_notif(void);
 
+// Speak a phrase via UI::Speech (AVSpeechSynthesizer) on the wrist, and query
+// whether the synthesizer is actively speaking — the honest runtime proof that
+// text-to-speech works on watchOS. Speech is async: call _test_speak, then check
+// _speaking after a short delay.
+void voyager_watch_test_speak(void);
+int voyager_watch_speaking(void);
+
 #endif /* VOYAGER_WATCH_BRIDGING_HEADER_H */

@@ -33,3 +33,24 @@ with no permission dialog and no user tap, with quiet delivery to Notification
 Center. `save_checkin` requests it before scheduling, so the reminder works on the
 wrist with zero nag. `watchos-checkin-provisional-clean.png` shows the check-in
 screen after a provisional-auth save — no permission prompt.
+
+## Voice — the agent speaks (UI::Speech / AVSpeechSynthesizer)
+
+The OUTPUT half of a wrist voice conversation (dictation input is native to the
+compose TextField). `UI::Speech.speak(text)` reads the agent's reply aloud via
+AVSpeechSynthesizer, cohesively on macOS / iOS / watchOS. The AgentChatController
+calls it after appending the agent's reply, so on every Send the agent talks back.
+
+- macOS / iOS: `ap_speech_*` in objc_bridge.m (AVFoundation already linked).
+- watchOS: portable `src/ui/native/speech_bridge.m` (Foundation + AVFoundation),
+  compiled into libvoyagerwatch.a, linked with `-framework AVFoundation`. Activates
+  an AVAudioSession (playback, spoken-audio, duck-others) — required on watchOS.
+
+Verified on the watch sim via `VOYAGER_WATCH_TEST_SPEAK=1` → `voyager_watch_test_speak()`
+speaks, then `voyager_watch_speaking()` is logged after a beat (speech is async):
+
+    VOYAGER_SPEAK_RESULT speaking=1
+
+i.e. AVSpeechSynthesizer is ACTIVELY speaking on the watch — honest runtime proof,
+not just "enqueued". iOS builds clean and the AgentChat send path (which now calls
+speak) passes AgentChatNavTests with no regression; macOS objc_bridge.m compiles.

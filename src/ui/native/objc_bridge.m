@@ -2692,6 +2692,61 @@ int ap_notifications_has_pending(const char *identifier_cstr) {
     return found;
 }
 
+// ============================================================
+// Text-to-speech (AVSpeechSynthesizer) — the agent SPEAKS.
+// Portable twin lives in speech_bridge.m for watchOS (this file isn't compiled
+// there). See UI::Speech.
+// ============================================================
+
+static AVSpeechSynthesizer *ap_speech_synth(void) {
+    static AVSpeechSynthesizer *synth = nil;
+    if (!synth) synth = [[AVSpeechSynthesizer alloc] init];
+    return synth;
+}
+
+int ap_speech_speak(const char *text_cstr, double rate, double pitch, double volume, const char *lang_cstr) {
+    NSString *text = ap_string_from_cstr(text_cstr);
+    if (!text || !text.length) return 0;
+
+    AVSpeechSynthesizer *synth = ap_speech_synth();
+    if (!synth) return 0;
+
+#if !TARGET_OS_OSX
+    // iOS needs an active playback audio session; macOS has no AVAudioSession.
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    if (session) {
+        [session setCategory:AVAudioSessionCategoryPlayback
+                        mode:AVAudioSessionModeSpokenAudio
+                     options:AVAudioSessionCategoryOptionDuckOthers
+                       error:nil];
+        [session setActive:YES error:nil];
+    }
+#endif
+
+    AVSpeechUtterance *utt = [AVSpeechUtterance speechUtteranceWithString:text];
+    utt.rate = (float)rate;
+    utt.pitchMultiplier = (float)pitch;
+    utt.volume = (float)volume;
+    NSString *lang = ap_string_from_cstr(lang_cstr);
+    if (lang && lang.length) {
+        AVSpeechSynthesisVoice *voice = [AVSpeechSynthesisVoice voiceWithLanguage:lang];
+        if (voice) utt.voice = voice;
+    }
+
+    [synth speakUtterance:utt];
+    return 1; // enqueued; speech starts asynchronously — caller queries is_speaking
+}
+
+void ap_speech_stop(void) {
+    AVSpeechSynthesizer *synth = ap_speech_synth();
+    [synth stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+}
+
+int ap_speech_is_speaking(void) {
+    AVSpeechSynthesizer *synth = ap_speech_synth();
+    return synth.isSpeaking ? 1 : 0;
+}
+
 void ap_free_c_string(char *payload) {
     if (payload) free(payload);
 }
