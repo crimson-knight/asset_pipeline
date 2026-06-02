@@ -84,42 +84,25 @@ module Voyager
       title = UI::Label.new("Todos")
       title.font = UI::Font.new(size: metrics.responsive(compact: 26.0, regular: 30.0), weight: :bold)
       title.text_color_role = UI::LabelRole::Primary
+      # The title is the row's flexible element (fill_horizontal) instead of pairing it
+      # with a greedy Spacer: a Spacer expands and COMPRESSES the title below its
+      # intrinsic width, wrapping "Todos" to two lines. As the grow element the title
+      # keeps (and exceeds) its intrinsic width, pushing the icon toolbar to the trailing
+      # edge — no wrap. (Harmless on the watch column: it just fills the column width.)
+      title.fill_horizontal = true
 
-      spacer = UI::Spacer.new
-
-      # Phase 10D-refocus — Print toolbar button (top-right). Fires
-      # Class C :print intent. We render it inline in the header rather
-      # than via UI::Toolbar so it composes with the rest of the screen
-      # chrome without requiring a NavigationStack root.
-      print_btn = UI::Button.new("Print")
-      print_btn.role = :secondary
-      print_btn.accessibility_label = "Print todo list"
-      print_btn.test_id = "voyager-todos-print"
-      print_btn.on_tap = -> { Voyager.dispatch(:print_list) }
-
-      # Phase 10D-polish B5 — overflow "•••" button. Tapping toggles
-      # `state.show_overflow_menu`; the screen renders a `UI::Popover`
-      # anchored under the button with the options Sort by deadline /
-      # Hide completed / Clear all completed.
-      overflow_btn = UI::Button.new("•••")
-      overflow_btn.role = :secondary
-      overflow_btn.accessibility_label = "More actions"
-      overflow_btn.test_id = "voyager-todos-overflow"
-      overflow_btn.on_tap = -> { Voyager.dispatch(:show_overflow) }
-
-      settings_btn = UI::Button.new("Settings")
-      settings_btn.role = :secondary
-      settings_btn.accessibility_label = "Settings"
-      settings_btn.test_id = "voyager-todos-settings"
-      settings_btn.on_tap = -> { Voyager.dispatch(:open_settings) }
-
-      # Entry point to the cross-platform Agent Chat surface (same screen the
-      # watch app renders) — makes it reachable in the live navigable app.
-      agent_btn = UI::Button.new("Agent")
-      agent_btn.role = :secondary
-      agent_btn.accessibility_label = "Open agent chat"
-      agent_btn.test_id = "voyager-todos-agent"
-      agent_btn.on_tap = -> { Voyager.dispatch(:open_agent_chat) }
+      # The header actions, defined once as data so the same set renders two ways:
+      # a compact SF-Symbol toolbar on phone/desktop (idiomatic + fits the width) and a
+      # stacked column of full-width TEXT buttons on the watch (readable when stacked —
+      # an icon-only button is ambiguous as a wrist list row). Agent opens the shared
+      # cross-platform chat; the rest fire their existing dispatches. test_ids are
+      # preserved so the XCUITest suite (voyager-todos-agent, …) still resolves them.
+      actions = [
+        {label: "Agent", icon: "bubble.left.fill", tid: "voyager-todos-agent", act: :open_agent_chat},
+        {label: "Print", icon: "printer.fill", tid: "voyager-todos-print", act: :print_list},
+        {label: "More", icon: "ellipsis.circle", tid: "voyager-todos-overflow", act: :show_overflow},
+        {label: "Settings", icon: "gearshape.fill", tid: "voyager-todos-settings", act: :open_settings},
+      ]
 
       # Build the header in its reflowed form. Each branch fully configures a concrete
       # stack and yields a UI::View, so we never call stack-only methods (<<, alignment=)
@@ -132,25 +115,39 @@ module Voyager
           col.minimum_width = content_width
           col.maximum_width = content_width
           col << title.as(UI::View)
-          [agent_btn, print_btn, overflow_btn, settings_btn].each do |btn|
+          actions.each do |a|
+            btn = UI::Button.new(a[:label])
+            btn.role = :secondary
+            btn.accessibility_label = a[:label]
+            btn.test_id = a[:tid]
+            btn.on_tap = -> { Voyager.dispatch(a[:act]) }
             btn.minimum_width = content_width
             btn.maximum_width = content_width
             col << btn.as(UI::View)
           end
           col.as(UI::View)
         else
-          # Phone/desktop: title left, actions right of a flexible spacer.
-          row = UI::HStack.new(spacing: 8.0)
-          row.alignment = UI::Alignment::Center
-          row.minimum_width = content_width
-          row.maximum_width = content_width
-          row << title.as(UI::View)
-          row << spacer.as(UI::View)
-          row << agent_btn.as(UI::View)
-          row << print_btn.as(UI::View)
-          row << overflow_btn.as(UI::View)
-          row << settings_btn.as(UI::View)
-          row.as(UI::View)
+          # Phone/desktop: a large title on its OWN line, with an SF-Symbol toolbar row
+          # beneath it. Keeping the title on its own line gives it the full column width
+          # so it can never be compressed/wrapped by the action row beside it (an inline
+          # title + 4 controls fought for width and "Todos" wrapped). The icon row sits
+          # leading under the title — a clean large-title + toolbar layout.
+          outer = UI::VStack.new(spacing: 8.0)
+          outer.alignment = UI::Alignment::Leading
+          outer.minimum_width = content_width
+          outer.maximum_width = content_width
+          outer << title.as(UI::View)
+          icon_row = UI::HStack.new(spacing: 18.0)
+          icon_row.alignment = UI::Alignment::Center
+          actions.each do |a|
+            btn = UI::IconButton.new(a[:icon])
+            btn.accessibility_label = a[:label]
+            btn.test_id = a[:tid]
+            btn.on_tap = -> { Voyager.dispatch(a[:act]) }
+            icon_row << btn.as(UI::View)
+          end
+          outer << icon_row.as(UI::View)
+          outer.as(UI::View)
         end
 
       chart_row = UI::HStack.new(spacing: 16.0)
