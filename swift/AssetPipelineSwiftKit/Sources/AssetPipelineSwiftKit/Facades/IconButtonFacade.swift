@@ -25,7 +25,19 @@ public class IconButtonFacade: NSObject {
                 Label(lbl, systemImage: icon)
             })
         } else {
-            content = AnyView(Button(action: action) { symbol })
+            // Icon-only button. Give the label an explicit, HIG-minimum (44pt)
+            // tappable frame + a content shape. Without an explicit size, an
+            // icon-only SwiftUI Button can report an ambiguous/zero intrinsic
+            // content size, which crashes the iOS UIHostingController constraint
+            // solver (hosted with sizingOptions [.intrinsicContentSize]); macOS
+            // NSHostingView tolerates it. The explicit frame fixes the iOS crash
+            // and is also the correct minimum hit target.
+            let tap = max(size + 16, 44)
+            content = AnyView(Button(action: action) {
+                symbol
+                    .frame(minWidth: tap, minHeight: tap)
+                    .contentShape(Rectangle())
+            })
         }
 
         if let disabled = overrides.disabled, disabled.boolValue {

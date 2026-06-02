@@ -57,12 +57,7 @@ module Voyager
       # spreading evenly down a tall window.
       root << UI::Spacer.new.as(UI::View)
 
-      # Compose row: a TextField to type a reply + a Send button.
-      # NOTE: a paperplane UI::IconButton was the first choice (and renders on macOS
-      # + watch), but UI::IconButton SIGSEGVs on the iOS UIKit render path
-      # (apsk_make_icon_button / IconButtonFacade) — a framework bug recorded for a
-      # dedicated fix. A plain UI::Button works on every platform, so the shared
-      # cross-platform screen uses it.
+      # Compose row: a TextField to type a reply + a paperplane send IconButton.
       compose = UI::HStack.new(spacing: 8.0)
       compose.alignment = UI::Alignment::Center
       compose.minimum_width = content_width
@@ -74,8 +69,7 @@ module Voyager
       field.minimum_width = content_width - 52.0
       field.maximum_width = content_width - 52.0
 
-      send = UI::Button.new("Send")
-      send.role = :primary
+      send = UI::IconButton.new("paperplane.fill")
       send.accessibility_label = "Send message"
       send.test_id = "voyager-agent-chat-send"
       send.on_tap = -> { Voyager.dispatch(:send_message) }
