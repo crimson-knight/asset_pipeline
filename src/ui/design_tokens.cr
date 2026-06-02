@@ -1284,6 +1284,18 @@ module UI
         available = content_width_pt - 2.0 * horizontal_padding
         available > 0 ? Math.min(preferred, available) : preferred
       end
+
+      # `true` when the canvas is too narrow to lay out a multi-item horizontal row
+      # side-by-side — e.g. an Apple Watch (~176pt) vs a phone (~390pt+). Authors branch
+      # on this to REFLOW chrome that is a row of buttons/controls on wide screens into a
+      # stacked column on the watch (a width clamp can shrink a column but cannot fit a
+      # 4-button toolbar into 176pt — the buttons just squeeze to unreadable slivers).
+      # The default threshold (280pt) sits between the widest watch and the narrowest
+      # phone; pass `below:` to tune per row. Pairs with `adaptive_content_width`: the
+      # latter sizes a column, this one decides whether a row should BECOME a column.
+      def compact_canvas?(below : Float64 = 280.0) : Bool
+        content_width_pt < below
+      end
     end
 
     # Apple-style size class.

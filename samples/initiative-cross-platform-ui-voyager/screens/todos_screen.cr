@@ -75,10 +75,11 @@ module Voyager
       root.accessibility_label = "Voyager todos screen"
       root.test_id = "voyager-todos-root"
 
-      header = UI::HStack.new(spacing: 8.0)
-      header.alignment = UI::Alignment::Center
-      header.minimum_width = content_width
-      header.maximum_width = content_width
+      # The header REFLOWS (built below, once the buttons exist): a single inline row
+      # (title + action buttons) on phone/desktop, but a stacked column on a narrow
+      # canvas (watch) — four side-by-side buttons can't fit 176pt, they'd squeeze to
+      # unreadable 1-char strips. compact_canvas? is the shared signal.
+      stacked_header = metrics.compact_canvas?
 
       title = UI::Label.new("Todos")
       title.font = UI::Font.new(size: metrics.responsive(compact: 26.0, regular: 30.0), weight: :bold)
@@ -120,12 +121,37 @@ module Voyager
       agent_btn.test_id = "voyager-todos-agent"
       agent_btn.on_tap = -> { Voyager.dispatch(:open_agent_chat) }
 
-      header << title.as(UI::View)
-      header << spacer.as(UI::View)
-      header << agent_btn.as(UI::View)
-      header << print_btn.as(UI::View)
-      header << overflow_btn.as(UI::View)
-      header << settings_btn.as(UI::View)
+      # Build the header in its reflowed form. Each branch fully configures a concrete
+      # stack and yields a UI::View, so we never call stack-only methods (<<, alignment=)
+      # on a widened type.
+      header =
+        if stacked_header
+          # Watch: title on its own line, then each action full-width and readable.
+          col = UI::VStack.new(spacing: 6.0)
+          col.alignment = UI::Alignment::Leading
+          col.minimum_width = content_width
+          col.maximum_width = content_width
+          col << title.as(UI::View)
+          [agent_btn, print_btn, overflow_btn, settings_btn].each do |btn|
+            btn.minimum_width = content_width
+            btn.maximum_width = content_width
+            col << btn.as(UI::View)
+          end
+          col.as(UI::View)
+        else
+          # Phone/desktop: title left, actions right of a flexible spacer.
+          row = UI::HStack.new(spacing: 8.0)
+          row.alignment = UI::Alignment::Center
+          row.minimum_width = content_width
+          row.maximum_width = content_width
+          row << title.as(UI::View)
+          row << spacer.as(UI::View)
+          row << agent_btn.as(UI::View)
+          row << print_btn.as(UI::View)
+          row << overflow_btn.as(UI::View)
+          row << settings_btn.as(UI::View)
+          row.as(UI::View)
+        end
 
       chart_row = UI::HStack.new(spacing: 16.0)
       chart_row.alignment = UI::Alignment::Center
