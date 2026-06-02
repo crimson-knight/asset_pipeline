@@ -11,7 +11,7 @@ module Voyager
       when :set_goal        then set_goal(context)
       when :set_focus       then set_focus(context)
       when :toggle_reminder then toggle_reminder(context)
-      when :save_checkin    then UI::ActionResult::Pop.new
+      when :save_checkin    then save_checkin(context)
       when :back            then UI::ActionResult::Pop.new
       else
         raise UI::Controller::UnknownActionError.new(
@@ -43,6 +43,57 @@ module Voyager
 
     def toggle_reminder(context : UI::ScreenContext::Native) : UI::ActionResult
       Voyager.state.checkin_reminder = !Voyager.state.checkin_reminder
+      UI::ActionResult::Rerender.new
+    end
+
+    # Stable identifier for the recurring daily check-in notification, so a
+    # re-save updates (rather than duplicates) the request and a toggle-off can
+    # remove exactly this one. A method, not a class constant (the iOS class-init
+    # gap can skip constant initializers — see State.checkin_focuses).
+    private def reminder_identifier : String
+      "voyager-daily-checkin"
+    end
+
+    # Save the check-in. This is where the Happy Coach vision starts: the agent
+    # can actually REACH you. If the reminder is on we schedule a real recurring
+    # local notification through the kit's UI::Notifications facade (the host
+    # already requested notification authorization at first launch); if it's off
+    # we cancel it. We then record the REAL outcome (queried back from the
+    # system's pending queue) into state.checkin_status — an honest functional
+    # signal (the request genuinely landed), not a synthetic "saved" flag. The
+    # screen rebuilds (Rerender) and shows the confirmation; Back navigates away.
+    def save_checkin(context : UI::ScreenContext::Native) : UI::ActionResult
+      state = Voyager.state
+      focuses = Voyager::State.checkin_focuses
+      focus = focuses[state.checkin_focus_index]? || focuses.first
+
+      if state.checkin_reminder
+        request = UI::NotificationRequest.new(
+          title: "Daily Check-in",
+          body: "Time for your check-in with your agent. How's your #{focus.downcase} today?",
+          identifier: reminder_identifier,
+          subtitle: "Mood goal: feel a little better than yesterday",
+          delay_seconds: 60.0, # min cadence for a repeating trigger
+          repeats: true,
+          sound: true,
+          thread_id: "voyager-coach",
+        )
+        scheduled = UI::Notifications.schedule(request)
+        landed = UI::Notifications.has_pending?(reminder_identifier)
+        pending = UI::Notifications.pending_count
+        state.checkin_status =
+          if scheduled && landed
+            "✓ Reminder scheduled — your agent will check in (#{pending} pending)"
+          else
+            "Reminder could not be scheduled on this device"
+          end
+      else
+        UI::Notifications.remove_pending(reminder_identifier)
+        still = UI::Notifications.has_pending?(reminder_identifier)
+        state.checkin_status =
+          still ? "Reminder could not be cleared" : "Reminder off — no check-in scheduled"
+      end
+
       UI::ActionResult::Rerender.new
     end
   end

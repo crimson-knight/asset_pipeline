@@ -2644,6 +2644,52 @@ void ap_notifications_remove_all_pending(void) {
     [center removeAllPendingNotificationRequests];
 }
 
+// Returns the number of notification requests currently pending delivery.
+// Pending requests are tracked by the system independently of authorization
+// (authorization gates DELIVERY, not scheduling), so this is an honest signal
+// that `ap_notifications_schedule_local` actually landed a request — usable as
+// a functional-outcome assertion in tests without needing to observe a
+// delivered banner. Synchronous via a semaphore, like the sibling calls.
+int ap_notifications_pending_count(void) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return -1;
+
+    __block int count = -1;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    [center getPendingNotificationRequestsWithCompletionHandler:^(NSArray<UNNotificationRequest *> *requests) {
+        count = requests ? (int)requests.count : 0;
+        dispatch_semaphore_signal(sema);
+    }];
+
+    dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC));
+    dispatch_semaphore_wait(sema, timeout);
+    return count;
+}
+
+// Returns 1 when a pending notification request with the given identifier
+// exists, 0 when not, -1 when the center is unavailable. Lets a caller assert
+// that ITS specific notification (not just "some notification") is scheduled.
+int ap_notifications_has_pending(const char *identifier_cstr) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return -1;
+
+    NSString *identifier = ap_string_from_cstr(identifier_cstr);
+    if (!identifier || !identifier.length) return 0;
+
+    __block int found = 0;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    [center getPendingNotificationRequestsWithCompletionHandler:^(NSArray<UNNotificationRequest *> *requests) {
+        for (UNNotificationRequest *req in requests) {
+            if ([req.identifier isEqualToString:identifier]) { found = 1; break; }
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC));
+    dispatch_semaphore_wait(sema, timeout);
+    return found;
+}
+
 void ap_free_c_string(char *payload) {
     if (payload) free(payload);
 }

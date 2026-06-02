@@ -592,6 +592,8 @@ module UI
         fun ap_notifications_schedule_local(identifier : UInt8*, title : UInt8*, subtitle : UInt8*, body : UInt8*, delay_seconds : Float64, badge : Int32, play_sound : Int32, repeats : Int32, thread_id : UInt8*) : Int32
         fun ap_notifications_remove_pending(identifier : UInt8*) : Void
         fun ap_notifications_remove_all_pending : Void
+        fun ap_notifications_pending_count : Int32
+        fun ap_notifications_has_pending(identifier : UInt8*) : Int32
       end
     {% end %}
 
@@ -658,6 +660,32 @@ module UI
     def remove_all_pending : Nil
       {% if flag?(:macos) || flag?(:ios) %}
         LibObjCBridge.ap_notifications_remove_all_pending
+      {% end %}
+    end
+
+    # Number of notification requests currently pending delivery. Pending
+    # requests are tracked independently of authorization (auth gates
+    # delivery, not scheduling), so a count increase is an honest signal that
+    # `schedule` actually landed a request — usable as a functional-outcome
+    # assertion without observing a delivered banner. Returns -1 when the
+    # notification center is unavailable, 0 on non-Apple targets.
+    def pending_count : Int32
+      {% if flag?(:macos) || flag?(:ios) %}
+        LibObjCBridge.ap_notifications_pending_count
+      {% else %}
+        0
+      {% end %}
+    end
+
+    # True when a pending notification with `identifier` exists — lets a caller
+    # assert that ITS specific notification is scheduled, not merely that some
+    # notification is. False on non-Apple targets / when the center is
+    # unavailable.
+    def has_pending?(identifier : String) : Bool
+      {% if flag?(:macos) || flag?(:ios) %}
+        LibObjCBridge.ap_notifications_has_pending(identifier.to_unsafe) == 1
+      {% else %}
+        false
       {% end %}
     end
 

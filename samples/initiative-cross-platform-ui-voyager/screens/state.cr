@@ -53,6 +53,11 @@ module Voyager
     property checkin_goal : Int32 = 5        # daily task goal, via Stepper
     property checkin_reminder : Bool = true  # remind tomorrow, via Toggle
     property checkin_focus_index : Int32 = 0 # focus area, via Picker (see .checkin_focuses)
+    # Feedback line shown after Save: reflects the REAL outcome of scheduling /
+    # cancelling the daily check-in local notification (see CheckInController#save_checkin).
+    # Empty until the user saves. Honest signal — derived from UI::Notifications
+    # pending state, not a synthetic "saved" flag.
+    property checkin_status : String = ""
 
     # Coaching focus areas offered by the check-in Picker. A METHOD, not a constant: a
     # class-level `CHECKIN_FOCUSES = [...]` array literal is NOT reliably initialized on

@@ -50,6 +50,25 @@ module Voyager
       summary_card.test_id = "voyager-check-in-summary"
       root << summary_card.as(UI::View)
 
+      # Save outcome — the live confirmation of the real notification schedule.
+      # Only shown once the user has saved (status non-empty). Its text is set by
+      # CheckInController#save_checkin from the system's actual pending-queue
+      # state, so it's an honest readout, not a synthetic flag.
+      unless state.checkin_status.empty?
+        status = UI::Label.new(state.checkin_status)
+        status.text_color_role = UI::LabelRole::Secondary
+        status.font = UI::Font.new(size: metrics.responsive(compact: 13.0, regular: 14.0), weight: :semibold)
+        status.minimum_width = content_width
+        status.maximum_width = content_width
+        status.preferred_max_layout_width = content_width
+        status.test_id = "voyager-check-in-status"
+        # No explicit accessibility_label: a status READOUT's text *is* its
+        # natural label, so VoiceOver should read the live text — and an override
+        # would also mask the text from XCUITest's `.label` (it reads a11y label
+        # over content). The test_id (accessibilityIdentifier) handles lookup.
+        root << status.as(UI::View)
+      end
+
       # Mood — Slider 0..10.
       mood_label = UI::Label.new("Mood: #{state.checkin_mood}")
       mood_label.maximum_width = content_width
