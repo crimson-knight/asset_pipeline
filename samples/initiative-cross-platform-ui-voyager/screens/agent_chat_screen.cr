@@ -11,14 +11,18 @@ module Voyager
   class AgentChatScreen < UI::Screen
     SLUG = "voyager-agent-chat"
 
-    # (text, is_agent?) — agent messages lead-align, the user's replies trail-align.
-    MESSAGES = [
-      {"Morning! Your first meeting moved to 10:00.", true},
-      {"Thanks — remind me at 9:45", false},
-      {"Done. I'll buzz your wrist at 9:45.", true},
-    ]
-
     def build(context : UI::ScreenContext) : UI::View
+      # (text, is_agent?) — agent messages lead-align, the user's replies trail-align.
+      # Built INLINE (not a class-level constant): the iOS embedding skips class-var /
+      # constant initializers (the class-init gap), so a class constant here SIGSEGVs
+      # in build on iOS even though it renders on macOS. Every other Voyager screen
+      # builds its arrays inline for the same reason.
+      messages = [
+        {"Morning! Your first meeting moved to 10:00.", true},
+        {"Thanks — remind me at 9:45", false},
+        {"Done. I'll buzz your wrist at 9:45.", true},
+      ]
+
       metrics = UI::DesignTokens::DeviceMetrics.current
       content_width = metrics.responsive(compact: 340.0, regular: 460.0)
       bubble_w = content_width - 64.0
@@ -43,7 +47,7 @@ module Voyager
       title.maximum_width = content_width
       root << title.as(UI::View)
 
-      MESSAGES.each_with_index do |msg, i|
+      messages.each_with_index do |msg, i|
         text, is_agent = msg
         root << bubble_row(text, is_agent, content_width, bubble_w, i)
       end
@@ -53,7 +57,12 @@ module Voyager
       # spreading evenly down a tall window.
       root << UI::Spacer.new.as(UI::View)
 
-      # Compose row: a TextField to type a reply + a paperplane send IconButton.
+      # Compose row: a TextField to type a reply + a Send button.
+      # NOTE: a paperplane UI::IconButton was the first choice (and renders on macOS
+      # + watch), but UI::IconButton SIGSEGVs on the iOS UIKit render path
+      # (apsk_make_icon_button / IconButtonFacade) — a framework bug recorded for a
+      # dedicated fix. A plain UI::Button works on every platform, so the shared
+      # cross-platform screen uses it.
       compose = UI::HStack.new(spacing: 8.0)
       compose.alignment = UI::Alignment::Center
       compose.minimum_width = content_width
@@ -65,7 +74,8 @@ module Voyager
       field.minimum_width = content_width - 52.0
       field.maximum_width = content_width - 52.0
 
-      send = UI::IconButton.new("paperplane.fill")
+      send = UI::Button.new("Send")
+      send.role = :primary
       send.accessibility_label = "Send message"
       send.test_id = "voyager-agent-chat-send"
       send.on_tap = -> { Voyager.dispatch(:send_message) }
