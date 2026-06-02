@@ -191,18 +191,13 @@
         emit(ptr)
       end
 
-      def visit(view : UI::GlassBackground)
-        o = LibSwiftKitBridge.apsk_glass_background_overrides_new
-        sender = UI::Native::SwiftKitObjCSender.new(o)
-        UI::Native::Populator.populate_glass_background(o.address.to_s(16), view, sender, apple_step: view.material)
-        child_ptr = Pointer(Void).null
-        if content = view.content
-          if nv = render_child(content)
-            child_ptr = nv.handle.ptr!
-          end
-        end
-        emit(LibSwiftKitBridge.apsk_make_glass_background(o, child_ptr))
-      end
+      # NOTE: GlassBackground + SegmentedControl are deliberately NOT wired here —
+      # their @objc facade classes live inside `#if !os(watchOS)` (whole-class gate),
+      # so they do not exist on watchOS (Bucket 3, no honest watch analog). Calling
+      # apsk_make_* for them would hit objc_getClass(nil) → crash. They route through
+      # the fallback macro below. The authoritative rule when promoting a fallback:
+      # only wire a facade whose `@objc(...)` line sits OUTSIDE any whole-class
+      # `#if !os(watchOS)` guard (inner per-modifier guards are fine).
 
       def visit(view : UI::Divider)
         o = LibSwiftKitBridge.apsk_divider_overrides_new
@@ -268,6 +263,41 @@
         emit(LibSwiftKitBridge.apsk_make_icon_button(view.icon.to_unsafe, o, token))
       end
 
+      # SecureField — mirrors TextField; register on the STRING channel so the real
+      # typed cleartext reaches FormState (the numeric-channel bug dropped passwords).
+      def visit(view : UI::SecureField)
+        o = LibSwiftKitBridge.apsk_secure_field_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_secure_field(o.address.to_s(16), view, sender)
+        token = 0_u64
+        if wrapped = UI::FormStateRendererHook.wrap_secure_handler(view)
+          token = UI::CallbackRegistry.register_string(wrapped)
+        end
+        emit(LibSwiftKitBridge.apsk_make_secure_field(view.placeholder.to_unsafe, view.text.to_unsafe, o, token))
+      end
+
+      def visit(view : UI::Picker)
+        o = LibSwiftKitBridge.apsk_picker_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_picker(o.address.to_s(16), view, sender)
+        token = 0_u64
+        if handler = view.on_change
+          token = UI::CallbackRegistry.register_action_with_value { |v| handler.call(v.to_i32) }
+        end
+        buf = string_buffer(view.options)
+        emit(LibSwiftKitBridge.apsk_make_picker(
+          view.label.to_unsafe, buf.as(Void*), view.options.size.to_i32,
+          view.selected_index.to_i32, o, token))
+      end
+
+      # Pack a String array into a UInt8** buffer for the option facade.
+      private def string_buffer(strings : Array(String)) : Pointer(UInt8*)
+        size = strings.size == 0 ? 1_u64 : strings.size.to_u64
+        buf = Pointer(UInt8*).malloc(size)
+        strings.each_with_index { |s, i| buf[i] = s.to_unsafe }
+        buf
+      end
+
       # -------------------------------------------------------------------------
       # Long tail — fallback placeholders (upgraded to real facades incrementally).
       # Generated for every remaining abstract visit so the renderer compiles.
@@ -275,8 +305,8 @@
       {% for t in %w(
                     ZStack ScrollView Checkbox RadioGroup
                     NavigationStack NavigationLink TabView ProgressView
-                    ActivityIndicator Alert Picker ListView OutlineView
-                    SecureField SegmentedControl DatePicker TimePicker SearchField
+                    ActivityIndicator Alert ListView OutlineView
+                    DatePicker TimePicker SearchField SegmentedControl GlassBackground
                     TextArea Grid Form NavigationSplitView Toolbar Sheet Popover
                     ConfirmationDialog Snackbar
                     AsyncImage RichText LinkButton MenuButton ContextMenu ToggleButton

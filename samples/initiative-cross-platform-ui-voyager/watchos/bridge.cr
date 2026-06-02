@@ -57,6 +57,15 @@
       # single watch screen for a deterministic capture.
       root << bubble("10:00 confirmed")
 
+      # A Picker — exercises the string-array buffer facade path on watch
+      # (PickerFacade's @objc class is available on watchOS; SegmentedControl/
+      # GlassBackground are NOT — their classes are #if !os(watchOS)-gated).
+      picker = UI::Picker.new
+      picker.label = "Range"
+      picker.options = ["Today", "Week"]
+      picker.selected_index = 0
+      root << picker.as(UI::View)
+
       root << UI::Divider.new.as(UI::View)
 
       # A settings row: Label + Toggle (HStack), proving the control facade.
