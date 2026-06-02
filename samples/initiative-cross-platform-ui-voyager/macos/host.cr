@@ -28,6 +28,12 @@ require "../../../src/ui/renderers/appkit_renderer"
 {% if flag?(:macos) %}
   ROOT_SLUG  = ENV["VOYAGER_ROOT_SLUG"]? || ARGV[0]? || "voyager-sign-in"
   APPEARANCE = ENV["VOYAGER_APPEARANCE"]? || ENV["HIG_APPEARANCE"]? || "light"
+  # The AppKit renderer's offscreen dark-mode bake keys off HIG_APPEARANCE
+  # (appkit_renderer.cr). The host also accepts VOYAGER_APPEARANCE for the window
+  # appearance, so sync the resolved value into HIG_APPEARANCE — otherwise a
+  # VOYAGER_APPEARANCE=dark capture sets a dark window but bakes light backgrounds
+  # (white bg / invisible titles). With this, both env vars produce correct dark.
+  ENV["HIG_APPEARANCE"] = APPEARANCE
 
   # Window helper compiled into the binary at link time (see Makefile).
   lib LibWindowHelper
