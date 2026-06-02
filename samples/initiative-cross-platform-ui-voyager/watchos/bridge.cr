@@ -30,7 +30,17 @@
       @@initialized = true
     end
 
-    # Build a small Crystal-authored agent-chat-style tree and render it on watch.
+    # A chat bubble: a Card wrapping a Label. Mirrors the iOS/macOS agent-chat
+    # transcript so the wrist design is cohesive with the larger screens.
+    private def self.bubble(text : String) : UI::View
+      label = UI::Label.new(text)
+      label.text_color_role = UI::LabelRole::Primary
+      UI::Card.new(label.as(UI::View)).as(UI::View)
+    end
+
+    # Build a Crystal-authored agent-chat surface and render it on watch. Exercises
+    # the freshly-wired facades: Card (bubbles), Divider, Toggle, IconButton — so the
+    # on-device capture PROVES they render, not merely compile.
     def self.render : Void*
       initialize_runtime
 
@@ -42,12 +52,28 @@
       title.text_color_role = UI::LabelRole::Primary
       root << title.as(UI::View)
 
-      root << UI::Label.new("Crystal on the wrist").as(UI::View)
-      root << UI::Label.new("Meeting moved to 10:00.").as(UI::View)
+      # Transcript bubbles (Card facades). Kept to one line each so the full
+      # Crystal-authored tree — bubbles + Divider + Toggle + IconButton — fits a
+      # single watch screen for a deterministic capture.
+      root << bubble("10:00 confirmed")
 
-      send = UI::Button.new("Reply")
-      send.accessibility_label = "Reply"
-      root << send.as(UI::View)
+      root << UI::Divider.new.as(UI::View)
+
+      # A settings row: Label + Toggle (HStack), proving the control facade.
+      settings_row = UI::HStack.new(spacing: 6.0)
+      settings_row.alignment = UI::Alignment::Center
+      settings_row << UI::Label.new("Haptics").as(UI::View)
+      settings_row << UI::Toggle.new("", true).as(UI::View)
+      root << settings_row.as(UI::View)
+
+      # Compose row: a hint Label + a paperplane IconButton.
+      compose = UI::HStack.new(spacing: 6.0)
+      compose.alignment = UI::Alignment::Center
+      compose << UI::Label.new("Reply…").as(UI::View)
+      send = UI::IconButton.new("paperplane.fill")
+      send.accessibility_label = "Send reply"
+      compose << send.as(UI::View)
+      root << compose.as(UI::View)
 
       renderer = UI::WatchKit::Renderer.new
       native = renderer.render(root.as(UI::View))

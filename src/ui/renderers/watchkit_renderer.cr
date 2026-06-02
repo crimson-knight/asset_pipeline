@@ -157,16 +157,128 @@
       end
 
       # -------------------------------------------------------------------------
+      # Surfaces & layout helpers wired to real facades.
+      # -------------------------------------------------------------------------
+      def visit(view : UI::Card)
+        compose_container(view.content, LibSwiftKitBridge.apsk_card_overrides_new) do |o, sender|
+          UI::Native::Populator.populate_card(o.address.to_s(16), view, sender)
+        end
+      end
+
+      def visit(view : UI::Surface)
+        compose_container(view.content, LibSwiftKitBridge.apsk_surface_overrides_new) do |o, sender|
+          UI::Native::Populator.populate_surface(o.address.to_s(16), view, sender)
+        end
+      end
+
+      # Card/Surface share the (single optional content child) shape — render
+      # the child to its own box, pack a 1-element buffer, call the facade.
+      private def compose_container(content : UI::View?, overrides : Void*, kind : String = "card", &)
+        sender = UI::Native::SwiftKitObjCSender.new(overrides)
+        yield overrides, sender
+        kids = [] of UI::NativeView
+        if c = content
+          if nv = render_child(c)
+            kids << nv
+          end
+        end
+        buf = child_buffer(kids)
+        ptr = if kind == "surface"
+                LibSwiftKitBridge.apsk_make_surface(buf.as(Void*), kids.size.to_i32, overrides)
+              else
+                LibSwiftKitBridge.apsk_make_card(buf.as(Void*), kids.size.to_i32, overrides)
+              end
+        emit(ptr)
+      end
+
+      def visit(view : UI::GlassBackground)
+        o = LibSwiftKitBridge.apsk_glass_background_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_glass_background(o.address.to_s(16), view, sender, apple_step: view.material)
+        child_ptr = Pointer(Void).null
+        if content = view.content
+          if nv = render_child(content)
+            child_ptr = nv.handle.ptr!
+          end
+        end
+        emit(LibSwiftKitBridge.apsk_make_glass_background(o, child_ptr))
+      end
+
+      def visit(view : UI::Divider)
+        o = LibSwiftKitBridge.apsk_divider_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_divider(o.address.to_s(16), view, sender)
+        emit(LibSwiftKitBridge.apsk_make_divider(o))
+      end
+
+      def visit(view : UI::Spacer)
+        o = LibSwiftKitBridge.apsk_spacer_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_spacer(o.address.to_s(16), view, sender)
+        emit(LibSwiftKitBridge.apsk_make_spacer(o))
+      end
+
+      # -------------------------------------------------------------------------
+      # Controls wired to real facades (Toggle / Slider / Stepper / IconButton).
+      # Non-reactive variants: a watch render is rebuilt wholesale on state
+      # change (no in-place reconciliation channel wired yet), so the simpler
+      # trampolines suffice.
+      # -------------------------------------------------------------------------
+      def visit(view : UI::Toggle)
+        o = LibSwiftKitBridge.apsk_toggle_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_toggle(o.address.to_s(16), view, sender)
+        token = 0_u64
+        if handler = view.on_change
+          token = UI::CallbackRegistry.register_action_with_value { |v| handler.call(v != 0.0) }
+        end
+        emit(LibSwiftKitBridge.apsk_make_toggle(view.label.to_unsafe, view.is_on ? 1 : 0, o, token))
+      end
+
+      def visit(view : UI::Slider)
+        o = LibSwiftKitBridge.apsk_slider_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_slider(o.address.to_s(16), view, sender)
+        token = 0_u64
+        if handler = view.on_change
+          token = UI::CallbackRegistry.register_action_with_value { |v| handler.call(v) }
+        end
+        emit(LibSwiftKitBridge.apsk_make_slider(view.value, view.minimum, view.maximum, o, token))
+      end
+
+      def visit(view : UI::Stepper)
+        o = LibSwiftKitBridge.apsk_stepper_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_stepper(o.address.to_s(16), view, sender)
+        token = 0_u64
+        if handler = view.on_change
+          token = UI::CallbackRegistry.register_action_with_value { |v| handler.call(v) }
+        end
+        emit(LibSwiftKitBridge.apsk_make_stepper(view.label.to_unsafe, view.value, view.minimum, view.maximum, o, token))
+      end
+
+      def visit(view : UI::IconButton)
+        o = LibSwiftKitBridge.apsk_icon_button_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_icon_button(o.address.to_s(16), view, sender)
+        token = 0_u64
+        if handler = view.on_tap
+          token = UI::CallbackRegistry.register_action(&handler)
+        end
+        emit(LibSwiftKitBridge.apsk_make_icon_button(view.icon.to_unsafe, o, token))
+      end
+
+      # -------------------------------------------------------------------------
       # Long tail — fallback placeholders (upgraded to real facades incrementally).
       # Generated for every remaining abstract visit so the renderer compiles.
       # -------------------------------------------------------------------------
       {% for t in %w(
-                    ZStack ScrollView Spacer Toggle Checkbox RadioGroup
-                    Slider NavigationStack NavigationLink TabView ProgressView
-                    ActivityIndicator Alert Picker IconButton ListView OutlineView
-                    SecureField Stepper SegmentedControl DatePicker TimePicker SearchField
+                    ZStack ScrollView Checkbox RadioGroup
+                    NavigationStack NavigationLink TabView ProgressView
+                    ActivityIndicator Alert Picker ListView OutlineView
+                    SecureField SegmentedControl DatePicker TimePicker SearchField
                     TextArea Grid Form NavigationSplitView Toolbar Sheet Popover
-                    ConfirmationDialog Snackbar Card Surface Divider GlassBackground
+                    ConfirmationDialog Snackbar
                     AsyncImage RichText LinkButton MenuButton ContextMenu ToggleButton
                     TextEditor Circle Rectangle RoundedRectangle Capsule Canvas PathView
                     PathControl Complication MapView ChartView WebViewComponent ColorPicker
