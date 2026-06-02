@@ -9,30 +9,36 @@ module Voyager
     SLUG = "voyager-settings"
 
     def build(context : UI::ScreenContext) : UI::View
+      # Phase D Track 2 — whole-composition adapt via DeviceMetrics#responsive
+      # (width + spacing + padding + title type), matching sign-in/welcome/todos.
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.compact_horizontal? ? 340.0 : 480.0
+      content_width = metrics.responsive(compact: 340.0, regular: 480.0)
 
       state = Voyager.state
 
-      root = UI::VStack.new(spacing: 16.0)
+      pad_h = metrics.responsive(compact: 20.0, regular: 28.0)
+      pad_v = metrics.responsive(compact: 24.0, regular: 32.0)
+      root = UI::VStack.new(spacing: metrics.responsive(compact: 14.0, regular: 18.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Leading
       root.padding = UI::EdgeInsets.new(
-        top: 24.0 + metrics.safe_area_top_pt,
-        trailing: 20.0 + metrics.safe_area_trailing_pt,
-        bottom: 24.0 + metrics.safe_area_bottom_pt,
-        leading: 20.0 + metrics.safe_area_leading_pt,
+        top: pad_v + metrics.safe_area_top_pt,
+        trailing: pad_h + metrics.safe_area_trailing_pt,
+        bottom: pad_v + metrics.safe_area_bottom_pt,
+        leading: pad_h + metrics.safe_area_leading_pt,
       )
       root.accessibility_label = "Voyager settings screen"
       root.test_id = "voyager-settings-root"
 
       title = UI::Label.new("Settings")
-      title.font = UI::Font.new(size: 28.0, weight: :bold)
+      title.font = UI::Font.new(size: metrics.responsive(compact: 26.0, regular: 30.0), weight: :bold)
       title.text_color_role = UI::LabelRole::Primary
+      title.maximum_width = content_width
 
       explainer = UI::Label.new("Hide completed todos from the main list.")
       explainer.font = UI::Font.new(size: 14.0, weight: :regular)
       explainer.text_color_role = UI::LabelRole::Secondary
+      explainer.maximum_width = content_width
 
       # Component Gallery — the "show me the library" catalog. A native
       # showcase of the asset_pipeline UI widgets. Surfaced prominently
@@ -73,6 +79,7 @@ module Voyager
       dev_section_title.font = UI::Font.new(size: 16.0, weight: :semibold)
       dev_section_title.text_color_role = UI::LabelRole::Secondary
       dev_section_title.test_id = "voyager-settings-developer-section"
+      dev_section_title.maximum_width = content_width
 
       dev_section_explainer = UI::Label.new(
         "Internal demos for the Phase 10 intent + widget surface. " \
@@ -80,6 +87,7 @@ module Voyager
       )
       dev_section_explainer.font = UI::Font.new(size: 12.0, weight: :regular)
       dev_section_explainer.text_color_role = UI::LabelRole::Tertiary
+      dev_section_explainer.maximum_width = content_width
 
       phase_10_btn = UI::Button.new("Phase 10 Developer Tools", style: UI::ButtonStyle::Bordered)
       phase_10_btn.accessibility_label = "Open Phase 10 developer tools"

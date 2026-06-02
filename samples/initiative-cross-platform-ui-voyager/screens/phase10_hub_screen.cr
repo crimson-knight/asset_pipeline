@@ -9,24 +9,28 @@ module Voyager
     SLUG = "voyager-phase-10-hub"
 
     def build(context : UI::ScreenContext) : UI::View
+      # Phase D Track 2 — whole-composition adapt via DeviceMetrics#responsive.
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.compact_horizontal? ? 340.0 : 480.0
+      content_width = metrics.responsive(compact: 340.0, regular: 480.0)
 
-      root = UI::VStack.new(spacing: 12.0)
+      pad_h = metrics.responsive(compact: 20.0, regular: 28.0)
+      pad_v = metrics.responsive(compact: 24.0, regular: 32.0)
+      root = UI::VStack.new(spacing: metrics.responsive(compact: 12.0, regular: 16.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Leading
       root.padding = UI::EdgeInsets.new(
-        top: 24.0 + metrics.safe_area_top_pt,
-        trailing: 20.0 + metrics.safe_area_trailing_pt,
-        bottom: 24.0 + metrics.safe_area_bottom_pt,
-        leading: 20.0 + metrics.safe_area_leading_pt,
+        top: pad_v + metrics.safe_area_top_pt,
+        trailing: pad_h + metrics.safe_area_trailing_pt,
+        bottom: pad_v + metrics.safe_area_bottom_pt,
+        leading: pad_h + metrics.safe_area_leading_pt,
       )
       root.accessibility_label = "Phase 10 developer tools hub"
       root.test_id = "phase-10-hub-root"
 
       title = UI::Label.new("Phase 10 Developer Tools")
-      title.font = UI::Font.new(size: 28.0, weight: :bold)
+      title.font = UI::Font.new(size: metrics.responsive(compact: 26.0, regular: 30.0), weight: :bold)
       title.text_color_role = UI::LabelRole::Primary
+      title.maximum_width = content_width
 
       subtitle = UI::Label.new(
         "Internal verification surface for the Phase 10 intent + widget APIs. " \
@@ -35,6 +39,7 @@ module Voyager
       )
       subtitle.font = UI::Font.new(size: 14.0, weight: :regular)
       subtitle.text_color_role = UI::LabelRole::Secondary
+      subtitle.maximum_width = content_width
 
       root << title.as(UI::View)
       root << subtitle.as(UI::View)
