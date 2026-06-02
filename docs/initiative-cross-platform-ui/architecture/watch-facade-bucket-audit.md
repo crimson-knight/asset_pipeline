@@ -21,7 +21,7 @@ and `ImageFacade` (reachable: `UIImage`/`NSImage` probe with a watch-valid
 
 **Result (original scan): 18 of 40 facades reachable on watch; 22 compiled out.**
 **Update 2026-06-02:** TextField + ListView + Sheet (P0s) + SecureField + TabView
-(P1s) + Toggle + Slider + Stepper ported → **26 reachable / 14 compiled out** (see Bucket 2).
+(P1s) + Toggle + Slider + Stepper + Picker + DatePicker + TimePicker ported → **29 reachable / 11 compiled out**. Bucket 2 (SwiftUI-native-on-watch) is now EXHAUSTED — every remaining excluded facade is genuine Bucket 3 (no honest watch analog).
 
 ## Bucket 1 — Watch-reachable now (18)
 
@@ -59,8 +59,8 @@ TabView**.
 | ~~Toggle~~ **PORTED 2026-06-02** | available — the 'hard UIView-bound' case: iOS wraps UISwitch (XCUITest interop), but watchOS has no UISwitch, so watch/macOS route through SwiftUI `Toggle`; `.switch`/`.checkbox` styles gated (watch-unavailable). Compiles clean watchOS/iOS/macOS. | P1 — settings ✅ |
 | ~~Slider~~ **PORTED 2026-06-02** | available (Digital Crown) — pure SwiftUI, straight un-gate. Compiles clean watchOS/iOS/macOS. | P2 ✅ |
 | ~~Stepper~~ **PORTED 2026-06-02** | available — pure SwiftUI, straight un-gate. Compiles clean watchOS/iOS/macOS. | P2 ✅ |
-| Picker | available (wheel/list style) | P1 |
-| DatePicker / TimePicker | available, restricted styles | P2 — *confirm exact style support on a watch compile* |
+| ~~Picker~~ **PORTED 2026-06-02** | available (wheel/inline/navigationLink); `.menu`/`.segmented` styles gated (watch-unavailable). Compiles clean watchOS/iOS/macOS. | P1 ✅ |
+| ~~DatePicker / TimePicker~~ **PORTED 2026-06-02** | base DatePicker(displayedComponents:) available watchOS 10+; explicit .graphical/.wheel/.compact styles gated off watch (not watch idioms). Compiles clean watchOS/iOS/macOS. | P2 ✅ |
 
 ## Bucket 3 — Correctly excluded (no honest watchOS analog) (≈11)
 

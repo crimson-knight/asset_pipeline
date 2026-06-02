@@ -3,10 +3,11 @@
 import SwiftUI
 import Foundation
 
-// watchOS: this facade is not in the watch catalog subset and/or uses UIKit-only
-// APIs (UIView/UIControl/SwiftUI-on-watch-unavailable). Gated off watchOS for the
-// initial one-facade green compile; watch-native re-enable is a Phase 12 follow-up.
-#if !os(watchOS)
+// watchOS: ENABLED (Phase D Bucket-2 P2 port, 2026-06-02). SwiftUI `DatePicker`
+// (with `displayedComponents:`) is available on watchOS 10+. The explicit
+// `.graphical`/`.wheel`/`.compact` date-picker styles are not watchOS idioms
+// (watchOS presents its own date UI), so the style switch is gated off there and
+// the default DatePicker is used. See watch-facade-bucket-audit.md.
 @objc(APSKDatePickerFacade)
 public class DatePickerFacade: NSObject {
     @objc public static func makeDatePicker(
@@ -32,6 +33,10 @@ public class DatePickerFacade: NSObject {
         // the SwiftUI .datePickerStyle modifier when the Crystal-side
         // style is non-default. The .compact, .graphical, and .wheel
         // styles are iOS 14+ / macOS 10.15+ where present.
+        // watchOS: these explicit styles are not watch idioms (watchOS presents its
+        // own date UI), so the whole style switch is gated off — the default
+        // DatePicker is used on watch.
+        #if !os(watchOS)
         switch overrides.datePickerStyle {
         case "compact":
             #if canImport(UIKit)
@@ -50,6 +55,7 @@ public class DatePickerFacade: NSObject {
         default:
             break // "automatic" / nil — platform default
         }
+        #endif
 
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(DateHost(storage: storage, content: content))
@@ -61,4 +67,3 @@ struct DateHost<Content: View>: View {
     let content: Content
     var body: some View { content }
 }
-#endif

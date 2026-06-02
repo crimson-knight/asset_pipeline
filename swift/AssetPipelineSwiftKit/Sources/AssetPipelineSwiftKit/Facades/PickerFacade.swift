@@ -3,10 +3,11 @@
 import SwiftUI
 import Foundation
 
-// watchOS: this facade is not in the watch catalog subset and/or uses UIKit-only
-// APIs (UIView/UIControl/SwiftUI-on-watch-unavailable). Gated off watchOS for the
-// initial one-facade green compile; watch-native re-enable is a Phase 12 follow-up.
-#if !os(watchOS)
+// watchOS: ENABLED (Phase D Bucket-2 P1 port, 2026-06-02). SwiftUI `Picker` is
+// watch-native; `.wheel`/`.inline`/`.navigationLink` styles are valid on watchOS,
+// but `.menu` (MenuPickerStyle) and `.segmented` (SegmentedPickerStyle) are both
+// `@available(watchOS, unavailable)` and are gated off there (unknown keys fall
+// through to the default wheel-style picker). See watch-facade-bucket-audit.md.
 @objc(APSKPickerFacade)
 public class PickerFacade: NSObject {
     @objc public static func makePicker(
@@ -27,14 +28,17 @@ public class PickerFacade: NSObject {
         )
 
         switch overrides.pickerStyle {
+        #if !os(watchOS)
+        // MenuPickerStyle + SegmentedPickerStyle are @available(watchOS, unavailable).
         case "menu":
             content = AnyView(content.pickerStyle(.menu))
+        case "segmented":
+            content = AnyView(content.pickerStyle(.segmented))
+        #endif
         case "wheel":
             #if canImport(UIKit)
             content = AnyView(content.pickerStyle(.wheel))
             #endif
-        case "segmented":
-            content = AnyView(content.pickerStyle(.segmented))
         case "inline":
             content = AnyView(content.pickerStyle(.inline))
         case "navigationlink":
@@ -48,4 +52,3 @@ public class PickerFacade: NSObject {
         return HostingHelpers.host(IntHost(storage: storage, content: content))
     }
 }
-#endif

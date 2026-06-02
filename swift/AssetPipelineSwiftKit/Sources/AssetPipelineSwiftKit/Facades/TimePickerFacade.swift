@@ -8,8 +8,9 @@
 import SwiftUI
 import Foundation
 
-// watchOS: gated off for the initial watch compile (UIKit-only / not in watch subset).
-#if !os(watchOS)
+// watchOS: ENABLED (Phase D Bucket-2 P2 port, 2026-06-02). Same DatePicker
+// (.hourAndMinute) the DatePicker facade uses — available on watchOS 10+, no styles
+// to gate. Straight un-gate. See watch-facade-bucket-audit.md.
 @objc(APSKTimePickerFacade)
 public class TimePickerFacade: NSObject {
     @objc public static func makeTimePicker(
@@ -30,4 +31,3 @@ public class TimePickerFacade: NSObject {
         return HostingHelpers.host(DateHost(storage: storage, content: content))
     }
 }
-#endif
