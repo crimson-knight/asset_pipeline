@@ -21,7 +21,7 @@ and `ImageFacade` (reachable: `UIImage`/`NSImage` probe with a watch-valid
 
 **Result (original scan): 18 of 40 facades reachable on watch; 22 compiled out.**
 **Update 2026-06-02:** TextField + ListView + Sheet (P0s) + SecureField + TabView
-(P1s) ported → **23 reachable / 17 compiled out** (see Bucket 2).
+(P1s) + Toggle ported → **24 reachable / 16 compiled out** (see Bucket 2).
 
 ## Bucket 1 — Watch-reachable now (18)
 
@@ -56,7 +56,7 @@ TabView**.
 | ~~ListView (`List`)~~ **PORTED 2026-06-02** | core watch control — now watch-reachable: gated `.listRowSeparator(.hidden)` (watch-unavailable) + mapped `.inset`/`.sidebar`/`.grouped`/`.insetGrouped` styles → `.plain`/`.automatic`; `.swipeActions`/`.onMove`/`.listRowInsets` are watch-valid. Compiles clean on watchOS-sim/iOS-sim/macOS. | **P0** — message/feed list ✅ |
 | ~~Sheet (`.sheet`)~~ **PORTED 2026-06-02** | available — now watch-reachable: gated `.presentationDetents`/`PresentationDetent` (watch-unavailable; `canImport(UIKit)` is true on watch so needs `!os(watchOS)`) and `.presentationBackground`/`.glassEffect()` (watch presents full-screen with system chrome); `.sheet`/`.interactiveDismissDisabled`/`.task`/reduce-motion are watch-valid. Compiles clean on watchOS-sim/iOS-sim/macOS. | **P0** — modal compose/confirm ✅ |
 | ~~TabView~~ **PORTED 2026-06-02** | available (vertical-page idiom) — gated the `.toolbarBackground`/`.glassEffect()` bar chrome (watch-unavailable); `.tabItem`/`.tag`/`.tint` watch-valid. Compiles clean watchOS/iOS/macOS. | P1 — section switch ✅ |
-| Toggle | available | P1 — settings |
+| ~~Toggle~~ **PORTED 2026-06-02** | available — the 'hard UIView-bound' case: iOS wraps UISwitch (XCUITest interop), but watchOS has no UISwitch, so watch/macOS route through SwiftUI `Toggle`; `.switch`/`.checkbox` styles gated (watch-unavailable). Compiles clean watchOS/iOS/macOS. | P1 — settings ✅ |
 | Slider | available (Digital Crown) | P2 |
 | Stepper | available | P2 |
 | Picker | available (wheel/list style) | P1 |
