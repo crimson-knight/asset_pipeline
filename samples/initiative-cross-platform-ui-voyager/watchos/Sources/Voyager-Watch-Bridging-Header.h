@@ -51,4 +51,9 @@ void voyager_watch_test_fg_speak(void);
 // after a beat to prove the header mute toggle gates speech.
 void voyager_watch_test_voice_gate(int muted);
 
+// Persistence proof: returns a counter (read-before-increment) stored in
+// UI::Preferences. Across relaunches the value grows, proving NSUserDefaults
+// persisted across launches on the watch.
+int voyager_watch_test_prefs_counter(void);
+
 #endif /* VOYAGER_WATCH_BRIDGING_HEADER_H */

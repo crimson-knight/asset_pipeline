@@ -92,3 +92,20 @@ Verified:
   through the controller muted then unmuted →
   `VOYAGER_GATE_RESULT muted_speaking=0` and `unmuted_speaking=1` — the toggle
   genuinely gates speech (the agent is silent when muted, speaks when not).
+
+## Persistence — settings survive relaunch (UI::Preferences)
+
+New kit capability `UI::Preferences` (NSUserDefaults on Apple; portable
+`src/ui/native/prefs_bridge.m` for watchOS — Foundation only). Voyager persists the
+voice mute pref + check-in settings (mood/goal/reminder/focus): `State.new` reads
+them on launch (literal property defaults are the fallback), the voice toggle and
+Save check-in write them. `VOYAGER_RESET_PREFS=1` clears the domain before
+`State.new` so UI tests start from known defaults.
+
+Verified:
+- iOS XCUITest `VoiceToggleTests.testVoicePreferencePersistsAcrossRelaunch` — mute
+  the agent, terminate + relaunch, the control comes back MUTED (read back in
+  State.new). CheckInTests + VoiceToggleTests all pass with VOYAGER_RESET_PREFS.
+- watchOS (`VOYAGER_WATCH_TEST_PREFS=1`): a counter pref grows across relaunches —
+  `VOYAGER_PREFS_RESULT counter=0` then `counter=1` — proving NSUserDefaults
+  persisted across launches on the wrist.

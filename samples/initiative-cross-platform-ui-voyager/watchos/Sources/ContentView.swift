@@ -64,6 +64,18 @@ struct ContentView: View {
             maybeAutoSpeak()
             maybeAutoFgSpeak()
             maybeAutoVoiceGate()
+            maybeAutoPrefs()
+        }
+    }
+
+    // Verification hook for UI::Preferences persistence: with VOYAGER_WATCH_TEST_PREFS=1,
+    // log a counter that increments and is stored each launch. Launch repeatedly: the
+    // value grows (0, 1, 2…) only if NSUserDefaults persisted across launches on the
+    // wrist. No-op in normal use.
+    private func maybeAutoPrefs() {
+        guard ProcessInfo.processInfo.environment["VOYAGER_WATCH_TEST_PREFS"] == "1" else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            NSLog("VOYAGER_PREFS_RESULT counter=\(voyager_watch_test_prefs_counter())")
         }
     }
 

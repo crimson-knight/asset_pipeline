@@ -42,6 +42,11 @@ module Voyager
                    platform : Symbol = default_platform) : Result
       VoyagerApp.bootstrap!
 
+      # Test determinism: VOYAGER_RESET_PREFS=1 wipes persisted settings BEFORE
+      # State.new reads them, so UI tests start from known defaults despite the
+      # new UI::Preferences persistence. No-op in normal use.
+      UI::Preferences.clear_all if ENV["VOYAGER_RESET_PREFS"]? == "1"
+
       state = Voyager::State.new
       Voyager.state = state
 

@@ -235,6 +235,17 @@
       @@dispatcher.not_nil!.current_form_state.update("chat_message", "are you there?")
       Voyager.dispatch(:send_message)
     end
+
+    # Persistence proof for UI::Preferences on watchOS: read a counter, increment +
+    # store it, and return the value seen BEFORE incrementing. Across relaunches the
+    # returned value grows (0, then 1, then 2…) — which only happens if NSUserDefaults
+    # genuinely persisted the write across app launches on the wrist.
+    def self.test_prefs_counter : Int32
+      initialize_runtime
+      n = UI::Preferences.int("voyager.test_counter", 0)
+      UI::Preferences.set_int("voyager.test_counter", n + 1)
+      n
+    end
   end
 
   fun voyager_watch_render : Void*
@@ -271,5 +282,9 @@
 
   fun voyager_watch_test_voice_gate(muted : Int32) : Void
     VoyagerWatchBridge.test_voice_gate(muted)
+  end
+
+  fun voyager_watch_test_prefs_counter : Int32
+    VoyagerWatchBridge.test_prefs_counter
   end
 {% end %}

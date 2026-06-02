@@ -37,6 +37,8 @@ module Voyager
     def toggle_voice(context : UI::ScreenContext::Native) : UI::ActionResult
       Voyager.state.speak_replies = !Voyager.state.speak_replies
       UI::Speech.stop unless Voyager.state.speak_replies
+      # Persist so the choice survives relaunch (UI::Preferences / NSUserDefaults).
+      UI::Preferences.set_bool("voyager.speak_replies", Voyager.state.speak_replies)
       UI::ActionResult::Rerender.new
     end
   end

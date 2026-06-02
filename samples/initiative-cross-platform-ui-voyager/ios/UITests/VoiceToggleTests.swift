@@ -14,6 +14,7 @@ final class VoiceToggleTests: XCTestCase {
         app.launchEnvironment = [
             "VOYAGER_ROOT_SLUG": "voyager-agent-chat",
             "VOYAGER_SKIP_NOTIF_PROMPT": "1",
+            "VOYAGER_RESET_PREFS": "1", // known default (voice ON) regardless of prior runs
         ]
         app.launch()
 
@@ -36,5 +37,41 @@ final class VoiceToggleTests: XCTestCase {
         XCTAssertTrue(remuted.waitForExistence(timeout: 6))
         XCTAssertEqual(remuted.label, "Mute agent voice",
             "Second tap did not restore the speaking state.")
+    }
+
+    /// Proves UI::Preferences (NSUserDefaults) genuinely persists across relaunch:
+    /// mute the agent, terminate + relaunch the app, and assert the control comes
+    /// back MUTED — only true if AgentChatController persisted speak_replies and
+    /// State.new read it back on the next launch. (Functional outcome, not a flag.)
+    func testVoicePreferencePersistsAcrossRelaunch() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment = [
+            "VOYAGER_ROOT_SLUG": "voyager-agent-chat",
+            "VOYAGER_SKIP_NOTIF_PROMPT": "1",
+        ]
+        app.launch()
+
+        let voice = app.buttons["voyager-agent-chat-voice"]
+        XCTAssertTrue(voice.waitForExistence(timeout: 10), "Voice control missing.")
+        // Normalize to a known ON state (a prior run may have left it muted).
+        if voice.label == "Unmute agent voice" { voice.tap() }
+        XCTAssertEqual(app.buttons["voyager-agent-chat-voice"].label, "Mute agent voice")
+
+        // Mute → should persist.
+        app.buttons["voyager-agent-chat-voice"].tap()
+        XCTAssertEqual(app.buttons["voyager-agent-chat-voice"].label, "Unmute agent voice")
+
+        // Relaunch the app fresh.
+        app.terminate()
+        app.launch()
+
+        // The muted choice must have survived (NSUserDefaults read in State.new).
+        let after = app.buttons["voyager-agent-chat-voice"]
+        XCTAssertTrue(after.waitForExistence(timeout: 10), "Voice control missing after relaunch.")
+        XCTAssertEqual(after.label, "Unmute agent voice",
+            "Voice preference did NOT persist across relaunch — UI::Preferences didn't store/read it.")
+
+        // Restore ON so reruns start clean.
+        after.tap()
     }
 }

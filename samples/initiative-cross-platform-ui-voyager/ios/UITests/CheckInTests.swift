@@ -13,6 +13,9 @@ final class CheckInTests: XCTestCase {
         app.launchEnvironment = [
             "VOYAGER_ROOT_SLUG": "voyager-check-in",
             "VOYAGER_SKIP_NOTIF_PROMPT": "1",
+            // Reset persisted prefs so the check-in starts at known defaults
+            // (UI::Preferences now persists check-in settings across launches).
+            "VOYAGER_RESET_PREFS": "1",
         ]
         app.launch()
 
@@ -47,6 +50,7 @@ final class CheckInTests: XCTestCase {
             // tracking is auth-independent (auth gates delivery), so the
             // pending-queue assertion still proves the real outcome.
             "VOYAGER_SKIP_NOTIF_PROMPT": "1",
+            "VOYAGER_RESET_PREFS": "1", // start from known defaults
         ]
         app.launch()
 

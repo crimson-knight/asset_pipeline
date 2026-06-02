@@ -2783,6 +2783,49 @@ void ap_free_c_string(char *payload) {
     if (payload) free(payload);
 }
 
+// ============================================================
+// Persistent settings (NSUserDefaults). Portable twin: prefs_bridge.m (watchOS).
+// See UI::Preferences.
+// ============================================================
+
+static NSString *ap_prefs_key(const char *key) {
+    if (!key || !key[0]) return nil;
+    return [NSString stringWithUTF8String:key];
+}
+
+void ap_prefs_set_bool(const char *key, int value) {
+    NSString *k = ap_prefs_key(key);
+    if (!k) return;
+    [[NSUserDefaults standardUserDefaults] setBool:(value != 0) forKey:k];
+}
+
+int ap_prefs_get_bool(const char *key, int default_value) {
+    NSString *k = ap_prefs_key(key);
+    if (!k) return default_value;
+    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    if ([d objectForKey:k] == nil) return default_value;
+    return [d boolForKey:k] ? 1 : 0;
+}
+
+void ap_prefs_set_double(const char *key, double value) {
+    NSString *k = ap_prefs_key(key);
+    if (!k) return;
+    [[NSUserDefaults standardUserDefaults] setDouble:value forKey:k];
+}
+
+double ap_prefs_get_double(const char *key, double default_value) {
+    NSString *k = ap_prefs_key(key);
+    if (!k) return default_value;
+    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    if ([d objectForKey:k] == nil) return default_value;
+    return [d doubleForKey:k];
+}
+
+void ap_prefs_clear_all(void) {
+    NSString *domain = [[NSBundle mainBundle] bundleIdentifier];
+    if (domain) [[NSUserDefaults standardUserDefaults] removePersistentDomainForName:domain];
+}
+
 static NSDictionary *ap_json_dictionary_from_cstr(const char *payload_cstr) {
     NSString *payload = ap_string_from_cstr(payload_cstr);
     if (!payload || !payload.length) return nil;

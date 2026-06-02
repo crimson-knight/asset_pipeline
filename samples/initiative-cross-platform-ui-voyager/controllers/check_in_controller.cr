@@ -67,6 +67,12 @@ module Voyager
       focuses = Voyager::State.checkin_focuses
       focus = focuses[state.checkin_focus_index]? || focuses.first
 
+      # Persist the check-in settings so they survive relaunch (UI::Preferences).
+      UI::Preferences.set_int("voyager.checkin_mood", state.checkin_mood)
+      UI::Preferences.set_int("voyager.checkin_goal", state.checkin_goal)
+      UI::Preferences.set_bool("voyager.checkin_reminder", state.checkin_reminder)
+      UI::Preferences.set_int("voyager.checkin_focus_index", state.checkin_focus_index)
+
       if state.checkin_reminder
         # Quiet, no-nag authorization: provisional grants immediately with no
         # permission dialog (ideal for a coach that should be able to reach you

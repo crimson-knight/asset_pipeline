@@ -109,6 +109,15 @@ module Voyager
         ChatMessage.new("Thanks — remind me at 9:45", false),
         ChatMessage.new("Done. I'll buzz your wrist at 9:45.", true),
       ]
+
+      # Load persisted settings so they survive relaunch (UI::Preferences /
+      # NSUserDefaults). Each property's literal default above is the fallback when
+      # the key has never been written. Persisted by the voice toggle + Save check-in.
+      @speak_replies = UI::Preferences.bool?("voyager.speak_replies", @speak_replies)
+      @checkin_mood = UI::Preferences.int("voyager.checkin_mood", @checkin_mood)
+      @checkin_goal = UI::Preferences.int("voyager.checkin_goal", @checkin_goal)
+      @checkin_reminder = UI::Preferences.bool?("voyager.checkin_reminder", @checkin_reminder)
+      @checkin_focus_index = UI::Preferences.int("voyager.checkin_focus_index", @checkin_focus_index)
     end
 
     # Append a user message to the transcript, plus a canned agent acknowledgement
