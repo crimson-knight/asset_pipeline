@@ -21,6 +21,15 @@ What it demonstrates:
   text on the wrist; each platform shown in its natural appearance (watch dark, macOS/iOS
   light — the same screens adapt to the system appearance too).
 
+## Dark mode
+
+`voyager-dark-mode-cohesion.png` — the same `Voyager::AgentChatScreen` in DARK appearance
+on all three platforms (macOS `VOYAGER_APPEARANCE=dark`, iOS sim in dark, watchOS dark by
+default — it's dark-first / OLED). Demonstrates that appearance adaptation is cohesive too:
+semantic colors resolve to a consistent dark palette everywhere, with no per-platform color
+forks. (watchOS has no light/dark toggle — `simctl ui appearance` is unsupported there — so
+the watch is shown in its natural dark appearance; macOS + iOS adapt to match.)
+
 Regenerate from the per-platform captures under each target's
 `handoff/phase-c-evidence/` with the ImageMagick `montage`/`convert` commands recorded in
 the commit that introduced this gallery.
