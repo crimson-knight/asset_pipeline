@@ -191,6 +191,17 @@ audit is tractable.
    1's `APSKViewBox` + passthrough host + `.watchOS` platform; gate the facade
    audit; prove a one-facade watchOS compile; then the `WatchKit::Renderer`
    (declarative boundary) + complication snapshot + `WCSession`.
+   > **STATUS (2026-06-02): D is in progress and now GATED on the Crystal
+   > toolchain.** Boundary node done (Principle 1 STATUS); facade audit done +
+   > 23/40 facades reachable (TextField/ListView/Sheet/SecureField/TabView ported).
+   > **But the Crystal compiler cannot yet target watchOS** — proven: a watchOS
+   > cross-compile fails at `require "c/dlfcn"` because `Target#os_name` lacks a
+   > `watchos` case, deriving the nonexistent lib_c dir `aarch64-watchos10.0`
+   > instead of the (present) `aarch64-watchos`. Exact ~10-line compiler fix +
+   > the `swiftkit_bridge` gate prerequisite are in
+   > [`handoff/2026-06-02-watchos-crystal-toolchain-blocker.md`](../handoff/2026-06-02-watchos-crystal-toolchain-blocker.md).
+   > Writing `WatchKit::Renderer` before that lands would be unprovable, so the
+   > renderer waits on the compiler patch + rebuild.
 4. **Preview release** once the suite is green (done) + B/C land: scope to web +
    core iOS/macOS, capability guide as the stability matrix, watch/Android marked
    not-yet.
