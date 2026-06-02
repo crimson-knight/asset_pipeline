@@ -110,8 +110,17 @@ module Voyager
       settings_btn.test_id = "voyager-todos-settings"
       settings_btn.on_tap = -> { Voyager.dispatch(:open_settings) }
 
+      # Entry point to the cross-platform Agent Chat surface (same screen the
+      # watch app renders) — makes it reachable in the live navigable app.
+      agent_btn = UI::Button.new("Agent")
+      agent_btn.role = :secondary
+      agent_btn.accessibility_label = "Open agent chat"
+      agent_btn.test_id = "voyager-todos-agent"
+      agent_btn.on_tap = -> { Voyager.dispatch(:open_agent_chat) }
+
       header << title.as(UI::View)
       header << spacer.as(UI::View)
+      header << agent_btn.as(UI::View)
       header << print_btn.as(UI::View)
       header << overflow_btn.as(UI::View)
       header << settings_btn.as(UI::View)

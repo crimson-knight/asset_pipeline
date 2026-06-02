@@ -19,33 +19,34 @@ module Voyager
   class TodosController < UI::Controller
     def dispatch_action(name : Symbol, context : UI::ScreenContext::Native) : UI::ActionResult
       case name
-      when :new_todo               then new_todo(context)
-      when :edit_row               then edit_row(context)
-      when :delete_row             then delete_row(context)
-      when :toggle_row             then toggle_row(context)
-      when :open_settings          then open_settings(context)
-      when :archive_row            then archive_row(context)
-      when :share_row              then share_row(context)
-      when :print_list             then print_list(context)
-      when :move_row               then move_row(context)
+      when :new_todo        then new_todo(context)
+      when :edit_row        then edit_row(context)
+      when :delete_row      then delete_row(context)
+      when :toggle_row      then toggle_row(context)
+      when :open_settings   then open_settings(context)
+      when :open_agent_chat then open_agent_chat(context)
+      when :archive_row     then archive_row(context)
+      when :share_row       then share_row(context)
+      when :print_list      then print_list(context)
+      when :move_row        then move_row(context)
         # Phase 10D-polish B1 — Alert (delete confirmation flow).
-      when :request_delete         then request_delete(context)
-      when :confirm_delete         then confirm_delete(context)
-      when :cancel_pending         then cancel_pending(context)
+      when :request_delete then request_delete(context)
+      when :confirm_delete then confirm_delete(context)
+      when :cancel_pending then cancel_pending(context)
         # Phase 10D-polish B2 — ActionSheet (share flow).
-      when :request_share          then request_share(context)
-      when :copy_pending_share     then copy_pending_share(context)
-      when :print_pending_share    then print_pending_share(context)
+      when :request_share       then request_share(context)
+      when :copy_pending_share  then copy_pending_share(context)
+      when :print_pending_share then print_pending_share(context)
         # Phase 10D-polish B3 — Sheet (editor as modal).
-      when :open_editor_sheet      then open_editor_sheet(context)
-      when :close_editor_sheet     then close_editor_sheet(context)
-      when :save_sheet             then save_sheet(context)
+      when :open_editor_sheet  then open_editor_sheet(context)
+      when :close_editor_sheet then close_editor_sheet(context)
+      when :save_sheet         then save_sheet(context)
         # Phase 10D-polish B5 — Popover (overflow menu).
-      when :show_overflow          then show_overflow(context)
-      when :hide_overflow          then hide_overflow(context)
-      when :sort_by_deadline       then sort_by_deadline(context)
-      when :toggle_hide_completed  then toggle_hide_completed(context)
-      when :clear_all_completed    then clear_all_completed(context)
+      when :show_overflow         then show_overflow(context)
+      when :hide_overflow         then hide_overflow(context)
+      when :sort_by_deadline      then sort_by_deadline(context)
+      when :toggle_hide_completed then toggle_hide_completed(context)
+      when :clear_all_completed   then clear_all_completed(context)
       else
         raise UI::Controller::UnknownActionError.new(
           "TodosController has no action :#{name}"
@@ -94,6 +95,11 @@ module Voyager
 
     def open_settings(context : UI::ScreenContext::Native) : UI::ActionResult
       UI::ActionResult::Navigate.new(:settings)
+    end
+
+    # Navigate to the cross-platform Agent Chat surface.
+    def open_agent_chat(context : UI::ScreenContext::Native) : UI::ActionResult
+      UI::ActionResult::Navigate.new(:agent_chat)
     end
 
     # Phase 10D-refocus — leading-swipe Archive action.
