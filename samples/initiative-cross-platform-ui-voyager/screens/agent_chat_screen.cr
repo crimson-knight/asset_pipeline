@@ -24,14 +24,11 @@ module Voyager
       pad_h = metrics.responsive(compact: 16.0, regular: 24.0)
       pad_v = metrics.responsive_vertical(compact: 16.0, regular: 28.0)
 
-      # Adaptive content width: start from the size-class default, then CLAMP to the
-      # width the device actually offers (frame minus safe area minus our own
-      # horizontal padding). On a phone/desktop content_width_pt is large so the min
-      # keeps 340/460 unchanged; on a ~176pt watch it collapses to the available
-      # ~140pt so the column, bubbles, field and buttons all reflow to the wrist.
-      preferred_width = metrics.responsive(compact: 340.0, regular: 460.0)
-      available_width = metrics.content_width_pt - 2.0 * pad_h
-      content_width = available_width > 0 ? Math.min(preferred_width, available_width) : preferred_width
+      # Adaptive content width via the shared DeviceMetrics helper: the size-class
+      # default, clamped to the width the device actually offers. Keeps 340/460 on
+      # phone/desktop; collapses to the available ~140pt on the watch so the whole
+      # column reflows to the wrist.
+      content_width = metrics.adaptive_content_width(compact: 340.0, regular: 460.0, horizontal_padding: pad_h)
       # Keep the trailing gutter (the spacer gap that pushes a bubble to one edge)
       # proportional so a narrow watch bubble doesn't get crushed by a phone-sized gap.
       bubble_w = content_width - metrics.responsive(compact: 28.0, regular: 64.0)

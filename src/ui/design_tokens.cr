@@ -1265,6 +1265,25 @@ module UI
       def responsive_vertical(compact : T, regular : T) : T forall T
         compact_vertical? ? compact : regular
       end
+
+      # Adaptive content-column width — the framework one-liner for "a centered/leading
+      # content column that adapts to the device". Picks the size-class default
+      # (`responsive(compact:, regular:)`), then CLAMPS it to the width the device
+      # actually offers (the content rect minus the screen's own horizontal padding on
+      # both sides). On a phone/desktop `content_width_pt` is large so the size-class
+      # value is kept unchanged; on a ~176pt watch the column collapses to the available
+      # width so the whole screen reflows to the wrist — no per-platform forks.
+      #
+      # This is the shared primitive behind every adaptive Voyager screen; before it,
+      # each screen open-coded the same `Math.min(preferred, content_width_pt - 2*pad)`
+      # clamp (and screens that forgot it overflowed the watch). Pass the SAME horizontal
+      # padding the screen applies to its root so the column fits inside it.
+      def adaptive_content_width(compact : Float64, regular : Float64,
+                                 horizontal_padding : Float64) : Float64
+        preferred = responsive(compact: compact, regular: regular)
+        available = content_width_pt - 2.0 * horizontal_padding
+        available > 0 ? Math.min(preferred, available) : preferred
+      end
     end
 
     # Apple-style size class.

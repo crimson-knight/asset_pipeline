@@ -72,9 +72,12 @@
       UI::WidgetRoute::Bootstrap.install
       UI::SystemAction::Bootstrap.install
 
-      # Build the shared host substrate rooted at the agent-chat screen. State seeds
-      # the chat transcript; the dispatcher owns FormState/session/flash/navigation.
-      result = Voyager::HostBootstrap.build(:agent_chat)
+      # Build the shared host substrate. Root at the agent-chat screen by default (the
+      # watch's purpose surface), but honor VOYAGER_ROOT_SLUG like the iOS/macOS hosts so
+      # any registered screen can be rendered/captured on the watch (proves the watch
+      # renders the full screen catalog, not just one screen).
+      root_id = Voyager.route_for_slug(ENV["VOYAGER_ROOT_SLUG"]? || "voyager-agent-chat").id
+      result = Voyager::HostBootstrap.build(root_id)
       @@state = result.state
       @@coord = result.coord
       @@session = result.session

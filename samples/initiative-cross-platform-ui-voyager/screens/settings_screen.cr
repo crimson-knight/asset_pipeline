@@ -12,12 +12,14 @@ module Voyager
       # Phase D Track 2 — whole-composition adapt via DeviceMetrics#responsive
       # (width + spacing + padding + title type), matching sign-in/welcome/todos.
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.responsive(compact: 340.0, regular: 480.0)
 
       state = Voyager.state
 
       pad_h = metrics.responsive(compact: 20.0, regular: 28.0)
       pad_v = metrics.responsive_vertical(compact: 16.0, regular: 32.0)
+      # Adaptive column width (shared helper): clamps to the device so the settings
+      # controls reflow onto the watch instead of overflowing its ~176pt screen.
+      content_width = metrics.adaptive_content_width(compact: 340.0, regular: 480.0, horizontal_padding: pad_h)
       root = UI::VStack.new(spacing: metrics.responsive_vertical(compact: 10.0, regular: 18.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Leading
