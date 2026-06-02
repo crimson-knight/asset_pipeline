@@ -4,11 +4,19 @@
 natively on **macOS (AppKit)**, **iOS (UIKit)**, and **watchOS (WatchKit)** from one
 source tree, captured on real simulators and the macOS offscreen host.
 
+Three rows, each a single `UI::Screen` rendered three ways:
+1. **Agent Chat** (`AgentChatScreen`) — the conversation surface.
+2. **Todos** (`TodosScreen`) — adaptive header (SF-Symbol icon toolbar on macOS/iOS,
+   stacked text buttons on the watch) + list.
+3. **Daily Check-in** (`CheckInScreen`) — the control showcase: Slider / Stepper / Picker
+   / Toggle, each rendered as the platform's NATIVE widget (UISlider/UIStepper/UISwitch +
+   menu picker on iOS; NSSlider/NSStepper/NSCheckbox + NSPopUpButton on macOS; SwiftUI
+   control facades on the watch) from one Crystal API.
+
 What it demonstrates:
 
-- **One screen, three platforms.** Each row is a single `UI::Screen`
-  (`Voyager::AgentChatScreen`, `Voyager::TodosScreen`) walked by three different
-  platform renderers — no per-platform layout fork.
+- **One screen, three platforms.** Each row is a single `UI::Screen` walked by three
+  different platform renderers — no per-platform layout fork.
 - **Whole-design adaptation, not just resizing.** The shared screens reflow to each
   canvas through reusable kit primitives:
   - `DeviceMetrics#adaptive_content_width` — the content column clamps from a 460–480pt
