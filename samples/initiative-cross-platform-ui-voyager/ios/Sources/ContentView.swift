@@ -73,38 +73,57 @@ struct ContentView: View {
         // queries `UI::DesignTokens::DeviceMetrics.current` and pads
         // by `safe_area_top_pt` / `safe_area_bottom_pt` so visible
         // controls stay clear of system chrome.
-        VoyagerHost(slug: slug, navigationVersion: navigationVersion, reconcileVersion: reconcileVersion)
-            // Only navigationVersion is in the identity, so a same-route
-            // Rerender does NOT tear down the host (reconcileVersion flows
-            // into updateUIView instead). Navigation still forces a fresh
-            // makeUIView — preserving the Save→pop stale-render fix.
-            .id("\(slug)#\(navigationVersion)")
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(Color(UIColor.systemGroupedBackground))
-            .ignoresSafeArea(.all)
-            .accessibilityIdentifier("voyager-root-host")
-            .accessibilityElement(children: .contain)
-        .onReceive(VoyagerBridge.routeEvents) { event in
-            if event.kind == .rerender && event.slug == slug {
-                // Same-route Rerender: keep the host mounted, ask
-                // updateUIView to reconcile in place.
-                reconcileVersion &+= 1
-            } else {
-                // Navigation (or a slug change): bump identity FIRST so
-                // the new identity is in place before the slug update;
-                // both coalesce into a single SwiftUI render pass.
-                navigationVersion &+= 1
-                if event.slug != slug {
-                    slug = event.slug
+        // Phase D Track 2 — the iOS analog of the macOS windowDidResize ->
+        // rebuild hook. A GeometryReader observes the live container size;
+        // any size change (device rotation, iPad multitasking, Stage Manager)
+        // bumps navigationVersion, which changes `.id`, discarding +
+        // recreating the host so `makeUIView` re-renders the Crystal tree with
+        // the NEW live DeviceMetrics. The metrics provider reads
+        // `objc_screen_width` / size class fresh on every render, so the WHOLE
+        // composition reflows on rotation exactly as it does on macOS resize —
+        // no constraints-only resize that can't change tree shape/spacing.
+        GeometryReader { geo in
+            VoyagerHost(slug: slug, navigationVersion: navigationVersion, reconcileVersion: reconcileVersion)
+                // Only navigationVersion is in the identity, so a same-route
+                // Rerender does NOT tear down the host (reconcileVersion flows
+                // into updateUIView instead). Navigation still forces a fresh
+                // makeUIView — preserving the Save→pop stale-render fix.
+                .id("\(slug)#\(navigationVersion)")
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .background(Color(UIColor.systemGroupedBackground))
+                .accessibilityIdentifier("voyager-root-host")
+                .accessibilityElement(children: .contain)
+            .onReceive(VoyagerBridge.routeEvents) { event in
+                if event.kind == .rerender && event.slug == slug {
+                    // Same-route Rerender: keep the host mounted, ask
+                    // updateUIView to reconcile in place.
+                    reconcileVersion &+= 1
+                } else {
+                    // Navigation (or a slug change): bump identity FIRST so
+                    // the new identity is in place before the slug update;
+                    // both coalesce into a single SwiftUI render pass.
+                    navigationVersion &+= 1
+                    if event.slug != slug {
+                        slug = event.slug
+                    }
                 }
             }
+            .onChange(of: geo.size) { _ in
+                // Size class / bounds changed (rotation, multitasking). Force a
+                // fresh makeUIView so the Crystal tree rebuilds with the new
+                // DeviceMetrics. Same mechanism as a navigation rebuild; the
+                // initial layout's first non-zero size also bumps once, which
+                // is a harmless idempotent re-render of the same slug.
+                navigationVersion &+= 1
+            }
+            .onAppear {
+                // Make sure VoyagerBridge.initialize runs so the route-changed
+                // callback is registered BEFORE any tap handler inside the
+                // Crystal view tree fires coord.push(...).
+                VoyagerBridge.initialize()
+            }
         }
-        .onAppear {
-            // Make sure VoyagerBridge.initialize runs so the route-changed
-            // callback is registered BEFORE any tap handler inside the
-            // Crystal view tree fires coord.push(...).
-            VoyagerBridge.initialize()
-        }
+        .ignoresSafeArea(.all)
     }
 }
 
