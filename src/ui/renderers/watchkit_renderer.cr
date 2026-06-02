@@ -27,6 +27,36 @@
       @runtime_installed : Bool = false
 
       def initialize(@design_tokens : UI::DesignTokens::Tokens = UI::DesignTokens::Tokens.default)
+        install_device_provider
+      end
+
+      # Install a watchOS Device metrics provider so screens that query
+      # `UI::DesignTokens::DeviceMetrics.current` (the shared, adaptive screen
+      # authoring path used on macOS + iOS) reflow to the WATCH canvas instead of
+      # the 390pt iPhone fallback. Mirrors the UIKit/AppKit renderers, which each
+      # install an OS-querying provider in their initializer.
+      #
+      # Conservative static watch-class snapshot (compact horizontal + vertical,
+      # ~176pt usable width) that fits every current watch size from 40mm (162pt)
+      # up; per-device-exact bounds via a WKInterfaceDevice trampoline is a
+      # follow-up refinement. The point is the size-CLASS + width-ORDER are now
+      # watch-correct, so `responsive(...)` picks compact values and content-width
+      # clamps to the small screen — the whole layout reflows.
+      private def install_device_provider : Nil
+        UI::DesignTokens::Device.install_provider do
+          UI::DesignTokens::DeviceMetrics.new(
+            screen_width_pt: 176.0,
+            screen_height_pt: 215.0,
+            # watchOS overlays the system clock at the top of every app; reserve
+            # headroom so screen content (e.g. a title) starts below it.
+            safe_area_top_pt: 22.0,
+            safe_area_bottom_pt: 0.0,
+            safe_area_leading_pt: 0.0,
+            safe_area_trailing_pt: 0.0,
+            horizontal_size_class: UI::DesignTokens::SizeClass::Compact,
+            vertical_size_class: UI::DesignTokens::SizeClass::Compact,
+          )
+        end
       end
 
       # Entry point: walk the tree, return the root box's NativeView.
@@ -98,15 +128,16 @@
       # Core containers — declarative VStack/HStack via apsk_make_watch_stack
       # -------------------------------------------------------------------------
       def visit(view : UI::VStack)
-        compose_stack(view.children, 0_i64, view.spacing, view.alignment)
+        compose_stack(view, 0_i64, view.spacing, view.alignment)
       end
 
       def visit(view : UI::HStack)
-        compose_stack(view.children, 1_i64, view.spacing, view.alignment)
+        compose_stack(view, 1_i64, view.spacing, view.alignment)
       end
 
-      private def compose_stack(children : Array(UI::View), axis : Int64,
+      private def compose_stack(view : UI::View, axis : Int64,
                                 spacing : Float64, align : UI::Alignment) : Nil
+        children = view.is_a?(UI::VStack) ? view.children : view.as(UI::HStack).children
         kids = [] of UI::NativeView
         children.each do |c|
           if nv = render_child(c)
@@ -114,8 +145,16 @@
           end
         end
         buf = child_buffer(kids)
+        # Populate the common view overrides (padding, min/max width + height,
+        # background, opacity, border, shadow, accessibility) so the watch stack
+        # honors the same adaptive layout props the imperative UIKit/AppKit stacks
+        # apply. Without this VStack/HStack dropped root padding + content-width pins
+        # and shared screens could not reflow to the watch.
+        o = LibSwiftKitBridge.apsk_view_overrides_new
+        sender = UI::Native::SwiftKitObjCSender.new(o)
+        UI::Native::Populator.populate_view_common(o.address.to_s(16), view, sender)
         ptr = LibSwiftKitBridge.apsk_make_watch_stack(
-          buf.as(Void*), kids.size.to_i32, axis, spacing, alignment_int(align),
+          buf.as(Void*), kids.size.to_i32, axis, spacing, alignment_int(align), o,
         )
         emit(ptr)
       end

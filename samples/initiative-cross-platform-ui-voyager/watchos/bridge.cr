@@ -1,91 +1,99 @@
-# Voyager watchOS bridge — the Crystal entry point the watch app calls to render a
-# Crystal-authored UI::View tree through UI::WatchKit::Renderer (mirrors the iOS
-# bridge.cr pattern). Exposes a C ABI:
+# Voyager watchOS bridge — renders the SHARED Crystal screens on the wrist.
 #
+# This is the cohesion payoff: instead of an ad-hoc watch-only view tree, the watch
+# renders the SAME registered `UI::Screen` classes (e.g. Voyager::AgentChatScreen)
+# that macOS + iOS render — through the same HostBootstrap dispatcher substrate — just
+# walked by `UI::WatchKit::Renderer` instead of AppKit/UIKit. One screen definition,
+# one state model, three native platforms.
+#
+# C ABI:
 #   void* voyager_watch_render(void)
-#       — builds a UI::View tree, renders it via UI::WatchKit::Renderer, and returns
-#         the retained root APSKWatchHostView* (the Swift side reads its `.content`
-#         and embeds it). The pointer is +1-retained; Swift takes ownership.
-#
-# This is what makes the watch a first-class CRYSTAL target: the same UI::View API
-# used on macOS/iOS, walked into SwiftUI by the watch renderer.
+#       — builds the registered agent-chat screen from the shared State + dispatcher,
+#         renders via UI::WatchKit::Renderer, returns the retained root
+#         APSKWatchHostView* (Swift reads `.content` and embeds it). +1-retained.
 {% if flag?(:watchos) %}
-  require "../../../src/ui"
+  require "../app"
+  require "../host_bootstrap"
+  require "../../../src/ui/renderers/watchkit_renderer"
+  require "../../../src/ui/probes"
 
   module VoyagerWatchBridge
-    # iOS class-init gap also affects watchOS (Swift @main hides _main, so class-var
-    # initializers + Crystal::once tables don't run). NONE of these carry side-effect
-    # initializers; we explicitly bootstrap in `initialize_runtime`.
+    # iOS/watchOS class-init gap (Swift @main hides _main, so class-var initializers +
+    # Crystal::once tables don't run). NONE of these carry side-effect initializers;
+    # we bootstrap explicitly in `initialize_runtime`. See
+    # project_crystal_ios_class_init_gap + the iOS bridge for the canonical pattern.
     @@initialized = false
-    @@root : UI::NativeView? = nil
+    @@state : Voyager::State? = nil
+    @@coord : UI::NavigationCoordinator? = nil
+    @@session : UI::Session::InProcess? = nil
+    @@flash : UI::Flash::InProcess? = nil
+    @@dispatcher : UI::ActionDispatcher? = nil
+    @@root : UI::NativeView? = nil # pin the rendered tree against GC across the Swift round-trip
 
     def self.initialize_runtime : Nil
       return if @@initialized
       GC.init
-      # Bring up the runtime subsystems __crystal_main normally initializes but the
-      # watch embedding skips (Thread/Fiber/Once) — see project_crystal_ios_class_init_gap.
+      # Runtime subsystems __crystal_main normally inits but the watch embedding skips.
       Thread.init
       Fiber.init
       Crystal::Once.init
+
+      # iOS/watchOS class-init gap recovery (same as the iOS bridge): the module-body
+      # bootstrap registrations only run under _main, so re-install them explicitly.
+      UI::Probes::DismissProbe.reset
+      UI::Probes::ToggleProbe.reset
+      UI::Probes::SliderProbe.reset
+      UI::Probes::TapProbe.reset
+      UI::Probes::FormRowProbe.reset
+      UI::Probes::RuntimeOverrideProbe.reset
+      UI::WidgetRoute::Bootstrap.install
+      UI::SystemAction::Bootstrap.install
+
+      # Build the shared host substrate rooted at the agent-chat screen. State seeds
+      # the chat transcript; the dispatcher owns FormState/session/flash/navigation.
+      result = Voyager::HostBootstrap.build(:agent_chat)
+      @@state = result.state
+      @@coord = result.coord
+      @@session = result.session
+      @@flash = result.flash
+      @@dispatcher = result.dispatcher
+
       @@initialized = true
     end
 
-    # A chat bubble: a Card wrapping a Label. Mirrors the iOS/macOS agent-chat
-    # transcript so the wrist design is cohesive with the larger screens.
-    private def self.bubble(text : String) : UI::View
-      label = UI::Label.new(text)
-      label.text_color_role = UI::LabelRole::Primary
-      UI::Card.new(label.as(UI::View)).as(UI::View)
-    end
-
-    # Build a Crystal-authored agent-chat surface and render it on watch. Exercises
-    # the freshly-wired facades: Card (bubbles), Divider, Toggle, IconButton — so the
-    # on-device capture PROVES they render, not merely compile.
+    # Render the current route's registered screen via the WatchKit renderer and
+    # return the root box pointer (Swift takes the +1 retain via Unmanaged).
     def self.render : Void*
       initialize_runtime
+      coord = @@coord.not_nil!
+      dispatcher = @@dispatcher.not_nil!
 
-      root = UI::VStack.new(spacing: 8.0)
-      root.alignment = UI::Alignment::Leading
+      reg = VoyagerApp.registration_for(coord.current.id)
+      screen_class = reg.screen_class
 
-      title = UI::Label.new("Agent")
-      title.font = UI::Font.new(size: 20.0, weight: :bold)
-      title.text_color_role = UI::LabelRole::Primary
-      root << title.as(UI::View)
-
-      # Transcript bubbles (Card facades). Kept to one line each so the full
-      # Crystal-authored tree — bubbles + Divider + Toggle + IconButton — fits a
-      # single watch screen for a deterministic capture.
-      root << bubble("10:00 confirmed")
-
-      # A Picker — exercises the string-array buffer facade path on watch
-      # (PickerFacade's @objc class is available on watchOS; SegmentedControl/
-      # GlassBackground are NOT — their classes are #if !os(watchOS)-gated).
-      picker = UI::Picker.new
-      picker.label = "Range"
-      picker.options = ["Today", "Week"]
-      picker.selected_index = 0
-      root << picker.as(UI::View)
-
-      root << UI::Divider.new.as(UI::View)
-
-      # A settings row: Label + Toggle (HStack), proving the control facade.
-      settings_row = UI::HStack.new(spacing: 6.0)
-      settings_row.alignment = UI::Alignment::Center
-      settings_row << UI::Label.new("Haptics").as(UI::View)
-      settings_row << UI::Toggle.new("", true).as(UI::View)
-      root << settings_row.as(UI::View)
-
-      # Compose row: a hint Label + a paperplane IconButton.
-      compose = UI::HStack.new(spacing: 6.0)
-      compose.alignment = UI::Alignment::Center
-      compose << UI::Label.new("Reply…").as(UI::View)
-      send = UI::IconButton.new("paperplane.fill")
-      send.accessibility_label = "Send reply"
-      compose << send.as(UI::View)
-      root << compose.as(UI::View)
-
+      # Construct the renderer BEFORE screen.build — its initializer installs the
+      # watch DeviceMetrics provider that screens query during build (provider-
+      # install-ordering invariant; see project_renderer_provider_install_ordering).
       renderer = UI::WatchKit::Renderer.new
-      native = renderer.render(root.as(UI::View))
+
+      view =
+        if screen_class.nil?
+          UI::Label.new("Unknown screen: #{coord.current.id}").as(UI::View)
+        else
+          ctx = UI::ScreenContext::Native.new(
+            form_state: dispatcher.current_form_state,
+            session: dispatcher.session,
+            flash: dispatcher.flash,
+            design_tokens: dispatcher.design_tokens,
+            navigation: dispatcher.navigation,
+            action_params: {} of String => String,
+            platform: dispatcher.platform,
+            environment: dispatcher.environment,
+          )
+          screen_class.new.build(ctx)
+        end
+
+      native = renderer.render(view)
       @@root = native # pin against GC across the Swift round-trip
       native.handle.ptr!
     end

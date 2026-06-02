@@ -1,13 +1,15 @@
 module Voyager
   # Voyager — Agent Chat screen (the cross-platform "talk to your agent" surface).
   #
-  # This is the SAME surface the watchOS app renders (see
-  # `samples/.../watchos/Sources/ContentView.swift`), authored here as a Crystal
-  # `UI::Screen` so it renders natively on macOS + iOS through the platform renderer.
-  # On watch the same composition is driven from Swift facades (the Crystal
-  # UI::WatchKit::Renderer is blocked on a compiler fix) — so one design appears on
-  # all three platforms. Both-axes adaptive via DeviceMetrics#responsive /
-  # #responsive_vertical, matching the rest of the app.
+  # This is the SAME surface rendered on ALL THREE native platforms — macOS, iOS,
+  # AND watchOS — authored once as a Crystal `UI::Screen` and walked by each
+  # platform renderer (AppKit / UIKit / WatchKit). The watchOS app renders this exact
+  # screen through `UI::WatchKit::Renderer` (see `samples/.../watchos/bridge.cr`); the
+  # renderer installs a watch-class DeviceMetrics provider so this one screen reflows
+  # to the wrist. Both-axes adaptive via DeviceMetrics#responsive / #responsive_vertical
+  # plus a content-width clamp to the device's available width (below), so the layout
+  # adapts from a 460pt desktop column down to a ~150pt watch column with no per-
+  # platform forks.
   class AgentChatScreen < UI::Screen
     SLUG = "voyager-agent-chat"
 
@@ -19,10 +21,20 @@ module Voyager
       messages = Voyager.state.chat_messages
 
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.responsive(compact: 340.0, regular: 460.0)
-      bubble_w = content_width - 64.0
       pad_h = metrics.responsive(compact: 16.0, regular: 24.0)
       pad_v = metrics.responsive_vertical(compact: 16.0, regular: 28.0)
+
+      # Adaptive content width: start from the size-class default, then CLAMP to the
+      # width the device actually offers (frame minus safe area minus our own
+      # horizontal padding). On a phone/desktop content_width_pt is large so the min
+      # keeps 340/460 unchanged; on a ~176pt watch it collapses to the available
+      # ~140pt so the column, bubbles, field and buttons all reflow to the wrist.
+      preferred_width = metrics.responsive(compact: 340.0, regular: 460.0)
+      available_width = metrics.content_width_pt - 2.0 * pad_h
+      content_width = available_width > 0 ? Math.min(preferred_width, available_width) : preferred_width
+      # Keep the trailing gutter (the spacer gap that pushes a bubble to one edge)
+      # proportional so a narrow watch bubble doesn't get crushed by a phone-sized gap.
+      bubble_w = content_width - metrics.responsive(compact: 28.0, regular: 64.0)
 
       root = UI::VStack.new(spacing: metrics.responsive_vertical(compact: 10.0, regular: 14.0))
       root.root_fill = true

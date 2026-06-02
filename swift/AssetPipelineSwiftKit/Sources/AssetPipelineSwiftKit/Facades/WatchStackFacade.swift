@@ -19,12 +19,13 @@ public class WatchStackFacade: NSObject {
         childViews: [APSKWatchHostView],
         axis: Int,
         spacing: Double,
-        alignment: Int
+        alignment: Int,
+        overrides: ViewOverrides
     ) -> APSKPlatformView {
-        let content: AnyView
+        let stack: AnyView
         if axis == 1 {
             let va: VerticalAlignment = alignment == 0 ? .top : (alignment == 2 ? .bottom : .center)
-            content = AnyView(
+            stack = AnyView(
                 HStack(alignment: va, spacing: spacing) {
                     ForEach(0..<childViews.count, id: \.self) { i in
                         childViews[i].content
@@ -33,7 +34,7 @@ public class WatchStackFacade: NSObject {
             )
         } else {
             let ha: HorizontalAlignment = alignment == 0 ? .leading : (alignment == 2 ? .trailing : .center)
-            content = AnyView(
+            stack = AnyView(
                 VStack(alignment: ha, spacing: spacing) {
                     ForEach(0..<childViews.count, id: \.self) { i in
                         childViews[i].content
@@ -41,6 +42,12 @@ public class WatchStackFacade: NSObject {
                 }
             )
         }
+        // Apply the common view overrides (padding, frame min/max width + height,
+        // background, opacity, border, shadow, accessibility) so VStack/HStack honor
+        // the same adaptive layout props the imperative UIKit/AppKit stacks do. Without
+        // this the watch dropped ALL container layout (root padding incl. safe-area
+        // top, content-width pins) and shared screens couldn't reflow to the wrist.
+        let content = CommonModifiers.apply(stack, overrides: overrides)
         return HostingHelpers.host(content, kind: axis == 1 ? "HStack" : "VStack")
     }
 }

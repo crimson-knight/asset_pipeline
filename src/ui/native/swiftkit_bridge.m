@@ -516,13 +516,14 @@ void *apsk_make_card(const void *child_views, int child_count, void *overrides) 
 // every other platform and this safely no-ops there (returns NULL). axis: 0=V,1=H.
 // alignment: 0=leading/top,1=center,2=trailing/bottom.
 void *apsk_make_watch_stack(const void *child_views, int child_count,
-                            long axis, double spacing, long alignment) {
+                            long axis, double spacing, long alignment,
+                            void *overrides) {
     Class cls = objc_getClass("APSKWatchStackFacade");
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
-    SEL sel = sel_registerName("makeStackWithChildViews:axis:spacing:alignment:");
-    return ((id (*)(Class, SEL, id, long, double, long))objc_msgSend)(
-        cls, sel, children, axis, spacing, alignment);
+    SEL sel = sel_registerName("makeStackWithChildViews:axis:spacing:alignment:overrides:");
+    return ((id (*)(Class, SEL, id, long, double, long, id))objc_msgSend)(
+        cls, sel, children, axis, spacing, alignment, (id)overrides);
 }
 
 void *apsk_make_surface(const void *child_views, int child_count, void *overrides) {

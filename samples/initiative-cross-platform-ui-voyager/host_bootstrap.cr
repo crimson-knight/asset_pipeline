@@ -81,6 +81,8 @@ module Voyager
         :ipados
       {% elsif flag?(:ios) %}
         :ios
+      {% elsif flag?(:watchos) %}
+        :watchos
       {% elsif flag?(:android) %}
         :android
       {% else %}

@@ -247,7 +247,8 @@
     # axis: 0 = vertical, 1 = horizontal. alignment: 0 = leading/top, 1 = center,
     # 2 = trailing/bottom. Returns an APSKWatchHostView box; NULL off-watch.
     fun apsk_make_watch_stack(child_views : Void*, child_count : Int32,
-                              axis : Int64, spacing : Float64, alignment : Int64) : Void*
+                              axis : Int64, spacing : Float64, alignment : Int64,
+                              overrides : Void*) : Void*
     fun apsk_make_menu_button(label : UInt8*, overrides : Void*) : Void*
     fun apsk_make_toggle_button(label : UInt8*, overrides : Void*,
                                 action_token : UInt64) : Void*
