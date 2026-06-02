@@ -19,7 +19,9 @@ or an `os(watchOS)` `#else` — encloses it). Spot-verified against
 and `ImageFacade` (reachable: `UIImage`/`NSImage` probe with a watch-valid
 `canImport(UIKit)` branch).
 
-**Result: 18 of 40 facades are reachable on watch; 22 are compiled out today.**
+**Result (original scan): 18 of 40 facades reachable on watch; 22 compiled out.**
+**Update 2026-06-02:** TextField ported → **19 reachable / 21 compiled out** (see
+Bucket 2).
 
 ## Bucket 1 — Watch-reachable now (18)
 
@@ -49,7 +51,7 @@ TabView**.
 
 | Facade | watchOS SwiftUI status | Priority for agent-watch |
 |---|---|---|
-| TextField | available (dictation/Scribble input) | **P0** — message entry |
+| ~~TextField~~ **PORTED 2026-06-02** | available (dictation/Scribble input) — now watch-reachable: dropped the `#if !os(watchOS)` exclusion, gated `.roundedBorder` (unavailable on watch) + `keyboardType` for non-watch; the `PromptOverlayField` body is pure SwiftUI. Compiles clean on watchOS-sim/iOS-sim/macOS. | **P0** — message entry ✅ |
 | SecureField | available | P1 — auth |
 | ListView (`List`) | core watch control | **P0** — message/feed list |
 | Sheet (`.sheet`) | available | **P0** — modal compose/confirm |

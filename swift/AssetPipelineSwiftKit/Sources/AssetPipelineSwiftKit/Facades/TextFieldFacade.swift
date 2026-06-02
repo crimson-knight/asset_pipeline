@@ -12,10 +12,13 @@
 import SwiftUI
 import Foundation
 
-// watchOS: this facade is not in the watch catalog subset and/or uses UIKit-only
-// APIs (UIView/UIControl/SwiftUI-on-watch-unavailable). Gated off watchOS for the
-// initial one-facade green compile; watch-native re-enable is a Phase 12 follow-up.
-#if !os(watchOS)
+// watchOS: ENABLED (Phase D Bucket-2 P0 port, 2026-06-02). The control body
+// (`PromptOverlayField` → `TextField`/`SecureField` + a contrast overlay) is pure
+// SwiftUI and valid on watchOS. The only watch-incompatible bits are gated below:
+// `.textFieldStyle(.roundedBorder)` (RoundedBorderTextFieldStyle is
+// `@available(watchOS, unavailable)` — watch uses its native field chrome) and the
+// UIKit `keyboardType` mapping (watch text entry is dictation/Scribble). See
+// watch-facade-bucket-audit.md.
 @objc(APSKTextFieldFacade)
 public class TextFieldFacade: NSObject {
     @objc public static func makeTextField(
@@ -70,9 +73,15 @@ public class TextFieldFacade: NSObject {
         // border — fine inside a Form, but not on a stand-alone sign-in
         // surface where the user expects a recognisable field. Macros
         // and per-widget style overrides will land in a follow-up.
+        //
+        // watchOS: `.roundedBorder` (RoundedBorderTextFieldStyle) is unavailable;
+        // the watch styles a TextField through its row/Form container, so we leave
+        // the default style there rather than force unavailable chrome.
+        #if !os(watchOS)
         content = AnyView(content.textFieldStyle(.roundedBorder))
+        #endif
 
-        #if canImport(UIKit)
+        #if canImport(UIKit) && !os(watchOS)
         if let kt = overrides.keyboardType {
             switch kt {
             case "email":  content = AnyView(content.keyboardType(.emailAddress))
@@ -159,4 +168,3 @@ struct PromptOverlayField: View {
         }
     }
 }
-#endif
