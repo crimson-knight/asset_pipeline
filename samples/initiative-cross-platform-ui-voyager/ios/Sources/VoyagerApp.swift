@@ -31,11 +31,16 @@ struct VoyagerApp: App {
     }
 
     private var preferredScheme: ColorScheme? {
+        // Capture/test runs pin the appearance via VOYAGER_APPEARANCE for
+        // deterministic light/dark screenshots. With no override, FOLLOW THE
+        // SYSTEM (return nil) — the asset_pipeline facades use dynamic semantic
+        // colors (.foregroundStyle(.primary), materials) that adapt to dark
+        // automatically, so a real user's Dark Mode is honoured.
         let env = ProcessInfo.processInfo.environment
         switch env["VOYAGER_APPEARANCE"] ?? env["HIG_APPEARANCE"] {
         case "dark":  return .dark
         case "light": return .light
-        default:      return .light
+        default:      return nil
         }
     }
 }
@@ -88,8 +93,16 @@ final class VoyagerSceneDelegate: NSObject, UIWindowSceneDelegate {
                options connectionOptions: UIScene.ConnectionOptions) {
         guard let ws = scene as? UIWindowScene else { return }
         let env = ProcessInfo.processInfo.environment
-        let wantDark = (env["VOYAGER_APPEARANCE"] ?? env["HIG_APPEARANCE"] ?? "light") == "dark"
-        let style: UIUserInterfaceStyle = wantDark ? .dark : .light
+        // Only PIN the window appearance when a capture/test explicitly sets it;
+        // otherwise leave .unspecified so the window follows the system (real
+        // users' Dark Mode is honoured).
+        let pinned = env["VOYAGER_APPEARANCE"] ?? env["HIG_APPEARANCE"]
+        let style: UIUserInterfaceStyle
+        switch pinned {
+        case "dark":  style = .dark
+        case "light": style = .light
+        default:      style = .unspecified
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             for w in ws.windows {
                 w.overrideUserInterfaceStyle = style
