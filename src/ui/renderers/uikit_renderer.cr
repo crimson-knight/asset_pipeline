@@ -110,6 +110,7 @@
       # needs to fill the parent edge-to-edge.
       fun objc_pin_child_to_superview_edges(parent : Void*, child : Void*) : Void
       fun objc_set_horizontal_fixed_priority(view : Void*) : Void
+      fun objc_set_horizontal_fill_priority(view : Void*) : Void
       fun uiscrollview_pin_content(scroll_view : Void*, content_view : Void*) : Void
       # Phase 6.11 — swipe-reveal row factory. Builds a horizontal-scroll
       # UIScrollView with [content | action₁ | action₂ ...] children where
@@ -5055,6 +5056,14 @@
           if mxw = max_w
             LibObjCBridge.objc_constrain_width(ptr, mxw)
           end
+        end
+
+        # UI::View#fill_horizontal — the cross-platform flex-grow primitive. Lower the
+        # horizontal content-hugging so UIStackView's Fill distribution stretches this
+        # view to absorb the row's slack (e.g. a compose TextField growing beside a
+        # fixed send button). Only meaningful without an exact width pin.
+        if view.fill_horizontal
+          LibObjCBridge.objc_set_horizontal_fill_priority(ptr)
         end
 
         # Phase 6.10 Rem 4 (Item 2D) — root_fill honors the current

@@ -2505,6 +2505,13 @@ module UI
 
       # Apply common View base-class styles to any element.
       private def apply_common_styles(el : Components::Elements::HTMLElement, view : UI::View)
+        # UI::View#fill_horizontal — flex-grow primitive. In a flex row the element grows
+        # to fill the remaining space beside fixed-size siblings (the web analog of the
+        # AppKit/UIKit low-content-hugging fill).
+        if view.fill_horizontal
+          el.add_style("flex: 1 1 0%")
+        end
+
         # Padding
         p = view.padding
         if p.top != 0.0 || p.trailing != 0.0 || p.bottom != 0.0 || p.leading != 0.0

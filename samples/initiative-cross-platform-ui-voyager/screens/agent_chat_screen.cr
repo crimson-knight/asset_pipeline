@@ -73,11 +73,15 @@ module Voyager
       compose.minimum_width = content_width
       compose.maximum_width = content_width
 
+      # The field GROWS to fill the row beside the fixed send button (fill_horizontal),
+      # rather than being pinned to an exact width. An exact-width field + fixed button
+      # left UIKit's Fill row with no absorber, over-constraining it and clipping the
+      # field off the leading edge on iOS. As the flexible element the field both fixes
+      # that and adapts naturally — wide on desktop, narrow on the watch.
       field = UI::TextField.new(placeholder: "Message your agent…", name: "chat_message")
       field.accessibility_label = "Message your agent"
       field.test_id = "voyager-agent-chat-input"
-      field.minimum_width = content_width - 52.0
-      field.maximum_width = content_width - 52.0
+      field.fill_horizontal = true
 
       send = UI::IconButton.new("paperplane.fill")
       send.accessibility_label = "Send message"

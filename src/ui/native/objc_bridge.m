@@ -676,6 +676,24 @@ void objc_set_horizontal_fixed_priority(void *view) {
 #endif
 }
 
+// The inverse of the fixed-priority helper: mark a view as the flexible element that
+// GROWS to fill the remaining horizontal space in its containing stack. Lowering the
+// horizontal content-hugging priority makes BOTH UIStackView (.fill distribution) and
+// NSStackView stretch this view to absorb slack, instead of hugging its intrinsic
+// width. This is the cross-platform "flex-grow" primitive (UI::View#fill_horizontal):
+// a horizontal row of otherwise fixed-width controls needs at least one such absorber,
+// or UIKit over-constrains the row and shoves it off the leading edge (the Voyager
+// compose-field left-clip). Compression resistance is left at the default so the view
+// won't shrink below its content.
+void objc_set_horizontal_fill_priority(void *view) {
+    BridgeView *v = (BridgeView *)view;
+#if TARGET_OS_OSX
+    [v setContentHuggingPriority:NSLayoutPriorityDefaultLow forOrientation:NSLayoutConstraintOrientationHorizontal];
+#else
+    [v setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
+#endif
+}
+
 void objc_constrain_size(void *view, double w, double h) {
     BridgeView *v = (BridgeView *)view;
     v.translatesAutoresizingMaskIntoConstraints = NO;

@@ -527,6 +527,25 @@ module UI
       self
     end
 
+    # Cross-platform "flex-grow": when `true`, this view GROWS to fill the remaining
+    # space along its containing stack's main axis (the horizontal axis of an `HStack`).
+    # It becomes the row's flexible absorber, the way a `Spacer` does — but as a real
+    # control (e.g. a compose `TextField` that expands to fill the row beside a
+    # fixed-size send button). Without an absorber, a horizontal row of fixed-width
+    # children over-constrains UIKit's Fill distribution and the row mispositions.
+    #
+    # Renderer mapping: AppKit / UIKit lower the view's horizontal content-hugging
+    # priority (so the stack stretches it); the web renderer emits `flex: 1`. Do NOT
+    # combine with an exact width pin (`minimum_width == maximum_width`) — the pin wins
+    # and defeats the grow.
+    property fill_horizontal : Bool = false
+
+    # Chainable shortcut for `self.fill_horizontal = true`. Returns self.
+    def grow! : self
+      @fill_horizontal = true
+      self
+    end
+
     # SwiftKit reactive-state opaque pointer (Phase 3 Remediation 4).
     #
     # Populated by the AppKit / UIKit renderer's visit method for views

@@ -96,6 +96,7 @@
       fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
       fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
       fun objc_constrain_fluid_width(view : Void*, min_w : Float64, max_w : Float64) : Void
+      fun objc_set_horizontal_fill_priority(view : Void*) : Void
       fun objc_constrain_height(view : Void*, h : Float64) : Void
       # ComboBox value-drop fix (macOS) — wire an NSComboBox's text +
       # selection changes (controlTextDidChange: / comboBoxSelectionDidChange:)
@@ -549,8 +550,11 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         # FillProportionally=2, EqualSpacing=3, EqualCentering=4.
         # For Alignment::Fill, use Fill (0) so the last unconstrained arranged
         # subview expands to fill all remaining horizontal space.
-        # For all other alignments, use GravityAreas (-1, the AppKit default).
-        if view.alignment == Alignment::Fill
+        # ALSO use Fill when any child is fill_horizontal: NSStackView's default
+        # GravityAreas keeps a no-width child at its tiny intrinsic size (the macOS
+        # compose-field "sliver"); Fill distribution + the child's low hugging is what
+        # actually stretches it. UIStackView defaults to Fill so iOS needs no analog.
+        if view.alignment == Alignment::Fill || view.children.any?(&.fill_horizontal)
           LibObjCBridge.objc_send_long(ptr, sel("setDistribution:"), 0_i64)
         end
 
@@ -4596,6 +4600,14 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           end
         elsif max_w = view.maximum_width
           LibObjCBridge.objc_constrain_width(ptr, max_w)
+        end
+
+        # UI::View#fill_horizontal — cross-platform flex-grow. Lower the horizontal
+        # content-hugging so NSStackView stretches this view to fill the row's slack
+        # (NSStackView keeps a no-width child at its tiny intrinsic size otherwise — the
+        # macOS counterpart of the UIKit fix). Only meaningful without an exact pin.
+        if view.fill_horizontal
+          LibObjCBridge.objc_set_horizontal_fill_priority(ptr)
         end
 
         if min_h = view.minimum_height
