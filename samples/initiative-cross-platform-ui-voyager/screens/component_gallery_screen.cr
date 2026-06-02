@@ -21,23 +21,29 @@ module Voyager
     def build(context : UI::ScreenContext) : UI::View
       context.active_screen_class = self.class
 
+      # Phase D Track 2 — both-axes adaptive: column width keys off the horizontal
+      # size class; the section spacing + top/bottom padding key off the vertical
+      # size class so the catalog tightens in landscape / short windows. The single
+      # content_width threads to every section builder as `width`.
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.compact_horizontal? ? 340.0 : 480.0
+      content_width = metrics.responsive(compact: 340.0, regular: 480.0)
+      pad_h = metrics.responsive(compact: 20.0, regular: 28.0)
+      pad_v = metrics.responsive_vertical(compact: 16.0, regular: 24.0)
 
-      root = UI::VStack.new(spacing: 22.0)
+      root = UI::VStack.new(spacing: metrics.responsive_vertical(compact: 14.0, regular: 22.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Leading
       root.padding = UI::EdgeInsets.new(
-        top: 24.0 + metrics.safe_area_top_pt,
-        trailing: 20.0 + metrics.safe_area_trailing_pt,
-        bottom: 24.0 + metrics.safe_area_bottom_pt,
-        leading: 20.0 + metrics.safe_area_leading_pt,
+        top: pad_v + metrics.safe_area_top_pt,
+        trailing: pad_h + metrics.safe_area_trailing_pt,
+        bottom: pad_v + metrics.safe_area_bottom_pt,
+        leading: pad_h + metrics.safe_area_leading_pt,
       )
       root.accessibility_label = "Component gallery"
       root.test_id = "voyager-component-gallery-root"
 
       title = UI::Label.new("Component Gallery")
-      title.font = UI::Font.new(size: 28.0, weight: :bold)
+      title.font = UI::Font.new(size: metrics.responsive(compact: 26.0, regular: 30.0), weight: :bold)
       title.text_color_role = UI::LabelRole::Primary
       title.test_id = "voyager-gallery-title"
       root << title.as(UI::View)
