@@ -29,16 +29,74 @@ public typealias APSKPlatformColor = NSColor
 #endif
 
 #if os(watchOS)
+import Combine
+
 // watchOS Apple output node: a reference-type (NSObject) box carrying the SwiftUI
 // content, so the Crystal bridge holds it as a +1-retained opaque pointer (same
 // ObjC retain/release contract as a UIView/NSView handle) and the WatchKit
 // renderer composes children by reading `.content`. See
-// foundational-output-and-layout-model.md §"Phase B".
-public final class APSKWatchHostView: NSObject {
-    public let content: AnyView
-    public init(content: AnyView) {
+// foundational-output-and-layout-model.md §"Principle 1" — the watchOS boundary is
+// an explicit Apple output node, NOT a bare box, so it must satisfy the same
+// bridge + reconciler contract a UIView/NSView handle does:
+//
+//   * Ownership   — NSObject with a real ObjC retain/release path (the Crystal
+//                   NativeHandle holds it via ReleaseStrategy::ObjCRelease).
+//   * Identity    — a stable `kind` (the watch analog of the debug-label
+//                   `view_kind` the iOS/macOS reconciler infers in
+//                   native_view.cr:70-109). The in-place reconciler ABORTS on a
+//                   nil/mismatched kind (ios/bridge.cr:304-323), so the boundary
+//                   node carries it explicitly. Settable by the Crystal renderer
+//                   the same way it stamps a debug label on iOS/macOS.
+//   * Topology    — ordered child boundary nodes the WatchKit renderer walks to
+//                   compose; container facades read each child's `.content`.
+//   * Update chan — `content` is @Published so an in-place swap (reconcile, which
+//                   preserves focus across rerender) re-renders the observing
+//                   SwiftUI view instead of tearing the subtree down.
+public final class APSKWatchHostView: NSObject, ObservableObject {
+    /// Stable widget kind — the watch analog of the iOS/macOS debug-label
+    /// view_kind. Empty until the Crystal renderer stamps it (mirrors how the
+    /// UIKit/AppKit path sets a debug label after `host` returns).
+    @objc public var kind: String
+
+    /// The SwiftUI content this node renders. @Published so an in-place content
+    /// swap re-renders any observing `APSKHostedChild` rather than rebuilding.
+    @Published public var content: AnyView
+
+    /// Ordered child boundary nodes — the watch analog of the UIView/NSView child
+    /// topology the reconciler walks. Container facades compose by reading each
+    /// child's `.content`; reconcile updates this in place.
+    public private(set) var children: [APSKWatchHostView]
+
+    public init(content: AnyView, kind: String = "", children: [APSKWatchHostView] = []) {
+        self.kind = kind
         self.content = content
+        self.children = children
         super.init()
+    }
+
+    /// In-place content update (reconcile path). Publishes the change so the
+    /// observing SwiftUI view refreshes while staying mounted (focus-preserving).
+    public func update(content newContent: AnyView) {
+        self.content = newContent
+    }
+
+    /// Number of child boundary nodes — discoverable from the Crystal bridge.
+    @objc public var childCount: Int { children.count }
+
+    /// Append a child boundary node (renderer composition path).
+    @objc public func appendChild(_ child: APSKWatchHostView) {
+        children.append(child)
+    }
+
+    /// Replace the full child list in order (reconcile topology update).
+    public func setChildren(_ newChildren: [APSKWatchHostView]) {
+        children = newChildren
+    }
+
+    /// The child at `index`, or nil if out of range (renderer walk).
+    @objc public func child(at index: Int) -> APSKWatchHostView? {
+        guard index >= 0 && index < children.count else { return nil }
+        return children[index]
     }
 }
 public typealias APSKPlatformView = APSKWatchHostView

@@ -207,7 +207,7 @@ enum HostingHelpers {
     /// embedded in a UIKit subtree (the Crystal renderer's UIStackView
     /// root model). AppKit is unaffected — NSHostingView reports actions
     /// independently of NSViewController containment.
-    static func host<V: View>(_ view: V) -> APSKPlatformView {
+    static func host<V: View>(_ view: V, kind: String = "") -> APSKPlatformView {
         // Apply the brand tint last so it cascades into every child view
         // SwiftUI considers part of this hosted root. Hosted roots are
         // isolated tint scopes — there is no propagation across
@@ -228,7 +228,9 @@ enum HostingHelpers {
         #if os(watchOS)
         // watchOS: no UIView host — SwiftUI is native, so box the (tinted, sized)
         // SwiftUI content. The box is self-owning; no hosting controller to retain.
-        platformView = APSKWatchHostView(content: sized)
+        // `kind` (empty unless the caller passes it) is the boundary node's stable
+        // identity for the reconciler; the Crystal renderer may also stamp it later.
+        platformView = APSKWatchHostView(content: sized, kind: kind)
         #elseif canImport(UIKit)
         // UIHostingController + .view is the standard UIKit path.
         // `sizingOptions` is set BEFORE first access to `.view` so the
@@ -295,9 +297,11 @@ enum HostingHelpers {
 /// as raw platform pointers.
 #if os(watchOS)
 // watchOS: a "hosted child" is the box's SwiftUI content, composed directly into
-// the parent's SwiftUI tree (no UIViewRepresentable bridge).
+// the parent's SwiftUI tree (no UIViewRepresentable bridge). Observed so an
+// in-place `content` swap on the boundary node (reconcile) re-renders the child
+// while it stays mounted — the focus-preserving update channel.
 struct APSKHostedChild: View {
-    let view: APSKPlatformView // APSKWatchHostView
+    @ObservedObject var view: APSKWatchHostView
     var body: some View { view.content }
 }
 #elseif canImport(UIKit)

@@ -88,6 +88,22 @@ With that contract, parent facades compose children by reading each node's
 but the node is a first-class bridge object, not a thin wrapper. `Package.swift`
 gains `.watchOS(.v10)`.
 
+> **STATUS (2026-06-02): Principle 1's boundary node satisfies the full Codex
+> contract.** `APSKWatchHostView` (`Overrides/ViewOverrides.swift`) is now an
+> `NSObject, ObservableObject` carrying all three required facets, not just
+> `content`: (1) **identity** — a settable `kind: String` (the watch analog of the
+> iOS/macOS debug-label `view_kind`, which the reconciler aborts on if nil/mismatched);
+> (2) **topology** — an ordered `children: [APSKWatchHostView]` with `appendChild` /
+> `setChildren` / `child(at:)` / `childCount` for the renderer walk; (3) **update
+> channel** — `content` is `@Published` and `APSKHostedChild` `@ObservedObject`s the
+> node, so an in-place `update(content:)` swap re-renders while the subtree stays
+> mounted (focus-preserving reconcile). `HostingHelpers.host(_:kind:)` gained an
+> additive defaulted `kind` param (no facade churn). **Proven:** clean release
+> compile on watchOS-sim + iOS-sim + macOS, and the test target compiles against the
+> new API. Still pending for D: the Crystal-side `WatchKit::Renderer` that stamps
+> `kind` and composes via these facets, the facade-bucket audit, and a one-facade
+> end-to-end watch render.
+
 ### Principle 2 — `Fluid` maps INTO the existing constraint model (additive). [Codex-corrected]
 
 **[Codex] Do NOT replace Auto-Layout with SwiftUI intrinsic sizing** — the
