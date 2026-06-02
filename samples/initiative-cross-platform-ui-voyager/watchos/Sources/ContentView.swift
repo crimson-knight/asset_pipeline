@@ -24,6 +24,18 @@ struct ContentView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
+                // === Rendered by Crystal ===
+                // This block is composed entirely by the Crystal UI::WatchKit::Renderer:
+                // watchos/bridge.cr builds a UI::View tree, the renderer walks it into
+                // SwiftKit facade boxes, and returns the root APSKWatchHostView whose
+                // `.content` we embed here. No Swift authored this subtree's layout —
+                // Crystal did. This is the on-device proof of a Crystal-authored watch
+                // screen (brick 4b). The agent-chat surface below is the Swift-driven
+                // app shell that hosts it.
+                crystalRendered
+
+                Divider()
+
                 facade(LabelFacade.makeLabel(text: "Agent", overrides: titleOverrides()))
 
                 ForEach(messages.indices, id: \.self) { i in
@@ -76,6 +88,25 @@ struct ContentView: View {
     private func facade(_ box: APSKWatchHostView) -> some View {
         box.content
     }
+
+    // The Crystal-authored subtree. `voyager_watch_render()` (bridge.cr) returns a
+    // +1-retained APSKWatchHostView*; take it via Unmanaged and embed its content.
+    // Computed once and cached so the bridge runs a single time per view lifetime.
+    @ViewBuilder
+    private var crystalRendered: some View {
+        if let box = Self.crystalBox {
+            box.content
+        } else {
+            Text("Crystal render unavailable")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private static let crystalBox: APSKWatchHostView? = {
+        guard let raw = voyager_watch_render() else { return nil }
+        return Unmanaged<APSKWatchHostView>.fromOpaque(raw).takeRetainedValue()
+    }()
 
     private func titleOverrides() -> LabelOverrides {
         let o = LabelOverrides()

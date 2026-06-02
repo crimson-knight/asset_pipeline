@@ -23,6 +23,23 @@ targets:
       - path: ../../../swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.assetpipeline.voyager.VoyagerWatch
+      # Link the Crystal watch bridge lib (build/libvoyagerwatch.a, produced by
+      # build_crystal_lib.sh: the Crystal UI lib + UI::WatchKit::Renderer + bridge +
+      # swiftkit C trampolines) + the cross-built single-threaded libgc. The SwiftKit
+      # @objc facade classes are compiled in (sources above); the C trampolines
+      # resolve them at runtime via objc_getClass. ContentView calls
+      # voyager_watch_render() through the bridging header.
+      LIBRARY_SEARCH_PATHS:
+        - $(PROJECT_DIR)/build
+        - /tmp/crystal-cross-deps/watchos-simulator/lib
+      SWIFT_OBJC_BRIDGING_HEADER: Sources/Voyager-Watch-Bridging-Header.h
+      OTHER_LDFLAGS:
+        - -lvoyagerwatch
+        - -lgc
+        - -liconv
+        - -lobjc
+        - -framework
+        - Foundation
     info:
       path: Sources/Info.plist
       properties:
