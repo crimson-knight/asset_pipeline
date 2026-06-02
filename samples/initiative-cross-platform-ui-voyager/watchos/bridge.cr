@@ -161,6 +161,17 @@
       Voyager.state.send_chat_message(text)
       @@dispatcher.not_nil!.navigation.republish
     end
+
+    # Drive a real NAVIGATION the way a Settings "Daily check-in" button tap does:
+    # dispatch :open_check_in → SettingsController returns Navigate(:check_in) → the
+    # dispatcher mounts the new screen + coord.push → on_change → the Swift callback
+    # re-renders coord.current (now :check_in). Proves the watch is a navigable
+    # multi-screen app via the Navigate/push/mount_screen path — distinct from the
+    # Rerender/republish path test_send exercises. (Bootstrap the watch at :settings.)
+    def self.test_nav : Nil
+      initialize_runtime
+      Voyager.dispatch(:open_check_in)
+    end
   end
 
   fun voyager_watch_render : Void*
@@ -173,5 +184,9 @@
 
   fun voyager_watch_test_send(text : LibC::Char*) : Void
     VoyagerWatchBridge.test_send(String.new(text))
+  end
+
+  fun voyager_watch_test_nav : Void
+    VoyagerWatchBridge.test_nav
   end
 {% end %}

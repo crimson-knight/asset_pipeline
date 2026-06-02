@@ -59,6 +59,18 @@ struct ContentView: View {
             voyager_watch_register_rerender(crystalRerenderCallback)
             bridge.renderNow()
             maybeAutoSend()
+            maybeAutoNav()
+        }
+    }
+
+    // Verification hook: launched at :settings with VOYAGER_WATCH_TEST_NAV=1, drives a real
+    // navigation (dispatch :open_check_in → Navigate(:check_in)) a couple seconds after
+    // launch to prove the watch is a navigable multi-screen app — the new screen renders via
+    // the Crystal→Swift re-render callback. No-op in normal use.
+    private func maybeAutoNav() {
+        guard ProcessInfo.processInfo.environment["VOYAGER_WATCH_TEST_NAV"] == "1" else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            voyager_watch_test_nav()
         }
     }
 

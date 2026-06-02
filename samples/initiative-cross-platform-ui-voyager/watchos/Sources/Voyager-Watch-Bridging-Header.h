@@ -23,4 +23,9 @@ void voyager_watch_register_rerender(void (*cb)(void));
 // :send_message). Exercises the reactive loop end-to-end for verification.
 void voyager_watch_test_send(const char *text);
 
+// Drive a real navigation (dispatch :open_check_in → Navigate(:check_in)). Used to verify
+// the watch is a navigable multi-screen app (the push/mount_screen path). Bootstrap at
+// :settings, then this navigates to the check-in screen.
+void voyager_watch_test_nav(void);
+
 #endif /* VOYAGER_WATCH_BRIDGING_HEADER_H */
