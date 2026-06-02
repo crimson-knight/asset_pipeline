@@ -48,7 +48,11 @@ module Voyager
       root.accessibility_label = "Voyager agent chat"
       root.test_id = "voyager-agent-chat-root"
 
-      title = UI::Label.new("Agent")
+      # Title carries a live message count — a glanceable header that also makes the
+      # reactive update obvious: when Send appends to the transcript and the screen
+      # re-renders, the count ticks up. Same on every platform.
+      title_text = messages.empty? ? "Agent" : "Agent · #{messages.size}"
+      title = UI::Label.new(title_text)
       title.font = UI::Font.new(size: metrics.responsive(compact: 26.0, regular: 30.0), weight: :bold)
       title.text_color_role = UI::LabelRole::Primary
       title.maximum_width = content_width

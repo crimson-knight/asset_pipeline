@@ -15,4 +15,12 @@
 
 void *voyager_watch_render(void);
 
+// Register a Swift callback Crystal invokes whenever the dispatcher republishes after
+// an action (Rerender/Pop/…). Swift bumps its render token to re-call voyager_watch_render.
+void voyager_watch_register_rerender(void (*cb)(void));
+
+// Drive a Send through the real dispatch path (seed the compose field + dispatch
+// :send_message). Exercises the reactive loop end-to-end for verification.
+void voyager_watch_test_send(const char *text);
+
 #endif /* VOYAGER_WATCH_BRIDGING_HEADER_H */

@@ -28,7 +28,26 @@
     @@session : UI::Session::InProcess? = nil
     @@flash : UI::Flash::InProcess? = nil
     @@dispatcher : UI::ActionDispatcher? = nil
-    @@root : UI::NativeView? = nil # pin the rendered tree against GC across the Swift round-trip
+    # Pin EVERY rendered tree (never release). The watch's single-threaded GC finalizes
+    # NativeHandles aggressively; if we dropped an old root, its finalizer would
+    # objc_release the box that Swift (takeRetainedValue) also owns → double-free
+    # (SIGSEGV in CrystalBridge.box.setter). Keeping all roots pinned means Crystal never
+    # releases a box; Swift owns the display copy and frees it on reassign. Matches iOS's
+    # leak-rather-than-double-free model (its finalizer is best-effort + never runs).
+    # TODO: replace tree-rebuild re-render with in-place reconciliation (cf.
+    # project_reactive_text_focus_loss) to bound this per-render leak.
+    #
+    # NILABLE (not `= [] of ...`): the iOS/watchOS class-init gap SKIPS class-var
+    # initializers with side effects when _main is hidden for Swift @main, so a
+    # `= [] of UI::NativeView` default leaves the array unallocated and `<<` SIGSEGVs in
+    # Array#needs_resize?. We allocate it explicitly in initialize_runtime instead.
+    @@roots : Array(UI::NativeView)? = nil
+    # Swift re-render callback. Crystal invokes it whenever the dispatcher publishes a
+    # navigation/Rerender change (e.g. tapping Send appends to the transcript + returns
+    # Rerender → republish → on_change). Swift bumps its @State so SwiftUI re-calls
+    # voyager_watch_render and re-embeds the new tree. This is the watch's reactive loop
+    # — the agent-chat surface MUST re-render when a message arrives.
+    @@swift_rerender_cb : (-> Void)? = nil
 
     def self.initialize_runtime : Nil
       return if @@initialized
@@ -37,6 +56,10 @@
       Thread.init
       Fiber.init
       Crystal::Once.init
+
+      # Allocate the root pin-list HERE (class-init gap: a class-var `= [] of ...`
+      # default never runs under Swift @main).
+      @@roots = [] of UI::NativeView
 
       # iOS/watchOS class-init gap recovery (same as the iOS bridge): the module-body
       # bootstrap registrations only run under _main, so re-install them explicitly.
@@ -57,6 +80,13 @@
       @@session = result.session
       @@flash = result.flash
       @@dispatcher = result.dispatcher
+
+      # Reactive loop: when the dispatcher republishes after an action (Rerender on
+      # Send, Pop on Back, etc.), notify Swift to re-render. Renderer-neutral — it just
+      # pokes Swift, which re-calls voyager_watch_render and rebuilds from coord.current.
+      @@coord.not_nil!.on_change_event do |_change|
+        @@swift_rerender_cb.try(&.call)
+      end
 
       @@initialized = true
     end
@@ -94,12 +124,51 @@
         end
 
       native = renderer.render(view)
-      @@root = native # pin against GC across the Swift round-trip
-      native.handle.ptr!
+      @@roots.not_nil! << native # pin forever (see @@roots note) — never released by Crystal
+      ptr = native.handle.ptr!
+      # The facade returns the box +0 (autoreleased — it's a static factory method, not
+      # an init/new/copy, so ARC does not transfer ownership). ObjC.owned does NOT retain,
+      # so without this the box is only kept alive by the autorelease pool and gets freed
+      # on the next run-loop drain — then Swift's takeRetainedValue reference dangles and
+      # the next render's box reassignment double-frees it (SIGSEGV in box.setter). An
+      # explicit +1 gives Swift a real, pool-independent reference to own and release once.
+      {% if flag?(:darwin) %}
+        LibObjCRuntime.objc_retain(ptr)
+      {% end %}
+      ptr
+    end
+
+    def self.register_rerender(cb : -> Void) : Nil
+      @@swift_rerender_cb = cb
+    end
+
+    # Drive a Send through the SAME dispatch path a Send-button tap takes: seed the
+    # compose field, then dispatch :send_message. The controller appends a user message
+    # + a canned agent reply to the shared State and returns Rerender → the dispatcher
+    # republishes → our on_change subscriber fires the Swift re-render callback → the
+    # new bubbles appear. Used to prove the watch reactive loop end-to-end (the literal
+    # SwiftUI-button→trampoline link is generic facade infra, already proven on iOS;
+    # driving real native taps on the watch needs XCUITest).
+    def self.test_send(text : String) : Nil
+      initialize_runtime
+      # Mutate the shared State directly + republish to isolate the reactive RENDER loop
+      # (state change → on_change → Swift callback → re-render → UI reflects new state)
+      # from the form_state read path. send_chat_message appends a user message + a
+      # canned agent reply (2 messages), so the title count jumps by 2.
+      Voyager.state.send_chat_message(text)
+      @@dispatcher.not_nil!.navigation.republish
     end
   end
 
   fun voyager_watch_render : Void*
     VoyagerWatchBridge.render
+  end
+
+  fun voyager_watch_register_rerender(cb : -> Void) : Void
+    VoyagerWatchBridge.register_rerender(cb)
+  end
+
+  fun voyager_watch_test_send(text : LibC::Char*) : Void
+    VoyagerWatchBridge.test_send(String.new(text))
   end
 {% end %}
