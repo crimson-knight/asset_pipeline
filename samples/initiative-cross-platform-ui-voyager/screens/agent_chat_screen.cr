@@ -48,6 +48,11 @@ module Voyager
         root << bubble_row(text, is_agent, content_width, bubble_w, i)
       end
 
+      # Collect the slack so the transcript packs to the top and the compose row
+      # settles near the bottom — the messaging-app rhythm, instead of the bubbles
+      # spreading evenly down a tall window.
+      root << UI::Spacer.new.as(UI::View)
+
       # Compose row: a TextField to type a reply + a paperplane send IconButton.
       compose = UI::HStack.new(spacing: 8.0)
       compose.alignment = UI::Alignment::Center
@@ -87,7 +92,13 @@ module Voyager
       label = UI::Label.new(text)
       label.font = UI::Font.new(size: 15.0, weight: :regular)
       label.text_color_role = is_agent ? UI::LabelRole::Primary : UI::LabelRole::Secondary
+      # Chat text must WRAP, not truncate, inside the fixed-width Card bubble. The
+      # proven macOS-wrapping pattern (welcome lede) is an EXACT width (min == max),
+      # which makes NSTextField wrap to fill rather than single-line-truncate;
+      # preferred_max_layout_width covers the UIKit multi-line intrinsic size.
+      label.minimum_width = bubble_w - 24.0
       label.maximum_width = bubble_w - 24.0
+      label.preferred_max_layout_width = bubble_w - 24.0
 
       card = UI::Card.new(label.as(UI::View))
       card.maximum_width = bubble_w
