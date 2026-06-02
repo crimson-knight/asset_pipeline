@@ -3,8 +3,9 @@
 import SwiftUI
 import Foundation
 
-// watchOS: gated off for the initial watch compile (UIKit-only / not in watch subset).
-#if !os(watchOS)
+// watchOS: ENABLED (Phase D Bucket-2 P2 port, 2026-06-02). Pure SwiftUI —
+// `Stepper(value:in:step:)` is watch-native; no UIKit or watch-unavailable APIs,
+// so this is a straight un-gate. See watch-facade-bucket-audit.md.
 @objc(APSKStepperFacade)
 public class StepperFacade: NSObject {
     @objc public static func makeStepper(
@@ -29,4 +30,3 @@ public class StepperFacade: NSObject {
         return HostingHelpers.host(DoubleHost(storage: storage, content: content))
     }
 }
-#endif

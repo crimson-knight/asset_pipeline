@@ -7,10 +7,9 @@
 import SwiftUI
 import Foundation
 
-// watchOS: this facade is not in the watch catalog subset and/or uses UIKit-only
-// APIs (UIView/UIControl/SwiftUI-on-watch-unavailable). Gated off watchOS for the
-// initial one-facade green compile; watch-native re-enable is a Phase 12 follow-up.
-#if !os(watchOS)
+// watchOS: ENABLED (Phase D Bucket-2 P2 port, 2026-06-02). Pure SwiftUI —
+// `Slider(value:in:)` is watch-native (Digital Crown drives it); no UIKit or
+// watch-unavailable APIs, so this is a straight un-gate. See watch-facade-bucket-audit.md.
 @objc(APSKSliderFacade)
 public class SliderFacade: NSObject {
     @objc public static func makeSlider(
@@ -95,4 +94,3 @@ struct SliderDoubleHost: View {
         return CommonModifiers.apply(content, overrides: overrides)
     }
 }
-#endif
