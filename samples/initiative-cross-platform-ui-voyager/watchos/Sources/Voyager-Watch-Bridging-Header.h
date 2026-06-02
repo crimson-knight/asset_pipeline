@@ -41,4 +41,9 @@ int voyager_watch_test_notif(void);
 void voyager_watch_test_speak(void);
 int voyager_watch_speaking(void);
 
+// The cohesion loop: schedule a short local notification; when it fires while the
+// app is foregrounded, the native delegate → Crystal on_foreground handler →
+// UI::Speech reads it aloud. Check voyager_watch_speaking() a few seconds later.
+void voyager_watch_test_fg_speak(void);
+
 #endif /* VOYAGER_WATCH_BRIDGING_HEADER_H */

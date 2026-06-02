@@ -206,6 +206,22 @@
     def self.speaking : Int32
       UI::Speech.speaking? ? 1 : 0
     end
+
+    # The COHESION loop: schedule a short (3s) local notification. When it fires
+    # while the app is foregrounded, the native UNUserNotificationCenter delegate
+    # calls back into Crystal → the HostBootstrap-registered on_foreground handler
+    # → UI::Speech.speak(body). i.e. the agent buzzes your wrist AND reads it
+    # aloud. The caller checks `speaking` a few seconds later (after delivery).
+    def self.test_fg_speak : Nil
+      initialize_runtime
+      UI::Notifications.request_authorization(provisional: true)
+      UI::Notifications.schedule(UI::NotificationRequest.new(
+        title: "Coach",
+        body: "Time to stand up and take a breath.",
+        identifier: "voyager-fg-test",
+        delay_seconds: 3.0, repeats: false, sound: true, thread_id: "voyager-coach",
+      ))
+    end
   end
 
   fun voyager_watch_render : Void*
@@ -234,5 +250,9 @@
 
   fun voyager_watch_speaking : Int32
     VoyagerWatchBridge.speaking
+  end
+
+  fun voyager_watch_test_fg_speak : Void
+    VoyagerWatchBridge.test_fg_speak
   end
 {% end %}

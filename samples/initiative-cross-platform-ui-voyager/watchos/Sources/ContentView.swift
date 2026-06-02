@@ -62,6 +62,22 @@ struct ContentView: View {
             maybeAutoNav()
             maybeAutoNotif()
             maybeAutoSpeak()
+            maybeAutoFgSpeak()
+        }
+    }
+
+    // Verification hook for the COHESION loop: with VOYAGER_WATCH_TEST_FG=1,
+    // schedule a 3s notification; when it's delivered to the foregrounded app the
+    // native delegate → Crystal on_foreground handler speaks it. Log whether the
+    // synthesizer is speaking after delivery — proof that "agent buzzes + reads it
+    // aloud" works on the wrist. No-op in normal use.
+    private func maybeAutoFgSpeak() {
+        guard ProcessInfo.processInfo.environment["VOYAGER_WATCH_TEST_FG"] == "1" else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            voyager_watch_test_fg_speak() // schedules a 3s notification
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+                NSLog("VOYAGER_FG_SPEAK_RESULT speaking=\(voyager_watch_speaking())")
+            }
         }
     }
 

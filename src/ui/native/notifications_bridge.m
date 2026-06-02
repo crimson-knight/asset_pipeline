@@ -196,3 +196,34 @@ int ap_notifications_has_pending(const char *identifier_cstr) {
     dispatch_semaphore_wait(sema, timeout);
     return found;
 }
+
+// ---- Foreground delivery → Crystal (the agent reaches you, with voice) ----
+// Implemented in Crystal (src/ui/notifications.cr): routes the delivered body to
+// the registered UI::Notifications.on_foreground handler.
+extern void ap_on_foreground_notification(const char *body);
+
+@interface APForegroundNotifDelegate : NSObject <UNUserNotificationCenterDelegate>
+@end
+@implementation APForegroundNotifDelegate
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+       willPresentNotification:(UNNotification *)notification
+         withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler {
+    NSString *body = notification.request.content.body;
+    if (body && body.length) ap_on_foreground_notification([body UTF8String]);
+    if (@available(watchOS 7.0, iOS 14.0, macOS 11.0, *)) {
+        completionHandler(UNNotificationPresentationOptionBanner |
+                          UNNotificationPresentationOptionSound |
+                          UNNotificationPresentationOptionList);
+    } else {
+        completionHandler(UNNotificationPresentationOptionSound);
+    }
+}
+@end
+
+static APForegroundNotifDelegate *g_fg_delegate = nil;
+void ap_notifications_install_foreground_delegate(void) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return;
+    if (!g_fg_delegate) g_fg_delegate = [[APForegroundNotifDelegate alloc] init];
+    center.delegate = g_fg_delegate;
+}

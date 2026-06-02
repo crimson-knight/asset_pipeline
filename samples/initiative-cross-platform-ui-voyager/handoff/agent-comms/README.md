@@ -54,3 +54,22 @@ speaks, then `voyager_watch_speaking()` is logged after a beat (speech is async)
 i.e. AVSpeechSynthesizer is ACTIVELY speaking on the watch — honest runtime proof,
 not just "enqueued". iOS builds clean and the AgentChat send path (which now calls
 speak) passes AgentChatNavTests with no regression; macOS objc_bridge.m compiles.
+
+## Cohesion loop — the agent buzzes your wrist AND reads it aloud
+
+The payoff that ties both primitives together: when a notification is DELIVERED
+while the app is foregrounded, the app reads it aloud. Native
+UNUserNotificationCenterDelegate (`willPresentNotification`) → C trampoline
+`ap_on_foreground_notification` → Crystal `UI::Notifications.on_foreground` handler
+→ `UI::Speech.speak(body)`. Registered once in shared `HostBootstrap.build`, so it
+works on macOS, iOS, and the wrist with no per-platform code.
+
+Verified on the watch sim via `VOYAGER_WATCH_TEST_FG=1` → `voyager_watch_test_fg_speak()`
+schedules a 3s notification; when it fires to the foregrounded app the delegate
+speaks it, and after delivery:
+
+    VOYAGER_FG_SPEAK_RESULT speaking=1
+
+i.e. the agent's notification arrived AND the synthesizer is actively reading it
+on the wrist. iOS regression-checked: CheckInTests + AgentChatNavTests all pass
+after adding the delegate + on_foreground registration.

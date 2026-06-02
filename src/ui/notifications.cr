@@ -594,8 +594,42 @@ module UI
         fun ap_notifications_remove_all_pending : Void
         fun ap_notifications_pending_count : Int32
         fun ap_notifications_has_pending(identifier : UInt8*) : Int32
+        fun ap_notifications_install_foreground_delegate : Void
       end
     {% end %}
+
+    # Handler invoked when a notification is delivered while the app is in the
+    # foreground (via the native UNUserNotificationCenterDelegate willPresent).
+    # Receives the notification body. Registered by `on_foreground`.
+    @@foreground_handler : (String -> Nil)? = nil
+
+    # Register a block to run when a notification arrives while the app is open,
+    # and install the native foreground delegate so it actually fires. Enables the
+    # cohesive loop "agent reaches you → app reads it aloud" (pair with
+    # `UI::Speech.speak`). No-op install on non-Apple targets; the block is simply
+    # never called there.
+    def on_foreground(&block : String -> Nil) : Nil
+      @@foreground_handler = block
+      {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
+        LibObjCBridge.ap_notifications_install_foreground_delegate
+      {% end %}
+      nil
+    end
+
+    # Invoked by the C trampoline `ap_on_foreground_notification` (called from the
+    # native delegate). Routes the delivered notification body to the registered
+    # handler; swallows handler exceptions so a bad listener can't crash the
+    # notification delegate.
+    def dispatch_foreground(body : String) : Nil
+      handler = @@foreground_handler
+      return unless handler
+      begin
+        handler.call(body)
+      rescue ex : Exception
+        STDERR.puts "[notifications] foreground handler raised: #{ex.message}" rescue nil
+      end
+      nil
+    end
 
     # Returns the current authorization status. On non-Apple targets,
     # returns `NotificationAuthorizationStatus::Unsupported`.
@@ -719,3 +753,13 @@ module UI
     end
   end
 end
+
+{% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
+  # C-ABI trampoline the native UNUserNotificationCenterDelegate (objc_bridge.m /
+  # notifications_bridge.m) calls in willPresentNotification. Defined here so the
+  # delegate can reference it as an extern symbol resolved at link. Routes the
+  # delivered notification body into the registered Crystal foreground handler.
+  fun ap_on_foreground_notification(body : UInt8*) : Void
+    UI::Notifications.dispatch_foreground(String.new(body)) if body
+  end
+{% end %}
