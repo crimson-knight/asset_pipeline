@@ -45,10 +45,13 @@
 import SwiftUI
 import Foundation
 
-// watchOS: this facade is not in the watch catalog subset and/or uses UIKit-only
-// APIs (UIView/UIControl/SwiftUI-on-watch-unavailable). Gated off watchOS for the
-// initial one-facade green compile; watch-native re-enable is a Phase 12 follow-up.
-#if !os(watchOS)
+// watchOS: ENABLED (Phase D Bucket-2 P0 port, 2026-06-02). `List` is the core
+// watch navigation/feed control. Watch-incompatible bits are gated below:
+// `.listRowSeparator(.hidden)` is `@available(watchOS, unavailable)` (watch lists
+// manage separators themselves), and the `.inset`/`.sidebar`/`.grouped`/
+// `.insetGrouped` list styles are watch-unavailable (mapped to `.plain`/`.automatic`).
+// `.swipeActions`, `.onMove`, and `.listRowInsets` are all valid on watchOS 8+.
+// See watch-facade-bucket-audit.md.
 @objc(APSKListViewFacade)
 public class ListViewFacade: NSObject {
     @objc public static func makeListView(
@@ -358,6 +361,11 @@ public class ListViewFacade: NSObject {
             return withInsets
         }()
 
+        #if os(watchOS)
+        // `.listRowSeparator(.hidden)` is unavailable on watchOS; watch lists
+        // manage their own row separators, so the row passes through unchanged.
+        withTransition
+        #else
         if hideSeparator {
             if #available(iOS 15.0, macOS 13.0, *) {
                 withTransition.listRowSeparator(.hidden)
@@ -367,6 +375,7 @@ public class ListViewFacade: NSObject {
         } else {
             withTransition
         }
+        #endif
     }
 
     /// Build a SwiftUI Button for one action tile inside a `.swipeActions`
@@ -495,6 +504,18 @@ public class ListViewFacade: NSObject {
     // nil keys fall back to `.automatic`, matching the SwiftUI default
     // for the host platform.
     private static func applyListStyle<L: View>(_ list: L, key: String?) -> AnyView {
+        #if os(watchOS)
+        // watchOS supports `.automatic`, `.plain`, `.carousel`, `.elliptical`
+        // only — `.inset`, `.insetGrouped`, `.grouped`, and `.sidebar` are all
+        // `@available(watchOS, unavailable)`. Map the unavailable keys to the
+        // closest watch idiom (plain stays plain; everything else → automatic).
+        switch key {
+        case "plain":
+            return AnyView(list.listStyle(.plain))
+        default:
+            return AnyView(list.listStyle(.automatic))
+        }
+        #else
         switch key {
         case "plain":
             return AnyView(list.listStyle(.plain))
@@ -517,6 +538,6 @@ public class ListViewFacade: NSObject {
         default:
             return AnyView(list.listStyle(.automatic))
         }
+        #endif
     }
 }
-#endif
