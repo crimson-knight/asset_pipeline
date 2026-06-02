@@ -60,10 +60,11 @@ require "./components/assets/css_asset"
 require "./components/assets/font_asset"
 
 # Reactive components — server/web only (pulls in http/server + OpenSSL + zlib
-# via reactive_handler). iOS and Android targets must skip this subtree;
+# via reactive_handler). iOS, watchOS, and Android targets must skip this subtree;
 # their Crystal binaries cross-compile without the OpenSSL/zlib symbols
-# present, so unconditionally requiring it leaves undefined link symbols.
-{% unless flag?(:ios) || flag?(:android) %}
+# present (and watchOS has no HTTP server / WebSocket), so unconditionally
+# requiring it leaves undefined link symbols.
+{% unless flag?(:ios) || flag?(:watchos) || flag?(:android) %}
   require "./components/reactive/reactive_component"
 {% end %}
 
@@ -71,7 +72,7 @@ require "./components/assets/font_asset"
 require "./components/examples/button_component"
 require "./components/examples/card_component"
 require "./components/examples/auth_form_component"
-{% unless flag?(:ios) || flag?(:android) %}
+{% unless flag?(:ios) || flag?(:watchos) || flag?(:android) %}
   require "./components/examples/chat_component"
 {% end %}
 require "./components/examples/command_palette_component"
@@ -81,7 +82,7 @@ require "./components/examples/data_table_component"
 require "./components/examples/dialog_component"
 require "./components/examples/form_field_component"
 require "./components/examples/form_component"
-{% unless flag?(:ios) || flag?(:android) %}
+{% unless flag?(:ios) || flag?(:watchos) || flag?(:android) %}
   require "./components/examples/live_search_component"
 {% end %}
 require "./components/examples/payment_form_component"
@@ -97,7 +98,7 @@ require "./components/design_system/components"
 
 # Integration — Amber framework helpers; transitively pulls in http/server
 # via reactive_handler. Web/server only.
-{% unless flag?(:ios) || flag?(:android) %}
+{% unless flag?(:ios) || flag?(:watchos) || flag?(:android) %}
   require "./components/integration"
 {% end %}
 
