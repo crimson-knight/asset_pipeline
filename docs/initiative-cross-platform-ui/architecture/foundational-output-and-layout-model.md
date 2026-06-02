@@ -164,6 +164,17 @@ gate:
 The watch catalog subset is deliberately small (Phase 12 brief) precisely so this
 audit is tractable.
 
+> **STATUS (2026-06-02): the facade-bucket audit is DONE and grounded in an
+> authoritative reachability scan** — see
+> [`watch-facade-bucket-audit.md`](./watch-facade-bucket-audit.md). Headline:
+> **18 of 40 facades are reachable on watch today; 22 are compiled out.** Bucket 1
+> (18 reachable) is the WatchKit renderer's initial catalog. Bucket 2 (~11) are a
+> *not-yet-ported gap* where the SwiftUI control DOES exist on watchOS — the P0s
+> for any interactive watch app are **TextField, ListView, Sheet** (then
+> SecureField, TabView), all currently `#if !os(watchOS)`-excluded. Bucket 3 (~11,
+> e.g. Popover/Menu/ColorPicker/NavigationSplitView/Toolbar) are correctly excluded
+> — no honest watchOS analog; route to the accessible fallback.
+
 ## Sequencing for the four phases
 
 1. **B — adaptive layout (do first; narrowed per [Codex]).** **Additive only:**
