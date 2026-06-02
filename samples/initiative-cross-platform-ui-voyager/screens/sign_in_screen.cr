@@ -17,15 +17,19 @@ module Voyager
       # See screens/sign_in.cr pre-8D.1 history for the layout rationale
       # (root_fill + content_width cap + safe-area aware padding).
       metrics = UI::DesignTokens::DeviceMetrics.current
-      # Track 2 — the WHOLE composition adapts to width, not just the column.
-      # Every dimension here is authored through `metrics.responsive(...)` so a
-      # narrow (compact) window gets a tighter, denser layout and a roomy
-      # (regular) window breathes. content_width reflows the field column;
-      # the spacings/padding/type-scale reflow the rhythm around it.
+      # Track 2 — the WHOLE composition adapts on BOTH axes, not just width.
+      # Horizontal dimensions (column width, side padding, type scale) key off the
+      # HORIZONTAL size class via `responsive`. The vertical RHYTHM (inter-element
+      # spacing, top/bottom padding) keys off the VERTICAL size class via
+      # `responsive_vertical`, so a SHORT window — iPhone landscape (compact
+      # vertical) or a stout macOS window — tightens vertically while a tall window
+      # breathes. This is the axis-correct model: vertical space governs vertical
+      # rhythm. Proven on macOS by capturing the same width at a tall vs short
+      # height (macOS derives vertical size class from window content height).
       content_width = metrics.responsive(compact: 340.0, regular: 400.0)
-      root_spacing = metrics.responsive(compact: 16.0, regular: 24.0)
-      fields_spacing = metrics.responsive(compact: 10.0, regular: 14.0)
-      pad_v = metrics.responsive(compact: 28.0, regular: 48.0)
+      root_spacing = metrics.responsive_vertical(compact: 12.0, regular: 24.0)
+      fields_spacing = metrics.responsive_vertical(compact: 8.0, regular: 14.0)
+      pad_v = metrics.responsive_vertical(compact: 20.0, regular: 48.0)
       pad_h = metrics.responsive(compact: 20.0, regular: 32.0)
       wordmark_size = metrics.responsive(compact: 28.0, regular: 34.0)
 
