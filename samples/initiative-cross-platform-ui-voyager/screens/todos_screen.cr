@@ -57,10 +57,12 @@ module Voyager
       # button) at 16pt so the chrome aligns with the list rows. The
       # ListView itself ignores this outer inset; it owns its own
       # row-level inset via .listRowInsets.
-      root = UI::VStack.new(spacing: metrics.responsive(compact: 14.0, regular: 18.0))
+      # Vertical rhythm keys off the VERTICAL size class (tightens in landscape /
+      # short windows); horizontal padding keys off the horizontal class.
+      root = UI::VStack.new(spacing: metrics.responsive_vertical(compact: 10.0, regular: 18.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Leading
-      pad_v = metrics.responsive(compact: 20.0, regular: 28.0)
+      pad_v = metrics.responsive_vertical(compact: 16.0, regular: 28.0)
       pad_h = metrics.responsive(compact: 16.0, regular: 24.0)
       root.padding = UI::EdgeInsets.new(
         top: pad_v + metrics.safe_area_top_pt,

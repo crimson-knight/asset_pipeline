@@ -17,8 +17,8 @@ module Voyager
       state = Voyager.state
 
       pad_h = metrics.responsive(compact: 20.0, regular: 28.0)
-      pad_v = metrics.responsive(compact: 24.0, regular: 32.0)
-      root = UI::VStack.new(spacing: metrics.responsive(compact: 14.0, regular: 18.0))
+      pad_v = metrics.responsive_vertical(compact: 16.0, regular: 32.0)
+      root = UI::VStack.new(spacing: metrics.responsive_vertical(compact: 10.0, regular: 18.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Leading
       root.padding = UI::EdgeInsets.new(
