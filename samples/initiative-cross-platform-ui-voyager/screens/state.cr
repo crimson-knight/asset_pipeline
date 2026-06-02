@@ -62,6 +62,7 @@ module Voyager
     def self.checkin_focuses : Array(String)
       ["Sleep", "Movement", "Nutrition", "Mindfulness"]
     end
+
     # Agent Chat transcript (the cross-platform agent-chat surface). A nilable
     # default would be safest for the iOS class-init gap, but it's assigned in
     # `initialize` (instance init runs in voyager_init via HostBootstrap.build),
