@@ -49,22 +49,28 @@ module Voyager
         fs.register("deadline", seed_deadline)
       end
 
+      # Phase D Track 2 — whole-composition adapt via DeviceMetrics#responsive
+      # (width/spacing/padding/title type). half_button_width derives from
+      # content_width so the action row reflows with it.
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.compact_horizontal? ? 340.0 : 480.0
-      root = UI::VStack.new(spacing: 16.0)
+      content_width = metrics.responsive(compact: 340.0, regular: 480.0)
+      pad_h = metrics.responsive(compact: 20.0, regular: 28.0)
+      pad_v = metrics.responsive(compact: 24.0, regular: 32.0)
+      root = UI::VStack.new(spacing: metrics.responsive(compact: 14.0, regular: 18.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Leading
       root.padding = UI::EdgeInsets.new(
-        top: 24.0 + metrics.safe_area_top_pt,
-        trailing: 20.0 + metrics.safe_area_trailing_pt,
-        bottom: 24.0 + metrics.safe_area_bottom_pt,
-        leading: 20.0 + metrics.safe_area_leading_pt,
+        top: pad_v + metrics.safe_area_top_pt,
+        trailing: pad_h + metrics.safe_area_trailing_pt,
+        bottom: pad_v + metrics.safe_area_bottom_pt,
+        leading: pad_h + metrics.safe_area_leading_pt,
       )
       root.accessibility_label = "Voyager todo editor"
       root.test_id = "voyager-todo-editor-root"
 
       title_label = UI::Label.new(editing ? "Edit todo" : "New todo")
-      title_label.font = UI::Font.new(size: 24.0, weight: :bold)
+      title_label.font = UI::Font.new(size: metrics.responsive(compact: 22.0, regular: 26.0), weight: :bold)
+      title_label.maximum_width = content_width
 
       # Phase 10D-final D5 — completion styling on the detail title.
       # When the editing todo is already completed, the header label
