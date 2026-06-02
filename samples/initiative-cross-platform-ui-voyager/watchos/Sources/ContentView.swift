@@ -60,6 +60,21 @@ struct ContentView: View {
             bridge.renderNow()
             maybeAutoSend()
             maybeAutoNav()
+            maybeAutoNotif()
+        }
+    }
+
+    // Verification hook: launched at :voyager-check-in with
+    // VOYAGER_WATCH_TEST_NOTIF=1, drives a real Save (dispatch :save_checkin →
+    // schedule a real recurring local notification via UI::Notifications on the
+    // wrist) and logs the system's actual pending count. Proves the watch
+    // genuinely scheduled a notification (UNUserNotificationCenter pending queue),
+    // covering the watch's lack of XCUITest with a machine-checkable outcome.
+    private func maybeAutoNotif() {
+        guard ProcessInfo.processInfo.environment["VOYAGER_WATCH_TEST_NOTIF"] == "1" else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            let pending = voyager_watch_test_notif()
+            NSLog("VOYAGER_NOTIF_RESULT pending=\(pending)")
         }
     }
 

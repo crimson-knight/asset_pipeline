@@ -68,6 +68,13 @@ module Voyager
       focus = focuses[state.checkin_focus_index]? || focuses.first
 
       if state.checkin_reminder
+        # Quiet, no-nag authorization: provisional grants immediately with no
+        # permission dialog (ideal for a coach that should be able to reach you
+        # without interrupting on first run). Required on watchOS, where a
+        # request is NOT tracked in the pending queue until authorized (unlike
+        # iOS, which tracks pending even while NotDetermined). Idempotent — it
+        # never downgrades an existing full grant.
+        UI::Notifications.request_authorization(provisional: true)
         request = UI::NotificationRequest.new(
           title: "Daily Check-in",
           body: "Time for your check-in with your agent. How's your #{focus.downcase} today?",

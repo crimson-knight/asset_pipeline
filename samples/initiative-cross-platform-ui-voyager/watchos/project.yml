@@ -40,6 +40,11 @@ targets:
         - -lobjc
         - -framework
         - Foundation
+        # UI::Notifications on watchOS calls UNUserNotificationCenter via
+        # notifications_bridge.m (compiled into libvoyagerwatch.a) — the agent
+        # can schedule a real local notification on the wrist.
+        - -framework
+        - UserNotifications
     info:
       path: Sources/Info.plist
       properties:

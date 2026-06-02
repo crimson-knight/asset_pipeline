@@ -585,10 +585,10 @@ module UI
   module Notifications
     extend self
 
-    {% if flag?(:macos) || flag?(:ios) %}
+    {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
       lib LibObjCBridge
         fun ap_notifications_authorization_status : Int64
-        fun ap_notifications_request_authorization(alert : Int32, sound : Int32, badge : Int32) : Int32
+        fun ap_notifications_request_authorization(alert : Int32, sound : Int32, badge : Int32, provisional : Int32) : Int32
         fun ap_notifications_schedule_local(identifier : UInt8*, title : UInt8*, subtitle : UInt8*, body : UInt8*, delay_seconds : Float64, badge : Int32, play_sound : Int32, repeats : Int32, thread_id : UInt8*) : Int32
         fun ap_notifications_remove_pending(identifier : UInt8*) : Void
         fun ap_notifications_remove_all_pending : Void
@@ -600,7 +600,7 @@ module UI
     # Returns the current authorization status. On non-Apple targets,
     # returns `NotificationAuthorizationStatus::Unsupported`.
     def authorization_status : NotificationAuthorizationStatus
-      {% if flag?(:macos) || flag?(:ios) %}
+      {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
         status_from_native(LibObjCBridge.ap_notifications_authorization_status)
       {% else %}
         NotificationAuthorizationStatus::Unsupported
@@ -612,9 +612,15 @@ module UI
     # on grant, false on denial or unsupported target. The call is
     # synchronous from Crystal's side — the host adapter blocks on the
     # underlying `requestAuthorization` callback.
-    def request_authorization(alert : Bool = true, sound : Bool = true, badge : Bool = true) : Bool
-      {% if flag?(:macos) || flag?(:ios) %}
-        LibObjCBridge.ap_notifications_request_authorization(alert ? 1 : 0, sound ? 1 : 0, badge ? 1 : 0) == 1
+    #
+    # `provisional: true` requests `UNAuthorizationOptionProvisional` — quiet,
+    # no-prompt authorization: the OS grants immediately (no permission dialog,
+    # no user tap), and notifications are delivered quietly to Notification
+    # Center until the user promotes or turns them off. Ideal for a low-friction
+    # coach/agent that should be able to reach you without nagging on first run.
+    def request_authorization(alert : Bool = true, sound : Bool = true, badge : Bool = true, provisional : Bool = false) : Bool
+      {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
+        LibObjCBridge.ap_notifications_request_authorization(alert ? 1 : 0, sound ? 1 : 0, badge ? 1 : 0, provisional ? 1 : 0) == 1
       {% else %}
         false
       {% end %}
@@ -626,7 +632,7 @@ module UI
     # false without raising so cross-platform code can early-out
     # silently.
     def schedule(request : NotificationRequest) : Bool
-      {% if flag?(:macos) || flag?(:ios) %}
+      {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
         subtitle_ptr = request.subtitle ? request.subtitle.not_nil!.to_unsafe : Pointer(UInt8).null
         thread_ptr = request.thread_id ? request.thread_id.not_nil!.to_unsafe : Pointer(UInt8).null
         badge_value = request.badge || -1
@@ -650,7 +656,7 @@ module UI
     # Removes a single pending notification by identifier. No-op on
     # non-Apple targets.
     def remove_pending(identifier : String) : Nil
-      {% if flag?(:macos) || flag?(:ios) %}
+      {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
         LibObjCBridge.ap_notifications_remove_pending(identifier.to_unsafe)
       {% end %}
     end
@@ -658,7 +664,7 @@ module UI
     # Removes all pending notifications scheduled by this app. No-op on
     # non-Apple targets.
     def remove_all_pending : Nil
-      {% if flag?(:macos) || flag?(:ios) %}
+      {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
         LibObjCBridge.ap_notifications_remove_all_pending
       {% end %}
     end
@@ -670,7 +676,7 @@ module UI
     # assertion without observing a delivered banner. Returns -1 when the
     # notification center is unavailable, 0 on non-Apple targets.
     def pending_count : Int32
-      {% if flag?(:macos) || flag?(:ios) %}
+      {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
         LibObjCBridge.ap_notifications_pending_count
       {% else %}
         0
@@ -682,7 +688,7 @@ module UI
     # notification is. False on non-Apple targets / when the center is
     # unavailable.
     def has_pending?(identifier : String) : Bool
-      {% if flag?(:macos) || flag?(:ios) %}
+      {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
         LibObjCBridge.ap_notifications_has_pending(identifier.to_unsafe) == 1
       {% else %}
         false

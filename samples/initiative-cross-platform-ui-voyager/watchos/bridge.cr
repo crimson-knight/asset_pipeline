@@ -172,6 +172,26 @@
       initialize_runtime
       Voyager.dispatch(:open_check_in)
     end
+
+    # Drive a real Save on the Daily Check-in the way the Save button does —
+    # dispatch :save_checkin → CheckInController schedules a REAL recurring local
+    # notification via UI::Notifications (now wired for watchOS through
+    # notifications_bridge.m) → Rerender. Returns the system's actual pending
+    # count so the watch's lack of XCUITest is covered by an honest, machine-
+    # checkable functional outcome (the request truly landed in
+    # UNUserNotificationCenter on the wrist), not a screenshot guess. Root the
+    # watch at :voyager-check-in for this to target the check-in controller.
+    def self.test_notif : Int32
+      initialize_runtime
+      # Drive the REAL Save the way the Save button does — dispatch :save_checkin
+      # → CheckInController requests provisional auth (silent) + schedules a real
+      # recurring local notification via UI::Notifications. Return the system's
+      # actual pending count (UNUserNotificationCenter) — the honest functional
+      # outcome the watch can't get from XCUITest. Root the watch at
+      # :voyager-check-in so this targets the check-in controller.
+      Voyager.dispatch(:save_checkin)
+      UI::Notifications.pending_count
+    end
   end
 
   fun voyager_watch_render : Void*
@@ -188,5 +208,9 @@
 
   fun voyager_watch_test_nav : Void
     VoyagerWatchBridge.test_nav
+  end
+
+  fun voyager_watch_test_notif : Int32
+    VoyagerWatchBridge.test_notif
   end
 {% end %}

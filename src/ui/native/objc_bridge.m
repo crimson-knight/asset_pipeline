@@ -2545,7 +2545,7 @@ long long ap_notifications_authorization_status(void) {
     return status;
 }
 
-int ap_notifications_request_authorization(int alert, int sound, int badge) {
+int ap_notifications_request_authorization(int alert, int sound, int badge, int provisional) {
     UNUserNotificationCenter *center = ap_notifications_center();
     if (!center) return 0;
 
@@ -2553,6 +2553,8 @@ int ap_notifications_request_authorization(int alert, int sound, int badge) {
     if (alert) options |= UNAuthorizationOptionAlert;
     if (sound) options |= UNAuthorizationOptionSound;
     if (badge) options |= UNAuthorizationOptionBadge;
+    // Provisional = quiet, no-prompt authorization (no permission dialog / tap).
+    if (provisional) options |= UNAuthorizationOptionProvisional;
 
     __block BOOL granted = NO;
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
@@ -3593,7 +3595,7 @@ int ap_open_url_ios(const char *url_cstr) {
 // Returns 1 if granted, 0 otherwise. Synchronous via dispatch_semaphore;
 // the helper times out at 5 s.
 int ap_request_notification_permission_ios(void) {
-    return ap_notifications_request_authorization(1, 1, 1);
+    return ap_notifications_request_authorization(1, 1, 1, 0);
 }
 
 // :print — present a UIPrintInteractionController for a plain-text
@@ -3937,7 +3939,7 @@ int ap_open_url_macos(const char *url_cstr) {
 // macOS. Returns 1 if granted, 0 otherwise. Synchronous via dispatch
 // semaphore; the helper times out at 5 s.
 int ap_request_notification_permission_macos(void) {
-    return ap_notifications_request_authorization(1, 1, 1);
+    return ap_notifications_request_authorization(1, 1, 1, 0);
 }
 
 // :print — present an NSPrintOperation for a plain-text payload built

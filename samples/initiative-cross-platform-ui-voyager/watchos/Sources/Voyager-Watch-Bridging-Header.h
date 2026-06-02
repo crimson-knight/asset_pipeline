@@ -28,4 +28,10 @@ void voyager_watch_test_send(const char *text);
 // :settings, then this navigates to the check-in screen.
 void voyager_watch_test_nav(void);
 
+// Drive a real Save on the Daily Check-in (dispatch :save_checkin → schedule a
+// real recurring local notification via UI::Notifications). Returns the system's
+// actual pending-notification count — an honest functional outcome for the watch
+// (which has no XCUITest). Bootstrap at :voyager-check-in.
+int voyager_watch_test_notif(void);
+
 #endif /* VOYAGER_WATCH_BRIDGING_HEADER_H */

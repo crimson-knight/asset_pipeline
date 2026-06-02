@@ -58,6 +58,15 @@ ok "libgc.a: $DEPS_DIR/libgc.a"
     -arch arm64 -isysroot "$SDK_PATH" $MIN_FLAG -fno-objc-arc
 ok "swiftkit_bridge.m compiled"
 
+# Step 1b: portable UserNotifications bridge. objc_bridge.m can't compile on
+# watchOS (UIKit/AppKit), but notifications_bridge.m imports only Foundation +
+# UserNotifications, so the watch gets ap_notifications_* (UI::Notifications uses
+# them under -Dwatchos). Requires -framework UserNotifications at app link (see
+# project.yml OTHER_LDFLAGS).
+"$CLANG" -c "$PROJECT_ROOT/src/ui/native/notifications_bridge.m" -o "$BUILD_DIR/notifications_bridge_watch.o" \
+    -arch arm64 -isysroot "$SDK_PATH" $MIN_FLAG -fno-objc-arc
+ok "notifications_bridge.m compiled"
+
 SWIFTKIT_PACKAGE_DIR="$PROJECT_ROOT/swift/AssetPipelineSwiftKit"
 # SwiftPM normalizes the triple for its .build dir (drops the OS version):
 # --triple arm64-apple-watchos10.0-simulator -> .build/arm64-apple-watchos-simulator
@@ -82,6 +91,8 @@ info "Cross-compiling Crystal bridge..."
 ld -r -unexported_symbol _main "$BRIDGE_BASE.o" -o "$BUILD_DIR/bridge_fixed.o"
 mv "$BUILD_DIR/bridge_fixed.o" "$BRIDGE_BASE.o"
 
-# Step 5: pack into a static library (bridge + SwiftKit trampolines; no objc_bridge).
-ar rcs "$OUTPUT_LIB" "$BRIDGE_BASE.o" "$BUILD_DIR/swiftkit_bridge_watch.o"
+# Step 5: pack into a static library (bridge + SwiftKit trampolines +
+# notifications bridge; no objc_bridge).
+ar rcs "$OUTPUT_LIB" "$BRIDGE_BASE.o" "$BUILD_DIR/swiftkit_bridge_watch.o" \
+    "$BUILD_DIR/notifications_bridge_watch.o"
 ok "Static library: $OUTPUT_LIB"
