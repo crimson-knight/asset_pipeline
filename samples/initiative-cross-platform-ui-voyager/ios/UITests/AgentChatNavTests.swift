@@ -48,4 +48,37 @@ final class AgentChatNavTests: XCTestCase {
         XCTAssertTrue(agentButton.waitForExistence(timeout: 6),
             "Did not return to Todos after tapping Back.")
     }
+
+    /// Proves the compose path works with REAL input + a functional OUTCOME (per the
+    /// interactive-view Definition of Done): type a message, tap Send, and assert
+    /// the typed text appears as a new bubble in the transcript (the controller
+    /// appended it to Voyager::State and the Rerender rebuilt the screen).
+    func testTypingAndSendingAppendsMessageToTranscript() throws {
+        let app = XCUIApplication()
+        app.launchEnvironment = [
+            "VOYAGER_ROOT_SLUG": "voyager-agent-chat",
+            "VOYAGER_SKIP_NOTIF_PROMPT": "1",
+        ]
+        app.launch()
+
+        // Compose field present (queried by type, like SignInTests — SwiftUI-hosted
+        // fields don't always expose their test_id via textFields["id"]).
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10),
+            "Agent chat compose field not found.")
+
+        let unique = "Reschedule lunch to 1pm"
+        field.tap()
+        field.typeText(unique)
+
+        // Send.
+        let send = app.buttons["voyager-agent-chat-send"]
+        XCTAssertTrue(send.waitForExistence(timeout: 4), "Send button missing.")
+        send.tap()
+
+        // Functional outcome: the typed text now appears as a transcript bubble.
+        let appended = app.staticTexts[unique]
+        XCTAssertTrue(appended.waitForExistence(timeout: 6),
+            "Typed message did not appear in the transcript after Send — the input never reached state / the screen did not rebuild.")
+    }
 }

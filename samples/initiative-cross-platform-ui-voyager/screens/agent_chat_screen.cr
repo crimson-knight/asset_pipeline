@@ -12,16 +12,11 @@ module Voyager
     SLUG = "voyager-agent-chat"
 
     def build(context : UI::ScreenContext) : UI::View
-      # (text, is_agent?) — agent messages lead-align, the user's replies trail-align.
-      # Built INLINE (not a class-level constant): the iOS embedding skips class-var /
-      # constant initializers (the class-init gap), so a class constant here SIGSEGVs
-      # in build on iOS even though it renders on macOS. Every other Voyager screen
-      # builds its arrays inline for the same reason.
-      messages = [
-        {"Morning! Your first meeting moved to 10:00.", true},
-        {"Thanks — remind me at 9:45", false},
-        {"Done. I'll buzz your wrist at 9:45.", true},
-      ]
+      # The transcript lives in Voyager::State and grows when the user taps Send
+      # (SendController appends a user message + a canned agent reply, then Rerender
+      # rebuilds this screen from the new state). agent messages lead-align, the
+      # user's replies trail-align.
+      messages = Voyager.state.chat_messages
 
       metrics = UI::DesignTokens::DeviceMetrics.current
       content_width = metrics.responsive(compact: 340.0, regular: 460.0)
@@ -48,8 +43,7 @@ module Voyager
       root << title.as(UI::View)
 
       messages.each_with_index do |msg, i|
-        text, is_agent = msg
-        root << bubble_row(text, is_agent, content_width, bubble_w, i)
+        root << bubble_row(msg.text, msg.is_agent, content_width, bubble_w, i)
       end
 
       # Collect the slack so the transcript packs to the top and the compose row

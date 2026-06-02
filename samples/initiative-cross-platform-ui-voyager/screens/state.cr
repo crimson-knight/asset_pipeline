@@ -33,10 +33,24 @@ module Voyager
   #   Settings toggle → state.hide_completed = true → coord.pop →
   #   coord notifies → host rebuilds Todos route with filtered list +
   #   recalculated chart counts.
+  # A single message in the Agent Chat transcript.
+  class ChatMessage
+    property text : String
+    property is_agent : Bool
+
+    def initialize(@text : String, @is_agent : Bool)
+    end
+  end
+
   class State
     property current_user : String = ""
     property todos : Array(Todo)
     property hide_completed : Bool = false
+    # Agent Chat transcript (the cross-platform agent-chat surface). A nilable
+    # default would be safest for the iOS class-init gap, but it's assigned in
+    # `initialize` (instance init runs in voyager_init via HostBootstrap.build),
+    # so a typed Array property seeded there is fine.
+    property chat_messages : Array(ChatMessage) = [] of ChatMessage
     @next_id : Int32 = 1
 
     # Phase 10D-polish — transient UI flags driving the catalog widget
@@ -49,10 +63,10 @@ module Voyager
     # screen-local @ivar would be reset. The dispatcher's Rerender
     # action result re-renders the active route from the state we
     # mutate here.
-    property pending_delete_todo_id : Int32? = nil  # B1 — Alert
-    property pending_share_todo_id : Int32? = nil   # B2 — ActionSheet
-    property pending_editor_todo_id : Int32? = nil  # B3 — Sheet (nil = closed; 0 = new draft; >0 = edit)
-    property show_overflow_menu : Bool = false      # B5 — Popover
+    property pending_delete_todo_id : Int32? = nil # B1 — Alert
+    property pending_share_todo_id : Int32? = nil  # B2 — ActionSheet
+    property pending_editor_todo_id : Int32? = nil # B3 — Sheet (nil = closed; 0 = new draft; >0 = edit)
+    property show_overflow_menu : Bool = false     # B5 — Popover
 
     def initialize
       @todos = [] of Todo
@@ -63,6 +77,23 @@ module Voyager
       add_todo("Call dentist", "", true)
       add_todo("Read a book", "Foundation, ch 3-5", false)
       add_todo("Water plants", "", true)
+
+      # Seed the agent-chat transcript so the surface has content on first open.
+      @chat_messages = [
+        ChatMessage.new("Morning! Your first meeting moved to 10:00.", true),
+        ChatMessage.new("Thanks — remind me at 9:45", false),
+        ChatMessage.new("Done. I'll buzz your wrist at 9:45.", true),
+      ]
+    end
+
+    # Append a user message to the transcript, plus a canned agent acknowledgement
+    # so a Send feels like a real exchange. Returns nothing; the screen re-reads
+    # `chat_messages` on the next render.
+    def send_chat_message(text : String) : Nil
+      trimmed = text.strip
+      return if trimmed.empty?
+      @chat_messages << ChatMessage.new(trimmed, false)
+      @chat_messages << ChatMessage.new("On it — I'll take care of that.", true)
     end
 
     def add_todo(
