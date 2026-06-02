@@ -1,0 +1,37 @@
+name: VoyagerWatch
+# Voyager watchOS demo — proves the asset_pipeline SwiftKit facade catalog RENDERS
+# on a real watchOS device, not just compiles. The Crystal-side UI::WatchKit::Renderer
+# is blocked on a compiler fix (see handoff/2026-06-02-watchos-crystal-toolchain-blocker.md),
+# so this app bypasses Crystal entirely: it compiles the pure-Swift SwiftKit Sources
+# directly into the app target and renders each facade's `APSKWatchHostView.content`
+# (the SwiftUI body) in a SwiftUI watch view. This is a faithful render of exactly
+# the SwiftUI the Crystal renderer would compose — just driven from Swift.
+options:
+  bundleIdPrefix: com.assetpipeline.voyager
+  deploymentTarget:
+    watchOS: "10.0"
+settings:
+  EXCLUDED_ARCHS[sdk=watchsimulator*]: x86_64
+targets:
+  VoyagerWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Sources
+      # Compile the pure-Swift SwiftKit facade catalog directly into the app
+      # (the package has no non-test dependencies, so this needs no linking).
+      - path: ../../../swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.assetpipeline.voyager.VoyagerWatch
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Voyager
+        # Modern single-target SwiftUI watch app, watch-ONLY (no iOS companion):
+        # WKApplication + WKWatchOnly are both required or the installer rejects it
+        # ("must specify WKCompanionAppBundleIdentifier ... or set WKWatchOnly").
+        WKApplication: true
+        WKWatchOnly: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    dependencies: []
