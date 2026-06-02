@@ -56,4 +56,9 @@ void voyager_watch_test_voice_gate(int muted);
 // persisted across launches on the watch.
 int voyager_watch_test_prefs_counter(void);
 
+// Drive the Settings Voice-speed slider + Preview through the real controller;
+// returns speech_rate as a percent (expect 65) and starts a preview utterance
+// (check voyager_watch_speaking() after a beat). Root at :voyager-settings.
+int voyager_watch_test_rate(void);
+
 #endif /* VOYAGER_WATCH_BRIDGING_HEADER_H */

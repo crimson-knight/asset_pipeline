@@ -246,6 +246,18 @@
       UI::Preferences.set_int("voyager.test_counter", n + 1)
       n
     end
+
+    # Drive the Settings Voice-speed slider + Preview button through the REAL
+    # controller path (dispatch :set_speech_rate then :preview_voice). Returns the
+    # resulting speech_rate as a percent (expect 65) — proving the slider action
+    # reached state — and starts a preview utterance (check `speaking` after a beat
+    # to prove it speaks at the set rate). Root the watch at :voyager-settings.
+    def self.test_rate : Int32
+      initialize_runtime
+      Voyager.dispatch(:set_speech_rate, {"value" => "65"}) # integer percent (see set_speech_rate)
+      Voyager.dispatch(:preview_voice)
+      (Voyager.state.speech_rate * 100).round.to_i
+    end
   end
 
   fun voyager_watch_render : Void*
@@ -286,5 +298,9 @@
 
   fun voyager_watch_test_prefs_counter : Int32
     VoyagerWatchBridge.test_prefs_counter
+  end
+
+  fun voyager_watch_test_rate : Int32
+    VoyagerWatchBridge.test_rate
   end
 {% end %}

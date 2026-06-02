@@ -70,7 +70,7 @@ module Voyager
       # open, read it aloud (UI::Notifications foreground delivery → UI::Speech).
       # The agent reaches you AND talks to you — on macOS, iOS, and the wrist.
       # Installs the platform UNUserNotificationCenter delegate; no-op on web.
-      UI::Notifications.on_foreground { |body| UI::Speech.speak(body) }
+      UI::Notifications.on_foreground { |body| UI::Speech.speak(body, rate: Voyager.state.speech_rate) }
 
       Result.new(
         state: state,

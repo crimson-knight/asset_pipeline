@@ -61,6 +61,9 @@ module Voyager
     # Whether the agent reads its chat replies aloud (UI::Speech). Toggled by the
     # speaker control in the Agent Chat header; gates AgentChatController's auto-speak.
     property speak_replies : Bool = true
+    # How fast the agent speaks (AVSpeechUtterance.rate, ~0.35–0.65; 0.5 ≈ natural).
+    # Set by the Voice speed slider in Settings; used by every UI::Speech.speak call.
+    property speech_rate : Float64 = 0.5
 
     # Coaching focus areas offered by the check-in Picker. A METHOD, not a constant: a
     # class-level `CHECKIN_FOCUSES = [...]` array literal is NOT reliably initialized on
@@ -114,6 +117,7 @@ module Voyager
       # NSUserDefaults). Each property's literal default above is the fallback when
       # the key has never been written. Persisted by the voice toggle + Save check-in.
       @speak_replies = UI::Preferences.bool?("voyager.speak_replies", @speak_replies)
+      @speech_rate = UI::Preferences.double("voyager.speech_rate", @speech_rate)
       @checkin_mood = UI::Preferences.int("voyager.checkin_mood", @checkin_mood)
       @checkin_goal = UI::Preferences.int("voyager.checkin_goal", @checkin_goal)
       @checkin_reminder = UI::Preferences.bool?("voyager.checkin_reminder", @checkin_reminder)

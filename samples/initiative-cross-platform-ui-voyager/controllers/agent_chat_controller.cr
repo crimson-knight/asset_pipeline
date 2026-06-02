@@ -26,7 +26,9 @@ module Voyager
       # conversation (dictation input is native to the compose TextField). The
       # last appended message is the agent's reply. No-op on web.
       if reply = Voyager.state.chat_messages.last?
-        UI::Speech.speak(reply.text) if reply.is_agent && Voyager.state.speak_replies
+        if reply.is_agent && Voyager.state.speak_replies
+          UI::Speech.speak(reply.text, rate: Voyager.state.speech_rate)
+        end
       end
       UI::ActionResult::Rerender.new
     end

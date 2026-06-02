@@ -65,6 +65,21 @@ struct ContentView: View {
             maybeAutoFgSpeak()
             maybeAutoVoiceGate()
             maybeAutoPrefs()
+            maybeAutoRate()
+        }
+    }
+
+    // Verification hook for the Settings Voice-speed slider: with
+    // VOYAGER_WATCH_TEST_RATE=1 (root at :voyager-settings), drive set_speech_rate
+    // + preview through the real controller, then log the resulting rate percent
+    // (expect 65) and whether the preview is speaking. No-op in normal use.
+    private func maybeAutoRate() {
+        guard ProcessInfo.processInfo.environment["VOYAGER_WATCH_TEST_RATE"] == "1" else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            let pct = voyager_watch_test_rate()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                NSLog("VOYAGER_RATE_RESULT pct=\(pct) speaking=\(voyager_watch_speaking())")
+            }
         }
     }
 
