@@ -2524,6 +2524,12 @@ void uiactivityview_present(void *anchor_view_ptr,
 static UNUserNotificationCenter *ap_notifications_center(void) {
     Class center_class = NSClassFromString(@"UNUserNotificationCenter");
     if (!center_class) return nil;
+    // +currentNotificationCenter THROWS (NSInternalInconsistencyException,
+    // "bundleProxyForCurrentProcess is nil") in a process with no app bundle — e.g.
+    // a bare CLI binary like the sample's macos/bin/voyager. Guard on the main
+    // bundle identifier so notifications gracefully no-op there (every caller
+    // already handles a nil center) instead of aborting the whole app.
+    if ([[NSBundle mainBundle] bundleIdentifier] == nil) return nil;
     return [UNUserNotificationCenter currentNotificationCenter];
 }
 

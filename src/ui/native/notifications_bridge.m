@@ -35,6 +35,12 @@ static NSString *ap_nb_string_from_cstr(const char *value) {
 static UNUserNotificationCenter *ap_notifications_center(void) {
     Class center_class = NSClassFromString(@"UNUserNotificationCenter");
     if (!center_class) return nil;
+    // +currentNotificationCenter THROWS (NSInternalInconsistencyException,
+    // "bundleProxyForCurrentProcess is nil") in a process with no app bundle — e.g.
+    // a bare CLI binary. Guard on the main bundle identifier so notifications
+    // gracefully no-op there (every caller handles a nil center) instead of
+    // aborting. (watchOS apps always have a bundle; harmless there.)
+    if ([[NSBundle mainBundle] bundleIdentifier] == nil) return nil;
     return [UNUserNotificationCenter currentNotificationCenter];
 }
 
