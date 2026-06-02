@@ -5,6 +5,31 @@ the UI lib + `UI::WatchKit::Renderer` + the watch `bridge.cr` (`voyager_watch_re
 all cross-compile to a watch `.o`. Brick 4b is the native build pipeline + watch-app
 linking that turns that into a Crystal-authored screen rendering on the watch sim.
 
+## UPDATE 2026-06-02 — the GC dep is SOLVED (recipe below)
+
+The feared hard blocker (bdwgc's stop-the-world uses `thread_suspend`/`thread_resume`,
+unavailable on watchOS) is sidestepped: the Crystal watch program is **single-threaded**
+(cross-compiled without `-Dpreview_mt`), so it needs only the basic GC API — no
+stop-the-world thread suspension. Build bdwgc **with threads OFF**:
+
+```sh
+git clone --depth 1 --branch v8.2.8 https://github.com/ivmai/bdwgc /tmp/bdwgc-watch
+SDK=$(xcrun --sdk watchsimulator --show-sdk-path)
+cmake -S /tmp/bdwgc-watch -B /tmp/bdwgc-watch/build-wsim-nt \
+  -DCMAKE_SYSTEM_NAME=watchOS -DCMAKE_OSX_SYSROOT="$SDK" \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=10.0 \
+  -Denable_threads=OFF -DBUILD_SHARED_LIBS=OFF -Denable_cplusplus=OFF -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/bdwgc-watch/build-wsim-nt --config Release   # -> libgc.a (arm64 watchOS)
+```
+
+PROVEN: the watch bridge needs exactly 14 `GC_*` symbols (GC_malloc/init/free/realloc/
+finalizer/stackbottom/push_other_roots/…) and the no-threads `libgc.a` provides ALL of
+them (`comm -23` of needed-vs-provided is empty). Staged at
+`/tmp/crystal-cross-deps/watchos-simulator/lib/libgc.a` (ephemeral; the watch
+build_crystal_lib.sh should build it). Caveat: keep the watch program single-threaded
+(no `-Dpreview_mt`); a threaded build would require porting bdwgc's stop-the-world to
+watchOS (a real upstream effort).
+
 ## The blocker: Crystal runtime deps for watchOS-simulator
 
 The watch bridge's cross-compile prints link flags `-lgc -liconv -lz -lssl -lcrypto`.
