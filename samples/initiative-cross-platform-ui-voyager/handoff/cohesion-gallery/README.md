@@ -41,3 +41,13 @@ the watch is shown in its natural dark appearance; macOS + iOS adapt to match.)
 Regenerate from the per-platform captures under each target's
 `handoff/phase-c-evidence/` with the ImageMagick `montage`/`convert` commands recorded in
 the commit that introduced this gallery.
+
+## macOS window-resize adaptation
+
+`macos-adaptive-resize.png` — the SAME `TodosScreen` in a narrow vs wide macOS window. The
+macOS renderer derives its size class + adaptive widths from the live window content rect, so
+resizing the window reflows the design itself, not just the chrome: at a narrow width the
+header reflows to a stacked column (`compact_canvas?`) and the content column tightens; at a
+wide width the header is an SF-Symbol toolbar (`regular`). This is the within-platform
+counterpart to the cross-platform cohesion gallery — the "whole design adapts, not just the
+window" north star, demonstrated on a single platform via two capture widths.
