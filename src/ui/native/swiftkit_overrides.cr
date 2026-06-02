@@ -967,11 +967,11 @@ module UI
     # the pointer captured at construction time. Symbol setter names are
     # stringified once at the C boundary via `to_s.to_unsafe`.
     #
-    # The sender is gated on `flag?(:macos) || flag?(:ios)` because
-    # `LibSwiftKitBridge` only resolves under those builds. The web /
+    # The sender is gated on `flag?(:macos) || flag?(:ios) || flag?(:watchos)`
+    # because `LibSwiftKitBridge` only resolves under those builds. The web /
     # Android renderers never reach this code path.
     # ---------------------------------------------------------------------
-    {% if flag?(:macos) || flag?(:ios) %}
+    {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
       class SwiftKitObjCSender < Populator::Sender
         # The `APSK*Overrides` pointer returned by `apsk_*_overrides_new`.
         # Lives at least as long as the sender; the renderer drops the

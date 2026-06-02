@@ -7,8 +7,10 @@
 # `objc_msgSend` happens inside C trampolines in
 # `src/ui/native/swiftkit_bridge.m`.
 #
-# Module is gated on `flag?(:macos) || flag?(:ios)` — Web and Android
-# builds never touch SwiftKit. The spec environment provides a fake
+# Module is gated on `flag?(:macos) || flag?(:ios) || flag?(:watchos)` — Web and
+# Android builds never touch SwiftKit. watchOS reaches the same SwiftKit facades
+# (which return the `APSKWatchHostView` boundary node on watch) so the
+# `UI::WatchKit::Renderer` can compose them. The spec environment provides a fake
 # wrapper at `spec/support/fake_lib_objc_bridge.cr`.
 #
 # Phase 3 ships the Button facade end-to-end. The widget coverage list
@@ -17,7 +19,7 @@
 # follow-up commits documented in the handoff message. Phase 5's glass
 # material work extends THIS module — it does not introduce a new lib.
 
-{% if flag?(:macos) || flag?(:ios) %}
+{% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
   @[Link(framework: "Foundation")]
   lib LibSwiftKitBridge
     # Phase 12.A — Interaction-contracts NSLog bridge. See
