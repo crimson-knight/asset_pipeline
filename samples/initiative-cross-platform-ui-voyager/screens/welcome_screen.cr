@@ -16,13 +16,16 @@ module Voyager
       metrics = UI::DesignTokens::DeviceMetrics.current
       w = metrics.responsive(compact: 340.0, regular: 600.0)
 
-      root = UI::VStack.new(spacing: metrics.responsive(compact: 14.0, regular: 20.0))
+      # Vertical rhythm (inter-element spacing, top/bottom padding) keys off the
+      # VERTICAL size class so the column tightens in landscape / short windows;
+      # width + side padding key off the horizontal class.
+      root = UI::VStack.new(spacing: metrics.responsive_vertical(compact: 12.0, regular: 20.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Center
       root.padding = UI::EdgeInsets.new(
-        top: metrics.responsive(compact: 40.0, regular: 64.0) + metrics.safe_area_top_pt,
+        top: metrics.responsive_vertical(compact: 28.0, regular: 64.0) + metrics.safe_area_top_pt,
         trailing: metrics.responsive(compact: 18.0, regular: 28.0) + metrics.safe_area_trailing_pt,
-        bottom: metrics.responsive(compact: 32.0, regular: 48.0) + metrics.safe_area_bottom_pt,
+        bottom: metrics.responsive_vertical(compact: 20.0, regular: 48.0) + metrics.safe_area_bottom_pt,
         leading: metrics.responsive(compact: 18.0, regular: 28.0) + metrics.safe_area_leading_pt,
       )
       root.accessibility_label = "Voyager welcome screen"
