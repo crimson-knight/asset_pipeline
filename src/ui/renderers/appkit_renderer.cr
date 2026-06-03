@@ -510,6 +510,26 @@
           end
         end
 
+        # A VStack child marked `fill_horizontal` fills the stack's WIDTH — the
+        # cross-axis analog of the HStack spacer-fill. In a vertical stack "fill
+        # horizontally" means "match the parent width" (full-bleed bands, footers,
+        # dividers, cards). Plain fill_horizontal only lowers content-hugging,
+        # which is a NO-OP under a VStack's GravityAreas distribution + CenterX
+        # alignment — so a full-width band collapsed to its content width and an
+        # exact min==max pin loses to the stack's required constraints (priority
+        # 999 < 1000). Pin width == stack at required priority via the same helper
+        # fluid_width uses. A child's own exact width pin still wins; skip when
+        # fluid_width already pinned every child above.
+        unless view.fluid_width
+          view.children.each_with_index do |child_view, i|
+            next unless child_view.fill_horizontal
+            next if child_view.minimum_width || child_view.maximum_width
+            cn = native.children[i]?
+            next unless cn && cn.handle.valid?
+            LibObjCBridge.objc_constrain_equal_width(cn.handle.ptr!, ptr)
+          end
+        end
+
         push_native(native)
 
         # Phase B — fluid container fills its parent (greedy, capped at max,
