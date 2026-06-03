@@ -67,6 +67,21 @@ public class TextFieldFacade: NSObject {
 
         var content: AnyView = base
 
+        // Custom font cascade (mirrors LabelFacade / ButtonFacade): custom
+        // registered family → system size(+weight) → weight-only. Applied to the
+        // field content so both the input text and the placeholder overlay share
+        // the face. Without this a Crystal-side `text_field.font = Font.new(...)`
+        // was dropped and every field rendered at the SwiftUI body default.
+        if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
+            let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
+            content = AnyView(content.font(.custom(fam, size: CGFloat(sz))))
+        } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
+            let weight = (overrides.fontWeight.flatMap { Font.Weight(rawValue: $0.intValue) }) ?? .regular
+            content = AnyView(content.font(.system(size: CGFloat(sz.doubleValue), weight: weight)))
+        } else if let w = overrides.fontWeight {
+            content = AnyView(content.fontWeight(Font.Weight(rawValue: w.intValue) ?? .regular))
+        }
+
         // Beauty-by-default: apply `.textFieldStyle(.roundedBorder)` so the
         // field has visible chrome (rounded border + padding) on every
         // platform. SwiftUI's iOS default is a plain TextField with no
@@ -180,6 +195,26 @@ struct PromptOverlayField: View {
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
+        }
+    }
+}
+
+// Local `Font.Weight` rawValue init — matches the convention in LabelFacade /
+// ButtonFacade so Crystal's populators can emit the same integer rawValues
+// (regular = 0, medium = 1, semibold = 2, bold = 3, …) for the same weight.
+private extension Font.Weight {
+    init?(rawValue: Int) {
+        switch rawValue {
+        case -3: self = .ultraLight
+        case -2: self = .thin
+        case -1: self = .light
+        case 0: self = .regular
+        case 1: self = .medium
+        case 2: self = .semibold
+        case 3: self = .bold
+        case 4: self = .heavy
+        case 5: self = .black
+        default: return nil
         }
     }
 }

@@ -115,6 +115,11 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
       FakeLibObjCBridge.refute_sent(:setSecureEntry)
       FakeLibObjCBridge.refute_sent(:setKeyboardType)
+      # Font default (size 17 / weight :regular / family "system") → no setters.
+      # UI::TextField#font was previously dropped entirely.
+      FakeLibObjCBridge.refute_sent(:setFontSize)
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
+      FakeLibObjCBridge.refute_sent(:setFontFamily)
     end
 
     it "emits setSecureEntry:true when secure_entry=true" do
@@ -124,6 +129,27 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setSecureEntry, times: 1, args: [target, "true"])
     end
+
+    it "forwards font size/weight/family when overridden" do
+      view = UI::TextField.new
+      view.font = UI::Font.new(family: "Alegreya-Medium", size: 22.0)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontFamily, times: 1,
+        args: [target, "Alegreya-Medium"])
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1, args: [target, "22.0"])
+      # Custom face carries its own weight; default :regular → no weight setter.
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
+    end
+
+    it "forwards setFontWeight for a system face with a bold weight" do
+      view = UI::TextField.new
+      view.font = UI::Font.new(size: 18.0, weight: :bold)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1, args: [target, "18.0"])
+      FakeLibObjCBridge.assert_sent(:setFontWeight, times: 1, args: [target, "3.0"])
+    end
   end
 
   describe "#populate_secure_field" do
@@ -132,6 +158,30 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       target = FakeLibObjCBridge.next_sentinel_pointer
       UI::Native::Populator.populate_secure_field(target, view, RecordingSender.new)
       FakeLibObjCBridge.refute_sent(:setBackgroundColor)
+    end
+  end
+
+  describe "#populate_text_area" do
+    it "skips font + widget setters on a default UI::TextArea" do
+      view = UI::TextArea.new
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_area(target, view, RecordingSender.new)
+      # is_editable/is_scrollable default true, line_limit nil → no setters.
+      FakeLibObjCBridge.refute_sent(:setLineLimit)
+      # Font default → no setters. UI::TextArea#font was previously dropped.
+      FakeLibObjCBridge.refute_sent(:setFontSize)
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
+      FakeLibObjCBridge.refute_sent(:setFontFamily)
+    end
+
+    it "forwards font family + size when overridden" do
+      view = UI::TextArea.new
+      view.font = UI::Font.new(family: "AlegreyaSans-Light", size: 18.0)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_area(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontFamily, times: 1,
+        args: [target, "AlegreyaSans-Light"])
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1, args: [target, "18.0"])
     end
   end
 

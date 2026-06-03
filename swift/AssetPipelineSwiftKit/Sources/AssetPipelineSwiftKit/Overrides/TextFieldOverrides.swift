@@ -12,6 +12,13 @@ import Foundation
 public class TextFieldOverrides: ViewOverrides {
     @objc public var secureEntry: NSNumber? = nil
     @objc public var keyboardType: String? = nil
+    // Font: point size, raw Font.Weight intValue, custom family / PostScript
+    // name. nil = SwiftUI default. A real family ("Alegreya-Medium", …) renders
+    // via `.font(.custom(name, size:))`; the consumer registers the TTF first
+    // (apsk_register_font). Mirrors LabelOverrides / ButtonOverrides.
+    @objc public var fontSize: NSNumber? = nil
+    @objc public var fontWeight: NSNumber? = nil
+    @objc public var fontFamily: String? = nil
 
     @objc public override init() { super.init() }
 }

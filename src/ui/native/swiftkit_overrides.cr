@@ -392,6 +392,24 @@ module UI
         end
       end
 
+      # Emit font size/weight/family setters only when they differ from the
+      # UI::Font type defaults (size 17, weight :regular, family "system") — the
+      # §11 default-detection invariant. Shared by the text-input populators;
+      # mirrors the inline logic in populate_label / populate_button so a
+      # Crystal-side `view.font = Font.new(...)` reaches the SwiftUI facade.
+      def self.emit_font(target : String, font : UI::Font, sender : Sender)
+        if font.size != 17.0
+          sender.set_number(target, :setFontSize, font.size)
+        end
+        if font.weight != :regular
+          sender.set_number(target, :setFontWeight,
+            swiftui_font_weight_rawvalue(font.weight).to_f64)
+        end
+        if font.family != "system" && !font.family.empty?
+          sender.set_string(target, :setFontFamily, font.family)
+        end
+      end
+
       def self.populate_image(target : String, view : UI::Image, sender : Sender)
         populate_view_common(target, view, sender)
         sender.set_color(target, :setForegroundColor, view.tint_color)
@@ -410,6 +428,7 @@ module UI
         unless kt == UI::KeyboardType::Default
           sender.set_string(target, :setKeyboardType, kt.to_s.downcase)
         end
+        emit_font(target, view.font, sender)
       end
 
       def self.populate_secure_field(target : String, view : UI::SecureField, sender : Sender)
@@ -434,6 +453,7 @@ module UI
         if ll = view.line_limit
           sender.set_number(target, :setLineLimit, ll.to_f64)
         end
+        emit_font(target, view.font, sender)
       end
 
       def self.populate_text_editor(target : String, view : UI::TextEditor, sender : Sender)

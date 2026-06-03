@@ -29,6 +29,21 @@ public class TextAreaFacade: NSObject {
                 disabled: (overrides.editable.map { !$0.boolValue }) ?? false
             )
         )
+
+        // Custom font cascade (mirrors LabelFacade / ButtonFacade): custom
+        // registered family → system size(+weight) → weight-only. Applied to the
+        // editor content so the typed text + placeholder share the face. Without
+        // this a Crystal-side `text_area.font = Font.new(...)` was dropped.
+        if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
+            let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
+            content = AnyView(content.font(.custom(fam, size: CGFloat(sz))))
+        } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
+            let weight = (overrides.fontWeight.flatMap { Font.Weight(rawValue: $0.intValue) }) ?? .regular
+            content = AnyView(content.font(.system(size: CGFloat(sz.doubleValue), weight: weight)))
+        } else if let w = overrides.fontWeight {
+            content = AnyView(content.fontWeight(Font.Weight(rawValue: w.intValue) ?? .regular))
+        }
+
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(TextAreaStorageHost(storage: storage, content: content))
     }
@@ -74,5 +89,23 @@ private struct TextAreaStorageHost<Content: View>: View {
     @ObservedObject var storage: TextStorage
     let content: Content
     var body: some View { content }
+}
+
+// Local `Font.Weight` rawValue init — matches LabelFacade / ButtonFacade.
+private extension Font.Weight {
+    init?(rawValue: Int) {
+        switch rawValue {
+        case -3: self = .ultraLight
+        case -2: self = .thin
+        case -1: self = .light
+        case 0: self = .regular
+        case 1: self = .medium
+        case 2: self = .semibold
+        case 3: self = .bold
+        case 4: self = .heavy
+        case 5: self = .black
+        default: return nil
+        }
+    }
 }
 #endif
