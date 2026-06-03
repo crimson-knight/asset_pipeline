@@ -34,17 +34,20 @@ public class ImageFacade: NSObject {
         }
         #endif
 
-        var content: AnyView = AnyView(base)
+        var content: AnyView
 
         switch overrides.contentMode {
-        case "fit":
-            content = AnyView(base.resizable().aspectRatio(contentMode: .fit))
         case "fill":
             content = AnyView(base.resizable().aspectRatio(contentMode: .fill))
         case "stretch":
             content = AnyView(base.resizable())
         default:
-            break
+            // "fit" OR nil — Fit is UI::Image's documented default content_mode,
+            // and the Crystal populator omits content_mode when it equals the
+            // default. Without resizing here, a default Image is NOT `.resizable()`
+            // and renders at intrinsic size — a sized/hero image (frame via
+            // minimum_width/height) stays tiny and can't scale. Treat default as Fit.
+            content = AnyView(base.resizable().aspectRatio(contentMode: .fit))
         }
 
         content = CommonModifiers.apply(content, overrides: overrides)
