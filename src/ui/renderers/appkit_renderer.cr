@@ -463,11 +463,15 @@
                     # UI::StackBake) keeps the LIVE app TRANSPARENT so the parent's
                     # background shows through — matching HStack/ZStack, which never
                     # bake a fill. The opaque legibility fix (gaps.md iter-21) applies
-                    # ONLY in the offscreen capture path (HIG_APPEARANCE pinned), and
-                    # backdrop captures stay transparent for the glass compositor.
-                    # Baking opaque white in the live app turned nested background-less
-                    # containers into solid white blocks (My Affirmations regression).
-                    r, g, b, a = UI::StackBake.fallback_rgba(ENV["HIG_BACKDROP_PATH"]?, ENV["HIG_APPEARANCE"]?)
+                    # ONLY in the offscreen capture path, and backdrop captures stay
+                    # transparent for the glass compositor. Capture mode is detected
+                    # from a screenshot-OUTPUT env var (consistent with this file's
+                    # other HIG_SCREENSHOT_PATH checks) — NOT HIG_APPEARANCE, which is
+                    # an appearance knob set for live windows too. Baking opaque white
+                    # in the live app turned nested background-less containers into
+                    # solid white blocks (My Affirmations regression).
+                    capturing = UI::StackBake.capturing?(UI::StackBake::CAPTURE_PATH_ENV_KEYS.map { |k| ENV[k]? })
+                    r, g, b, a = UI::StackBake.fallback_rgba(ENV["HIG_BACKDROP_PATH"]?, ENV["HIG_APPEARANCE"]?, capturing)
                     LibObjCBridge.nscolor_rgba(r, g, b, a)
                   end
           unless bg_ns.null?
