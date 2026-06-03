@@ -151,14 +151,29 @@ struct PromptOverlayField: View {
     let isSecure: Bool
 
     var body: some View {
-        Group {
-            if isSecure {
-                SecureField("", text: storage.binding)
-            } else {
-                TextField("", text: storage.binding)
+        // Width floor: an EMPTY SwiftUI TextField/SecureField has ~0 ideal width,
+        // and the visible placeholder is a non-sizing layer (it was an `.overlay`),
+        // so inside a non-stretching container (e.g. a VStack form) a placeholder-
+        // only field collapsed to a tiny sliver. A hidden, layout-only copy of the
+        // placeholder reserves at least its width, and the field fills that width.
+        // (Surfaced by Happy Coach's "negative thoughts" screen — placeholder-only
+        // fields rendered as unusable slivers.)
+        ZStack(alignment: .leading) {
+            Text(placeholder)
+                .fixedSize(horizontal: true, vertical: false)
+                .opacity(0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+
+            Group {
+                if isSecure {
+                    SecureField("", text: storage.binding)
+                } else {
+                    TextField("", text: storage.binding)
+                }
             }
-        }
-        .overlay(alignment: .leading) {
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             if storage.text.isEmpty {
                 Text(placeholder)
                     .foregroundStyle(Color.primary.opacity(0.5))
