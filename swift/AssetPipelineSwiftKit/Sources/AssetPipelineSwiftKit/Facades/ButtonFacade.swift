@@ -273,7 +273,26 @@ private struct APSKButtonHost: View {
         if overrides.role == "secondary" && overrides.style == nil {
             content = AnyView(content.buttonStyle(.bordered))
         }
-        if let weight = overrides.fontWeight {
+        // Font cascade. Mirrors LabelFacade so a Crystal-side
+        // `button.font = UI::Font.new(...)` reaches the rendered label.
+        // Priority: custom registered family → system size(+weight) →
+        // weight-only (back-compat with the prior fontWeight-only path).
+        if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
+            // Custom registered font (e.g. "Alegreya-Medium"). Use the
+            // PostScript name for an exact face — custom fonts don't
+            // reliably honour `.fontWeight()`. Size: explicit fontSize else
+            // SwiftUI body default (~17).
+            let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
+            content = AnyView(content.font(.custom(fam, size: CGFloat(sz))))
+        } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
+            let weight: Font.Weight
+            if let w = overrides.fontWeight {
+                weight = Font.Weight(rawValue: w.intValue) ?? .regular
+            } else {
+                weight = .regular
+            }
+            content = AnyView(content.font(.system(size: CGFloat(sz.doubleValue), weight: weight)))
+        } else if let weight = overrides.fontWeight {
             let resolved = Font.Weight(rawValue: weight.intValue) ?? .regular
             content = AnyView(content.fontWeight(resolved))
         }

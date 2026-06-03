@@ -293,6 +293,27 @@ module UI
 
         # SF Symbol leading glyph.
         sender.set_string(target, :setSymbolName, view.symbol)
+
+        # Font size / weight / family. The Crystal `UI::Font` type default is
+        # `Font.new(size: 17.0, weight: :regular, family: "system")` — exactly
+        # SwiftUI's body default — so only emit when the developer overrode a
+        # field. Previously `UI::Button#font` was dropped entirely (no setter),
+        # so a Crystal-side `button.font = Font.new(size: 22, weight: :bold)`
+        # rendered at the SwiftUI body default. Mirrors populate_label.
+        font = view.font
+        if font.size != 17.0
+          sender.set_number(target, :setFontSize, font.size)
+        end
+        if font.weight != :regular
+          sender.set_number(target, :setFontWeight,
+            swiftui_font_weight_rawvalue(font.weight).to_f64)
+        end
+        # Custom font family / PostScript name (e.g. "Alegreya-Medium"). Default
+        # "system" → SwiftUI system font; the consumer registers the TTF first
+        # (LibSwiftKitBridge.apsk_register_font).
+        if font.family != "system" && !font.family.empty?
+          sender.set_string(target, :setFontFamily, font.family)
+        end
       end
 
       # ---------------------------------------------------------------

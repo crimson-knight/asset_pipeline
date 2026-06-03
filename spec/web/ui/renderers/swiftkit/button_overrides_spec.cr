@@ -71,6 +71,48 @@ describe UI::Native::Populator, "#populate_button" do
       FakeLibObjCBridge.refute_sent(:setStyle)
       FakeLibObjCBridge.refute_sent(:setDisabled)
       FakeLibObjCBridge.refute_sent(:setSymbolName)
+
+      # Font default is size:17 weight::regular family:"system" → no
+      # font setters. UI::Button#font was previously dropped entirely;
+      # the default-construction case must still emit nothing.
+      FakeLibObjCBridge.refute_sent(:setFontSize)
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
+      FakeLibObjCBridge.refute_sent(:setFontFamily)
+    end
+  end
+
+  describe "font override" do
+    it "emits setFontSize + setFontWeight when font size/weight overridden" do
+      view = UI::Button.new("Start your day")
+      view.font = UI::Font.new(size: 22.0, weight: :bold)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1,
+        args: [target, "22.0"])
+      # :bold maps to SwiftUI Font.Weight rawValue 3.
+      FakeLibObjCBridge.assert_sent(:setFontWeight, times: 1,
+        args: [target, "3.0"])
+      FakeLibObjCBridge.refute_sent(:setFontFamily)
+    end
+
+    it "emits setFontFamily when a custom family is set" do
+      view = UI::Button.new("Start your day")
+      view.font = UI::Font.new(family: "Alegreya-Medium", size: 18.0)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontFamily, times: 1,
+        args: [target, "Alegreya-Medium"])
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1,
+        args: [target, "18.0"])
+    end
+
+    it "skips setFontWeight when only family+size are set (regular weight)" do
+      view = UI::Button.new("Start your day")
+      view.font = UI::Font.new(family: "Alegreya-Medium", size: 18.0)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      # Custom faces carry their own weight; default :regular → no weight setter.
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
     end
   end
 
