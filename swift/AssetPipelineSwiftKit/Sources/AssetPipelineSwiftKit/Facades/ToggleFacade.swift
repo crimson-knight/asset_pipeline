@@ -127,12 +127,20 @@ private struct ToggleHost: View {
         case "button":   content = AnyView(content.toggleStyle(.button))
         #if !os(watchOS)
         // `.switch` (SwitchToggleStyle) and `.checkbox` (CheckboxToggleStyle) are
-        // both `@available(watchOS, unavailable)`; the default Toggle is already
-        // switch-like on watch, so unknown/these keys fall through to the default.
+        // both `@available(watchOS, unavailable)`.
         case "switch":   content = AnyView(content.toggleStyle(.switch))
         case "checkbox": content = AnyView(content.toggleStyle(.checkbox))
-        #endif
+        // nil / unspecified → `.switch` (pill). UI::Toggle IS the switch control
+        // (UI::Checkbox is the dedicated checkbox component, and the Crystal
+        // populator omits the style for the default Switch — see ToggleOverrides
+        // "nil = .switch"). Without this, SwiftUI's macOS Toggle defaults to a
+        // CHECKBOX, making UI::Toggle indistinguishable from UI::Checkbox.
+        default:         content = AnyView(content.toggleStyle(.switch))
+        #else
+        // watchOS: .switch/.checkbox are unavailable; the default Toggle is
+        // already switch-like there, so leave it unstyled.
         default: break
+        #endif
         }
 
         if let disabled = overrides.disabled, disabled.boolValue {
