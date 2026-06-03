@@ -4616,14 +4616,28 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         # Phase 6.10 Rem 4 (Item 2D) — root_fill sizes to the live
         # macOS window. The author opts a root view in via
-        # `view.root_fill = true`. macOS has no safe-area concept so
-        # the full screen width is used; the host window honors the
-        # constraint by setting the contentView to match.
+        # `view.root_fill = true`.
+        #
+        # Fill comes from the HOST pinning the rendered content to the window's
+        # content area (objc_install_content_view / objc_window_set_filling_content_view,
+        # both `== window` at required priority). Here we add ONLY a soft upper
+        # cap at the metric width — NOT an exact pin.
+        #
+        # Why a cap, not an exact pin: an exact `== metrics` constraint
+        # (objc_constrain_width @999) forces the RESIZABLE window to grow to that
+        # width, because the window's size is a free variable and Auto Layout will
+        # enlarge it to satisfy the near-required pin. During the first render the
+        # window is not yet key, so DeviceMetrics resolves to the SCREEN width
+        # (~1728pt, see project_macos_size_class_metric_contract) — so the window
+        # ballooned to full-screen width on launch and refused to resize
+        # horizontally. A `<=` cap (priority 500) never forces growth and yields to
+        # the host's required window-fill pin, so the window keeps its created /
+        # dragged size and the content fills it.
         if view.root_fill && view.minimum_width.nil? && view.maximum_width.nil? && view.fluid_width.nil?
           metrics = UI::DesignTokens::DeviceMetrics.current
           fill_width = metrics.content_width_pt
           if fill_width > 0.0
-            LibObjCBridge.objc_constrain_width(ptr, fill_width)
+            LibObjCBridge.objc_constrain_maximum_width(ptr, fill_width)
           end
         end
 

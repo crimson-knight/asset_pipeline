@@ -370,6 +370,54 @@ void objc_install_content_view(void *pair_ptr, void *content_view_ptr) {
     ]];
 }
 
+// Install `view` as the INTERACTIVE window's contentView so the WINDOW drives
+// its size — it fills the content area and resizes with the window — instead of
+// the content's fitting size driving the window.
+//
+// Why this exists: objc_scroll_wrap sets translatesAutoresizingMaskIntoConstraints
+// = NO on its NSScrollView. That is correct for the capture path
+// (objc_install_content_view pins the scroll to the capture window's root with
+// constraints), but WRONG when the scroll view is set directly as a live window's
+// contentView: with no width constraint AppKit resolves the contentView to its
+// content's ambiguous fitting width and grows the window to match — observed as a
+// window that opens wider than the screen and refuses to resize horizontally
+// (vertical still works because the vertical scroller absorbs height). Restoring
+// autoresizing on the contentView hands width control back to the window, so the
+// window opens at its created size, drags freely on both axes, and the content
+// reflows to the available width (scrolling vertically when tall).
+void objc_window_set_filling_content_view(void *window_ptr, void *view_ptr) {
+    if (!window_ptr || !view_ptr) return;
+    NSWindow *win = (NSWindow *)window_ptr;
+    NSView *content = (NSView *)view_ptr;
+
+    // Interpose a plain, window-driven root NSView as the contentView and pin
+    // the scroll-wrapped content INSIDE it. This is the same pattern the capture
+    // path uses (objc_install_content_view) and it decouples the window's size
+    // from the content's fitting size.
+    //
+    // Setting the scroll view directly as a window's contentView makes
+    // makeKeyAndOrderFront size the WINDOW to the scroll's content fitting width
+    // (observed: an 880pt window jumps to full screen width on first display and
+    // then refuses to resize horizontally). A plain NSView has no intrinsic
+    // content size, so the window keeps the size it was created/dragged to and
+    // the pinned scroll fills it — width control flows window -> content, never
+    // the reverse. Vertical overflow scrolls; the column reflows to the width.
+    NSView *root = [[NSView alloc] initWithFrame:[[win contentView] bounds]];
+    root.translatesAutoresizingMaskIntoConstraints = YES;
+    root.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [win setContentView:root];
+
+    content.translatesAutoresizingMaskIntoConstraints = NO;
+    [root addSubview:content];
+    [NSLayoutConstraint activateConstraints:@[
+        [content.topAnchor constraintEqualToAnchor:root.topAnchor],
+        [content.leadingAnchor constraintEqualToAnchor:root.leadingAnchor],
+        [content.trailingAnchor constraintEqualToAnchor:root.trailingAnchor],
+        [content.bottomAnchor constraintEqualToAnchor:root.bottomAnchor],
+    ]];
+    [root release]; // win.contentView retains it
+}
+
 // Add a native view centered inside the CAPTURE window with a max-width
 // constraint and content-hugging height. This is the correct installation
 // path for modal card components (sheets, alerts, popovers, action-sheets,

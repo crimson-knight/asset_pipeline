@@ -46,6 +46,10 @@ require "../../../src/ui/renderers/appkit_renderer"
     fun hig_run_app(window : Void*) : Void
     fun objc_create_capture_window(width : Float64, height : Float64, appearance : UInt8*) : Void*
     fun objc_install_content_view(window : Void*, content_view : Void*) : Void
+    # Interactive path — install the scroll-wrapped content so the WINDOW drives
+    # its size (fills + resizes with the window) instead of the content's fitting
+    # size ballooning the window past the screen and locking horizontal resize.
+    fun objc_window_set_filling_content_view(window : Void*, view : Void*) : Void
     fun objc_scroll_wrap(content_view : Void*) : Void*
     fun objc_capture_view_offscreen(window : Void*, output_path : UInt8*, width : Float64, height : Float64) : Int32
     fun objc_capture_window_to_png(window : Void*, output_path : UInt8*) : Int32
@@ -152,9 +156,11 @@ require "../../../src/ui/renderers/appkit_renderer"
       if @@is_capture_path
         LibWindowHelper.objc_install_content_view(@@window_ptr, install_ptr)
       else
-        LibObjCBridgeVoyager.objc_send_void_id(
-          @@window_ptr, @@set_content_sel, install_ptr,
-        )
+        # Hand width control to the window (autoresizing contentView). The raw
+        # setContentView: path left the scroll view (translatesAutoresizing=NO,
+        # no width constraint) sized to its content's fitting width, ballooning
+        # the window past the screen and locking horizontal resize.
+        LibWindowHelper.objc_window_set_filling_content_view(@@window_ptr, install_ptr)
       end
     end
 
