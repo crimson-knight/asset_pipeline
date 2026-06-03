@@ -20,14 +20,23 @@ public class ImageFacade: NSObject {
         overrides: ImageOverrides
     ) -> APSKPlatformView {
         let base: Image
+        // Resolution order: absolute file path (load off disk) → bundled asset
+        // catalog name → SF Symbol. The file-path branch lets consumers that are
+        // NOT packaged as a .app bundle (e.g. a bare dev binary) still load real
+        // image files (backgrounds, logos) by absolute path — without it,
+        // NSImage(named:)/UIImage(named:) only resolves bundled resources.
         #if canImport(UIKit)
-        if UIImage(named: source) != nil {
+        if source.hasPrefix("/"), let img = UIImage(contentsOfFile: source) {
+            base = Image(uiImage: img)
+        } else if UIImage(named: source) != nil {
             base = Image(source)
         } else {
             base = Image(systemName: source)
         }
         #else
-        if NSImage(named: NSImage.Name(source)) != nil {
+        if source.hasPrefix("/"), let img = NSImage(contentsOfFile: source) {
+            base = Image(nsImage: img)
+        } else if NSImage(named: NSImage.Name(source)) != nil {
             base = Image(source)
         } else {
             base = Image(systemName: source)
