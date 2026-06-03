@@ -672,34 +672,30 @@ module Voyager
     private def humanize_deadline(raw : String) : String?
       return nil if raw.empty?
 
-      today = Time.local.at_beginning_of_day
-      tomorrow = today + 1.day
+      # CLASS-INIT-GAP SAFE (iOS): format the deadline from INTEGERS ONLY — no Time
+      # at all. The previous version used Time.local / Time.parse / Time#to_s (all
+      # crash on iOS: Time::Location.local segfaults, Time::Format lookup tables
+      # uninitialized), and even Time.utc(y,m,d) FAILS on the iOS embedding (the
+      # Time::Location::UTC constant initializer is skipped — verified: it fell back
+      # to "Due 2026-12-19" passthrough). So we never construct a Time: split the ISO
+      # string, validate the integer fields, and format "Due <Mon> <d>, <yyyy>" via a
+      # method-local month-name array. See project_crystal_ios_class_init_gap.
+      parts = raw.includes?('-') ? raw.split('-') : raw.split('/')
+      return "Due #{raw}" unless parts.size == 3
+      y = parts[0].to_i?
+      m = parts[1].to_i?
+      d = parts[2].to_i?
+      return "Due #{raw}" unless y && m && d && (1..12).includes?(m) && (1..31).includes?(d)
+      "Due #{month_abbreviation(m)} #{d}, #{y}"
+    end
 
-      # Try to parse the deadline. The Voyager state stores deadlines
-      # as ISO-8601 dates (`YYYY-MM-DD`); fall back to passthrough on
-      # any parse failure rather than masking the raw string.
-      parsed : Time? = nil
-      formats = ["%Y-%m-%d", "%Y/%m/%d"]
-      formats.each do |fmt|
-        begin
-          parsed = Time.parse(raw, fmt, Time::Location.local).at_beginning_of_day
-          break
-        rescue Time::Format::Error
-          # try next format
-        end
-      end
-
-      if t = parsed
-        if t == today
-          "Due Today"
-        elsif t == tomorrow
-          "Due Tomorrow"
-        else
-          "Due #{t.to_s("%a %b %-d")}"
-        end
-      else
-        "Due #{raw}"
-      end
+    # Month abbreviation from a 1-based month index. A method-local array (NOT a
+    # class constant — the iOS class-init gap skips constant initializers) and pure
+    # Int indexing; no locale/Time#to_s.
+    private def month_abbreviation(month : Int32) : String
+      names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+      names[month]? || month.to_s
     end
   end
 end

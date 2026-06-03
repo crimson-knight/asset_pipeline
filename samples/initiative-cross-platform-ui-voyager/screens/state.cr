@@ -101,7 +101,9 @@ module Voyager
       # Seed with a few items so the demo has visible content on
       # first launch (and the chart isn't empty).
       add_todo("Buy groceries", "Eggs, milk, bread", false)
-      add_todo("Finish quarterly report", "Due Friday", false)
+      # One seed carries a deadline so the humanized "Due …" subtitle is exercised
+      # (it crashed on iOS before the class-init-gap-safe humanize_deadline fix).
+      add_todo("Finish quarterly report", "Q3 numbers", false, "2026-12-19")
       add_todo("Call dentist", "", true)
       add_todo("Read a book", "Foundation, ch 3-5", false)
       add_todo("Water plants", "", true)
