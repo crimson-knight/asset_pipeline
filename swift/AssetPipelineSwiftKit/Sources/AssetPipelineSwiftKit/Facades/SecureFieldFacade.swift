@@ -44,6 +44,19 @@ public class SecureFieldFacade: NSObject {
                 isSecure: true
             )
         )
+        // Custom font cascade (mirrors TextFieldFacade): custom registered
+        // family → system size(+weight) → weight-only. Without this a Crystal-side
+        // `secure_field.font = Font.new(...)` was dropped.
+        if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
+            let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
+            content = AnyView(content.font(.custom(fam, size: CGFloat(sz))))
+        } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
+            let weight = (overrides.fontWeight.flatMap { Font.Weight(rawValue: $0.intValue) }) ?? .regular
+            content = AnyView(content.font(.system(size: CGFloat(sz.doubleValue), weight: weight)))
+        } else if let w = overrides.fontWeight {
+            content = AnyView(content.fontWeight(Font.Weight(rawValue: w.intValue) ?? .regular))
+        }
+
         // Beauty-by-default border chrome — matches the TextFieldFacade
         // change. Without this, the iOS default plain SecureField renders
         // as a bare strip of placeholder text with no field affordance.
@@ -61,4 +74,22 @@ private struct SecureStorageHost<Content: View>: View {
     @ObservedObject var storage: TextStorage
     let content: Content
     var body: some View { content }
+}
+
+// Local `Font.Weight` rawValue init — matches LabelFacade / TextFieldFacade.
+private extension Font.Weight {
+    init?(rawValue: Int) {
+        switch rawValue {
+        case -3: self = .ultraLight
+        case -2: self = .thin
+        case -1: self = .light
+        case 0: self = .regular
+        case 1: self = .medium
+        case 2: self = .semibold
+        case 3: self = .bold
+        case 4: self = .heavy
+        case 5: self = .black
+        default: return nil
+        }
+    }
 }

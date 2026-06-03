@@ -433,8 +433,10 @@ module UI
 
       def self.populate_secure_field(target : String, view : UI::SecureField, sender : Sender)
         populate_view_common(target, view, sender)
-        # No widget-specific overrides today; the SwiftUI SecureField default
-        # already handles obscured entry + accessibility traits.
+        # The SwiftUI SecureField default handles obscured entry + a11y traits;
+        # only the brand font flows through (so a password field matches its
+        # sibling text fields). UI::SecureField#font was previously dropped.
+        emit_font(target, view.font, sender)
       end
 
       def self.populate_search_field(target : String, view : UI::SearchField, sender : Sender)

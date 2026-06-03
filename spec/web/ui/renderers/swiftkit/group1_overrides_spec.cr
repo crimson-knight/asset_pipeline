@@ -153,11 +153,23 @@ describe UI::Native::Populator, "Group 1 default-detection" do
   end
 
   describe "#populate_secure_field" do
-    it "applies only common overrides" do
+    it "applies only common overrides + no font on default" do
       view = UI::SecureField.new
       target = FakeLibObjCBridge.next_sentinel_pointer
       UI::Native::Populator.populate_secure_field(target, view, RecordingSender.new)
       FakeLibObjCBridge.refute_sent(:setBackgroundColor)
+      FakeLibObjCBridge.refute_sent(:setFontSize)
+      FakeLibObjCBridge.refute_sent(:setFontFamily)
+    end
+
+    it "forwards font family + size when overridden" do
+      view = UI::SecureField.new
+      view.font = UI::Font.new(family: "Alegreya-Medium", size: 16.0)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_secure_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontFamily, times: 1,
+        args: [target, "Alegreya-Medium"])
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1, args: [target, "16.0"])
     end
   end
 
