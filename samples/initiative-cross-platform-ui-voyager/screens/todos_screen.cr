@@ -517,64 +517,21 @@ module Voyager
       note_field.maximum_width = content_width
       body << note_field.as(UI::View)
 
-      # Phase 10D-polish B4 — native DatePicker. Replaces the YYYY-MM-DD
-      # TextField. We initialize from the seeded ISO deadline if it
-      # parses; otherwise today. on_change writes the date back into
-      # FormState under "deadline" as ISO-8601 so the controller's save
-      # reads the same key it always has.
-      deadline_label = UI::Label.new("Deadline")
-      deadline_label.font = UI::Font.new(size: 13.0, weight: :regular)
-      deadline_label.text_color_role = UI::LabelRole::Tertiary
-      body << deadline_label.as(UI::View)
-
-      picker = UI::DatePicker.new(UI::DatePickerMode::Date)
-      picker.label = "Deadline"
-      picker.accessibility_label = "Todo deadline"
-      picker.test_id = "voyager-editor-sheet-deadline"
-      # Phase 10D-polish iter 2 — show as inline tappable button that
-      # pops a calendar overlay instead of the full-page graphical
-      # calendar. This is the in-form idiom most apps want.
-      picker.style = UI::DatePickerStyle::Compact
-      # Seed selected_date from ISO string if parseable. Use Time.utc
-      # rather than Time.local because Crystal's iOS class-init gap
-      # leaves Time::Location.local uninitialized → segfault in
-      # find_zoneinfo_file. The picker doesn't care about timezone for
-      # date-only mode; we re-serialize as ISO date on change.
-      if !seed_deadline.empty?
-        begin
-          picker.selected_date = Time.parse_utc(seed_deadline, "%Y-%m-%d")
-        rescue Time::Format::Error
-          picker.selected_date = Time.utc
-        end
-      else
-        picker.selected_date = Time.utc
-      end
-      picker.on_change = ->(t : Time) {
-        d2 = Voyager.dispatcher
-        unless d2.nil?
-          # Use to_utc + format to avoid Time::Location.local on iOS.
-          # The picker returns a UTC time; the YYYY-MM-DD form is fine
-          # because the user only sees date-resolution chrome.
-          d2.current_form_state.update("deadline", t.to_utc.to_s("%Y-%m-%d"))
-        end
-        nil
-      }
-      body << picker.as(UI::View)
-
-      # Allow clearing the deadline by tapping "No deadline" — Crystal
-      # DatePicker has no nilable value today, so we expose a button.
-      clear_deadline_btn = UI::Button.new("No deadline")
-      clear_deadline_btn.role = :secondary
-      clear_deadline_btn.accessibility_label = "Clear deadline"
-      clear_deadline_btn.test_id = "voyager-editor-sheet-clear-deadline"
-      clear_deadline_btn.on_tap = -> {
-        d2 = Voyager.dispatcher
-        unless d2.nil?
-          d2.current_form_state.update("deadline", "")
-        end
-        nil
-      }
-      body << clear_deadline_btn.as(UI::View)
+      # Deadline — a plain TextField (YYYY-MM-DD), NOT a native DatePicker. The
+      # native UIDatePicker hosted inside this presented Sheet CRASHES the iOS app
+      # on interaction (owner-reported; reproduced — see
+      # project_ios_host_reentrant_render_hang). A TextField in this same Sheet is
+      # stable (testSavePropagation types into the title TextField + saves and
+      # passes), and writing the deadline via name:"deadline" feeds the exact same
+      # FormState key the save path already reads. The fancy DatePicker returns once
+      # the kit's Sheet/DatePicker hosting bug is fixed.
+      deadline_field = UI::TextField.new(placeholder: "Deadline (YYYY-MM-DD, optional)", name: "deadline")
+      deadline_field.text = seed_deadline
+      deadline_field.accessibility_label = "Todo deadline"
+      deadline_field.test_id = "voyager-editor-sheet-deadline"
+      deadline_field.minimum_width = content_width
+      deadline_field.maximum_width = content_width
+      body << deadline_field.as(UI::View)
 
       completed_toggle = UI::Toggle.new(label: "Completed", is_on: seed_completed)
       completed_toggle.accessibility_label = "Mark as completed"
