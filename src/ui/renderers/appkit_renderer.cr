@@ -458,19 +458,17 @@
           bg_ns = if c = explicit_bg
                     # View has an explicit background — use it. Alpha=0 means transparent.
                     LibObjCBridge.nscolor_rgba(c.r, c.g, c.b, c.a)
-                  elsif ENV["HIG_BACKDROP_PATH"]? && !ENV["HIG_BACKDROP_PATH"].to_s.empty?
-                    # Backdrop-mode: keep VStack transparent so NSVisualEffectView can blur
-                    # the backdrop NSImageView beneath. The live-window NSWindow provides the
-                    # appearance-correct surface; opaque fills here would block the glass compositor.
-                    # Tier 2 platform default: fully-transparent fallback (alpha=0).
-                    LibObjCBridge.nscolor_rgba(0.0, 0.0, 0.0, 0.0)
                   else
-                    # No backdrop — apply the dark-mode legibility fix (gaps.md iter-21).
-                    # Tier 2 platform defaults: NSColor.windowBackgroundColor approximations
-                    # for dark/light appearance in the offscreen capture path.
-                    dark_mode = (ENV["HIG_APPEARANCE"]? == "dark")
-                    dark_mode ? LibObjCBridge.nscolor_rgba(0.12, 0.12, 0.12, 1.0) :  # Tier 2 dark
-LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                       # Tier 2 light
+                    # No explicit background. The bake policy (pure, unit-tested in
+                    # UI::StackBake) keeps the LIVE app TRANSPARENT so the parent's
+                    # background shows through — matching HStack/ZStack, which never
+                    # bake a fill. The opaque legibility fix (gaps.md iter-21) applies
+                    # ONLY in the offscreen capture path (HIG_APPEARANCE pinned), and
+                    # backdrop captures stay transparent for the glass compositor.
+                    # Baking opaque white in the live app turned nested background-less
+                    # containers into solid white blocks (My Affirmations regression).
+                    r, g, b, a = UI::StackBake.fallback_rgba(ENV["HIG_BACKDROP_PATH"]?, ENV["HIG_APPEARANCE"]?)
+                    LibObjCBridge.nscolor_rgba(r, g, b, a)
                   end
           unless bg_ns.null?
             cg_bg = LibObjCBridge.objc_send(bg_ns, sel("CGColor"))

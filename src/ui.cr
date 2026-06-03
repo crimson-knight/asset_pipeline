@@ -72,6 +72,9 @@ require "./ui/native/swiftkit_overrides"
 # No-op when ENV["APIC_ENABLED"] is unset.
 require "./ui/native/interaction_contracts"
 
+# Pure renderer policy helpers (always compiled — unit-testable headless).
+require "./ui/renderers/stack_bake"
+
 # Platform-specific renderers (compile-time gated)
 require "./ui/renderers/appkit_renderer"
 require "./ui/renderers/uikit_renderer"
