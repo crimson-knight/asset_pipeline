@@ -74,7 +74,13 @@ private struct APSKLabelHost: View {
         // sign-in "Cascade" wordmark looked identical in weight and
         // size to the subtitle below it. The weight rawValue mapping
         // mirrors ButtonOverrides' convention.
-        if let sz = overrides.fontSize, sz.doubleValue > 0 {
+        if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
+            // Custom registered font (e.g. "Alegreya-Medium"). Use the
+            // PostScript name for an exact weight/face. Size: the explicit
+            // fontSize, else SwiftUI body default (~17).
+            let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
+            content = AnyView(content.font(.custom(fam, size: CGFloat(sz))))
+        } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
             let weight: Font.Weight
             if let w = overrides.fontWeight {
                 weight = Font.Weight(rawValue: w.intValue) ?? .regular

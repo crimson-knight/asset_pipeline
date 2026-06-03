@@ -337,6 +337,12 @@ module UI
           sender.set_number(target, :setFontWeight,
             swiftui_font_weight_rawvalue(font.weight).to_f64)
         end
+        # Custom font family / PostScript name (e.g. "Alegreya-Medium"). Default
+        # "system" → SwiftUI system font, so only emit a real family. The consumer
+        # must register the TTF first (LibSwiftKitBridge.apsk_register_font).
+        if font.family != "system" && !font.family.empty?
+          sender.set_string(target, :setFontFamily, font.family)
+        end
 
         # Phase 6.11 — strikethrough toggle. Emit only when set so the
         # SwiftUI facade keeps its default (no strikethrough) untouched.

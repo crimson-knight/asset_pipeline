@@ -22,6 +22,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <Foundation/Foundation.h>
+#import <CoreText/CoreText.h>
+
+// Register a font file at runtime so SwiftUI `.font(.custom(name))` can resolve
+// it (consumers ship their own TTFs — e.g. Alegreya/Inter — without installing
+// them system-wide). Process-scoped; returns true on success or if already
+// registered. `name` to use in .custom() is the font's PostScript name.
+bool apsk_register_font(const char *path) {
+    if (!path) return false;
+    @autoreleasepool {
+        NSString *p = [NSString stringWithUTF8String:path];
+        if (![[NSFileManager defaultManager] fileExistsAtPath:p]) return false;
+        NSURL *url = [NSURL fileURLWithPath:p];
+        CFErrorRef err = NULL;
+        bool ok = CTFontManagerRegisterFontsForURL(
+            (__bridge CFURLRef)url, kCTFontManagerScopeProcess, &err);
+        if (!ok && err) {
+            if (CFErrorGetCode(err) == kCTFontManagerErrorAlreadyRegistered) ok = true;
+            CFRelease(err);
+        }
+        return ok;
+    }
+}
 
 // Forward-declare to keep the file self-contained; the actual Swift
 // implementations land in AssetPipelineSwiftKit via @objc.

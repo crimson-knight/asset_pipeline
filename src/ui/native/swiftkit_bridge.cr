@@ -26,6 +26,10 @@
     # swiftkit_bridge.m §"Interaction-contracts NSLog bridge".
     fun apsk_apic_log(msg : UInt8*)
 
+    # Register a font file at runtime (CTFontManager, process scope) so
+    # UI::Font.family can name it. Returns true on success / already-registered.
+    fun apsk_register_font(path : UInt8*) : Bool
+
     # -------------------------------------------------------------------------
     # Runtime initialization. Called once during app startup, after
     # Crystal's `GC.init`, to hand the address of Crystal's

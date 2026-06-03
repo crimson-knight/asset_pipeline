@@ -28,6 +28,11 @@ public class LabelOverrides: ViewOverrides {
     @objc public var numberOfLines: NSNumber? = nil
     @objc public var fontSize: NSNumber? = nil
     @objc public var fontWeight: NSNumber? = nil
+    // Custom font family / PostScript name for `.font(.custom(name, size:))`.
+    // nil or "system" = the system font. Consumers register the TTF first
+    // (apsk_register_font). Use the PostScript name (e.g. "Alegreya-Medium") for
+    // an exact weight/face — custom fonts don't reliably honour `.fontWeight()`.
+    @objc public var fontFamily: String? = nil
     // Phase 6.11 — strikethrough toggle. nil = SwiftUI default (no
     // strikethrough); `true` applies `.strikethrough(true)` so completed
     // todo rows render with a HIG-correct line through the title.
