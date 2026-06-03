@@ -21,20 +21,52 @@ public class TextAreaFacade: NSObject {
     ) -> APSKPlatformView {
         let storage = TextStorage(initial: initialText, token: actionToken)
 
+        var content: AnyView = AnyView(
+            TextAreaBody(
+                storage: storage,
+                placeholder: placeholder,
+                lineLimit: overrides.lineLimit?.intValue,
+                disabled: (overrides.editable.map { !$0.boolValue }) ?? false
+            )
+        )
+        content = CommonModifiers.apply(content, overrides: overrides)
+        return HostingHelpers.host(TextAreaStorageHost(storage: storage, content: content))
+    }
+}
+
+// Observes `storage` so the placeholder overlay reacts to typing. SwiftUI's
+// `TextEditor` has NO native placeholder (unlike TextField's `prompt:`), and
+// the facade previously dropped the `placeholder:` argument entirely — empty
+// TextAreas showed no hint. Render it as a top-leading overlay shown only while
+// the text is empty (matches the TextField PromptOverlayField recipe).
+private struct TextAreaBody: View {
+    @ObservedObject var storage: TextStorage
+    let placeholder: String
+    let lineLimit: Int?
+    let disabled: Bool
+
+    var body: some View {
         var editor: AnyView = AnyView(
             TextEditor(text: storage.binding)
                 .frame(minHeight: 80)
+                .overlay(alignment: .topLeading) {
+                    if storage.text.isEmpty && !placeholder.isEmpty {
+                        Text(placeholder)
+                            .foregroundStyle(Color.primary.opacity(0.5))
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                            .padding(.top, 8)
+                            .padding(.leading, 5)
+                    }
+                }
         )
-        if let n = overrides.lineLimit, n.intValue > 0 {
-            editor = AnyView(editor.lineLimit(n.intValue))
+        if let n = lineLimit, n > 0 {
+            editor = AnyView(editor.lineLimit(n))
         }
-        if let editable = overrides.editable, !editable.boolValue {
+        if disabled {
             editor = AnyView(editor.disabled(true))
         }
-
-        var content: AnyView = editor
-        content = CommonModifiers.apply(content, overrides: overrides)
-        return HostingHelpers.host(TextAreaStorageHost(storage: storage, content: content))
+        return editor
     }
 }
 
