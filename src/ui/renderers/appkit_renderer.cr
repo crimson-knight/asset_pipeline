@@ -95,6 +95,7 @@
       fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
       fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
       fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
+      fun objc_pin_child_to_superview_edges(parent : Void*, child : Void*) : Void
       fun objc_constrain_fluid_width(view : Void*, min_w : Float64, max_w : Float64) : Void
       fun objc_set_horizontal_fill_priority(view : Void*) : Void
       fun objc_constrain_height(view : Void*, h : Float64) : Void
@@ -603,12 +604,16 @@
         end
         pop_stack
 
-        # For ZStack children, set autoresizing mask to fill parent:
-        # NSViewWidthSizable (2) | NSViewHeightSizable (16) = 18
+        # ZStack children overlap and fill the container. The autoresizing MASK
+        # is IGNORED for Auto-Layout-based children (NSHostingView / NSScrollView
+        # set translatesAutoresizingMaskIntoConstraints=NO), so pin each child's
+        # edges to the ZStack via Auto Layout instead — otherwise children render
+        # at their intrinsic size/position rather than filling (e.g. a full-bleed
+        # background Image only covered part of the screen). A child with its own
+        # min-size constraints (e.g. a bg image) then drives the ZStack's size.
         native.children.each do |child_nv|
           if child_nv.handle.valid?
-            child_ptr = child_nv.handle.ptr!
-            LibObjCBridge.objc_set_autoresize(child_ptr, 18_u64)
+            LibObjCBridge.objc_pin_child_to_superview_edges(ptr, child_nv.handle.ptr!)
           end
         end
 
