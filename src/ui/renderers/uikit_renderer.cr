@@ -1159,6 +1159,20 @@
         handle = ObjC.owned(ptr, label: "UIHostingController[IconButton]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
+
+        # Register this IconButton's view under its test_id so a later
+        # UI::Popover visit can resolve it as the popover's anchor source
+        # view. visit(IconButton) does NOT route through
+        # apply_common_properties (it owns its overrides population), so
+        # without this the registry has no entry for the button and the
+        # Popover silently falls back to the SwiftUI `.popover` path —
+        # which on an iPhone (compact width) adapts to a bottom SHEET
+        # instead of an anchored bubble. (The overflow "•••" menu rendered
+        # as a bottom sheet for exactly this reason.)
+        if tid = view.test_id
+          @test_id_registry[tid] = ptr
+        end
+
         push_native(native)
       end
 
