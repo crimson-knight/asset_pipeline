@@ -316,20 +316,44 @@ crystal-alpha does NOT auto-detect platform renderers. You MUST pass the appropr
 
 Without the flag, the build will silently use the Web renderer even on macOS.
 
-**ObjC bridge compilation (required for macOS/iOS):**
+**Native bridge compilation (required for macOS/iOS):**
 
-The AppKit and UIKit renderers use typed C wrappers for ARM64-safe `objc_msgSend` calls. You must compile the bridge before linking:
+The AppKit and UIKit renderers need TWO native pieces at link time:
+
+1. **`objc_bridge.m`** — typed C wrappers for ARM64-safe `objc_msgSend` calls.
+2. **The SwiftKit bridge + Swift facade library** — most widgets (`Button`, `Card`,
+   `Alert`, `Picker`, `Toggle`, `DatePicker`, …) render through SwiftUI facades
+   exposed as `apsk_*` C entry points. **`objc_bridge.o` references these `apsk_*`
+   symbols**, so linking only `objc_bridge.o` fails with a wall of
+   `Undefined symbols … _apsk_*`. You MUST also compile `swiftkit_bridge.m` and
+   `-Wl,-force_load` the Swift static lib.
+
 ```bash
+# 1. ObjC bridge (memory-managed manually -> -fno-objc-arc)
 clang -c lib/asset_pipeline/src/ui/native/objc_bridge.m \
   -o lib/asset_pipeline/src/ui/native/objc_bridge.o -fno-objc-arc
+# 2. SwiftKit bridge + Swift facade lib
+clang -c lib/asset_pipeline/src/ui/native/swiftkit_bridge.m \
+  -o lib/asset_pipeline/src/ui/native/swiftkit_bridge.o -fno-objc-arc
+swift build -c release \
+  --package-path lib/asset_pipeline/swift/AssetPipelineSwiftKit
 ```
 
-Then include the `.o` in your link flags:
+Then link BOTH bridges + force_load the Swift lib (pin the arch-specific slice, NOT
+`.build/release`, which SPM repoints per-triple) + the SwiftUI frameworks + rpath:
 ```bash
 crystal-alpha build src/app.cr -o bin/app -Dmacos \
   --link-flags="lib/asset_pipeline/src/ui/native/objc_bridge.o \
-    -framework AppKit -framework Foundation -lobjc"
+    lib/asset_pipeline/src/ui/native/swiftkit_bridge.o \
+    -Wl,-force_load,lib/asset_pipeline/swift/AssetPipelineSwiftKit/.build/arm64-apple-macosx/release/libAssetPipelineSwiftKit.a \
+    -framework AppKit -framework Foundation -framework SwiftUI -framework Combine \
+    -framework CoreGraphics -framework ImageIO -framework QuartzCore \
+    -framework UserNotifications -framework WebKit \
+    -framework MapKit -framework CoreLocation -framework AVKit -framework AVFoundation \
+    -lobjc -Wl,-rpath,/usr/lib/swift"
 ```
+See `samples/initiative-cross-platform-ui-voyager/Makefile` for the canonical,
+prerequisite-tracked version (rebuilds the Swift lib when any facade changes).
 
 **Example (minimal macOS native app):**
 ```crystal
