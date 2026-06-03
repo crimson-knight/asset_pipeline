@@ -505,10 +505,21 @@ module UI
     #
     # When `true`, the renderer treats this view as a full-screen root
     # and:
-    #   - iOS / macOS: pins the view's width to the device screen width
-    #     and lets its height grow to the screen height (or scroll if
-    #     content exceeds it). Replaces the brittle hardcoded
-    #     `content_width = 340.0` pattern.
+    #   - iOS: pins the view's width to the device screen width and lets
+    #     its height grow (or scroll if content exceeds it). Replaces the
+    #     brittle hardcoded `content_width = 340.0` pattern.
+    #   - macOS: adds only a SOFT upper cap at the metric width (priority
+    #     500), NOT an exact width pin. The actual fill comes from the host
+    #     installing the rendered content pinned to the window's content
+    #     area (`objc_install_content_view` for capture windows /
+    #     `objc_window_set_filling_content_view` for interactive windows).
+    #     An exact pin here would force a resizable window to the metric
+    #     width and lock horizontal resize (the window's size is a free
+    #     variable Auto Layout will grow to satisfy a near-required pin —
+    #     see commit "fix(macos): window opened at screen width"). Hosts
+    #     that set their contentView via raw `setContentView:` without
+    #     pinning MUST migrate to `objc_window_set_filling_content_view`
+    #     for `root_fill` to fill; otherwise the view hugs its content.
     #   - Web: emits `min-height: 100dvh` + `width: 100%` (CSS dvh
     #     respects mobile address-bar resizing).
     #
