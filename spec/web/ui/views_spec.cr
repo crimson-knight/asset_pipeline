@@ -476,6 +476,16 @@ describe UI do
       spacer = UI::Spacer.new(min_length: 16.0)
       spacer.min_length.should eq(16.0)
     end
+
+    it "fills horizontally so HStack { Spacer; content; Spacer } centers" do
+      # Regression guard: a Spacer must report fill_horizontal so (a) the
+      # AppKit renderer lowers its content-hugging (it absorbs the slack rather
+      # than sibling content) and (b) the enclosing HStack switches to Fill
+      # distribution (`children.any?(&.fill_horizontal)`). Without this the
+      # canonical center-an-element idiom collapsed and content hugged one side.
+      UI::Spacer.new.fill_horizontal.should be_true
+      UI::Spacer.new(min_length: 8.0).fill_horizontal.should be_true
+    end
   end
 
   describe "view base properties" do
