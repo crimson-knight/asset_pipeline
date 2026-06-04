@@ -26,15 +26,19 @@ describe UI::AXTest::Element do
     end
   end
 
+  # These are signature + nil/raise smoke tests against a real AX tree (Finder).
+  # They search for a SYNTHETIC id that never matches, which forces a full walk —
+  # so they cap max_depth to a shallow level. Without the cap an unmatched query
+  # walks Finder's default depth-10, a pathologically wide tree (effectively
+  # hangs the spec). A bogus id is absent at any depth, so a shallow walk still
+  # correctly returns nil / raises.
   describe "#find(identifier: ...)" do
     it "accepts identifier as a named parameter" do
-      # Smoke test the signature compiles and short-circuits cleanly
-      # when no element matches a synthetic identifier.
       output = IO::Memory.new
       Process.run("pgrep", ["-x", "Finder"], output: output)
       pid = output.to_s.strip.to_i32
       app = UI::AXTest::App.connect(pid)
-      app.find(identifier: "__nonexistent_test_id_#{Time.utc.to_unix}").should be_nil
+      app.find(identifier: "__nonexistent_test_id_#{Time.utc.to_unix}", max_depth: 2).should be_nil
     end
 
     it "combines identifier filter with role filter" do
@@ -43,7 +47,7 @@ describe UI::AXTest::Element do
       pid = output.to_s.strip.to_i32
       app = UI::AXTest::App.connect(pid)
       # Combining filters should still return nil for a bogus id.
-      app.find(role: "AXButton", identifier: "__bogus__").should be_nil
+      app.find(role: "AXButton", identifier: "__bogus__", max_depth: 2).should be_nil
     end
   end
 
@@ -53,7 +57,7 @@ describe UI::AXTest::Element do
       Process.run("pgrep", ["-x", "Finder"], output: output)
       pid = output.to_s.strip.to_i32
       app = UI::AXTest::App.connect(pid)
-      app.find_by_id("__nonexistent__").should be_nil
+      app.find_by_id("__nonexistent__", max_depth: 2).should be_nil
     end
 
     it "find_by_id! raises when no element matches" do
@@ -62,7 +66,7 @@ describe UI::AXTest::Element do
       pid = output.to_s.strip.to_i32
       app = UI::AXTest::App.connect(pid)
       expect_raises(Exception, /no element with AXIdentifier/) do
-        app.find_by_id!("__nonexistent__")
+        app.find_by_id!("__nonexistent__", max_depth: 2)
       end
     end
   end
