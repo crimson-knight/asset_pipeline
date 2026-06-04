@@ -29,6 +29,12 @@ public class ButtonOverrides: ViewOverrides {
     @objc public var style: String? = nil
     @objc public var disabled: NSNumber? = nil
     @objc public var symbolName: String? = nil
+    // When the renderer pins this button to fill its container width
+    // (UI::View#fill_horizontal), a plain text button centers its label in the
+    // wide frame — a row/card-filling label rendered centered instead of leading.
+    // `true` makes the facade fill the width and LEADING-align the label (mirrors
+    // LabelOverrides.fillHorizontal). nil = default (intrinsic, centered) sizing.
+    @objc public var fillHorizontal: NSNumber? = nil
 
     @objc public override init() { super.init() }
 }

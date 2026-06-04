@@ -337,6 +337,14 @@ private struct APSKButtonHost: View {
             )
         }
 
+        // fill_horizontal: the renderer pins the button's hosting view wide;
+        // without a maxWidth frame a plain text button centers its label (a
+        // row/card-filling button rendered centered instead of leading). Fill the
+        // width and leading-align — mirrors LabelFacade's fillHorizontal handling.
+        if let fh = overrides.fillHorizontal, fh.boolValue {
+            content = AnyView(content.frame(maxWidth: .infinity, alignment: .leading))
+        }
+
         // Apply common (View-level) overrides last, excluding the three
         // reactive fields that the state layer above already handled.
         // We shadow them on a copy of the overrides so CommonModifiers

@@ -78,6 +78,16 @@ describe UI::Native::Populator, "#populate_button" do
       FakeLibObjCBridge.refute_sent(:setFontSize)
       FakeLibObjCBridge.refute_sent(:setFontWeight)
       FakeLibObjCBridge.refute_sent(:setFontFamily)
+      # fill_horizontal default false → no fill frame.
+      FakeLibObjCBridge.refute_sent(:setFillHorizontal)
+    end
+
+    it "emits setFillHorizontal when fill_horizontal=true" do
+      view = UI::Button.new("I always procrastinate")
+      view.fill_horizontal = true
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFillHorizontal, times: 1, args: [target, "true"])
     end
   end
 

@@ -314,6 +314,13 @@ module UI
         if font.family != "system" && !font.family.empty?
           sender.set_string(target, :setFontFamily, font.family)
         end
+
+        # fill_horizontal: the renderer pins the button wide, but a plain text
+        # button centers its label. Tell the facade to fill + leading-align the
+        # label so a row/card-filling button reads left, not centered.
+        if view.fill_horizontal
+          sender.set_bool(target, :setFillHorizontal, true)
+        end
       end
 
       # ---------------------------------------------------------------
