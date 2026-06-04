@@ -587,7 +587,11 @@
         # GravityAreas keeps a no-width child at its tiny intrinsic size (the macOS
         # compose-field "sliver"); Fill distribution + the child's low hugging is what
         # actually stretches it. UIStackView defaults to Fill so iOS needs no analog.
-        if view.alignment == Alignment::Fill || view.children.any?(&.fill_horizontal)
+        if view.fill_equally
+          # Equal-width cells (tab bar / equal button row): Fill stretches only one
+          # child, so it never splits N items evenly — FillEqually does.
+          LibObjCBridge.objc_send_long(ptr, sel("setDistribution:"), 1_i64)
+        elsif view.alignment == Alignment::Fill || view.children.any?(&.fill_horizontal)
           LibObjCBridge.objc_send_long(ptr, sel("setDistribution:"), 0_i64)
         end
 

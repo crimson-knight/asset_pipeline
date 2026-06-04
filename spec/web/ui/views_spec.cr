@@ -438,6 +438,13 @@ describe UI do
       stack.children.should be_empty
     end
 
+    it "HStack#fill_equally defaults false and is settable (FillEqually cells)" do
+      stack = UI::HStack.new
+      stack.fill_equally.should be_false
+      stack.fill_equally = true
+      stack.fill_equally.should be_true
+    end
+
     it "creates a ZStack" do
       stack = UI::ZStack.new(alignment: UI::Alignment::Leading)
       stack.alignment.should eq(UI::Alignment::Leading)
