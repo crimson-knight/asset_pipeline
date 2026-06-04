@@ -129,6 +129,13 @@ private struct APSKLabelHost: View {
         // maxWidth frame the SwiftUI Text centers in it (a full-width title or
         // subtitle rendered centered instead of leading). Fill the width and
         // position the text per textAlignment — default leading.
+        //
+        // `.fixedSize(horizontal: false, vertical: true)` is the key for WRAPPING:
+        // the NSHostingView computes its intrinsic height at the Text's one-line
+        // ideal width BEFORE the equal-width constraint pins it wider, so a long
+        // subtitle truncated to a single line. fixedSize(vertical:) forces the
+        // Text to take its natural multi-line height for the proposed width, so it
+        // wraps and grows instead of truncating. Harmless on single-line labels.
         if let fh = overrides.fillHorizontal, fh.boolValue {
             let frameAlign: Alignment
             switch overrides.textAlignment {
@@ -136,7 +143,11 @@ private struct APSKLabelHost: View {
             case "trailing": frameAlign = .trailing
             default:         frameAlign = .leading
             }
-            content = AnyView(content.frame(maxWidth: .infinity, alignment: frameAlign))
+            content = AnyView(
+                content
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: frameAlign)
+            )
         }
 
         content = CommonModifiers.apply(content, overrides: overrides)
