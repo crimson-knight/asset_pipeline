@@ -37,6 +37,13 @@ public class LabelOverrides: ViewOverrides {
     // strikethrough); `true` applies `.strikethrough(true)` so completed
     // todo rows render with a HIG-correct line through the title.
     @objc public var strikethrough: NSNumber? = nil
+    // When the renderer pins this label to fill its container width
+    // (UI::View#fill_horizontal), the SwiftUI Text otherwise centers in the
+    // wide hosting view — a full-width title/subtitle rendered centered instead
+    // of leading. `true` makes the facade apply `.frame(maxWidth: .infinity,
+    // alignment:)` so the text fills the width and aligns per textAlignment
+    // (default leading). nil = no fill frame (SwiftUI default sizing).
+    @objc public var fillHorizontal: NSNumber? = nil
 
     @objc public override init() { super.init() }
 }

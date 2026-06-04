@@ -56,6 +56,16 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       # Font default is size:17 weight::regular → no font setters
       FakeLibObjCBridge.refute_sent(:setFontSize)
       FakeLibObjCBridge.refute_sent(:setFontWeight)
+      # fill_horizontal default false → no fill frame
+      FakeLibObjCBridge.refute_sent(:setFillHorizontal)
+    end
+
+    it "emits setFillHorizontal when fill_horizontal=true" do
+      view = UI::Label.new("My Tracks")
+      view.fill_horizontal = true
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFillHorizontal, times: 1, args: [target, "true"])
     end
 
     it "emits setLabelRole when role is overridden" do

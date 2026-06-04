@@ -370,6 +370,14 @@ module UI
         if view.strikethrough
           sender.set_bool(target, :setStrikethrough, true)
         end
+
+        # fill_horizontal: the renderer pins the label's hosting view to fill the
+        # container width, but the SwiftUI Text then centers in it. Tell the facade
+        # to apply a maxWidth frame so the text fills + aligns (leading by default)
+        # — a full-width title/subtitle reads left-aligned, not centered.
+        if view.fill_horizontal
+          sender.set_bool(target, :setFillHorizontal, true)
+        end
       end
 
       # Map a Crystal `UI::Font.weight` Symbol to the SwiftUI

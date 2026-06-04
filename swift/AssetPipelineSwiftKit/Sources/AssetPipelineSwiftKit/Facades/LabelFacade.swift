@@ -125,6 +125,20 @@ private struct APSKLabelHost: View {
             content = AnyView(content.strikethrough(true))
         }
 
+        // fill_horizontal: the renderer pins the hosting view wide; without a
+        // maxWidth frame the SwiftUI Text centers in it (a full-width title or
+        // subtitle rendered centered instead of leading). Fill the width and
+        // position the text per textAlignment — default leading.
+        if let fh = overrides.fillHorizontal, fh.boolValue {
+            let frameAlign: Alignment
+            switch overrides.textAlignment {
+            case "center":   frameAlign = .center
+            case "trailing": frameAlign = .trailing
+            default:         frameAlign = .leading
+            }
+            content = AnyView(content.frame(maxWidth: .infinity, alignment: frameAlign))
+        }
+
         content = CommonModifiers.apply(content, overrides: overrides)
         return content
     }
