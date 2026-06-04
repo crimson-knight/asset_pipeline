@@ -337,6 +337,28 @@ private struct APSKButtonHost: View {
             )
         }
 
+        // Border (outline) — drawn HERE, on the same frame as the clipped
+        // background, using the button's OWN corner radius so the outline
+        // matches the rounded pill. Delegating this to CommonModifiers drew a
+        // SQUARE border: the shadowed overrides null `cornerRadius`, so its
+        // overlay used `RoundedRectangle(cornerRadius: 0)` around a rounded
+        // button. Surfaced by Happy Coach's bordered "Reset to Defaults"
+        // secondary button (square outline, wider than the pill). The matching
+        // border fields are nulled on the shadow below so CommonModifiers skips
+        // its (square) version.
+        if let bw = overrides.borderWidth, let bc = overrides.borderColor {
+            let radius = CGFloat(state.cornerRadius?.doubleValue ?? 0)
+            #if canImport(UIKit)
+            let strokeColor = Color(uiColor: bc)
+            #elseif canImport(AppKit)
+            let strokeColor = Color(nsColor: bc)
+            #endif
+            content = AnyView(content.overlay(
+                RoundedRectangle(cornerRadius: radius)
+                    .stroke(strokeColor, lineWidth: CGFloat(bw.doubleValue))
+            ))
+        }
+
         // fill_horizontal: the renderer pins the button's hosting view wide;
         // without a maxWidth frame a plain text button centers its label (a
         // row/card-filling button rendered centered instead of leading). Fill the
@@ -359,6 +381,10 @@ private struct APSKButtonHost: View {
         // a second outer frame that would double-stack.
         shadowed.minHeight = nil
         shadowed.minWidth = nil
+        // Border is drawn above (with the correct corner radius); null it on the
+        // shadow so CommonModifiers does not also stroke a square outline.
+        shadowed.borderWidth = nil
+        shadowed.borderColor = nil
         shadowed.fontWeight = overrides.fontWeight
         shadowed.role = overrides.role
         shadowed.style = overrides.style

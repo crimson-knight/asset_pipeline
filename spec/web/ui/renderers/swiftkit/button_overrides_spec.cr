@@ -164,6 +164,23 @@ describe UI::Native::Populator, "#populate_button" do
       FakeLibObjCBridge.assert_sent(:setCornerRadius, times: 1,
         args: [target, "12.0"])
     end
+
+    # A bordered + rounded button (e.g. an Expo "secondary" outline button) must
+    # emit corner radius ALONGSIDE the border so the Swift facade can stroke the
+    # outline with the SAME corner radius as the clipped background — otherwise
+    # the border rendered as a square rectangle around a rounded pill.
+    it "emits setCornerRadius with setBorderWidth/Color for a rounded outline button" do
+      view = UI::Button.new("Reset to Defaults")
+      view.corner_radius = 10.0
+      view.border_width = 1.0
+      view.border_color = UI::Color.new(r: 0.847, g: 0.855, b: 0.863) # #d8dadc
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setCornerRadius, times: 1, args: [target, "10.0"])
+      FakeLibObjCBridge.assert_sent(:setBorderWidth, times: 1, args: [target, "1.0"])
+      FakeLibObjCBridge.assert_sent(:setBorderColor, times: 1,
+        args: [target, "rgba(0.847,0.855,0.863,1.0)"])
+    end
   end
 
   describe "padding override" do
