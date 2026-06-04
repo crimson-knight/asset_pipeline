@@ -681,6 +681,97 @@ void objc_pin_child_to_superview_edges(void *parent, void *child) {
     bottom.active = YES;
 }
 
+// Pin a ZStack child for a DIRECTIONAL alignment (UI::Alignment Leading/Trailing/
+// Top/Bottom), honoring ZStack#alignment. Center/Fill keep using
+// objc_pin_child_to_superview_edges (force-fill all 4 edges) — this function is
+// ONLY for the directional cases, which the renderer previously ignored (every
+// child was force-filled regardless of alignment, so a fixed-size child could
+// never sit aligned to one side — drawer panel / toast / badge / FAB).
+//
+// For align direction it:
+//   - pins the ALIGNED edge to the parent at required priority (1000),
+//   - pins the two CROSS-AXIS edges to the parent at required (fills the other
+//     axis — the 1-D Alignment enum can't express compound alignment, and the
+//     overlay use cases (drawer) want full extent on the unspecified axis),
+//   - adds a REQUIRED containment inequality on the OPPOSITE edge so the child
+//     can never overflow the parent even when the parent is narrower than a
+//     fixed child, and
+//   - adds a SOFT equality (priority 499) on the OPPOSITE edge: an UNCONSTRAINED
+//     child still fills (499 beats default content-hugging 250), while a
+//     FIXED-size child (width/height pinned at 999 via objc_constrain_width)
+//     keeps its size and aligns (999 beats 499). 499 — not 500 — avoids a tie
+//     with objc_constrain_minimum_width's 500-priority `>=` constraint.
+//
+// align: 0 = leading, 1 = trailing, 2 = top, 3 = bottom.
+void objc_pin_child_aligned(void *parent, void *child, int align) {
+    BridgeView *p = (BridgeView *)parent;
+    BridgeView *c = (BridgeView *)child;
+    c.translatesAutoresizingMaskIntoConstraints = NO;
+
+    NSLayoutConstraint *leading  = [c.leadingAnchor  constraintEqualToAnchor:p.leadingAnchor];
+    NSLayoutConstraint *trailing = [c.trailingAnchor constraintEqualToAnchor:p.trailingAnchor];
+    NSLayoutConstraint *top      = [c.topAnchor      constraintEqualToAnchor:p.topAnchor];
+    NSLayoutConstraint *bottom   = [c.bottomAnchor   constraintEqualToAnchor:p.bottomAnchor];
+
+    // Required containment inequalities keep the child inside the parent bounds
+    // regardless of the soft fill (the OPPOSITE edge from the aligned one).
+    NSLayoutConstraint *leadingGE  = [c.leadingAnchor  constraintGreaterThanOrEqualToAnchor:p.leadingAnchor];
+    NSLayoutConstraint *trailingLE = [c.trailingAnchor constraintLessThanOrEqualToAnchor:p.trailingAnchor];
+    NSLayoutConstraint *topGE      = [c.topAnchor      constraintGreaterThanOrEqualToAnchor:p.topAnchor];
+    NSLayoutConstraint *bottomLE   = [c.bottomAnchor   constraintLessThanOrEqualToAnchor:p.bottomAnchor];
+
+    const float SOFT = 499.0f; // > content-hugging (250), < fixed-size pin (999)
+
+    switch (align) {
+        case 1: // trailing: pin right; fill vertically; soft-fill from the left
+            trailing.active = YES;
+            top.active = YES; bottom.active = YES;
+            leadingGE.active = YES;
+            leading.priority = SOFT; leading.active = YES;
+            break;
+        case 2: // top: pin top; fill horizontally; soft-fill from the bottom
+            top.active = YES;
+            leading.active = YES; trailing.active = YES;
+            bottomLE.active = YES;
+            bottom.priority = SOFT; bottom.active = YES;
+            break;
+        case 3: // bottom: pin bottom; fill horizontally; soft-fill from the top
+            bottom.active = YES;
+            leading.active = YES; trailing.active = YES;
+            topGE.active = YES;
+            top.priority = SOFT; top.active = YES;
+            break;
+        case 0: // leading: pin left; fill vertically; soft-fill toward the right
+        default:
+            leading.active = YES;
+            top.active = YES; bottom.active = YES;
+            trailingLE.active = YES;
+            trailing.priority = SOFT; trailing.active = YES;
+            break;
+    }
+}
+
+// Read a view's frame (points). Used by native layout specs to assert resolved
+// geometry after a layout pass.
+BridgeCGRect objc_get_frame(void *view) {
+    BridgeRect f = [(BridgeView *)view frame];
+    BridgeCGRect r;
+    r.x = f.origin.x; r.y = f.origin.y;
+    r.width = f.size.width; r.height = f.size.height;
+    return r;
+}
+
+// Force an immediate Auto Layout pass on a view subtree so a spec can read
+// resolved child frames synchronously.
+void objc_layout_now(void *view) {
+#if TARGET_OS_OSX
+    [(BridgeView *)view layoutSubtreeIfNeeded];
+#else
+    [(BridgeView *)view setNeedsLayout];
+    [(BridgeView *)view layoutIfNeeded];
+#endif
+}
+
 // Exact-width arranged subviews should resist horizontal stretching in
 // UIStackView's Fill distribution. Width constraints remain the source of
 // truth; these priorities make the intent visible to stack fitting passes.

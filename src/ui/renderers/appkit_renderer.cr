@@ -97,6 +97,14 @@
       fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
       fun objc_constrain_equal_width_offset(child : Void*, parent : Void*, delta : Float64) : Void
       fun objc_pin_child_to_superview_edges(parent : Void*, child : Void*) : Void
+      # Honors ZStack#alignment for the directional cases (Leading/Trailing/Top/
+      # Bottom): pins the aligned edge required, soft-fills the opposite edge so
+      # unconstrained children fill while fixed-size children align. align:
+      # 0=leading 1=trailing 2=top 3=bottom. Center/Fill use the edges fn above.
+      fun objc_pin_child_aligned(parent : Void*, child : Void*, align : Int32) : Void
+      # Resolved-geometry helpers (native layout specs).
+      fun objc_get_frame(view : Void*) : CGRect
+      fun objc_layout_now(view : Void*) : Void
       fun objc_constrain_fluid_width(view : Void*, min_w : Float64, max_w : Float64) : Void
       fun objc_set_horizontal_fill_priority(view : Void*) : Void
       fun objc_constrain_height(view : Void*, h : Float64) : Void
@@ -646,9 +654,26 @@
         # at their intrinsic size/position rather than filling (e.g. a full-bleed
         # background Image only covered part of the screen). A child with its own
         # min-size constraints (e.g. a bg image) then drives the ZStack's size.
+        # Honor ZStack#alignment. Center/Fill (and the default) keep the legacy
+        # all-4-edges fill — every existing full-bleed hero relies on it, so this
+        # is zero-regression. The directional cases (Leading/Trailing/Top/Bottom),
+        # previously IGNORED (every child force-filled), now pin the aligned edge
+        # and soft-fill the opposite, so a fixed-size child sits aligned to that
+        # side (drawer panel, toast, badge) while unconstrained children still
+        # fill. See objc_pin_child_aligned.
+        align_code = case view.alignment
+                     when UI::Alignment::Leading  then 0
+                     when UI::Alignment::Trailing then 1
+                     when UI::Alignment::Top      then 2
+                     when UI::Alignment::Bottom   then 3
+                     else                              -1 # Center / Fill → legacy
+                     end
         native.children.each do |child_nv|
-          if child_nv.handle.valid?
+          next unless child_nv.handle.valid?
+          if align_code < 0
             LibObjCBridge.objc_pin_child_to_superview_edges(ptr, child_nv.handle.ptr!)
+          else
+            LibObjCBridge.objc_pin_child_aligned(ptr, child_nv.handle.ptr!, align_code)
           end
         end
 
