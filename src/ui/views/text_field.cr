@@ -5,11 +5,25 @@ require "../view"
 
 # Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Visual chrome for a text field.
+  #   RoundedBorder — the default boxed `.roundedBorder` field.
+  #   Underline     — a bottom-border-only field (no box) — the Expo onboarding
+  #                   input style: a 1px rule under the text, transparent fill.
+  #   Plain         — no chrome at all.
+  enum TextFieldStyle
+    RoundedBorder
+    Underline
+    Plain
+  end
+
   # An editable single-line text input field.
   #
   # Provides placeholder text, secure entry mode for passwords,
   # keyboard type hints, and a change callback.
   class TextField < View
+    # Visual chrome (RoundedBorder default; Underline = bottom-rule only).
+    property style : TextFieldStyle = TextFieldStyle::RoundedBorder
+
     # Current text value
     property text : String = ""
 

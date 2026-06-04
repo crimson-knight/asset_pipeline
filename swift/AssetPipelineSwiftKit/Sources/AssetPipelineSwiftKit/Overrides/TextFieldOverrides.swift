@@ -19,6 +19,9 @@ public class TextFieldOverrides: ViewOverrides {
     @objc public var fontSize: NSNumber? = nil
     @objc public var fontWeight: NSNumber? = nil
     @objc public var fontFamily: String? = nil
+    // Visual chrome: nil/"roundedborder" = boxed default; "underline" = bottom-
+    // rule only (transparent fill); "plain" = no chrome.
+    @objc public var borderStyle: String? = nil
 
     @objc public override init() { super.init() }
 }

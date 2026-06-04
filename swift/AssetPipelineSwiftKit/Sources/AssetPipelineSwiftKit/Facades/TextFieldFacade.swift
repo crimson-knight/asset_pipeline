@@ -89,12 +89,35 @@ public class TextFieldFacade: NSObject {
         // surface where the user expects a recognisable field. Macros
         // and per-widget style overrides will land in a follow-up.
         //
-        // watchOS: `.roundedBorder` (RoundedBorderTextFieldStyle) is unavailable;
-        // the watch styles a TextField through its row/Form container, so we leave
-        // the default style there rather than force unavailable chrome.
-        #if !os(watchOS)
-        content = AnyView(content.textFieldStyle(.roundedBorder))
-        #endif
+        // Chrome. "underline" = bottom-rule only (Expo onboarding inputs): a
+        // plain field with a 1px #bec2c2 rule along the bottom and a transparent
+        // fill, so it reads as an underlined input over a photo. "plain" = no
+        // chrome. Default = the boxed `.roundedBorder` field.
+        switch overrides.borderStyle {
+        case "underline":
+            #if !os(watchOS)
+            content = AnyView(content.textFieldStyle(.plain))
+            #endif
+            content = AnyView(
+                content.overlay(alignment: .bottom) {
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundStyle(Color(
+                            red: 190.0 / 255.0, green: 194.0 / 255.0, blue: 194.0 / 255.0))
+                }
+            )
+        case "plain":
+            #if !os(watchOS)
+            content = AnyView(content.textFieldStyle(.plain))
+            #endif
+        default:
+            // watchOS: `.roundedBorder` (RoundedBorderTextFieldStyle) is
+            // unavailable; the watch styles a TextField through its row/Form
+            // container, so leave the default style there.
+            #if !os(watchOS)
+            content = AnyView(content.textFieldStyle(.roundedBorder))
+            #endif
+        }
 
         #if canImport(UIKit) && !os(watchOS)
         if let kt = overrides.keyboardType {

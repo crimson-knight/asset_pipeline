@@ -457,6 +457,13 @@ module UI
           sender.set_string(target, :setKeyboardType, kt.to_s.downcase)
         end
         emit_font(target, view.font, sender)
+
+        # Visual chrome — emit only when non-default (RoundedBorder) so existing
+        # fields keep their boxed style. "underline" = bottom-rule only (Expo
+        # onboarding inputs); "plain" = no chrome.
+        unless view.style == UI::TextFieldStyle::RoundedBorder
+          sender.set_string(target, :setBorderStyle, view.style.to_s.downcase)
+        end
       end
 
       def self.populate_secure_field(target : String, view : UI::SecureField, sender : Sender)

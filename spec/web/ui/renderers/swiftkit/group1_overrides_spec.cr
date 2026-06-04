@@ -160,6 +160,21 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       FakeLibObjCBridge.assert_sent(:setFontSize, times: 1, args: [target, "18.0"])
       FakeLibObjCBridge.assert_sent(:setFontWeight, times: 1, args: [target, "3.0"])
     end
+
+    it "skips setBorderStyle at the RoundedBorder default" do
+      view = UI::TextField.new
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setBorderStyle)
+    end
+
+    it "emits setBorderStyle:underline when style is Underline" do
+      view = UI::TextField.new
+      view.style = UI::TextFieldStyle::Underline
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setBorderStyle, times: 1, args: [target, "underline"])
+    end
   end
 
   describe "#populate_secure_field" do
