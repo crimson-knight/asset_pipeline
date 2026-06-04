@@ -22,6 +22,12 @@ module UI
     # Whether the button is disabled
     property disabled : Bool = false
 
+    # Whether the button paints its platform chrome (a bezel / touch-target box
+    # around the glyph). Default `true` keeps the standard button look. Set
+    # `false` for a BARE tappable icon (SwiftUI `.buttonStyle(.plain)`) — e.g. an
+    # icon+text action row where the glyph should sit flush with no box.
+    property bordered : Bool = true
+
     # Callback on tap
     property on_tap : Proc(Nil)? = nil
 

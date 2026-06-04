@@ -322,6 +322,21 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       # label is nil by default → no setLabel
       FakeLibObjCBridge.refute_sent(:setLabel)
     end
+
+    it "skips setBordered at the bordered=true default" do
+      view = UI::IconButton.new("plus")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_icon_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setBordered)
+    end
+
+    it "emits setBordered:false for a bare (chrome-free) icon" do
+      view = UI::IconButton.new("plus")
+      view.bordered = false
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_icon_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setBordered, times: 1, args: [target, "false"])
+    end
   end
 end
 

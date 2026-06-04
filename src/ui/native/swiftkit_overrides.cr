@@ -526,6 +526,9 @@ module UI
         sender.set_number(target, :setIconSize, view.icon_size == 24.0 ? nil : view.icon_size)
         sender.set_bool(target, :setDisabled, view.disabled ? true : nil)
         sender.set_string(target, :setLabel, view.label)
+        # Chrome: true (default) keeps the platform button bezel; only emit when
+        # the developer opts into a bare icon (.buttonStyle(.plain)).
+        sender.set_bool(target, :setBordered, view.bordered ? nil : false)
       end
 
       def self.populate_divider(target : String, view : UI::Divider, sender : Sender)

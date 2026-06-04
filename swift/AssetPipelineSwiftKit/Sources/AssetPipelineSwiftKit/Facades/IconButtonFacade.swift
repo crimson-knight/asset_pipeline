@@ -81,6 +81,13 @@ public class IconButtonFacade: NSObject {
             })
         }
 
+        // Chrome: `.buttonStyle(.plain)` strips the platform bezel/touch-target
+        // box so the glyph renders bare (an icon+text action row, a flush tap
+        // target). nil/true keeps the standard automatic button style.
+        if let b = overrides.bordered, !b.boolValue {
+            content = AnyView(content.buttonStyle(.plain))
+        }
+
         if let disabled = overrides.disabled, disabled.boolValue {
             content = AnyView(content.disabled(true))
         }
