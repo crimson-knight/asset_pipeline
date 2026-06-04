@@ -44,6 +44,16 @@ public class LabelOverrides: ViewOverrides {
     // alignment:)` so the text fills the width and aligns per textAlignment
     // (default leading). nil = no fill frame (SwiftUI default sizing).
     @objc public var fillHorizontal: NSNumber? = nil
+    // Explicit wrapping width. When set, the facade pins the label to exactly
+    // this width (`.frame(width:)`) so SwiftUI computes the correct WRAPPED
+    // height for that width — which the NSHostingView then reports to the
+    // NSStackView. Without it, a fill_horizontal label reports its single-line
+    // ideal height (the maxWidth:.infinity frame never wraps at fitting-size
+    // time), so a multi-line label under-reserves height and the next stacked
+    // element overlaps it. Set this to the known container content width on
+    // screens whose labels wrap dynamic content. Takes precedence over
+    // fillHorizontal. nil = SwiftUI default sizing.
+    @objc public var preferredMaxLayoutWidth: NSNumber? = nil
 
     @objc public override init() { super.init() }
 }

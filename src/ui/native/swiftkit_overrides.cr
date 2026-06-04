@@ -403,6 +403,11 @@ module UI
         if view.fill_horizontal
           sender.set_bool(target, :setFillHorizontal, true)
         end
+
+        # Explicit wrapping width — pins the label to this width so SwiftUI
+        # reserves the correct multi-line height (fixes the wrapping-label
+        # height under-reservation / overlap). set_number no-ops on nil.
+        sender.set_number(target, :setPreferredMaxLayoutWidth, view.preferred_max_layout_width)
       end
 
       # Map a Crystal `UI::Font.weight` Symbol to the SwiftUI

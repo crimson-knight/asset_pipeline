@@ -68,6 +68,22 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       FakeLibObjCBridge.assert_sent(:setFillHorizontal, times: 1, args: [target, "true"])
     end
 
+    it "skips setPreferredMaxLayoutWidth when unset" do
+      view = UI::Label.new("Hi")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setPreferredMaxLayoutWidth)
+    end
+
+    it "emits setPreferredMaxLayoutWidth when set (wrapping-height fix)" do
+      view = UI::Label.new("Hi Maximilian Alexander, nice to meet you!")
+      view.preferred_max_layout_width = 420.0
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setPreferredMaxLayoutWidth, times: 1,
+        args: [target, "420.0"])
+    end
+
     it "emits setLabelRole when role is overridden" do
       view = UI::Label.new("Hello")
       view.text_color_role = UI::LabelRole::Secondary

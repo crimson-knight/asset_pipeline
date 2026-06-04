@@ -136,18 +136,33 @@ private struct APSKLabelHost: View {
         // subtitle truncated to a single line. fixedSize(vertical:) forces the
         // Text to take its natural multi-line height for the proposed width, so it
         // wraps and grows instead of truncating. Harmless on single-line labels.
-        if let fh = overrides.fillHorizontal, fh.boolValue {
+        if overrides.fillHorizontal?.boolValue == true || overrides.preferredMaxLayoutWidth != nil {
             let frameAlign: Alignment
             switch overrides.textAlignment {
             case "center":   frameAlign = .center
             case "trailing": frameAlign = .trailing
             default:         frameAlign = .leading
             }
-            content = AnyView(
-                content
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: frameAlign)
-            )
+            if let pmlw = overrides.preferredMaxLayoutWidth {
+                // Explicit width → SwiftUI computes the correct WRAPPED height at
+                // this width, so the NSHostingView reports multi-line height to
+                // the NSStackView and the next stacked element no longer overlaps
+                // a wrapped label. (A bare `.frame(maxWidth:.infinity)` reports the
+                // single-line ideal height at fitting-size time — the root of the
+                // long-standing fill-label-height under-reservation bug.) Takes
+                // precedence over fillHorizontal.
+                content = AnyView(
+                    content
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(width: CGFloat(pmlw.doubleValue), alignment: frameAlign)
+                )
+            } else {
+                content = AnyView(
+                    content
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: frameAlign)
+                )
+            }
         }
 
         content = CommonModifiers.apply(content, overrides: overrides)
