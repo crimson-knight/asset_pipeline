@@ -987,6 +987,19 @@ void nsscrollview_set_document_view(void *scroll_view, void *doc_view) {
             [dv.trailingAnchor constraintEqualToAnchor:clip.trailingAnchor],
             [dv.topAnchor constraintEqualToAnchor:clip.topAnchor],
         ]];
+        // Fill-the-viewport: when content is SHORTER than the viewport, an
+        // NSScrollView leaves the (top-pinned) document view at its intrinsic
+        // height — and a non-flipped clip view drops that short content to the
+        // BOTTOM, exposing the scroll view's bare background above it (a broken
+        // empty/short-list state). Pin the document view's height to at least
+        // the clip height so short content stretches to fill (staying
+        // top-anchored, its own background covering the whole viewport); taller
+        // content still exceeds the clip and scrolls normally. Priority 999 so a
+        // genuinely tall subtree never makes the layout unsatisfiable.
+        NSLayoutConstraint *fill =
+            [dv.heightAnchor constraintGreaterThanOrEqualToAnchor:clip.heightAnchor];
+        fill.priority = NSLayoutPriorityRequired - 1;  // 999
+        fill.active = YES;
     }
 #endif
 }
