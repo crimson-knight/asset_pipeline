@@ -87,6 +87,19 @@ describe UI::Native::Populator, "Group 1 default-detection" do
         args: [target, "rgba(0.5,0.0,0.5,1.0)"])
     end
 
+    it "emits foregroundColor when text_color is set WITHOUT nil-ing the role" do
+      # Footgun fix: assigning a raw text_color now auto-clears the default
+      # Primary role (mutual exclusion), so an explicit color "just works" —
+      # previously it was silently ignored and the label rendered .primary.
+      view = UI::Label.new("Morning Track")
+      view.text_color = UI::Color.new(r: 0.0, g: 0.0, b: 0.0) # black on a near-white card
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setForegroundColor, times: 1,
+        args: [target, "rgba(0.0,0.0,0.0,1.0)"])
+      FakeLibObjCBridge.refute_sent(:setLabelRole)
+    end
+
     it "emits setFontSize + setFontWeight when font is overridden" do
       view = UI::Label.new("Cascade")
       view.font = UI::Font.new(size: 34.0, weight: :bold)

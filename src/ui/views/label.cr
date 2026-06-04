@@ -41,7 +41,24 @@ module UI
     # Text color (brand / explicit RGBA override). Only consulted when
     # `text_color_role` is nil — otherwise the role resolves to the
     # appearance-tracking system color and this RGBA is ignored.
-    property text_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
+    @text_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
+
+    # The explicit RGBA text color.
+    getter text_color
+
+    # Assigning a raw `text_color` opts the label out of the semantic
+    # `text_color_role` — they are mutually exclusive (see below). Without
+    # this, setting `text_color` alone was silently ignored: the default role
+    # (Primary) won the populate path, so an explicit color only took effect if
+    # the consumer ALSO remembered `text_color_role = nil`. A black label on a
+    # near-white card therefore rendered as the appearance `.primary` (white in
+    # dark mode) — unreadable. The setter now enforces the documented mutual
+    # exclusion so an explicit color "just works".
+    def text_color=(color : Color) : Color
+      @text_color = color
+      @text_color_role = nil
+      color
+    end
 
     # Semantic Apple label-color role. When set, the AppKit / UIKit renderer
     # resolves to `NSColor.labelColor` / `UIColor.labelColor` (and secondary
