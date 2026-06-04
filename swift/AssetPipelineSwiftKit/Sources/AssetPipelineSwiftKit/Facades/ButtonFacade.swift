@@ -120,8 +120,17 @@ private struct APSKButtonHost: View {
                     .lineLimit(limit == 0 ? nil : limit)
             )
         }
-        if wantsStretchedProminent {
-            labelContent = AnyView(labelContent.frame(maxWidth: .infinity))
+        // Stretch the LABEL (inside the Button) to fill the width when the button
+        // is fill_horizontal (or a stretched-prominent CTA). Doing it here — not
+        // by framing the whole Button afterward — makes the Button itself
+        // full-width BEFORE its background/clip are applied, so a sage CTA's
+        // background fills the row instead of hugging the label. fill_horizontal
+        // leading-aligns its label; prominent centers.
+        let fillH = overrides.fillHorizontal?.boolValue == true
+        if wantsStretchedProminent || fillH {
+            labelContent = AnyView(
+                labelContent.frame(maxWidth: .infinity, alignment: fillH ? .leading : .center)
+            )
         }
 
         var base: AnyView
@@ -356,13 +365,8 @@ private struct APSKButtonHost: View {
             ))
         }
 
-        // fill_horizontal: the renderer pins the button's hosting view wide;
-        // without a maxWidth frame a plain text button centers its label (a
-        // row/card-filling button rendered centered instead of leading). Fill the
-        // width and leading-align — mirrors LabelFacade's fillHorizontal handling.
-        if let fh = overrides.fillHorizontal, fh.boolValue {
-            content = AnyView(content.frame(maxWidth: .infinity, alignment: .leading))
-        }
+        // (fill_horizontal is handled by stretching the LABEL above, so the
+        // Button — and its background — fill the width, not just the label.)
 
         // Apply common (View-level) overrides last, excluding the three
         // reactive fields that the state layer above already handled.
