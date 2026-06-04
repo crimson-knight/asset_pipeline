@@ -332,6 +332,24 @@ describe UI::Native::Populator, "Group 2 default-detection" do
       UI::Native::Populator.populate_slider(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setStep, times: 1, args: [target, "0.1"])
     end
+
+    it "skips setForegroundColor when tint_color is unset" do
+      view = UI::Slider.new
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_slider(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setForegroundColor)
+    end
+
+    it "emits setForegroundColor (slider tint) when tint_color is set" do
+      view = UI::Slider.new
+      view.tint_color = UI::Color.new(r: 0.416, g: 0.427, b: 0.804) # #6a6dcd
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_slider(target, view, RecordingSender.new)
+      # The Swift SliderFacade applies this via `.tint(...)` (NOT
+      # `.foregroundStyle`, which a SwiftUI Slider ignores for its track/thumb).
+      FakeLibObjCBridge.assert_sent(:setForegroundColor, times: 1,
+        args: [target, "rgba(0.416,0.427,0.804,1.0)"])
+    end
   end
 
   describe "#populate_stepper" do
