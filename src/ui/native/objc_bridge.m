@@ -972,6 +972,23 @@ void *make_swipe_reveal_row(void *content_view,
 //   3. NOT pinning the bottom anchor lets the view grow as tall as needed.
 //
 // iOS: no-op (use uiscrollview_pin_content instead).
+// Toggle whether the NSScrollView (and its NSClipView) paints an opaque
+// background. draws=0 makes the scroll view transparent so content layered
+// BEHIND it (e.g. a full-bleed hero image in a ZStack) shows through the
+// scrolling content; the default (drawsBackground=YES) paints the system
+// background and hides anything behind. Both the scroll view and its clip view
+// must be toggled — each paints independently.
+void nsscrollview_set_draws_background(void *scroll_view, int draws) {
+#if TARGET_OS_OSX
+    NSScrollView *sv = (NSScrollView *)scroll_view;
+    BOOL b = (draws != 0);
+    sv.drawsBackground = b;
+    if (sv.contentView) {
+        sv.contentView.drawsBackground = b;
+    }
+#endif
+}
+
 void nsscrollview_set_document_view(void *scroll_view, void *doc_view) {
 #if TARGET_OS_OSX
     NSScrollView *sv = (NSScrollView *)scroll_view;

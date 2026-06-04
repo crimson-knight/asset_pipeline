@@ -105,6 +105,7 @@
       # to the Crystal string callback `token` via a CrystalComboBoxDelegate.
       fun ap_combo_box_wire_string_change(combo : Void*, token : UInt64) : Int32
       fun nsscrollview_set_document_view(scroll_view : Void*, doc_view : Void*) : Void
+      fun nsscrollview_set_draws_background(scroll_view : Void*, draws : Int32) : Void
       fun nsbutton_set_colored_title(button : Void*, title : Void*, color : Void*, font : Void*) : Void
       fun nsslider_set_track_fill_color(slider : Void*, color : Void*) : Void
       fun nsimageview_make_symbol(symbol_name : UInt8*, tint_color : Void*, size_pts : Float64) : Void*
@@ -739,6 +740,15 @@
 
         # Common properties
         apply_common_properties(ptr, view)
+
+        # Transparency: when the background is unset or fully clear, stop the
+        # NSScrollView + NSClipView painting their opaque system background, so
+        # content layered behind it (e.g. a full-bleed hero image in a ZStack)
+        # shows through the scrolling content instead of a black/system fill.
+        bg = view.background
+        if bg.nil? || bg.a == 0.0
+          LibObjCBridge.nsscrollview_set_draws_background(ptr, 0)
+        end
 
         handle = ObjC.owned(ptr, label: "NSScrollView")
         native = NativeView.new(handle)
