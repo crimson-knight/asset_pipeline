@@ -95,6 +95,7 @@
       fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
       fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
       fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
+      fun objc_constrain_equal_width_offset(child : Void*, parent : Void*, delta : Float64) : Void
       fun objc_pin_child_to_superview_edges(parent : Void*, child : Void*) : Void
       fun objc_constrain_fluid_width(view : Void*, min_w : Float64, max_w : Float64) : Void
       fun objc_set_horizontal_fill_priority(view : Void*) : Void
@@ -521,12 +522,21 @@
         # fluid_width uses. A child's own exact width pin still wins; skip when
         # fluid_width already pinned every child above.
         unless view.fluid_width
+          # Respect the stack's own horizontal padding (edgeInsets) so a padded
+          # screen container gives its fill_horizontal children gutters instead of
+          # bleeding them edge-to-edge. delta = -(leading + trailing); the stack's
+          # CenterX alignment then centers the narrower child → symmetric gutters.
+          h_pad = view.padding.leading + view.padding.trailing
           view.children.each_with_index do |child_view, i|
             next unless child_view.fill_horizontal
             next if child_view.minimum_width || child_view.maximum_width
             cn = native.children[i]?
             next unless cn && cn.handle.valid?
-            LibObjCBridge.objc_constrain_equal_width(cn.handle.ptr!, ptr)
+            if h_pad > 0.0
+              LibObjCBridge.objc_constrain_equal_width_offset(cn.handle.ptr!, ptr, -h_pad)
+            else
+              LibObjCBridge.objc_constrain_equal_width(cn.handle.ptr!, ptr)
+            end
           end
         end
 

@@ -616,6 +616,25 @@ void objc_constrain_equal_width(void *child, void *parent) {
     wc.active = YES;
 }
 
+// Like objc_constrain_equal_width but child.width = parent.width + delta (delta
+// negative to inset). Used so a fill_horizontal child respects the parent stack's
+// horizontal padding (edgeInsets): pinning to the full parent width ignores the
+// insets, so a padded screen container rendered its content edge-to-edge with no
+// gutters. delta = -(leading + trailing inset); the stack's cross-axis centering
+// then yields symmetric gutters.
+void objc_constrain_equal_width_offset(void *child, void *parent, double delta) {
+    BridgeView *c = (BridgeView *)child;
+    BridgeView *p = (BridgeView *)parent;
+    NSLayoutConstraint *wc =
+        [c.widthAnchor constraintEqualToAnchor:p.widthAnchor constant:(CGFloat)delta];
+#if TARGET_OS_OSX
+    wc.priority = NSLayoutPriorityRequired;
+#else
+    wc.priority = UILayoutPriorityRequired;
+#endif
+    wc.active = YES;
+}
+
 // Pin a child view to its parent's layout margins on iOS. The macOS branch
 // falls back to edge pinning; UIKit is the current caller.
 void objc_pin_child_to_layout_margins(void *parent, void *child) {
