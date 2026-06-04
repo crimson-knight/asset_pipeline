@@ -70,6 +70,15 @@ module UI
     # Foreground (label) color
     property foreground_color : Color = Color.new(r: 0.0, g: 0.478, b: 1.0)
 
+    # Maximum label lines. Default `1` keeps the single-line, truncating
+    # CTA behavior. Set `0` for unlimited (wrap to as many lines as needed)
+    # or `n > 1` for a wrapping cap — used for content buttons whose label is
+    # user text (e.g. a tappable thought card) that must wrap, not truncate.
+    # The SwiftUI facade also applies `.fixedSize(vertical:)` so the wrapped
+    # label takes its natural multi-line height inside a width-constrained
+    # (fill_horizontal) container.
+    property number_of_lines : Int32 = 1
+
     # Whether the button is disabled (non-interactive).
     #
     # Reactive: after the renderer has emitted the SwiftUI hosting view,

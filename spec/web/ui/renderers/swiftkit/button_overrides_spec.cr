@@ -286,6 +286,25 @@ describe UI::Native::Populator, "#populate_button" do
     end
   end
 
+  describe "number_of_lines override" do
+    it "skips setNumberOfLines at the single-line default (1)" do
+      view = UI::Button.new("Save")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setNumberOfLines)
+    end
+
+    it "emits setNumberOfLines:0 when the label opts into wrapping" do
+      # A tappable content button (e.g. a thought card) whose long user text
+      # must wrap, not truncate.
+      view = UI::Button.new("I am not good enough and I constantly feel judged")
+      view.number_of_lines = 0
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setNumberOfLines, times: 1, args: [target, "0.0"])
+    end
+  end
+
   describe "disabled override" do
     it "skips setDisabled: when disabled=false (type default)" do
       view = UI::Button.new("Save")

@@ -291,6 +291,11 @@ module UI
         # Disabled: false is the type default.
         sender.set_bool(target, :setDisabled, view.disabled ? true : nil)
 
+        # Line cap: 1 (single-line, truncating) is the type default; emit only
+        # when the developer opts into wrapping (0 = unlimited, n > 1 = capped).
+        nl = view.number_of_lines
+        sender.set_number(target, :setNumberOfLines, nl == 1 ? nil : nl.to_f64)
+
         # SF Symbol leading glyph.
         sender.set_string(target, :setSymbolName, view.symbol)
 

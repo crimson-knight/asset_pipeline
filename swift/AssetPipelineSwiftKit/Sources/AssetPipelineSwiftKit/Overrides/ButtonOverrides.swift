@@ -29,6 +29,11 @@ public class ButtonOverrides: ViewOverrides {
     @objc public var style: String? = nil
     @objc public var disabled: NSNumber? = nil
     @objc public var symbolName: String? = nil
+    // Max label lines. nil = single-line (truncating CTA default). 0 = unlimited
+    // (wrap), n > 1 = capped wrap. When set, the facade applies `.lineLimit` +
+    // `.fixedSize(vertical:)` so a long label wraps to its natural multi-line
+    // height instead of truncating inside a fill_horizontal container.
+    @objc public var numberOfLines: NSNumber? = nil
     // When the renderer pins this button to fill its container width
     // (UI::View#fill_horizontal), a plain text button centers its label in the
     // wide frame — a row/card-filling label rendered centered instead of leading.

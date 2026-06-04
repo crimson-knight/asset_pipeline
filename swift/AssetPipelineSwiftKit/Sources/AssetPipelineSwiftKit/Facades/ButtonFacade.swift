@@ -100,38 +100,35 @@ private struct APSKButtonHost: View {
             return mw.doubleValue == mxw.doubleValue
         }()
 
+        // Build the label content once so every Button-initializer branch
+        // shares it. `numberOfLines` (nil = single-line CTA default) opts a
+        // content button's label into wrapping: `.lineLimit` + `.fixedSize`
+        // make a long label (e.g. a tappable thought card's user text) take its
+        // natural multi-line height instead of truncating inside a
+        // fill_horizontal container. When nil, behavior is identical to before.
+        var labelContent: AnyView
+        if let symbol = overrides.symbolName {
+            labelContent = AnyView(Label(label, systemImage: symbol))
+        } else {
+            labelContent = AnyView(Text(label))
+        }
+        if let lines = overrides.numberOfLines {
+            let limit = lines.intValue
+            labelContent = AnyView(
+                labelContent
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(limit == 0 ? nil : limit)
+            )
+        }
+        if wantsStretchedProminent {
+            labelContent = AnyView(labelContent.frame(maxWidth: .infinity))
+        }
+
         var base: AnyView
         if overrides.role == "destructive" {
-            if let symbol = overrides.symbolName {
-                base = AnyView(
-                    Button(role: .destructive, action: action) {
-                        Label(label, systemImage: symbol)
-                            .frame(maxWidth: wantsStretchedProminent ? .infinity : nil)
-                    }
-                )
-            } else {
-                base = AnyView(
-                    Button(role: .destructive, action: action) {
-                        Text(label)
-                            .frame(maxWidth: wantsStretchedProminent ? .infinity : nil)
-                    }
-                )
-            }
-        } else if let symbol = overrides.symbolName {
-            base = AnyView(
-                Button(action: action) {
-                    Label(label, systemImage: symbol)
-                        .frame(maxWidth: wantsStretchedProminent ? .infinity : nil)
-                }
-            )
-        } else if wantsStretchedProminent {
-            base = AnyView(
-                Button(action: action) {
-                    Text(label).frame(maxWidth: .infinity)
-                }
-            )
+            base = AnyView(Button(role: .destructive, action: action) { labelContent })
         } else {
-            base = AnyView(Button(label, action: action))
+            base = AnyView(Button(action: action) { labelContent })
         }
 
         // BX6 / BX9: apply minHeight/minWidth as exact frame() pins
