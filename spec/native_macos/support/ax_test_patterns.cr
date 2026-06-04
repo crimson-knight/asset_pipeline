@@ -23,7 +23,12 @@ require "../../../src/ui/ax_test"
 # spec/ui/hig_validation/macos_action_tap_probe_spec.cr for usage.
 
 module AXTestPatterns
-  SHARD_ROOT = File.expand_path("../..", __DIR__)
+  # __DIR__ is spec/native_macos/support, so the repo root is THREE levels up
+  # (support → native_macos → spec → root). The previous "../.." landed at spec/,
+  # making SHOWCASE_BIN spec/samples/.../hig_showcase — which never exists, so the
+  # visual specs raised File::NotFoundError instead of launching the real binary
+  # at <root>/samples/.../hig_showcase (the path the spec's own guard checks).
+  SHARD_ROOT = File.expand_path("../../..", __DIR__)
   SHOWCASE_BIN = File.join(SHARD_ROOT, "samples/cross_platform/macos_host/bin/hig_showcase")
 
   # --------------------------------------------------------------------
