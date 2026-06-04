@@ -458,6 +458,10 @@ module UI
         end
         emit_font(target, view.font, sender)
 
+        # Placeholder tint — nil by default (set_color no-ops on nil), so the
+        # kit's contrast-safe placeholder stays unless the consumer overrides.
+        sender.set_color(target, :setPlaceholderColor, view.placeholder_color)
+
         # Visual chrome — emit only when non-default (RoundedBorder) so existing
         # fields keep their boxed style. "underline" = bottom-rule only (Expo
         # onboarding inputs); "plain" = no chrome.

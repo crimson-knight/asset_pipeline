@@ -43,6 +43,12 @@ module UI
     # Text color
     property text_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
 
+    # Placeholder tint. `nil` (the default) keeps the kit's contrast-safe
+    # placeholder (`label @ 50% opacity`, ≥ 3:1 in light + dark). Set it to
+    # match a brand placeholder color (e.g. Expo's `#bec2c2` over a photo
+    # hero) — the consumer owns the contrast trade-off when they override.
+    property placeholder_color : Color? = nil
+
     # Whether input is obscured (password entry)
     property secure_entry : Bool = false
 

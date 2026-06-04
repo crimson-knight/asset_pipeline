@@ -57,11 +57,21 @@ public class TextFieldFacade: NSObject {
         // overlay only shows while the bound text is empty, so it
         // behaves like the system placeholder for usability.
         let secure = (overrides.secureEntry?.boolValue ?? false)
+        // Optional brand placeholder tint (Crystal `placeholder_color`). nil
+        // keeps the contrast-safe default inside PromptOverlayField.
+        let phColor: Color? = overrides.placeholderColor.map {
+            #if canImport(UIKit)
+            return Color(uiColor: $0)
+            #else
+            return Color(nsColor: $0)
+            #endif
+        }
         let base: AnyView = AnyView(
             PromptOverlayField(
                 storage: storage,
                 placeholder: placeholder,
-                isSecure: secure
+                isSecure: secure,
+                placeholderColor: phColor
             )
         )
 
@@ -187,6 +197,12 @@ struct PromptOverlayField: View {
     @ObservedObject var storage: TextStorage
     let placeholder: String
     let isSecure: Bool
+    // nil = the kit's contrast-safe default (`Color.primary @ 50%`). When the
+    // consumer sets `text_field.placeholder_color`, the facade threads it here
+    // so a brand placeholder renders literally. `var … = nil` keeps the
+    // synthesized memberwise init backward-compatible for the SecureFieldFacade
+    // call site, which doesn't pass a colour.
+    var placeholderColor: Color? = nil
 
     var body: some View {
         // Width floor: an EMPTY SwiftUI TextField/SecureField has ~0 ideal width,
@@ -214,7 +230,7 @@ struct PromptOverlayField: View {
 
             if storage.text.isEmpty {
                 Text(placeholder)
-                    .foregroundStyle(Color.primary.opacity(0.5))
+                    .foregroundStyle(placeholderColor ?? Color.primary.opacity(0.5))
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }

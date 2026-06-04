@@ -130,6 +130,17 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       FakeLibObjCBridge.refute_sent(:setFontSize)
       FakeLibObjCBridge.refute_sent(:setFontWeight)
       FakeLibObjCBridge.refute_sent(:setFontFamily)
+      # placeholder_color defaults to nil → no placeholder-tint setter.
+      FakeLibObjCBridge.refute_sent(:setPlaceholderColor)
+    end
+
+    it "emits setPlaceholderColor when placeholder_color is set" do
+      view = UI::TextField.new
+      view.placeholder_color = UI::Color.new(r: 0.745, g: 0.761, b: 0.761) # #bec2c2
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setPlaceholderColor, times: 1,
+        args: [target, "rgba(0.745,0.761,0.761,1.0)"])
     end
 
     it "emits setSecureEntry:true when secure_entry=true" do
