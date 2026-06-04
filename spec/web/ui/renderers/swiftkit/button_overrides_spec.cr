@@ -80,6 +80,16 @@ describe UI::Native::Populator, "#populate_button" do
       FakeLibObjCBridge.refute_sent(:setFontFamily)
       # fill_horizontal default false → no fill frame.
       FakeLibObjCBridge.refute_sent(:setFillHorizontal)
+      # foreground_color default (system blue) → not seeded; keep system label.
+      FakeLibObjCBridge.refute_sent(:setForegroundColor)
+    end
+
+    it "seeds setForegroundColor when foreground_color is explicitly set" do
+      view = UI::Button.new("Achieved")
+      view.foreground_color = UI::Color.new(r: 0.184, g: 0.608, b: 0.325) # #2F9B53
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setForegroundColor, times: 1)
     end
 
     it "emits setFillHorizontal when fill_horizontal=true" do

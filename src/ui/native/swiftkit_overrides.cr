@@ -321,6 +321,19 @@ module UI
         if view.fill_horizontal
           sender.set_bool(target, :setFillHorizontal, true)
         end
+
+        # Foreground (label) color — SEEDED at construction so the initial render
+        # reflects an explicitly-set color. Previously only the runtime reactive
+        # setter (apsk_button_set_foreground_color) applied it, so a button whose
+        # foreground_color was set BEFORE render showed the system default label
+        # color — e.g. a non-white label on a light card rendered invisible
+        # (Happy Coach MyThoughts settled cards: green text vanished on white).
+        # Emit only when non-default (default = system blue) so standard buttons
+        # keep the system label color.
+        fg = view.foreground_color
+        unless fg.r == 0.0 && fg.g == 0.478 && fg.b == 1.0
+          sender.set_color(target, :setForegroundColor, fg)
+        end
       end
 
       # ---------------------------------------------------------------
