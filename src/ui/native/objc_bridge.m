@@ -804,6 +804,24 @@ void objc_set_horizontal_fill_priority(void *view) {
 #endif
 }
 
+// A Spacer is pure flex space — it must absorb ALL slack in its containing stack,
+// in BOTH orientations (a VStack Spacer grows vertically, an HStack Spacer grows
+// horizontally), and it must WIN that slack against ordinary content. DefaultLow
+// (250) is NOT low enough: a plain UIView/NSView and most content both sit at 250,
+// so UIStackView's .fill distribution resolves the tie arbitrarily — a [Spacer,
+// card, Spacer] column could pin the card to the top instead of centering it. Drop
+// the hugging to 1 on both axes so the Spacer is unambiguously the flexible element.
+void objc_set_flex_spacer_priority(void *view) {
+    BridgeView *v = (BridgeView *)view;
+#if TARGET_OS_OSX
+    [v setContentHuggingPriority:1.0f forOrientation:NSLayoutConstraintOrientationHorizontal];
+    [v setContentHuggingPriority:1.0f forOrientation:NSLayoutConstraintOrientationVertical];
+#else
+    [v setContentHuggingPriority:1.0f forAxis:UILayoutConstraintAxisHorizontal];
+    [v setContentHuggingPriority:1.0f forAxis:UILayoutConstraintAxisVertical];
+#endif
+}
+
 void objc_constrain_size(void *view, double w, double h) {
     BridgeView *v = (BridgeView *)view;
     v.translatesAutoresizingMaskIntoConstraints = NO;

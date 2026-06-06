@@ -109,8 +109,16 @@
       # where the parent is a bare UIView/NSView wrapper and the child
       # needs to fill the parent edge-to-edge.
       fun objc_pin_child_to_superview_edges(parent : Void*, child : Void*) : Void
+      # ZStack directional-alignment child pin (Leading/Trailing/Top/Bottom).
+      # Mirrors the appkit path: pins the aligned edge + cross-axis edges, soft-fills
+      # the opposite edge (priority 499) so an unconstrained child fills while a
+      # fixed-size child keeps its size and aligns. align: 0=leading 1=trailing 2=top 3=bottom.
+      fun objc_pin_child_aligned(parent : Void*, child : Void*, align : Int32) : Void
       fun objc_set_horizontal_fixed_priority(view : Void*) : Void
       fun objc_set_horizontal_fill_priority(view : Void*) : Void
+      # Spacer flex priority: drop content-hugging to 1 on BOTH axes so a Spacer
+      # reliably absorbs all slack in a VStack or HStack (beats content's 250).
+      fun objc_set_flex_spacer_priority(view : Void*) : Void
       fun uiscrollview_pin_content(scroll_view : Void*, content_view : Void*) : Void
       # Phase 6.11 — swipe-reveal row factory. Builds a horizontal-scroll
       # UIScrollView with [content | action₁ | action₂ ...] children where
@@ -571,12 +579,35 @@
         end
         pop_stack
 
-        # For ZStack children, set autoresizing mask to fill parent:
-        # UIViewAutoresizingFlexibleWidth (2) | UIViewAutoresizingFlexibleHeight (16) = 18
+        # ZStack children overlap and fill the container. The autoresizing MASK
+        # (FlexibleWidth|FlexibleHeight) is IGNORED here because every rendered
+        # child sets translatesAutoresizingMaskIntoConstraints = NO for Auto Layout
+        # — so the old objc_set_autoresize(18) was a dead no-op: a child with no
+        # explicit size collapsed to its intrinsic height/position instead of
+        # filling (e.g. a content VStack's bottom Spacer couldn't expand, so a
+        # "push to the bottom" tray floated mid-screen; a full-bleed bg only
+        # covered part of the frame). Pin each child's edges to the ZStack via
+        # Auto Layout instead — exactly as the appkit renderer does. This also
+        # makes UIKit honor ZStack#alignment: Center/Fill (and the default) keep
+        # the all-4-edges fill every full-bleed hero relies on (zero-regression),
+        # while the directional cases (Leading/Trailing/Top/Bottom) pin the
+        # aligned edge and soft-fill the opposite so a fixed-size child sits
+        # aligned to that side (drawer panel, toast, badge) while unconstrained
+        # children still fill. See objc_pin_child_aligned.
+        align_code = case view.alignment
+                     when UI::Alignment::Leading  then 0
+                     when UI::Alignment::Trailing then 1
+                     when UI::Alignment::Top      then 2
+                     when UI::Alignment::Bottom   then 3
+                     else                              -1 # Center / Fill → legacy all-edges fill
+                     end
         native.children.each do |child_nv|
-          if child_nv.handle.valid?
-            child_ptr = child_nv.handle.ptr!
-            LibObjCBridge.objc_set_autoresize(child_ptr, 18_u64)
+          next unless child_nv.handle.valid?
+          child_ptr = child_nv.handle.ptr!
+          if align_code < 0
+            LibObjCBridge.objc_pin_child_to_superview_edges(ptr, child_ptr)
+          else
+            LibObjCBridge.objc_pin_child_aligned(ptr, child_ptr, align_code)
           end
         end
 
@@ -709,6 +740,14 @@
 
         # Disable autoresizing mask translation so Auto Layout controls size
         LibObjCBridge.objc_send_bool(ptr, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+
+        # Drop content-hugging to 1 on both axes so the Spacer unambiguously absorbs
+        # the stack's slack (a plain UIView and ordinary content both default to 250,
+        # which ties under UIStackView .fill and resolves arbitrarily — e.g. a
+        # [Spacer, card, Spacer] column would pin the card to the top instead of
+        # centering). This is what the long-standing comment always claimed but the
+        # code never did, which is why VStack Spacers were unreliable on iOS.
+        LibObjCBridge.objc_set_flex_spacer_priority(ptr)
 
         # If min_length > 0, set the frame as a minimum size hint.
         if view.min_length > 0
