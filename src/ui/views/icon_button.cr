@@ -13,8 +13,15 @@ module UI
     # Optional text label displayed alongside or below the icon
     property label : String? = nil
 
-    # Icon size in points
+    # Icon size in points (square shorthand; used when icon_width/icon_height are nil).
     property icon_size : Float64 = 24.0
+
+    # Explicit non-square icon dimensions (points). When set, these override
+    # icon_size. The facade renders the icon into an exact W×H frame using
+    # cover-crop (.fill contentMode) so the asset is never distorted.
+    # Example: hamburger menu icon rendered 22×18 from a 66×54 @3x source.
+    property icon_width : Float64? = nil
+    property icon_height : Float64? = nil
 
     # Foreground/tint color
     property tint_color : Color = Color.new(r: 0.0, g: 0.478, b: 1.0)

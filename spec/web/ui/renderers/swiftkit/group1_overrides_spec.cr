@@ -337,6 +337,25 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       UI::Native::Populator.populate_icon_button(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setBordered, times: 1, args: [target, "false"])
     end
+
+    it "skips setIconWidth/setIconHeight when nil (default square footprint)" do
+      view = UI::IconButton.new("plus")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_icon_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setIconWidth)
+      FakeLibObjCBridge.refute_sent(:setIconHeight)
+    end
+
+    it "emits setIconWidth/setIconHeight for a non-square cover-crop icon" do
+      # e.g. hamburger 22x18 from a 66x54 @3x source
+      view = UI::IconButton.new("/path/to/hamburgermenuicon.png")
+      view.icon_width = 22.0
+      view.icon_height = 18.0
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_icon_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setIconWidth, times: 1, args: [target, "22.0"])
+      FakeLibObjCBridge.assert_sent(:setIconHeight, times: 1, args: [target, "18.0"])
+    end
   end
 end
 

@@ -13,6 +13,11 @@
 // fallback uses the font-sized, tintable glyph. The tap callback is identical in
 // all three cases, so an IconButton with an absolute-path icon is a fully
 // functional image button.
+//
+// Non-square icons: when both `iconWidth` and `iconHeight` are set on the
+// overrides, the image is cover-cropped (.fill contentMode + clipped) into the
+// exact W×H frame. This matches Expo's `contentFit: "cover"` + `overflow: hidden`
+// on images with explicit width/height style (e.g. hamburger 22×18 from 66×54 @3x).
 
 import SwiftUI
 import Foundation
@@ -27,7 +32,14 @@ public class IconButtonFacade: NSObject {
         let action: () -> Void = {
             CallbackBridge.fire(token: actionToken, value: 0)
         }
+
+        // Resolve the rendered frame: explicit iconWidth/iconHeight (non-square
+        // cover-crop) take priority; otherwise fall back to a square from iconSize.
+        let iconW: CGFloat? = overrides.iconWidth.map { CGFloat($0.doubleValue) }
+        let iconH: CGFloat? = overrides.iconHeight.map { CGFloat($0.doubleValue) }
+        let useNonSquare = iconW != nil && iconH != nil
         let size = CGFloat(overrides.iconSize?.doubleValue ?? 24.0)
+
         let label = overrides.label
 
         // A real image (file path / asset catalog) → render verbatim at an exact
@@ -38,15 +50,28 @@ public class IconButtonFacade: NSObject {
         if let lbl = label, !lbl.isEmpty {
             // Labeled icon button.
             if let img = customImage {
-                content = AnyView(Button(action: action) {
-                    HStack(spacing: 6) {
-                        img.resizable()
-                            .renderingMode(.original)
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: size, height: size)
-                        Text(lbl)
-                    }
-                })
+                if useNonSquare, let w = iconW, let h = iconH {
+                    content = AnyView(Button(action: action) {
+                        HStack(spacing: 6) {
+                            img.resizable()
+                                .renderingMode(.original)
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: w, height: h)
+                                .clipped()
+                            Text(lbl)
+                        }
+                    })
+                } else {
+                    content = AnyView(Button(action: action) {
+                        HStack(spacing: 6) {
+                            img.resizable()
+                                .renderingMode(.original)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: size, height: size)
+                            Text(lbl)
+                        }
+                    })
+                }
             } else {
                 content = AnyView(Button(action: action) {
                     Label(lbl, systemImage: icon)
@@ -57,13 +82,26 @@ public class IconButtonFacade: NSObject {
             // unambiguous, so the iOS hosting-constraint crash that the SF-Symbol
             // branch guards against does not apply here. `.contentShape` makes the
             // whole box tappable.
-            content = AnyView(Button(action: action) {
-                img.resizable()
-                    .renderingMode(.original)
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: size, height: size)
-                    .contentShape(Rectangle())
-            })
+            if useNonSquare, let w = iconW, let h = iconH {
+                // Non-square cover-crop: fill the exact W×H box and clip, matching
+                // Expo's contentFit:"cover" + overflow:"hidden" on a sized image.
+                content = AnyView(Button(action: action) {
+                    img.resizable()
+                        .renderingMode(.original)
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: w, height: h)
+                        .clipped()
+                        .contentShape(Rectangle())
+                })
+            } else {
+                content = AnyView(Button(action: action) {
+                    img.resizable()
+                        .renderingMode(.original)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: size, height: size)
+                        .contentShape(Rectangle())
+                })
+            }
         } else {
             // Icon-only SF Symbol. Give the label an explicit, HIG-minimum (44pt)
             // tappable frame + a content shape. Without an explicit size, an

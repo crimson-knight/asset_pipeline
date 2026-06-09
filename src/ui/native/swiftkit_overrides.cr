@@ -524,6 +524,9 @@ module UI
         populate_view_common(target, view, sender)
         sender.set_color(target, :setForegroundColor, view.tint_color)
         sender.set_number(target, :setIconSize, view.icon_size == 24.0 ? nil : view.icon_size)
+        # Explicit non-square dimensions override icon_size (e.g. hamburger 22×18).
+        sender.set_number(target, :setIconWidth, view.icon_width)
+        sender.set_number(target, :setIconHeight, view.icon_height)
         sender.set_bool(target, :setDisabled, view.disabled ? true : nil)
         sender.set_string(target, :setLabel, view.label)
         # Chrome: true (default) keeps the platform button bezel; only emit when
