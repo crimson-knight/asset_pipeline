@@ -152,6 +152,17 @@
       # --- ObjC runtime ---
       fun sel_registerName(name : UInt8*) : Void*
       fun objc_getClass(name : UInt8*) : Void*
+
+      # --- Section 6: Discrete gesture surface ---
+      # Attach a UISwipeGestureRecognizer for `direction` (Left=0, Right=1,
+      # Up=2, Down=3). `token` is the CallbackRegistry id dispatched on
+      # recognition. Returns 1 on success.
+      fun objc_attach_swipe_gesture(view : Void*, direction : Int32, token : UInt64) : Int32
+      # Attach a UILongPressGestureRecognizer. `min_duration` is the hold
+      # threshold in seconds (0.5 recommended). cancelsTouchesInView = NO
+      # so child button taps are not swallowed by an adjacent long-press.
+      # Returns 1 on success.
+      fun objc_attach_long_press_gesture(view : Void*, token : UInt64, min_duration : Float64) : Int32
     end
 
     # Renders a UI::View tree to native UIKit views via the ObjC bridge.
@@ -248,12 +259,33 @@
       # causing the V1 auto-dismiss.
       @reuse_registry : Hash(String, NativeView)?
 
-      def initialize(reuse_registry : Hash(String, NativeView)? = nil)
+      # Phase 12.D (continuing-presentation reuse) — the prior render's
+      # root, captured when the host constructs the renderer with
+      # `reuse_from:`. Retained so `retire_prior!` can detach the reused
+      # subtree from it + run the orphan dismissal sweep AFTER the fresh
+      # render completes, without the host having to thread the prior
+      # root through a second call. Nil for the Voyager hosts (which
+      # still pass a pre-built `reuse_registry:` and drive detach/sweep
+      # themselves) and on first render.
+      @reuse_prior : NativeView?
+
+      # Phase 12.D — plain-host ergonomic entry point. `reuse_from:`
+      # accepts the PRIOR render's root NativeView and internally builds
+      # the identity-keyed reuse registry (via
+      # `NativeView.build_reuse_registry`). A plain host (happy_coach's
+      # `render_current`, not just the Voyager sample bridge) adopts
+      # continuing-presentation survival with a single construction +
+      # one `retire_prior!` after swap — no hand-rolled registry/detach/
+      # sweep ceremony. `reuse_registry:` remains for the Voyager hosts
+      # that already build the registry themselves; passing both is a
+      # caller error (reuse_from wins, the explicit registry is ignored).
+      def initialize(reuse_registry : Hash(String, NativeView)? = nil, *, reuse_from : NativeView? = nil)
         @stack = [] of NativeView
         @stack_is_uistack = [] of Bool
         @label_preferred_max_layout_width_stack = [] of Float64
         @test_id_registry = {} of String => Void*
-        @reuse_registry = reuse_registry
+        @reuse_prior = reuse_from
+        @reuse_registry = reuse_from ? NativeView.build_reuse_registry(reuse_from) : reuse_registry
 
         # Phase 6.10 Rem 4 (Item 2B/2C) — install the runtime device-
         # metrics provider so screens can query `UI::DesignTokens::
@@ -302,12 +334,24 @@
         result
       end
 
-      # Phase 12.C iter-4 (V1 fix Option A) — check the reuse registry
-      # for a presentation with the given identity + kind. Returns the
-      # existing NativeView (with `reused = true` flagged) when there's
-      # a hit; nil otherwise. Called from each reactive-presentation
-      # visit method before allocating a fresh UIHostingView.
-      private def try_reuse(identity : String?, kind : Symbol) : NativeView?
+      # Phase 12.C iter-4 (V1 fix Option A) / Phase 12.D — check the
+      # reuse registry for a presentation with the given identity + kind.
+      # Returns the existing NativeView (with `reused = true` flagged)
+      # when there's a hit; nil otherwise. Called from each reactive-
+      # presentation visit method before allocating a fresh
+      # UIHostingView.
+      #
+      # Phase 12.D — STATE-HANDLE ADOPTION. The `view` is the FRESH
+      # tree's reactive-presentation View (e.g. the new `UI::Sheet`
+      # instance the screen just rebuilt). On a reuse hit we copy the
+      # surviving handle's `state_handle` onto it so subsequent
+      # `is_presented=` / `dismiss!` calls on the NEW view drive the
+      # SAME SwiftUI binding the prior render mounted. Without this the
+      # new view's `@swiftkit_state_handle` stays nil and a controller
+      # that closes the sheet on the post-rerender instance silently
+      # no-ops (the bug this phase fixes). The marker makes the reuse
+      # decision observable in the interaction-contracts harness.
+      private def try_reuse(view : UI::View, identity : String?, kind : Symbol) : NativeView?
         return nil if identity.nil?
         registry = @reuse_registry
         return nil if registry.nil?
@@ -316,9 +360,39 @@
         return nil if existing.state.torn_down?
         return nil if existing.handle.released?
         return nil unless existing.handle.reactive_kind == kind
-        return nil if existing.handle.state_handle.nil?
+        state = existing.handle.state_handle
+        return nil if state.nil?
         existing.reused = true
+        view.swiftkit_state_handle = state
+        {% if flag?(:macos) || flag?(:ios) %}
+          UI::InteractionContracts.emit_for(
+            "Sheet",
+            "continuing-presentation-reused",
+            identity,
+            kind: kind.to_s,
+            content: "prior-shell-retained",
+          )
+        {% end %}
         existing
+      end
+
+      # Phase 12.D — plain-host retirement helper. A host that built the
+      # renderer with `reuse_from:` calls this AFTER `render` and AFTER
+      # it has swapped in the fresh root. It (1) detaches the reused
+      # NativeViews from the prior tree so its teardown/GC pass doesn't
+      # double-release the shared NativeHandle, then (2) runs the
+      # identity-aware orphan sweep so a presentation whose identity
+      # vanished from the fresh tree flips its SwiftUI binding to false
+      # (cause=binding-dismiss, not tree-removal) — preserving the
+      # existing `dismiss_reactive_presentations!` behaviour for
+      # orphaned sheets. No-op when constructed without `reuse_from:`.
+      # `fresh` is the root this renderer just produced.
+      def retire_prior!(fresh : NativeView) : Nil
+        prior = @reuse_prior
+        return if prior.nil?
+        prior.detach_reused!
+        NativeView.dismiss_reactive_presentations!(prior, fresh: fresh)
+        nil
       end
 
       # Phase 12.C — cross-render reactive-presentation sweep
@@ -2034,7 +2108,7 @@
         # would discard the parent UIView, unmount the SheetHost, and
         # SwiftUI would dismiss the modal (V1).
         identity = view.test_id || view.accessibility_label
-        if existing = try_reuse(identity, :sheet)
+        if existing = try_reuse(view, identity, :sheet)
           push_native(existing)
           return
         end
@@ -2164,7 +2238,7 @@
       def visit(view : UI::ConfirmationDialog)
         # Phase 12.C iter-4 (V1 fix Option A) — reuse path.
         identity = view.test_id || view.accessibility_label
-        if existing = try_reuse(identity, :confirmation_dialog)
+        if existing = try_reuse(view, identity, :confirmation_dialog)
           push_native(existing)
           return
         end
@@ -4283,7 +4357,7 @@
       def visit(view : UI::ActionSheet)
         # Phase 12.C iter-4 (V1 fix Option A) — reuse path.
         identity = view.test_id || view.accessibility_label
-        if existing = try_reuse(identity, :confirmation_dialog)
+        if existing = try_reuse(view, identity, :confirmation_dialog)
           push_native(existing)
           return
         end
@@ -5330,6 +5404,35 @@
           unless view.default_focusable
             LibObjCBridge.objc_send_bool(ptr, sel("setIsAccessibilityElement:"), 1)
           end
+        end
+
+        # Discrete gesture surface — swipe (4 directions) + long-press.
+        #
+        # Tokens are registered in the CallbackRegistry (strong Crystal reference)
+        # and the bridge pins the target object on the native view via
+        # objc_setAssociatedObject so the Proc stays alive for the view's lifetime.
+        # Token teardown mirrors the accessibility_actions pattern used above:
+        # tokens are not tracked on NativeView here because `native` is not yet
+        # constructed at the `apply_common_properties` call site. Call sites that
+        # need strict teardown tracking can call `native.track_callback_id` on the
+        # IDs returned from a separate helper if needed in a future phase.
+        #
+        # UISwipeGestureRecognizer: cancelsTouchesInView defaults to YES so the
+        # swipe gesture takes priority over incidental child-button touches in
+        # the swiped area (standard iOS list-row swipe behavior).
+        if handlers = view.swipe_handlers
+          handlers.each do |direction, handler|
+            token = UI::CallbackRegistry.register(handler)
+            dir_int = direction.value.to_i32
+            LibObjCBridge.objc_attach_swipe_gesture(ptr, dir_int, token)
+          end
+        end
+
+        # UILongPressGestureRecognizer (0.5 s threshold). cancelsTouchesInView
+        # is set to NO by the bridge so short taps on child buttons fire normally.
+        if lp = view.on_long_press
+          token = UI::CallbackRegistry.register(lp)
+          LibObjCBridge.objc_attach_long_press_gesture(ptr, token, 0.5_f64)
         end
       end
 

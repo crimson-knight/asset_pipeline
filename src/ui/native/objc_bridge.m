@@ -1064,7 +1064,7 @@ void *make_swipe_reveal_row(void *content_view,
     // try to expand horizontally to its contentSize.
     [scroll.widthAnchor constraintEqualToConstant:row_width].active = YES;
 
-    return (__bridge_retained void *)scroll;
+    return (void *)scroll;
 #else
     return NULL;
 #endif
@@ -1788,8 +1788,9 @@ void *wkwebview_new(const char *url_cstr,
     }
 
     WKPreferences *preferences = [configuration preferences];
-    if (preferences && [preferences respondsToSelector:@selector(setJavaScriptEnabled:)]) {
-        preferences.javaScriptEnabled = (BOOL)allows_scripts;
+    SEL legacy_js_sel = sel_registerName("setJavaScriptEnabled:");
+    if (preferences && [preferences respondsToSelector:legacy_js_sel]) {
+        ((void (*)(id, SEL, BOOL))objc_msgSend)(preferences, legacy_js_sel, (BOOL)allows_scripts);
     }
 
 #if TARGET_OS_OSX
@@ -2594,6 +2595,24 @@ void nssharingservicepicker_present(void *anchor_view_ptr,
     });
 }
 #else
+static UIWindow *ap_application_key_window(UIApplication *application) {
+    if (!application) return nil;
+    if ([application respondsToSelector:@selector(connectedScenes)]) {
+        for (UIScene *scene in application.connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+            for (UIWindow *candidate in ((UIWindowScene *)scene).windows) {
+                if (candidate.isKeyWindow) return candidate;
+            }
+        }
+    }
+
+    SEL key_window_sel = sel_registerName("keyWindow");
+    if ([application respondsToSelector:key_window_sel]) {
+        return ((UIWindow *(*)(id, SEL))objc_msgSend)(application, key_window_sel);
+    }
+    return nil;
+}
+
 static UIViewController *ap_top_presenting_view_controller(UIView *anchor_view) {
     UIResponder *responder = anchor_view;
     while (responder) {
@@ -2609,21 +2628,7 @@ static UIViewController *ap_top_presenting_view_controller(UIView *anchor_view) 
 
     UIWindow *window = anchor_view.window;
     UIApplication *application = [UIApplication sharedApplication];
-    if (!window && [application respondsToSelector:@selector(connectedScenes)]) {
-        for (UIScene *scene in application.connectedScenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
-            for (UIWindow *candidate in ((UIWindowScene *)scene).windows) {
-                if (candidate.isKeyWindow) {
-                    window = candidate;
-                    break;
-                }
-            }
-            if (window) break;
-        }
-    }
-    if (!window && [application respondsToSelector:@selector(keyWindow)]) {
-        window = application.keyWindow;
-    }
+    if (!window) window = ap_application_key_window(application);
     if (!window) return nil;
 
     UIViewController *controller = window.rootViewController;
@@ -3337,18 +3342,7 @@ static NSWindow *ap_target_window(void) {
 #else
 static UIWindow *ap_target_window(void) {
     UIApplication *application = [UIApplication sharedApplication];
-    if ([application respondsToSelector:@selector(connectedScenes)]) {
-        for (UIScene *scene in application.connectedScenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
-            for (UIWindow *candidate in ((UIWindowScene *)scene).windows) {
-                if (candidate.isKeyWindow) return candidate;
-            }
-        }
-    }
-    if ([application respondsToSelector:@selector(keyWindow)]) {
-        return application.keyWindow;
-    }
-    return nil;
+    return ap_application_key_window(application);
 }
 
 static long long g_status_bar_style = 0;
@@ -3949,6 +3943,61 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 @end
 
+static NSArray *ap_document_content_types_from_identifiers(NSArray<NSString *> *identifiers) {
+    Class ut_type_class = NSClassFromString(@"UTType");
+    SEL type_with_identifier_sel = sel_registerName("typeWithIdentifier:");
+    if (!ut_type_class || ![ut_type_class respondsToSelector:type_with_identifier_sel]) {
+        return nil;
+    }
+
+    NSMutableArray *content_types = [NSMutableArray array];
+    NSCharacterSet *trim_set = [NSCharacterSet whitespaceAndNewlineCharacterSet];
+    for (NSString *identifier in identifiers) {
+        NSString *trimmed = [identifier stringByTrimmingCharactersInSet:trim_set];
+        if (!trimmed.length) continue;
+        id type = ((id (*)(id, SEL, id))objc_msgSend)(ut_type_class, type_with_identifier_sel, trimmed);
+        if (type) [content_types addObject:type];
+    }
+    if (!content_types.count) {
+        id data_type = ((id (*)(id, SEL, id))objc_msgSend)(ut_type_class, type_with_identifier_sel, @"public.data");
+        if (data_type) [content_types addObject:data_type];
+    }
+    return content_types.count ? content_types : nil;
+}
+
+static UIDocumentPickerViewController *ap_document_picker_for_opening(NSArray<NSString *> *types) {
+    SEL modern_sel = sel_registerName("initForOpeningContentTypes:asCopy:");
+    if ([UIDocumentPickerViewController instancesRespondToSelector:modern_sel]) {
+        NSArray *content_types = ap_document_content_types_from_identifiers(types);
+        if (content_types.count) {
+            return ((UIDocumentPickerViewController *(*)(id, SEL, id, BOOL))objc_msgSend)(
+                [UIDocumentPickerViewController alloc], modern_sel, content_types, YES);
+        }
+    }
+
+    SEL legacy_sel = sel_registerName("initWithDocumentTypes:inMode:");
+    if ([UIDocumentPickerViewController instancesRespondToSelector:legacy_sel]) {
+        return ((UIDocumentPickerViewController *(*)(id, SEL, id, NSInteger))objc_msgSend)(
+            [UIDocumentPickerViewController alloc], legacy_sel, types, (NSInteger)0);
+    }
+    return nil;
+}
+
+static UIDocumentPickerViewController *ap_document_picker_for_exporting(NSURL *source) {
+    SEL modern_sel = sel_registerName("initForExportingURLs:asCopy:");
+    if ([UIDocumentPickerViewController instancesRespondToSelector:modern_sel]) {
+        return ((UIDocumentPickerViewController *(*)(id, SEL, id, BOOL))objc_msgSend)(
+            [UIDocumentPickerViewController alloc], modern_sel, @[source], YES);
+    }
+
+    SEL legacy_sel = sel_registerName("initWithURL:inMode:");
+    if ([UIDocumentPickerViewController instancesRespondToSelector:legacy_sel]) {
+        return ((UIDocumentPickerViewController *(*)(id, SEL, id, NSInteger))objc_msgSend)(
+            [UIDocumentPickerViewController alloc], legacy_sel, source, (NSInteger)2);
+    }
+    return nil;
+}
+
 int ap_open_file_picker_ios(void *anchor_view_ptr, const char *utis_cstr,
                             unsigned long long token) {
     // A null anchor is allowed: `ap_top_presenting_view_controller(nil)`
@@ -3986,9 +4035,8 @@ int ap_open_file_picker_ios(void *anchor_view_ptr, const char *utis_cstr,
     dispatch_async(dispatch_get_main_queue(), ^{
         UIViewController *presenter = ap_top_presenting_view_controller(anchor);
         if (!presenter) return;
-        UIDocumentPickerViewController *picker =
-            [[UIDocumentPickerViewController alloc] initWithDocumentTypes:types
-                                                                   inMode:UIDocumentPickerModeImport];
+        UIDocumentPickerViewController *picker = ap_document_picker_for_opening(types);
+        if (!picker) return;
         APDocPickerDelegate *delegate = [[APDocPickerDelegate alloc] init];
         delegate.callback_token = token;
         picker.delegate = delegate;
@@ -4029,9 +4077,8 @@ int ap_export_file_ios(void *anchor_view_ptr, const char *source_url_cstr,
     dispatch_async(dispatch_get_main_queue(), ^{
         UIViewController *presenter = ap_top_presenting_view_controller(anchor);
         if (!presenter) return;
-        UIDocumentPickerViewController *picker =
-            [[UIDocumentPickerViewController alloc] initWithURL:source
-                                                         inMode:UIDocumentPickerModeExportToService];
+        UIDocumentPickerViewController *picker = ap_document_picker_for_exporting(source);
+        if (!picker) return;
         APDocPickerDelegate *delegate = [[APDocPickerDelegate alloc] init];
         delegate.callback_token = token;
         picker.delegate = delegate;
@@ -4448,3 +4495,373 @@ int ap_combo_box_wire_string_change(void *combo_ptr, unsigned long long token) {
 }
 
 #endif
+
+// =============================================================================
+// Section 6: Discrete gesture surface — swipe (4 directions) + long-press.
+//
+// "Discrete" here means each recognizer fires the Crystal callback ONCE per
+// completed gesture: a swipe fires when UIKit/AppKit recognizes the completed
+// flick; a long-press fires when the hold threshold is crossed (state .began).
+// Continuous pan tracking is intentionally out of scope.
+//
+// Target objects carry the Crystal callback token in a `_token` ivar.
+// The macOS swipe target also carries a `_direction` ivar (int) so the
+// NSPanGestureRecognizer action can classify the dominant translation at .ended
+// (threshold 30 pt) and fire only when the translation matches the registered
+// direction.
+//
+// Each target object is pinned to the host view via objc_setAssociatedObject
+// using a per-direction static key. This keeps the target alive as long as
+// the view is alive, so the Crystal Proc is not collected prematurely.
+// Re-attaching the same direction replaces the old associated target.
+// =============================================================================
+
+// ------------------------------------------------------------------
+// Shared token helpers (used by all gesture target classes).
+// ------------------------------------------------------------------
+
+static unsigned long long ap_gesture_read_token(id self) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (!ivar) return 0ULL;
+    return *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar));
+}
+
+static void ap_gesture_set_token(id self, SEL _cmd, unsigned long long token) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (ivar) {
+        *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar)) = token;
+    }
+}
+
+// ------------------------------------------------------------------
+// CrystalSwipeTarget — fires token unconditionally (iOS path).
+// On iOS UISwipeGestureRecognizer already enforces the direction;
+// the target just dispatches.
+// ------------------------------------------------------------------
+
+static void ap_swipe_target_handle(id self, SEL _cmd, id recognizer) {
+    unsigned long long token = ap_gesture_read_token(self);
+    if (token != 0ULL) {
+        crystal_ui_callback_dispatch(token);
+    }
+}
+
+static Class ap_register_swipe_target(void) {
+    Class cls = objc_getClass("CrystalSwipeTarget");
+    if (cls) return cls;
+
+    cls = objc_allocateClassPair([NSObject class], "CrystalSwipeTarget", 0);
+    if (!cls) return Nil;
+
+    class_addIvar(cls, "_token", sizeof(unsigned long long),
+                  __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addMethod(cls, sel_registerName("setToken:"),
+                    (IMP)ap_gesture_set_token, "v@:Q");
+    class_addMethod(cls, sel_registerName("handleSwipe:"),
+                    (IMP)ap_swipe_target_handle, "v@:@");
+
+    objc_registerClassPair(cls);
+    return cls;
+}
+
+// ------------------------------------------------------------------
+// CrystalPanSwipeTarget — macOS path. Carries both a token ivar
+// and a direction ivar; the handlePan: action classifies translation
+// at .ended and dispatches only when the dominant axis matches.
+//
+// Direction encoding (matches UI::SwipeDirection enum):
+//   0 = Left, 1 = Right, 2 = Up, 3 = Down
+//
+// Classification threshold: 30 pt. When both axes exceed the threshold,
+// the larger magnitude wins; Left and Down are biased slightly in the
+// case of a tie (the recognizer fires for the first matching direction).
+// ------------------------------------------------------------------
+
+#if TARGET_OS_OSX
+
+static int ap_pan_read_direction(id self) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_direction");
+    if (!ivar) return -1;
+    return *(int *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar));
+}
+
+static void ap_pan_set_direction(id self, SEL _cmd, int dir) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_direction");
+    if (ivar) {
+        *(int *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar)) = dir;
+    }
+}
+
+// Classification threshold: below this, the gesture is considered noise.
+#define AP_SWIPE_THRESHOLD 30.0
+
+static void ap_pan_target_handle(id self, SEL _cmd, id recognizer) {
+    // Only classify at .ended — we are not tracking continuous pans.
+    NSGestureRecognizerState state =
+        ((NSGestureRecognizerState (*)(id, SEL))objc_msgSend)(
+            recognizer, sel_registerName("state"));
+    if (state != NSGestureRecognizerStateEnded) return;
+
+    // Read the translation in the recognizer's view.
+    SEL trans_sel = sel_registerName("translationInView:");
+    NSView *rec_view =
+        (NSView *)((id (*)(id, SEL))objc_msgSend)(recognizer, sel_registerName("view"));
+    CGPoint translation = { 0, 0 };
+    // NSPanGestureRecognizer translationInView: returns an NSPoint (CGPoint alias).
+    // The return type is a struct; we use objc_msgSend_stret-compatible cast.
+    // On arm64 macOS small structs (≤16 bytes) are returned in registers via
+    // the normal objc_msgSend, NOT via stret. CGPoint = 2 doubles = 16 bytes.
+    typedef CGPoint (*CGPointIMP)(id, SEL, id);
+    translation = ((CGPointIMP)objc_msgSend)(recognizer, trans_sel, (id)rec_view);
+
+    double dx = translation.x;
+    double dy = translation.y;
+    double abs_x = dx < 0 ? -dx : dx;
+    double abs_y = dy < 0 ? -dy : dy;
+
+    // Neither axis met the threshold — not a swipe.
+    if (abs_x < AP_SWIPE_THRESHOLD && abs_y < AP_SWIPE_THRESHOLD) return;
+
+    // Classify by dominant axis.
+    int classified;
+    if (abs_x >= abs_y) {
+        classified = (dx < 0) ? 0 : 1; // Left = 0, Right = 1
+    } else {
+        classified = (dy < 0) ? 2 : 3; // Up = 2, Down = 3
+        // Note: AppKit's Y axis is flipped relative to UIKit. On macOS a pan
+        // toward the top of the screen produces a positive dy (NSView coords
+        // are bottom-origin). dy < 0 means the finger moved downward in the
+        // coordinate system, which is visually "Up" for the user when the view
+        // is not flipped; most NSViews ARE flipped in asset_pipeline (the stack
+        // views use flipped coordinates via NSFlippedView). We use the raw
+        // sign here — callers that need the visual direction should account for
+        // the flip. This is a known macOS vs iOS behavioral difference and is
+        // documented on UI::SwipeDirection.
+    }
+
+    int expected = ap_pan_read_direction(self);
+    if (expected < 0 || classified == expected) {
+        unsigned long long token = ap_gesture_read_token(self);
+        if (token != 0ULL) {
+            crystal_ui_callback_dispatch(token);
+        }
+    }
+}
+
+static Class ap_register_pan_swipe_target(void) {
+    Class cls = objc_getClass("CrystalPanSwipeTarget");
+    if (cls) return cls;
+
+    cls = objc_allocateClassPair([NSObject class], "CrystalPanSwipeTarget", 0);
+    if (!cls) return Nil;
+
+    class_addIvar(cls, "_token", sizeof(unsigned long long),
+                  __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addIvar(cls, "_direction", sizeof(int),
+                  __alignof__(int), @encode(int));
+    class_addMethod(cls, sel_registerName("setToken:"),
+                    (IMP)ap_gesture_set_token, "v@:Q");
+    class_addMethod(cls, sel_registerName("setDirection:"),
+                    (IMP)ap_pan_set_direction, "v@:i");
+    class_addMethod(cls, sel_registerName("handlePan:"),
+                    (IMP)ap_pan_target_handle, "v@:@");
+
+    objc_registerClassPair(cls);
+    return cls;
+}
+
+#endif // TARGET_OS_OSX
+
+// ------------------------------------------------------------------
+// CrystalLongPressTarget — fires token when the recognizer enters
+// the .began state (hold threshold crossed).
+// ------------------------------------------------------------------
+
+static void ap_long_press_target_handle(id self, SEL _cmd, id recognizer) {
+    // Fire only at .began — the threshold has just been crossed.
+#if TARGET_OS_IPHONE
+    UIGestureRecognizerState state =
+        ((UIGestureRecognizerState (*)(id, SEL))objc_msgSend)(
+            recognizer, sel_registerName("state"));
+    if (state != UIGestureRecognizerStateBegan) return;
+#else
+    NSGestureRecognizerState state =
+        ((NSGestureRecognizerState (*)(id, SEL))objc_msgSend)(
+            recognizer, sel_registerName("state"));
+    if (state != NSGestureRecognizerStateBegan) return;
+#endif
+    unsigned long long token = ap_gesture_read_token(self);
+    if (token != 0ULL) {
+        crystal_ui_callback_dispatch(token);
+    }
+}
+
+static Class ap_register_long_press_target(void) {
+    Class cls = objc_getClass("CrystalLongPressTarget");
+    if (cls) return cls;
+
+    cls = objc_allocateClassPair([NSObject class], "CrystalLongPressTarget", 0);
+    if (!cls) return Nil;
+
+    class_addIvar(cls, "_token", sizeof(unsigned long long),
+                  __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addMethod(cls, sel_registerName("setToken:"),
+                    (IMP)ap_gesture_set_token, "v@:Q");
+    class_addMethod(cls, sel_registerName("handleLongPress:"),
+                    (IMP)ap_long_press_target_handle, "v@:@");
+
+    objc_registerClassPair(cls);
+    return cls;
+}
+
+// ------------------------------------------------------------------
+// Per-direction associated-object keys.
+//
+// Static self-referencing pointers are a stable, unique key per
+// translation unit — the same technique used throughout this file.
+// ------------------------------------------------------------------
+static const void *ap_swipe_key_0 = &ap_swipe_key_0; // Left  (0)
+static const void *ap_swipe_key_1 = &ap_swipe_key_1; // Right (1)
+static const void *ap_swipe_key_2 = &ap_swipe_key_2; // Up    (2)
+static const void *ap_swipe_key_3 = &ap_swipe_key_3; // Down  (3)
+static const void *ap_long_press_key = &ap_long_press_key;
+
+static const void *ap_swipe_assoc_key_for_direction(int direction) {
+    switch (direction) {
+        case 1:  return ap_swipe_key_1;
+        case 2:  return ap_swipe_key_2;
+        case 3:  return ap_swipe_key_3;
+        default: return ap_swipe_key_0;
+    }
+}
+
+// ------------------------------------------------------------------
+// objc_attach_swipe_gesture — attach a discrete swipe recognizer.
+//
+// `direction` is the SwipeDirection enum ordinal (Left=0, Right=1,
+// Up=2, Down=3). `token` is the Crystal CallbackRegistry id.
+//
+// iOS: UISwipeGestureRecognizer — natively directional.
+//   cancelsTouchesInView defaults to YES (swipe consumes the touch),
+//   which matches standard iOS list-row swipe affordance.
+//
+// macOS: NSPanGestureRecognizer with a direction-aware target
+//   (CrystalPanSwipeTarget). The action fires only when the dominant
+//   translation component at .ended matches the registered direction
+//   and exceeds the 30 pt threshold. Each direction installs its own
+//   independent recognizer so all four can coexist on one view.
+//
+// Returns 1 on success, 0 on nil view or class registration failure.
+// ------------------------------------------------------------------
+int objc_attach_swipe_gesture(void *view_ptr, int direction, unsigned long long token) {
+    if (view_ptr == NULL) return 0;
+
+    id view = (__bridge id)view_ptr;
+    const void *assoc_key = ap_swipe_assoc_key_for_direction(direction);
+
+#if TARGET_OS_IPHONE
+    Class target_cls = ap_register_swipe_target();
+    if (!target_cls) return 0;
+
+    id target = ((id (*)(Class, SEL))objc_msgSend)(target_cls, sel_registerName("new"));
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(
+        target, sel_registerName("setToken:"), token);
+    objc_setAssociatedObject(view, assoc_key, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [target release];
+
+    id target_obj = objc_getAssociatedObject(view, assoc_key);
+
+    UISwipeGestureRecognizerDirection ui_dir;
+    switch (direction) {
+        case 0:  ui_dir = UISwipeGestureRecognizerDirectionLeft;  break;
+        case 1:  ui_dir = UISwipeGestureRecognizerDirectionRight; break;
+        case 2:  ui_dir = UISwipeGestureRecognizerDirectionUp;    break;
+        case 3:  ui_dir = UISwipeGestureRecognizerDirectionDown;  break;
+        default: ui_dir = UISwipeGestureRecognizerDirectionDown;  break;
+    }
+    UISwipeGestureRecognizer *rec =
+        [[UISwipeGestureRecognizer alloc] initWithTarget:target_obj
+                                                  action:sel_registerName("handleSwipe:")];
+    rec.direction = ui_dir;
+    // cancelsTouchesInView defaults to YES — swipe consumes the touch.
+    [(UIView *)view addGestureRecognizer:rec];
+    [rec release];
+
+#else // TARGET_OS_OSX
+    Class target_cls = ap_register_pan_swipe_target();
+    if (!target_cls) return 0;
+
+    id target = ((id (*)(Class, SEL))objc_msgSend)(target_cls, sel_registerName("new"));
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(
+        target, sel_registerName("setToken:"), token);
+    ((void (*)(id, SEL, int))objc_msgSend)(
+        target, sel_registerName("setDirection:"), direction);
+    objc_setAssociatedObject(view, assoc_key, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [target release];
+
+    id target_obj = objc_getAssociatedObject(view, assoc_key);
+
+    NSPanGestureRecognizer *rec =
+        [[NSPanGestureRecognizer alloc] initWithTarget:target_obj
+                                                action:sel_registerName("handlePan:")];
+    [(NSView *)view addGestureRecognizer:rec];
+    [rec release];
+#endif
+
+    return 1;
+}
+
+// ------------------------------------------------------------------
+// objc_attach_long_press_gesture — attach a discrete long-press recognizer.
+//
+// `token` is the Crystal CallbackRegistry id. `min_duration` is the
+// hold threshold in seconds (pass 0.5 for the Apple HIG default).
+//
+// iOS: UILongPressGestureRecognizer. cancelsTouchesInView = NO so
+//   child button taps fire normally on short presses.
+// macOS: NSPressGestureRecognizer (same semantics).
+//
+// The callback fires once when the recognizer enters .began (threshold
+// crossed). Later state transitions (.changed, .ended) are ignored.
+//
+// Returns 1 on success, 0 on nil view or class registration failure.
+// ------------------------------------------------------------------
+int objc_attach_long_press_gesture(void *view_ptr, unsigned long long token, double min_duration) {
+    if (view_ptr == NULL) return 0;
+
+    Class target_cls = ap_register_long_press_target();
+    if (!target_cls) return 0;
+
+    id view = (__bridge id)view_ptr;
+
+    id target = ((id (*)(Class, SEL))objc_msgSend)(target_cls, sel_registerName("new"));
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(
+        target, sel_registerName("setToken:"), token);
+    objc_setAssociatedObject(view, ap_long_press_key, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [target release];
+
+    id target_obj = objc_getAssociatedObject(view, ap_long_press_key);
+
+#if TARGET_OS_IPHONE
+    UILongPressGestureRecognizer *rec =
+        [[UILongPressGestureRecognizer alloc] initWithTarget:target_obj
+                                                      action:sel_registerName("handleLongPress:")];
+    rec.minimumPressDuration = (NSTimeInterval)min_duration;
+    // cancelsTouchesInView = NO: a long-press overlay must not prevent child
+    // button taps from completing — the button's on_tap fires on tap-up, which
+    // only reaches the button if this recognizer does not swallow the touch.
+    rec.cancelsTouchesInView = NO;
+    [(UIView *)view addGestureRecognizer:rec];
+    [rec release];
+
+#else // TARGET_OS_OSX
+    NSPressGestureRecognizer *rec =
+        [[NSPressGestureRecognizer alloc] initWithTarget:target_obj
+                                                  action:sel_registerName("handleLongPress:")];
+    rec.minimumPressDuration = (NSTimeInterval)min_duration;
+    [(NSView *)view addGestureRecognizer:rec];
+    [rec release];
+#endif
+
+    return 1;
+}

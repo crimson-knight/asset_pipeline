@@ -149,6 +149,17 @@
       fun objc_safe_area_trailing : Float64
       fun objc_horizontal_size_class : Int32
       fun objc_vertical_size_class : Int32
+
+      # --- Section 6: Discrete gesture surface ---
+      # Attach an NSPanGestureRecognizer that classifies direction at .ended
+      # (dominant translation component, threshold 30 pt). `direction` encodes
+      # the desired direction (Left=0, Right=1, Up=2, Down=3); the macOS bridge
+      # creates one pan recognizer per call — multiple directions each install
+      # an independent recognizer. `token` is the CallbackRegistry id.
+      fun objc_attach_swipe_gesture(view : Void*, direction : Int32, token : UInt64) : Int32
+      # Attach an NSPressGestureRecognizer. `min_duration` is the hold threshold
+      # in seconds (0.5 recommended). Returns 1 on success.
+      fun objc_attach_long_press_gesture(view : Void*, token : UInt64, min_duration : Float64) : Int32
     end
 
     # Renders a UI::View tree to native AppKit views via the ObjC bridge.
@@ -208,10 +219,24 @@
       # Phase 12.C iter-4 (V1 fix Option A) — symmetric to UIKit.
       @reuse_registry : Hash(String, NativeView)?
 
-      def initialize(reuse_registry : Hash(String, NativeView)? = nil)
+      # Phase 12.D (continuing-presentation reuse) — symmetric to UIKit.
+      # The prior render's root captured when the host constructs with
+      # `reuse_from:`; `retire_prior!` detaches the reused subtree from
+      # it + runs the orphan sweep after the fresh render. See the UIKit
+      # renderer for the full rationale.
+      @reuse_prior : NativeView?
+
+      # Phase 12.D — plain-host ergonomic entry point. `reuse_from:`
+      # builds the identity-keyed reuse registry from the prior render's
+      # root internally so a plain macOS host adopts continuing-
+      # presentation survival with a single construction + one
+      # `retire_prior!`. `reuse_registry:` stays for the Voyager macOS
+      # host that already builds the registry itself.
+      def initialize(reuse_registry : Hash(String, NativeView)? = nil, *, reuse_from : NativeView? = nil)
         @stack = [] of NativeView
         @stack_is_nsstack = [] of Bool
-        @reuse_registry = reuse_registry
+        @reuse_prior = reuse_from
+        @reuse_registry = reuse_from ? NativeView.build_reuse_registry(reuse_from) : reuse_registry
         LibObjCBridge.register_crystal_action_dispatcher
 
         # Phase 6.10 Rem 4 (Item 2B/2C) — install the runtime device-
@@ -234,12 +259,18 @@
         end
       end
 
-      # Phase 12.C iter-4 (V1 fix Option A) — AppKit-side reuse check.
-      # Mirrors UIKit::Renderer#try_reuse; lives on its own helper here
-      # because the renderer classes don't share a base beyond
-      # PlatformVisitor and Crystal doesn't let a subclass private
-      # method punch through the visitor abstraction.
-      private def appkit_try_reuse(identity : String?, kind : Symbol) : NativeView?
+      # Phase 12.C iter-4 (V1 fix Option A) / Phase 12.D — AppKit-side
+      # reuse check. Mirrors UIKit::Renderer#try_reuse; lives on its own
+      # helper here because the renderer classes don't share a base
+      # beyond PlatformVisitor and Crystal doesn't let a subclass
+      # private method punch through the visitor abstraction.
+      #
+      # Phase 12.D — STATE-HANDLE ADOPTION (see UIKit#try_reuse). Copies
+      # the surviving handle's `state_handle` onto the FRESH tree's
+      # `view` so a controller closing the post-rerender Sheet instance
+      # drives the SAME NSHostingView .sheet binding, and emits the
+      # `continuing-presentation-reused` marker.
+      private def appkit_try_reuse(view : UI::View, identity : String?, kind : Symbol) : NativeView?
         return nil if identity.nil?
         registry = @reuse_registry
         return nil if registry.nil?
@@ -248,9 +279,30 @@
         return nil if existing.state.torn_down?
         return nil if existing.handle.released?
         return nil unless existing.handle.reactive_kind == kind
-        return nil if existing.handle.state_handle.nil?
+        state = existing.handle.state_handle
+        return nil if state.nil?
         existing.reused = true
+        view.swiftkit_state_handle = state
+        UI::InteractionContracts.emit_for(
+          "Sheet",
+          "continuing-presentation-reused",
+          identity,
+          kind: kind.to_s,
+          content: "prior-shell-retained",
+        )
         existing
+      end
+
+      # Phase 12.D — plain-host retirement helper, symmetric to
+      # UIKit::Renderer#retire_prior!. Detaches the reused subtree from
+      # the prior tree, then runs the identity-aware orphan dismissal
+      # sweep. No-op when constructed without `reuse_from:`.
+      def retire_prior!(fresh : NativeView) : Nil
+        prior = @reuse_prior
+        return if prior.nil?
+        prior.detach_reused!
+        NativeView.dismiss_reactive_presentations!(prior, fresh: fresh)
+        nil
       end
 
       private def size_class_from_int(value : Int32) : UI::DesignTokens::SizeClass
@@ -1812,7 +1864,7 @@
         # is symmetric and exists so the same fix applies to macOS
         # hosts that suffer the equivalent .id()-style discard.
         identity = view.test_id || view.accessibility_label
-        if @reuse_registry && (existing = appkit_try_reuse(identity, :sheet))
+        if @reuse_registry && (existing = appkit_try_reuse(view, identity, :sheet))
           push_native(existing)
           return
         end
@@ -1933,7 +1985,7 @@
       def visit(view : UI::ConfirmationDialog)
         # Phase 12.C iter-4 — reuse path.
         identity = view.test_id || view.accessibility_label
-        if @reuse_registry && (existing = appkit_try_reuse(identity, :confirmation_dialog))
+        if @reuse_registry && (existing = appkit_try_reuse(view, identity, :confirmation_dialog))
           push_native(existing)
           return
         end
@@ -4843,6 +4895,32 @@
           unless view.default_focusable
             LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElement:"), 1)
           end
+        end
+
+        # Discrete gesture surface — swipe (4 directions) + long-press.
+        #
+        # macOS uses NSPanGestureRecognizer for swipe: the bridge installs one
+        # pan recognizer per registered direction, classifying translation at
+        # .ended via the dominant component (threshold 30 pt). Multiple
+        # directions each get an independent recognizer. This differs from the
+        # iOS path (UISwipeGestureRecognizer, one per direction); the behavior
+        # difference is documented on UI::SwipeDirection.
+        #
+        # Tokens are registered in the CallbackRegistry and the bridge pins
+        # the target on the native view via objc_setAssociatedObject, mirroring
+        # the accessibility_actions lifecycle pattern used above.
+        if handlers = view.swipe_handlers
+          handlers.each do |direction, handler|
+            token = UI::CallbackRegistry.register(handler)
+            dir_int = direction.value.to_i32
+            LibObjCBridge.objc_attach_swipe_gesture(ptr, dir_int, token)
+          end
+        end
+
+        # NSPressGestureRecognizer (0.5 s threshold) for long-press.
+        if lp = view.on_long_press
+          token = UI::CallbackRegistry.register(lp)
+          LibObjCBridge.objc_attach_long_press_gesture(ptr, token, 0.5_f64)
         end
       end
 

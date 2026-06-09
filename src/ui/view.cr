@@ -113,6 +113,24 @@ module UI
     Circular # Spinning circular progress
   end
 
+  # Direction of a discrete swipe gesture. Used with UI::View#on_swipe to
+  # attach directional swipe handlers (e.g. "swipe down to dismiss sheet",
+  # "swipe left for destructive action"). Continuous pan/drag is out of scope.
+  #
+  # Per-platform mapping:
+  #   UIKit  — UISwipeGestureRecognizer with the matching direction mask.
+  #   AppKit — NSPanGestureRecognizer; the .ended state classifies the
+  #            dominant translation component (threshold ~30 pt) to select
+  #            the direction. Horizontal translation dominance wins over
+  #            vertical when both exceed the threshold simultaneously.
+  #   Web    — no-op; swipe handlers are silently ignored.
+  enum SwipeDirection
+    Left
+    Right
+    Up
+    Down
+  end
+
   # Style for list views
   enum ListStyle
     Plain        # No grouping, no separators between sections
@@ -603,6 +621,54 @@ module UI
     def container_query(name : String) : self
       @container_query_name = name
       self
+    end
+
+    # -------------------------------------------------------------------------
+    # Discrete gesture surface — swipe (4 directions) + long-press.
+    #
+    # "Discrete" means each recognizer fires once per completed gesture: a
+    # swipe fires when the finger lifts in the recognized direction; a long-
+    # press fires when the hold threshold is crossed. Continuous pan/drag
+    # tracking is intentionally out of scope.
+    #
+    # Per-platform behavior:
+    #   UIKit  — UISwipeGestureRecognizer (per direction) + UILongPressGestureRecognizer.
+    #            cancelsTouchesInView is left at the default (YES) for swipe, set
+    #            to NO for long-press so child buttons still fire on tap.
+    #   AppKit — NSPanGestureRecognizer classifies direction at .ended by the
+    #            dominant translation component (threshold 30 pt). A separate
+    #            NSPressGestureRecognizer backs long-press.
+    #   Web    — no-op; both handler types are silently ignored.
+    # -------------------------------------------------------------------------
+
+    # Swipe handler storage. Lazily initialized on first registration.
+    # Direction is the key; only the last-registered handler per direction
+    # is kept (matches UIKit's one-recognizer-per-direction model).
+    @swipe_handlers : Hash(SwipeDirection, Proc(Nil))? = nil
+
+    # Returns the swipe handler map, nil when no handlers have been registered.
+    # Renderers walk registered directions without forcing allocation.
+    def swipe_handlers : Hash(SwipeDirection, Proc(Nil))?
+      @swipe_handlers
+    end
+
+    # Register a swipe handler for `direction`. Replaces any previously
+    # registered handler for the same direction. The block is invoked on the
+    # main thread when the platform recognizer fires.
+    def on_swipe(direction : SwipeDirection, &block : -> Nil) : Nil
+      map = @swipe_handlers ||= Hash(SwipeDirection, Proc(Nil)).new
+      map[direction] = block
+    end
+
+    # Optional long-press callback. When non-nil the renderer attaches a
+    # long-press gesture recognizer (minimum hold: 0.5 s) whose action
+    # invokes this proc. The proc runs on the main thread.
+    property on_long_press : Proc(Nil)? = nil
+
+    # Convenience block-based setter. Equivalent to assigning `on_long_press`
+    # directly but avoids the explicit Proc wrapper at call sites.
+    def on_long_press(&block : -> Nil) : Nil
+      @on_long_press = block
     end
 
     # Accept a platform visitor for rendering dispatch.
