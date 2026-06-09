@@ -49,6 +49,18 @@ module UI
       visitor.visit(self)
     end
 
+    # B2.1 — the icon's effective horizontal footprint in points. `icon_width`
+    # (the non-square cover-crop dimension) takes precedence over the square
+    # `icon_size` shorthand. A BARE icon (`bordered == false`) renders the glyph
+    # flush with no chrome, so this width also equals the host UIView's footprint
+    # — the uikit renderer pins the host to it so the IconButton hugs its icon box
+    # in an HStack instead of stretching under UIStackView's .fill distribution.
+    # A bordered icon adds platform-button chrome insets, so the host is wider
+    # than the icon box; callers must not pin a bordered host to this value.
+    def effective_icon_box_width : Float64
+      icon_width || icon_size
+    end
+
     # Phase 10B.2a — default AX role: `:button`.
     def default_accessibility_role : Symbol?
       :button

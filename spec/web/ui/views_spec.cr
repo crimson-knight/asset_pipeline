@@ -1238,6 +1238,31 @@ describe UI::IconButton do
     btn.accept(v)
     v.visited.should eq(["IconButton(trash)"])
   end
+
+  # B2.1 — the uikit renderer pins a BARE icon button's host width to this
+  # value so it hugs its icon box in an HStack instead of stretching under
+  # UIStackView's .fill distribution (the "50/50 layout disease").
+  describe "#effective_icon_box_width" do
+    it "defaults to the square icon_size (24)" do
+      btn = UI::IconButton.new("chevron.right")
+      btn.effective_icon_box_width.should eq(24.0)
+    end
+
+    it "follows an overridden icon_size" do
+      btn = UI::IconButton.new("chevron.right")
+      btn.icon_size = 32.0
+      btn.effective_icon_box_width.should eq(32.0)
+    end
+
+    it "prefers icon_width over icon_size when the icon is non-square" do
+      # e.g. hamburger 22x18 cover-crop from a 66x54 @3x source
+      btn = UI::IconButton.new("/path/to/hamburgermenuicon.png")
+      btn.icon_size = 24.0
+      btn.icon_width = 22.0
+      btn.icon_height = 18.0
+      btn.effective_icon_box_width.should eq(22.0)
+    end
+  end
 end
 
 describe UI::ListView do

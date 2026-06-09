@@ -311,6 +311,27 @@ private struct APSKButtonHost: View {
             content = AnyView(content.disabled(true))
         }
 
+        // B2.5 — apply the button's own padding to the LABEL content BEFORE
+        // the background / clip layers below. CommonModifiers.apply (run at the
+        // end) layers padding OUTSIDE the background, so for a filled button
+        // (sage "Listen now" CTA) the colored pill hugged the text and the
+        // padding became dead outer margin — Seth: "wrapping right to the text
+        // with no margin." Applying `.padding(insets)` here, ahead of
+        // `.background()` / `.clipShape()`, makes the fill wrap the padded label
+        // (the canonical SwiftUI order: content → padding → background → clip).
+        // The same insets are nulled on the `shadowed` overrides further down so
+        // CommonModifiers does not double-apply them outside the background.
+        if overrides.paddingTop != nil || overrides.paddingLeading != nil
+            || overrides.paddingBottom != nil || overrides.paddingTrailing != nil {
+            let insets = EdgeInsets(
+                top: overrides.paddingTop.map { CGFloat($0.doubleValue) } ?? 0,
+                leading: overrides.paddingLeading.map { CGFloat($0.doubleValue) } ?? 0,
+                bottom: overrides.paddingBottom.map { CGFloat($0.doubleValue) } ?? 0,
+                trailing: overrides.paddingTrailing.map { CGFloat($0.doubleValue) } ?? 0
+            )
+            content = AnyView(content.padding(insets))
+        }
+
         // ----- Reactive (Remediation 4) override layer ---------------------
         //
         // Apply background / foreground / cornerRadius from the reactive
@@ -382,6 +403,14 @@ private struct APSKButtonHost: View {
         // a second outer frame that would double-stack.
         shadowed.minHeight = nil
         shadowed.minWidth = nil
+        // B2.5 — padding was already applied to the content above (inside the
+        // background/clip). Null it on the shadow so CommonModifiers does not
+        // re-apply it as a second, OUTER inset (which left the fill hugging the
+        // text and pushed dead margin around the pill).
+        shadowed.paddingTop = nil
+        shadowed.paddingLeading = nil
+        shadowed.paddingBottom = nil
+        shadowed.paddingTrailing = nil
         // Border is drawn above (with the correct corner radius); null it on the
         // shadow so CommonModifiers does not also stroke a square outline.
         shadowed.borderWidth = nil

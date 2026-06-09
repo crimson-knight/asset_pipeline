@@ -660,6 +660,34 @@
         end
         pop_stack
 
+        # B2.1 — cure the "50/50 layout disease". A UIStackView defaults to
+        # .fill distribution, which stretches EVERY arranged subview that lacks
+        # an explicit width and sits at the same content-hugging priority. A
+        # hosted control (UIHostingController-backed Button / IconButton /
+        # Image) reports no intrinsic width to the stack's fitting pass, so a
+        # row like `HStack[Button(fill_horizontal), IconButton]` split ~50/50:
+        # the chevron host stretched to half the row while the label compressed
+        # below intrinsic and wrapped. NSStackView's default GravityAreas
+        # distribution hugs no-width children automatically (appkit reference);
+        # UIKit has no equivalent, so we recreate it here. For each child that
+        # is NOT the flex element (no fill_horizontal) and has no explicit
+        # width pin, raise horizontal hugging + compression resistance to
+        # Required so the child hugs its intrinsic width and the fill child (or
+        # an interior Spacer) absorbs the slack. A child WITH an exact width pin
+        # already received objc_set_horizontal_fixed_priority in
+        # apply_common_properties; skip it. Spacers manage their own (low)
+        # hugging — skip them so they still flex. fill_horizontal children keep
+        # their flex priority (high compression resistance, low hugging) from
+        # apply_common_properties.
+        view.children.each_with_index do |child_view, i|
+          next if child_view.fill_horizontal
+          next if child_view.is_a?(UI::Spacer)
+          next if child_view.minimum_width || child_view.maximum_width || child_view.fluid_width
+          cn = native.children[i]?
+          next unless cn && cn.handle.valid?
+          LibObjCBridge.objc_set_horizontal_fixed_priority(cn.handle.ptr!)
+        end
+
         push_native(native)
       end
 
@@ -1303,6 +1331,26 @@
         handle = ObjC.owned(ptr, label: "UIHostingController[IconButton]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
+
+        # B2.1 (suspect 3) — pin the HOST view's width to the icon's footprint.
+        # The Swift facade sizes the glyph into an exact W×H frame
+        # (icon_width/icon_height cover-crop, or the square icon_size), but
+        # without a UIKit width constraint on the host UIView the host has no
+        # intrinsic width for UIStackView's .fill distribution to respect — so
+        # the chevron / play-circle host stretched to half the row (the "50/50
+        # disease"). Pinning the host width makes the IconButton hug its icon
+        # box so the HStack fixed-priority pass and the row's fill child resolve
+        # the layout unambiguously. Only pin a BARE icon (bordered=false), where
+        # the host width == the icon box; a bordered icon adds platform chrome
+        # insets, so for it we rely on the HStack intrinsic-hug pass instead of
+        # an exact pin that would clip the bezel.
+        unless view.bordered
+          icon_w = view.effective_icon_box_width
+          if icon_w > 0.0
+            LibObjCBridge.objc_constrain_width(ptr, icon_w)
+            LibObjCBridge.objc_set_horizontal_fixed_priority(ptr)
+          end
+        end
 
         # Register this IconButton's view under its test_id so a later
         # UI::Popover visit can resolve it as the popover's anchor source

@@ -793,14 +793,24 @@ void objc_set_horizontal_fixed_priority(void *view) {
 // width. This is the cross-platform "flex-grow" primitive (UI::View#fill_horizontal):
 // a horizontal row of otherwise fixed-width controls needs at least one such absorber,
 // or UIKit over-constrains the row and shoves it off the leading edge (the Voyager
-// compose-field left-clip). Compression resistance is left at the default so the view
-// won't shrink below its content.
+// compose-field left-clip).
+//
+// Compression resistance is RAISED to Required so the fill child grows to absorb
+// slack but NEVER compresses below its intrinsic width. Leaving it at the default
+// (750) caused the "50/50 layout disease" (B2.1): in an
+// `HStack[Button(fill_horizontal), IconButton]` row, UIStackView's .fill
+// distribution would shrink the fill Button below its label's intrinsic width
+// (so "Change Password" wrapped to two lines despite fitting) while the
+// no-width IconButton host stretched. A flex-grow element must absorb the EXTRA
+// space, not surrender its own content — so compression resistance is pinned high.
 void objc_set_horizontal_fill_priority(void *view) {
     BridgeView *v = (BridgeView *)view;
 #if TARGET_OS_OSX
     [v setContentHuggingPriority:NSLayoutPriorityDefaultLow forOrientation:NSLayoutConstraintOrientationHorizontal];
+    [v setContentCompressionResistancePriority:NSLayoutPriorityRequired forOrientation:NSLayoutConstraintOrientationHorizontal];
 #else
     [v setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
+    [v setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
 #endif
 }
 
