@@ -385,20 +385,16 @@
       reg = VoyagerApp.registration_for(coord.current.id)
       screen_class = reg.screen_class
 
-      # Phase 12.C iter-4 (V1 fix Option A) — build the reuse registry
-      # from the prior render's reactive-presentation NativeViews. The
-      # renderer will hand back these EXISTING NativeViews verbatim for
-      # any sheet/dialog whose identity persists in the new tree,
-      # preserving the SwiftUI .sheet modifier's presentation across
-      # the Voyager rerender. Empty on first render (@@last_native nil).
-      reuse_registry = {} of String => UI::NativeView
-      if prior_for_reuse = @@last_native
-        prior_for_reuse.walk_reactive_views do |reactive_view|
-          if id = reactive_view.handle.presentation_identity
-            reuse_registry[id] = reactive_view
-          end
-        end
-      end
+      # Phase 12.C iter-4 (V1 fix Option A) / Phase 12.D — build the
+      # reuse registry from the prior render's reactive-presentation
+      # NativeViews. The renderer hands back these EXISTING NativeViews
+      # verbatim for any sheet/dialog whose identity persists in the new
+      # tree, preserving the SwiftUI .sheet modifier's presentation
+      # across the Voyager rerender AND adopting the surviving state
+      # handle onto the new tree's view (Phase 12.D). Empty on first
+      # render (@@last_native nil). Built via the canonical helper so the
+      # hosts + the renderer's `reuse_from:` entry agree on construction.
+      reuse_registry = UI::NativeView.build_reuse_registry(@@last_native)
 
       # Phase 6.10 Rem 1 — fresh renderer per render call to match
       # Cascade's proven-working pattern. Reusing a single renderer

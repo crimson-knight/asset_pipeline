@@ -13,6 +13,25 @@ private def make_view(address : UInt64 = 0x1000_u64, label : String? = nil) : UI
   UI::NativeView.new(make_handle(address, label))
 end
 
+# Phase 12.D — helper to create a NativeView that looks like a mounted
+# reactive presentation (Sheet / ConfirmationDialog): a non-nil
+# reactive_kind, presentation_identity, and a non-null state_handle —
+# exactly the shape `build_reuse_registry` keys on. The state_handle is
+# a fake (non-null) pointer; the web lane never dereferences it (the
+# SwiftKit dispatch is compile-gated to -Dmacos/-Dios).
+private def make_reactive_view(
+  identity : String?,
+  kind : Symbol = :sheet,
+  address : UInt64 = 0x1000_u64,
+  state_address : UInt64 = 0xBEEF_u64,
+) : UI::NativeView
+  handle = make_handle(address, "reactive")
+  handle.reactive_kind = kind
+  handle.presentation_identity = identity
+  handle.state_handle = Pointer(Void).new(state_address)
+  UI::NativeView.new(handle)
+end
+
 describe UI::NativeView do
   # Clean up callback registry between tests.
   after_each do
@@ -369,6 +388,172 @@ describe UI::NativeView do
 
       # Callbacks should not fire after teardown
       results.should be_empty
+    end
+  end
+
+  # Phase 12.D (continuing-presentation reuse) — the platform-agnostic
+  # half of the reuse path: building the identity-keyed registry from a
+  # prior render's root, and the detach/reused bookkeeping that keeps a
+  # carried-over NativeView from being double-released. The SwiftKit
+  # state-handle adoption + marker emission live in the renderers
+  # (compile-gated to -Dmacos/-Dios) and are exercised in the native
+  # lanes; here we pin the identity matching + registry construction.
+  describe ".build_reuse_registry" do
+    it "returns an empty registry when prior is nil (first render)" do
+      registry = UI::NativeView.build_reuse_registry(nil)
+      registry.should be_empty
+    end
+
+    it "keys a reactive presentation by its presentation_identity" do
+      sheet = make_reactive_view("voyager-editor-sheet", :sheet)
+      root = make_view(0x1_u64, "root")
+      root.add_child(sheet)
+
+      registry = UI::NativeView.build_reuse_registry(root)
+      registry.size.should eq(1)
+      registry["voyager-editor-sheet"].should be(sheet)
+    end
+
+    it "collects presentations nested deep in the tree" do
+      dialog = make_reactive_view("share-dialog", :confirmation_dialog, 0x2_u64)
+      mid = make_view(0x3_u64, "mid")
+      mid.add_child(dialog)
+      root = make_view(0x1_u64, "root")
+      root.add_child(mid)
+
+      registry = UI::NativeView.build_reuse_registry(root)
+      registry.keys.should eq(["share-dialog"])
+    end
+
+    it "collects multiple distinct identities" do
+      sheet = make_reactive_view("editor-sheet", :sheet, 0x2_u64)
+      dialog = make_reactive_view("share-dialog", :confirmation_dialog, 0x3_u64)
+      root = make_view(0x1_u64, "root")
+      root.add_child(sheet)
+      root.add_child(dialog)
+
+      registry = UI::NativeView.build_reuse_registry(root)
+      registry.size.should eq(2)
+      registry["editor-sheet"].should be(sheet)
+      registry["share-dialog"].should be(dialog)
+    end
+
+    it "skips reactive views with a nil presentation_identity" do
+      # Defensive: a sheet authored without test_id / accessibility_label
+      # cannot participate in identity-keyed reuse.
+      anon = make_reactive_view(nil, :sheet)
+      root = make_view(0x1_u64, "root")
+      root.add_child(anon)
+
+      UI::NativeView.build_reuse_registry(root).should be_empty
+    end
+
+    it "skips non-reactive views (no reactive_kind)" do
+      plain = make_view(0x2_u64, "plain-label")
+      root = make_view(0x1_u64, "root")
+      root.add_child(plain)
+
+      UI::NativeView.build_reuse_registry(root).should be_empty
+    end
+
+    it "prunes torn-down subtrees (released handles never enter the registry)" do
+      sheet = make_reactive_view("dead-sheet", :sheet)
+      root = make_view(0x1_u64, "root")
+      root.add_child(sheet)
+      sheet.teardown!
+
+      UI::NativeView.build_reuse_registry(root).should be_empty
+    end
+
+    it "last-render-wins on duplicate identities" do
+      first = make_reactive_view("dupe", :sheet, 0x2_u64)
+      second = make_reactive_view("dupe", :sheet, 0x3_u64)
+      root = make_view(0x1_u64, "root")
+      root.add_child(first)
+      root.add_child(second)
+
+      registry = UI::NativeView.build_reuse_registry(root)
+      registry.size.should eq(1)
+      # walk_reactive_views pops the stack so the LATER child wins.
+      registry["dupe"].should be(second)
+    end
+  end
+
+  describe "#reused? + #detach_reused!" do
+    it "defaults reused? to false" do
+      make_view.reused?.should be_false
+    end
+
+    it "removes a reused child from its parent without recursing into it" do
+      reused_child = make_reactive_view("carried-sheet", :sheet, 0x2_u64)
+      kept_child = make_view(0x3_u64, "kept")
+      root = make_view(0x1_u64, "root")
+      root.add_child(reused_child)
+      root.add_child(kept_child)
+      reused_child.reused = true
+
+      root.detach_reused!
+
+      # The reused subtree is now owned by the NEW tree — it must be gone
+      # from the prior parent so the prior tree's teardown/GC cannot
+      # double-release the shared handle.
+      root.children.includes?(reused_child).should be_false
+      root.children.includes?(kept_child).should be_true
+      # The carried view itself is untouched (NOT torn down).
+      reused_child.torn_down?.should be_false
+      reused_child.handle.released?.should be_false
+    end
+
+    it "clears the reused flag on extraction so the next render starts clean" do
+      reused_child = make_reactive_view("carried-sheet", :sheet, 0x2_u64)
+      root = make_view(0x1_u64, "root")
+      root.add_child(reused_child)
+      reused_child.reused = true
+
+      root.detach_reused!
+
+      reused_child.reused?.should be_false
+    end
+
+    it "recurses into non-reused branches to find deeper reused nodes" do
+      deep_reused = make_reactive_view("deep-sheet", :sheet, 0x4_u64)
+      branch = make_view(0x3_u64, "branch")
+      branch.add_child(deep_reused)
+      root = make_view(0x1_u64, "root")
+      root.add_child(branch)
+      deep_reused.reused = true
+
+      root.detach_reused!
+
+      branch.children.includes?(deep_reused).should be_false
+      root.children.includes?(branch).should be_true
+    end
+  end
+
+  describe "#walk_reactive_views" do
+    it "yields only views with a non-nil reactive_kind" do
+      sheet = make_reactive_view("a-sheet", :sheet, 0x2_u64)
+      plain = make_view(0x3_u64, "plain")
+      root = make_view(0x1_u64, "root")
+      root.add_child(sheet)
+      root.add_child(plain)
+
+      yielded = [] of UI::NativeView
+      root.walk_reactive_views { |v| yielded << v }
+
+      yielded.should eq([sheet])
+    end
+
+    it "prunes torn-down subtrees" do
+      sheet = make_reactive_view("a-sheet", :sheet, 0x2_u64)
+      root = make_view(0x1_u64, "root")
+      root.add_child(sheet)
+      sheet.teardown!
+
+      yielded = [] of UI::NativeView
+      root.walk_reactive_views { |v| yielded << v }
+
+      yielded.should be_empty
     end
   end
 end

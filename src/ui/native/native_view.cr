@@ -273,6 +273,34 @@ module UI
       end
     end
 
+    # Phase 12.D (continuing-presentation reuse) — build the
+    # identity-keyed reuse registry from a prior render's root.
+    #
+    # Walks `prior`'s reactive-presentation subtree (Sheet,
+    # ConfirmationDialog, ...) and keys each surviving NativeView by its
+    # handle's `presentation_identity`. The result is handed to the next
+    # render's renderer (`reuse_registry:`) so a presentation whose
+    # identity persists into the fresh tree REUSES the prior NativeView
+    # — carrying its native hosting view + SwiftKit state handle across
+    # the destructive re-render so SwiftUI never sees a dismissal.
+    #
+    # Platform-agnostic (no SwiftKit symbols) so the construction is
+    # exercisable in the web spec lane. The `reuse_from:` renderer
+    # entry point and both Voyager hosts call this so the registry is
+    # built ONE canonical way. Returns an empty hash when `prior` is
+    # nil (first render) — last-render-wins on duplicate identities,
+    # matching the hosts' prior hand-rolled loop.
+    def self.build_reuse_registry(prior : NativeView?) : Hash(String, NativeView)
+      registry = {} of String => NativeView
+      return registry if prior.nil?
+      prior.walk_reactive_views do |reactive_view|
+        if id = reactive_view.handle.presentation_identity
+          registry[id] = reactive_view
+        end
+      end
+      registry
+    end
+
     # Phase 12.C iter-4 (V1 fix Option A) — marker set by the renderer
     # when it carries this NativeView into the new render's tree
     # instead of allocating a fresh one. Read by the bridge after
@@ -327,13 +355,21 @@ module UI
     #     UIView.
     #
     # Why a Rerender on a continuing presentation still works:
-    #   The OLD UIHostingView still gets torn out by the host swap
-    #   (V1 hazard for the surviving identity), but the new tree
-    #   mounts a fresh hosting view at the same identity. The visual
-    #   transition is a re-present rather than a dismiss; this is a
-    #   known limitation that proper view reconciliation (state-handle
-    #   reuse across renders) would eliminate. Logged for Phase 12.D
-    #   follow-up.
+    #   Phase 12.C BEHAVIOUR (sweep alone): the OLD UIHostingView still
+    #   gets torn out by the host swap (V1 hazard for the surviving
+    #   identity), and the new tree mounts a FRESH hosting view at the
+    #   same identity — so the visual transition was a re-present rather
+    #   than a dismiss. That residual is RESOLVED in Phase 12.D
+    #   (continuing-presentation reuse): when the host constructs the
+    #   next renderer with `reuse_from:` (or passes a `reuse_registry:`),
+    #   the renderer's `try_reuse` carries the surviving NativeView +
+    #   SwiftKit state handle into the fresh tree verbatim, so the OLD
+    #   hosting view is NOT torn out and SwiftUI never re-presents. This
+    #   sweep then only flips bindings on ORPHANED handles (identity gone
+    #   from `fresh`); continuing identities are skipped here AND were
+    #   already extracted from `prior` by `detach_reused!`, so they never
+    #   reach this loop. See `NativeView.build_reuse_registry` +
+    #   `UIKit::Renderer#try_reuse` / `#retire_prior!`.
     #
     # Idempotent on first-render (`prior == nil`) and on already-
     # dismissed bindings.

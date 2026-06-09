@@ -119,14 +119,9 @@ require "../../../src/ui/renderers/appkit_renderer"
       # with the reuse registry. The prior renderer is dropped; this
       # is acceptable because UI::Environment / DeviceMetrics installs
       # are idempotent.
-      reuse_registry = {} of String => UI::NativeView
-      if prior_for_reuse = @@active_native
-        prior_for_reuse.walk_reactive_views do |reactive_view|
-          if id = reactive_view.handle.presentation_identity
-            reuse_registry[id] = reactive_view
-          end
-        end
-      end
+      # Phase 12.D — built via the canonical helper so the host + the
+      # renderer's `reuse_from:` entry agree on registry construction.
+      reuse_registry = UI::NativeView.build_reuse_registry(@@active_native)
 
       renderer = UI::AppKit::Renderer.new(reuse_registry: reuse_registry)
       @@renderer = renderer

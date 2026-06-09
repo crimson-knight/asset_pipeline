@@ -176,6 +176,59 @@ following land:
 
 These two are explicitly downstream of V1's fix scope.
 
+### Phase 12.D — continuing-presentation reuse (DELIVERED)
+
+The Phase 12.C sweep made an unrelated Rerender stop *closing* a
+continuing sheet, but the surviving sheet still suffered a
+re-present: the host's destructive tree swap tore out the old hosting
+view and the fresh tree mounted a new one at the same identity (the
+"known limitation that proper view reconciliation would eliminate"
+note in `native_view.cr#dismiss_reactive_presentations!`). Phase 12.D
+closes that residual so SwiftUI never observes a dismissal at all.
+
+- **Mechanism.** A sheet in the fresh tree whose `presentation_identity`
+  matches a reactive sheet in the prior tree now REUSES the prior
+  `NativeView` subtree verbatim — its NSHostingView/UIHostingView **and**
+  its SwiftKit state handle are carried across the destructive
+  re-render. `UIKit::Renderer#try_reuse` / `AppKit#appkit_try_reuse`
+  mark the carried node `reused = true`, copy the surviving handle's
+  `state_handle` onto the FRESH tree's `UI::Sheet` (so a controller
+  closing the post-rerender instance drives the SAME binding — the
+  state-sync fix), and emit `[APIC:Sheet:continuing-presentation-reused]`.
+
+- **Host-facing API.** Construct the next render's renderer with
+  `UI::UIKit::Renderer.new(reuse_from: prior_root)` (the prior render's
+  root `NativeView`); the renderer builds the identity-keyed registry
+  internally via `NativeView.build_reuse_registry`. After swapping in
+  the fresh root, the host calls `renderer.retire_prior!(fresh_root)`,
+  which detaches the reused subtree from the prior tree (no
+  double-release of the shared handle) and runs the existing
+  identity-aware orphan sweep. This is the PLAIN-host entry point — a
+  host like `happy_coach`'s `render_current` no longer needs to
+  hand-roll the registry/detach/sweep ceremony. The Voyager sample
+  hosts keep their explicit `reuse_registry:` path (now built via the
+  same `build_reuse_registry` helper) for backward compatibility.
+
+- **v1 content policy.** The reuse path returns the prior render's
+  presentation shell **and its prior content subtree** — the fresh
+  tree's rebuilt content for that sheet is discarded (marker field
+  `content=prior-shell-retained`). Re-rendering changed content INTO a
+  reused shell requires child reconciliation (Stage 3 of the in-place
+  reconciliation design) and is explicitly out of scope for v1. This is
+  safe (no dangling pointers) and correct for the common case where a
+  sheet's content is stable while it is presented; a host that needs
+  live content updates inside an open sheet should drive them through
+  the content widgets' own reactive setters (e.g. `Label#text=`), not a
+  full screen Rerender.
+
+- **Orphaned sheets unchanged.** A sheet whose identity vanished from
+  the fresh tree is NOT reused; it keeps the Phase 12.C
+  `dismiss_reactive_presentations!` orphan behaviour (clean
+  binding-dismiss, not tree-removal).
+
+- **Both renderers.** UIKit (iOS) and AppKit (macOS) both ship the
+  reuse path symmetrically.
+
 ## Cross-references
 
 - [merge-readiness-gate.md](../merge-readiness-gate.md) — the gate this contract feeds into

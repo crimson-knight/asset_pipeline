@@ -1671,6 +1671,37 @@ describe UI::Sheet do
     s.accept(v)
     v.visited.should eq(["Sheet(false)"])
   end
+
+  # Phase 12.D (continuing-presentation reuse) — Crystal-view side of
+  # state-handle adoption. When a sheet survives a destructive re-render,
+  # the renderer's reuse path copies the SURVIVING handle's state_handle
+  # onto the FRESH tree's Sheet via `swiftkit_state_handle=`. That is the
+  # mechanism that lets a controller drive the SAME SwiftUI binding from
+  # the post-rerender instance. The SwiftKit dispatch behind
+  # `is_presented=` is compile-gated to -Dmacos/-Dios; on the web lane we
+  # pin the adoption itself (the property is platform-agnostic) and that
+  # mutating `is_presented` on the adopting instance tracks the value.
+  it "adopts a prior render's swiftkit_state_handle across re-render" do
+    state_ptr = Pointer(Void).new(0xBEEF_u64)
+
+    # Simulate the prior render: the renderer set this on the mounted view.
+    mounted = UI::Sheet.new
+    mounted.swiftkit_state_handle = state_ptr
+
+    # The fresh re-render builds a NEW Sheet instance at the same identity.
+    fresh = UI::Sheet.new
+    fresh.swiftkit_state_handle.should be_nil
+
+    # The reuse path adopts the surviving handle onto the fresh instance.
+    fresh.swiftkit_state_handle = mounted.swiftkit_state_handle
+    fresh.swiftkit_state_handle.should eq(state_ptr)
+
+    # is_presented= / dismiss! on the fresh instance now drive that handle.
+    fresh.is_presented = true
+    fresh.is_presented.should be_true
+    fresh.dismiss!
+    fresh.is_presented.should be_false
+  end
 end
 
 describe UI::SheetPresenter do
