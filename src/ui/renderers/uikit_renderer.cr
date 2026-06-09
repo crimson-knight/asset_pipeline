@@ -103,6 +103,7 @@
       fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
       fun objc_constrain_fluid_width(view : Void*, min_w : Float64, max_w : Float64) : Void
       fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
+      fun objc_constrain_equal_width_offset(child : Void*, parent : Void*, delta : Float64) : Void
       fun objc_pin_child_to_layout_margins(parent : Void*, child : Void*) : Void
       # Phase 10D-refocus — pin a child view to its parent's bounds
       # (no insets). Used by FullScreenCover + Inspector visit paths
@@ -504,6 +505,36 @@
             cn = native.children[i]?
             next unless cn && cn.handle.valid?
             LibObjCBridge.objc_constrain_equal_width(cn.handle.ptr!, ptr)
+          end
+        end
+
+        # A VStack child marked `fill_horizontal` fills the stack's WIDTH — the
+        # cross-axis analog of the HStack spacer-fill (appkit parity, mirrors
+        # 34fb2b9f). Plain fill_horizontal only lowers content-hugging, which is
+        # a NO-OP on the cross axis under a non-Fill UIStackView alignment
+        # (Center/Leading/Trailing size each arranged subview to its intrinsic
+        # width) — so a full-width band collapsed to its content width (e.g. a
+        # left-aligned section title inside a Center-aligned sheet column
+        # rendered centered at text width). Pin width == stack at required
+        # priority. A child's own exact width pin still wins; skip when
+        # fluid_width already pinned every child above.
+        unless view.fluid_width
+          # Respect the stack's own horizontal padding (layoutMargins +
+          # isLayoutMarginsRelativeArrangement) so a padded screen container
+          # gives its fill_horizontal children gutters instead of bleeding them
+          # edge-to-edge. delta = -(leading + trailing); a non-Fill alignment
+          # then positions the narrower child inside the margins.
+          h_pad = view.padding.leading + view.padding.trailing
+          view.children.each_with_index do |child_view, i|
+            next unless child_view.fill_horizontal
+            next if child_view.minimum_width || child_view.maximum_width
+            cn = native.children[i]?
+            next unless cn && cn.handle.valid?
+            if h_pad > 0.0
+              LibObjCBridge.objc_constrain_equal_width_offset(cn.handle.ptr!, ptr, -h_pad)
+            else
+              LibObjCBridge.objc_constrain_equal_width(cn.handle.ptr!, ptr)
+            end
           end
         end
 
