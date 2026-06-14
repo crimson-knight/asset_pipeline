@@ -77,6 +77,12 @@ module UI
           # element that doesn't set its own font. App typography is set per-view.
           io << "html,body{margin:0;padding:0}\n"
           io << "body{font-family:system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif}\n"
+          # border-box globally — padding/border live INSIDE an element's declared
+          # width/height, exactly as the native layout engines (AppKit/UIKit Auto
+          # Layout, Android) and react-native-web compute size. Without this, a view
+          # with an explicit width + padding overflows its box by the padding, and any
+          # centered children land off-center by that amount. Matches the golden.
+          io << "*,*::before,*::after{box-sizing:border-box}\n"
           io << "</style>\n"
         end
       end
@@ -196,6 +202,13 @@ module UI
 
         # Font styles
         apply_font_styles(el, view.font, emit_defaults: false)
+
+        # Label alignment. The browser's native `<button>` default is center, so we
+        # only emit when the view opts into a non-center alignment (keeps existing
+        # CTA output byte-identical; content buttons can read left/right-aligned).
+        unless view.text_alignment == UI::Alignment::Center
+          el.add_style("text-align: #{alignment_to_css(view.text_alignment)}")
+        end
 
         # Foreground color
         c = view.foreground_color
@@ -3008,8 +3021,19 @@ module UI
       # styled label / thumb), not a decorative wrapper.
       private def enforce_touch_target(el : Components::Elements::HTMLElement)
         min = @design_tokens.touch_target_minimum_px
-        el.add_style("min-width: #{min}px")
-        el.add_style("min-height: #{min}px")
+        el.add_style("min-width: #{effective_touch_min(el, "min-width", min)}px")
+        el.add_style("min-height: #{effective_touch_min(el, "min-height", min)}px")
+      end
+
+      # The touch-target floor must never SHRINK a larger explicit min the view
+      # already set (e.g. a fixed-width CTA: minimum_width = 334). enforce_touch_target
+      # runs after apply_common_styles, and CSS takes the last declaration, so a blind
+      # `min-width: 44px` would clobber the author's 334. Honor max(floor, explicit).
+      private def effective_touch_min(el : Components::Elements::HTMLElement, prop : String, floor : Float64) : Float64
+        style = el["style"]
+        return floor unless style
+        biggest = style.scan(Regex.new("#{prop}:\\s*([0-9.]+)px")).compact_map(&.[1].to_f?).max?
+        biggest && biggest > floor ? biggest : floor
       end
 
       # Phase 4 — Tier 3 stub on -Dios builds only. The web renderer is
