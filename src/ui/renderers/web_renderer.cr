@@ -72,6 +72,11 @@ module UI
           io << "<style>\n"
           io << t.to_css_custom_properties
           io << UI::DesignTokens::WebGenerator.generate(@design_tokens)
+          # Base reset so the document root renders like the native platforms:
+          # no default 8px body margin, and no serif (Times) fallback for any
+          # element that doesn't set its own font. App typography is set per-view.
+          io << "html,body{margin:0;padding:0}\n"
+          io << "body{font-family:system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif}\n"
           io << "</style>\n"
         end
       end
