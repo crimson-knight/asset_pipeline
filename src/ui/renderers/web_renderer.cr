@@ -142,7 +142,14 @@ module UI
         if role = view.text_color_role
           el.add_style("color: #{label_role_css(role)}")
         else
-          el.add_style("color: #{color_css(view.text_color, default_token: "var(--ap-color-text-primary)")}")
+          # text_color_role == nil means the consumer EXPLICITLY opted into a
+          # raw RGBA color via `UI::Label#text_color=` (the setter nulls the
+          # role). Honor it verbatim — do NOT pass a default_token. Passing one
+          # made color_css treat a deliberate pure-black (0,0,0) label as
+          # "unset" and swap in var(--ap-color-text-primary), which resolves to
+          # the near-white primary in a dark theme — silently erasing an
+          # explicit black label (e.g. black body text on a light card).
+          el.add_style("color: #{color_css(view.text_color)}")
         end
 
         # Text alignment
@@ -2510,11 +2517,29 @@ module UI
 
       # Apply common View base-class styles to any element.
       private def apply_common_styles(el : Components::Elements::HTMLElement, view : UI::View)
-        # UI::View#fill_horizontal — flex-grow primitive. In a flex row the element grows
-        # to fill the remaining space beside fixed-size siblings (the web analog of the
-        # AppKit/UIKit low-content-hugging fill).
+        # UI::View#fill_horizontal — "occupy all available horizontal space",
+        # the web analog of the AppKit/UIKit low-content-hugging fill. Which CSS
+        # achieves that depends on the parent's flex MAIN axis, because
+        # `flex-grow` only expands along the main axis:
+        #   * row parent    -> horizontal IS the main axis -> `flex: 1 1 0%`.
+        #   * column parent -> horizontal is the CROSS axis. `flex` would only
+        #       grow HEIGHT and (with the stack's `align-items: center`) the
+        #       child shrink-wraps and centers instead of filling width. The
+        #       correct primitive is `align-self: stretch`, which overrides the
+        #       parent's cross-axis alignment for this child and stretches it to
+        #       full width.
+        #   * unknown/none  -> preserve the historical `flex: 1 1 0%`.
+        # Without this, every fill_horizontal Label/card inside a VStack
+        # (the common screen layout) rendered shrink-wrapped and centered
+        # rather than left-aligned full-width, diverging from the native
+        # renderers which fill correctly.
         if view.fill_horizontal
-          el.add_style("flex: 1 1 0%")
+          case parent_flex_axis
+          when :column
+            el.add_style("align-self: stretch")
+          else
+            el.add_style("flex: 1 1 0%")
+          end
         end
 
         # Padding
@@ -2829,7 +2854,14 @@ module UI
         end
 
         unless font.family == "system"
-          el.add_style("font-family: #{font.family}")
+          # Quote so multi-word / digit-leading family names (e.g. RN-web's
+          # "Alegreya Sans_medium", or "Helvetica Neue", "Times New Roman")
+          # are valid CSS. An unquoted family containing a space is invalid
+          # and the browser silently falls back to the base sans-serif, which
+          # changes glyph metrics and therefore rendered text bounds/position.
+          # Quotes are valid around any single-token name too, so this is
+          # lossless for existing hyphenated families.
+          el.add_style(%(font-family: "#{font.family}"))
         end
 
         case font.weight
@@ -2927,6 +2959,30 @@ module UI
           parent.as(Components::Elements::ContainerElement).add_child(el)
         else
           @root = el
+        end
+      end
+
+      # Best-effort read of the flex MAIN axis the immediate parent container
+      # establishes for the element currently being styled. Inspects the
+      # parent element's already-emitted inline `style` (the flex-direction is
+      # set before its children are visited), so it always reflects the TRUE
+      # immediate parent regardless of which visit method pushed it — no
+      # parallel stack to keep in sync. Returns `:row`, `:column`, or `:none`.
+      private def parent_flex_axis : Symbol
+        parent = @element_stack.last?
+        return :none unless parent
+        style = parent["style"]
+        return :none unless style
+        # Only flex containers establish a main axis for align-self to act on.
+        return :none unless style.includes?("display: flex")
+        if style.includes?("flex-direction: column")
+          :column
+        elsif style.includes?("flex-direction: row")
+          :row
+        else
+          # CSS default flex-direction is `row` when display:flex is set with
+          # no explicit direction.
+          :row
         end
       end
 
