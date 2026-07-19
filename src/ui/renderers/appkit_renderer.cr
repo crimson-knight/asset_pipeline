@@ -4708,6 +4708,31 @@
           end
         end
 
+        # Corner radius + border on the base View. Applied to any layer-backed
+        # NSView (stacks, containers) so a caller can round/rim a plain
+        # VStack/HStack surface without reaching for a shape widget. Gated on
+        # non-default values so views that set neither are byte-for-byte
+        # unchanged. CALayer.cornerRadius rounds the backgroundColor + border
+        # fill directly (masksToBounds only affects sublayer clipping, which we
+        # leave off so a rounded fill never clips hosted SwiftUI content).
+        if view.corner_radius > 0.0 || view.border_width > 0.0
+          LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)
+          rb_layer = LibObjCBridge.objc_send(ptr, sel("layer"))
+          unless rb_layer.null?
+            if view.corner_radius > 0.0
+              LibObjCBridge.objc_send_1d(rb_layer, sel("setCornerRadius:"), view.corner_radius)
+            end
+            if view.border_width > 0.0
+              LibObjCBridge.objc_send_1d(rb_layer, sel("setBorderWidth:"), view.border_width)
+              if bc = view.border_color
+                bc_nscolor = resolve_color(bc)
+                bc_cg = LibObjCBridge.objc_send(bc_nscolor, sel("CGColor"))
+                LibObjCBridge.objc_send_id(rb_layer, sel("setBorderColor:"), bc_cg)
+              end
+            end
+          end
+        end
+
         # Size constraints via Auto Layout.
         # When minimum_width == maximum_width: exact-width pin via equality constraint
         #   (NSStackView GravityAreas respects this; used for sidebar columns).
