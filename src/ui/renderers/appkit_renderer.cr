@@ -107,7 +107,10 @@
       fun objc_layout_now(view : Void*) : Void
       fun objc_constrain_fluid_width(view : Void*, min_w : Float64, max_w : Float64) : Void
       fun objc_set_horizontal_fill_priority(view : Void*) : Void
+      fun objc_set_vertical_fill_priority(view : Void*) : Void
       fun objc_constrain_height(view : Void*, h : Float64) : Void
+      fun nsscrollview_scroll_to_end(scroll_view : Void*) : Void
+      fun nsscrollview_is_at_bottom(scroll_view : Void*, tolerance : Float64) : Int32
       # ComboBox value-drop fix (macOS) — wire an NSComboBox's text +
       # selection changes (controlTextDidChange: / comboBoxSelectionDidChange:)
       # to the Crystal string callback `token` via a CrystalComboBoxDelegate.
@@ -809,7 +812,12 @@
         # scroll view's intrinsicContentSize from its (arbitrarily tall) content.
         # Use objc_constrain_height (height-only) when only height is specified;
         # use objc_constrain_size when both axes are explicitly set.
-        if view.frame_width > 0.0 && view.frame_height > 0.0
+        if view.fill_vertical
+          # Flexible height: claim the enclosing stack's leftover vertical space
+          # and reflow on resize instead of pinning a fixed point height. Width
+          # comes from fill_horizontal / the stack; the vertical axis is free.
+          LibObjCBridge.objc_set_vertical_fill_priority(ptr)
+        elsif view.frame_width > 0.0 && view.frame_height > 0.0
           LibObjCBridge.objc_constrain_size(ptr, view.frame_width, view.frame_height)
         elsif view.frame_height > 0.0
           LibObjCBridge.objc_constrain_height(ptr, view.frame_height)
@@ -845,6 +853,11 @@
             end
           end
         end
+
+        # Store the live NSScrollView pointer so the ScrollView can drive its own
+        # scroll position after render (scroll_to_end / at_bottom? — the
+        # streaming stick-to-bottom path).
+        view.native_handle = ptr
 
         push_native(native)
       end

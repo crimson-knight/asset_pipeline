@@ -814,6 +814,77 @@ void objc_set_horizontal_fill_priority(void *view) {
 #endif
 }
 
+// Make a view claim the flexible (extra) space along the VERTICAL axis of an
+// enclosing stack. Used for a scroll view that must fill the remaining window
+// height and reflow on resize rather than sit at a fixed point height: with the
+// lowest vertical hugging priority in the stack it is the arranged view the
+// stack stretches to absorb leftover height. Compression resistance stays low
+// too so the stack may shrink it below its content when the window is small.
+void objc_set_vertical_fill_priority(void *view) {
+    BridgeView *v = (BridgeView *)view;
+#if TARGET_OS_OSX
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    [v setContentHuggingPriority:1 forOrientation:NSLayoutConstraintOrientationVertical];
+    [v setContentCompressionResistancePriority:1 forOrientation:NSLayoutConstraintOrientationVertical];
+#else
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    [v setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
+    [v setContentCompressionResistancePriority:1 forAxis:UILayoutConstraintAxisVertical];
+#endif
+}
+
+// Scroll an NSScrollView so its newest (bottom) content is visible — the
+// "stick to bottom while streaming" primitive. The document view is top-anchored
+// and grows downward (chat transcript: oldest at top, newest at bottom). A
+// single scrollPoint to the far edge, clamped by the clip view, reveals the
+// bottom in both flipped and non-flipped document coordinate systems.
+void nsscrollview_scroll_to_end(void *scroll_view) {
+#if TARGET_OS_OSX
+    NSScrollView *sv = (NSScrollView *)scroll_view;
+    if (sv == nil) return;
+    NSClipView *clip = sv.contentView;
+    NSView *doc = sv.documentView;
+    if (clip == nil || doc == nil) return;
+    CGFloat docH = doc.bounds.size.height;
+    CGFloat clipH = clip.bounds.size.height;
+    NSPoint p;
+    if (doc.isFlipped) {
+        CGFloat y = docH - clipH;
+        p = NSMakePoint(0.0, y > 0 ? y : 0.0);
+    } else {
+        p = NSMakePoint(0.0, 0.0);  // non-flipped: bottom edge is y == 0
+    }
+    [clip scrollToPoint:p];
+    [sv reflectScrolledClipView:clip];
+#endif
+}
+
+// 1 when the scroll view is within `tolerance` points of its bottom edge (the
+// newest content), else 0 — used to decide whether streaming should keep
+// auto-pinning (re-arm) or leave the user's scroll position alone (they scrolled
+// up to read). Returns 1 when the content is shorter than the viewport (there is
+// no "up" to scroll to) so a short transcript always stays pinned.
+int nsscrollview_is_at_bottom(void *scroll_view, double tolerance) {
+#if TARGET_OS_OSX
+    NSScrollView *sv = (NSScrollView *)scroll_view;
+    if (sv == nil) return 1;
+    NSClipView *clip = sv.contentView;
+    NSView *doc = sv.documentView;
+    if (clip == nil || doc == nil) return 1;
+    CGFloat docH = doc.bounds.size.height;
+    CGFloat clipH = clip.bounds.size.height;
+    if (docH <= clipH + tolerance) return 1;  // nothing to scroll
+    NSRect vis = clip.documentVisibleRect;
+    if (doc.isFlipped) {
+        return (NSMaxY(vis) >= docH - tolerance) ? 1 : 0;
+    } else {
+        return (NSMinY(vis) <= tolerance) ? 1 : 0;
+    }
+#else
+    return 1;
+#endif
+}
+
 // A Spacer is pure flex space — it must absorb ALL slack in its containing stack,
 // in BOTH orientations (a VStack Spacer grows vertically, an HStack Spacer grows
 // horizontally), and it must WIN that slack against ordinary content. DefaultLow
