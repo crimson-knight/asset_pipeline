@@ -779,6 +779,15 @@
           action_token = UI::CallbackRegistry.register_string(wrapped_handler)
         end
 
+        # Enter-to-send: register the on_submit handler on the string channel and
+        # thread its token through the overrides so the facade attaches
+        # `.onSubmit` (bare Return fires it with the current text).
+        submit_token = 0_u64
+        if submit_handler = view.on_submit
+          submit_token = UI::CallbackRegistry.register_string(submit_handler)
+          sender.set_number(target_str, :setSubmitToken, submit_token.to_f64)
+        end
+
         ptr = LibSwiftKitBridge.apsk_make_text_field(
           view.placeholder.to_unsafe, view.text.to_unsafe,
           overrides_ptr, action_token,
@@ -786,6 +795,7 @@
         handle = ObjC.owned(ptr, label: "NSHostingView[TextField]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
+        native.track_callback_id(submit_token) unless submit_token == 0_u64
         push_native(native)
       end
 
