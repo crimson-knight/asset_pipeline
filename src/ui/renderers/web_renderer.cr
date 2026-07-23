@@ -1679,6 +1679,10 @@ module UI
           img = Components::Elements::Img.new
           img.set_attribute("src", view.url)
           img.set_attribute("loading", "lazy")
+          # Fill the view's box; object-fit governs how the bitmap sits inside it.
+          # Without this the raw <img> renders at natural size and a large photo
+          # just shows its top-left corner in a clipped container.
+          img.add_style("width: 100%; height: 100%; display: block")
           case view.content_mode
           when UI::ContentMode::Fit     then img.add_style("object-fit: contain")
           when UI::ContentMode::Fill    then img.add_style("object-fit: cover")

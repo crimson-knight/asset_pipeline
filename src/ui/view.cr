@@ -484,6 +484,14 @@ module UI
     property corner_radius : Float64 = 0.0
     property clip_to_bounds : Bool = false
 
+    # When true this view (and its subtree) is invisible to hit-testing:
+    # UIKit gets userInteractionEnabled=false, web gets pointer-events:none.
+    # For informational overlays (badges, ribbons) stacked over interactive
+    # content — a full-screen overlay view otherwise SWALLOWS every touch on
+    # native platforms even though clicks pass through in a browser (root
+    # cause of the 2026-07-23 dead-tap bug in the demo shell).
+    property touch_passthrough : Bool = false
+
     # Shadow modifier
     property shadow_radius : Float64 = 0.0
     property shadow_color : Color? = nil

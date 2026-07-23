@@ -2,6 +2,7 @@
 # UIView hierarchy (UIStackView, UIButton, UILabel, UIVisualEffectView, ...).
 
 {% if flag?(:ios) %}
+  require "base64"
   require "../platform_visitor"
   require "../native/native_handle"
   require "../native/native_view"
@@ -646,6 +647,14 @@
                         else                        3_i64
                         end
         LibObjCBridge.objc_send_long(ptr, sel("setAlignment:"), alignment_val)
+
+        # Equal-width cells (tab bar / equal button row). UIStackView's default
+        # Fill distribution stretches ONE child by hugging priority, cramming
+        # the rest to their intrinsic size — FillEqually (1) splits N evenly.
+        # (Mirrors the appkit_renderer; was silently ignored on iOS.)
+        if view.fill_equally
+          LibObjCBridge.objc_send_long(ptr, sel("setDistribution:"), 1_i64)
+        end
 
         # Common properties
         apply_common_properties(ptr, view)
@@ -2574,6 +2583,42 @@
 
       def visit(view : UI::AsyncImage)
         ptr = alloc_init("UIImageView")
+        # No async URL loader exists on this path; callers that want a real
+        # picture pre-fetch the bytes into `preloaded_data` (see the demo
+        # shell's ImageCache) and we decode them synchronously here. Bytes ride
+        # in as base64 because the ObjC bridge has no (ptr, len) send — NSData
+        # base64EncodedString + UIImage imageWithData: cover it.
+        if data = view.preloaded_data
+          b64 = Base64.strict_encode(data)
+          ns_b64 = LibObjCBridge.nsstring_from_cstr(b64.to_unsafe)
+          nsdata_cls = LibObjCBridge.objc_getClass("NSData")
+          nsdata = LibObjCBridge.objc_send_id_long(
+            LibObjCBridge.objc_send(nsdata_cls, sel("alloc")),
+            sel("initWithBase64EncodedString:options:"), ns_b64, 1_i64) # 1 = ignore unknown chars
+          unless nsdata.null?
+            uiimage_cls = LibObjCBridge.objc_getClass("UIImage")
+            img = LibObjCBridge.objc_send_id(uiimage_cls, sel("imageWithData:"), nsdata)
+            LibObjCBridge.objc_send_void_id(ptr, sel("setImage:"), img) unless img.null?
+          end
+        end
+        # ContentMode: 1 = scaleAspectFit, 2 = scaleAspectFill.
+        mode = view.content_mode == UI::ContentMode::Fill ? 2_i64 : 1_i64
+        LibObjCBridge.objc_send_long(ptr, sel("setContentMode:"), mode)
+        LibObjCBridge.objc_send_bool(ptr, sel("setClipsToBounds:"), 1)
+        # A UIImageView's intrinsic content size is the BITMAP size — a 1920px
+        # photo blows out the whole layout unless the frame is pinned. An exact
+        # height + aspect-fill + clips gives the web `<img object-fit: cover>`
+        # behavior.
+        if h = view.maximum_height
+          LibObjCBridge.objc_constrain_height(ptr, h)
+        end
+        if w = view.maximum_width
+          LibObjCBridge.objc_constrain_required_width(ptr, w)
+        end
+        if view.corner_radius > 0
+          layer = LibObjCBridge.objc_send(ptr, sel("layer"))
+          LibObjCBridge.objc_send_1d(layer, sel("setCornerRadius:"), view.corner_radius) unless layer.null?
+        end
         apply_common_properties(ptr, view)
         emit(ptr, "UIImageView[async]")
       end
@@ -5151,6 +5196,13 @@
         # and inner UIStackViews report intrinsicContentSize of CGSizeZero,
         # collapsing to zero height in any parent UIStackView.
         LibObjCBridge.objc_send_bool(ptr, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+
+        # Informational overlays opt out of hit-testing entirely — otherwise a
+        # full-screen overlay (the demo "Demo only" ribbon) swallows every
+        # touch aimed at the interactive content beneath it.
+        if view.touch_passthrough
+          LibObjCBridge.objc_send_bool(ptr, sel("setUserInteractionEnabled:"), 0)
+        end
 
         # Hidden
         if view.hidden
