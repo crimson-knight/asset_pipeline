@@ -2381,6 +2381,35 @@
       # arranged by an inner pinned UIStackView.
       # -----------------------------------------------------------------
       def visit(view : UI::Card)
+        # A Card whose content holds an interactive control (Button /
+        # IconButton / Toggle / ...) MUST render as a raw UIKit container, not
+        # a SwiftUI UIHostingController. The SwiftUI card (`_swiftui_card`)
+        # re-hosts its content through `APSKHostedChild` (a UIViewRepresentable)
+        # inside its own UIHostingController — so every interactive child, which
+        # is itself a UIHostingController, becomes a UIHostingController NESTED
+        # inside another one. A SwiftUI Button nested across that second hosting
+        # boundary never receives the tap: the child VC parents correctly (Path
+        # A), the button is hit-testable, but the outer hosting layer's gesture
+        # arbitration swallows the touch, so the button's action never fires.
+        # This dead-tapped the play-circle inside every tracks/home/onboarding
+        # card on iOS (HappyCoach testAudioPlayerPlayPauseSmoke).
+        #
+        # The raw-UIKit body adds the content through the normal visit path, so
+        # an interactive child is a direct UIStackView arranged subview whose
+        # own hosting controller's responder chain reaches the root view
+        # controller — taps fire exactly like a button in a plain HStack (the
+        # affirmation-review cards, which never wrap their buttons in a Card,
+        # prove this path works). It also renders the Card's explicit
+        # background/corner/border verbatim via apply_common_properties instead
+        # of layering SwiftUI's `.regularMaterial` over the requested colour.
+        render_uikit_card(view)
+      end
+
+      # SwiftUI-hosted Card body (material / Liquid-Glass chrome). Retained for
+      # non-iOS surfaces / reference; NOT used on iOS because it re-hosts content
+      # through a nested UIHostingController and dead-taps interactive children
+      # (see visit(UI::Card)).
+      private def _swiftui_card(view : UI::Card)
         overrides_ptr = LibSwiftKitBridge.apsk_card_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
         target_str = overrides_ptr.address.to_s(16)
@@ -2403,8 +2432,12 @@
         push_native(native)
       end
 
-      # Legacy UIKit Card body, retained for reference.
-      private def _legacy_card(view : UI::Card)
+      # Raw-UIKit Card body: an outer UIView (rounded background + exact width,
+      # not stretched by an ancestor UIStackView Fill) with an inner pinned
+      # UIStackView that arranges the content via the normal visit path. This is
+      # the active iOS Card renderer — it keeps interactive children tappable by
+      # not introducing a second SwiftUI hosting boundary (see visit(UI::Card)).
+      private def render_uikit_card(view : UI::Card)
         outer = alloc_init("UIView")
         inner = alloc_init("UIStackView")
         # Vertical axis (UILayoutConstraintAxisVertical = 1).
