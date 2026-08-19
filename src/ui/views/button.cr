@@ -79,13 +79,29 @@ module UI
     # (fill_horizontal) container.
     property number_of_lines : Int32 = 1
 
-    # Horizontal alignment of the label text. Defaults to `Center` — the
-    # conventional CTA presentation and the browser's native `<button>` default.
-    # Set `Leading`/`Trailing` for content buttons whose label is body text that
-    # should read left/right-aligned (e.g. a wrapping tappable affirmation/thought
-    # card, matching the Expo design's left-aligned Pressable text). Web emits
-    # `text-align`; native button renderers currently treat the label as centered.
-    property text_alignment : Alignment = Alignment::Center
+    # Horizontal alignment of the label text.
+    #
+    # `nil` — the default — means "let the renderer decide from context": the
+    # browser's native `<button>` centres, and the SwiftUI facade centres unless
+    # the button was pinned to fill its row (`fill_horizontal`), in which case it
+    # reads leading, because a row-filling label is usually body text (a wrapping
+    # tappable affirmation / thought card, matching the Expo design's
+    # left-aligned Pressable text).
+    #
+    # SET IT EXPLICITLY AND THE RENDERER OBEYS — including on native, which is
+    # new. This property used to be typed `Alignment = Center` and to end with
+    # the sentence "native button renderers currently treat the label as
+    # centered", which was the documentation of a GAP: on iOS nothing read it,
+    # so `fill_horizontal` alone decided, and every full-width call to action
+    # came out with its label jammed against the leading edge of a 349pt capsule
+    # (measured on `00-error-dark`, ~690px / 230pt of empty fill to the label's
+    # right). Because `Center` was also the type default, no renderer could tell
+    # "the caller asked for centre" from "the caller said nothing" — so the fix
+    # needed the third state, not a new default.
+    #
+    # A CTA should say `Alignment::Center`. A content button whose label is the
+    # user's own prose should say `Alignment::Leading` or leave this nil.
+    property text_alignment : Alignment? = nil
 
     # Whether the button is disabled (non-interactive).
     #

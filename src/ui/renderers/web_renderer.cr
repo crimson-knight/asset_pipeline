@@ -206,8 +206,13 @@ module UI
         # Label alignment. The browser's native `<button>` default is center, so we
         # only emit when the view opts into a non-center alignment (keeps existing
         # CTA output byte-identical; content buttons can read left/right-aligned).
-        unless view.text_alignment == UI::Alignment::Center
-          el.add_style("text-align: #{alignment_to_css(view.text_alignment)}")
+        # `nil` = "renderer's contextual default", which for `<button>` IS
+        # center — so nil and Center both emit nothing and the existing CTA
+        # output stays byte-identical.
+        if declared = view.text_alignment
+          unless declared == UI::Alignment::Center
+            el.add_style("text-align: #{alignment_to_css(declared)}")
+          end
         end
 
         # Foreground color

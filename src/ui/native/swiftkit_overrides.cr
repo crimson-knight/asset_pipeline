@@ -327,6 +327,19 @@ module UI
           sender.set_bool(target, :setFillHorizontal, true)
         end
 
+        # A DECLARED LABEL ALIGNMENT, WHICH THE FACADE PREFERS TO THE
+        # `fill_horizontal → leading` DEFAULT ABOVE.
+        #
+        # `text_alignment` is nil until a call site sets it, and only a non-nil
+        # value crosses the bridge — so every button that says nothing keeps the
+        # exact behaviour it had, and a full-width call to action can finally
+        # say `Alignment::Center` and be obeyed on iOS. Before this, the Crystal
+        # property was documented and unread on native, and every CTA in the
+        # demo shell rendered left-jammed inside a full-width capsule.
+        if declared = view.text_alignment
+          sender.set_string(target, :setLabelAlignment, swiftui_label_alignment(declared))
+        end
+
         # Foreground (label) color — SEEDED at construction so the initial render
         # reflects an explicitly-set color. Previously only the runtime reactive
         # setter (apsk_button_set_foreground_color) applied it, so a button whose
@@ -415,6 +428,18 @@ module UI
       # mapping mirrors ButtonFacade.swift's private `Font.Weight`
       # extension. ultraLight = -3, thin = -2, light = -1, regular = 0,
       # medium = 1, semibold = 2, bold = 3, heavy = 4, black = 5.
+      # The token `APSKButtonOverrides.labelAlignment` switches on. Only the
+      # three horizontal cases mean anything to a label inside a button frame;
+      # the stack-only members of `UI::Alignment` (Top/Bottom/Fill) fall back to
+      # the reading direction rather than inventing a vertical answer.
+      def self.swiftui_label_alignment(alignment : UI::Alignment) : String
+        case alignment
+        when UI::Alignment::Center   then "center"
+        when UI::Alignment::Trailing then "trailing"
+        else                              "leading"
+        end
+      end
+
       def self.swiftui_font_weight_rawvalue(weight : Symbol) : Int32
         case weight
         when :ultra_light, :ultralight then -3
