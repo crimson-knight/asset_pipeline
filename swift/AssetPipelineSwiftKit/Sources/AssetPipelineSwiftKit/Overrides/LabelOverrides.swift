@@ -70,10 +70,11 @@ public class LabelOverrides: ViewOverrides {
     // This is the half `lineSpacing` cannot express. SwiftUI's `.lineSpacing`
     // ADDS points and clamps at zero, so a ratio ABOVE the face's own ~1.195
     // is reachable and one BELOW it is not — while every display ramp in the
-    // field asks for exactly that (`.p-h1,.p-h2,.p-h3{line-height:1.06}`). A
-    // value below 1.0 therefore switches this label onto the UIKit path, where
-    // an `NSAttributedString` paragraph style honours it; see
-    // `APSKAttributedLabel`.
+    // field asks for exactly that (`.p-h1,.p-h2,.p-h3{line-height:1.06}`).
+    // Setting it switches this label onto the UIKit path, where an
+    // `NSAttributedString` paragraph style honours it — so a caller wanting a
+    // ratio ABOVE the face's advance should use `lineSpacing` instead and keep
+    // the cheaper `Text` path. See `APSKAttributedLabel`.
     @objc public var lineHeightMultiple: NSNumber? = nil
 
     @objc public override init() { super.init() }

@@ -134,12 +134,13 @@ private struct APSKLabelHost: View {
         // A line ratio BELOW the face's own advance. `.lineSpacing` adds and
         // clamps at zero and `Text` ignores an `NSParagraphStyle`, so this
         // drops to a `UILabel` carrying an attributed string — see
-        // `APSKAttributedLabel` for what that costs and why it is scoped to
-        // exactly this condition. Every other label, including one asking for
-        // a ratio at or above 1.0, keeps the path it had.
+        // `APSKAttributedLabel` for what that costs. THE CALLER DECIDES which
+        // mechanism it wants: `lineSpacing` reaches every ratio above the
+        // face's own advance and is the cheap path, `lineHeightMultiple`
+        // reaches the ones below it and is this one. A label that sets neither
+        // — which is almost all of them — keeps the path it had.
         #if canImport(UIKit)
-        if let lhm = overrides.lineHeightMultiple, lhm.doubleValue > 0,
-           lhm.doubleValue < 1.0 {
+        if let lhm = overrides.lineHeightMultiple, lhm.doubleValue > 0 {
             return AnyView(tightlyLedLabel(CGFloat(lhm.doubleValue)))
         }
         #endif
