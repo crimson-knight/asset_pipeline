@@ -13,6 +13,11 @@
 
 import SwiftUI
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#else
+import AppKit
+#endif
 
 @objc(APSKLabelFacade)
 public class LabelFacade: NSObject {
@@ -90,10 +95,16 @@ private struct APSKLabelHost: View {
 
     private func scaled(_ points: Double) -> CGFloat {
         let base = CGFloat(points)
-        let metric = UIFontMetrics(forTextStyle: .body).scaledValue(for: base)
         guard base > 0 else { return base }
+        #if canImport(UIKit)
+        let metric = UIFontMetrics(forTextStyle: .body).scaledValue(for: base)
         let ratio = min(metric / base, Self.maxDynamicTypeScale)
         return (base * ratio).rounded()
+        #else
+        // AppKit has no per-app content-size category; macOS scales at the
+        // display level instead, so the point size IS the point size there.
+        return base
+        #endif
     }
 
     // Is this family actually loadable? `.custom(name:size:)` does NOT fail
@@ -101,7 +112,11 @@ private struct APSKLabelHost: View {
     // is a bold brand headline turning into regular San Francisco with nothing
     // anywhere reporting it. Asking UIFont first is the only way to know.
     private func familyIsLoadable(_ name: String) -> Bool {
+        #if canImport(UIKit)
         return UIFont(name: name, size: 12.0) != nil
+        #else
+        return NSFont(name: name, size: 12.0) != nil
+        #endif
     }
 
     var body: some View {
