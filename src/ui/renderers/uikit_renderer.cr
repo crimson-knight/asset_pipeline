@@ -5002,9 +5002,21 @@
                     else
                       name_str = LibObjCBridge.nsstring_from_cstr(font.family.to_unsafe)
                       result = LibObjCBridge.nsfont_named(name_str, font.size)
-                      # Fall back to system font if the named font was not found
+                      # ── A MISSING FACE KEEPS ITS WEIGHT, AND SAYS SO ──────
+                      #
+                      # This fell back to `nsfont_system(size)` — the NO-WEIGHT
+                      # overload, `[UIFont systemFontOfSize:]` — so the weight
+                      # computed one line above was thrown away with the family.
+                      # There was no log, no raise and no gate arm, which makes
+                      # it the exact trap a display-face change walks into:
+                      # bundle a face under one PostScript name, ship it under
+                      # another, and every bold headline becomes regular San
+                      # Francisco while the specs and every static check stay
+                      # green.
                       if result.null?
-                        LibObjCBridge.nsfont_system(font.size)
+                        STDERR.puts("[AssetPipeline] font family '#{font.family}' is NOT registered " \
+                                    "— drawing the system face at the requested weight instead")
+                        LibObjCBridge.nsfont_system_weight(font.size, weight)
                       else
                         result
                       end

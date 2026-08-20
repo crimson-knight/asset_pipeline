@@ -63,6 +63,47 @@ private struct APSKLabelHost: View {
     @ObservedObject var state: APSKLabelState
     let overrides: LabelOverrides
 
+    // ── DYNAMIC TYPE ──────────────────────────────────────────────────────
+    //
+    // READ, NOT IGNORED. `Font.system(size:)` and `Font.custom(_:size:)` are
+    // FIXED sizes: they do not track the reader's text-size setting, so a
+    // stack that resolves every role to an explicit point size draws 11pt
+    // small labels at 11pt for a reader who has asked the system for large
+    // text. There was no `UIFontMetrics`, no `preferredFont(forTextStyle:)`
+    // and no `adjustsFontForContentSizeCategory` anywhere in this renderer,
+    // the ObjC bridge or the host — count zero.
+    //
+    // Declaring the environment value here does two jobs at once: it gives the
+    // scaled size below its input, and it makes SwiftUI re-evaluate this body
+    // when the setting changes mid-session, which is what
+    // `adjustsFontForContentSizeCategory` buys on the UIKit side.
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    // The ceiling on that scaling. Accessibility sizes run to roughly 3.1x the
+    // default on iOS, and a fixed-height chrome band (a tab bar, a 26pt
+    // disclosure ribbon) cannot absorb that without the layout coming apart —
+    // which would be a worse outcome for the same reader. 1.6x is a little past
+    // `.xxLarge` and is where the shipped layouts still hold. It is a cap on
+    // the SCALE, not a cap on the size, so every role keeps its ratio to every
+    // other one.
+    private static let maxDynamicTypeScale: CGFloat = 1.6
+
+    private func scaled(_ points: Double) -> CGFloat {
+        let base = CGFloat(points)
+        let metric = UIFontMetrics(forTextStyle: .body).scaledValue(for: base)
+        guard base > 0 else { return base }
+        let ratio = min(metric / base, Self.maxDynamicTypeScale)
+        return (base * ratio).rounded()
+    }
+
+    // Is this family actually loadable? `.custom(name:size:)` does NOT fail
+    // when the name is unknown — it silently resolves to the system face, which
+    // is a bold brand headline turning into regular San Francisco with nothing
+    // anywhere reporting it. Asking UIFont first is the only way to know.
+    private func familyIsLoadable(_ name: String) -> Bool {
+        return UIFont(name: name, size: 12.0) != nil
+    }
+
     var body: some View {
         var content: AnyView = AnyView(Text(state.text))
 
@@ -74,20 +115,31 @@ private struct APSKLabelHost: View {
         // sign-in "Cascade" wordmark looked identical in weight and
         // size to the subtitle below it. The weight rawValue mapping
         // mirrors ButtonOverrides' convention.
+        let resolvedWeight: Font.Weight = {
+            if let w = overrides.fontWeight { return Font.Weight(rawValue: w.intValue) ?? .regular }
+            return .regular
+        }()
         if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
             // Custom registered font (e.g. "Alegreya-Medium"). Use the
             // PostScript name for an exact weight/face. Size: the explicit
             // fontSize, else SwiftUI body default (~17).
             let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
-            content = AnyView(content.font(.custom(fam, size: CGFloat(sz))))
-        } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
-            let weight: Font.Weight
-            if let w = overrides.fontWeight {
-                weight = Font.Weight(rawValue: w.intValue) ?? .regular
+            if familyIsLoadable(fam) {
+                content = AnyView(content.font(.custom(fam, size: scaled(sz))))
             } else {
-                weight = .regular
+                // A MISSING FACE IS LOUD AND KEEPS ITS WEIGHT. The old
+                // behaviour here was to hand `.custom` a name SwiftUI could not
+                // resolve, which drew regular San Francisco with no log, no
+                // raise and no gate arm — bundle a face under one PostScript
+                // name, ship it under another, and every bold headline in every
+                // customer's app silently loses both its face AND its weight
+                // while the whole suite stays green.
+                APSKFontDiagnostics.reportMissingFamily(fam)
+                content = AnyView(content.font(.system(size: scaled(sz), weight: resolvedWeight)))
             }
-            content = AnyView(content.font(.system(size: CGFloat(sz.doubleValue), weight: weight)))
+        } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
+            let weight = resolvedWeight
+            content = AnyView(content.font(.system(size: scaled(sz.doubleValue), weight: weight)))
         } else if let w = overrides.fontWeight {
             // No explicit size but explicit weight — keep the body
             // font and just override the weight via `.fontWeight()`.
@@ -117,6 +169,16 @@ private struct APSKLabelHost: View {
 
         if let n = overrides.numberOfLines, n.intValue > 0 {
             content = AnyView(content.lineLimit(n.intValue))
+        }
+
+        // Leading and tracking. Applied after the font so both observe the
+        // resolved face and size, and scaled alongside it so a line that is
+        // led at 1.55x stays led at 1.55x when the reader enlarges the text.
+        if let ls = overrides.lineSpacing, ls.doubleValue >= 0 {
+            content = AnyView(content.lineSpacing(scaled(ls.doubleValue)))
+        }
+        if let tr = overrides.tracking, tr.doubleValue != 0 {
+            content = AnyView(content.tracking(CGFloat(tr.doubleValue)))
         }
 
         // Phase 6.11 — strikethrough modifier. Applied last among the

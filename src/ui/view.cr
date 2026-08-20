@@ -158,7 +158,19 @@ module UI
     family : String = "system",
     size : Float64 = 17.0,
     weight : Symbol = :regular,
-    italic : Bool = false
+    italic : Bool = false,
+    # LETTER SPACING, IN POINTS. Positive opens the line up, negative tightens
+    # it; 0.0 is the face's own default and is what every existing call site
+    # gets, so nothing that does not ask for tracking moves.
+    #
+    # WHY A FONT NEEDS IT. Type at display sizes is drawn TOO LOOSE at the
+    # face's default and small caps are drawn far too tight — which is why every
+    # serious type ramp carries a tracking value per step. A design system that
+    # publishes one (`--display-track: -.015em` on every heading, `.12em` to
+    # `.17em` on ten uppercase micro-labels) and a renderer with no field to
+    # carry it will draw the right face at the wrong colour of grey, and no
+    # amount of getting the family right fixes it.
+    tracking : Float64 = 0.0
 
   # Value type representing edge insets (padding/margins)
   record EdgeInsets,

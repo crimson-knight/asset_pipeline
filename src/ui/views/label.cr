@@ -82,6 +82,28 @@ module UI
     # Other renderers may ignore it.
     property preferred_max_layout_width : Float64? = nil
 
+    # ── LINE SPACING, IN POINTS ADDED BETWEEN LINES ────────────────────────
+    #
+    # nil = the platform's own default advance, which is what every label got
+    # before this property existed and what every label that does not set it
+    # still gets.
+    #
+    # WHY A LABEL NEEDS IT. There was no line-spacing property anywhere in this
+    # stack — no `lineSpacing`, no `paragraphStyle`, no `lineHeightMultiple` in
+    # the UIKit renderer, the AppKit renderer, this class or the ObjC bridge —
+    # so headings and paragraphs could not be led differently, at all. Measured
+    # in a consumer app: body copy at 15pt came out at a 1.195 line ratio, and
+    # 36pt display headlines came out at 1.195 as well. Identical. A design
+    # system's own stylesheet in the same product set 1.65 for paragraphs and
+    # 1.06 for headings, and the renderer could express neither.
+    #
+    # POINTS RATHER THAN A MULTIPLE, because that is what the platform takes
+    # (SwiftUI `.lineSpacing(_:)` is extra points between lines, and NSKern's
+    # paragraph-style sibling is likewise absolute). A caller that thinks in
+    # multiples computes `(multiple - 1) * font.size` at the call site, where
+    # the font size is known.
+    property line_spacing : Float64? = nil
+
     # Phase 6.11 — strikethrough toggle. Renderers map to:
     #   SwiftUI / UIKit / AppKit : `.strikethrough(true)`
     #   Web                       : `text-decoration: line-through`

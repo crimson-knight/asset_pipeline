@@ -319,6 +319,9 @@ module UI
         if font.family != "system" && !font.family.empty?
           sender.set_string(target, :setFontFamily, font.family)
         end
+        if font.tracking != 0.0
+          sender.set_number(target, :setTracking, font.tracking)
+        end
 
         # fill_horizontal: the renderer pins the button wide, but a plain text
         # button centers its label. Tell the facade to fill + leading-align the
@@ -421,6 +424,16 @@ module UI
         # reserves the correct multi-line height (fixes the wrapping-label
         # height under-reservation / overlap). set_number no-ops on nil.
         sender.set_number(target, :setPreferredMaxLayoutWidth, view.preferred_max_layout_width)
+
+        # LEADING AND TRACKING. Both are nil/0.0 by default and only a set value
+        # crosses the bridge, so every label that says nothing keeps exactly the
+        # behaviour it had. See `UI::Label#line_spacing` and `UI::Font#tracking`
+        # for why a stack with neither cannot lead a heading differently from a
+        # paragraph, and draws a display face at the wrong letter-spacing.
+        sender.set_number(target, :setLineSpacing, view.line_spacing)
+        if font.tracking != 0.0
+          sender.set_number(target, :setTracking, font.tracking)
+        end
       end
 
       # Map a Crystal `UI::Font.weight` Symbol to the SwiftUI
