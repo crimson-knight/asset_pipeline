@@ -64,6 +64,17 @@ public class LabelOverrides: ViewOverrides {
     // Letter spacing in points (`SwiftUI .tracking`). nil / 0 = the face's own
     // default. Carried from `UI::Font#tracking`.
     @objc public var tracking: NSNumber? = nil
+    // Line height as a RATIO of the font size (`NSParagraphStyle
+    // .lineHeightMultiple`). nil = the face's own advance.
+    //
+    // This is the half `lineSpacing` cannot express. SwiftUI's `.lineSpacing`
+    // ADDS points and clamps at zero, so a ratio ABOVE the face's own ~1.195
+    // is reachable and one BELOW it is not — while every display ramp in the
+    // field asks for exactly that (`.p-h1,.p-h2,.p-h3{line-height:1.06}`). A
+    // value below 1.0 therefore switches this label onto the UIKit path, where
+    // an `NSAttributedString` paragraph style honours it; see
+    // `APSKAttributedLabel`.
+    @objc public var lineHeightMultiple: NSNumber? = nil
 
     @objc public override init() { super.init() }
 }

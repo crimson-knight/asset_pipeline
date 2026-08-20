@@ -316,7 +316,7 @@ private struct APSKButtonHost: View {
             // reliably honour `.fontWeight()`. Size: explicit fontSize else
             // SwiftUI body default (~17).
             let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
-            content = AnyView(content.font(.custom(fam, size: CGFloat(sz))))
+            content = AnyView(content.font(.custom(fam, size: APSKDynamicType.size(sz))))
         } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
             let weight: Font.Weight
             if let w = overrides.fontWeight {
@@ -324,7 +324,7 @@ private struct APSKButtonHost: View {
             } else {
                 weight = .regular
             }
-            content = AnyView(content.font(.system(size: CGFloat(sz.doubleValue), weight: weight)))
+            content = AnyView(content.font(.system(size: APSKDynamicType.size(sz.doubleValue), weight: weight)))
         } else if let weight = overrides.fontWeight {
             let resolved = Font.Weight(rawValue: weight.intValue) ?? .regular
             content = AnyView(content.fontWeight(resolved))

@@ -29,6 +29,7 @@
 #include <TargetConditionals.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #if TARGET_OS_OSX
   #import <AppKit/AppKit.h>
@@ -343,6 +344,35 @@ void *nsfont_named(void *name, double size) {
     return [NSFont fontWithName:(NSString *)name size:(CGFloat)size];
 #else
     return [UIFont fontWithName:(NSString *)name size:(CGFloat)size];
+#endif
+}
+
+// ── DYNAMIC TYPE, AS A NUMBER CRYSTAL CAN PUBLISH ────────────────────────
+//
+// The reader's text-size setting is known only to the platform, and the
+// scaling that follows from it is applied deep inside the SwiftUI facade — so
+// nothing upstream could ever state the size a label was actually DRAWN at.
+// The consequence measured on an accessibility walk: the app's own identity
+// line still read `body_font=system/15/regular` beside a frame drawing 24pt
+// body copy, which means no evidence arm could witness Dynamic Type at all.
+//
+// `cap` is the SAME ceiling the facade applies (see APSKDynamicType), passed
+// in rather than duplicated here, so the number this returns is the number
+// that was drawn and not a second opinion about it. A cap of 0 or less means
+// no ceiling.
+double ui_dynamic_type_scaled(double points, double cap) {
+    if (points <= 0.0) { return points; }
+#if TARGET_OS_OSX
+    // AppKit has no per-app content-size category; macOS scales at the display
+    // level instead, so the point size IS the point size there.
+    (void)cap;
+    return points;
+#else
+    CGFloat base = (CGFloat)points;
+    CGFloat metric = [[UIFontMetrics metricsForTextStyle:UIFontTextStyleBody] scaledValueForValue:base];
+    CGFloat ratio = metric / base;
+    if (cap > 0.0 && ratio > (CGFloat)cap) { ratio = (CGFloat)cap; }
+    return (double)round(base * ratio);
 #endif
 }
 

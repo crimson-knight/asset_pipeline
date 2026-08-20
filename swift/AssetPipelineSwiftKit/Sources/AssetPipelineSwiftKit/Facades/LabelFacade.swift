@@ -91,20 +91,29 @@ private struct APSKLabelHost: View {
     // `.xxLarge` and is where the shipped layouts still hold. It is a cap on
     // the SCALE, not a cap on the size, so every role keeps its ratio to every
     // other one.
-    private static let maxDynamicTypeScale: CGFloat = 1.6
-
+    // ── ONE HELPER, EVERY TEXT-BEARING FACADE (round-7) ──────────────────
+    //
+    // This used to be a private copy living here and nowhere else, which is
+    // exactly how the primary CTA's label came to be the one label in the app
+    // that did not grow. `APSKDynamicType` is the shared one; the ceiling and
+    // the AppKit branch are unchanged, and the Crystal side reads the same
+    // number so a build can publish the size it drew.
+    //
+    // Reading the environment value here is what makes SwiftUI re-evaluate
+    // this body when the setting changes mid-session — the equivalent of
+    // `adjustsFontForContentSizeCategory` on the UIKit side. `APSKDynamicType`
+    // is a plain type and cannot register that dependency by itself.
     private func scaled(_ points: Double) -> CGFloat {
-        let base = CGFloat(points)
-        guard base > 0 else { return base }
-        #if canImport(UIKit)
-        let metric = UIFontMetrics(forTextStyle: .body).scaledValue(for: base)
-        let ratio = min(metric / base, Self.maxDynamicTypeScale)
-        return (base * ratio).rounded()
-        #else
-        // AppKit has no per-app content-size category; macOS scales at the
-        // display level instead, so the point size IS the point size there.
-        return base
-        #endif
+        _ = dynamicTypeSize
+        return APSKDynamicType.size(points)
+    }
+
+    // A metric that is not a size. See `APSKDynamicType.metric` — tracking is
+    // a signed fraction of a point, so it is neither rounded nor guarded on
+    // being positive.
+    private func scaledMetric(_ points: Double) -> CGFloat {
+        _ = dynamicTypeSize
+        return APSKDynamicType.metric(points)
     }
 
     // Is this family actually loadable? `.custom(name:size:)` does NOT fail
@@ -119,7 +128,21 @@ private struct APSKLabelHost: View {
         #endif
     }
 
-    var body: some View {
+    var body: AnyView {
+        // ── THE ONE CASE THE `Text` PATH CANNOT DRAW (round-7) ───────────
+        //
+        // A line ratio BELOW the face's own advance. `.lineSpacing` adds and
+        // clamps at zero and `Text` ignores an `NSParagraphStyle`, so this
+        // drops to a `UILabel` carrying an attributed string — see
+        // `APSKAttributedLabel` for what that costs and why it is scoped to
+        // exactly this condition. Every other label, including one asking for
+        // a ratio at or above 1.0, keeps the path it had.
+        #if canImport(UIKit)
+        if let lhm = overrides.lineHeightMultiple, lhm.doubleValue > 0,
+           lhm.doubleValue < 1.0 {
+            return AnyView(tightlyLedLabel(CGFloat(lhm.doubleValue)))
+        }
+        #endif
         var content: AnyView = AnyView(Text(state.text))
 
         // Font size + weight. Apply `.font(.system(size:weight:))` when
@@ -192,8 +215,16 @@ private struct APSKLabelHost: View {
         if let ls = overrides.lineSpacing, ls.doubleValue >= 0 {
             content = AnyView(content.lineSpacing(scaled(ls.doubleValue)))
         }
+        // TRACKING SCALES WITH THE FACE, AND THE COMMENT ABOVE SAID SO WHILE
+        // THE CODE DID NOT (round-7). Tracking arrives as an em fraction
+        // resolved at the BASE size — `font.size * -0.015` — so a 36pt hero
+        // drawn at 58pt under a 1.6x ceiling carried -0.54pt of tracking where
+        // its own ratio asks for -0.87pt: 0.0093em against a published
+        // -0.015em, 62% of the intended value, and looser the larger the
+        // reader sets their text. `scaledMetric` rather than `scaled` because
+        // this value is signed and sub-point.
         if let tr = overrides.tracking, tr.doubleValue != 0 {
-            content = AnyView(content.tracking(CGFloat(tr.doubleValue)))
+            content = AnyView(content.tracking(scaledMetric(tr.doubleValue)))
         }
 
         // Phase 6.11 — strikethrough modifier. Applied last among the
@@ -245,6 +276,71 @@ private struct APSKLabelHost: View {
         content = CommonModifiers.apply(content, overrides: overrides)
         return content
     }
+
+    #if canImport(UIKit)
+    // The UIKit twin of the modifier chain above, for the display roles that
+    // ask to be led tighter than the face. It reads the SAME override fields;
+    // what it cannot borrow is the SwiftUI text modifiers, because none of them
+    // reaches a hosted UIView.
+    private func tightlyLedLabel(_ ratio: CGFloat) -> some View {
+        _ = dynamicTypeSize
+        let size = APSKDynamicType.size(
+            (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0)
+        let weight = uiWeight(overrides.fontWeight?.intValue)
+        var resolved = UIFont.systemFont(ofSize: size, weight: weight)
+        if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
+            if let named = UIFont(name: fam, size: size) {
+                resolved = named
+            } else {
+                // Same loud fallback the `Text` path takes: a face the bundle
+                // does not carry is reported rather than silently swapped.
+                APSKFontDiagnostics.reportMissingFamily(fam)
+            }
+        }
+        let align: NSTextAlignment
+        switch overrides.textAlignment {
+        case "center":   align = .center
+        case "trailing": align = .right
+        default:         align = .left
+        }
+        let label = APSKAttributedLabel(
+            text: state.text,
+            font: resolved,
+            color: overrides.foregroundColor ?? UIColor.label,
+            alignment: align,
+            lineHeightMultiple: ratio,
+            tracking: APSKDynamicType.metric(overrides.tracking?.doubleValue ?? 0),
+            numberOfLines: overrides.numberOfLines?.intValue ?? 0
+        )
+        let frameAlign: Alignment
+        switch overrides.textAlignment {
+        case "center":   frameAlign = .center
+        case "trailing": frameAlign = .trailing
+        default:         frameAlign = .leading
+        }
+        if let pmlw = overrides.preferredMaxLayoutWidth {
+            return AnyView(label.frame(width: CGFloat(pmlw.doubleValue), alignment: frameAlign))
+        }
+        if overrides.fillHorizontal?.boolValue == true {
+            return AnyView(label.frame(maxWidth: .infinity, alignment: frameAlign))
+        }
+        return AnyView(label)
+    }
+
+    private func uiWeight(_ raw: Int?) -> UIFont.Weight {
+        switch raw {
+        case -3: return .ultraLight
+        case -2: return .thin
+        case -1: return .light
+        case 1:  return .medium
+        case 2:  return .semibold
+        case 3:  return .bold
+        case 4:  return .heavy
+        case 5:  return .black
+        default: return .regular
+        }
+    }
+    #endif
 }
 
 // Local `Font.Weight` rawValue init. Matches the convention used by

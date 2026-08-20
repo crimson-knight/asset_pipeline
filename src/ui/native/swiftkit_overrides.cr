@@ -431,6 +431,7 @@ module UI
         # for why a stack with neither cannot lead a heading differently from a
         # paragraph, and draws a display face at the wrong letter-spacing.
         sender.set_number(target, :setLineSpacing, view.line_spacing)
+        sender.set_number(target, :setLineHeightMultiple, view.line_height_multiple)
         if font.tracking != 0.0
           sender.set_number(target, :setTracking, font.tracking)
         end

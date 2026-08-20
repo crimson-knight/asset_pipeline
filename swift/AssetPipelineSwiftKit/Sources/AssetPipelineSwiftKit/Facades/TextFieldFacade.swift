@@ -84,10 +84,10 @@ public class TextFieldFacade: NSObject {
         // was dropped and every field rendered at the SwiftUI body default.
         if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
             let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
-            content = AnyView(content.font(.custom(fam, size: CGFloat(sz))))
+            content = AnyView(content.font(.custom(fam, size: APSKDynamicType.size(sz))))
         } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
             let weight = (overrides.fontWeight.flatMap { Font.Weight(rawValue: $0.intValue) }) ?? .regular
-            content = AnyView(content.font(.system(size: CGFloat(sz.doubleValue), weight: weight)))
+            content = AnyView(content.font(.system(size: APSKDynamicType.size(sz.doubleValue), weight: weight)))
         } else if let w = overrides.fontWeight {
             content = AnyView(content.fontWeight(Font.Weight(rawValue: w.intValue) ?? .regular))
         }

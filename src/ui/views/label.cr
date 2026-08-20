@@ -104,6 +104,32 @@ module UI
     # the font size is known.
     property line_spacing : Float64? = nil
 
+    # ── LINE HEIGHT AS A RATIO, WHICH IS THE HALF `line_spacing` CANNOT DO ──
+    #
+    # `line_spacing` ADDS points, so it can only ever make a line looser than
+    # the face's own advance. Every display ramp in the field asks for the
+    # opposite: `.p-h1,.p-h2,.p-h3{line-height:1.06}` against a platform
+    # advance of ~1.195, and `1.06` is not reachable by adding anything.
+    #
+    # Measured consequence, on a shipped frame: a 28pt section heading wrapped
+    # onto two lines came out at a 33.0pt advance (1.179) where the stylesheet
+    # beside it asks for 29.7pt (1.06) — 3.3pt of extra air per gap on a
+    # heading, 4.3pt on a 36pt hero, on every headline that wraps, which at a
+    # phone width is most of them.
+    #
+    # WHY IT IS A SECOND PROPERTY RATHER THAN A NEGATIVE `line_spacing`.
+    # SwiftUI's `Text` genuinely cannot do this: `.lineSpacing` clamps at zero
+    # and `Text` does not honour an `NSParagraphStyle`. A `UILabel` carrying an
+    # `NSAttributedString` with `paragraphStyle.lineHeightMultiple` DOES, and
+    # the renderer that honours this property drops to that path for the labels
+    # that ask — so the field is also a statement about which mechanism draws
+    # the label, which a signed `line_spacing` would have hidden.
+    #
+    # nil = the face's own advance, which is every label that does not ask.
+    # A value >= 1.0 is expressible either way and is honoured on the ordinary
+    # path; only a ratio BELOW 1.0 changes which mechanism draws.
+    property line_height_multiple : Float64? = nil
+
     # Phase 6.11 — strikethrough toggle. Renderers map to:
     #   SwiftUI / UIKit / AppKit : `.strikethrough(true)`
     #   Web                       : `text-decoration: line-through`
