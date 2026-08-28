@@ -363,6 +363,36 @@ module UI
           el.set_attribute("inputmode", "url")
         end
 
+        case view.content_type
+        when TextContentType::Name
+          el.set_attribute("autocomplete", "name")
+        when TextContentType::FullStreetAddress
+          el.set_attribute("autocomplete", "street-address")
+        when TextContentType::StreetAddressLine1
+          el.set_attribute("autocomplete", "address-line1")
+        when TextContentType::AddressCity
+          el.set_attribute("autocomplete", "address-level2")
+        when TextContentType::AddressState
+          el.set_attribute("autocomplete", "address-level1")
+        when TextContentType::PostalCode
+          el.set_attribute("autocomplete", "postal-code")
+        when TextContentType::TelephoneNumber
+          el.set_attribute("autocomplete", "tel")
+        when TextContentType::EmailAddress
+          el.set_attribute("autocomplete", "email")
+        end
+
+        unless view.submit_label == TextInputAction::Default
+          el.set_attribute("enterkeyhint", view.submit_label.to_s.downcase)
+        end
+
+        unless view.autocapitalization == TextAutocapitalization::Default
+          el.set_attribute("autocapitalize", view.autocapitalization.to_s.downcase)
+        end
+        unless view.autocorrection_disabled.nil?
+          el.set_attribute("autocorrect", view.autocorrection_disabled ? "off" : "on")
+        end
+
         # Font and text color
         apply_font_styles(el, view.font)
         el.add_style("color: #{color_css(view.text_color, default_token: "var(--ap-color-text-primary)")}")

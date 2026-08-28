@@ -11,6 +11,9 @@
 
 import SwiftUI
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // watchOS: ENABLED (Phase D Bucket-2 P0 port, 2026-06-02). The control body
 // (`PromptOverlayField` → `TextField`/`SecureField` + a contrast overlay) is pure
@@ -71,7 +74,8 @@ public class TextFieldFacade: NSObject {
                 storage: storage,
                 placeholder: placeholder,
                 isSecure: secure,
-                placeholderColor: phColor
+                placeholderColor: phColor,
+                requestedFocus: overrides.apskFocused?.boolValue ?? false
             )
         )
 
@@ -139,7 +143,44 @@ public class TextFieldFacade: NSObject {
             content = AnyView(content.onSubmit {
                 CallbackBridge.fireString(token: submitToken, value: storage.text)
             })
+
+            #if canImport(UIKit) && !os(watchOS)
+            if overrides.keyboardToolbar?.boolValue == true {
+                let title = toolbarTitle(for: overrides.submitLabel)
+                content = AnyView(content.toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button(title) {
+                            CallbackBridge.fireString(token: submitToken, value: storage.text)
+                        }
+                    }
+                })
+            }
+            #endif
         }
+
+        if let label = submitLabel(for: overrides.submitLabel) {
+            content = AnyView(content.submitLabel(label))
+        }
+
+        #if canImport(UIKit) && !os(watchOS)
+        if let contentType = textContentType(for: overrides.contentType) {
+            content = AnyView(content.textContentType(contentType))
+        }
+
+        if let capitalization = overrides.autocapitalization {
+            switch capitalization {
+            case "never":      content = AnyView(content.textInputAutocapitalization(.never))
+            case "words":      content = AnyView(content.textInputAutocapitalization(.words))
+            case "sentences":  content = AnyView(content.textInputAutocapitalization(.sentences))
+            case "characters": content = AnyView(content.textInputAutocapitalization(.characters))
+            default: break
+            }
+        }
+        if let disabled = overrides.autocorrectionDisabled {
+            content = AnyView(content.autocorrectionDisabled(disabled.boolValue))
+        }
+        #endif
 
         #if canImport(UIKit) && !os(watchOS)
         if let kt = overrides.keyboardType {
@@ -156,6 +197,45 @@ public class TextFieldFacade: NSObject {
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(StorageHost(storage: storage, content: content))
     }
+
+    private static func submitLabel(for token: String?) -> SubmitLabel? {
+        switch token {
+        case "next": return .next
+        case "done": return .done
+        case "send": return .send
+        case "go": return .go
+        case "search": return .search
+        case "continue": return .continue
+        default: return nil
+        }
+    }
+
+    private static func toolbarTitle(for token: String?) -> String {
+        switch token {
+        case "next": return "Next"
+        case "send": return "Send"
+        case "go": return "Go"
+        case "search": return "Search"
+        case "continue": return "Continue"
+        default: return "Done"
+        }
+    }
+
+    #if canImport(UIKit) && !os(watchOS)
+    private static func textContentType(for token: String?) -> UITextContentType? {
+        switch token {
+        case "name": return .name
+        case "fullstreetaddress": return .fullStreetAddress
+        case "streetaddressline1": return .streetAddressLine1
+        case "addresscity": return .addressCity
+        case "addressstate": return .addressState
+        case "postalcode": return .postalCode
+        case "telephonenumber": return .telephoneNumber
+        case "emailaddress": return .emailAddress
+        default: return nil
+        }
+    }
+    #endif
 }
 
 // Per-field state holder. SwiftUI requires the bound state to outlive
@@ -215,6 +295,8 @@ struct PromptOverlayField: View {
     // synthesized memberwise init backward-compatible for the SecureFieldFacade
     // call site, which doesn't pass a colour.
     var placeholderColor: Color? = nil
+    var requestedFocus: Bool = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         // Width floor: an EMPTY SwiftUI TextField/SecureField has ~0 ideal width,
@@ -238,6 +320,7 @@ struct PromptOverlayField: View {
                     TextField("", text: storage.binding)
                 }
             }
+            .focused($isFocused)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if storage.text.isEmpty {
@@ -246,6 +329,12 @@ struct PromptOverlayField: View {
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
+        }
+        .onAppear {
+            if requestedFocus { isFocused = true }
+        }
+        .onChange(of: requestedFocus) { shouldFocus in
+            if shouldFocus { isFocused = true }
         }
     }
 }

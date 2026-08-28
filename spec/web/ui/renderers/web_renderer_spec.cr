@@ -412,6 +412,19 @@ describe UI::Web::Renderer do
       html.should contain("inputmode=\"numeric\"")
     end
 
+    it "applies semantic autocomplete and keyboard action hints" do
+      field = UI::TextField.new("Email")
+      field.content_type = UI::TextContentType::EmailAddress
+      field.submit_label = UI::TextInputAction::Next
+      field.autocapitalization = UI::TextAutocapitalization::Never
+      field.autocorrection_disabled = true
+      html = render(field)
+      html.should contain("autocomplete=\"email\"")
+      html.should contain("enterkeyhint=\"next\"")
+      html.should contain("autocapitalize=\"never\"")
+      html.should contain("autocorrect=\"off\"")
+    end
+
     it "applies font styles" do
       field = UI::TextField.new("Styled")
       field.font = UI::Font.new(size: 14.0)
