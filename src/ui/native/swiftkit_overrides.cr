@@ -502,8 +502,40 @@ module UI
         sender.set_bool(target, :setSecureEntry, view.secure_entry ? true : nil)
         kt = view.keyboard_type
         unless kt == UI::KeyboardType::Default
-          sender.set_string(target, :setKeyboardType, kt.to_s.downcase)
+          keyboard_token = case kt
+                           when UI::KeyboardType::EmailAddress then "email"
+                           when UI::KeyboardType::NumberPad    then "number"
+                           when UI::KeyboardType::PhonePad     then "phone"
+                           when UI::KeyboardType::URL          then "url"
+                           else                                     "default"
+                           end
+          sender.set_string(target, :setKeyboardType, keyboard_token)
         end
+        unless view.content_type == UI::TextContentType::None
+          content_token = case view.content_type
+                          when UI::TextContentType::Name               then "name"
+                          when UI::TextContentType::FullStreetAddress  then "fullstreetaddress"
+                          when UI::TextContentType::StreetAddressLine1 then "streetaddressline1"
+                          when UI::TextContentType::AddressCity        then "addresscity"
+                          when UI::TextContentType::AddressState       then "addressstate"
+                          when UI::TextContentType::PostalCode         then "postalcode"
+                          when UI::TextContentType::TelephoneNumber    then "telephonenumber"
+                          when UI::TextContentType::EmailAddress       then "emailaddress"
+                          else                                              "none"
+                          end
+          sender.set_string(target, :setContentType, content_token)
+        end
+        unless view.submit_label == UI::TextInputAction::Default
+          sender.set_string(target, :setSubmitLabel, view.submit_label.to_s.downcase)
+        end
+        if view.keyboard_toolbar
+          sender.set_bool(target, :setKeyboardToolbar, true)
+        end
+        unless view.autocapitalization == UI::TextAutocapitalization::Default
+          sender.set_string(target, :setAutocapitalization,
+            view.autocapitalization.to_s.downcase)
+        end
+        sender.set_bool(target, :setAutocorrectionDisabled, view.autocorrection_disabled)
         emit_font(target, view.font, sender)
 
         # Placeholder tint — nil by default (set_color no-ops on nil), so the

@@ -16,6 +16,44 @@ module UI
     Plain
   end
 
+  # Semantic purpose of a text field. Native platforms use this for
+  # password-manager/contact AutoFill; web renders the matching `autocomplete`
+  # token. It is deliberately separate from `KeyboardType`: an email field,
+  # for example, needs both an email keyboard and an email identity hint.
+  enum TextContentType
+    None
+    Name
+    FullStreetAddress
+    StreetAddressLine1
+    AddressCity
+    AddressState
+    PostalCode
+    TelephoneNumber
+    EmailAddress
+  end
+
+  # Label shown on the software keyboard's Return key. Number/phone keyboards
+  # do not have a Return key on iOS, so `keyboard_toolbar = true` also exposes
+  # the same action in a keyboard accessory toolbar.
+  enum TextInputAction
+    Default
+    Next
+    Done
+    Send
+    Go
+    Search
+    Continue
+  end
+
+  # Platform text-capitalization preference.
+  enum TextAutocapitalization
+    Default
+    Never
+    Words
+    Sentences
+    Characters
+  end
+
   # An editable single-line text input field.
   #
   # Provides placeholder text, secure entry mode for passwords,
@@ -54,6 +92,21 @@ module UI
 
     # Keyboard type hint for platform input method
     property keyboard_type : KeyboardType = KeyboardType::Default
+
+    # Semantic identity/contact/address hint used by platform AutoFill.
+    property content_type : TextContentType = TextContentType::None
+
+    # Software keyboard Return-key label.
+    property submit_label : TextInputAction = TextInputAction::Default
+
+    # Show an action above keyboards (notably phone/number pads) that do not
+    # provide a Return key. The action invokes `on_submit`.
+    property keyboard_toolbar : Bool = false
+
+    # Capitalization and correction preferences. `nil` correction keeps the
+    # platform default, while true/false explicitly disables/enables it.
+    property autocapitalization : TextAutocapitalization = TextAutocapitalization::Default
+    property autocorrection_disabled : Bool? = nil
 
     # Callback invoked when the text value changes.
     # Receives the new text string.
