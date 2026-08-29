@@ -17,6 +17,9 @@ public class TextFieldOverrides: ViewOverrides {
     // Return-key label and optional keyboard accessory action.
     @objc public var submitLabel: String? = nil
     @objc public var keyboardToolbar: NSNumber? = nil
+    // Move between mounted UIKit text inputs without asking Crystal to rebuild
+    // the form. Opt-in preserves callback-driven navigation for older clients.
+    @objc public var nativeFocusNavigation: NSNumber? = nil
     // Text assistance preferences.
     @objc public var autocapitalization: String? = nil
     @objc public var autocorrectionDisabled: NSNumber? = nil

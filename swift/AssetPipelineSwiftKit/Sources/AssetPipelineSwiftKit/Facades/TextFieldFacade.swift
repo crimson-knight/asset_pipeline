@@ -138,10 +138,23 @@ public class TextFieldFacade: NSObject {
         // current text. Mirrors SearchField's on_submit. (Shift+Return newline is
         // a multi-line-composer / TextArea concern and is not implied here — a
         // single-line TextField submits on Return.)
+        let nativeFocusNavigation = overrides.nativeFocusNavigation?.boolValue == true
         if let st = overrides.submitToken, st.uint64Value != 0 {
             let submitToken = st.uint64Value
             content = AnyView(content.onSubmit {
+                #if os(iOS)
+                if nativeFocusNavigation && overrides.submitLabel == "next" {
+                    if !NativeTextInputFocusNavigator.moveCurrent(by: 1) {
+                        CallbackBridge.fireString(token: submitToken, value: storage.text)
+                    }
+                } else if nativeFocusNavigation && overrides.submitLabel == "done" {
+                    NativeTextInputFocusNavigator.resignCurrent()
+                } else {
+                    CallbackBridge.fireString(token: submitToken, value: storage.text)
+                }
+                #else
                 CallbackBridge.fireString(token: submitToken, value: storage.text)
+                #endif
             })
         }
 
@@ -192,6 +205,7 @@ public class TextFieldFacade: NSObject {
                 keyboardType: overrides.keyboardType,
                 submitLabel: overrides.submitLabel,
                 showsToolbar: overrides.keyboardToolbar?.boolValue == true,
+                nativeFocusNavigation: nativeFocusNavigation,
                 previousToken: overrides.previousToken?.uint64Value ?? 0,
                 submitToken: overrides.submitToken?.uint64Value ?? 0
             )
@@ -247,6 +261,7 @@ private struct NativeTextInputConfigurator: UIViewRepresentable {
     let keyboardType: String?
     let submitLabel: String?
     let showsToolbar: Bool
+    let nativeFocusNavigation: Bool
     let previousToken: UInt64
     let submitToken: UInt64
 
@@ -260,6 +275,7 @@ private struct NativeTextInputConfigurator: UIViewRepresentable {
             keyboardType: keyboardType,
             submitLabel: submitLabel,
             showsToolbar: showsToolbar,
+            nativeFocusNavigation: nativeFocusNavigation,
             previousToken: previousToken,
             submitToken: submitToken
         )
@@ -273,6 +289,7 @@ private final class NativeTextInputProbe: UIView {
         let keyboardType: String?
         let submitLabel: String?
         let showsToolbar: Bool
+        let nativeFocusNavigation: Bool
         let previousToken: UInt64
         let submitToken: UInt64
     }
@@ -348,6 +365,7 @@ private final class NativeTextInputProbe: UIView {
             configuration.keyboardType ?? "default",
             configuration.submitLabel ?? "default",
             configuration.showsToolbar ? "toolbar" : "no-toolbar",
+            configuration.nativeFocusNavigation ? "native-focus" : "callback-focus",
             String(configuration.previousToken),
             String(configuration.submitToken),
         ].joined(separator: "|")
@@ -389,6 +407,10 @@ private final class NativeTextInputProbe: UIView {
             image: UIImage(systemName: "chevron.up"),
             primaryAction: UIAction { _ in
                 guard configuration.previousToken != 0 else { return }
+                if configuration.nativeFocusNavigation,
+                   NativeTextInputFocusNavigator.move(from: field, by: -1) {
+                    return
+                }
                 CallbackBridge.fireString(
                     token: configuration.previousToken,
                     value: configuration.storage.text
@@ -403,6 +425,10 @@ private final class NativeTextInputProbe: UIView {
             image: UIImage(systemName: "chevron.down"),
             primaryAction: UIAction { _ in
                 guard configuration.submitToken != 0 else { return }
+                if configuration.nativeFocusNavigation,
+                   NativeTextInputFocusNavigator.move(from: field, by: 1) {
+                    return
+                }
                 CallbackBridge.fireString(
                     token: configuration.submitToken,
                     value: configuration.storage.text
@@ -416,7 +442,9 @@ private final class NativeTextInputProbe: UIView {
         let done = UIBarButtonItem(
             title: "Done",
             primaryAction: UIAction { [weak field] _ in
-                if configuration.submitLabel == "done", configuration.submitToken != 0 {
+                if configuration.nativeFocusNavigation {
+                    field?.resignFirstResponder()
+                } else if configuration.submitLabel == "done", configuration.submitToken != 0 {
                     CallbackBridge.fireString(
                         token: configuration.submitToken,
                         value: configuration.storage.text
@@ -435,6 +463,95 @@ private final class NativeTextInputProbe: UIView {
         )
         toolbar.items = [previous, next, flexible, done]
         return toolbar
+    }
+}
+
+/// Native focus movement for forms composed from separate widget-sized
+/// hosting controllers. Keeping this inside UIKit preserves the scroll offset,
+/// the mounted editor and the keyboard; a Crystal callback would rebuild all
+/// three merely to move first responder one field.
+private enum NativeTextInputFocusNavigator {
+    static func moveCurrent(by offset: Int) -> Bool {
+        guard let field = currentField() else { return false }
+        return move(from: field, by: offset)
+    }
+
+    static func resignCurrent() {
+        currentField()?.resignFirstResponder()
+    }
+
+    static func move(from field: UITextField, by offset: Int) -> Bool {
+        guard offset != 0, let window = field.window else { return false }
+        let fields = visibleFields(in: window)
+        guard let index = fields.firstIndex(where: { $0 === field }) else { return false }
+        let destination = index + offset
+        guard fields.indices.contains(destination) else { return false }
+
+        let next = fields[destination]
+        guard next.becomeFirstResponder() else { return false }
+        reveal(next)
+        return true
+    }
+
+    private static func currentField() -> UITextField? {
+        for window in activeWindows() {
+            if let field = firstResponder(in: window) { return field }
+        }
+        return nil
+    }
+
+    private static func activeWindows() -> [UIWindow] {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .filter { !$0.isHidden && $0.alpha > 0.01 }
+    }
+
+    private static func firstResponder(in view: UIView) -> UITextField? {
+        if let field = view as? UITextField, field.isFirstResponder { return field }
+        for child in view.subviews {
+            if let found = firstResponder(in: child) { return found }
+        }
+        return nil
+    }
+
+    private static func visibleFields(in window: UIWindow) -> [UITextField] {
+        var fields: [UITextField] = []
+        collectFields(in: window, into: &fields)
+        return fields
+            .filter {
+                $0.window === window && !$0.isHidden && $0.alpha > 0.01 &&
+                $0.isUserInteractionEnabled && $0.bounds.width > 0 && $0.bounds.height > 0
+            }
+            .sorted {
+                let lhs = $0.convert($0.bounds, to: window)
+                let rhs = $1.convert($1.bounds, to: window)
+                if abs(lhs.minY - rhs.minY) > 1 { return lhs.minY < rhs.minY }
+                return lhs.minX < rhs.minX
+            }
+    }
+
+    private static func collectFields(in view: UIView, into fields: inout [UITextField]) {
+        if let field = view as? UITextField { fields.append(field) }
+        for child in view.subviews { collectFields(in: child, into: &fields) }
+    }
+
+    private static func reveal(_ field: UITextField) {
+        let revealNow = {
+            var ancestor = field.superview
+            while let view = ancestor {
+                if let scroll = view as? UIScrollView {
+                    let rect = field.convert(field.bounds, to: scroll)
+                        .insetBy(dx: -12, dy: -16)
+                    scroll.scrollRectToVisible(rect, animated: true)
+                }
+                ancestor = view.superview
+            }
+        }
+        DispatchQueue.main.async(execute: revealNow)
+        // The host compresses its root when the keyboard frame settles. Reveal
+        // once more after that animation so lower fields remain above it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: revealNow)
     }
 }
 
