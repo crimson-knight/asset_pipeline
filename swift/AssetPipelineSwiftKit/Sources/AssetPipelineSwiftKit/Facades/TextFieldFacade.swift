@@ -238,12 +238,12 @@ public class TextFieldFacade: NSObject {
 /// Previous / Next / Done accessory. Each asset-pipeline TextField has its own
 /// hosting controller, so the search cannot cross into a neighboring field.
 private struct NativeTextInputConfigurator: UIViewRepresentable {
-    // The editor itself observes TextStorage. This marker only needs the
-    // stable reference so its toolbar actions can read the latest value.
-    // Observing every keystroke here makes updateUIView re-apply native input
-    // traits while UIKit is processing that same key event. On an iOS 17.4
-    // simulator, XCUITest then waited indefinitely for the app to become idle.
-    let storage: TextStorage
+    // Observing the shared storage also gives SwiftUI another update pass after
+    // its native editor has materialized. The probe needs that pass to attach
+    // the keyboard accessory reliably after validation replaces and focuses a
+    // field in the same render turn. `apply` is idempotent, so these updates do
+    // not reload an already-configured first responder.
+    @ObservedObject var storage: TextStorage
     let keyboardType: String?
     let submitLabel: String?
     let showsToolbar: Bool
