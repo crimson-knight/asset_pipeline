@@ -190,6 +190,29 @@ final class OverridesPropagationTests: XCTestCase {
         XCTAssertNotNil(view)
         XCTAssertEqual(overrides.keyboardType, "email")
     }
+
+    func testTextFieldFacadeSemanticInputOverridesRender() {
+        let overrides = TextFieldOverrides()
+        overrides.keyboardType = "phone"
+        overrides.contentType = "telephonenumber"
+        overrides.submitLabel = "next"
+        overrides.keyboardToolbar = NSNumber(value: true)
+        overrides.autocapitalization = "never"
+        overrides.autocorrectionDisabled = NSNumber(value: true)
+        overrides.submitToken = NSNumber(value: 7)
+        overrides.previousToken = NSNumber(value: 6)
+        let view = TextFieldFacade.makeTextField(
+            placeholder: "Phone",
+            initialText: "",
+            overrides: overrides,
+            actionToken: 0
+        )
+        XCTAssertNotNil(view)
+        XCTAssertEqual(overrides.contentType, "telephonenumber")
+        XCTAssertEqual(overrides.submitLabel, "next")
+        XCTAssertEqual(overrides.keyboardToolbar?.boolValue, true)
+        XCTAssertEqual(overrides.previousToken?.uint64Value, 6)
+    }
     #endif
 
     // MARK: - Card

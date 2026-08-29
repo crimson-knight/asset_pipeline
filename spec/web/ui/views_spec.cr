@@ -464,6 +464,12 @@ describe UI do
       field.text.should eq("")
       field.secure_entry.should be_false
       field.keyboard_type.should eq(UI::KeyboardType::Default)
+      field.content_type.should eq(UI::TextContentType::None)
+      field.submit_label.should eq(UI::TextInputAction::Default)
+      field.keyboard_toolbar.should be_false
+      field.on_previous.should be_nil
+      field.autocapitalization.should eq(UI::TextAutocapitalization::Default)
+      field.autocorrection_disabled.should be_nil
     end
 
     it "creates a ScrollView" do

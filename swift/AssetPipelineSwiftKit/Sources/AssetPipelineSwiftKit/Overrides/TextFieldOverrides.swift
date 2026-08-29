@@ -12,6 +12,14 @@ import Foundation
 public class TextFieldOverrides: ViewOverrides {
     @objc public var secureEntry: NSNumber? = nil
     @objc public var keyboardType: String? = nil
+    // Semantic AutoFill identity/address/contact hint.
+    @objc public var contentType: String? = nil
+    // Return-key label and optional keyboard accessory action.
+    @objc public var submitLabel: String? = nil
+    @objc public var keyboardToolbar: NSNumber? = nil
+    // Text assistance preferences.
+    @objc public var autocapitalization: String? = nil
+    @objc public var autocorrectionDisabled: NSNumber? = nil
     // Font: point size, raw Font.Weight intValue, custom family / PostScript
     // name. nil = SwiftUI default. A real family ("Alegreya-Medium", …) renders
     // via `.font(.custom(name, size:))`; the consumer registers the TTF first
@@ -32,6 +40,9 @@ public class TextFieldOverrides: ViewOverrides {
     // trampoline with the current text — the Enter-to-send contract. nil = no
     // submit handler (Return does nothing, the prior behavior).
     @objc public var submitToken: NSNumber? = nil
+    // Previous-field callback token for the native iOS keyboard accessory.
+    // nil/0 disables the upward navigation button for the first field.
+    @objc public var previousToken: NSNumber? = nil
 
     @objc public override init() { super.init() }
 }

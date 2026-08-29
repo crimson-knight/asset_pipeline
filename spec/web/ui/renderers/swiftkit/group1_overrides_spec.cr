@@ -180,6 +180,44 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       FakeLibObjCBridge.assert_sent(:setSecureEntry, times: 1, args: [target, "true"])
     end
 
+    it "maps keyboard enums to the Swift facade contract" do
+      {
+        UI::KeyboardType::EmailAddress => "email",
+        UI::KeyboardType::NumberPad    => "number",
+        UI::KeyboardType::PhonePad     => "phone",
+        UI::KeyboardType::URL          => "url",
+      }.each do |keyboard_type, expected|
+        FakeLibObjCBridge.reset
+        view = UI::TextField.new
+        view.keyboard_type = keyboard_type
+        target = FakeLibObjCBridge.next_sentinel_pointer
+        UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+        FakeLibObjCBridge.assert_sent(:setKeyboardType, times: 1,
+          args: [target, expected])
+      end
+    end
+
+    it "forwards semantic input assistance and keyboard action overrides" do
+      view = UI::TextField.new
+      view.content_type = UI::TextContentType::EmailAddress
+      view.submit_label = UI::TextInputAction::Next
+      view.keyboard_toolbar = true
+      view.autocapitalization = UI::TextAutocapitalization::Never
+      view.autocorrection_disabled = true
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setContentType, times: 1,
+        args: [target, "emailaddress"])
+      FakeLibObjCBridge.assert_sent(:setSubmitLabel, times: 1,
+        args: [target, "next"])
+      FakeLibObjCBridge.assert_sent(:setKeyboardToolbar, times: 1,
+        args: [target, "true"])
+      FakeLibObjCBridge.assert_sent(:setAutocapitalization, times: 1,
+        args: [target, "never"])
+      FakeLibObjCBridge.assert_sent(:setAutocorrectionDisabled, times: 1,
+        args: [target, "true"])
+    end
+
     it "forwards font size/weight/family when overridden" do
       view = UI::TextField.new
       view.font = UI::Font.new(family: "Alegreya-Medium", size: 22.0)

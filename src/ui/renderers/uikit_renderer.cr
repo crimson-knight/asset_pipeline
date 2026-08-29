@@ -800,6 +800,20 @@
           action_token = UI::CallbackRegistry.register_string(wrapped_handler)
         end
 
+        # Match AppKit's Enter-to-submit contract. This token also powers the
+        # optional iOS keyboard accessory action for phone/number keyboards.
+        submit_token = 0_u64
+        if submit_handler = view.on_submit
+          submit_token = UI::CallbackRegistry.register_string(submit_handler)
+          sender.set_number(target_str, :setSubmitToken, submit_token.to_f64)
+        end
+
+        previous_token = 0_u64
+        if previous_handler = view.on_previous
+          previous_token = UI::CallbackRegistry.register_string(previous_handler)
+          sender.set_number(target_str, :setPreviousToken, previous_token.to_f64)
+        end
+
         ptr = LibSwiftKitBridge.apsk_make_text_field(
           view.placeholder.to_unsafe, view.text.to_unsafe,
           overrides_ptr, action_token,
@@ -807,6 +821,8 @@
         handle = ObjC.owned(ptr, label: "UIHostingController[TextField]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
+        native.track_callback_id(submit_token) unless submit_token == 0_u64
+        native.track_callback_id(previous_token) unless previous_token == 0_u64
         push_native(native)
       end
 
@@ -5002,9 +5018,21 @@
                     else
                       name_str = LibObjCBridge.nsstring_from_cstr(font.family.to_unsafe)
                       result = LibObjCBridge.nsfont_named(name_str, font.size)
-                      # Fall back to system font if the named font was not found
+                      # ── A MISSING FACE KEEPS ITS WEIGHT, AND SAYS SO ──────
+                      #
+                      # This fell back to `nsfont_system(size)` — the NO-WEIGHT
+                      # overload, `[UIFont systemFontOfSize:]` — so the weight
+                      # computed one line above was thrown away with the family.
+                      # There was no log, no raise and no gate arm, which makes
+                      # it the exact trap a display-face change walks into:
+                      # bundle a face under one PostScript name, ship it under
+                      # another, and every bold headline becomes regular San
+                      # Francisco while the specs and every static check stay
+                      # green.
                       if result.null?
-                        LibObjCBridge.nsfont_system(font.size)
+                        STDERR.puts("[AssetPipeline] font family '#{font.family}' is NOT registered " \
+                                    "— drawing the system face at the requested weight instead")
+                        LibObjCBridge.nsfont_system_weight(font.size, weight)
                       else
                         result
                       end
