@@ -238,6 +238,11 @@ public class TextFieldFacade: NSObject {
 /// Previous / Next / Done accessory. Each asset-pipeline TextField has its own
 /// hosting controller, so the search cannot cross into a neighboring field.
 private struct NativeTextInputConfigurator: UIViewRepresentable {
+    // Observing the shared storage also gives SwiftUI another update pass after
+    // its native editor has materialized. The probe needs that pass to attach
+    // the keyboard accessory reliably after validation replaces and focuses a
+    // field in the same render turn. `apply` is idempotent, so these updates do
+    // not reload an already-configured first responder.
     @ObservedObject var storage: TextStorage
     let keyboardType: String?
     let submitLabel: String?
@@ -331,7 +336,13 @@ private final class NativeTextInputProbe: UIView {
         default: desiredKeyboard = .default
         }
 
-        field.keyboardType = desiredKeyboard
+        // Setting an input trait on the current first responder is not a
+        // harmless assignment: UIKit invalidates input state even when the
+        // value is unchanged. Keep this configurator idempotent so typing does
+        // not continuously perturb the keyboard/event loop.
+        if field.keyboardType != desiredKeyboard {
+            field.keyboardType = desiredKeyboard
+        }
 
         let signature = [
             configuration.keyboardType ?? "default",
