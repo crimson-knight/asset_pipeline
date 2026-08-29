@@ -89,6 +89,18 @@ final class OverridesPropagationTests: XCTestCase {
         XCTAssertEqual(overrides.disabled?.boolValue, true)
     }
 
+    func testButtonFacadeCommitsTextInputOverrideRenders() {
+        let overrides = ButtonOverrides()
+        overrides.commitsTextInput = NSNumber(value: true)
+        let view = ButtonFacade.makeButton(
+            label: "Submit",
+            overrides: overrides,
+            actionToken: 0
+        )
+        XCTAssertNotNil(view)
+        XCTAssertEqual(overrides.commitsTextInput?.boolValue, true)
+    }
+
     func testButtonFacadeWithSymbolNameRenders() {
         let overrides = ButtonOverrides()
         overrides.symbolName = "trash"

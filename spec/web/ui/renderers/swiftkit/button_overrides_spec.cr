@@ -70,6 +70,7 @@ describe UI::Native::Populator, "#populate_button" do
       FakeLibObjCBridge.refute_sent(:setRole)
       FakeLibObjCBridge.refute_sent(:setStyle)
       FakeLibObjCBridge.refute_sent(:setDisabled)
+      FakeLibObjCBridge.refute_sent(:setCommitsTextInput)
       FakeLibObjCBridge.refute_sent(:setSymbolName)
 
       # Font default is size:17 weight::regular family:"system" → no
@@ -319,6 +320,23 @@ describe UI::Native::Populator, "#populate_button" do
       target = FakeLibObjCBridge.next_sentinel_pointer
       UI::Native::Populator.populate_button(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setDisabled, times: 1, args: [target, "true"])
+    end
+  end
+
+  describe "text input commit override" do
+    it "skips setCommitsTextInput when the button is not a form submitter" do
+      view = UI::Button.new("Save")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setCommitsTextInput)
+    end
+
+    it "sends setCommitsTextInput:true for an opted-in form submitter" do
+      view = UI::Button.new("Send request")
+      view.commits_text_input = true
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setCommitsTextInput, times: 1, args: [target, "true"])
     end
   end
 

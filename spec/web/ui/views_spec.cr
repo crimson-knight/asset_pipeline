@@ -419,6 +419,7 @@ describe UI do
       button = UI::Button.new("Tap me")
       button.label.should eq("Tap me")
       button.disabled.should be_false
+      button.commits_text_input.should be_false
       button.on_tap.should be_nil
     end
 

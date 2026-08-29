@@ -130,6 +130,18 @@ module UI
     # Callback invoked when the button is tapped
     property on_tap : Proc(Nil)? = nil
 
+    # Commit the currently edited native text field before invoking `on_tap`.
+    #
+    # iOS can deliver a SwiftUI Button action in the same turn as the text
+    # field's final AutoFill/editing callback. A form submitter that reads its
+    # Crystal model immediately can therefore observe the previous value even
+    # though the field visibly contains the new one. Opting in dismisses the
+    # keyboard first and dispatches the action on the following main-run-loop
+    # turn, after the field binding has committed. This is intentionally not a
+    # global Button default: toolbar and navigation buttons should not dismiss
+    # a field unless their caller says they submit that field.
+    property commits_text_input : Bool = false
+
     # Semantic role for the button. HIG-standard values:
     #   :default      — normal/primary action (no special styling)
     #   :destructive  — action destroys data; renderers color the label red

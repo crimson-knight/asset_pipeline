@@ -23,6 +23,9 @@
 
 import SwiftUI
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @objc(APSKButtonFacade)
 public class ButtonFacade: NSObject {
@@ -80,6 +83,23 @@ private struct APSKButtonHost: View {
 
     var body: some View {
         let action: () -> Void = { [actionToken] in
+            #if canImport(UIKit) && !os(watchOS)
+            if overrides.commitsTextInput?.boolValue == true {
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder),
+                    to: nil,
+                    from: nil,
+                    for: nil
+                )
+                // Resigning commits UIKit/SwiftUI's final editing value. Run
+                // the Crystal callback on the next turn so a submitter cannot
+                // race that binding update and post the previous value.
+                DispatchQueue.main.async {
+                    CallbackBridge.fire(token: actionToken, value: 0.0)
+                }
+                return
+            }
+            #endif
             CallbackBridge.fire(token: actionToken, value: 0.0)
         }
 

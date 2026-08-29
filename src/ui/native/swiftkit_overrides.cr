@@ -291,6 +291,10 @@ module UI
         # Disabled: false is the type default.
         sender.set_bool(target, :setDisabled, view.disabled ? true : nil)
 
+        # Form submitters opt into committing the active native text field
+        # before their callback runs. See UI::Button#commits_text_input.
+        sender.set_bool(target, :setCommitsTextInput, view.commits_text_input ? true : nil)
+
         # Line cap: 1 (single-line, truncating) is the type default; emit only
         # when the developer opts into wrapping (0 = unlimited, n > 1 = capped).
         nl = view.number_of_lines

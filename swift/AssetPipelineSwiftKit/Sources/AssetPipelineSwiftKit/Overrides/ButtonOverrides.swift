@@ -28,6 +28,10 @@ public class ButtonOverrides: ViewOverrides {
     @objc public var role: String? = nil
     @objc public var style: String? = nil
     @objc public var disabled: NSNumber? = nil
+    // When true on iOS, resign the active text input and invoke the button on
+    // the next main-run-loop turn so its final binding value reaches Crystal
+    // before a form submit callback reads the model.
+    @objc public var commitsTextInput: NSNumber? = nil
     @objc public var symbolName: String? = nil
     // Max label lines. nil = single-line (truncating CTA default). 0 = unlimited
     // (wrap), n > 1 = capped wrap. When set, the facade applies `.lineLimit` +
