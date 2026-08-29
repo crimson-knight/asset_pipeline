@@ -535,6 +535,9 @@ module UI
         if view.keyboard_toolbar
           sender.set_bool(target, :setKeyboardToolbar, true)
         end
+        if view.native_focus_navigation
+          sender.set_bool(target, :setNativeFocusNavigation, true)
+        end
         unless view.autocapitalization == UI::TextAutocapitalization::Default
           sender.set_string(target, :setAutocapitalization,
             view.autocapitalization.to_s.downcase)

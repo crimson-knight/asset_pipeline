@@ -103,6 +103,15 @@ module UI
     # provide a Return key. The action invokes `on_submit`.
     property keyboard_toolbar : Bool = false
 
+    # Keep Previous / Next / Done navigation inside UIKit instead of routing
+    # each movement through Crystal's callback and a whole-tree re-render.
+    # This is opt-in because existing consumers may intentionally validate or
+    # mutate their view model from `on_previous` / `on_submit`. When enabled,
+    # the native field still streams every edit through `on_change`; arrows
+    # only move first responder, and Done dismisses the keyboard. Explicit
+    # Send/Go/Search actions continue to invoke `on_submit`.
+    property native_focus_navigation : Bool = false
+
     # Capitalization and correction preferences. `nil` correction keeps the
     # platform default, while true/false explicitly disables/enables it.
     property autocapitalization : TextAutocapitalization = TextAutocapitalization::Default
