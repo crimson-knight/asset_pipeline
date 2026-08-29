@@ -300,12 +300,17 @@ private final class NativeTextInputProbe: UIView {
     }
 
     private func hostedTextField() -> UITextField? {
-        var root: UIView = self
-        while let parent = root.superview {
-            root = parent
-            if root.next is APSKAttachingHostingController { break }
+        // The probe is a background sibling of its SwiftUI TextField. Walk
+        // outward and stop at the FIRST ancestor whose subtree contains a
+        // UITextField. Jumping directly to the hosting controller is ambiguous
+        // when UIKit has coalesced several widget hosts: every probe can then
+        // find the first field in the form and overwrite that one accessory.
+        var ancestor = superview
+        while let candidate = ancestor {
+            if let field = firstTextField(in: candidate) { return field }
+            ancestor = candidate.superview
         }
-        return firstTextField(in: root)
+        return nil
     }
 
     private func firstTextField(in view: UIView) -> UITextField? {
@@ -348,13 +353,17 @@ private final class NativeTextInputProbe: UIView {
             } else if field.inputAccessoryView is UIToolbar {
                 field.inputAccessoryView = nil
             }
-        }
 
-        // This configurator mounts before the field is focused, so UIKit will
-        // pick these traits up when it creates the keyboard. Calling
-        // reloadInputViews() here creates a feedback loop in widget-sized
-        // SwiftUI hosting controllers: the reload invalidates the host, SwiftUI
-        // recreates the probe, and the newly mounted probe reloads it again.
+            // Validation can rebuild the SwiftUI form and focus its replacement
+            // UITextField before this probe has attached the accessory. UIKit
+            // has already presented that field's input views by then, so make
+            // the newly installed toolbar visible immediately. The signature
+            // lives on the installed toolbar, which makes this a one-time reload
+            // even if SwiftUI remounts the probe in response.
+            if field.isFirstResponder {
+                field.reloadInputViews()
+            }
+        }
     }
 
     private func makeAccessory(
