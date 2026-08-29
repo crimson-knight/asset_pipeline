@@ -238,7 +238,12 @@ public class TextFieldFacade: NSObject {
 /// Previous / Next / Done accessory. Each asset-pipeline TextField has its own
 /// hosting controller, so the search cannot cross into a neighboring field.
 private struct NativeTextInputConfigurator: UIViewRepresentable {
-    @ObservedObject var storage: TextStorage
+    // The editor itself observes TextStorage. This marker only needs the
+    // stable reference so its toolbar actions can read the latest value.
+    // Observing every keystroke here makes updateUIView re-apply native input
+    // traits while UIKit is processing that same key event. On an iOS 17.4
+    // simulator, XCUITest then waited indefinitely for the app to become idle.
+    let storage: TextStorage
     let keyboardType: String?
     let submitLabel: String?
     let showsToolbar: Bool
@@ -331,7 +336,13 @@ private final class NativeTextInputProbe: UIView {
         default: desiredKeyboard = .default
         }
 
-        field.keyboardType = desiredKeyboard
+        // Setting an input trait on the current first responder is not a
+        // harmless assignment: UIKit invalidates input state even when the
+        // value is unchanged. Keep this configurator idempotent so typing does
+        // not continuously perturb the keyboard/event loop.
+        if field.keyboardType != desiredKeyboard {
+            field.keyboardType = desiredKeyboard
+        }
 
         let signature = [
             configuration.keyboardType ?? "default",
