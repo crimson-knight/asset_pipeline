@@ -72,6 +72,17 @@ module UI
           io << "<style>\n"
           io << t.to_css_custom_properties
           io << UI::DesignTokens::WebGenerator.generate(@design_tokens)
+          # Base reset so the document root renders like the native platforms:
+          # no default 8px body margin, and no serif (Times) fallback for any
+          # element that doesn't set its own font. App typography is set per-view.
+          io << "html,body{margin:0;padding:0}\n"
+          io << "body{font-family:system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif}\n"
+          # border-box globally — padding/border live INSIDE an element's declared
+          # width/height, exactly as the native layout engines (AppKit/UIKit Auto
+          # Layout, Android) and react-native-web compute size. Without this, a view
+          # with an explicit width + padding overflows its box by the padding, and any
+          # centered children land off-center by that amount. Matches the golden.
+          io << "*,*::before,*::after{box-sizing:border-box}\n"
           io << "</style>\n"
         end
       end
@@ -137,7 +148,14 @@ module UI
         if role = view.text_color_role
           el.add_style("color: #{label_role_css(role)}")
         else
-          el.add_style("color: #{color_css(view.text_color, default_token: "var(--ap-color-text-primary)")}")
+          # text_color_role == nil means the consumer EXPLICITLY opted into a
+          # raw RGBA color via `UI::Label#text_color=` (the setter nulls the
+          # role). Honor it verbatim — do NOT pass a default_token. Passing one
+          # made color_css treat a deliberate pure-black (0,0,0) label as
+          # "unset" and swap in var(--ap-color-text-primary), which resolves to
+          # the near-white primary in a dark theme — silently erasing an
+          # explicit black label (e.g. black body text on a light card).
+          el.add_style("color: #{color_css(view.text_color)}")
         end
 
         # Text alignment
@@ -184,6 +202,18 @@ module UI
 
         # Font styles
         apply_font_styles(el, view.font, emit_defaults: false)
+
+        # Label alignment. The browser's native `<button>` default is center, so we
+        # only emit when the view opts into a non-center alignment (keeps existing
+        # CTA output byte-identical; content buttons can read left/right-aligned).
+        # `nil` = "renderer's contextual default", which for `<button>` IS
+        # center — so nil and Center both emit nothing and the existing CTA
+        # output stays byte-identical.
+        if declared = view.text_alignment
+          unless declared == UI::Alignment::Center
+            el.add_style("text-align: #{alignment_to_css(declared)}")
+          end
+        end
 
         # Foreground color
         c = view.foreground_color
@@ -331,6 +361,36 @@ module UI
           el.set_attribute("inputmode", "tel")
         when KeyboardType::URL
           el.set_attribute("inputmode", "url")
+        end
+
+        case view.content_type
+        when TextContentType::Name
+          el.set_attribute("autocomplete", "name")
+        when TextContentType::FullStreetAddress
+          el.set_attribute("autocomplete", "street-address")
+        when TextContentType::StreetAddressLine1
+          el.set_attribute("autocomplete", "address-line1")
+        when TextContentType::AddressCity
+          el.set_attribute("autocomplete", "address-level2")
+        when TextContentType::AddressState
+          el.set_attribute("autocomplete", "address-level1")
+        when TextContentType::PostalCode
+          el.set_attribute("autocomplete", "postal-code")
+        when TextContentType::TelephoneNumber
+          el.set_attribute("autocomplete", "tel")
+        when TextContentType::EmailAddress
+          el.set_attribute("autocomplete", "email")
+        end
+
+        unless view.submit_label == TextInputAction::Default
+          el.set_attribute("enterkeyhint", view.submit_label.to_s.downcase)
+        end
+
+        unless view.autocapitalization == TextAutocapitalization::Default
+          el.set_attribute("autocapitalize", view.autocapitalization.to_s.downcase)
+        end
+        unless view.autocorrection_disabled.nil?
+          el.set_attribute("autocorrect", view.autocorrection_disabled ? "off" : "on")
         end
 
         # Font and text color
@@ -1481,6 +1541,17 @@ module UI
           el.add_style("display: none")
         end
 
+        # Phase 10B.2c iter 2 — emit the environment-adjusted duration
+        # so the client-side dismissal timer can honor reduce-motion.
+        # When `env.reduce_motion` is true, `effective_duration`
+        # returns 0.0 → the toast dismisses immediately (no fade /
+        # slide animation timer). When false, the host-configured
+        # duration passes through unchanged. Hosts driving the
+        # dismissal timer read `data-duration` (seconds, Float64).
+        el.set_attribute("data-component", "snackbar")
+        effective = view.effective_duration(@render_context.environment)
+        el.set_attribute("data-duration", effective.to_s)
+
         msg = Components::Elements::Span.new
         msg << view.message
         el.add_child(msg)
@@ -1499,6 +1570,18 @@ module UI
           @root = el
         end
       end
+
+      {% if flag?(:watchos) %}
+        # watchOS fallback: a `-Dwatchos` build currently selects THIS Web renderer
+        # (PlatformVisitor selection) because `UI::WatchKit::Renderer` doesn't exist
+        # yet. Render the complication's content directly so the watchos-gated
+        # abstract `visit(Complication)` is satisfied and the Crystal UI library
+        # cross-compiles for watchOS. Real watch rendering lands with the WatchKit
+        # renderer; this is the honest stop-gap that keeps the lib buildable.
+        def visit(view : UI::Complication)
+          view.content.accept(self)
+        end
+      {% end %}
 
       def visit(view : UI::Card)
         el = Components::Elements::Div.new
@@ -1631,6 +1714,10 @@ module UI
           img = Components::Elements::Img.new
           img.set_attribute("src", view.url)
           img.set_attribute("loading", "lazy")
+          # Fill the view's box; object-fit governs how the bitmap sits inside it.
+          # Without this the raw <img> renders at natural size and a large photo
+          # just shows its top-left corner in a clipped container.
+          img.add_style("width: 100%; height: 100%; display: block")
           case view.content_mode
           when UI::ContentMode::Fit     then img.add_style("object-fit: contain")
           when UI::ContentMode::Fill    then img.add_style("object-fit: cover")
@@ -2482,6 +2569,31 @@ module UI
 
       # Apply common View base-class styles to any element.
       private def apply_common_styles(el : Components::Elements::HTMLElement, view : UI::View)
+        # UI::View#fill_horizontal — "occupy all available horizontal space",
+        # the web analog of the AppKit/UIKit low-content-hugging fill. Which CSS
+        # achieves that depends on the parent's flex MAIN axis, because
+        # `flex-grow` only expands along the main axis:
+        #   * row parent    -> horizontal IS the main axis -> `flex: 1 1 0%`.
+        #   * column parent -> horizontal is the CROSS axis. `flex` would only
+        #       grow HEIGHT and (with the stack's `align-items: center`) the
+        #       child shrink-wraps and centers instead of filling width. The
+        #       correct primitive is `align-self: stretch`, which overrides the
+        #       parent's cross-axis alignment for this child and stretches it to
+        #       full width.
+        #   * unknown/none  -> preserve the historical `flex: 1 1 0%`.
+        # Without this, every fill_horizontal Label/card inside a VStack
+        # (the common screen layout) rendered shrink-wrapped and centered
+        # rather than left-aligned full-width, diverging from the native
+        # renderers which fill correctly.
+        if view.fill_horizontal
+          case parent_flex_axis
+          when :column
+            el.add_style("align-self: stretch")
+          else
+            el.add_style("flex: 1 1 0%")
+          end
+        end
+
         # Padding
         p = view.padding
         if p.top != 0.0 || p.trailing != 0.0 || p.bottom != 0.0 || p.leading != 0.0
@@ -2597,9 +2709,193 @@ module UI
           end
         end
 
+        # Phase 10B.2a — Accessibility hint -> aria-description.
+        # We use `aria-description` (ARIA 1.3) over `aria-describedby` here
+        # because asset_pipeline can't synthesize a sibling element that's
+        # guaranteed to live next to the labelled element across every
+        # widget. `aria-description` is the closest semantic match: a
+        # supplemental string the AT reads after the accessible name.
+        # Browsers that don't yet support `aria-description` fall back to
+        # the value being ignored — equivalent to the iOS/AppKit hint slot
+        # being silently absent on older OSes.
+        if hint = view.accessibility_hint
+          el.set_attribute("aria-description", hint)
+        end
+
+        # Phase 10B.2a — Accessibility role. Use the explicit override
+        # (`view.accessibility_role`) when set, falling back to the
+        # widget-class default (`default_accessibility_role`). The
+        # `effective_accessibility_role` helper handles the precedence.
+        # `:none` emits `role="none"` (ARIA "no role at all"); other
+        # symbols pass through after dasherized conversion.
+        if role_sym = view.effective_accessibility_role
+          el.set_attribute("role", ax_role_to_aria(role_sym))
+        end
+
+        # Phase 10B.2a — Accessibility value -> aria-valuetext. Used for
+        # widgets where the role implies a value (slider, progress,
+        # spinbutton) so the AT announces the human-readable string
+        # rather than a raw number.
+        if value = view.accessibility_value
+          el.set_attribute("aria-valuetext", value)
+        end
+
+        # Phase 10B.2a — Accessibility traits -> ARIA state attributes.
+        # Each trait symbol maps to the closest ARIA state. Unmapped
+        # traits fall through silently.
+        #
+        # Iter 2 (Codex Finding 3): `:not_enabled` is the canonical trait
+        # for disabling. In addition to `aria-disabled` (semantic), we
+        # also emit the HTML `disabled` attribute (functional) so form
+        # controls (`<button>`, `<input>`, `<select>`, `<textarea>`,
+        # `<fieldset>`) are actually inert. Non-form elements get
+        # `aria-disabled` only — the attribute is a no-op on `<div>`
+        # but still announces "dimmed" to the AT.
+        view.accessibility_traits.each do |trait|
+          case trait
+          when :selected
+            el.set_attribute("aria-selected", "true")
+          when :not_enabled
+            el.set_attribute("aria-disabled", "true")
+            el.set_attribute("disabled", "disabled")
+          when :updates_frequently
+            # aria-live=polite tells the AT to announce updates without
+            # interrupting the user's current speech.
+            el.set_attribute("aria-live", "polite")
+          when :is_busy
+            el.set_attribute("aria-busy", "true")
+          when :is_required
+            el.set_attribute("aria-required", "true")
+          when :is_invalid
+            el.set_attribute("aria-invalid", "true")
+          end
+          # :plays_sound, :starts_media, :causes_page_turn have no
+          # ARIA-state analog — they're advisory UIKit metadata only.
+        end
+
         # Test identifier -> data-testid attribute for automated UI testing
         if tid = view.test_id
           el.set_attribute("data-testid", tid)
+        end
+
+        # Phase 10B.2a — Explicit accessibility identifier surfaces as
+        # `data-accessibility-id` on web so test drivers that already
+        # query that attribute keep working. Native renderers prefer this
+        # over `test_id` when set.
+        if aid = view.accessibility_identifier
+          el.set_attribute("data-accessibility-id", aid)
+        end
+
+        # Phase 10B.2b — Custom accessibility actions. Surface the names
+        # as a comma-joined list on `data-ax-actions` and an action
+        # count on `data-ax-action-count`. A JS shim can read the list
+        # and bind keyboard/rotor handlers; the data attribute alone is
+        # also useful for automated test drivers that want to enumerate
+        # actions a screen-reader user would see.
+        #
+        # Names that contain commas are URL-encoded so the joined list
+        # round-trips cleanly. Empty array -> no attribute emitted.
+        unless view.accessibility_actions.empty?
+          escaped = view.accessibility_actions.map do |action|
+            action.name.gsub(",", "%2C")
+          end
+          el.set_attribute("data-ax-actions", escaped.join(","))
+          el.set_attribute("data-ax-action-count", view.accessibility_actions.size.to_s)
+        end
+
+        # Phase 10B.2b — Focus management. When `focused == true` we
+        # emit `autofocus` on form controls (button / input / select /
+        # textarea) and a `data-focused="true"` hook on every element so
+        # a JS shim can `.focus()` non-form elements after mount.
+        if view.focused
+          el.set_attribute("data-focused", "true")
+          tag = el.tag_name
+          if tag == "button" || tag == "input" || tag == "select" || tag == "textarea"
+            el.set_attribute("autofocus", "autofocus")
+          end
+        end
+
+        # Phase 10B.2b — `tabindex` emission via the centralised
+        # `effective_tab_index` resolver. The resolver returns nil for
+        # widgets whose intrinsic HTML focusability matches the caller's
+        # intent (no attribute needed), an explicit integer when the
+        # caller set `tab_index`, `-1` when they opted a focusable
+        # widget out of traversal, or `0` when they opted a non-
+        # focusable widget IN.
+        #
+        # Phase 10B.2b iter 2 — Custom accessibility actions imply
+        # keyboard reachability. If the view declares any actions and
+        # the resolver did not already produce a tabindex AND the
+        # widget is not intrinsically focusable (e.g. a Label, Image,
+        # or Spacer rather than a Button or TextField), promote the
+        # element into the tab order with `tabindex="0"` so AT users
+        # on keyboard-only input can reach the element and invoke the
+        # actions via the JS action shim. A widget that explicitly
+        # opted out (`tabindex="-1"`) keeps that override — the
+        # caller's intent wins over the implicit promotion. A widget
+        # that is already keyboard-reachable via its intrinsic role
+        # (`<button>`, `<input>`, etc.) doesn't need a redundant
+        # `tabindex="0"`.
+        ti = view.effective_tab_index
+        if ti.nil? && !view.accessibility_actions.empty? && !view.effective_focusable
+          ti = 0
+        end
+        if ti
+          el.set_attribute("tabindex", ti.to_s)
+        end
+
+        # Phase 10B.2b — Keyboard shortcut. We emit BOTH the standard
+        # HTML `accesskey` attribute (single-character keys only) AND
+        # a `data-keyboard-shortcut` attribute carrying the canonical
+        # "Cmd+Shift+P"-style string so richer JS dispatchers can act
+        # on combinations the bare `accesskey` semantics can't express.
+        if ks = view.keyboard_shortcut
+          if ak = ks.accesskey_char
+            el.set_attribute("accesskey", ak)
+          end
+          el.set_attribute("data-keyboard-shortcut", ks.canonical)
+        end
+      end
+
+      # Phase 10B.2a — Translate a Crystal role symbol into its
+      # canonical ARIA role string. Unknown roles dasherize (`:list_item`
+      # -> `"listitem"` per ARIA convention with the underscore stripped).
+      private def ax_role_to_aria(role : Symbol) : String
+        case role
+        when :button       then "button"
+        when :link         then "link"
+        when :text         then "text"
+        when :header       then "heading"
+        when :image, :img  then "img"
+        when :tab          then "tab"
+        when :tab_list     then "tablist"
+        when :tab_panel    then "tabpanel"
+        when :list         then "list"
+        when :list_item    then "listitem"
+        when :checkbox     then "checkbox"
+        when :radio        then "radio"
+        when :radio_group  then "radiogroup"
+        when :switch       then "switch"
+        when :slider       then "slider"
+        when :progress_bar then "progressbar"
+        when :spinbutton   then "spinbutton"
+        when :search       then "search"
+        when :dialog       then "dialog"
+        when :alert        then "alert"
+        when :menu         then "menu"
+        when :menu_item    then "menuitem"
+        when :status       then "status"
+        when :tooltip      then "tooltip"
+        when :combobox     then "combobox"
+        when :navigation   then "navigation"
+        when :toolbar      then "toolbar"
+        when :form         then "form"
+        when :grid         then "grid"
+        when :group        then "group"
+        when :separator    then "separator"
+        when :text_field   then "textbox"
+        when :none         then "none"
+        else                    role.to_s.tr("_", "")
         end
       end
 
@@ -2610,7 +2906,14 @@ module UI
         end
 
         unless font.family == "system"
-          el.add_style("font-family: #{font.family}")
+          # Quote so multi-word / digit-leading family names (e.g. RN-web's
+          # "Alegreya Sans_medium", or "Helvetica Neue", "Times New Roman")
+          # are valid CSS. An unquoted family containing a space is invalid
+          # and the browser silently falls back to the base sans-serif, which
+          # changes glyph metrics and therefore rendered text bounds/position.
+          # Quotes are valid around any single-token name too, so this is
+          # lossless for existing hyphenated families.
+          el.add_style(%(font-family: "#{font.family}"))
         end
 
         case font.weight
@@ -2711,6 +3014,30 @@ module UI
         end
       end
 
+      # Best-effort read of the flex MAIN axis the immediate parent container
+      # establishes for the element currently being styled. Inspects the
+      # parent element's already-emitted inline `style` (the flex-direction is
+      # set before its children are visited), so it always reflects the TRUE
+      # immediate parent regardless of which visit method pushed it — no
+      # parallel stack to keep in sync. Returns `:row`, `:column`, or `:none`.
+      private def parent_flex_axis : Symbol
+        parent = @element_stack.last?
+        return :none unless parent
+        style = parent["style"]
+        return :none unless style
+        # Only flex containers establish a main axis for align-self to act on.
+        return :none unless style.includes?("display: flex")
+        if style.includes?("flex-direction: column")
+          :column
+        elsif style.includes?("flex-direction: row")
+          :row
+        else
+          # CSS default flex-direction is `row` when display:flex is set with
+          # no explicit direction.
+          :row
+        end
+      end
+
       # Build a `clamp(min_px, ideal_vw, max_px)` literal from numeric pixel
       # floor/ceiling and a vw curve. Used by widget visit methods to migrate
       # away from hard-coded pixel sizing without surfacing UI::Fluid records
@@ -2733,8 +3060,19 @@ module UI
       # styled label / thumb), not a decorative wrapper.
       private def enforce_touch_target(el : Components::Elements::HTMLElement)
         min = @design_tokens.touch_target_minimum_px
-        el.add_style("min-width: #{min}px")
-        el.add_style("min-height: #{min}px")
+        el.add_style("min-width: #{effective_touch_min(el, "min-width", min)}px")
+        el.add_style("min-height: #{effective_touch_min(el, "min-height", min)}px")
+      end
+
+      # The touch-target floor must never SHRINK a larger explicit min the view
+      # already set (e.g. a fixed-width CTA: minimum_width = 334). enforce_touch_target
+      # runs after apply_common_styles, and CSS takes the last declaration, so a blind
+      # `min-width: 44px` would clobber the author's 334. Honor max(floor, explicit).
+      private def effective_touch_min(el : Components::Elements::HTMLElement, prop : String, floor : Float64) : Float64
+        style = el["style"]
+        return floor unless style
+        biggest = style.scan(Regex.new("#{prop}:\\s*([0-9.]+)px")).compact_map(&.[1].to_f?).max?
+        biggest && biggest > floor ? biggest : floor
       end
 
       # Phase 4 — Tier 3 stub on -Dios builds only. The web renderer is
@@ -2920,6 +3258,333 @@ module UI
 
         apply_common_styles(wrap, view)
         push_element(wrap)
+      end
+
+      # Phase 10B.1a — InlineActionRow.
+      #
+      # The macOS + web_wide default for the `:swipe_actions` intent.
+      # Unlike `UI::SwipeActionRow`, this widget has no gesture-driven
+      # reveal: leading + trailing actions render as visible inline
+      # buttons in a horizontal flex row. Each button carries an
+      # `aria-label` from its `SwipeAction#label` so assistive tech
+      # surfaces it correctly. No CSS / JS shim is required — the row
+      # is plain semantic HTML.
+      def visit(view : UI::InlineActionRow)
+        row_id = next_inline_action_id
+        wrap = Components::Elements::Div.new
+        wrap.set_attribute("role", "row")
+        wrap.add_class("ap-inline-action-row")
+        wrap.set_attribute("data-component", "inline-action-row")
+        wrap.set_attribute("data-row-id", row_id.to_s)
+
+        if !view.leading_actions.empty?
+          wrap.add_child(inline_action_panel(view.leading_actions, "leading"))
+        end
+
+        # Content cell — the primary row content. Rendered via the
+        # standard visit path so any UI::View is supported.
+        content_html = render_subview(view.content)
+        content_el = Components::Elements::Div.new
+        content_el.add_class("ap-inline-action-row__content")
+        content_el.add_raw_html(content_html)
+        wrap.add_child(content_el)
+
+        if !view.trailing_actions.empty?
+          wrap.add_child(inline_action_panel(view.trailing_actions, "trailing"))
+        end
+
+        register_inline_action_chrome(wrap) unless @inline_action_chrome_emitted
+
+        apply_common_styles(wrap, view)
+        push_element(wrap)
+      end
+
+      # Phase 10B.1c — AndroidSwipeActionRow web fallback.
+      #
+      # On non-Android targets, `UI::AndroidSwipeActionRow` is rendered
+      # with the same chrome as `UI::InlineActionRow`: a row with
+      # leading-actions panel, content cell, trailing-actions panel.
+      # The fallback emits a `data-component="android-swipe-action-row"`
+      # marker so introspection / E2E specs can distinguish the widget
+      # from a plain InlineActionRow render, but the visual + a11y
+      # contract is intentionally identical.
+      def visit(view : UI::AndroidSwipeActionRow)
+        row_id = next_inline_action_id
+        wrap = Components::Elements::Div.new
+        wrap.set_attribute("role", "row")
+        wrap.add_class("ap-inline-action-row")
+        wrap.set_attribute("data-component", "android-swipe-action-row")
+        wrap.set_attribute("data-row-id", row_id.to_s)
+
+        if !view.leading_actions.empty?
+          wrap.add_child(inline_action_panel(view.leading_actions, "leading"))
+        end
+
+        content_html = render_subview(view.content)
+        content_el = Components::Elements::Div.new
+        content_el.add_class("ap-inline-action-row__content")
+        content_el.add_raw_html(content_html)
+        wrap.add_child(content_el)
+
+        if !view.trailing_actions.empty?
+          wrap.add_child(inline_action_panel(view.trailing_actions, "trailing"))
+        end
+
+        register_inline_action_chrome(wrap) unless @inline_action_chrome_emitted
+
+        apply_common_styles(wrap, view)
+        push_element(wrap)
+      end
+
+      # Phase 10B.4 — FullScreenCover.
+      #
+      # Renders a `<div role="dialog" aria-modal="true">` fixed-inset
+      # overlay. When `is_presented` is false the wrapper is emitted
+      # with `display: none` so reactive flips of `is_presented` flow
+      # through on the next render without removing the node from the
+      # DOM (mirrors `UI::Sheet`'s render-with-hidden-state pattern).
+      #
+      # The cover container is `tabindex="-1"` so keyboard users can
+      # programmatically focus the overlay before tabbing into its
+      # content; combined with `aria-modal="true"`, this is the WCAG
+      # 2.2 baseline for modal dialogs.
+      def visit(view : UI::FullScreenCover)
+        el = Components::Elements::Div.new
+        el.set_attribute("data-component", "full-screen-cover")
+        # Phase 10B.4 iter 2 — modal-dialog ARIA contract. `role="dialog"`
+        # arrives via `apply_common_styles` (default_accessibility_role
+        # is `:dialog`), but `aria-modal` and `tabindex="-1"` are
+        # FullScreenCover-specific and MUST be emitted explicitly here:
+        # `effective_tab_index` returns `nil` for default-focusable
+        # widgets (the View base intentionally skips emitting
+        # `tabindex="0"` to avoid noise on form controls), so the
+        # tabindex="-1" promise documented above must be set on the
+        # element directly.
+        el.set_attribute("aria-modal", "true")
+        el.set_attribute("tabindex", "-1")
+        if view.is_presented
+          el.add_style("position: fixed; inset: 0; background: var(--ap-color-surface-panel); color: var(--ap-color-text-primary); z-index: 950; display: flex; flex-direction: column; overflow: auto")
+        else
+          el.add_style("display: none")
+        end
+
+        if content = view.content
+          inner = Components::Elements::Div.new
+          inner.add_class("ap-full-screen-cover__content")
+          inner.add_style("flex: 1 1 auto; padding: 24px; overflow-y: auto")
+          inner.add_raw_html(render_subview(content))
+          el.add_child(inner)
+        end
+
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      # Phase 10B.4 — Inspector.
+      #
+      # Web emits a CSS-grid 2-column layout: primary content (`1fr`)
+      # plus a trailing inspector pane sized to `preferred_width`
+      # (defaulting to 320px). The inspector pane is wrapped in
+      # `<aside role="complementary">` so VoiceOver / NVDA announce
+      # it as a landmark and users can jump directly to it. When
+      # `is_presented` is false the grid collapses to a single column
+      # and the aside is `display: none` (keeps focus order
+      # predictable).
+      def visit(view : UI::Inspector)
+        wrap = Components::Elements::Div.new
+        wrap.set_attribute("data-component", "inspector")
+        width = view.preferred_width || 320.0
+        if view.is_presented
+          wrap.add_style("display: grid; grid-template-columns: 1fr #{width}px; gap: 16px; align-items: stretch")
+        else
+          wrap.add_style("display: grid; grid-template-columns: 1fr; gap: 16px; align-items: stretch")
+        end
+
+        primary = Components::Elements::Div.new
+        primary.add_class("ap-inspector__primary")
+        if c = view.content
+          primary.add_raw_html(render_subview(c))
+        end
+        wrap.add_child(primary)
+
+        if view.is_presented
+          aside = Components::Elements::Div.new
+          aside.set_attribute("role", "complementary")
+          aside.add_class("ap-inspector__pane")
+          aside.add_style("padding: 16px; background: var(--ap-color-surface-sunken); border-left: 1px solid var(--ap-color-border-subtle)")
+          if pc = view.inspector_content
+            aside.add_raw_html(render_subview(pc))
+          end
+          wrap.add_child(aside)
+        end
+
+        apply_common_styles(wrap, view)
+        push_element(wrap)
+      end
+
+      # Phase 10B.4 — ToolbarItemGroup.
+      #
+      # Emits `<div role="group" aria-label="...">` wrapping the group's
+      # items as `<button>` siblings. The `aria-label` carries the
+      # group's `label` so VoiceOver announces the cluster as a single
+      # semantic unit. A trailing divider span is appended when
+      # `with_divider` is true.
+      def visit(view : UI::ToolbarItemGroup)
+        el = Components::Elements::Div.new
+        el.set_attribute("data-component", "toolbar-item-group")
+        el.add_style("display: inline-flex; align-items: center; gap: 4px")
+        if lbl = view.label
+          el.set_attribute("aria-label", lbl)
+        end
+
+        view.items.each do |item|
+          btn = Components::Elements::Button.new(type: "button")
+          btn.add_style("border: none; background: transparent; cursor: pointer; padding: 4px 8px; min-height: 44px; min-width: 44px")
+          btn.set_attribute("aria-label", item.label)
+          btn.set_attribute("data-item-id", item.id) unless item.id.empty?
+          btn << item.label
+          el.add_child(btn)
+        end
+
+        if view.with_divider && !view.items.empty?
+          divider = Components::Elements::Span.new
+          divider.set_attribute("aria-hidden", "true")
+          divider.add_style("display: inline-block; width: 1px; height: 24px; margin: 0 4px; background: var(--ap-color-border-subtle)")
+          el.add_child(divider)
+        end
+
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      # Phase 10B.4 — ToolbarSpacer.
+      #
+      # Emits a `<div aria-hidden="true">` with `flex: 1 1 auto`
+      # (flexible) or `flex: 0 0 <size>px` (fixed). The `aria-hidden`
+      # ensures screen readers skip it — the spacer carries no
+      # semantics.
+      def visit(view : UI::ToolbarSpacer)
+        el = Components::Elements::Div.new
+        el.set_attribute("data-component", "toolbar-spacer")
+        el.set_attribute("aria-hidden", "true")
+        if size = view.fixed_size
+          el.add_style("flex: 0 0 #{size}px")
+          el.set_attribute("data-spacer-mode", "fixed")
+        else
+          el.add_style("flex: 1 1 auto")
+          el.set_attribute("data-spacer-mode", "flexible")
+        end
+
+        apply_common_styles(el, view)
+        push_element(el)
+      end
+
+      @inline_action_counter : Int32 = 0
+      @inline_action_chrome_emitted : Bool = false
+
+      private def next_inline_action_id : Int32
+        @inline_action_counter += 1
+      end
+
+      # Build a leading/trailing inline-action panel for an
+      # `InlineActionRow`. Mirrors `swipe_action_panel` but emits a
+      # distinct CSS class so the inline-row chrome doesn't pick up
+      # `SwipeActionRow`'s mobile touch-reveal CSS / JS.
+      private def inline_action_panel(actions : Array(UI::SwipeAction), edge : String) : Components::Elements::Div
+        panel = Components::Elements::Div.new
+        panel.add_class("ap-inline-action-row__#{edge}")
+        actions.each_with_index do |action, idx|
+          btn = Components::Elements::Button.new(type: "button")
+          btn << action.label
+          btn.add_class("ap-inline-action-row__action")
+          btn.add_class("ap-inline-action-row__action--destructive") if action.role == :destructive
+          btn.set_attribute("data-action-index", idx.to_s)
+          btn.set_attribute("data-action-role", action.role.to_s)
+          btn.set_attribute("data-action-edge", edge)
+          btn.set_attribute("aria-label", action.label)
+          if route = action.on_tap_route
+            btn.set_attribute("data-on-tap-route", route)
+          end
+          if action.on_tap
+            # Crystal Procs can't run client-side from static HTML,
+            # but mark the button so a downstream JS-bound demo can
+            # dispatch by index.
+            btn.set_attribute("data-has-callback", "1")
+          end
+          panel.add_child(btn)
+        end
+        panel
+      end
+
+      # Emit the inline-action-row CSS once per renderer instance.
+      # Buttons follow the same chrome the swipe-row uses for visual
+      # consistency; the row container is a plain flex row with no
+      # gesture handlers.
+      private def register_inline_action_chrome(wrap : Components::Elements::HTMLElement)
+        @inline_action_chrome_emitted = true
+        chrome_div = Components::Elements::Div.new
+        chrome_div.set_attribute("data-component", "inline-action-row-chrome")
+        chrome_div.set_attribute("hidden", "hidden")
+        chrome_div.add_raw_html(inline_action_chrome_html)
+        wrap.as(Components::Elements::ContainerElement).add_child(chrome_div)
+      end
+
+      private def inline_action_chrome_html : String
+        <<-HTML
+        <style>
+        .ap-inline-action-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .ap-inline-action-row__content {
+          flex: 1;
+          min-width: 0;
+        }
+        .ap-inline-action-row__trailing,
+        .ap-inline-action-row__leading {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        .ap-inline-action-row__action {
+          padding: 8px 14px;
+          border-radius: 8px;
+          border: 1px solid var(--ap-color-border-default);
+          background: var(--ap-color-surface-panel);
+          color: var(--ap-color-text-primary);
+          font: inherit;
+          cursor: pointer;
+          min-height: 44px;
+        }
+        .ap-inline-action-row__action--destructive {
+          color: var(--ap-color-danger-text);
+          border-color: var(--ap-color-danger-text);
+        }
+        </style>
+        <script>
+        (function() {
+          function bindAll() {
+            document.querySelectorAll('.ap-inline-action-row__action').forEach(function(btn) {
+              if (btn.dataset.inlineActionBound === '1') return;
+              btn.dataset.inlineActionBound = '1';
+              btn.addEventListener('click', function(e) {
+                var route = btn.getAttribute('data-on-tap-route');
+                if (route && window.UIRouteHost && typeof window.UIRouteHost.push === 'function') {
+                  e.preventDefault();
+                  window.UIRouteHost.push(route);
+                }
+              });
+            });
+          }
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bindAll);
+          } else {
+            bindAll();
+          }
+        })();
+        </script>
+        HTML
       end
 
       @swipe_action_counter : Int32 = 0

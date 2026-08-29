@@ -29,6 +29,17 @@ public class AlertFacade: NSObject {
         // we still expose a token (`buttonTokens` carries them) so the
         // Crystal action runs. No separate dismiss-token surface needed.
         let storage = BoolStorage(initial: isPresented, token: 0)
+        // Phase 12.A — interaction-contracts marker tag.
+        storage.markerWidget = "Alert"
+        storage.viewID = overrides.accessibilityIdentifier
+        if isPresented {
+            InteractionContracts.emit(
+                widget: "Alert",
+                event: "present",
+                viewID: storage.viewID,
+                kv: ["initial": "true"]
+            )
+        }
 
         let labels = overrides.buttonLabels
         let styles = overrides.buttonStyles

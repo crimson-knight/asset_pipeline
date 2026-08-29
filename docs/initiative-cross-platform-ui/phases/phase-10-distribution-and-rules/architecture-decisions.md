@@ -79,13 +79,13 @@
 
 - **Override storage is class-scoped registry.** NOT instance fields on `UI::Screen`. The brief specifies the registry shape:
   ```crystal
-  module UI::Intent::Registry
+  module UI::WidgetRoute::Registry
     @@app_overrides = {} of Symbol => OverrideSpec
     @@screen_overrides = {} of {Screen.class, Symbol} => OverrideSpec
     # ...
   end
   ```
-  The public API `UI::App.override_intent(...)` and `UI::Screen.override_intent(...)` (class-level method or macro) writes into the registry. The registry is the source of truth across rebuilds.
+  The public API `UI::App.override_widget(...)` and `UI::Screen.override_widget(...)` (class-level method or macro) writes into the registry. The registry is the source of truth across rebuilds.
 
 - **Capability validation requires a concrete declaration API.** The brief v2 specifies a class-level macro on widgets:
   ```crystal
@@ -97,11 +97,11 @@
     }
   end
   ```
-  Registry validates that the override widget's declared capabilities ⊇ the required capabilities. Validation runs at `override_intent` call time (registration), raises a clear error if mismatch.
+  Registry validates that the override widget's declared capabilities ⊇ the required capabilities. Validation runs at `override_widget` call time (registration), raises a clear error if mismatch.
 
 - **Resolver return type ships as a working compiling example.** Brief v2 includes the resolver signature + a working call-site like:
   ```crystal
-  action_row_class = UI::Intent.resolve(:swipe_actions, ctx)
+  action_row_class = UI::WidgetRoute.resolve(:swipe_actions, ctx)
   action_row = action_row_class.new(content: row_content, trailing_actions: [...])
   ```
   Implementer must prove this compiles before close. The `View.class` return type either works for our concrete view classes (probably) or gets replaced with a typed factory descriptor.

@@ -7,12 +7,23 @@ require "../view"
 module UI
   # DatePicker — Calendar-based date selection control.
   class DatePicker < View
+    # Currently selected date.
     property selected_date : Time = Time.utc
+    # Operating mode for the control.
     property mode : DatePickerMode = DatePickerMode::Date
+    # Earliest selectable date (inclusive).
     property minimum_date : Time? = nil
+    # Latest selectable date (inclusive).
     property maximum_date : Time? = nil
+    # Caption / accessibility label rendered alongside the control.
     property label : String = ""
+    # Invoked when the user changes the control's value.
     property on_change : Proc(Time, Nil)? = nil
+
+    # Phase 10D-polish iter 2 (B-DATEPICKER-STYLE-PROPERTY) — visual style.
+    # Defaults to `:automatic` (platform's HIG default); pass `:compact`
+    # for the inline-button-with-popover idiom most apps want in forms.
+    property style : DatePickerStyle = DatePickerStyle::Automatic
 
     def initialize(@mode : DatePickerMode = DatePickerMode::Date)
     end
@@ -23,6 +34,16 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:group`.
+    def default_accessibility_role : Symbol?
+      :group
+    end
+
+    # Phase 10B.2b — interactive widgets default to focusable.
+    def default_focusable : Bool
+      true
     end
   end
 end

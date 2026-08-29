@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import AssetPipelineSwiftKit
 
 // SwiftUI @main entry for the Voyager Phase 6.10 navigable demo.
 //
@@ -30,11 +31,16 @@ struct VoyagerApp: App {
     }
 
     private var preferredScheme: ColorScheme? {
+        // Capture/test runs pin the appearance via VOYAGER_APPEARANCE for
+        // deterministic light/dark screenshots. With no override, FOLLOW THE
+        // SYSTEM (return nil) — the asset_pipeline facades use dynamic semantic
+        // colors (.foregroundStyle(.primary), materials) that adapt to dark
+        // automatically, so a real user's Dark Mode is honoured.
         let env = ProcessInfo.processInfo.environment
         switch env["VOYAGER_APPEARANCE"] ?? env["HIG_APPEARANCE"] {
         case "dark":  return .dark
         case "light": return .light
-        default:      return .light
+        default:      return nil
         }
     }
 }
@@ -42,6 +48,33 @@ struct VoyagerApp: App {
 final class VoyagerAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // Phase 12.A — interaction-contracts launch marker. The harness
+        // smoke test asserts this marker arrives within 5s of launch,
+        // which proves the harness end-to-end (Crystal-side spec +
+        // simctl spawn log stream + NSLog bridge).
+        // Emission is gated by ENV["APIC_ENABLED"]=="1"; production
+        // launches see no overhead.
+        InteractionContracts.emit(
+            widget: "VoyagerApp",
+            event: "launched",
+            viewID: nil,
+            kv: ["bundle": Bundle.main.bundleIdentifier ?? "unknown"]
+        )
+        // Start a once-per-second heartbeat marker so interaction
+        // contracts can assert "the main runloop is still alive after
+        // the tap I just delivered." Covers Codex BLOCKER 3 (crash
+        // detection beyond simctl listapps) and CONCERN 9 (hung-but-
+        // alive state).
+        if InteractionContracts.enabled {
+            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                InteractionContracts.emit(
+                    widget: "VoyagerApp",
+                    event: "heartbeat",
+                    viewID: nil,
+                    kv: ["tick": "\(Int(Date().timeIntervalSince1970))"]
+                )
+            }
+        }
         return true
     }
 
@@ -60,8 +93,16 @@ final class VoyagerSceneDelegate: NSObject, UIWindowSceneDelegate {
                options connectionOptions: UIScene.ConnectionOptions) {
         guard let ws = scene as? UIWindowScene else { return }
         let env = ProcessInfo.processInfo.environment
-        let wantDark = (env["VOYAGER_APPEARANCE"] ?? env["HIG_APPEARANCE"] ?? "light") == "dark"
-        let style: UIUserInterfaceStyle = wantDark ? .dark : .light
+        // Only PIN the window appearance when a capture/test explicitly sets it;
+        // otherwise leave .unspecified so the window follows the system (real
+        // users' Dark Mode is honoured).
+        let pinned = env["VOYAGER_APPEARANCE"] ?? env["HIG_APPEARANCE"]
+        let style: UIUserInterfaceStyle
+        switch pinned {
+        case "dark":  style = .dark
+        case "light": style = .light
+        default:      style = .unspecified
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             for w in ws.windows {
                 w.overrideUserInterfaceStyle = style

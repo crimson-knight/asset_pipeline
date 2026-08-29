@@ -11,10 +11,15 @@ module UI
       alignment : Alignment = Alignment::Leading,
       minimum_width : Float64? = nil
 
+    # Ordered list of child views.
     property children : Array(Array(View)) = [] of Array(View)
+    # Column descriptors for the layout.
     property columns : Array(Column) = [] of Column
+    # Vertical gap (in pt) between rows.
     property row_spacing : Float64 = 8.0
+    # Horizontal gap (in pt) between columns.
     property column_spacing : Float64 = 8.0
+    # Cross-axis alignment for children. See `UI::Alignment`.
     property alignment : Alignment = Alignment::Leading
 
     def initialize(@columns : Array(Column) = [] of Column)
@@ -32,16 +37,23 @@ module UI
       @children << row
     end
 
+    # Returns the number of rows currently configured.
     def row_count : Int32
       @children.size
     end
 
+    # Returns the number of columns currently configured.
     def column_count : Int32
       columns.empty? ? (@children.first?.try(&.size) || 0) : columns.size
     end
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:grid`.
+    def default_accessibility_role : Symbol?
+      :grid
     end
   end
 end

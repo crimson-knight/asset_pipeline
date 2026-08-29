@@ -7,8 +7,11 @@ require "../view"
 module UI
   # Checkbox — Two-state checkbox control with a leading label.
   class Checkbox < View
+    # Boolean toggle.
     property is_checked : Bool = false
+    # Caption / accessibility label rendered alongside the control.
     property label : String = ""
+    # Invoked when the user changes the control's value.
     property on_change : Proc(Bool, Nil)? = nil
 
     def initialize(@label : String = "", @is_checked : Bool = false)
@@ -20,6 +23,16 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:checkbox`.
+    def default_accessibility_role : Symbol?
+      :checkbox
+    end
+
+    # Phase 10B.2b — interactive widgets default to focusable.
+    def default_focusable : Bool
+      true
     end
   end
 end

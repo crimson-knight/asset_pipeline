@@ -1,0 +1,143 @@
+# Voyager simulator-tap coordinate scenario.
+#
+# Maps accessibility_id (set via UI::View#test_id or
+# UI::View#accessibility_identifier=) to HOST PIXEL coordinates captured
+# against the simulator window's current pose + zoom. Coordinates are
+# delivered via `cliclick c:<x>,<y>` from the harness. Re-capture via
+# scripts/capture_tap_coordinates.sh whenever the simulator window moves
+# or zooms.
+#
+# Pose: iPhone 17 Pro / iOS 26.5 portrait, simulator zoom level recorded
+# at capture time.
+#
+# Phase 12.B Codex partial-review fix: IDs updated to match the real
+# polish-branch test_ids (verified at the post-merge `phase-10-d-refocus`
+# HEAD). See samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr.
+#
+# V1 path (action sheet auto-closes on swipe Share):
+#   1. Long-press todo row → swipe trailing → Share tile fires
+#      :request_share which sets state.pending_share_todo_id
+#   2. Rerender wires UI::ConfirmationDialog as the share_sheet
+#      (test_id: voyager-todos-share-sheet) with Copy/Print/Cancel actions
+#   3. Owner-reported V1: action sheet opens, closes before interaction
+#
+# V2 path (overflow popover sort/hide/clear buttons):
+#   1. Tap voyager-todos-overflow → opens Popover anchored to the button
+#   2. Popover contains voyager-overflow-sort, voyager-overflow-hide-completed,
+#      voyager-overflow-clear-completed
+#   3. Owner-reported V2: tapping any of these three buttons crashes app
+
+device: "iPhone 17 Pro"
+runtime: "iOS 26.5"
+orientation: portrait
+captured_at: "2026-05-28T00:00:00Z"
+captured_pose_sha: null  # not yet validator-enforced
+
+taps:
+  # ----- Todos screen — toolbar / overflow trigger ---------------------
+
+  - id: "voyager-todos-print"
+    x: 215
+    y: 120
+    description: "Print toolbar button (header)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todos-settings"
+    x: 300
+    y: 120
+    description: "Settings toolbar button (header)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todos-overflow"
+    x: 380
+    y: 120
+    description: "Overflow ••• button — opens Popover (V2 trigger surface)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todos-add"
+    x: 215
+    y: 800
+    description: "Add Todo bottom button"
+    captured: false  # PLACEHOLDER
+
+  # ----- Todo row 1 (first row in seeded state) ------------------------
+
+  - id: "voyager-todo-row-1-tap"
+    x: 215
+    y: 250
+    description: "Tap-to-edit on first todo row title — opens editor sheet"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todo-row-1-check"
+    x: 50
+    y: 250
+    description: "Toggle-completion checkbox on first todo row"
+    captured: false  # PLACEHOLDER
+
+  # ----- Swipe gesture endpoints (V1 swipe-to-reveal Share) ------------
+
+  - id: "voyager-todo-row-1-swipe-start"
+    x: 380
+    y: 250
+    description: "Right-edge of first todo row — starting point for left-swipe to reveal trailing actions (Share/Edit/Delete tiles)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todo-row-1-swipe-end"
+    x: 80
+    y: 250
+    description: "Left-edge target for the left-swipe — pulls trailing actions ~70% across"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todo-row-1-share-tile"
+    x: 280
+    y: 250
+    description: "Share tile (revealed after left-swipe). Tap fires :request_share"
+    captured: false  # PLACEHOLDER
+
+  # ----- Action sheet (share flow — V1 reproduction target) ------------
+
+  - id: "voyager-todos-share-sheet-copy"
+    x: 215
+    y: 600
+    description: "Copy button in share action sheet (V1 spec target)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-todos-share-sheet-cancel"
+    x: 215
+    y: 800
+    description: "Cancel button in share action sheet"
+    captured: false  # PLACEHOLDER
+
+  # ----- Overflow popover buttons (V2 reproduction target) -------------
+
+  - id: "voyager-overflow-sort"
+    x: 300
+    y: 200
+    description: "Sort-by-deadline button INSIDE overflow popover (V2 candidate crash trigger)"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-overflow-hide-completed"
+    x: 300
+    y: 250
+    description: "Hide-completed toggle button INSIDE overflow popover"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-overflow-clear-completed"
+    x: 300
+    y: 300
+    description: "Clear-all-completed button INSIDE overflow popover"
+    captured: false  # PLACEHOLDER
+
+  # ----- Editor sheet (for noop-rerender path on C1 spec) --------------
+
+  - id: "voyager-editor-sheet-cancel"
+    x: 100
+    y: 130
+    description: "Cancel button in editor sheet header"
+    captured: false  # PLACEHOLDER
+
+  - id: "voyager-editor-sheet-completed"
+    x: 350
+    y: 400
+    description: "Mark Complete toggle in editor sheet — used to drive a Rerender that should NOT dismiss the editor sheet itself (C1 test signal)"
+    captured: false  # PLACEHOLDER

@@ -27,5 +27,48 @@ module UI
     def to_css : String
       "clamp(#{min}, #{ideal}, #{max})"
     end
+
+    # ------------------------------------------------------------------
+    # Phase B — native resolution (additive). The native renderers feed these
+    # into the EXISTING min/max width constraint pins (Auto-Layout then resolves
+    # the actual width within [min, max] against available space — genuine
+    # resize without replacing NSStackView/UIStackView sizing). See
+    # docs/initiative-cross-platform-ui/architecture/foundational-output-and-layout-model.md
+    # Principle 2.
+    #
+    # `px` and `rem` map to a fixed point count (1rem = 16px). Viewport-relative
+    # units (`vw`/`vh`/`%`) have no fixed native value — they return nil, and the
+    # native renderer relies on the min/max constraint range instead (an `ideal`
+    # expressed in `vw` is exactly the "resize between min and max" case).
+    # ------------------------------------------------------------------
+
+    # Minimum width/height in points, or nil if `min` is not a fixed unit.
+    def native_min_px : Float64?
+      Fluid.parse_native_px(min)
+    end
+
+    # Maximum width/height in points, or nil if `max` is not a fixed unit.
+    def native_max_px : Float64?
+      Fluid.parse_native_px(max)
+    end
+
+    # Ideal width/height in points, or nil if `ideal` is not a fixed unit
+    # (e.g. a `vw` ideal — native uses the min/max range in that case).
+    def native_ideal_px : Float64?
+      Fluid.parse_native_px(ideal)
+    end
+
+    # Parse a CSS length to native points. `px`/`rem` resolve; everything else
+    # (vw/vh/%/calc/clamp/…) returns nil.
+    def self.parse_native_px(value : String) : Float64?
+      s = value.strip.downcase
+      if s.ends_with?("px")
+        s[0...-2].strip.to_f?
+      elsif s.ends_with?("rem")
+        s[0...-3].strip.to_f?.try { |v| v * 16.0 }
+      else
+        nil
+      end
+    end
   end
 end

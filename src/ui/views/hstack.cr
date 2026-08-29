@@ -22,6 +22,13 @@ module UI
     # Vertical alignment of children within the stack
     property alignment : Alignment = Alignment::Center
 
+    # Distribute children into EQUAL-width cells (flex:1 each) — the idiom for a
+    # tab bar / equal button row. The default Fill distribution stretches the
+    # lowest-hugging child, which does not split evenly across N items; this maps
+    # to NSStackViewDistributionFillEqually / UIStackView .fillEqually. Wrap each
+    # item in a centering container so its content centers within its cell.
+    property fill_equally : Bool = false
+
     # Ordered list of child views
     getter children : Array(View) = [] of View
 
@@ -32,6 +39,11 @@ module UI
     def <<(child : View) : self
       @children << child
       self
+    end
+
+    # In-place reconciler: native children map 1:1 to these, in order.
+    def reconcile_children : Array(View)
+      children
     end
 
     def accept(visitor : PlatformVisitor)

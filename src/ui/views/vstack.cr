@@ -38,6 +38,12 @@ module UI
       self
     end
 
+    # In-place reconciler: the renderer adds one native child per entry,
+    # in order, so the mounted native children map 1:1 to these.
+    def reconcile_children : Array(View)
+      children
+    end
+
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end

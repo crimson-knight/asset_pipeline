@@ -1,0 +1,163 @@
+module Voyager
+  # Voyager — Agent Chat screen (the cross-platform "talk to your agent" surface).
+  #
+  # This is the SAME surface rendered on ALL THREE native platforms — macOS, iOS,
+  # AND watchOS — authored once as a Crystal `UI::Screen` and walked by each
+  # platform renderer (AppKit / UIKit / WatchKit). The watchOS app renders this exact
+  # screen through `UI::WatchKit::Renderer` (see `samples/.../watchos/bridge.cr`); the
+  # renderer installs a watch-class DeviceMetrics provider so this one screen reflows
+  # to the wrist. Both-axes adaptive via DeviceMetrics#responsive / #responsive_vertical
+  # plus a content-width clamp to the device's available width (below), so the layout
+  # adapts from a 460pt desktop column down to a ~150pt watch column with no per-
+  # platform forks.
+  class AgentChatScreen < UI::Screen
+    SLUG = "voyager-agent-chat"
+
+    def build(context : UI::ScreenContext) : UI::View
+      # The transcript lives in Voyager::State and grows when the user taps Send
+      # (SendController appends a user message + a canned agent reply, then Rerender
+      # rebuilds this screen from the new state). agent messages lead-align, the
+      # user's replies trail-align.
+      messages = Voyager.state.chat_messages
+
+      metrics = UI::DesignTokens::DeviceMetrics.current
+      pad_h = metrics.responsive(compact: 16.0, regular: 24.0)
+      pad_v = metrics.responsive_vertical(compact: 16.0, regular: 28.0)
+
+      # Adaptive content width via the shared DeviceMetrics helper: the size-class
+      # default, clamped to the width the device actually offers. Keeps 340/460 on
+      # phone/desktop; collapses to the available ~140pt on the watch so the whole
+      # column reflows to the wrist.
+      content_width = metrics.adaptive_content_width(compact: 340.0, regular: 460.0, horizontal_padding: pad_h)
+      # Keep the trailing gutter (the spacer gap that pushes a bubble to one edge)
+      # proportional so a narrow watch bubble doesn't get crushed by a phone-sized gap.
+      bubble_w = content_width - metrics.responsive(compact: 28.0, regular: 64.0)
+
+      root = UI::VStack.new(spacing: metrics.responsive_vertical(compact: 10.0, regular: 14.0))
+      root.root_fill = true
+      root.alignment = UI::Alignment::Leading
+      root.padding = UI::EdgeInsets.new(
+        top: pad_v + metrics.safe_area_top_pt,
+        trailing: pad_h + metrics.safe_area_trailing_pt,
+        bottom: pad_v + metrics.safe_area_bottom_pt,
+        leading: pad_h + metrics.safe_area_leading_pt,
+      )
+      root.accessibility_label = "Voyager agent chat"
+      root.test_id = "voyager-agent-chat-root"
+
+      # Header row: a glanceable live-count title beside a voice mute/unmute control.
+      # The title carries a message count so the reactive update is obvious (Send
+      # appends → re-render → count ticks up). The speaker IconButton lets the user
+      # silence the agent's spoken replies (gates UI::Speech in AgentChatController) —
+      # a beautiful, in-context control rather than a buried setting; its glyph and
+      # label reflect the live state. Same on every platform.
+      speak_on = Voyager.state.speak_replies
+      header = UI::HStack.new(spacing: 8.0)
+      header.alignment = UI::Alignment::Center
+      header.minimum_width = content_width
+      header.maximum_width = content_width
+
+      # On the narrow wrist column the live count won't fit on one line beside the
+      # voice control (it wrapped mid-word), and the growing bubbles already show the
+      # reactive update there — so drop the count on compact, keep "Agent · N" where
+      # there's room (phone / desktop).
+      title_text =
+        if metrics.compact_canvas?
+          "Agent"
+        else
+          messages.empty? ? "Agent" : "Agent · #{messages.size}"
+        end
+      title = UI::Label.new(title_text)
+      title.font = UI::Font.new(size: metrics.responsive(compact: 22.0, regular: 30.0), weight: :bold)
+      title.text_color_role = UI::LabelRole::Primary
+      title.fill_horizontal = true # grow so the voice control sits at the trailing edge
+      header << title.as(UI::View)
+
+      voice = UI::IconButton.new(speak_on ? "speaker.wave.2.fill" : "speaker.slash.fill")
+      voice.accessibility_label = speak_on ? "Mute agent voice" : "Unmute agent voice"
+      voice.test_id = "voyager-agent-chat-voice"
+      voice.on_tap = -> { Voyager.dispatch(:toggle_voice) }
+      header << voice.as(UI::View)
+
+      root << header.as(UI::View)
+
+      messages.each_with_index do |msg, i|
+        root << bubble_row(msg.text, msg.is_agent, content_width, bubble_w, i)
+      end
+
+      # Collect the slack so the transcript packs to the top and the compose row
+      # settles near the bottom — the messaging-app rhythm, instead of the bubbles
+      # spreading evenly down a tall window.
+      root << UI::Spacer.new.as(UI::View)
+
+      # Compose row: a TextField to type a reply + a paperplane send IconButton.
+      compose = UI::HStack.new(spacing: 8.0)
+      compose.alignment = UI::Alignment::Center
+      compose.minimum_width = content_width
+      compose.maximum_width = content_width
+
+      # The field GROWS to fill the row beside the fixed send button (fill_horizontal),
+      # rather than being pinned to an exact width. An exact-width field + fixed button
+      # left UIKit's Fill row with no absorber, over-constraining it and clipping the
+      # field off the leading edge on iOS. As the flexible element the field both fixes
+      # that and adapts naturally — wide on desktop, narrow on the watch.
+      field = UI::TextField.new(placeholder: "Message your agent…", name: "chat_message")
+      field.accessibility_label = "Message your agent"
+      field.test_id = "voyager-agent-chat-input"
+      field.fill_horizontal = true
+
+      send = UI::IconButton.new("paperplane.fill")
+      send.accessibility_label = "Send message"
+      send.test_id = "voyager-agent-chat-send"
+      send.on_tap = -> { Voyager.dispatch(:send_message) }
+
+      compose << field.as(UI::View)
+      compose << send.as(UI::View)
+      root << compose.as(UI::View)
+
+      back = UI::Button.new("Back")
+      back.role = :secondary
+      back.accessibility_label = "Back"
+      back.test_id = "voyager-agent-chat-back"
+      back.minimum_width = content_width
+      back.maximum_width = content_width
+      back.on_tap = -> { Voyager.dispatch(:back) }
+      root << back.as(UI::View)
+
+      root.as(UI::View)
+    end
+
+    # One chat bubble: a Card wrapping a Label, pushed to the leading edge (agent)
+    # or the trailing edge (user) by a Spacer in a content-width HStack.
+    private def bubble_row(text : String, is_agent : Bool, content_width : Float64, bubble_w : Float64, i : Int32) : UI::View
+      label = UI::Label.new(text)
+      label.font = UI::Font.new(size: 15.0, weight: :regular)
+      label.text_color_role = is_agent ? UI::LabelRole::Primary : UI::LabelRole::Secondary
+      # Chat text must WRAP, not truncate, inside the fixed-width Card bubble. The
+      # proven macOS-wrapping pattern (welcome lede) is an EXACT width (min == max),
+      # which makes NSTextField wrap to fill rather than single-line-truncate;
+      # preferred_max_layout_width covers the UIKit multi-line intrinsic size.
+      label.minimum_width = bubble_w - 24.0
+      label.maximum_width = bubble_w - 24.0
+      label.preferred_max_layout_width = bubble_w - 24.0
+
+      card = UI::Card.new(label.as(UI::View))
+      card.maximum_width = bubble_w
+      card.test_id = "voyager-agent-chat-msg-#{i}"
+
+      row = UI::HStack.new(spacing: 0.0)
+      row.minimum_width = content_width
+      row.maximum_width = content_width
+      if is_agent
+        row.alignment = UI::Alignment::Leading
+        row << card.as(UI::View)
+        row << UI::Spacer.new.as(UI::View)
+      else
+        row.alignment = UI::Alignment::Trailing
+        row << UI::Spacer.new.as(UI::View)
+        row << card.as(UI::View)
+      end
+      row.as(UI::View)
+    end
+  end
+end

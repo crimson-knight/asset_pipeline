@@ -10,16 +10,26 @@
 import SwiftUI
 import Foundation
 
+// watchOS: ENABLED (Phase D Bucket-2 P1 port, 2026-06-02). `TabView(selection:)`,
+// `.tabItem`, `.tag`, and `.tint` are valid on watchOS (vertical-page paging is the
+// watch idiom). The tab-bar chrome block (`.toolbarBackground` is
+// `@available(watchOS, unavailable)`, `.glassEffect()` uncertain on watch) is gated
+// for non-watch — the watch presents TabView with its native page chrome. See
+// watch-facade-bucket-audit.md.
 @objc(APSKTabViewFacade)
 public class TabViewFacade: NSObject {
     @objc public static func makeTabView(
         childViews: [APSKPlatformView],
-        overrides: TabViewOverrides
+        overrides: TabViewOverrides,
+        actionToken: UInt64
     ) -> APSKPlatformView {
         let labels = overrides.tabLabels
         let icons = overrides.tabIcons
         let count = childViews.count
-        let storage = IntStorage(initial: overrides.selectedIndex, token: 0)
+        // Thread the Crystal callback token so a tab change fires
+        // CallbackBridge.fire(token, Double(index)) — previously hardcoded
+        // to 0, so the on_change handler never received the new index.
+        let storage = IntStorage(initial: overrides.selectedIndex, token: actionToken)
 
         var content: AnyView = AnyView(
             TabView(selection: storage.binding) {
@@ -65,6 +75,10 @@ public class TabViewFacade: NSObject {
         // advisory only on this path — the system resolves material strength
         // regardless of the AppleSemantic + intensity inputs. This mirrors
         // the GlassBackgroundFacade.swift:64-70 reference pattern.
+        // watchOS: `.toolbarBackground` is unavailable and `.glassEffect()` is not
+        // a watch presentation idiom; the watch shows TabView with its native page
+        // chrome, so the bar-background block is skipped entirely on watch.
+        #if !os(watchOS)
         if #available(iOS 26.0, macOS 26.0, *) {
             content = AnyView(content.glassEffect())
         } else if #available(iOS 16.0, macOS 13.0, *) {
@@ -72,6 +86,7 @@ public class TabViewFacade: NSObject {
             let mat: Material = MaterialSemanticResolver.material(for: materialKey) ?? .bar
             content = AnyView(content.toolbarBackground(mat, for: .automatic))
         }
+        #endif
 
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(TabHost(storage: storage, content: content))

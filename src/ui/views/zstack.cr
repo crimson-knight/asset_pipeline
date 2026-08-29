@@ -26,6 +26,11 @@ module UI
       self
     end
 
+    # In-place reconciler: native children map 1:1 to these, in order.
+    def reconcile_children : Array(View)
+      children
+    end
+
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end

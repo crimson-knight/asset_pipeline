@@ -52,6 +52,23 @@
       fun objc_send_rect(obj : Void*, sel : Void*, rect : CGRect) : Void*
       fun objc_send_rect_void(obj : Void*, sel : Void*, rect : CGRect) : Void
       fun objc_send_ret_bool(obj : Void*, sel : Void*) : Int32
+      # Phase 10B.2a iter 2 (Codex Finding 3) — guarded setEnabled: helper
+      # used to functionally disable NSControl-derived widgets when the
+      # `:not_enabled` accessibility trait is set. No-ops on plain NSViews.
+      fun ap_set_enabled_if_responds(obj : Void*, enabled : Int32) : Int32
+
+      # Phase 10B.2b — Action + focus + keyboard accessibility helpers.
+      # Add a custom NSAccessibilityCustomAction (block-based, macOS 10.13+).
+      fun ap_view_add_accessibility_custom_action(view : Void*, name : UInt8*,
+                                                  token : UInt64) : Int32
+      # AppKit keyboard shortcut: on NSButton-derived controls sets
+      # keyEquivalent + modifier mask. Non-button views buffer the value as
+      # an associated object for menu / responder-chain wiring.
+      fun ap_view_add_key_command(view : Void*, input : UInt8*,
+                                  modifier_mask : UInt64, token : UInt64) : Int32
+      # Focus management via the view's host window.
+      fun ap_view_become_first_responder(view : Void*) : Int32
+      fun ap_view_resign_first_responder(view : Void*) : Int32
 
       # --- Section 4: Convenience helpers ---
       fun nsstring_from_cstr(str : UInt8*) : Void*
@@ -76,8 +93,30 @@
       fun objc_constrain_size(view : Void*, w : Float64, h : Float64) : Void
       fun objc_constrain_width(view : Void*, w : Float64) : Void
       fun objc_constrain_minimum_width(view : Void*, min_w : Float64) : Void
+      fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
+      fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
+      fun objc_constrain_equal_width_offset(child : Void*, parent : Void*, delta : Float64) : Void
+      fun objc_pin_child_to_superview_edges(parent : Void*, child : Void*) : Void
+      # Honors ZStack#alignment for the directional cases (Leading/Trailing/Top/
+      # Bottom): pins the aligned edge required, soft-fills the opposite edge so
+      # unconstrained children fill while fixed-size children align. align:
+      # 0=leading 1=trailing 2=top 3=bottom. Center/Fill use the edges fn above.
+      fun objc_pin_child_aligned(parent : Void*, child : Void*, align : Int32) : Void
+      # Resolved-geometry helpers (native layout specs).
+      fun objc_get_frame(view : Void*) : CGRect
+      fun objc_layout_now(view : Void*) : Void
+      fun objc_constrain_fluid_width(view : Void*, min_w : Float64, max_w : Float64) : Void
+      fun objc_set_horizontal_fill_priority(view : Void*) : Void
+      fun objc_set_vertical_fill_priority(view : Void*) : Void
       fun objc_constrain_height(view : Void*, h : Float64) : Void
+      fun nsscrollview_scroll_to_end(scroll_view : Void*) : Void
+      fun nsscrollview_is_at_bottom(scroll_view : Void*, tolerance : Float64) : Int32
+      # ComboBox value-drop fix (macOS) — wire an NSComboBox's text +
+      # selection changes (controlTextDidChange: / comboBoxSelectionDidChange:)
+      # to the Crystal string callback `token` via a CrystalComboBoxDelegate.
+      fun ap_combo_box_wire_string_change(combo : Void*, token : UInt64) : Int32
       fun nsscrollview_set_document_view(scroll_view : Void*, doc_view : Void*) : Void
+      fun nsscrollview_set_draws_background(scroll_view : Void*, draws : Int32) : Void
       fun nsbutton_set_colored_title(button : Void*, title : Void*, color : Void*, font : Void*) : Void
       fun nsslider_set_track_fill_color(slider : Void*, color : Void*) : Void
       fun nsimageview_make_symbol(symbol_name : UInt8*, tint_color : Void*, size_pts : Float64) : Void*
@@ -113,6 +152,17 @@
       fun objc_safe_area_trailing : Float64
       fun objc_horizontal_size_class : Int32
       fun objc_vertical_size_class : Int32
+
+      # --- Section 6: Discrete gesture surface ---
+      # Attach an NSPanGestureRecognizer that classifies direction at .ended
+      # (dominant translation component, threshold 30 pt). `direction` encodes
+      # the desired direction (Left=0, Right=1, Up=2, Down=3); the macOS bridge
+      # creates one pan recognizer per call — multiple directions each install
+      # an independent recognizer. `token` is the CallbackRegistry id.
+      fun objc_attach_swipe_gesture(view : Void*, direction : Int32, token : UInt64) : Int32
+      # Attach an NSPressGestureRecognizer. `min_duration` is the hold threshold
+      # in seconds (0.5 recommended). Returns 1 on success.
+      fun objc_attach_long_press_gesture(view : Void*, token : UInt64, min_duration : Float64) : Int32
     end
 
     # Renders a UI::View tree to native AppKit views via the ObjC bridge.
@@ -159,9 +209,37 @@
       # per renderer lifetime (no harm in repeating, but no benefit either).
       @swiftkit_action_trampoline_installed : Bool = false
 
-      def initialize
+      # Phase 10B.2c iter 2 — environment-driven render reactivity.
+      # Hosts set this via `renderer.environment = UI::Environment.from_appkit(...)`
+      # at boot or per-frame; default is the conservative baseline.
+      # macOS-native snackbars are static NSTextField overlays — they
+      # do not own a dismiss timer at the renderer layer; host code
+      # drives presentation. The environment is still threaded so
+      # `view.effective_duration(@environment)` is available to host
+      # code that queries it for its own dismiss scheduling.
+      property environment : UI::Environment = UI::Environment.default
+
+      # Phase 12.C iter-4 (V1 fix Option A) — symmetric to UIKit.
+      @reuse_registry : Hash(String, NativeView)?
+
+      # Phase 12.D (continuing-presentation reuse) — symmetric to UIKit.
+      # The prior render's root captured when the host constructs with
+      # `reuse_from:`; `retire_prior!` detaches the reused subtree from
+      # it + runs the orphan sweep after the fresh render. See the UIKit
+      # renderer for the full rationale.
+      @reuse_prior : NativeView?
+
+      # Phase 12.D — plain-host ergonomic entry point. `reuse_from:`
+      # builds the identity-keyed reuse registry from the prior render's
+      # root internally so a plain macOS host adopts continuing-
+      # presentation survival with a single construction + one
+      # `retire_prior!`. `reuse_registry:` stays for the Voyager macOS
+      # host that already builds the registry itself.
+      def initialize(reuse_registry : Hash(String, NativeView)? = nil, *, reuse_from : NativeView? = nil)
         @stack = [] of NativeView
         @stack_is_nsstack = [] of Bool
+        @reuse_prior = reuse_from
+        @reuse_registry = reuse_from ? NativeView.build_reuse_registry(reuse_from) : reuse_registry
         LibObjCBridge.register_crystal_action_dispatcher
 
         # Phase 6.10 Rem 4 (Item 2B/2C) — install the runtime device-
@@ -182,6 +260,52 @@
             vertical_size_class: size_class_from_int(LibObjCBridge.objc_vertical_size_class),
           )
         end
+      end
+
+      # Phase 12.C iter-4 (V1 fix Option A) / Phase 12.D — AppKit-side
+      # reuse check. Mirrors UIKit::Renderer#try_reuse; lives on its own
+      # helper here because the renderer classes don't share a base
+      # beyond PlatformVisitor and Crystal doesn't let a subclass
+      # private method punch through the visitor abstraction.
+      #
+      # Phase 12.D — STATE-HANDLE ADOPTION (see UIKit#try_reuse). Copies
+      # the surviving handle's `state_handle` onto the FRESH tree's
+      # `view` so a controller closing the post-rerender Sheet instance
+      # drives the SAME NSHostingView .sheet binding, and emits the
+      # `continuing-presentation-reused` marker.
+      private def appkit_try_reuse(view : UI::View, identity : String?, kind : Symbol) : NativeView?
+        return nil if identity.nil?
+        registry = @reuse_registry
+        return nil if registry.nil?
+        existing = registry[identity]?
+        return nil if existing.nil?
+        return nil if existing.state.torn_down?
+        return nil if existing.handle.released?
+        return nil unless existing.handle.reactive_kind == kind
+        state = existing.handle.state_handle
+        return nil if state.nil?
+        existing.reused = true
+        view.swiftkit_state_handle = state
+        UI::InteractionContracts.emit_for(
+          "Sheet",
+          "continuing-presentation-reused",
+          identity,
+          kind: kind.to_s,
+          content: "prior-shell-retained",
+        )
+        existing
+      end
+
+      # Phase 12.D — plain-host retirement helper, symmetric to
+      # UIKit::Renderer#retire_prior!. Detaches the reused subtree from
+      # the prior tree, then runs the identity-aware orphan dismissal
+      # sweep. No-op when constructed without `reuse_from:`.
+      def retire_prior!(fresh : NativeView) : Nil
+        prior = @reuse_prior
+        return if prior.nil?
+        prior.detach_reused!
+        NativeView.dismiss_reactive_presentations!(prior, fresh: fresh)
+        nil
       end
 
       private def size_class_from_int(value : Int32) : UI::DesignTokens::SizeClass
@@ -400,19 +524,21 @@
           bg_ns = if c = explicit_bg
                     # View has an explicit background — use it. Alpha=0 means transparent.
                     LibObjCBridge.nscolor_rgba(c.r, c.g, c.b, c.a)
-                  elsif ENV["HIG_BACKDROP_PATH"]? && !ENV["HIG_BACKDROP_PATH"].to_s.empty?
-                    # Backdrop-mode: keep VStack transparent so NSVisualEffectView can blur
-                    # the backdrop NSImageView beneath. The live-window NSWindow provides the
-                    # appearance-correct surface; opaque fills here would block the glass compositor.
-                    # Tier 2 platform default: fully-transparent fallback (alpha=0).
-                    LibObjCBridge.nscolor_rgba(0.0, 0.0, 0.0, 0.0)
                   else
-                    # No backdrop — apply the dark-mode legibility fix (gaps.md iter-21).
-                    # Tier 2 platform defaults: NSColor.windowBackgroundColor approximations
-                    # for dark/light appearance in the offscreen capture path.
-                    dark_mode = (ENV["HIG_APPEARANCE"]? == "dark")
-                    dark_mode ? LibObjCBridge.nscolor_rgba(0.12, 0.12, 0.12, 1.0) :  # Tier 2 dark
-LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                       # Tier 2 light
+                    # No explicit background. The bake policy (pure, unit-tested in
+                    # UI::StackBake) keeps the LIVE app TRANSPARENT so the parent's
+                    # background shows through — matching HStack/ZStack, which never
+                    # bake a fill. The opaque legibility fix (gaps.md iter-21) applies
+                    # ONLY in the offscreen capture path, and backdrop captures stay
+                    # transparent for the glass compositor. Capture mode is detected
+                    # from a screenshot-OUTPUT env var (consistent with this file's
+                    # other HIG_SCREENSHOT_PATH checks) — NOT HIG_APPEARANCE, which is
+                    # an appearance knob set for live windows too. Baking opaque white
+                    # in the live app turned nested background-less containers into
+                    # solid white blocks (My Affirmations regression).
+                    capturing = UI::StackBake.capturing?(UI::StackBake::CAPTURE_PATH_ENV_KEYS.map { |k| ENV[k]? })
+                    r, g, b, a = UI::StackBake.fallback_rgba(ENV["HIG_BACKDROP_PATH"]?, ENV["HIG_APPEARANCE"]?, capturing)
+                    LibObjCBridge.nscolor_rgba(r, g, b, a)
                   end
           unless bg_ns.null?
             cg_bg = LibObjCBridge.objc_send(bg_ns, sel("CGColor"))
@@ -433,7 +559,62 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         # Each child NativeView was added to native.children and its raw
         # ptr was added as an arranged subview during push_native.
 
+        # Phase B — a fluid container fills its leaf children. A VStack's "Fill"
+        # alignment only leading-pins children at intrinsic width (see the
+        # alignment mapping above), so a fluid container's facade-hosted controls
+        # (TextField/Button — NSHostingView hugs intrinsic width) would render as
+        # tiny pills. Pin each child's width == the stack so they fill the
+        # resizable column, but only when the child has no width intent of its own
+        # (an explicit pin or its own fluid_width wins).
+        if view.fluid_width
+          view.children.each_with_index do |child_view, i|
+            next if child_view.minimum_width || child_view.maximum_width || child_view.fluid_width
+            cn = native.children[i]?
+            next unless cn && cn.handle.valid?
+            LibObjCBridge.objc_constrain_equal_width(cn.handle.ptr!, ptr)
+          end
+        end
+
+        # A VStack child marked `fill_horizontal` fills the stack's WIDTH — the
+        # cross-axis analog of the HStack spacer-fill. In a vertical stack "fill
+        # horizontally" means "match the parent width" (full-bleed bands, footers,
+        # dividers, cards). Plain fill_horizontal only lowers content-hugging,
+        # which is a NO-OP under a VStack's GravityAreas distribution + CenterX
+        # alignment — so a full-width band collapsed to its content width and an
+        # exact min==max pin loses to the stack's required constraints (priority
+        # 999 < 1000). Pin width == stack at required priority via the same helper
+        # fluid_width uses. A child's own exact width pin still wins; skip when
+        # fluid_width already pinned every child above.
+        unless view.fluid_width
+          # Respect the stack's own horizontal padding (edgeInsets) so a padded
+          # screen container gives its fill_horizontal children gutters instead of
+          # bleeding them edge-to-edge. delta = -(leading + trailing); the stack's
+          # CenterX alignment then centers the narrower child → symmetric gutters.
+          h_pad = view.padding.leading + view.padding.trailing
+          view.children.each_with_index do |child_view, i|
+            next unless child_view.fill_horizontal
+            next if child_view.minimum_width || child_view.maximum_width
+            cn = native.children[i]?
+            next unless cn && cn.handle.valid?
+            if h_pad > 0.0
+              LibObjCBridge.objc_constrain_equal_width_offset(cn.handle.ptr!, ptr, -h_pad)
+            else
+              LibObjCBridge.objc_constrain_equal_width(cn.handle.ptr!, ptr)
+            end
+          end
+        end
+
         push_native(native)
+
+        # Phase B — fluid container fills its parent (greedy, capped at max,
+        # floored at min) so the column reflows with the window/size class. Must
+        # run AFTER push_native: the view's superview (the parent stack) is set
+        # only once it's added as an arranged subview, and the fill relation needs
+        # the superview width anchor. See objc_constrain_fluid_width.
+        if fw = view.fluid_width
+          LibObjCBridge.objc_constrain_fluid_width(
+            ptr, fw.native_min_px || 0.0, fw.native_max_px || 100_000.0)
+        end
       end
 
       # -----------------------------------------------------------------
@@ -466,8 +647,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         # FillProportionally=2, EqualSpacing=3, EqualCentering=4.
         # For Alignment::Fill, use Fill (0) so the last unconstrained arranged
         # subview expands to fill all remaining horizontal space.
-        # For all other alignments, use GravityAreas (-1, the AppKit default).
-        if view.alignment == Alignment::Fill
+        # ALSO use Fill when any child is fill_horizontal: NSStackView's default
+        # GravityAreas keeps a no-width child at its tiny intrinsic size (the macOS
+        # compose-field "sliver"); Fill distribution + the child's low hugging is what
+        # actually stretches it. UIStackView defaults to Fill so iOS needs no analog.
+        if view.fill_equally
+          # Equal-width cells (tab bar / equal button row): Fill stretches only one
+          # child, so it never splits N items evenly — FillEqually does.
+          LibObjCBridge.objc_send_long(ptr, sel("setDistribution:"), 1_i64)
+        elsif view.alignment == Alignment::Fill || view.children.any?(&.fill_horizontal)
           LibObjCBridge.objc_send_long(ptr, sel("setDistribution:"), 0_i64)
         end
 
@@ -514,12 +702,33 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         end
         pop_stack
 
-        # For ZStack children, set autoresizing mask to fill parent:
-        # NSViewWidthSizable (2) | NSViewHeightSizable (16) = 18
+        # ZStack children overlap and fill the container. The autoresizing MASK
+        # is IGNORED for Auto-Layout-based children (NSHostingView / NSScrollView
+        # set translatesAutoresizingMaskIntoConstraints=NO), so pin each child's
+        # edges to the ZStack via Auto Layout instead — otherwise children render
+        # at their intrinsic size/position rather than filling (e.g. a full-bleed
+        # background Image only covered part of the screen). A child with its own
+        # min-size constraints (e.g. a bg image) then drives the ZStack's size.
+        # Honor ZStack#alignment. Center/Fill (and the default) keep the legacy
+        # all-4-edges fill — every existing full-bleed hero relies on it, so this
+        # is zero-regression. The directional cases (Leading/Trailing/Top/Bottom),
+        # previously IGNORED (every child force-filled), now pin the aligned edge
+        # and soft-fill the opposite, so a fixed-size child sits aligned to that
+        # side (drawer panel, toast, badge) while unconstrained children still
+        # fill. See objc_pin_child_aligned.
+        align_code = case view.alignment
+                     when UI::Alignment::Leading  then 0
+                     when UI::Alignment::Trailing then 1
+                     when UI::Alignment::Top      then 2
+                     when UI::Alignment::Bottom   then 3
+                     else                              -1 # Center / Fill → legacy
+                     end
         native.children.each do |child_nv|
-          if child_nv.handle.valid?
-            child_ptr = child_nv.handle.ptr!
-            LibObjCBridge.objc_set_autoresize(child_ptr, 18_u64)
+          next unless child_nv.handle.valid?
+          if align_code < 0
+            LibObjCBridge.objc_pin_child_to_superview_edges(ptr, child_nv.handle.ptr!)
+          else
+            LibObjCBridge.objc_pin_child_aligned(ptr, child_nv.handle.ptr!, align_code)
           end
         end
 
@@ -570,6 +779,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           action_token = UI::CallbackRegistry.register_string(wrapped_handler)
         end
 
+        # Enter-to-send: register the on_submit handler on the string channel and
+        # thread its token through the overrides so the facade attaches
+        # `.onSubmit` (bare Return fires it with the current text).
+        submit_token = 0_u64
+        if submit_handler = view.on_submit
+          submit_token = UI::CallbackRegistry.register_string(submit_handler)
+          sender.set_number(target_str, :setSubmitToken, submit_token.to_f64)
+        end
+
         ptr = LibSwiftKitBridge.apsk_make_text_field(
           view.placeholder.to_unsafe, view.text.to_unsafe,
           overrides_ptr, action_token,
@@ -577,6 +795,7 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         handle = ObjC.owned(ptr, label: "NSHostingView[TextField]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
+        native.track_callback_id(submit_token) unless submit_token == 0_u64
         push_native(native)
       end
 
@@ -603,7 +822,12 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         # scroll view's intrinsicContentSize from its (arbitrarily tall) content.
         # Use objc_constrain_height (height-only) when only height is specified;
         # use objc_constrain_size when both axes are explicitly set.
-        if view.frame_width > 0.0 && view.frame_height > 0.0
+        if view.fill_vertical
+          # Flexible height: claim the enclosing stack's leftover vertical space
+          # and reflow on resize instead of pinning a fixed point height. Width
+          # comes from fill_horizontal / the stack; the vertical axis is free.
+          LibObjCBridge.objc_set_vertical_fill_priority(ptr)
+        elsif view.frame_width > 0.0 && view.frame_height > 0.0
           LibObjCBridge.objc_constrain_size(ptr, view.frame_width, view.frame_height)
         elsif view.frame_height > 0.0
           LibObjCBridge.objc_constrain_height(ptr, view.frame_height)
@@ -611,6 +835,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         # Common properties
         apply_common_properties(ptr, view)
+
+        # Transparency: when the background is unset or fully clear, stop the
+        # NSScrollView + NSClipView painting their opaque system background, so
+        # content layered behind it (e.g. a full-bleed hero image in a ZStack)
+        # shows through the scrolling content instead of a black/system fill.
+        bg = view.background
+        if bg.nil? || bg.a == 0.0
+          LibObjCBridge.nsscrollview_set_draws_background(ptr, 0)
+        end
 
         handle = ObjC.owned(ptr, label: "NSScrollView")
         native = NativeView.new(handle)
@@ -630,6 +863,11 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
             end
           end
         end
+
+        # Store the live NSScrollView pointer so the ScrollView can drive its own
+        # scroll position after render (scroll_to_end / at_bottom? — the
+        # streaming stick-to-bottom path).
+        view.native_handle = ptr
 
         push_native(native)
       end
@@ -901,7 +1139,7 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         child_buf = build_child_buffer(children_native)
         ptr = LibSwiftKitBridge.apsk_make_tab_view(
-          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
+          child_buf.as(Void*), children_native.size.to_i32, overrides_ptr, action_token,
         )
         handle = ObjC.owned(ptr, label: "NSHostingView[TabView]")
         native = NativeView.new(handle)
@@ -1269,20 +1507,19 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_secure_field(target_str, view, sender)
 
-        # Phase 8B iter 3 — same FormState-wiring pattern as TextField.
-        # The legacy on_change for SecureField receives "" (the SwiftUI
-        # bridge doesn't yet carry the cleartext through). FormState
-        # therefore stores "" for the SecureField's name; the controller
-        # sees the empty string in ctx.params. Authors who need true
-        # password capture on macOS for Phase 8B should use a plain
-        # UI::TextField for now. A future SwiftKit bridge iteration
-        # will carry the typed cleartext through.
+        # FormState wiring — identical to TextField. The SecureField
+        # SwiftUI facade reuses TextFieldFacade's `TextStorage`, whose
+        # binding fires `CallbackBridge.fireString(token, newValue)` with
+        # the REAL typed cleartext. So we register on the string channel
+        # (`register_string`) exactly like TextField, and the typed
+        # password flows into FormState under the field's `name` key.
+        # (Earlier this used the numeric channel + `call("")`, which
+        # silently dropped the password — making any form that gates on a
+        # non-empty password, e.g. sign-in, impossible to submit.)
         wrapped_handler = UI::FormStateRendererHook.wrap_secure_handler(view)
         action_token = 0_u64
         if wrapped_handler
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            wrapped_handler.call("")
-          end
+          action_token = UI::CallbackRegistry.register_string(wrapped_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_secure_field(
@@ -1413,9 +1650,12 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         action_token = 0_u64
         if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            change_handler.call("")
-          end
+          # The SwiftUI facade reuses TextStorage, whose binding fires
+          # CallbackBridge.fireString(token, value) with the REAL typed
+          # text. Register on the STRING channel so the handler receives
+          # the actual text — NOT the numeric channel + call(""), which
+          # silently dropped every keystroke (the SecureField bug class).
+          action_token = UI::CallbackRegistry.register_string(change_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_search_field(
@@ -1439,9 +1679,12 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         action_token = 0_u64
         if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            change_handler.call("")
-          end
+          # The SwiftUI facade reuses TextStorage, whose binding fires
+          # CallbackBridge.fireString(token, value) with the REAL typed
+          # text. Register on the STRING channel so the handler receives
+          # the actual text — NOT the numeric channel + call(""), which
+          # silently dropped every keystroke (the SecureField bug class).
+          action_token = UI::CallbackRegistry.register_string(change_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_text_area(
@@ -1639,6 +1882,16 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Visit: Sheet -> NSVisualEffectView + inner NSStackView (Liquid Glass)
       # -----------------------------------------------------------------
       def visit(view : UI::Sheet)
+        # Phase 12.C iter-4 (V1 fix Option A) — reuse path. See UIKit
+        # renderer for the architectural rationale; the AppKit branch
+        # is symmetric and exists so the same fix applies to macOS
+        # hosts that suffer the equivalent .id()-style discard.
+        identity = view.test_id || view.accessibility_label
+        if @reuse_registry && (existing = appkit_try_reuse(view, identity, :sheet))
+          push_native(existing)
+          return
+        end
+
         # SwiftUI .sheet(isPresented:) facade. The Sheet's content is
         # rendered detached; the facade hosts a 1pt clear rect that
         # carries the .sheet modifier, presenting the content modally.
@@ -1662,11 +1915,30 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         end
 
         child_buf = build_child_buffer(children_native)
-        ptr = LibSwiftKitBridge.apsk_make_sheet(
+
+        # Phase 12.C — use the reactive entry so the macOS Sheet
+        # participates in the cross-render presentation sweep (V1 fix,
+        # Path A). The Swift facade writes the APSKSheetState +1 retain
+        # through `state_box`; we pin it on the handle so
+        # `apsk_sheet_set_presented` can flip the binding when the host
+        # re-renders.
+        state_slot = Pointer(Void).null.as(Void*)
+        state_box = pointerof(state_slot)
+        ptr = LibSwiftKitBridge.apsk_make_sheet_reactive(
           child_buf.as(Void*), children_native.size.to_i32,
-          overrides_ptr, dismiss_token,
+          overrides_ptr, dismiss_token, state_box,
         )
         handle = ObjC.owned(ptr, label: "NSHostingView[Sheet]")
+        unless state_slot.null?
+          handle.state_handle = state_slot
+          handle.reactive_kind = :sheet
+          # Phase 12.C — identity-aware sweep (C1). presentation_identity
+          # gates `NativeView.dismiss_reactive_presentations!` so
+          # surviving sheets in the next render aren't unconditionally
+          # closed.
+          handle.presentation_identity = view.test_id || view.accessibility_label
+          view.swiftkit_state_handle = state_slot
+        end
         native = NativeView.new(handle)
         callback_ids.each { |id| native.track_callback_id(id) }
         children_native.each { |c| native.add_child(c) }
@@ -1734,6 +2006,13 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       # Visit: ConfirmationDialog -> NSAlert
       # -----------------------------------------------------------------
       def visit(view : UI::ConfirmationDialog)
+        # Phase 12.C iter-4 — reuse path.
+        identity = view.test_id || view.accessibility_label
+        if @reuse_registry && (existing = appkit_try_reuse(view, identity, :confirmation_dialog))
+          push_native(existing)
+          return
+        end
+
         # SwiftUI .confirmationDialog(...) facade.
         overrides_ptr = LibSwiftKitBridge.apsk_confirmation_dialog_overrides_new
         sender = UI::Native::SwiftKitObjCSender.new(overrides_ptr)
@@ -1756,10 +2035,20 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           )
         end
 
-        ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog(
-          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr,
+        # Phase 12.C — reactive entry (Codex iter-1 BLOCKER 1). Returns
+        # BoolStorage pointer through state_box so the cross-render sweep
+        # can flip the binding on macOS rerenders.
+        state_slot = Pointer(Void).null.as(Void*)
+        state_box = pointerof(state_slot)
+        ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog_reactive(
+          view.title.to_unsafe, view.message.to_unsafe, overrides_ptr, state_box,
         )
         handle = ObjC.owned(ptr, label: "NSHostingView[ConfirmationDialog]")
+        unless state_slot.null?
+          handle.state_handle = state_slot
+          handle.reactive_kind = :confirmation_dialog
+          handle.presentation_identity = view.test_id || view.accessibility_label
+        end
         native = NativeView.new(handle)
         callback_ids.each { |id| native.track_callback_id(id) }
         push_native(native)
@@ -1767,6 +2056,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
       # -----------------------------------------------------------------
       # Visit: Snackbar -> NSView (toast-style overlay)
+      #
+      # Phase 10B.2c iter 2 — macOS snackbars are static NSTextField
+      # overlays at the renderer layer; the dismiss timer is owned by
+      # host code (the macOS HIG variant typically uses NSAlert or
+      # NSToast wrapped in an NSWindow with a sheet-style timer the
+      # host installs). The view's `effective_duration(@environment)`
+      # is the canonical source of truth — host code reads it from
+      # the renderer's environment when scheduling its own dismiss.
+      # The visit method itself does not own the timer.
       # -----------------------------------------------------------------
       def visit(view : UI::Snackbar)
         ptr = alloc_init("NSTextField")
@@ -2313,9 +2611,12 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
 
         action_token = 0_u64
         if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            change_handler.call("")
-          end
+          # The SwiftUI facade reuses TextStorage, whose binding fires
+          # CallbackBridge.fireString(token, value) with the REAL typed
+          # text. Register on the STRING channel so the handler receives
+          # the actual text — NOT the numeric channel + call(""), which
+          # silently dropped every keystroke (the SecureField bug class).
+          action_token = UI::CallbackRegistry.register_string(change_handler)
         end
 
         ptr = LibSwiftKitBridge.apsk_make_text_editor(
@@ -3015,14 +3316,19 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_color_picker(target_str, view, sender)
 
+        # The Swift ColorStorage binding fires CallbackBridge.fireString(
+        # token, "r,g,b,a") with the NEW pick (sRGB 0..1). Register on the
+        # STRING channel and parse the RGBA back into a UI::Color, calling
+        # the original on_change with the actual picked colour. (Previously
+        # the float channel re-emitted the ORIGINAL selected_color.)
         action_token = 0_u64
         if change_handler = view.on_change
-          action_token = UI::CallbackRegistry.register_action_with_value do |_v|
-            # The Swift facade fires value=1.0 on any change; the Crystal
-            # proc receives the original colour — richer round-trip is a
-            # Phase 5 follow-up (Color value channel needs encoding).
-            change_handler.call(view.selected_color)
-          end
+          action_token = UI::CallbackRegistry.register_string(->(payload : String) {
+            if color = UI::ColorPicker.parse_rgba(payload)
+              change_handler.call(color)
+            end
+            nil
+          })
         end
 
         c = view.selected_color
@@ -3678,8 +3984,30 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityLabel:"), acc_str)
         end
 
+        # ComboBox value-drop fix (macOS). NSComboBox has no SwiftUI
+        # facade; wire its text + selection changes through the raw string
+        # channel via a CrystalComboBoxDelegate (controlTextDidChange: +
+        # comboBoxSelectionDidChange:). on_change is Proc(String, Void)?;
+        # register_string takes Proc(String, Nil), so adapt with an
+        # explicit nil-returning wrapper.
+        action_token = 0_u64
+        if change_handler = view.on_change
+          action_token = UI::CallbackRegistry.register_string(
+            ->(s : String) { change_handler.call(s); nil }
+          )
+        end
+
         apply_common_properties(ptr, view)
-        emit(ptr, "NSComboBox")
+
+        # Inline emit() so we keep a NativeView that tracks the callback id
+        # for teardown (emit drops it).
+        unless action_token == 0_u64
+          LibObjCBridge.ap_combo_box_wire_string_change(ptr, action_token)
+        end
+        handle = ObjC.owned(ptr, label: "NSComboBox")
+        native = NativeView.new(handle)
+        native.track_callback_id(action_token) unless action_token == 0_u64
+        push_native(native)
       end
 
       # -----------------------------------------------------------------
@@ -3832,6 +4160,88 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         push_native(outer_native)
       end
 
+      # Phase 10B.1a — InlineActionRow. macOS default for the
+      # `:swipe_actions` intent (HIG: no swipe-to-reveal). Render an
+      # NSStackView (horizontal) containing the leading actions, the
+      # content view, and the trailing actions — all as visible inline
+      # NSButton siblings.
+      def visit(view : UI::InlineActionRow)
+        ptr = alloc_init("NSStackView")
+        LibObjCBridge.objc_send_long(ptr, sel("setOrientation:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(ptr, sel("setSpacing:"), 8.0)
+
+        outer_handle = ObjC.owned(ptr, label: "NSStackView[InlineActionRow]")
+        outer_native = NativeView.new(outer_handle)
+
+        view.leading_actions.each do |action|
+          btn = alloc_init("NSButton")
+          title_ns = LibObjCBridge.nsstring_from_cstr(action.label.to_unsafe)
+          LibObjCBridge.objc_send_id(btn, sel("setTitle:"), title_ns)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), btn)
+          btn_handle = ObjC.owned(btn, label: "NSButton[InlineAction:leading:#{action.label}]")
+          outer_native.add_child(NativeView.new(btn_handle))
+        end
+
+        if content_native = render_detached(view.content)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), content_native.handle.ptr!)
+          outer_native.add_child(content_native)
+        end
+
+        view.trailing_actions.each do |action|
+          btn = alloc_init("NSButton")
+          title_ns = LibObjCBridge.nsstring_from_cstr(action.label.to_unsafe)
+          LibObjCBridge.objc_send_id(btn, sel("setTitle:"), title_ns)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), btn)
+          btn_handle = ObjC.owned(btn, label: "NSButton[InlineAction:trailing:#{action.label}]")
+          outer_native.add_child(NativeView.new(btn_handle))
+        end
+
+        apply_common_properties(ptr, view)
+        push_native(outer_native)
+      end
+
+      # Phase 10B.1c — AndroidSwipeActionRow. macOS fallback rendering.
+      # The `:swipe_actions` platform default on `:macos` is
+      # `UI::InlineActionRow`, so this visit only fires when an app
+      # registers `UI::AndroidSwipeActionRow` as an explicit override.
+      # Renders the same NSStackView chrome as `visit(InlineActionRow)`
+      # so the override produces HIG-correct macOS chrome rather than a
+      # stub.
+      def visit(view : UI::AndroidSwipeActionRow)
+        ptr = alloc_init("NSStackView")
+        LibObjCBridge.objc_send_long(ptr, sel("setOrientation:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(ptr, sel("setSpacing:"), 8.0)
+
+        outer_handle = ObjC.owned(ptr, label: "NSStackView[AndroidSwipeActionRow]")
+        outer_native = NativeView.new(outer_handle)
+
+        view.leading_actions.each do |action|
+          btn = alloc_init("NSButton")
+          title_ns = LibObjCBridge.nsstring_from_cstr(action.label.to_unsafe)
+          LibObjCBridge.objc_send_id(btn, sel("setTitle:"), title_ns)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), btn)
+          btn_handle = ObjC.owned(btn, label: "NSButton[AndroidSwipeAction:leading:#{action.label}]")
+          outer_native.add_child(NativeView.new(btn_handle))
+        end
+
+        if content_native = render_detached(view.content)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), content_native.handle.ptr!)
+          outer_native.add_child(content_native)
+        end
+
+        view.trailing_actions.each do |action|
+          btn = alloc_init("NSButton")
+          title_ns = LibObjCBridge.nsstring_from_cstr(action.label.to_unsafe)
+          LibObjCBridge.objc_send_id(btn, sel("setTitle:"), title_ns)
+          LibObjCBridge.objc_send_id(ptr, sel("addArrangedSubview:"), btn)
+          btn_handle = ObjC.owned(btn, label: "NSButton[AndroidSwipeAction:trailing:#{action.label}]")
+          outer_native.add_child(NativeView.new(btn_handle))
+        end
+
+        apply_common_properties(ptr, view)
+        push_native(outer_native)
+      end
+
       def visit(view : UI::ActionSheetWithWebFallback)
         # macOS lacks a native action-sheet idiom (HIG steers developers to
         # NSAlert / modal sheets). We synthesize a UI::ConfirmationDialog
@@ -3843,6 +4253,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
         cancel = view.actions.find { |a| a.style == :cancel }
         dialog = UI::ConfirmationDialog.new(view.title, view.message)
         dialog.is_presented = view.is_presented
+        # Phase 12.C iter-3 (Codex BLOCKER) — propagate identity onto the
+        # synthesized dialog so the macOS cross-render sweep can pair the
+        # prior + fresh handles. Without this, the AppKit V1-equivalent
+        # share dialog renders anonymously and falls into the
+        # nil-identity defensive skip — meaning a rerender that should
+        # close it also can't, AND a stale dialog can't be swept either.
+        # Mirrors the iOS path in `ActionSheetWithWebFallback#accept`.
+        dialog.test_id = view.test_id if view.test_id
+        dialog.accessibility_label = view.accessibility_label if view.accessibility_label
         if primary
           dialog.confirm_label = primary.label
           dialog.confirm_style = primary.style == :destructive ? :destructive : :default
@@ -3853,6 +4272,126 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           dialog.on_cancel = cancel.action
         end
         visit(dialog)
+      end
+
+      # Phase 10B.4 — FullScreenCover.
+      #
+      # macOS does not have a UIKit-style "fullScreenCover" primitive; the
+      # idiomatic HIG analog is a full-window modal sheet via
+      # `-[NSWindow beginSheet:completionHandler:]`. Until a SwiftKit
+      # facade ships, this visit emits an NSView container whose
+      # `hidden` flag mirrors `is_presented`, with the cover content
+      # rendered as a single subview. Apps relying on full-window modal
+      # presentation today should compose with `UI::Sheet` (`detents:
+      # [:large]`) on macOS.
+      def visit(view : UI::FullScreenCover)
+        ptr = alloc_init("NSView")
+        LibObjCBridge.objc_send_bool(ptr, sel("setHidden:"), view.is_presented ? 0 : 1)
+
+        outer_handle = ObjC.owned(ptr, label: "NSView[FullScreenCover]")
+        outer_native = NativeView.new(outer_handle)
+
+        if content = view.content
+          if content_native = render_detached(content)
+            LibObjCBridge.objc_add_subview(ptr, content_native.handle.ptr!)
+            outer_native.add_child(content_native)
+          end
+        end
+
+        apply_common_properties(ptr, view)
+        push_native(outer_native)
+      end
+
+      # Phase 10B.4 — Inspector.
+      #
+      # AppKit's idiomatic mapping is `NSSplitViewController` with an
+      # inspector pane. Until a SwiftKit facade ships, this visit
+      # emits a horizontal NSStackView whose arrangedSubviews are:
+      # primary content (flex) + inspector pane (fixed-width when
+      # `preferred_width` is set). The inspector pane is hidden when
+      # `is_presented` is false so reactive toggling works.
+      def visit(view : UI::Inspector)
+        stack = alloc_init("NSStackView")
+        LibObjCBridge.objc_send_long(stack, sel("setOrientation:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 16.0)
+        LibObjCBridge.objc_send_long(stack, sel("setAlignment:"), 7_i64) # top
+
+        outer_handle = ObjC.owned(stack, label: "NSStackView[Inspector]")
+        outer_native = NativeView.new(outer_handle)
+
+        if content = view.content
+          if content_native = render_detached(content)
+            LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), content_native.handle.ptr!)
+            outer_native.add_child(content_native)
+          end
+        end
+
+        if view.is_presented
+          if inspector = view.inspector_content
+            if pane_native = render_detached(inspector)
+              LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), pane_native.handle.ptr!)
+              outer_native.add_child(pane_native)
+            end
+          end
+        end
+
+        apply_common_properties(stack, view)
+        push_native(outer_native)
+      end
+
+      # Phase 10B.4 — ToolbarItemGroup.
+      #
+      # AppKit's idiomatic mapping is `NSToolbarItemGroup`. Until a
+      # SwiftKit facade ships, this visit emits a horizontal
+      # NSStackView with the group's items as NSButton siblings. The
+      # group's `label` is set as the stack's accessibility label so
+      # VoiceOver announces the cluster as a single unit. A trailing
+      # separator NSBox is appended when `with_divider` is true.
+      def visit(view : UI::ToolbarItemGroup)
+        stack = alloc_init("NSStackView")
+        LibObjCBridge.objc_send_long(stack, sel("setOrientation:"), 0_i64) # horizontal
+        LibObjCBridge.objc_send_1d(stack, sel("setSpacing:"), 4.0)
+        LibObjCBridge.objc_send_long(stack, sel("setAlignment:"), 8_i64) # center Y
+
+        if lbl = view.label
+          ns_lbl = LibObjCBridge.nsstring_from_cstr(lbl.to_unsafe)
+          LibObjCBridge.objc_send_id(stack, sel("setAccessibilityLabel:"), ns_lbl)
+        end
+
+        outer_handle = ObjC.owned(stack, label: "NSStackView[ToolbarItemGroup]")
+        outer_native = NativeView.new(outer_handle)
+
+        view.items.each do |item|
+          btn = alloc_init("NSButton")
+          title_ns = LibObjCBridge.nsstring_from_cstr(item.label.to_unsafe)
+          LibObjCBridge.objc_send_id(btn, sel("setTitle:"), title_ns)
+          # Carry the item label as the button's AX label so Voice
+          # Control matches it.
+          LibObjCBridge.objc_send_id(btn, sel("setAccessibilityLabel:"), title_ns)
+          LibObjCBridge.objc_send_id(stack, sel("addArrangedSubview:"), btn)
+          btn_handle = ObjC.owned(btn, label: "NSButton[ToolbarItemGroup:#{item.id}]")
+          outer_native.add_child(NativeView.new(btn_handle))
+        end
+
+        apply_common_properties(stack, view)
+        push_native(outer_native)
+      end
+
+      # Phase 10B.4 — ToolbarSpacer.
+      #
+      # AppKit's idiomatic mapping is `NSToolbarItem.flexibleSpace` /
+      # `NSToolbarItem.space`. Since this widget can render outside a
+      # native NSToolbar, this visit emits a plain NSView placeholder.
+      # When the spacer participates in an NSStackView, the surrounding
+      # stack's distribution settings determine flex behavior; for a
+      # fixed-width spacer apps can wrap the result in a width
+      # constraint themselves. A full NSToolbar integration that maps
+      # to `NSToolbarItem.Identifier.flexibleSpace` is tracked under
+      # B-011 as follow-up.
+      def visit(view : UI::ToolbarSpacer)
+        ptr = alloc_init("NSView")
+        apply_common_properties(ptr, view)
+        emit(ptr, "NSView[ToolbarSpacer:#{view.flexible? ? "flexible" : "fixed"}]")
       end
 
       # ================================================================
@@ -4131,15 +4670,15 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
       private def appkit_visual_effect_material_for_semantic(semantic : UI::DesignTokens::AppleSemantic) : Int64
         # AppKit material translation table — only allowed hard-coded glass switch
         case semantic
-        in .menu?              then  5_i64 # NSVisualEffectMaterialMenu
-        in .popover?           then  6_i64 # NSVisualEffectMaterialPopover
-        in .sidebar?           then  7_i64 # NSVisualEffectMaterialSidebar
+        in .menu?              then 5_i64  # NSVisualEffectMaterialMenu
+        in .popover?           then 6_i64  # NSVisualEffectMaterialPopover
+        in .sidebar?           then 7_i64  # NSVisualEffectMaterialSidebar
         in .header_view?       then 10_i64 # NSVisualEffectMaterialHeaderView
         in .sheet?             then 11_i64 # NSVisualEffectMaterialSheet
         in .window_background? then 12_i64 # NSVisualEffectMaterialWindowBackground
         in .hud_window?        then 13_i64 # NSVisualEffectMaterialHUDWindow
-        in .titlebar?          then  3_i64 # NSVisualEffectMaterialTitlebar
-        in .system_resolved?   then  0_i64 # SENTINEL — caller must skip setMaterial:
+        in .titlebar?          then 3_i64  # NSVisualEffectMaterialTitlebar
+        in .system_resolved?   then 0_i64  # SENTINEL — caller must skip setMaterial:
         end
       end
 
@@ -4192,12 +4731,41 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           end
         end
 
+        # Corner radius + border on the base View. Applied to any layer-backed
+        # NSView (stacks, containers) so a caller can round/rim a plain
+        # VStack/HStack surface without reaching for a shape widget. Gated on
+        # non-default values so views that set neither are byte-for-byte
+        # unchanged. CALayer.cornerRadius rounds the backgroundColor + border
+        # fill directly (masksToBounds only affects sublayer clipping, which we
+        # leave off so a rounded fill never clips hosted SwiftUI content).
+        if view.corner_radius > 0.0 || view.border_width > 0.0
+          LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)
+          rb_layer = LibObjCBridge.objc_send(ptr, sel("layer"))
+          unless rb_layer.null?
+            if view.corner_radius > 0.0
+              LibObjCBridge.objc_send_1d(rb_layer, sel("setCornerRadius:"), view.corner_radius)
+            end
+            if view.border_width > 0.0
+              LibObjCBridge.objc_send_1d(rb_layer, sel("setBorderWidth:"), view.border_width)
+              if bc = view.border_color
+                bc_nscolor = resolve_color(bc)
+                bc_cg = LibObjCBridge.objc_send(bc_nscolor, sel("CGColor"))
+                LibObjCBridge.objc_send_id(rb_layer, sel("setBorderColor:"), bc_cg)
+              end
+            end
+          end
+        end
+
         # Size constraints via Auto Layout.
         # When minimum_width == maximum_width: exact-width pin via equality constraint
         #   (NSStackView GravityAreas respects this; used for sidebar columns).
         # When only minimum_width is set: minimum-width constraint (>=) at priority 500
         #   so content panels expand to at least that width without fighting exact pins.
         # When only maximum_width is set: exact pin at that width (capping behavior).
+        # Fixed width pins. UI::Fluid width is NOT handled here — it is applied in
+        # the container visits (visit(VStack) etc.) via objc_constrain_fluid_width
+        # AFTER the view is added to its superview, because the fluid "fill the
+        # parent, capped at max" relation needs the superview's width anchor.
         if min_w = view.minimum_width
           if max_w = view.maximum_width
             # Both set: exact pin at min_w (== max_w for fixed-width columns).
@@ -4210,20 +4778,42 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           LibObjCBridge.objc_constrain_width(ptr, max_w)
         end
 
+        # UI::View#fill_horizontal — cross-platform flex-grow. Lower the horizontal
+        # content-hugging so NSStackView stretches this view to fill the row's slack
+        # (NSStackView keeps a no-width child at its tiny intrinsic size otherwise — the
+        # macOS counterpart of the UIKit fix). Only meaningful without an exact pin.
+        if view.fill_horizontal
+          LibObjCBridge.objc_set_horizontal_fill_priority(ptr)
+        end
+
         if min_h = view.minimum_height
           LibObjCBridge.objc_constrain_height(ptr, min_h)
         end
 
         # Phase 6.10 Rem 4 (Item 2D) — root_fill sizes to the live
         # macOS window. The author opts a root view in via
-        # `view.root_fill = true`. macOS has no safe-area concept so
-        # the full screen width is used; the host window honors the
-        # constraint by setting the contentView to match.
-        if view.root_fill && view.minimum_width.nil? && view.maximum_width.nil?
+        # `view.root_fill = true`.
+        #
+        # Fill comes from the HOST pinning the rendered content to the window's
+        # content area (objc_install_content_view / objc_window_set_filling_content_view,
+        # both `== window` at required priority). Here we add ONLY a soft upper
+        # cap at the metric width — NOT an exact pin.
+        #
+        # Why a cap, not an exact pin: an exact `== metrics` constraint
+        # (objc_constrain_width @999) forces the RESIZABLE window to grow to that
+        # width, because the window's size is a free variable and Auto Layout will
+        # enlarge it to satisfy the near-required pin. During the first render the
+        # window is not yet key, so DeviceMetrics resolves to the SCREEN width
+        # (~1728pt, see project_macos_size_class_metric_contract) — so the window
+        # ballooned to full-screen width on launch and refused to resize
+        # horizontally. A `<=` cap (priority 500) never forces growth and yields to
+        # the host's required window-fill pin, so the window keeps its created /
+        # dragged size and the content fills it.
+        if view.root_fill && view.minimum_width.nil? && view.maximum_width.nil? && view.fluid_width.nil?
           metrics = UI::DesignTokens::DeviceMetrics.current
           fill_width = metrics.content_width_pt
           if fill_width > 0.0
-            LibObjCBridge.objc_constrain_width(ptr, fill_width)
+            LibObjCBridge.objc_constrain_maximum_width(ptr, fill_width)
           end
         end
 
@@ -4253,10 +4843,175 @@ LibObjCBridge.nscolor_rgba(1.0, 1.0, 1.0, 1.0)                                  
           LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElement:"), 0)
         end
 
-        # Test identifier -> accessibilityIdentifier for automated UI testing
-        if tid = view.test_id
+        # Phase 10B.2a — Accessibility hint -> setAccessibilityHelp:.
+        # AppKit has no first-class "hint" slot; `accessibilityHelp` is the
+        # closest equivalent (VoiceOver speaks it as supplemental help
+        # after the label).
+        if hint = view.accessibility_hint
+          hint_str = LibObjCBridge.nsstring_from_cstr(hint.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityHelp:"), hint_str)
+        end
+
+        # Phase 10B.2a — Accessibility value -> setAccessibilityValue:.
+        if value = view.accessibility_value
+          value_str = LibObjCBridge.nsstring_from_cstr(value.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityValue:"), value_str)
+        end
+
+        # Phase 10B.2a — Accessibility role. Use the explicit override
+        # if set, otherwise fall back to the subclass default. The
+        # `appkit_ax_role_string` helper returns an AppKit constant string
+        # (NSAccessibilityButtonRole, etc.) or nil for roles that have no
+        # AppKit analog.
+        if role_sym = view.effective_accessibility_role
+          if role_str = appkit_ax_role_string(role_sym)
+            role_ns = LibObjCBridge.nsstring_from_cstr(role_str.to_unsafe)
+            LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityRole:"), role_ns)
+          end
+        end
+
+        # Phase 10B.2a — Accessibility traits. AppKit doesn't have a
+        # `traits` bitmask; it exposes a few selected setters
+        # (`setAccessibilitySelected:`, `setAccessibilityDisclosed:`).
+        # Map the closest analogs; the rest fall through silently.
+        #
+        # Iter 2 (Codex Finding 3): `:not_enabled` is the canonical
+        # disable trait. We now functionally disable the underlying
+        # NSControl (button, slider, popup, etc.) via setEnabled:NO.
+        # The bridge helper guards on respondsToSelector: so plain
+        # NSViews silently no-op. We also still flip the AX semantics
+        # via setAccessibilityElement:NO is NOT what we want — instead
+        # we let setEnabled:NO propagate through AppKit's automatic
+        # accessibility dimming.
+        view.accessibility_traits.each do |trait|
+          case trait
+          when :selected
+            LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilitySelected:"), 1)
+          when :not_enabled
+            LibObjCBridge.ap_set_enabled_if_responds(ptr, 0)
+          end
+        end
+
+        # Phase 10B.2a — Explicit accessibility_identifier wins over
+        # test_id on AppKit. Both eventually call setAccessibilityIdentifier:,
+        # but precedence is documented so callers can rely on it.
+        if aid = view.accessibility_identifier
+          aid_str = LibObjCBridge.nsstring_from_cstr(aid.to_unsafe)
+          LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), aid_str)
+        elsif tid = view.test_id
           tid_str = LibObjCBridge.nsstring_from_cstr(tid.to_unsafe)
           LibObjCBridge.objc_send_id(ptr, sel("setAccessibilityIdentifier:"), tid_str)
+        end
+
+        # Phase 10B.2b — Custom accessibility actions. AppKit's
+        # NSAccessibilityCustomAction is block-based; we wire each
+        # Crystal callback through the callback registry and pass the
+        # token to the C helper.
+        view.accessibility_actions.each do |action|
+          token = UI::CallbackRegistry.register(action.callback)
+          LibObjCBridge.ap_view_add_accessibility_custom_action(
+            ptr, action.name.to_unsafe, token)
+        end
+
+        # Phase 10B.2b — Keyboard shortcut. NSButton-derived controls
+        # accept setKeyEquivalent: + setKeyEquivalentModifierMask:;
+        # other views buffer the value on an associated object so the
+        # responder chain / menu builder can consult it later.
+        if ks = view.keyboard_shortcut
+          token = UI::CallbackRegistry.register(-> { nil.as(Nil) })
+          LibObjCBridge.ap_view_add_key_command(
+            ptr, ks.key.to_unsafe, ks.appkit_modifier_mask, token)
+        end
+
+        # Phase 10B.2b — Focus management. When `focused` is true the
+        # view's host window makes it the first responder. AppKit
+        # routes focus through the window so the call is guarded on a
+        # window being present (it will be by the time the renderer
+        # walks the tree into a host view).
+        if view.focused
+          LibObjCBridge.ap_view_become_first_responder(ptr)
+        end
+
+        # Phase 10B.2b — Focusability override. AppKit exposes
+        # `setAccessibilityElement:` on every NSView; we flip it
+        # explicitly when the caller opted in/out of focus traversal
+        # against the widget default.
+        case view.focusable
+        when false
+          LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElement:"), 0)
+        when true
+          unless view.default_focusable
+            LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElement:"), 1)
+          end
+        end
+
+        # Discrete gesture surface — swipe (4 directions) + long-press.
+        #
+        # macOS uses NSPanGestureRecognizer for swipe: the bridge installs one
+        # pan recognizer per registered direction, classifying translation at
+        # .ended via the dominant component (threshold 30 pt). Multiple
+        # directions each get an independent recognizer. This differs from the
+        # iOS path (UISwipeGestureRecognizer, one per direction); the behavior
+        # difference is documented on UI::SwipeDirection.
+        #
+        # Tokens are registered in the CallbackRegistry and the bridge pins
+        # the target on the native view via objc_setAssociatedObject, mirroring
+        # the accessibility_actions lifecycle pattern used above.
+        if handlers = view.swipe_handlers
+          handlers.each do |direction, handler|
+            token = UI::CallbackRegistry.register(handler)
+            dir_int = direction.value.to_i32
+            LibObjCBridge.objc_attach_swipe_gesture(ptr, dir_int, token)
+          end
+        end
+
+        # NSPressGestureRecognizer (0.5 s threshold) for long-press.
+        if lp = view.on_long_press
+          token = UI::CallbackRegistry.register(lp)
+          LibObjCBridge.objc_attach_long_press_gesture(ptr, token, 0.5_f64)
+        end
+      end
+
+      # Phase 10B.2a — Translate a Crystal role symbol into the matching
+      # AppKit NSAccessibility*Role constant string. Returns nil for
+      # roles AppKit has no analog for (e.g. `:tab_panel` — AppKit uses
+      # the parent tab view's relationships instead).
+      private def appkit_ax_role_string(role : Symbol) : String?
+        case role
+        when :button       then "AXButton"
+        when :link         then "AXLink"
+        when :text         then "AXStaticText"
+        when :text_field   then "AXTextField"
+        when :header       then "AXHeading"
+        when :image, :img  then "AXImage"
+        when :tab          then "AXRadioButton" # tabs are AXRadioButton inside an AXTabGroup
+        when :tab_list     then "AXTabGroup"
+        when :list         then "AXList"
+        when :list_item    then "AXRow"
+        when :checkbox     then "AXCheckBox"
+        when :radio        then "AXRadioButton"
+        when :radio_group  then "AXRadioGroup"
+        when :switch       then "AXCheckBox" # AppKit lacks a switch role; checkbox is the canonical fallback
+        when :slider       then "AXSlider"
+        when :progress_bar then "AXProgressIndicator"
+        when :spinbutton   then "AXIncrementor"
+        when :search       then "AXSearchField"
+        when :dialog       then "AXSheet"
+        when :alert        then "AXSheet"
+        when :menu         then "AXMenu"
+        when :menu_item    then "AXMenuItem"
+        when :combobox     then "AXComboBox"
+        when :toolbar      then "AXToolbar"
+        when :grid         then "AXTable"
+        when :group        then "AXGroup"
+        when :separator    then "AXSplitter"
+        when :navigation   then "AXGroup"
+        when :form         then "AXGroup"
+        when :tooltip      then "AXHelpTag"
+        when :status       then "AXGroup"
+        when :tab_panel    then "AXGroup" # tab content panel; the parent AXTabGroup owns selection
+        when :none         then "AXUnknown"
+        else                    nil
         end
       end
 

@@ -8,13 +8,18 @@ module UI
   # A password/secure text input field.
   # This is a convenience wrapper around TextField with secure_entry = true.
   class SecureField < View
+    # Body text rendered by the view.
     property text : String = ""
+    # Placeholder text shown when the field is empty.
     property placeholder : String = ""
     # Name attribute for web POST submission. See `UI::TextField#name`
     # for the full doc.
     property name : String? = nil
+    # Typography applied to the rendered text.
     property font : Font = Font.new
+    # Foreground color applied to the text. Overrides any role token.
     property text_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
+    # Invoked when the user changes the control's value.
     property on_change : Proc(String, Nil)? = nil
 
     def initialize(@placeholder : String = "", *, @name : String? = nil, @text : String = "")
@@ -26,6 +31,16 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:text_field`.
+    def default_accessibility_role : Symbol?
+      :text_field
+    end
+
+    # Phase 10B.2b — interactive widgets default to focusable.
+    def default_focusable : Bool
+      true
     end
   end
 end

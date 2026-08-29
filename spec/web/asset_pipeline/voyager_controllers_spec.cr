@@ -78,25 +78,28 @@ describe Voyager::SignInController do
 end
 
 describe Voyager::TodosController do
-  it ":new_todo returns Navigate(:todo_editor) with todo_id => \"0\"" do
+  # Phase 10D-polish B3 — the editor was refactored from a pushed
+  # :todo_editor route to a modal UI::Sheet. :new_todo now sets
+  # pending_editor_todo_id = 0 (new draft) and returns Rerender; the
+  # todos screen reads that flag to present the editor sheet.
+  it ":new_todo seeds a new-draft editor sheet (pending_editor_todo_id=0) and returns Rerender" do
+    Voyager.state = Voyager::State.new
     ctrl = Voyager::TodosController.new
     ctx = make_ctx
     result = ctrl.dispatch_action(:new_todo, ctx)
-    result.should be_a UI::ActionResult::Navigate
-    nav = result.as(UI::ActionResult::Navigate)
-    nav.route_id.should eq :todo_editor
-    nav.params[:todo_id]?.should eq "0"
+    result.should be_a UI::ActionResult::Rerender
+    Voyager.state.pending_editor_todo_id.should eq 0
   end
 
-  it ":edit_row returns Navigate(:todo_editor) with action_params[\"todo_id\"]" do
+  # :edit_row sets pending_editor_todo_id to the targeted row's id and
+  # returns Rerender so the editor sheet opens on that todo.
+  it ":edit_row seeds the editor sheet with action_params[\"todo_id\"] and returns Rerender" do
     Voyager.state = Voyager::State.new
     ctrl = Voyager::TodosController.new
     ctx = make_ctx(action_params: {"todo_id" => "3"})
     result = ctrl.dispatch_action(:edit_row, ctx)
-    result.should be_a UI::ActionResult::Navigate
-    nav = result.as(UI::ActionResult::Navigate)
-    nav.route_id.should eq :todo_editor
-    nav.params[:todo_id]?.should eq "3"
+    result.should be_a UI::ActionResult::Rerender
+    Voyager.state.pending_editor_todo_id.should eq 3
   end
 
   it ":delete_row mutates Voyager.state and returns Rerender" do

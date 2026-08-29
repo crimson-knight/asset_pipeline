@@ -1,3 +1,7 @@
+# lint:disable=family_4/interactive_widget_test_id
+# (Android HIG / Material visual catalog bridge — same rationale as
+#  hig_showcase.cr; widgets selected by slug, not by test_id.)
+
 require "../../../scripts/crystal_init"
 require "../../../src/ui"
 

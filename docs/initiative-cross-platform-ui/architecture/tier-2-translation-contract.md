@@ -52,14 +52,14 @@ App-scoped + screen-scoped registries with precedence `screen > app > default`.
 App-level registration:
 ```crystal
 class VoyagerApp < UI::App
-  override_intent :swipe_actions, with: UI::DragHandleRow, on: [:web_wide]
+  override_widget :swipe_actions, with: UI::DragHandleRow, on: [:web_wide]
 end
 ```
 
 Screen-level registration:
 ```crystal
 class SettingsScreen < UI::Screen
-  override_intent :swipe_actions, with: UI::InlineActionRow, on: [:ios]
+  override_widget :swipe_actions, with: UI::InlineActionRow, on: [:ios]
 end
 ```
 
@@ -69,11 +69,11 @@ Platform key `:all` matches every platform.
 
 ## Resolver (deferred to Phase 10+)
 
-A Class A intent is resolved at render time via `UI::Intent.resolve(intent_id, ctx)`:
+A Class A intent is resolved at render time via `UI::WidgetRoute.resolve(intent_id, ctx)`:
 
 ```crystal
 # In a screen's build method:
-row_widget_class = UI::Intent.resolve(:swipe_actions, ctx)
+row_widget_class = UI::WidgetRoute.resolve(:swipe_actions, ctx)
 row = row_widget_class.new(content: row_content, actions: [edit, delete])
 ```
 
@@ -96,12 +96,12 @@ Validation rules:
 3. For every capability the intent `supports_`, the override MAY declare it — but if absent, the override's renderer cannot use that feature.
 4. The override widget's class MUST be a subclass of `UI::View`.
 
-Failure raises `UI::Intent::CapabilityMismatchError` with a specific message naming the missing capability and the HIG rationale.
+Failure raises `UI::WidgetRoute::CapabilityMismatchError` with a specific message naming the missing capability and the HIG rationale.
 
 ### Example failure
 
 ```
-UI::Intent::CapabilityMismatchError:
+UI::WidgetRoute::CapabilityMismatchError:
   Override for :swipe_actions with UI::DragHandleRow on platforms [:macos, :web_wide]
   failed capability validation.
 
@@ -207,7 +207,7 @@ module UI
           end
         end
 
-        raise UI::Intent::UnresolvableError.new(intent_id, platform)
+        raise UI::WidgetRoute::UnresolvableError.new(intent_id, platform)
       end
 
       private def self.validate_capability_match!(intent_id : Symbol, widget : UI::View.class)
@@ -215,7 +215,7 @@ module UI
         provided = widget.capabilities.provided
         missing = required - provided
         unless missing.empty?
-          raise UI::Intent::CapabilityMismatchError.new(intent_id, widget, missing)
+          raise UI::WidgetRoute::CapabilityMismatchError.new(intent_id, widget, missing)
         end
       end
     end
@@ -242,7 +242,7 @@ class TodosScreen < UI::Screen
   def build(ctx)
     list = UI::VStack.new
     state.todos.each do |todo|
-      row_class = UI::Intent.resolve(:swipe_actions, ctx)
+      row_class = UI::WidgetRoute.resolve(:swipe_actions, ctx)
       row = row_class.new(content: todo_row(todo), actions: [edit_action(todo), delete_action(todo)])
       list << row
     end
@@ -255,7 +255,7 @@ end
 
 ```crystal
 class VoyagerApp < UI::App
-  override_intent :swipe_actions, with: UI::InlineActionRow, on: [:ios]
+  override_widget :swipe_actions, with: UI::InlineActionRow, on: [:ios]
 end
 ```
 
@@ -265,7 +265,7 @@ After this registration, every screen in VoyagerApp uses `UI::InlineActionRow` o
 
 ```crystal
 class SettingsScreen < UI::Screen
-  override_intent :swipe_actions, with: UI::InlineActionRow, on: :all
+  override_widget :swipe_actions, with: UI::InlineActionRow, on: :all
 end
 ```
 
@@ -275,11 +275,11 @@ Only `SettingsScreen` uses `UI::InlineActionRow` on every platform.
 
 ```crystal
 class VoyagerApp < UI::App
-  override_intent :swipe_actions, with: UI::PlainRow, on: [:ios]
+  override_widget :swipe_actions, with: UI::PlainRow, on: [:ios]
 end
 
 # Raises at registration time:
-# UI::Intent::CapabilityMismatchError:
+# UI::WidgetRoute::CapabilityMismatchError:
 #   UI::PlainRow does not provide: supports_role :destructive,
 #   supports_disabled_actions, supports_voiceover_actions, ...
 ```

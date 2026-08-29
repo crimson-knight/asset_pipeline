@@ -40,11 +40,37 @@ require "./screens/sign_in_screen"
 require "./screens/todos_screen"
 require "./screens/todo_editor_screen"
 require "./screens/settings_screen"
+require "./screens/component_gallery_state"
+require "./screens/component_gallery_screen"
+require "./screens/reconcile_probe_screen"
+require "./screens/combo_probe_screen"
+require "./screens/phase10_hub_screen"
+require "./screens/phase_10/phase_10_exerciser_state"
+require "./screens/phase_10/intent_resolver_screen"
+require "./screens/phase_10/class_c_dispatch_screen"
+require "./screens/phase_10/ax_metadata_screen"
+require "./screens/phase_10/environment_reactivity_screen"
+require "./screens/phase_10/new_widgets_screen"
+require "./screens/welcome_screen"
+require "./screens/agent_chat_screen"
+require "./screens/check_in_screen"
 
+require "./controllers/welcome_controller"
+require "./controllers/agent_chat_controller"
+require "./controllers/check_in_controller"
 require "./controllers/sign_in_controller"
 require "./controllers/todos_controller"
 require "./controllers/todo_editor_controller"
 require "./controllers/settings_controller"
+require "./controllers/component_gallery_controller"
+require "./controllers/reconcile_probe_controller"
+require "./controllers/combo_probe_controller"
+require "./controllers/phase10_hub_controller"
+require "./controllers/phase10_intent_resolver_controller"
+require "./controllers/phase10_class_c_dispatch_controller"
+require "./controllers/phase10_ax_metadata_controller"
+require "./controllers/phase10_environment_reactivity_controller"
+require "./controllers/phase10_new_widgets_controller"
 
 # Phase 8D.3b — sample-local capture-scenario registry. No-op unless
 # `VOYAGER_CAPTURE_SCENARIO` is set; the iOS bridge and macOS host both
@@ -53,7 +79,24 @@ require "./controllers/settings_controller"
 require "./capture_scenarios"
 
 module Voyager
-  SLUGS = ["voyager-sign-in", "voyager-todos", "voyager-todo-editor", "voyager-settings"]
+  SLUGS = [
+    "voyager-sign-in",
+    "voyager-todos",
+    "voyager-todo-editor",
+    "voyager-settings",
+    "voyager-component-gallery",
+    "voyager-reconcile-probe",
+    "voyager-combo-probe",
+    "voyager-phase-10-hub",
+    "voyager-phase-10-intent-resolver",
+    "voyager-phase-10-class-c-dispatch",
+    "voyager-phase-10-ax-metadata",
+    "voyager-phase-10-environment",
+    "voyager-phase-10-new-widgets",
+    "voyager-welcome",
+    "voyager-agent-chat",
+    "voyager-check-in",
+  ]
 
   # Host-set dispatcher.
   #
@@ -147,11 +190,33 @@ module Voyager
   # pre-build a route by name.
   def self.route_for_slug(slug : String) : UI::NavigationCoordinator::Route
     case slug
-    when "voyager-sign-in"     then UI::NavigationCoordinator::Route.new(:sign_in)
-    when "voyager-todos"       then UI::NavigationCoordinator::Route.new(:todos)
-    when "voyager-todo-editor" then UI::NavigationCoordinator::Route.new(:todo_editor)
-    when "voyager-settings"    then UI::NavigationCoordinator::Route.new(:settings)
-    else                            UI::NavigationCoordinator::Route.new(:sign_in)
+    when "voyager-welcome"    then UI::NavigationCoordinator::Route.new(:welcome)
+    when "voyager-agent-chat" then UI::NavigationCoordinator::Route.new(:agent_chat)
+    when "voyager-check-in"   then UI::NavigationCoordinator::Route.new(:check_in)
+    when "voyager-sign-in"    then UI::NavigationCoordinator::Route.new(:sign_in)
+    when "voyager-todos"   then UI::NavigationCoordinator::Route.new(:todos)
+    when "voyager-todo-editor"
+      # Phase 10D-final — capture-mode todo_id seeding. When the screenshot
+      # capture flow launches the editor as the root slug, seed the
+      # route's params with the env-var-supplied todo_id so the editor
+      # mounts as "edit existing" rather than "new draft". Unset/blank
+      # env → empty params (new-todo path).
+      params = {} of Symbol => String
+      if id = ENV["VOYAGER_EDITOR_TODO_ID"]?
+        params[:todo_id] = id unless id.empty?
+      end
+      UI::NavigationCoordinator::Route.new(:todo_editor, params: params)
+    when "voyager-settings"                  then UI::NavigationCoordinator::Route.new(:settings)
+    when "voyager-component-gallery"         then UI::NavigationCoordinator::Route.new(:component_gallery)
+    when "voyager-reconcile-probe"           then UI::NavigationCoordinator::Route.new(:reconcile_probe)
+    when "voyager-combo-probe"               then UI::NavigationCoordinator::Route.new(:combo_probe)
+    when "voyager-phase-10-hub"              then UI::NavigationCoordinator::Route.new(:phase_10_hub)
+    when "voyager-phase-10-intent-resolver"  then UI::NavigationCoordinator::Route.new(:phase_10_intent_resolver)
+    when "voyager-phase-10-class-c-dispatch" then UI::NavigationCoordinator::Route.new(:phase_10_class_c_dispatch)
+    when "voyager-phase-10-ax-metadata"      then UI::NavigationCoordinator::Route.new(:phase_10_ax_metadata)
+    when "voyager-phase-10-environment"      then UI::NavigationCoordinator::Route.new(:phase_10_environment)
+    when "voyager-phase-10-new-widgets"      then UI::NavigationCoordinator::Route.new(:phase_10_new_widgets)
+    else                                          UI::NavigationCoordinator::Route.new(:sign_in)
     end
   end
 
@@ -159,11 +224,23 @@ module Voyager
   # web renderer's UIRouteHost push glue.
   def self.slug_for_route_id(route_id : Symbol) : String
     case route_id
-    when :sign_in     then "voyager-sign-in"
-    when :todos       then "voyager-todos"
-    when :todo_editor then "voyager-todo-editor"
-    when :settings    then "voyager-settings"
-    else                   "voyager-sign-in"
+    when :welcome                   then "voyager-welcome"
+    when :agent_chat                then "voyager-agent-chat"
+    when :check_in                  then "voyager-check-in"
+    when :sign_in                   then "voyager-sign-in"
+    when :todos                     then "voyager-todos"
+    when :todo_editor               then "voyager-todo-editor"
+    when :settings                  then "voyager-settings"
+    when :component_gallery         then "voyager-component-gallery"
+    when :reconcile_probe           then "voyager-reconcile-probe"
+    when :combo_probe               then "voyager-combo-probe"
+    when :phase_10_hub              then "voyager-phase-10-hub"
+    when :phase_10_intent_resolver  then "voyager-phase-10-intent-resolver"
+    when :phase_10_class_c_dispatch then "voyager-phase-10-class-c-dispatch"
+    when :phase_10_ax_metadata      then "voyager-phase-10-ax-metadata"
+    when :phase_10_environment      then "voyager-phase-10-environment"
+    when :phase_10_new_widgets      then "voyager-phase-10-new-widgets"
+    else                                 "voyager-sign-in"
     end
   end
 end
@@ -173,8 +250,23 @@ end
 # gap recovery hatch — see src/asset_pipeline/native_app.cr).
 class VoyagerApp < UI::App
   initial_route :sign_in
-  screen :sign_in,     Voyager::SignInController
-  screen :todos,       Voyager::TodosController
+  screen :welcome, Voyager::WelcomeController, screen_class: Voyager::WelcomeScreen
+  screen :agent_chat, Voyager::AgentChatController, screen_class: Voyager::AgentChatScreen
+  screen :check_in, Voyager::CheckInController, screen_class: Voyager::CheckInScreen
+  screen :sign_in, Voyager::SignInController
+  screen :todos, Voyager::TodosController
   screen :todo_editor, Voyager::TodoEditorController
-  screen :settings,    Voyager::SettingsController
+  screen :settings, Voyager::SettingsController
+  screen :component_gallery, Voyager::ComponentGalleryController, screen_class: Voyager::ComponentGalleryScreen
+  screen :reconcile_probe, Voyager::ReconcileProbeController, screen_class: Voyager::ReconcileProbeScreen
+  screen :combo_probe, Voyager::ComboProbeController, screen_class: Voyager::ComboProbeScreen
+  # Phase 10D — exerciser routes. Reachable from the Settings screen
+  # via a "Phase 10 Exerciser" entry, or directly via /phase-10 on the
+  # static-site web build.
+  screen :phase_10_hub, Voyager::Phase10HubController, screen_class: Voyager::Phase10HubScreen
+  screen :phase_10_intent_resolver, Voyager::Phase10IntentResolverController, screen_class: Voyager::IntentResolverScreen
+  screen :phase_10_class_c_dispatch, Voyager::Phase10ClassCDispatchController, screen_class: Voyager::ClassCDispatchScreen
+  screen :phase_10_ax_metadata, Voyager::Phase10AxMetadataController, screen_class: Voyager::AxMetadataScreen
+  screen :phase_10_environment, Voyager::Phase10EnvironmentReactivityController, screen_class: Voyager::EnvironmentReactivityScreen
+  screen :phase_10_new_widgets, Voyager::Phase10NewWidgetsController, screen_class: Voyager::NewWidgetsScreen
 end

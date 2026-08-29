@@ -41,7 +41,15 @@ AP_BRIDGE     := $(SHARD_ROOT)/src/ui/native/objc_bridge.o
 AP_BRIDGE_SRC := $(SHARD_ROOT)/src/ui/native/objc_bridge.m
 
 SWIFTKIT_DIR        := $(SHARD_ROOT)/swift/AssetPipelineSwiftKit
-SWIFTKIT_LIB        := $(SWIFTKIT_DIR)/.build/release/libAssetPipelineSwiftKit.a
+# Reference the arch-specific build product, NOT the shared `.build/release`
+# symlink. SPM repoints `.build/release` to whichever triple was built last,
+# so an iOS build (`swift build --triple arm64-apple-ios-simulator`, see
+# ios/build_crystal_lib.sh) would otherwise leave `.build/release` pointing at
+# iOS objects — and the macOS link then fails with "building for 'macOS' but
+# linking object built for 'iOS-simulator'". Pinning the macOS slice path lets
+# the iOS and macOS targets coexist without clobbering each other. (arm64 host
+# assumed, consistent with the iOS script's arm64-apple-ios-simulator triple.)
+SWIFTKIT_LIB        := $(SWIFTKIT_DIR)/.build/arm64-apple-macosx/release/libAssetPipelineSwiftKit.a
 SWIFTKIT_BRIDGE     := $(SHARD_ROOT)/src/ui/native/swiftkit_bridge.o
 SWIFTKIT_BRIDGE_SRC := $(SHARD_ROOT)/src/ui/native/swiftkit_bridge.m
 
@@ -70,9 +78,20 @@ macos: macos-build
 
 macos-build: $(MACOS_BIN)
 
-$(MACOS_BIN): $(MACOS_SRC) $(AP_BRIDGE) $(SWIFTKIT_BRIDGE) $(SWIFTKIT_LIB) $(WIN_HELPER)
+# The macOS host binary must relink when ANY Crystal source it transitively
+# requires changes — not just host.cr. Without these prerequisites, editing a
+# screen / controller / renderer and running `make macos` silently keeps the
+# stale binary (host.cr is unchanged), masking the change. Same staleness
+# class as the SwiftKit-lib gap above. `crystal-alpha build` caches, so the
+# extra prerequisites only relink when something actually changed.
+MACOS_CRYSTAL_SOURCES := $(shell find $(SHARD_ROOT)/src \
+	$(PROJECT_DIR)/screens $(PROJECT_DIR)/controllers $(PROJECT_DIR)/macos \
+	$(PROJECT_DIR)/app.cr $(PROJECT_DIR)/host_bootstrap.cr \
+	$(PROJECT_DIR)/capture_scenarios.cr -name '*.cr' 2>/dev/null)
+
+$(MACOS_BIN): $(MACOS_SRC) $(MACOS_CRYSTAL_SOURCES) $(AP_BRIDGE) $(SWIFTKIT_BRIDGE) $(SWIFTKIT_LIB) $(WIN_HELPER)
 	@mkdir -p $(PROJECT_DIR)/macos/bin
-	$(CRYSTAL_NATIVE) build $(MACOS_SRC) -o $(MACOS_BIN) -Dmacos \
+	$(CRYSTAL_NATIVE) build $(MACOS_SRC) -o $(MACOS_BIN) -Dmacos $(MACOS_EXTRA_FLAGS) \
 		--link-flags="$(MACOS_LINK_FLAGS)"
 	@if [ "$(CODESIGN_IDENTITY)" != "-" ]; then \
 		codesign --force --sign "$(CODESIGN_IDENTITY)" --timestamp=none $(MACOS_BIN); \
@@ -89,7 +108,15 @@ $(AP_BRIDGE): $(AP_BRIDGE_SRC)
 $(SWIFTKIT_BRIDGE): $(SWIFTKIT_BRIDGE_SRC)
 	clang -c $(SWIFTKIT_BRIDGE_SRC) -o $(SWIFTKIT_BRIDGE) -fno-objc-arc
 
-$(SWIFTKIT_LIB):
+# The macOS SwiftKit static lib MUST rebuild when any Swift facade source
+# changes — otherwise a facade change (e.g. a new selector parameter) leaves
+# a STALE .a whose missing selector segfaults at objc_msgSend on the next
+# run. (The iOS path already rebuilds SwiftKit every time via
+# build_crystal_lib.sh; this rule is the macOS equivalent.) `swift build` is
+# incremental, so listing the sources as prerequisites is cheap + correct.
+SWIFTKIT_SOURCES := $(shell find $(SWIFTKIT_DIR)/Sources -name '*.swift' 2>/dev/null)
+
+$(SWIFTKIT_LIB): $(SWIFTKIT_SOURCES)
 	swift build -c release --package-path $(SWIFTKIT_DIR)
 
 $(WIN_HELPER): $(WIN_HELPER_SRC)

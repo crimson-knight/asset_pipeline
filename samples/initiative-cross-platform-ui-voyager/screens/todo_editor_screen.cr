@@ -38,30 +38,50 @@ module Voyager
       seed_title = editing ? editing.title : ""
       seed_completed = editing ? editing.completed : false
       seed_note = editing ? editing.note : ""
+      # Phase 10D-refocus — optional deadline (ISO YYYY-MM-DD or empty).
+      seed_deadline = editing ? editing.deadline : ""
       d = Voyager.dispatcher
       unless d.nil?
         fs = d.current_form_state
         fs.register("title", seed_title)
         fs.register("note", seed_note)
         fs.register("completed", seed_completed ? "true" : "false")
+        fs.register("deadline", seed_deadline)
       end
 
+      # Phase D Track 2 — whole-composition adapt via DeviceMetrics#responsive
+      # (width/spacing/padding/title type). half_button_width derives from
+      # content_width so the action row reflows with it.
       metrics = UI::DesignTokens::DeviceMetrics.current
-      content_width = metrics.compact_horizontal? ? 340.0 : 480.0
-      root = UI::VStack.new(spacing: 16.0)
+      pad_h = metrics.responsive(compact: 20.0, regular: 28.0)
+      pad_v = metrics.responsive_vertical(compact: 16.0, regular: 32.0)
+      # Adaptive column width (shared helper) — clamps to the device so the editor
+      # fields/buttons reflow onto the watch.
+      content_width = metrics.adaptive_content_width(compact: 340.0, regular: 480.0, horizontal_padding: pad_h)
+      root = UI::VStack.new(spacing: metrics.responsive_vertical(compact: 10.0, regular: 18.0))
       root.root_fill = true
       root.alignment = UI::Alignment::Leading
       root.padding = UI::EdgeInsets.new(
-        top: 24.0 + metrics.safe_area_top_pt,
-        trailing: 20.0 + metrics.safe_area_trailing_pt,
-        bottom: 24.0 + metrics.safe_area_bottom_pt,
-        leading: 20.0 + metrics.safe_area_leading_pt,
+        top: pad_v + metrics.safe_area_top_pt,
+        trailing: pad_h + metrics.safe_area_trailing_pt,
+        bottom: pad_v + metrics.safe_area_bottom_pt,
+        leading: pad_h + metrics.safe_area_leading_pt,
       )
       root.accessibility_label = "Voyager todo editor"
       root.test_id = "voyager-todo-editor-root"
 
       title_label = UI::Label.new(editing ? "Edit todo" : "New todo")
-      title_label.font = UI::Font.new(size: 24.0, weight: :bold)
+      title_label.font = UI::Font.new(size: metrics.responsive(compact: 22.0, regular: 26.0), weight: :bold)
+      title_label.maximum_width = content_width
+
+      # Phase 10D-final D5 — completion styling on the detail title.
+      # When the editing todo is already completed, the header label
+      # uses Secondary role + strikethrough so the state reads at a
+      # glance, matching the list-row visual contract.
+      if editing && seed_completed
+        title_label.text_color_role = UI::LabelRole::Secondary
+        title_label.strikethrough = true
+      end
 
       title_field = UI::TextField.new(placeholder: "Title", name: "title")
       title_field.text = seed_title
@@ -76,6 +96,17 @@ module Voyager
       note_field.test_id = "voyager-todo-editor-note"
       note_field.minimum_width = content_width
       note_field.maximum_width = content_width
+
+      # Phase 10D-refocus — optional deadline field. Plain text field
+      # (YYYY-MM-DD format expected); a native DatePicker bridge for
+      # cross-platform deadline parsing is a follow-up. The text-field
+      # path is sufficient for the hand-test acceptance.
+      deadline_field = UI::TextField.new(placeholder: "Deadline (YYYY-MM-DD, optional)", name: "deadline")
+      deadline_field.text = seed_deadline
+      deadline_field.accessibility_label = "Todo deadline"
+      deadline_field.test_id = "voyager-todo-editor-deadline"
+      deadline_field.minimum_width = content_width
+      deadline_field.maximum_width = content_width
 
       completed_toggle = UI::Toggle.new(label: "Completed", is_on: seed_completed)
       completed_toggle.accessibility_label = "Mark as completed"
@@ -139,10 +170,31 @@ module Voyager
       actions << cancel.as(UI::View)
       actions << save.as(UI::View)
 
+      # Phase 10D-final D5 — Mark Done button. Stand-alone full-width
+      # button that flips the completed flag and pops back to the list.
+      # Only emitted when editing an existing todo (no-op for new draft).
+      mark_done_btn : UI::View? = nil
+      if editing
+        mdb = UI::Button.new(
+          seed_completed ? "Mark as Not Done" : "Mark Done",
+          style: UI::ButtonStyle::Bordered,
+        )
+        mdb.accessibility_label = seed_completed ? "Mark this todo as not done" : "Mark this todo as done"
+        mdb.test_id = "voyager-todo-editor-mark-done"
+        mdb.minimum_width = content_width
+        mdb.maximum_width = content_width
+        mdb.on_tap = -> { Voyager.dispatch(:mark_done) }
+        mark_done_btn = mdb.as(UI::View)
+      end
+
       root << title_label.as(UI::View)
       root << title_field.as(UI::View)
       root << note_field.as(UI::View)
+      root << deadline_field.as(UI::View)
       root << completed_toggle.as(UI::View)
+      if mdb_view = mark_done_btn
+        root << mdb_view
+      end
       root << actions.as(UI::View)
 
       root.as(UI::View)

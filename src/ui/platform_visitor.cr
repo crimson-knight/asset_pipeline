@@ -42,27 +42,35 @@ module UI
     abstract def visit(view : IconButton)
     abstract def visit(view : ListView)
     abstract def visit(view : OutlineView)
+
     def visit(view : ColumnView)
       view.fallback_view.accept(self)
     end
+
     def visit(view : TokenField)
       view.fallback_view.accept(self)
     end
+
     def visit(view : ImageWell)
       view.fallback_view.accept(self)
     end
+
     def visit(view : Panel)
       view.fallback_view.accept(self)
     end
+
     def visit(view : Gauge)
       view.fallback_view.accept(self)
     end
+
     def visit(view : ActivityRing)
       view.fallback_view.accept(self)
     end
+
     def visit(view : ActivityRings)
       view.fallback_view.accept(self)
     end
+
     abstract def visit(view : SecureField)
     abstract def visit(view : Stepper)
     abstract def visit(view : SegmentedControl)
@@ -87,6 +95,7 @@ module UI
     abstract def visit(view : RichText)
     abstract def visit(view : LinkButton)
     abstract def visit(view : MenuButton)
+
     {% if flag?(:macos) || flag?(:ios) %}
       abstract def visit(view : ContextMenu)
     {% end %}
@@ -99,8 +108,16 @@ module UI
     abstract def visit(view : Capsule)
     abstract def visit(view : Canvas)
     abstract def visit(view : PathView)
+
     {% if flag?(:macos) %}
       abstract def visit(view : PathControl)
+    {% end %}
+    # Tier 3 — watchOS-only complication. Gated so non-watchOS renderers do not
+    # have to implement a method referencing a class that only exists under
+    # -Dwatchos. The cross-platform ComplicationWithWebFallback renders via
+    # composition (Card/VStack/Label) and needs no bespoke visit. (Phase 12.)
+    {% if flag?(:watchos) %}
+      abstract def visit(view : Complication)
     {% end %}
     abstract def visit(view : MapView)
     abstract def visit(view : ChartView)
@@ -130,5 +147,29 @@ module UI
     # macOS + desktop-web render visible trailing buttons; mobile-web
     # renders touch-swipe-to-reveal panel.
     abstract def visit(view : SwipeActionRow)
+
+    # Phase 10B.1a — InlineActionRow. The macOS + web_wide default for
+    # the `:swipe_actions` intent. Actions are always visible inline
+    # buttons (no gesture); every renderer maps it to a horizontal
+    # stack of (content + action buttons).
+    abstract def visit(view : InlineActionRow)
+
+    # Phase 10B.1c — AndroidSwipeActionRow. The `:android` default for
+    # the `:swipe_actions` intent. The Android renderer's aspirational
+    # mapping is `androidx.compose.material3.SwipeToDismissBox`; until
+    # the JNI bridge gains a Compose-host surface the renderer falls
+    # back to a horizontal LinearLayout (same shape as
+    # `UI::InlineActionRow`). Every other renderer maps it to its own
+    # inline-row chrome so cross-platform overrides remain useful.
+    abstract def visit(view : AndroidSwipeActionRow)
+
+    # Phase 10B.4 — Missing widgets from the Phase 10-pre catalog audit.
+    # Each was a `coverage_today: missing` entry whose `crystal_api_shape`
+    # named a non-existent `UI::X` class. The classes now ship; the
+    # renderer visit methods are required for the abstract contract.
+    abstract def visit(view : FullScreenCover)
+    abstract def visit(view : Inspector)
+    abstract def visit(view : ToolbarItemGroup)
+    abstract def visit(view : ToolbarSpacer)
   end
 end

@@ -22,6 +22,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <Foundation/Foundation.h>
+#import <CoreText/CoreText.h>
+
+// Register a font file at runtime so SwiftUI `.font(.custom(name))` can resolve
+// it (consumers ship their own TTFs — e.g. Alegreya/Inter — without installing
+// them system-wide). Process-scoped; returns true on success or if already
+// registered. `name` to use in .custom() is the font's PostScript name.
+bool apsk_register_font(const char *path) {
+    if (!path) return false;
+    @autoreleasepool {
+        NSString *p = [NSString stringWithUTF8String:path];
+        if (![[NSFileManager defaultManager] fileExistsAtPath:p]) return false;
+        NSURL *url = [NSURL fileURLWithPath:p];
+        CFErrorRef err = NULL;
+        bool ok = CTFontManagerRegisterFontsForURL(
+            (__bridge CFURLRef)url, kCTFontManagerScopeProcess, &err);
+        if (!ok && err) {
+            if (CFErrorGetCode(err) == kCTFontManagerErrorAlreadyRegistered) ok = true;
+            CFRelease(err);
+        }
+        return ok;
+    }
+}
 
 // Forward-declare to keep the file self-contained; the actual Swift
 // implementations land in AssetPipelineSwiftKit via @objc.
@@ -274,6 +296,8 @@ APSK_OVERRIDES_NEW(apsk_surface_overrides_new,               "APSKSurfaceOverrid
 APSK_OVERRIDES_NEW(apsk_menu_button_overrides_new,           "APSKMenuButtonOverrides")
 APSK_OVERRIDES_NEW(apsk_toggle_button_overrides_new,         "APSKToggleButtonOverrides")
 APSK_OVERRIDES_NEW(apsk_list_view_overrides_new,             "APSKListViewOverrides")
+// Phase 10D-refocus — SwipeActionRow facade (SwiftUI .swipeActions edge bridge).
+APSK_OVERRIDES_NEW(apsk_swipe_action_row_overrides_new,      "APSKSwipeActionRowOverrides")
 
 // ---------------------------------------------------------------------------
 // Glass (P1 — Phase 3 "headline visual differentiator").
@@ -345,6 +369,34 @@ void apsk_overrides_set_int(void *target, const char *setter_name,
         (id)target, sel, (NSInteger)value);
 }
 
+// Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter. Unlike
+// `apsk_overrides_set_int` which calls the setter with a raw NSInteger
+// (used for `Int`-typed Swift properties like `selectedIndex`), this
+// trampoline boxes the UInt64 into an `NSNumber` and passes the boxed
+// number to the setter. Used by `apskAccessibilityTraitsMask` (declared
+// as `NSNumber?` in `ViewOverrides.swift`) so the SwiftUI side can
+// read `traitsBox.uint64Value` back from the bitmask.
+void apsk_overrides_set_uint64_boxed(void *target, const char *setter_name,
+                                     unsigned long long value) {
+    if (target == NULL || setter_name == NULL) return;
+    NSNumber *boxed = [NSNumber numberWithUnsignedLongLong:value];
+    SEL sel = sel_registerName(setter_name);
+    ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, boxed);
+}
+
+// Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — set an `AnyObject?`
+// property from a raw ObjC object pointer. The pointer must already be
+// an `id` (NSObject subclass) — typically a UIView/NSView pointer
+// captured at render time. NULL clears the property. Used by
+// `PopoverOverrides.anchorSourceView` to thread the source view through
+// to the SwiftUI facade for `UIPopoverPresentationController` anchoring.
+void apsk_overrides_set_object_ptr(void *target, const char *setter_name,
+                                   void *object_ptr) {
+    if (target == NULL || setter_name == NULL) return;
+    SEL sel = sel_registerName(setter_name);
+    ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, (id)object_ptr);
+}
+
 // ---------------------------------------------------------------------------
 // Helper: build NSArray<APSKPlatformView*> from a C array of view
 // pointers. Used by every container facade trampoline below.
@@ -396,13 +448,13 @@ void *apsk_make_navigation_split_view(const void *child_views, int child_count,
 }
 
 void *apsk_make_tab_view(const void *child_views, int child_count,
-                        void *overrides) {
+                        void *overrides, unsigned long long action_token) {
     Class cls = objc_getClass("APSKTabViewFacade");
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
-    SEL sel = sel_registerName("makeTabViewWithChildViews:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, children, (id)overrides);
+    SEL sel = sel_registerName("makeTabViewWithChildViews:overrides:actionToken:");
+    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, children, (id)overrides, action_token);
 }
 
 void *apsk_make_sheet(const void *child_views, int child_count,
@@ -481,6 +533,21 @@ void *apsk_make_card(const void *child_views, int child_count, void *overrides) 
         cls, sel, children, (id)overrides);
 }
 
+// watchOS-only: compose child boundary nodes into a SwiftUI VStack/HStack.
+// APSKWatchStackFacade only exists on watchOS, so objc_getClass returns nil on
+// every other platform and this safely no-ops there (returns NULL). axis: 0=V,1=H.
+// alignment: 0=leading/top,1=center,2=trailing/bottom.
+void *apsk_make_watch_stack(const void *child_views, int child_count,
+                            long axis, double spacing, long alignment,
+                            void *overrides, int root_fill) {
+    Class cls = objc_getClass("APSKWatchStackFacade");
+    if (cls == nil) return NULL;
+    NSArray *children = apsk_nsarray_from_views(child_views, child_count);
+    SEL sel = sel_registerName("makeStackWithChildViews:axis:spacing:alignment:overrides:rootFill:");
+    return ((id (*)(Class, SEL, id, long, double, long, id, long))objc_msgSend)(
+        cls, sel, children, axis, spacing, alignment, (id)overrides, (long)root_fill);
+}
+
 void *apsk_make_surface(const void *child_views, int child_count, void *overrides) {
     Class cls = objc_getClass("APSKSurfaceFacade");
     if (cls == nil) return NULL;
@@ -515,6 +582,19 @@ void *apsk_make_list_view(const void *child_views, int child_count,
     SEL sel = sel_registerName("makeListViewWithChildViews:overrides:");
     return ((id (*)(Class, SEL, id, id))objc_msgSend)(
         cls, sel, children, (id)overrides);
+}
+
+// Phase 10D-refocus — SwipeActionRow trampoline.
+// Routes Crystal's `UI::SwipeActionRow.visit` into the SwiftUI
+// `.swipeActions(edge:)` modifier via the new Swift facade. The
+// content_view is a single platform-view pointer (the inner HStack
+// rendered detached by the Crystal renderer).
+void *apsk_make_swipe_action_row(void *content_view, void *overrides) {
+    Class cls = objc_getClass("APSKSwipeActionRowFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName("makeSwipeActionRowWithContentView:overrides:");
+    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, (id)content_view, (id)overrides);
 }
 
 // ---------------------------------------------------------------------------
@@ -833,8 +913,41 @@ void *apsk_make_sheet_reactive(const void *child_views, int child_count,
         cls, sel, children, (id)overrides, dismiss_token, out_state);
 }
 
+// Phase 12.C — reactive ConfirmationDialog trampoline (Codex iter-1
+// BLOCKER 1 fix). Writes a +1 retained `BoolStorage` pointer through
+// `out_state` so Crystal can flip presentation via
+// `apsk_confirmation_dialog_set_presented` during the cross-render
+// sweep. Mirrors `apsk_make_sheet_reactive`.
+void *apsk_make_confirmation_dialog_reactive(const char *title,
+                                             const char *message,
+                                             void *overrides,
+                                             void **out_state) {
+    Class cls = objc_getClass("APSKConfirmationDialogFacade");
+    if (cls == nil) return NULL;
+    SEL sel = sel_registerName(
+        "makeReactiveConfirmationDialogWithTitle:message:overrides:outState:");
+    return ((id (*)(Class, SEL, id, id, id, void **))objc_msgSend)(
+        cls, sel, apsk_nsstring(title),
+        apsk_nsstring(message ? message : ""), (id)overrides, out_state);
+}
+
 // The `apsk_*_set_*` and `apsk_state_release` functions themselves are
 // emitted directly by Swift via `@_cdecl` (see ReactiveState.swift). They
 // are linked symbols on the AssetPipelineSwiftKit static library; Crystal
 // declares them in `LibSwiftKitBridge` and the linker resolves them
 // without any ObjC trampoline. No C wrappers required here.
+
+// -----------------------------------------------------------------------------
+// Phase 12.A — Interaction-contracts NSLog bridge
+// -----------------------------------------------------------------------------
+//
+// Crystal-side `UI::InteractionContracts.emit` originally wrote markers to
+// STDERR; Codex's Phase 12.A review flagged that STDERR is not reliably
+// captured by `xcrun simctl spawn ... log stream` on iOS. NSLog IS captured,
+// so we expose a tiny C entry point that wraps NSLog with the message verbatim.
+// Swift emitters use NSLog directly via the Foundation-imported
+// `InteractionContracts.swift` mirror.
+void apsk_apic_log(const char *msg) {
+    if (msg == NULL) return;
+    NSLog(@"%s", msg);
+}

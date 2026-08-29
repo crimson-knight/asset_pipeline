@@ -12,16 +12,27 @@ module UI
   # surface that can be rendered consistently before native image-well bridges
   # exist on each platform.
   class ImageWell < View
+    # Text value.
     property image_source : String? = nil
+    # Text value.
     property placeholder_icon : String = "photo"
+    # Caption / accessibility label rendered alongside the control.
     property label : String? = nil
+    # Helper / prompt text shown above or below the field.
     property prompt : String? = nil
+    # Short caption rendered alongside the main content.
     property caption : String? = nil
+    # Help / hint text shown beneath the control.
     property help_text : String? = nil
+    # Numeric value (pt unless otherwise noted).
     property well_width : Float64 = 240.0
+    # Numeric value (pt unless otherwise noted).
     property well_height : Float64 = 180.0
+    # Inner padding (pt) applied to the preview pane.
     property preview_padding : EdgeInsets = EdgeInsets.new(top: 18.0, trailing: 18.0, bottom: 18.0, leading: 18.0)
+    # Optional fixed width (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_width : Float64 = 0.0
+    # Optional fixed height (in pt) for the rendered viewport. Zero means "size to content".
     property viewport_height : Float64 = 0.0
 
     def initialize(
@@ -29,14 +40,16 @@ module UI
       @label : String? = nil,
       @prompt : String? = nil,
       @caption : String? = nil,
-      @help_text : String? = nil
+      @help_text : String? = nil,
     )
     end
 
+    # Returns true when a non-empty image source is currently assigned.
     def has_image? : Bool
       !@image_source.nil? && !@image_source.not_nil!.empty?
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       body = UI::VStack.new(spacing: 8.0, alignment: UI::Alignment::Fill)
 

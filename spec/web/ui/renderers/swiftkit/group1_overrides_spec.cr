@@ -56,6 +56,32 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       # Font default is size:17 weight::regular → no font setters
       FakeLibObjCBridge.refute_sent(:setFontSize)
       FakeLibObjCBridge.refute_sent(:setFontWeight)
+      # fill_horizontal default false → no fill frame
+      FakeLibObjCBridge.refute_sent(:setFillHorizontal)
+    end
+
+    it "emits setFillHorizontal when fill_horizontal=true" do
+      view = UI::Label.new("My Tracks")
+      view.fill_horizontal = true
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFillHorizontal, times: 1, args: [target, "true"])
+    end
+
+    it "skips setPreferredMaxLayoutWidth when unset" do
+      view = UI::Label.new("Hi")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setPreferredMaxLayoutWidth)
+    end
+
+    it "emits setPreferredMaxLayoutWidth when set (wrapping-height fix)" do
+      view = UI::Label.new("Hi Maximilian Alexander, nice to meet you!")
+      view.preferred_max_layout_width = 420.0
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setPreferredMaxLayoutWidth, times: 1,
+        args: [target, "420.0"])
     end
 
     it "emits setLabelRole when role is overridden" do
@@ -75,6 +101,19 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       UI::Native::Populator.populate_label(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setForegroundColor, times: 1,
         args: [target, "rgba(0.5,0.0,0.5,1.0)"])
+    end
+
+    it "emits foregroundColor when text_color is set WITHOUT nil-ing the role" do
+      # Footgun fix: assigning a raw text_color now auto-clears the default
+      # Primary role (mutual exclusion), so an explicit color "just works" —
+      # previously it was silently ignored and the label rendered .primary.
+      view = UI::Label.new("Morning Track")
+      view.text_color = UI::Color.new(r: 0.0, g: 0.0, b: 0.0) # black on a near-white card
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setForegroundColor, times: 1,
+        args: [target, "rgba(0.0,0.0,0.0,1.0)"])
+      FakeLibObjCBridge.refute_sent(:setLabelRole)
     end
 
     it "emits setFontSize + setFontWeight when font is overridden" do
@@ -115,6 +154,22 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
       FakeLibObjCBridge.refute_sent(:setSecureEntry)
       FakeLibObjCBridge.refute_sent(:setKeyboardType)
+      # Font default (size 17 / weight :regular / family "system") → no setters.
+      # UI::TextField#font was previously dropped entirely.
+      FakeLibObjCBridge.refute_sent(:setFontSize)
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
+      FakeLibObjCBridge.refute_sent(:setFontFamily)
+      # placeholder_color defaults to nil → no placeholder-tint setter.
+      FakeLibObjCBridge.refute_sent(:setPlaceholderColor)
+    end
+
+    it "emits setPlaceholderColor when placeholder_color is set" do
+      view = UI::TextField.new
+      view.placeholder_color = UI::Color.new(r: 0.745, g: 0.761, b: 0.761) # #bec2c2
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setPlaceholderColor, times: 1,
+        args: [target, "rgba(0.745,0.761,0.761,1.0)"])
     end
 
     it "emits setSecureEntry:true when secure_entry=true" do
@@ -124,14 +179,124 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setSecureEntry, times: 1, args: [target, "true"])
     end
+
+    it "maps keyboard enums to the Swift facade contract" do
+      {
+        UI::KeyboardType::EmailAddress => "email",
+        UI::KeyboardType::NumberPad    => "number",
+        UI::KeyboardType::PhonePad     => "phone",
+        UI::KeyboardType::URL          => "url",
+      }.each do |keyboard_type, expected|
+        FakeLibObjCBridge.reset
+        view = UI::TextField.new
+        view.keyboard_type = keyboard_type
+        target = FakeLibObjCBridge.next_sentinel_pointer
+        UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+        FakeLibObjCBridge.assert_sent(:setKeyboardType, times: 1,
+          args: [target, expected])
+      end
+    end
+
+    it "forwards semantic input assistance and keyboard action overrides" do
+      view = UI::TextField.new
+      view.content_type = UI::TextContentType::EmailAddress
+      view.submit_label = UI::TextInputAction::Next
+      view.keyboard_toolbar = true
+      view.autocapitalization = UI::TextAutocapitalization::Never
+      view.autocorrection_disabled = true
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setContentType, times: 1,
+        args: [target, "emailaddress"])
+      FakeLibObjCBridge.assert_sent(:setSubmitLabel, times: 1,
+        args: [target, "next"])
+      FakeLibObjCBridge.assert_sent(:setKeyboardToolbar, times: 1,
+        args: [target, "true"])
+      FakeLibObjCBridge.assert_sent(:setAutocapitalization, times: 1,
+        args: [target, "never"])
+      FakeLibObjCBridge.assert_sent(:setAutocorrectionDisabled, times: 1,
+        args: [target, "true"])
+    end
+
+    it "forwards font size/weight/family when overridden" do
+      view = UI::TextField.new
+      view.font = UI::Font.new(family: "Alegreya-Medium", size: 22.0)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontFamily, times: 1,
+        args: [target, "Alegreya-Medium"])
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1, args: [target, "22.0"])
+      # Custom face carries its own weight; default :regular → no weight setter.
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
+    end
+
+    it "forwards setFontWeight for a system face with a bold weight" do
+      view = UI::TextField.new
+      view.font = UI::Font.new(size: 18.0, weight: :bold)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1, args: [target, "18.0"])
+      FakeLibObjCBridge.assert_sent(:setFontWeight, times: 1, args: [target, "3.0"])
+    end
+
+    it "skips setBorderStyle at the RoundedBorder default" do
+      view = UI::TextField.new
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setBorderStyle)
+    end
+
+    it "emits setBorderStyle:underline when style is Underline" do
+      view = UI::TextField.new
+      view.style = UI::TextFieldStyle::Underline
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setBorderStyle, times: 1, args: [target, "underline"])
+    end
   end
 
   describe "#populate_secure_field" do
-    it "applies only common overrides" do
+    it "applies only common overrides + no font on default" do
       view = UI::SecureField.new
       target = FakeLibObjCBridge.next_sentinel_pointer
       UI::Native::Populator.populate_secure_field(target, view, RecordingSender.new)
       FakeLibObjCBridge.refute_sent(:setBackgroundColor)
+      FakeLibObjCBridge.refute_sent(:setFontSize)
+      FakeLibObjCBridge.refute_sent(:setFontFamily)
+    end
+
+    it "forwards font family + size when overridden" do
+      view = UI::SecureField.new
+      view.font = UI::Font.new(family: "Alegreya-Medium", size: 16.0)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_secure_field(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontFamily, times: 1,
+        args: [target, "Alegreya-Medium"])
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1, args: [target, "16.0"])
+    end
+  end
+
+  describe "#populate_text_area" do
+    it "skips font + widget setters on a default UI::TextArea" do
+      view = UI::TextArea.new
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_area(target, view, RecordingSender.new)
+      # is_editable/is_scrollable default true, line_limit nil → no setters.
+      FakeLibObjCBridge.refute_sent(:setLineLimit)
+      # Font default → no setters. UI::TextArea#font was previously dropped.
+      FakeLibObjCBridge.refute_sent(:setFontSize)
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
+      FakeLibObjCBridge.refute_sent(:setFontFamily)
+    end
+
+    it "forwards font family + size when overridden" do
+      view = UI::TextArea.new
+      view.font = UI::Font.new(family: "AlegreyaSans-Light", size: 18.0)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_text_area(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontFamily, times: 1,
+        args: [target, "AlegreyaSans-Light"])
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1, args: [target, "18.0"])
     end
   end
 
@@ -195,6 +360,40 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       # label is nil by default → no setLabel
       FakeLibObjCBridge.refute_sent(:setLabel)
     end
+
+    it "skips setBordered at the bordered=true default" do
+      view = UI::IconButton.new("plus")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_icon_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setBordered)
+    end
+
+    it "emits setBordered:false for a bare (chrome-free) icon" do
+      view = UI::IconButton.new("plus")
+      view.bordered = false
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_icon_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setBordered, times: 1, args: [target, "false"])
+    end
+
+    it "skips setIconWidth/setIconHeight when nil (default square footprint)" do
+      view = UI::IconButton.new("plus")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_icon_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setIconWidth)
+      FakeLibObjCBridge.refute_sent(:setIconHeight)
+    end
+
+    it "emits setIconWidth/setIconHeight for a non-square cover-crop icon" do
+      # e.g. hamburger 22x18 from a 66x54 @3x source
+      view = UI::IconButton.new("/path/to/hamburgermenuicon.png")
+      view.icon_width = 22.0
+      view.icon_height = 18.0
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_icon_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setIconWidth, times: 1, args: [target, "22.0"])
+      FakeLibObjCBridge.assert_sent(:setIconHeight, times: 1, args: [target, "18.0"])
+    end
   end
 end
 
@@ -233,6 +432,24 @@ describe UI::Native::Populator, "Group 2 default-detection" do
       target = FakeLibObjCBridge.next_sentinel_pointer
       UI::Native::Populator.populate_slider(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setStep, times: 1, args: [target, "0.1"])
+    end
+
+    it "skips setForegroundColor when tint_color is unset" do
+      view = UI::Slider.new
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_slider(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setForegroundColor)
+    end
+
+    it "emits setForegroundColor (slider tint) when tint_color is set" do
+      view = UI::Slider.new
+      view.tint_color = UI::Color.new(r: 0.416, g: 0.427, b: 0.804) # #6a6dcd
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_slider(target, view, RecordingSender.new)
+      # The Swift SliderFacade applies this via `.tint(...)` (NOT
+      # `.foregroundStyle`, which a SwiftUI Slider ignores for its track/thumb).
+      FakeLibObjCBridge.assert_sent(:setForegroundColor, times: 1,
+        args: [target, "rgba(0.416,0.427,0.804,1.0)"])
     end
   end
 

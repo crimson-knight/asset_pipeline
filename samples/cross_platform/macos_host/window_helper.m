@@ -35,6 +35,75 @@ static CGWindowListCreateImageFn resolve_cgwindowlist_create_image(void) {
 }
 
 // ============================================================
+// Track 2 — live window-resize → Crystal rebuild hook.
+//
+// The macOS host rebuilds its UI::View tree only on navigation
+// (coord.on_change). A resized window therefore relayouts the existing
+// native views via Auto Layout but never re-runs build(ctx) with the new
+// size class — so size-class-driven decisions (column width, spacing,
+// type scale authored via DeviceMetrics#responsive) stay frozen. This
+// observer bridges NSWindowDidResizeNotification back into Crystal using
+// the SAME exported trampoline the renderer's other callbacks use
+// (crystal_ui_callback_dispatch(tag) -> CallbackRegistry.call(tag)),
+// so the host registers a Proc that calls rebuild_for(coord.current).
+//
+// crystal_ui_callback_dispatch is defined in
+// src/ui/native/callback_registry.cr and linked into the same binary.
+// ============================================================
+extern void crystal_ui_callback_dispatch(uint64_t tag);
+
+@interface APWindowResizeObserver : NSObject
+@property (nonatomic) uint64_t tag;
+@end
+@implementation APWindowResizeObserver
+- (void)windowDidResize:(NSNotification *)note {
+    crystal_ui_callback_dispatch(self.tag);
+}
+@end
+
+// Observers are retained for process lifetime (one per host window). No
+// teardown path: the host installs the observer once and lives until quit.
+static NSMutableArray *g_resize_observers = nil;
+
+// Register a Crystal callback (by CallbackRegistry tag) to fire on every
+// resize of `window_ptr`. Reuses crystal_ui_callback_dispatch.
+void objc_window_install_resize_observer(void *window_ptr, uint64_t tag) {
+    NSWindow *win = (NSWindow *)window_ptr;
+    if (!win) return;
+    if (!g_resize_observers) g_resize_observers = [[NSMutableArray alloc] init];
+    APWindowResizeObserver *obs = [[APWindowResizeObserver alloc] init];
+    obs.tag = tag;
+    [g_resize_observers addObject:obs]; // strong ref so it survives
+    [[NSNotificationCenter defaultCenter] addObserver:obs
+                                             selector:@selector(windowDidResize:)
+                                                 name:NSWindowDidResizeNotification
+                                               object:win];
+}
+
+// Programmatically resize a window's content area. Used by the headless
+// resize-probe to drive windowDidResize without a GUI session; also a
+// legitimate host primitive (e.g. snap-to-size menu commands).
+void objc_window_set_content_size(void *window_ptr, double w, double h) {
+    NSWindow *win = (NSWindow *)window_ptr;
+    if (!win) return;
+    [win setContentSize:NSMakeSize((CGFloat)w, (CGFloat)h)];
+    [win displayIfNeeded];
+}
+
+// Make a window key + front (and initialize NSApp) so the active-window
+// content-rect heuristic (DeviceMetrics) resolves to THIS window rather
+// than falling back to the physical screen. Headless-safe: uses the
+// Accessory activation policy so no Dock icon / focus steal.
+void objc_window_order_front(void *window_ptr) {
+    NSWindow *win = (NSWindow *)window_ptr;
+    if (!win) return;
+    NSApplication *app = [NSApplication sharedApplication];
+    [app setActivationPolicy:NSApplicationActivationPolicyAccessory];
+    [app activateIgnoringOtherApps:YES];
+    [win makeKeyAndOrderFront:nil];
+}
+
+// ============================================================
 // Live-window capture path (Phase 0.1)
 //
 // CGWindowListCreateImage composites the actual CoreAnimation layer tree,
@@ -216,6 +285,62 @@ int objc_install_backdrop(void *pair_ptr, const char *image_path) {
 // Use objc_install_content_view_centered for modal card components (sheets,
 // alerts, popovers, action-sheets, activity-views) that should be centered
 // with content-hugging height.
+// A flipped document view so an NSScrollView lays its content out
+// top-to-bottom (default NSView is bottom-left origin, which makes a
+// scroll view show the BOTTOM of tall content first).
+@interface APFlippedDocumentView : NSView
+@end
+@implementation APFlippedDocumentView
+- (BOOL)isFlipped { return YES; }
+@end
+
+// Wrap a rendered content view in a vertically-scrolling NSScrollView so
+// tall screens scroll instead of overlapping (the macOS parallel to the
+// iOS host's UIScrollView wrap). Short content still fills the viewport
+// (document height >= clip height), so existing short-screen captures are
+// unaffected; only content taller than the viewport scrolls.
+//
+// Returns a +1-retained NSScrollView* (MRC); the caller installs it as the
+// window's content view, which takes ownership.
+void *objc_scroll_wrap(void *content_view_ptr) {
+    if (!content_view_ptr) return NULL;
+    NSView *content = (NSView *)content_view_ptr;
+
+    NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSZeroRect];
+    scroll.hasVerticalScroller = YES;
+    scroll.hasHorizontalScroller = NO;
+    scroll.drawsBackground = NO;
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    scroll.autohidesScrollers = YES;
+
+    APFlippedDocumentView *doc = [[APFlippedDocumentView alloc] initWithFrame:NSZeroRect];
+    doc.translatesAutoresizingMaskIntoConstraints = NO;
+    content.translatesAutoresizingMaskIntoConstraints = NO;
+    [doc addSubview:content];
+    [NSLayoutConstraint activateConstraints:@[
+        [content.topAnchor constraintEqualToAnchor:doc.topAnchor],
+        [content.leadingAnchor constraintEqualToAnchor:doc.leadingAnchor],
+        [content.trailingAnchor constraintEqualToAnchor:doc.trailingAnchor],
+        [content.bottomAnchor constraintEqualToAnchor:doc.bottomAnchor],
+    ]];
+
+    scroll.documentView = doc;
+    NSClipView *clip = scroll.contentView;
+    NSLayoutConstraint *minHeight =
+        [doc.heightAnchor constraintGreaterThanOrEqualToAnchor:clip.heightAnchor];
+    minHeight.priority = NSLayoutPriorityDefaultLow; // fill when short, scroll when tall
+    [NSLayoutConstraint activateConstraints:@[
+        [doc.topAnchor constraintEqualToAnchor:clip.topAnchor],
+        [doc.leadingAnchor constraintEqualToAnchor:clip.leadingAnchor],
+        [doc.trailingAnchor constraintEqualToAnchor:clip.trailingAnchor],
+        [doc.widthAnchor constraintEqualToAnchor:clip.widthAnchor],
+        minHeight,
+    ]];
+    [doc release]; // scroll.documentView retains it
+
+    return (void *)scroll;
+}
+
 void objc_install_content_view(void *pair_ptr, void *content_view_ptr) {
     if (!pair_ptr || !content_view_ptr) return;
     void **pair = (void **)pair_ptr;
@@ -243,6 +368,54 @@ void objc_install_content_view(void *pair_ptr, void *content_view_ptr) {
         [content.trailingAnchor constraintEqualToAnchor:root.trailingAnchor],
         [content.bottomAnchor constraintEqualToAnchor:root.bottomAnchor],
     ]];
+}
+
+// Install `view` as the INTERACTIVE window's contentView so the WINDOW drives
+// its size — it fills the content area and resizes with the window — instead of
+// the content's fitting size driving the window.
+//
+// Why this exists: objc_scroll_wrap sets translatesAutoresizingMaskIntoConstraints
+// = NO on its NSScrollView. That is correct for the capture path
+// (objc_install_content_view pins the scroll to the capture window's root with
+// constraints), but WRONG when the scroll view is set directly as a live window's
+// contentView: with no width constraint AppKit resolves the contentView to its
+// content's ambiguous fitting width and grows the window to match — observed as a
+// window that opens wider than the screen and refuses to resize horizontally
+// (vertical still works because the vertical scroller absorbs height). Restoring
+// autoresizing on the contentView hands width control back to the window, so the
+// window opens at its created size, drags freely on both axes, and the content
+// reflows to the available width (scrolling vertically when tall).
+void objc_window_set_filling_content_view(void *window_ptr, void *view_ptr) {
+    if (!window_ptr || !view_ptr) return;
+    NSWindow *win = (NSWindow *)window_ptr;
+    NSView *content = (NSView *)view_ptr;
+
+    // Interpose a plain, window-driven root NSView as the contentView and pin
+    // the scroll-wrapped content INSIDE it. This is the same pattern the capture
+    // path uses (objc_install_content_view) and it decouples the window's size
+    // from the content's fitting size.
+    //
+    // Setting the scroll view directly as a window's contentView makes
+    // makeKeyAndOrderFront size the WINDOW to the scroll's content fitting width
+    // (observed: an 880pt window jumps to full screen width on first display and
+    // then refuses to resize horizontally). A plain NSView has no intrinsic
+    // content size, so the window keeps the size it was created/dragged to and
+    // the pinned scroll fills it — width control flows window -> content, never
+    // the reverse. Vertical overflow scrolls; the column reflows to the width.
+    NSView *root = [[NSView alloc] initWithFrame:[[win contentView] bounds]];
+    root.translatesAutoresizingMaskIntoConstraints = YES;
+    root.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [win setContentView:root];
+
+    content.translatesAutoresizingMaskIntoConstraints = NO;
+    [root addSubview:content];
+    [NSLayoutConstraint activateConstraints:@[
+        [content.topAnchor constraintEqualToAnchor:root.topAnchor],
+        [content.leadingAnchor constraintEqualToAnchor:root.leadingAnchor],
+        [content.trailingAnchor constraintEqualToAnchor:root.trailingAnchor],
+        [content.bottomAnchor constraintEqualToAnchor:root.bottomAnchor],
+    ]];
+    [root release]; // win.contentView retains it
 }
 
 // Add a native view centered inside the CAPTURE window with a max-width

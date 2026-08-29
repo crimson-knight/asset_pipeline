@@ -45,7 +45,7 @@ module UI
       @options : Array(String) = [] of String,
       @placeholder : String = "",
       @on_change : Proc(String, Void)? = nil,
-      @width : Float64? = nil
+      @width : Float64? = nil,
     )
     end
 

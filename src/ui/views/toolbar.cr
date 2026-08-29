@@ -13,8 +13,11 @@ module UI
       icon : String? = nil,
       action : Proc(Nil)? = nil
 
+    # Items rendered by the control.
     property items : Array(ToolbarItem) = [] of ToolbarItem
+    # Primary text shown on the control.
     property title : String? = nil
+    # Boolean toggle.
     property shows_title : Bool = true
 
     # Phase 5 v2 — Apple semantic material override. nil = HIG-canonical
@@ -25,16 +28,23 @@ module UI
     def initialize(@title : String? = nil)
     end
 
+    # Appends an item and returns the newly-created item.
     def add_item(id : String, label : String, icon : String? = nil, &block : -> Nil)
       @items << ToolbarItem.new(id: id, label: label, icon: icon, action: block)
     end
 
+    # Appends an item and returns the newly-created item.
     def add_item(id : String, label : String, icon : String? = nil)
       @items << ToolbarItem.new(id: id, label: label, icon: icon)
     end
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:toolbar`.
+    def default_accessibility_role : Symbol?
+      :toolbar
     end
   end
 end

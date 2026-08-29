@@ -25,6 +25,12 @@ targets:
       LIBRARY_SEARCH_PATHS:
         - $(PROJECT_DIR)/build
         - /tmp/crystal-cross-deps/ios-simulator/lib
+      # Phase 12.C hand-test prep — Swift module search path for
+      # `import AssetPipelineSwiftKit` in VoyagerApp.swift. The module
+      # files are staged into $(PROJECT_DIR)/build/Modules by
+      # build_crystal_lib.sh.
+      SWIFT_INCLUDE_PATHS:
+        - $(PROJECT_DIR)/build/Modules
       SWIFT_OBJC_BRIDGING_HEADER: Sources/Voyager-Bridging-Header.h
       OTHER_LDFLAGS:
         - -lvoyager

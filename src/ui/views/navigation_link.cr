@@ -30,5 +30,15 @@ module UI
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
     end
+
+    # Phase 10B.2a — default AX role: `:link`.
+    def default_accessibility_role : Symbol?
+      :link
+    end
+
+    # Phase 10B.2b — interactive widgets default to focusable.
+    def default_focusable : Bool
+      true
+    end
   end
 end

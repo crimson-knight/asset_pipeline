@@ -1054,12 +1054,12 @@ module UI
           family_sans: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
           family_display: "Newsreader, Georgia, ui-serif, serif",
           family_mono: "ui-monospace, SFMono-Regular, \"SF Mono\", Consolas, monospace",
-          caption: TypeStep.new(size: 0.78125, line_height: 1.4, weight: 450, tracking: 0.0),  # 12.5px
-          body: TypeStep.new(size: 1.0, line_height: 1.55, weight: 450, tracking: 0.0),         # 16px
-          body_emph: TypeStep.new(size: 1.0, line_height: 1.55, weight: 600, tracking: 0.0),    # 16px semibold
-          title: TypeStep.new(size: 1.375, line_height: 1.3, weight: 600, tracking: 0.0),       # 22px
-          headline: TypeStep.new(size: 2.125, line_height: 1.2, weight: 720, tracking: 0.0),    # 34px
-          display: TypeStep.new(size: 3.0, line_height: 1.05, weight: 720, tracking: -0.01),    # 48px
+          caption: TypeStep.new(size: 0.78125, line_height: 1.4, weight: 450, tracking: 0.0), # 12.5px
+          body: TypeStep.new(size: 1.0, line_height: 1.55, weight: 450, tracking: 0.0),       # 16px
+          body_emph: TypeStep.new(size: 1.0, line_height: 1.55, weight: 600, tracking: 0.0),  # 16px semibold
+          title: TypeStep.new(size: 1.375, line_height: 1.3, weight: 600, tracking: 0.0),     # 22px
+          headline: TypeStep.new(size: 2.125, line_height: 1.2, weight: 720, tracking: 0.0),  # 34px
+          display: TypeStep.new(size: 3.0, line_height: 1.05, weight: 720, tracking: -0.01),  # 48px
         )
       end
 
@@ -1068,17 +1068,17 @@ module UI
       def radius_scale : RadiusScale
         RadiusScale.new(
           none: 0.0,
-          xs: 0.25,            # 4pt — small bar / chip / micro chart corner
-          sm: 0.125,           # 2pt — small inline element
-          md: 0.375,           # 6pt — default control corner (button, field)
-          lg: 0.5,             # 8pt — thumbnail / plot background
-          xl: 0.75,            # 12pt — alert card
-          x2l: 1.0,            # 16pt — action sheet / large glass surface
-          card: 0.625,         # 10pt — inset-grouped card, popover, snackbar, tile
-          sheet: 0.875,        # 14pt — sheet / glass card (slightly tighter than x2l)
-          avatar: 1.875,       # 30pt — 60pt circular destination icon
-          avatar_lg: 3.75,     # 60pt — 120pt circular hero (pie chart, large avatar)
-          pill: 624.9375,      # 9999 / 16 — the canonical "pill" sentinel in rem.
+          xs: 0.25,        # 4pt — small bar / chip / micro chart corner
+          sm: 0.125,       # 2pt — small inline element
+          md: 0.375,       # 6pt — default control corner (button, field)
+          lg: 0.5,         # 8pt — thumbnail / plot background
+          xl: 0.75,        # 12pt — alert card
+          x2l: 1.0,        # 16pt — action sheet / large glass surface
+          card: 0.625,     # 10pt — inset-grouped card, popover, snackbar, tile
+          sheet: 0.875,    # 14pt — sheet / glass card (slightly tighter than x2l)
+          avatar: 1.875,   # 30pt — 60pt circular destination icon
+          avatar_lg: 3.75, # 60pt — 120pt circular hero (pie chart, large avatar)
+          pill: 624.9375,  # 9999 / 16 — the canonical "pill" sentinel in rem.
         )
       end
 
@@ -1203,6 +1203,7 @@ module UI
       def self.reset_provider : Nil
         Device.reset_provider
       end
+
       # The content rectangle (frame minus safe-area insets). Use this
       # when laying out a sticky header / bottom action bar that must
       # respect the Dynamic Island + home indicator.
@@ -1231,6 +1232,69 @@ module UI
 
       def regular_vertical? : Bool
         vertical_size_class.regular?
+      end
+
+      # Responsive authoring primitive — pick a value by horizontal size
+      # class. The framework's one-liner for "this dimension adapts to
+      # width": authors write
+      #
+      # ```
+      # spacing = metrics.responsive(compact: 16.0, regular: 24.0)
+      # columns = metrics.responsive(compact: 1, regular: 2)
+      # ```
+      #
+      # instead of an ad-hoc `compact_horizontal? ? a : b` ternary repeated
+      # at every call site. Works for any type T (spacing, padding, font
+      # size, column count, an EdgeInsets, …). When the horizontal size
+      # class is Unspecified we fall through to `regular` — the roomier
+      # default — so a metrics snapshot taken before any window exists still
+      # produces a sensible desktop-width layout.
+      #
+      # This is the Track 2 "responsive authoring primitive" the adaptive
+      # layout plan calls for (see
+      # docs/initiative-cross-platform-ui/architecture/foundational-output-and-layout-model.md
+      # §"Track 2" step 2). Pair it with `compact_vertical?` for
+      # height-driven decisions.
+      def responsive(compact : T, regular : T) : T forall T
+        compact_horizontal? ? compact : regular
+      end
+
+      # Vertical-size-class variant of `responsive` — pick a value by the
+      # vertical size class (e.g. tighten vertical rhythm in landscape on a
+      # short iPhone). Unspecified falls through to `regular`.
+      def responsive_vertical(compact : T, regular : T) : T forall T
+        compact_vertical? ? compact : regular
+      end
+
+      # Adaptive content-column width — the framework one-liner for "a centered/leading
+      # content column that adapts to the device". Picks the size-class default
+      # (`responsive(compact:, regular:)`), then CLAMPS it to the width the device
+      # actually offers (the content rect minus the screen's own horizontal padding on
+      # both sides). On a phone/desktop `content_width_pt` is large so the size-class
+      # value is kept unchanged; on a ~176pt watch the column collapses to the available
+      # width so the whole screen reflows to the wrist — no per-platform forks.
+      #
+      # This is the shared primitive behind every adaptive Voyager screen; before it,
+      # each screen open-coded the same `Math.min(preferred, content_width_pt - 2*pad)`
+      # clamp (and screens that forgot it overflowed the watch). Pass the SAME horizontal
+      # padding the screen applies to its root so the column fits inside it.
+      def adaptive_content_width(compact : Float64, regular : Float64,
+                                 horizontal_padding : Float64) : Float64
+        preferred = responsive(compact: compact, regular: regular)
+        available = content_width_pt - 2.0 * horizontal_padding
+        available > 0 ? Math.min(preferred, available) : preferred
+      end
+
+      # `true` when the canvas is too narrow to lay out a multi-item horizontal row
+      # side-by-side — e.g. an Apple Watch (~176pt) vs a phone (~390pt+). Authors branch
+      # on this to REFLOW chrome that is a row of buttons/controls on wide screens into a
+      # stacked column on the watch (a width clamp can shrink a column but cannot fit a
+      # 4-button toolbar into 176pt — the buttons just squeeze to unreadable slivers).
+      # The default threshold (280pt) sits between the widest watch and the narrowest
+      # phone; pass `below:` to tune per row. Pairs with `adaptive_content_width`: the
+      # latter sizes a column, this one decides whether a row should BECOME a column.
+      def compact_canvas?(below : Float64 = 280.0) : Bool
+        content_width_pt < below
       end
     end
 
@@ -1277,7 +1341,7 @@ module UI
       # The provider is a `Proc(DeviceMetrics)` so each call gets a
       # fresh snapshot — important on macOS where the user can resize
       # the window between renders.
-      @@provider : Proc(DeviceMetrics) = ->{
+      @@provider : Proc(DeviceMetrics) = -> {
         # Spec-time / web-SSR fallback: iPhone-portrait-ish bounds with
         # ZERO safe-area insets. This is the path the web renderer hits
         # before per-renderer provider installation (and the path
@@ -1315,7 +1379,7 @@ module UI
       # Reset to the spec-time fallback. Used by specs that need to
       # restore deterministic metrics after a renderer install.
       def reset_provider : Nil
-        @@provider = ->{
+        @@provider = -> {
           DeviceMetrics.new(
             screen_width_pt: 390.0,
             screen_height_pt: 844.0,

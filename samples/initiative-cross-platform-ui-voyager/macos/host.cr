@@ -28,6 +28,12 @@ require "../../../src/ui/renderers/appkit_renderer"
 {% if flag?(:macos) %}
   ROOT_SLUG  = ENV["VOYAGER_ROOT_SLUG"]? || ARGV[0]? || "voyager-sign-in"
   APPEARANCE = ENV["VOYAGER_APPEARANCE"]? || ENV["HIG_APPEARANCE"]? || "light"
+  # The AppKit renderer's offscreen dark-mode bake keys off HIG_APPEARANCE
+  # (appkit_renderer.cr). The host also accepts VOYAGER_APPEARANCE for the window
+  # appearance, so sync the resolved value into HIG_APPEARANCE — otherwise a
+  # VOYAGER_APPEARANCE=dark capture sets a dark window but bakes light backgrounds
+  # (white bg / invisible titles). With this, both env vars produce correct dark.
+  ENV["HIG_APPEARANCE"] = APPEARANCE
 
   # Window helper compiled into the binary at link time (see Makefile).
   lib LibWindowHelper
@@ -40,10 +46,19 @@ require "../../../src/ui/renderers/appkit_renderer"
     fun hig_run_app(window : Void*) : Void
     fun objc_create_capture_window(width : Float64, height : Float64, appearance : UInt8*) : Void*
     fun objc_install_content_view(window : Void*, content_view : Void*) : Void
+    # Interactive path — install the scroll-wrapped content so the WINDOW drives
+    # its size (fills + resizes with the window) instead of the content's fitting
+    # size ballooning the window past the screen and locking horizontal resize.
+    fun objc_window_set_filling_content_view(window : Void*, view : Void*) : Void
+    fun objc_scroll_wrap(content_view : Void*) : Void*
     fun objc_capture_view_offscreen(window : Void*, output_path : UInt8*, width : Float64, height : Float64) : Int32
     fun objc_capture_window_to_png(window : Void*, output_path : UInt8*) : Int32
     fun objc_close_capture_window(window : Void*) : Void
     fun objc_run_loop_for(seconds : Float64) : Void
+    # Track 2 — live window-resize → Crystal rebuild.
+    fun objc_window_install_resize_observer(window : Void*, tag : UInt64) : Void
+    fun objc_window_set_content_size(window : Void*, w : Float64, h : Float64) : Void
+    fun objc_window_order_front(window : Void*) : Void
   end
 
   lib LibObjCBridgeVoyager
@@ -76,17 +91,71 @@ require "../../../src/ui/renderers/appkit_renderer"
     # or the regular NSWindow path (setContentView: via objc_send_void_id).
     # Set in `run!` once the window is created.
     @@is_capture_path : Bool = false
+    # Track 2 — last content width the tree was built against. Used to
+    # coalesce the windowDidResize storm: a resize that doesn't change the
+    # content width (e.g. a duplicate notification) skips the rebuild.
+    @@last_content_width : Float64 = 0.0
+
+    # Track 2 — fired by the NSWindow resize observer (via CallbackRegistry).
+    # Re-runs build(ctx) for the current route so size-class-driven
+    # decisions (column width, spacing, type scale authored through
+    # DeviceMetrics#responsive) reflow live as the window resizes — the
+    # piece that makes "the window resizes but nothing moves" actually move.
+    def self.on_window_resized : Nil
+      coord = @@coord
+      return if coord.nil?
+      w = UI::DesignTokens::DeviceMetrics.current.content_width_pt
+      return if (w - @@last_content_width).abs < 1.0
+      @@last_content_width = w
+      rebuild_for(coord.current)
+    end
 
     def self.install_view(view : UI::View) : Nil
-      renderer = @@renderer.not_nil!
+      # Phase 12.C iter-4 (V1 fix Option A) — macOS doesn't currently
+      # exhibit V1 (no .id()-bump equivalent in the host loop), but we
+      # apply the same architectural pattern so the cross-platform
+      # contract is symmetric. The macOS renderer was already
+      # constructed once at startup, so we rebuild it per-install
+      # with the reuse registry. The prior renderer is dropped; this
+      # is acceptable because UI::Environment / DeviceMetrics installs
+      # are idempotent.
+      # Phase 12.D — built via the canonical helper so the host + the
+      # renderer's `reuse_from:` entry agree on registry construction.
+      reuse_registry = UI::NativeView.build_reuse_registry(@@active_native)
+
+      renderer = UI::AppKit::Renderer.new(reuse_registry: reuse_registry)
+      @@renderer = renderer
       native = renderer.render(view)
+
+      # Extract reused NativeViews from prior tree so its GC pass
+      # doesn't double-release shared NativeHandles.
+      if prior_for_detach = @@active_native
+        prior_for_detach.detach_reused!
+      end
+
+      # Phase 12.C — identity-aware cross-render presentation sweep
+      # for ORPHANED handles. After detach, only orphans remain in
+      # the prior tree; the sweep flips their bindings cleanly.
+      UI::NativeView.dismiss_reactive_presentations!(@@active_native, fresh: native)
+
       @@active_native = native
+      # Wrap the rendered content in a vertically-scrolling NSScrollView so
+      # tall screens (e.g. the Component Gallery) scroll instead of being
+      # compressed into the window and overlapping — the macOS parallel to
+      # the iOS host's UIScrollView wrap. Short screens still fill the
+      # viewport, so existing captures are unaffected. Falls back to the
+      # raw content view if the wrap fails.
+      content_ptr = native.handle.ptr!
+      scroll_ptr = LibWindowHelper.objc_scroll_wrap(content_ptr)
+      install_ptr = scroll_ptr.null? ? content_ptr : scroll_ptr
       if @@is_capture_path
-        LibWindowHelper.objc_install_content_view(@@window_ptr, native.handle.ptr!)
+        LibWindowHelper.objc_install_content_view(@@window_ptr, install_ptr)
       else
-        LibObjCBridgeVoyager.objc_send_void_id(
-          @@window_ptr, @@set_content_sel, native.handle.ptr!,
-        )
+        # Hand width control to the window (autoresizing contentView). The raw
+        # setContentView: path left the scroll view (translatesAutoresizing=NO,
+        # no width constraint) sized to its content's fitting width, ballooning
+        # the window past the screen and locking horizontal resize.
+        LibWindowHelper.objc_window_set_filling_content_view(@@window_ptr, install_ptr)
       end
     end
 
@@ -116,8 +185,25 @@ require "../../../src/ui/renderers/appkit_renderer"
         design_tokens: dispatcher.design_tokens,
         navigation: dispatcher.navigation,
         action_params: {} of String => String,
+        # Phase 10D — thread dispatcher.platform so screens calling
+        # `UI::WidgetRoute.resolve(intent_id, ctx)` get the platform-correct
+        # widget. macOS resolves `:swipe_actions` to
+        # `UI::InlineActionRow`.
+        platform: dispatcher.platform,
+        environment: dispatcher.environment,
       )
       view = screen_class.new.build(ctx)
+
+      # Track 2 metric-contract instrumentation. Set VOYAGER_DEBUG_METRICS=1
+      # to print the live DeviceMetrics the screen just authored against —
+      # a unique grep token so capture/AX runs can assert the size class
+      # tracks the actual window/capture width (the fix that makes narrow
+      # windows reflow to the compact column). No-op when unset.
+      if ENV["VOYAGER_DEBUG_METRICS"]?
+        m = UI::DesignTokens::DeviceMetrics.current
+        STDERR.puts "[VOYAGER_METRICS] width=#{m.content_width_pt} hsize=#{m.horizontal_size_class} compact=#{m.compact_horizontal?}"
+      end
+
       install_view(view)
     end
 
@@ -167,6 +253,40 @@ require "../../../src/ui/renderers/appkit_renderer"
         Voyager::CaptureScenarios.apply(scenario, Voyager.state, coord, dispatcher)
       end
 
+      # Track 2 — headless resize-probe. VOYAGER_RESIZE_PROBE="460,900" creates
+      # a real titled/resizable NSWindow at the first width, installs the live
+      # resize observer, renders once, then programmatically resizes to the
+      # second width and pumps the run loop so windowDidResize fires the
+      # observer → on_window_resized → rebuild_for. With VOYAGER_DEBUG_METRICS=1
+      # this prints two [VOYAGER_METRICS] lines (the second triggered ONLY by
+      # the resize, no navigation) — proof the live-resize→rebuild path works
+      # without needing a GUI session. No-op when unset.
+      if probe = ENV["VOYAGER_RESIZE_PROBE"]?
+        widths = probe.split(",").map(&.strip.to_f)
+        w0 = widths[0]? || 460.0
+        w1 = widths[1]? || 900.0
+        h = (ENV["VOYAGER_CAPTURE_HEIGHT"]?.try(&.to_f?) || 720.0)
+        window = LibWindowHelper.hig_create_window_with_min(
+          120.0, 120.0, w0, h, MIN_WIDTH, MIN_HEIGHT,
+          "Voyager".to_unsafe, APPEARANCE.to_unsafe,
+        )
+        @@window_ptr = window
+        @@set_content_sel = LibObjCBridgeVoyager.sel_registerName("setContentView:".to_unsafe)
+        @@is_capture_path = false
+        resize_tag = UI::CallbackRegistry.register { VoyagerHost.on_window_resized }
+        LibWindowHelper.objc_window_install_resize_observer(window, resize_tag)
+        # Order the window front so DeviceMetrics resolves to it (not the screen).
+        LibWindowHelper.objc_window_order_front(window)
+        LibWindowHelper.objc_run_loop_for(0.2)
+        STDERR.puts "[VOYAGER_RESIZE_PROBE] initial width=#{w0}"
+        rebuild_for(coord.current)
+        STDERR.puts "[VOYAGER_RESIZE_PROBE] resizing #{w0} -> #{w1}"
+        LibWindowHelper.objc_window_set_content_size(window, w1, h)
+        LibWindowHelper.objc_run_loop_for(0.4)
+        STDERR.puts "[VOYAGER_RESIZE_PROBE] done"
+        exit(0)
+      end
+
       screenshot_path = ENV["VOYAGER_SCREENSHOT_PATH"]? || ENV["HIG_SCREENSHOT_PATH"]?
       if screenshot_path
         # Offscreen capture path — capture window is a Void** pair.
@@ -203,6 +323,12 @@ require "../../../src/ui/renderers/appkit_renderer"
 
       # Initial render of the bootstrap route.
       rebuild_for(coord.current)
+
+      # Track 2 — live window-resize → rebuild. Register a CallbackRegistry
+      # Proc and attach it to this window's NSWindowDidResizeNotification so a
+      # user dragging the window re-runs build(ctx) with the new size class.
+      resize_tag = UI::CallbackRegistry.register { VoyagerHost.on_window_resized }
+      LibWindowHelper.objc_window_install_resize_observer(window, resize_tag)
 
       # The reactive substrate: every dispatcher-routed Navigate / Pop /
       # ReplaceRoot fires `translate_result`, which calls mount_screen

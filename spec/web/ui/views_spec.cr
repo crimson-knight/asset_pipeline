@@ -334,6 +334,30 @@ class TestVisitor < UI::PlatformVisitor
   def visit(view : UI::SwipeActionRow)
     @visited << "SwipeActionRow(trailing=#{view.trailing_actions.size},leading=#{view.leading_actions.size})"
   end
+
+  def visit(view : UI::InlineActionRow)
+    @visited << "InlineActionRow(trailing=#{view.trailing_actions.size},leading=#{view.leading_actions.size})"
+  end
+
+  def visit(view : UI::AndroidSwipeActionRow)
+    @visited << "AndroidSwipeActionRow(trailing=#{view.trailing_actions.size},leading=#{view.leading_actions.size})"
+  end
+
+  def visit(view : UI::FullScreenCover)
+    @visited << "FullScreenCover(presented=#{view.is_presented})"
+  end
+
+  def visit(view : UI::Inspector)
+    @visited << "Inspector(presented=#{view.is_presented})"
+  end
+
+  def visit(view : UI::ToolbarItemGroup)
+    @visited << "ToolbarItemGroup(items=#{view.items.size})"
+  end
+
+  def visit(view : UI::ToolbarSpacer)
+    @visited << "ToolbarSpacer(flexible=#{view.flexible?})"
+  end
 end
 
 describe UI do
@@ -395,6 +419,7 @@ describe UI do
       button = UI::Button.new("Tap me")
       button.label.should eq("Tap me")
       button.disabled.should be_false
+      button.commits_text_input.should be_false
       button.on_tap.should be_nil
     end
 
@@ -412,6 +437,13 @@ describe UI do
       stack.spacing.should eq(12.0)
       stack.alignment.should eq(UI::Alignment::Top)
       stack.children.should be_empty
+    end
+
+    it "HStack#fill_equally defaults false and is settable (FillEqually cells)" do
+      stack = UI::HStack.new
+      stack.fill_equally.should be_false
+      stack.fill_equally = true
+      stack.fill_equally.should be_true
     end
 
     it "creates a ZStack" do
@@ -433,6 +465,12 @@ describe UI do
       field.text.should eq("")
       field.secure_entry.should be_false
       field.keyboard_type.should eq(UI::KeyboardType::Default)
+      field.content_type.should eq(UI::TextContentType::None)
+      field.submit_label.should eq(UI::TextInputAction::Default)
+      field.keyboard_toolbar.should be_false
+      field.on_previous.should be_nil
+      field.autocapitalization.should eq(UI::TextAutocapitalization::Default)
+      field.autocorrection_disabled.should be_nil
     end
 
     it "creates a ScrollView" do
@@ -451,6 +489,16 @@ describe UI do
     it "creates a Spacer with min length" do
       spacer = UI::Spacer.new(min_length: 16.0)
       spacer.min_length.should eq(16.0)
+    end
+
+    it "fills horizontally so HStack { Spacer; content; Spacer } centers" do
+      # Regression guard: a Spacer must report fill_horizontal so (a) the
+      # AppKit renderer lowers its content-hugging (it absorbs the slack rather
+      # than sibling content) and (b) the enclosing HStack switches to Fill
+      # distribution (`children.any?(&.fill_horizontal)`). Without this the
+      # canonical center-an-element idiom collapsed and content hugged one side.
+      UI::Spacer.new.fill_horizontal.should be_true
+      UI::Spacer.new(min_length: 8.0).fill_horizontal.should be_true
     end
   end
 
@@ -693,7 +741,7 @@ describe UI do
       button.on_tap.should be_nil
 
       counter = 0
-      button.on_tap = ->{ counter += 1; nil }
+      button.on_tap = -> { counter += 1; nil }
       button.on_tap.try(&.call)
       button.on_tap.try(&.call)
       counter.should eq(2)
@@ -1197,6 +1245,31 @@ describe UI::IconButton do
     btn.accept(v)
     v.visited.should eq(["IconButton(trash)"])
   end
+
+  # B2.1 — the uikit renderer pins a BARE icon button's host width to this
+  # value so it hugs its icon box in an HStack instead of stretching under
+  # UIStackView's .fill distribution (the "50/50 layout disease").
+  describe "#effective_icon_box_width" do
+    it "defaults to the square icon_size (24)" do
+      btn = UI::IconButton.new("chevron.right")
+      btn.effective_icon_box_width.should eq(24.0)
+    end
+
+    it "follows an overridden icon_size" do
+      btn = UI::IconButton.new("chevron.right")
+      btn.icon_size = 32.0
+      btn.effective_icon_box_width.should eq(32.0)
+    end
+
+    it "prefers icon_width over icon_size when the icon is non-square" do
+      # e.g. hamburger 22x18 cover-crop from a 66x54 @3x source
+      btn = UI::IconButton.new("/path/to/hamburgermenuicon.png")
+      btn.icon_size = 24.0
+      btn.icon_width = 22.0
+      btn.icon_height = 18.0
+      btn.effective_icon_box_width.should eq(22.0)
+    end
+  end
 end
 
 describe UI::ListView do
@@ -1630,6 +1703,37 @@ describe UI::Sheet do
     s.accept(v)
     v.visited.should eq(["Sheet(false)"])
   end
+
+  # Phase 12.D (continuing-presentation reuse) — Crystal-view side of
+  # state-handle adoption. When a sheet survives a destructive re-render,
+  # the renderer's reuse path copies the SURVIVING handle's state_handle
+  # onto the FRESH tree's Sheet via `swiftkit_state_handle=`. That is the
+  # mechanism that lets a controller drive the SAME SwiftUI binding from
+  # the post-rerender instance. The SwiftKit dispatch behind
+  # `is_presented=` is compile-gated to -Dmacos/-Dios; on the web lane we
+  # pin the adoption itself (the property is platform-agnostic) and that
+  # mutating `is_presented` on the adopting instance tracks the value.
+  it "adopts a prior render's swiftkit_state_handle across re-render" do
+    state_ptr = Pointer(Void).new(0xBEEF_u64)
+
+    # Simulate the prior render: the renderer set this on the mounted view.
+    mounted = UI::Sheet.new
+    mounted.swiftkit_state_handle = state_ptr
+
+    # The fresh re-render builds a NEW Sheet instance at the same identity.
+    fresh = UI::Sheet.new
+    fresh.swiftkit_state_handle.should be_nil
+
+    # The reuse path adopts the surviving handle onto the fresh instance.
+    fresh.swiftkit_state_handle = mounted.swiftkit_state_handle
+    fresh.swiftkit_state_handle.should eq(state_ptr)
+
+    # is_presented= / dismiss! on the fresh instance now drive that handle.
+    fresh.is_presented = true
+    fresh.is_presented.should be_true
+    fresh.dismiss!
+    fresh.is_presented.should be_false
+  end
 end
 
 describe UI::SheetPresenter do
@@ -1650,7 +1754,7 @@ describe UI::SheetPresenter do
   it "calls on_dismiss callback" do
     called = false
     sheet = UI::Sheet.new
-    sheet.on_dismiss = ->{ called = true; nil }
+    sheet.on_dismiss = -> { called = true; nil }
     presenter = UI::SheetPresenter.new(sheet)
     presenter.present
     presenter.dismiss
@@ -1718,8 +1822,8 @@ describe UI::ConfirmationDialog do
     confirmed = false
     cancelled = false
     cd = UI::ConfirmationDialog.new("Confirm")
-    cd.on_confirm = ->{ confirmed = true; nil }
-    cd.on_cancel = ->{ cancelled = true; nil }
+    cd.on_confirm = -> { confirmed = true; nil }
+    cd.on_cancel = -> { cancelled = true; nil }
     cd.on_confirm.try(&.call)
     confirmed.should be_true
     cd.on_cancel.try(&.call)
@@ -1889,7 +1993,7 @@ describe UI::AsyncImage do
   it "stores on_load callback" do
     loaded = false
     ai = UI::AsyncImage.new("https://example.com/img.png")
-    ai.on_load = ->{ loaded = true; nil }
+    ai.on_load = -> { loaded = true; nil }
     ai.on_load.try(&.call)
     loaded.should be_true
   end
@@ -1969,7 +2073,7 @@ describe UI::LinkButton do
   it "stores on_tap callback" do
     tapped = false
     lb = UI::LinkButton.new("Tap")
-    lb.on_tap = ->{ tapped = true; nil }
+    lb.on_tap = -> { tapped = true; nil }
     lb.on_tap.try(&.call)
     tapped.should be_true
   end
@@ -3276,9 +3380,15 @@ describe UI::Theme do
     css.should contain("rgba(")
   end
 
-  it "web renderer inject_theme_css returns empty string with no theme" do
+  it "web renderer inject_theme_css emits the design-system default tokens with no theme" do
     renderer = UI::Web::Renderer.new
-    renderer.inject_theme_css.should eq("")
+    css = renderer.inject_theme_css
+    # With no explicit theme set, the renderer falls back to
+    # UI::Theme.design_system_default and always emits a <style> block
+    # carrying the unified design-token custom properties.
+    css.should contain("<style>")
+    css.should contain(":root")
+    css.should contain("--ap-")
   end
 
   it "web renderer inject_theme_css returns style block with theme" do

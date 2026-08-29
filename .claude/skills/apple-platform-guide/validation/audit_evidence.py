@@ -25,11 +25,59 @@ VALIDATION_ROOT = Path(__file__).resolve().parent
 REPORTS_DIR = VALIDATION_ROOT / "reports"
 SCREENSHOTS_DIR = VALIDATION_ROOT / "screenshots"
 EVIDENCE_DIR = VALIDATION_ROOT / "evidence"
+MOTION_DIR = VALIDATION_ROOT / "motion"
 WORKLIST_PATH = VALIDATION_ROOT / "worklist.json"
 REQUIRED_PLATFORMS = ("macos", "ios")
 REQUIRED_APPEARANCES = ("light", "dark")
 MIN_SCREENSHOT_BYTES = 10 * 1024
 MTIME_TOLERANCE_SECONDS = 1.0
+
+# ---------------------------------------------------------------------------
+# Usability bar U1–U4 + §1.3 "the missing evidence class"
+# (docs/initiative-cross-platform-ui/platform-capability-matrix.md §1).
+#
+# WHY THIS EXISTS. A `Sheet` that opened and closed nearly instantly was
+# marked PASSING because the only evidence this script ever checked was four
+# *static* PNGs — and a 0ms sheet and a 350ms sheet produce an IDENTICAL "open"
+# screenshot. The transition was invisible to the audit. That is the same class
+# of false-pass as the SecureField password-drop bug: appearance verified,
+# behavior/timing never exercised.
+#
+# THE RULE (matrix §1.3). For an *interactive surface* (one whose meaning is a
+# present/dismiss/transition — Sheet, Popover, Alert, ConfirmationDialog,
+# Snackbar, MenuButton, Tooltip, …), a still-only slug may NO LONGER be marked
+# a pass. It must additionally ship a `motion`/`interaction` evidence artifact:
+#
+#   1. A before/during/after triptych  motion/<slug>-{before,during,after}.png
+#      OR a short recording            motion/<slug>.{mp4,mov,gif,webm}
+#   2. A timed-behavior-test marker (the U4 artifact): either a
+#      `motion_test:` key in the report front-matter pointing at the spec, or a
+#      manifest motion/<slug>.json carrying a "timed_test" field.
+#
+# BACKWARD COMPATIBILITY. Non-interactive rows are untouched — they audit
+# exactly as before. A row is only treated as interactive when its `ui_view`
+# is in INTERACTIVE_UI_VIEWS *or* it sets `"interactive": true`. An interactive
+# row may explicitly opt out with `"motion_not_applicable": <reason string>`
+# (matrix U3's "native motion is intentionally system-default" escape hatch);
+# the reason is recorded so the opt-out is auditable, not silent.
+# ---------------------------------------------------------------------------
+INTERACTIVE_UI_VIEWS = frozenset(
+    {
+        "UI::Sheet",
+        "UI::Popover",
+        "UI::Alert",
+        "UI::ConfirmationDialog",
+        "UI::ActionSheet",
+        "UI::Snackbar",
+        "UI::MenuButton",
+        "UI::Tooltip",
+        "UI::NavigationStack",
+        "UI::NavigationLink",
+        "UI::TabView",
+    }
+)
+MOTION_TRIPTYCH_STATES = ("before", "during", "after")
+MOTION_RECORDING_SUFFIXES = (".mp4", ".mov", ".gif", ".webm")
 DEFAULT_REMEDIATION_HINT = (
     "Evidence audit failed; regenerate all four screenshots, report, and "
     "evidence manifest before design-critic review."
@@ -122,6 +170,108 @@ def normalize_validation_state(value: str | None) -> str | None:
     return state if state in VALIDATION_STATES else None
 
 
+def is_interactive_row(row: dict[str, Any]) -> bool:
+    """An interactive surface needs motion/interaction evidence (matrix §1.3).
+
+    True when the row opts in via ``"interactive": true`` or its ``ui_view`` is
+    one of the known present/dismiss/transition surfaces. Everything else is a
+    static surface and keeps the legacy still-only contract.
+    """
+    if row.get("interactive") is True:
+        return True
+    return row.get("ui_view") in INTERACTIVE_UI_VIEWS
+
+
+def audit_motion_evidence(row: dict[str, Any], report_text: str) -> dict[str, Any]:
+    """Audit the motion/interaction evidence class for an interactive row.
+
+    Returns a manifest fragment ``{"required", "applicable", ...}`` plus an
+    ``"errors"`` list. The errors block a pass: per matrix §1.3 a still frame
+    can no longer promote an interactive surface to ✅.
+    """
+    slug = row["slug"]
+    result: dict[str, Any] = {
+        "required": is_interactive_row(row),
+        "applicable": True,
+        "artifact": None,
+        "timed_test": None,
+        "errors": [],
+    }
+
+    if not result["required"]:
+        result["applicable"] = False
+        return result
+
+    # Explicit, auditable opt-out (matrix U3 escape hatch).
+    opt_out = row.get("motion_not_applicable")
+    if opt_out:
+        result["applicable"] = False
+        result["opt_out_reason"] = opt_out if isinstance(opt_out, str) else "unspecified"
+        if not isinstance(opt_out, str) or not opt_out.strip():
+            result["errors"].append(
+                "motion_not_applicable must be a non-empty reason string "
+                "(matrix U3: 'native motion is intentionally system-default')"
+            )
+        return result
+
+    # 1) Visual artifact: a before/during/after triptych OR a short recording.
+    triptych = {
+        state: MOTION_DIR / f"{slug}-{state}.png" for state in MOTION_TRIPTYCH_STATES
+    }
+    have_triptych = all(p.exists() for p in triptych.values())
+    recording = None
+    for suffix in MOTION_RECORDING_SUFFIXES:
+        candidate = MOTION_DIR / f"{slug}{suffix}"
+        if candidate.exists():
+            recording = candidate
+            break
+
+    if have_triptych:
+        result["artifact"] = {
+            "kind": "triptych",
+            "paths": {
+                state: str(p.relative_to(VALIDATION_ROOT)) for state, p in triptych.items()
+            },
+        }
+    elif recording is not None:
+        result["artifact"] = {
+            "kind": "recording",
+            "path": str(recording.relative_to(VALIDATION_ROOT)),
+        }
+    else:
+        result["errors"].append(
+            f"interactive surface missing motion artifact: provide a triptych "
+            f"motion/{slug}-{{before,during,after}}.png or a recording "
+            f"motion/{slug}.(mp4|mov|gif|webm) (usability bar §1.3)"
+        )
+
+    # 2) Timed-behavior-test marker (U4): report front-matter `motion_test:` OR
+    #    a manifest motion/<slug>.json with a "timed_test" field.
+    manifest_path = MOTION_DIR / f"{slug}.json"
+    timed_test = None
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            timed_test = manifest.get("timed_test")
+        except (json.JSONDecodeError, OSError) as exc:
+            result["errors"].append(f"motion manifest unreadable: {manifest_path.name} ({exc})")
+    if not timed_test:
+        fm_marker = report_frontmatter(slug).get("motion_test")
+        if fm_marker:
+            timed_test = fm_marker
+
+    if timed_test:
+        result["timed_test"] = timed_test
+    else:
+        result["errors"].append(
+            "interactive surface missing timed behavior test marker (U4): add "
+            "a `motion_test:` front-matter key pointing at the spec, or a "
+            f"motion/{slug}.json manifest with a \"timed_test\" field"
+        )
+
+    return result
+
+
 def audit_row(row: dict[str, Any]) -> dict[str, Any]:
     slug = row["slug"]
     errors: list[str] = []
@@ -190,6 +340,12 @@ def audit_row(row: dict[str, Any]) -> dict[str, Any]:
         if "../screenshots/" not in report_text:
             warnings.append("report contains no screenshot links")
 
+    # Usability bar §1.3 — motion/interaction evidence class. For interactive
+    # surfaces this can block a pass; a still frame can no longer promote an
+    # interactive surface to ✅.
+    motion = audit_motion_evidence(row, report_text)
+    errors.extend(motion["errors"])
+
     return {
         "slug": slug,
         "validation_state": row.get("validation_state"),
@@ -199,6 +355,7 @@ def audit_row(row: dict[str, Any]) -> dict[str, Any]:
         "warnings": warnings,
         "report": report,
         "screenshots": screenshots,
+        "motion": motion,
     }
 
 

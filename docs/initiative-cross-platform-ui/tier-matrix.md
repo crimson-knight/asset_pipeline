@@ -10,6 +10,13 @@ reconciled against Codex Checkpoint 1 feedback.
 See the Tier model section of [MASTER_PLAN.md](MASTER_PLAN.md) for the
 definitions.
 
+> **Looking for "what's available only on macOS / only on iOS"?** This matrix
+> covers *widgets* only. The consolidated per-platform exclusivity picture —
+> widgets **plus** capability surfaces (menu bar, windows, status bar, quick
+> actions, notifications) **plus** the system-experiences surface (widgets,
+> complications, live activities) and the watchOS roadmap — lives in
+> [`platform-capability-matrix.md`](platform-capability-matrix.md).
+
 ## How to use this matrix
 
 * New widget? Pick a tier and add it here in the same commit that adds
@@ -47,7 +54,7 @@ platform unit conventions) on every target.
 | VStack | `src/ui/views/vstack.cr` |
 | ZStack | `src/ui/views/zstack.cr` |
 
-## Tier 2 — Platform default (55 widgets)
+## Tier 2 — Platform default (59 widgets)
 
 These have a meaningful semantic on every platform; their visual
 treatment shifts based on the renderer. No gating; Phase 3's SwiftUI
@@ -71,10 +78,12 @@ bridge gives them their Apple polish.
 | DatePicker | `src/ui/views/date_picker.cr` | Yes | `<input type="date">` on web. |
 | DisclosureGroup | `src/ui/views/disclosure_group.cr` | — | |
 | Form | `src/ui/views/form.cr` | Yes | |
+| FullScreenCover | `src/ui/views/full_screen_cover.cr` | — | Phase 10B.4 — `:full_screen_cover` intent. Native lifecycle (UIVCM = .fullScreen) deferred to SwiftKit facade follow-up. |
 | Gauge | `src/ui/views/gauge.cr` | — | |
 | GlassBackground | `src/ui/views/glass_background.cr` | Yes | Degrades to standard backdrop on platforms without the glass material. |
 | IconButton | `src/ui/views/icon_button.cr` | Yes | |
 | ImageWell | `src/ui/views/image_well.cr` | — | |
+| Inspector | `src/ui/views/inspector.cr` | — | Phase 10B.4 — `:inspector` intent. Native split-view inspector-column binding deferred to SwiftKit facade follow-up. |
 | LinkButton | `src/ui/views/link_button.cr` | Yes | |
 | ListView | `src/ui/views/list_view.cr` | Yes | |
 | MapView | `src/ui/views/map_view.cr` | — | MapKit on Apple; Leaflet/Google embed on web. |
@@ -107,6 +116,8 @@ bridge gives them their Apple polish.
 | ToggleButton | `src/ui/views/toggle_button.cr` | Yes | |
 | TokenField | `src/ui/views/token_field.cr` | — | |
 | Toolbar | `src/ui/views/toolbar.cr` | Yes | Kept as a single cross-platform class; NSToolbar-style customization UI would land as a future Tier 3 `PlatformToolbar`. |
+| ToolbarItemGroup | `src/ui/views/toolbar_item_group.cr` | — | Phase 10B.4 — `:toolbar_item_group` intent. Standalone-group rendering shipped; inline-within-toolbar binding tracked under B-011 follow-up. |
+| ToolbarSpacer | `src/ui/views/toolbar_spacer.cr` | — | Phase 10B.4 — `:toolbar_spacer` intent. Flexible / fixed-width spacer; NSToolbar `flexibleSpace` identifier mapping tracked under B-011 follow-up. |
 | Tooltip | `src/ui/views/tooltip.cr` | — | |
 | VideoPlayer | `src/ui/views/video_player.cr` | — | |
 | WebViewComponent | `src/ui/views/web_view.cr` | — | |
@@ -125,6 +136,7 @@ cross-platform fallback.
 | ActionSheet | `src/ui/views/action_sheet.cr` | `:ios` | `ActionSheetWithWebFallback` | New in Phase 4. SwiftUI `.confirmationDialog` on iOS via `ConfirmationDialogFacade`. Current iOS routing degrades multi-action to {first non-cancel, cancel}; Phase 5 will add a multi-action SwiftKit facade. |
 | ContextMenu | `src/ui/views/context_menu.cr` | `:macos` or `:ios` | `ContextMenuWithWebFallback` | Right-click / long-press menu. Vanilla-JS positioned dropdown on web with arrow-key nav, Tab/Shift+Tab focus trap, Escape close, click-outside dismiss, Shift+F10 / ContextMenu key open. |
 | PathControl | `src/ui/views/path_control.cr` | `:macos` | `PathControlWithWebFallback` | NSPathControl is macOS-only. Web fallback emits a semantic `<nav aria-label="Breadcrumb"><ol>...</ol></nav>` with `aria-current="page"` on the leaf. |
+| Complication | `src/ui/views/complication.cr` | `:watchos` | `ComplicationWithWebFallback` | Phase 12 — WidgetKit watch-face/smart-stack complication; no honest non-watch analog. Naming it off-watchOS is a compile error (`_gate_stubs/complication.cr`). The companion renders a card-style preview everywhere else **via composition** (Card/VStack/Label) so no renderer needs a bespoke visit. Renderer (`UI::WatchKit::Renderer`) is deferred to Phase 12; the gate + companion + model ship now. |
 
 Cross-platform companion classes (Tier-2-behavior on the target where
 the gated class exists, full local rendering everywhere else):
@@ -134,6 +146,7 @@ the gated class exists, full local rendering everywhere else):
 | ActionSheetWithWebFallback | `src/ui/views/action_sheet_with_web_fallback.cr` | none | Delegates to UI::ActionSheet on iOS; renders a bottom-sheet on web; synthesises a UI::ConfirmationDialog on macOS / Android. |
 | ContextMenuWithWebFallback | `src/ui/views/context_menu_with_web_fallback.cr` | none | Delegates to UI::ContextMenu on Apple-family targets; renders a positioned vanilla-JS dropdown on web; renders a LinearLayout on Android. Carries an optional `trigger : View?` that the renderer emits as the host's first child so the fallback JS can bind contextmenu / Shift+F10 listeners. |
 | PathControlWithWebFallback | `src/ui/views/path_control_with_web_fallback.cr` | none | Delegates to UI::PathControl on macOS; renders a semantic breadcrumb everywhere else. |
+| ComplicationWithWebFallback | `src/ui/views/complication_with_web_fallback.cr` | none | Delegates to UI::Complication on -Dwatchos; on every other target composes a labelled Card preview of the content and delegates `accept` to it (no bespoke renderer visit). |
 
 `UI::PathControlStyle` (enum) remains universal so non-macOS callers
 can still annotate their `PathControlWithWebFallback` instances.
@@ -152,6 +165,15 @@ itself gated to Apple-family targets because it references the Tier 3
 `UI::ContextMenu`).
 
 ## Change log
+
+* **2026-05-26** — Phase 10B.4 added four missing-widget classes
+  surfaced by the Phase 10-pre catalog freshness audit:
+  `FullScreenCover` (`:full_screen_cover`), `Inspector` (`:inspector`),
+  `ToolbarItemGroup` (`:toolbar_item_group`), and `ToolbarSpacer`
+  (`:toolbar_spacer`). All four are Tier 2 with web + macOS + iOS +
+  Android visitor implementations and specs. Native lifecycle wiring
+  for the modal / split-view / toolbar-host integrations is preserved
+  as backlog items B-009, B-010, B-011 follow-up work.
 
 * **2026-05-21** — Phase 4 created the initial classification.
   17 Tier 1, 55 Tier 2, 3 Tier 3 (gated classes: `ActionSheet`,

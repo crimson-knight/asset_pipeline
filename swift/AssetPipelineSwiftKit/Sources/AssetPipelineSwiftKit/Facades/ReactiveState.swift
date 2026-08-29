@@ -106,6 +106,38 @@ public final class APSKButtonState: NSObject, ObservableObject {
 @objc(APSKSheetState)
 public final class APSKSheetState: NSObject, ObservableObject {
     @Published public var isPresented: Bool
+    // Phase 12.B — interaction-contracts marker metadata. Set by SheetFacade
+    // after construction so write-side mutations via apsk_sheet_set_presented
+    // can emit binding-write-true / binding-write-false markers. Codex
+    // Phase 12.A CONCERN 7 fix.
+    public var apicViewID: String? = nil
+    // True while the user has signaled an intentional dismiss (e.g. tapped
+    // a button whose action returns ActionResult.pop). Used by
+    // SheetHost.onDisappear to distinguish intentional dismiss from
+    // host teardown during Rerender. Codex Phase 12.A CONCERN 4 fix —
+    // the host-removal probe.
+    public var apicIntentionalDismiss: Bool = false
+
+    // Usability-bar motion (platform-capability-matrix.md §1, U1–U3).
+    // The bounded present/dismiss animation resolved by SheetFacade from the
+    // SheetOverrides motion fields + the baked MotionScale tokens. nil means
+    // "no override resolved" (legacy callers / makeSheet shim) — in that case
+    // apsk_sheet_set_presented still applies a SAFE library default so the
+    // transition can never collapse to an instant snap (U1 floor).
+    public var presentationAnimation: SwiftUI.Animation? = nil
+
+    // Phase 12.D — true when the sheet was CREATED already-presented (the
+    // declarative rerender-mount path: a Rerender rebuilds the tree with a
+    // UI::Sheet whose is_presented is already true). SwiftUI does NOT animate a
+    // `.sheet` whose isPresented is true at first render — it snaps in. So
+    // SheetHost starts NOT presented and, on the persistent host's .onAppear,
+    // flips isPresented true on the next runloop wrapped in
+    // `presentationAnimation`, which makes SwiftUI play the present transition.
+    // This brings the declarative mount path to parity with the imperative
+    // binding-flip path (apsk_sheet_set_presented), which already animates.
+    // Plain var (not @Published): it gates a one-shot side effect in onAppear,
+    // not observable view state.
+    public var pendingInitialPresent: Bool = false
 
     public init(isPresented: Bool) {
         self.isPresented = isPresented
@@ -256,7 +288,65 @@ public func apskSheetSetPresented(
     let state = Unmanaged<APSKSheetState>.fromOpaque(stateHandle)
         .takeUnretainedValue()
     let newValue = (isPresented != 0)
-    apskMainAsync { state.isPresented = newValue }
+    apskMainAsync {
+        let previousValue = state.isPresented
+        // Usability bar U1: wrap the binding flip in `withAnimation` so the
+        // .sheet present/dismiss is perceptible and bounded. A Crystal-pushed
+        // true→true / false→false is a no-op below (previousValue == newValue),
+        // but when it does change we drive a floored, bounded transition —
+        // never an instant snap. `presentationAnimation` is resolved by
+        // SheetFacade; the `?? .spring(...)` guard protects legacy `makeSheet`
+        // callers that never set it.
+        let animation = state.presentationAnimation
+            ?? .spring(response: 0.240, dampingFraction: 0.86)
+        withAnimation(animation) {
+            state.isPresented = newValue
+        }
+        // Phase 12.B — Sheet write-side markers (Codex CONCERN 7 fix).
+        // Emitted only when the value actually changes, so re-applying
+        // an identical state doesn't spam the harness log.
+        if previousValue != newValue {
+            if newValue {
+                InteractionContracts.emit(
+                    widget: "Sheet",
+                    event: "binding-write-true",
+                    viewID: state.apicViewID,
+                    kv: ["source": "crystal-push"]
+                )
+            } else {
+                InteractionContracts.emit(
+                    widget: "Sheet",
+                    event: "binding-write-false",
+                    viewID: state.apicViewID,
+                    kv: ["source": "crystal-push"]
+                )
+            }
+        }
+    }
+}
+
+// Phase 12.C — programmatic presentation flip for ConfirmationDialog
+// (Codex iter-1 BLOCKER 1 fix). ConfirmationDialog facades back the
+// SwiftUI `.confirmationDialog(isPresented:)` modifier with a
+// `BoolStorage`. Routing through `setProgrammatically(_:)` (NOT
+// `binding.set`) means:
+//   * `value` updates so SwiftUI's `.confirmationDialog` modifier sees
+//     `isPresented = false` and animates the dismiss.
+//   * APIC markers fire ("platform-dismissed" / "present" on transitions)
+//     so the harness can correlate the binding flip with the host
+//     teardown.
+//   * `CallbackBridge.fire` does NOT fire — Crystal initiated the
+//     mutation; re-firing would double-dispatch. (`binding.set` fires
+//     the callback unconditionally; `setProgrammatically` does not.)
+@_cdecl("apsk_confirmation_dialog_set_presented")
+public func apskConfirmationDialogSetPresented(
+    _ stateHandle: UnsafeMutableRawPointer,
+    _ isPresented: Int32
+) {
+    let state = Unmanaged<BoolStorage>.fromOpaque(stateHandle)
+        .takeUnretainedValue()
+    let newValue = (isPresented != 0)
+    apskMainAsync { state.setProgrammatically(newValue) }
 }
 
 // Release the +1 retain Crystal acquired when the state object was

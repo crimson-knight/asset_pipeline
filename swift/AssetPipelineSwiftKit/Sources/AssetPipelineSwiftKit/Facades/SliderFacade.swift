@@ -7,6 +7,9 @@
 import SwiftUI
 import Foundation
 
+// watchOS: ENABLED (Phase D Bucket-2 P2 port, 2026-06-02). Pure SwiftUI —
+// `Slider(value:in:)` is watch-native (Digital Crown drives it); no UIKit or
+// watch-unavailable APIs, so this is a straight un-gate. See watch-facade-bucket-audit.md.
 @objc(APSKSliderFacade)
 public class SliderFacade: NSObject {
     @objc public static func makeSlider(
@@ -79,7 +82,7 @@ struct SliderDoubleHost: View {
             )
         }
 
-        let content = AnyView(
+        var content = AnyView(
             slider.onChange(of: storage.value) { newValue in
                 if storage.suppressNextFire {
                     storage.suppressNextFire = false
@@ -88,6 +91,22 @@ struct SliderDoubleHost: View {
                 CallbackBridge.fire(token: storage.token, value: newValue)
             }
         )
+
+        // Tint. Crystal's `UI::Slider#tint_color` arrives as `foregroundColor`.
+        // A SwiftUI Slider colours its minimum-track + thumb via `.tint(_:)` —
+        // NOT `.foregroundStyle`, which CommonModifiers applies and which a
+        // Slider ignores. So apply `.tint(...)` here; otherwise the tint is
+        // silently dropped and the slider renders in the system accent/gray.
+        // (Surfaced by Happy Coach's Sound Levels mixer, whose channels must be
+        // #6a6dcd periwinkle.)
+        if let fg = overrides.foregroundColor {
+            #if canImport(UIKit)
+            content = AnyView(content.tint(Color(uiColor: fg)))
+            #else
+            content = AnyView(content.tint(Color(nsColor: fg)))
+            #endif
+        }
+
         return CommonModifiers.apply(content, overrides: overrides)
     }
 }

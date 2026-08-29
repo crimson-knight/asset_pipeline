@@ -28,6 +28,12 @@ import Foundation
 import UIKit
 #endif
 
+// watchOS: ENABLED (Phase D Bucket-2 P1 port, 2026-06-02). watchOS has no UISwitch
+// (`@available(watchOS, unavailable)`), so the watch uses the SwiftUI `Toggle` path
+// shared with macOS — the UISwitch/UIViewRepresentable path is iOS-only
+// (`canImport(UIKit) && !os(watchOS)`). The `.switch`/`.checkbox` toggle styles are
+// also watch-unavailable and are gated off there (the default Toggle is switch-like
+// on watch). See watch-facade-bucket-audit.md.
 @objc(APSKToggleFacade)
 public class ToggleFacade: NSObject {
     @objc public static func makeToggle(
@@ -79,7 +85,7 @@ private struct ToggleHost: View {
     let actionToken: UInt64
 
     var body: some View {
-        #if canImport(UIKit)
+        #if canImport(UIKit) && !os(watchOS)
         // ----- iOS path: UIViewRepresentable wrapping UISwitch -----
         var content: AnyView = AnyView(
             HStack(spacing: 8) {
@@ -100,7 +106,8 @@ private struct ToggleHost: View {
 
         return CommonModifiers.apply(content, overrides: overrides)
         #else
-        // ----- macOS path: original SwiftUI Toggle (BX3 is iOS-only) -----
+        // ----- macOS + watchOS path: SwiftUI Toggle (BX3 is iOS-only; watchOS has
+        // no UISwitch, so SwiftUI Toggle is the native control there) -----
         var content: AnyView = AnyView(
             Toggle(label, isOn: $storage.value)
                 .onChange(of: storage.value) { newValue in
@@ -118,9 +125,22 @@ private struct ToggleHost: View {
 
         switch overrides.toggleStyle {
         case "button":   content = AnyView(content.toggleStyle(.button))
+        #if !os(watchOS)
+        // `.switch` (SwitchToggleStyle) and `.checkbox` (CheckboxToggleStyle) are
+        // both `@available(watchOS, unavailable)`.
         case "switch":   content = AnyView(content.toggleStyle(.switch))
         case "checkbox": content = AnyView(content.toggleStyle(.checkbox))
+        // nil / unspecified → `.switch` (pill). UI::Toggle IS the switch control
+        // (UI::Checkbox is the dedicated checkbox component, and the Crystal
+        // populator omits the style for the default Switch — see ToggleOverrides
+        // "nil = .switch"). Without this, SwiftUI's macOS Toggle defaults to a
+        // CHECKBOX, making UI::Toggle indistinguishable from UI::Checkbox.
+        default:         content = AnyView(content.toggleStyle(.switch))
+        #else
+        // watchOS: .switch/.checkbox are unavailable; the default Toggle is
+        // already switch-like there, so leave it unstyled.
         default: break
+        #endif
         }
 
         if let disabled = overrides.disabled, disabled.boolValue {
@@ -132,7 +152,7 @@ private struct ToggleHost: View {
     }
 }
 
-#if canImport(UIKit)
+#if canImport(UIKit) && !os(watchOS)
 // APSKToggleRepresentable — wraps a UIKit `UISwitch` so XCUIElement.tap()
 // routes through the canonical UIControl tap-handling that fires
 // `UIControlEventValueChanged`. Crystal-side programmatic mutations

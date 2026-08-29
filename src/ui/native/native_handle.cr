@@ -67,6 +67,36 @@ module UI
     # except Label / Button / Toggle / Slider).
     property state_handle : Pointer(Void)? = nil
 
+    # Phase 12.C — kind tag for reactive presentation handles. When set,
+    # identifies the SwiftKit state object behind `state_handle` so the
+    # cross-render sweep (`UIKit::Renderer.dismiss_reactive_presentations!`)
+    # can dispatch the correct `apsk_*_set_presented` call without
+    # type-introspecting the opaque pointer.
+    #
+    # Current vocabulary:
+    #   `:sheet`   — APSKSheetState (set by `visit(UI::Sheet)`); swept via
+    #                `apsk_sheet_set_presented(handle, 0)` before the next
+    #                render's tree swap so the binding flips with
+    #                cause=`binding-dismiss` instead of `tree-removal`.
+    #
+    # Nil for non-presentation reactive handles (Label / Button / Toggle /
+    # Slider) — those participate in `state_handle` for value mutation, but
+    # they are not modal hosts and don't need the cross-render sweep.
+    property reactive_kind : Symbol? = nil
+
+    # Phase 12.C — identity key for the cross-render presentation sweep
+    # (C1 compliance). When the renderer emits a reactive presentation
+    # (Sheet, ConfirmationDialog, Popover, Alert), it stores the source
+    # view's `test_id` (or `accessibility_identifier`) here so the sweep
+    # can determine whether the SAME presentation persists in the next
+    # render — in which case it MUST NOT flip the binding.
+    #
+    # Without this, an unrelated Rerender (e.g., a checkbox toggle while
+    # an editor sheet is open) would close every open sheet. With it,
+    # only handles whose identity is absent from (or closed in) the new
+    # tree are swept. See `presentation-lifecycle-contract.md` C1.
+    property presentation_identity : String? = nil
+
     def initialize(@ptr : Void*, @strategy : ReleaseStrategy, @label : String? = nil)
       {% if flag?(:ui_debug) %}
         UI::NativeHandleTracker.register(self)

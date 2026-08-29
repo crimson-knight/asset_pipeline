@@ -33,6 +33,11 @@ Lint requires every row to carry all 12 common-schema fields. Class D rows carry
 - **web_equivalent:** No native swipe affordance on desktop; mobile web uses CSS + JS gesture libraries OR inline buttons fallback
 - **coverage_today:** partial on iOS/iPadOS/web (`src/ui/views/swipe_action_row.cr:64-65`; iOS swipe-reveal via `src/ui/renderers/uikit_renderer.cr:3823-3870`; web via `src/ui/renderers/web_renderer.cr:2887-2911`); macOS inline-button degradation (`src/ui/renderers/appkit_renderer.cr:3819-3826`); Android renderer is a STUB (`src/ui/renderers/android_renderer.cr:3148-3152` — defers proper integration to Phase 10B.1c) # caveats: trailing-edge only on iOS/macOS/Android; leading-edge honored only on web (`src/ui/renderers/web_renderer.cr:2909-2911`); destructive role honored on iOS + web; AppKit drops it. Capability block trimmed in 10-pre.1 — see intent-routing-candidates.md.
 - **description:** Reveal trailing or leading actions on a list row via swipe gesture. HIG requires an alternate non-gesture path (button, custom action, keyboard shortcut) per `gestures.md:23,31` and `accessibility.md:134`. Materially different per platform: iOS swipe-reveal vs macOS inline trailing buttons (AppKit `def visit(view : UI::SwipeActionRow)` at `src/ui/renderers/appkit_renderer.cr:3806` renders content + trailing-action NSButtons inline).
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/swipe-action.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:180-205
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/01_drag_handle_visible.png
+- **override_path_status:** public-knobs (label, icon, role, on_tap, on_tap_route on `UI::SwipeAction`; per-action tint + alternative label styles tracked in B-LIST-SWIPE-TINT / B-LIST-SWIPE-LABEL-STYLE)
 
 ---
 
@@ -398,7 +403,7 @@ Single Crystal API surface, different native implementation per platform. **NOT 
 - **hig_page:** `system-experiences.md`
 - **android_equivalent:** `Intent.ACTION_VIEW` with URI
 - **web_equivalent:** `window.open(url)` or `location.href = url`
-- **coverage_today:** missing
+- **coverage_today:** partial — wired on macOS (`NSWorkspace`, `objc_bridge.m ap_open_url_macos`) and iOS (`UIApplication.open`, `ap_open_url_ios`) via the `:open_url` Class C binding (`src/ui/system_action/bootstrap.cr`); **web now returns `Result.unsupported`** (false-success fix 2026-06-01 — the STDERR stand-in performed no `window.open`, so it no longer fakes success); Android raises (unsupported). Real web `window.open` emit is the remaining gap (no JS-emit seam in the `Args`-only dispatch path).
 - **description:** Open a URL in the system default handler (browser for web, mail client for mailto:, etc.).
 
 ### `:on_open_url`
@@ -413,7 +418,7 @@ Single Crystal API surface, different native implementation per platform. **NOT 
 - **hig_page:** `system-experiences.md`
 - **android_equivalent:** App Links / `Intent` filters
 - **web_equivalent:** URL routing handled by the framework's router
-- **coverage_today:** missing
+- **coverage_today:** partial — the **Crystal-side dispatch seam is real and routes** on every platform: `:incoming_deep_link` → `incoming_deep_link_dispatch` → `UI::SystemAction::IncomingDeepLink.fire(url)` invokes every handler registered via `IncomingDeepLink.on_receive` (`src/ui/system_action/bootstrap.cr`; verified by `spec/web/ui/system_action_features_spec.cr` — handlers fire, multiple handlers, exception isolation). This is the seam Phase 11 D5 assumes (`phases/phase-11-home-screen-widgets.md:73`). **Native OS→Crystal edge is pending** (not faked, simply unwired): no URL-scheme registration / `scene(_:openURLContexts:)` (iOS) / `application(_:open:)` (macOS) / `<intent-filter>` + `Intent.getData()` (Android) yet forwards to `IncomingDeepLink.fire`. So incoming links arrive only when the host fires them (the App-Intent-URL-launch path D5 uses).
 - **description:** Handle incoming URL/deep-link to navigate to a specific app state.
 
 ### `:ui_print_interaction_controller`
@@ -483,6 +488,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `list = UI::ListView.flat(items: rows)` OR `UI::ListView.new(sections: [UI::ListView::Section.new(items: rows)])`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Vertically-scrolling collection of rows with native row management (separators, selection, swipe actions, reorder support).
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/list-view.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:127-209
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/01_drag_handle_visible.png
+- **override_path_status:** public-knobs (`content_inset_horizontal`, `row_removal_duration_seconds`, `shows_drag_handle` ship as Phase 10D-polish A2/A3/A4 defaults; per-action tint + macOS chrome parity tracked in B-LIST-SWIPE-TINT / B-LIST-MACOS-CHROME)
 
 ### `:list_row_separator`
 
@@ -653,6 +663,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `sheet = UI::Sheet.new(content); presenter = UI::SheetPresenter.new(sheet); presenter.present`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Present content as a modal sheet anchored to bottom (iOS) or floating (macOS).
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/sheet.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:277-294
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/05_sheet_editor_new.png
+- **override_path_status:** public-knobs (`detents`, `shows_drag_indicator`, `on_dismiss`, `surface_style`, `material_semantic`, reactive `is_presented=`; custom detent height + interactive-dismiss-disabled tracked in B-SHEET-CUSTOM-DETENT-HEIGHT / B-SHEET-INTERACTIVE-DISMISS-DISABLED)
 
 ### `:full_screen_cover`
 
@@ -666,9 +681,9 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `modality.md`
 - **android_equivalent:** Full-screen `Dialog` or full-screen activity
 - **web_equivalent:** Full-viewport modal overlay
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — no UI::FullScreenCover class exists in src/ui/views/. Tracked under B-010 full-screen cover.`
-- **platforms:** ios, ipados, android; macos+web use sheets at appropriate size
+- **coverage_today:** partial (`src/ui/views/full_screen_cover.cr:50` — `class FullScreenCover < View` with `content`, `is_presented`, `on_dismiss`; visitor entry points at `src/ui/renderers/web_renderer.cr:3196` (fixed-inset overlay), `src/ui/renderers/uikit_renderer.cr:4087` (hidden-toggle UIView fallback), `src/ui/renderers/appkit_renderer.cr:3976` (hidden-toggle NSView fallback), `src/ui/renderers/android_renderer.cr:3318` (visibility-toggle FrameLayout). Full `UIViewController.modalPresentationStyle = .fullScreen` lifecycle deferred to SwiftKit facade follow-up.) # was: missing — Phase 10B.4 shipped widget class + 4 renderer visit methods + spec; native lifecycle wiring tracked under B-010 follow-up.
+- **crystal_api_shape:** `cover = UI::FullScreenCover.new(content); cover.is_presented = true`
+- **platforms:** ios, ipados, android (native modal); macos, web (fallback container with role=dialog)
 - **description:** Modal that takes the entire screen (no peek of the parent).
 
 ### `:popover`
@@ -687,6 +702,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `popover = UI::Popover.new(content, :bottom); presenter = UI::PopoverPresenter.new(popover, anchor_view); presenter.present`
 - **platforms:** ipados, macos, web_wide; iOS+web_narrow fall back to sheet
 - **description:** Transient floating panel anchored to a source view. iPad/macOS only — on iPhone falls back to sheet.
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/popover.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:296-340
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/07_popover_overflow.png
+- **override_path_status:** public-knobs (arrow_edge, preferred_width/height, on_dismiss, material_semantic; anchor-to-source-view + force-popover-on-iPhone + reactive `is_presented=` tracked in B-POPOVER-ANCHOR-VIEW / B-POPOVER-COMPACT-ADAPTATION / B-POPOVER-REACTIVE-PRESENTED)
 
 ### `:inspector`
 
@@ -700,8 +720,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `inspectors.md`
 - **android_equivalent:** —
 - **web_equivalent:** Side panel via CSS grid/flex
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — no UI::Inspector class exists in src/ui/views/, and no screen.inspector= setter on UI::Screen. Tracked under B-009 inspector view.`
+- **coverage_today:** partial (`src/ui/views/inspector.cr:51` — `class Inspector < View` with `content`, `inspector_content`, `is_presented`, `preferred_width`; visitor entry points at `src/ui/renderers/web_renderer.cr:3231` (CSS-grid 2-column with `role="complementary"`), `src/ui/renderers/uikit_renderer.cr:4117` (horizontal UIStackView fallback), `src/ui/renderers/appkit_renderer.cr:4011` (horizontal NSStackView fallback), `src/ui/renderers/android_renderer.cr:3354` (horizontal LinearLayout fallback). Full `UISplitViewController` / `NSSplitViewController` inspector-column binding deferred to SwiftKit facade follow-up.) # was: missing — Phase 10B.4 shipped widget class + 4 renderer visit methods + spec; native split-view binding tracked under B-009 follow-up.
+- **crystal_api_shape:** `inspector = UI::Inspector.new(primary_view, inspector_view); inspector.preferred_width = 320.0`
 - **platforms:** ipados, macos, web_wide; ios+android+web_narrow use sheet fallback
 - **description:** Side-panel detail view that complements primary content. Detail-on-side, never modal.
 
@@ -721,6 +741,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `alert = UI::Alert.new("Delete?", "This cannot be undone."); alert.add_button("Delete", :destructive) { state.delete }; alert.add_button("Cancel"); alert.is_presented = true`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Critical attention modal requiring user decision. Sparing use per HIG.
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/alert.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:225-247
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/03_alert_delete_confirm.png
+- **override_path_status:** facade-extension-required (alert chrome is system-resolved per HIG; custom branding requires `UI::Sheet(surface_style: :grouped_card)` workaround OR a future `UI::CustomAlert` class — B-ALERT-CUSTOM-CHROME)
 
 ### `:confirmation_dialog`
 
@@ -738,6 +763,11 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **crystal_api_shape:** `dialog = UI::ConfirmationDialog.new("Delete?", "This cannot be undone."); dialog.confirm_style = :destructive; dialog.on_confirm = -> { state.delete }; dialog.is_presented = true`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Sheet-style confirmation for destructive or significant actions. Distinct from alert: confirmation dialogs let the user choose among multiple paths; alerts inform.
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/action-sheet.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr:249-275
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/04_actionsheet_share.png
+- **override_path_status:** public-knobs (multi-action support shipped in Phase 10D-polish iter 2 — `B-ACTIONSHEET-MULTI-ACTION` resolved; ConfirmationDialogOverrides now carries actionLabels/actionStyles/actionTokens arrays. `UI::ActionSheet` is Tier 3 iOS-gated; cross-platform uses `UI::ActionSheetWithWebFallback`.)
 
 ### `:presentation_detents`
 
@@ -785,8 +815,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `sheets.md:85`
 - **android_equivalent:** `ModalBottomSheet` `shouldDismissOnBackPress = false`
 - **web_equivalent:** Disable backdrop-click + ESC handling
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — no interactive_dismiss_disabled property on UI::Sheet (src/ui/views/sheet.cr:1-50). Tracked in phase-10-pre-2-close.md "new gaps surfaced".`
+- **coverage_today:** full (Phase 10D-polish iter 2)
+- **crystal_api_shape:** `UI::Sheet#interactive_dismiss_disabled : Bool = false` (`src/ui/views/sheet.cr`). SheetOverrides carries the field; SheetFacade applies `.interactiveDismissDisabled(true)` inside the sheet body when true.
 - **platforms:** ios, ipados, android, web_wide, web_narrow; macos uses modal-only mode
 - **description:** Prevent the user from dismissing a sheet via swipe-down or background tap (typically because unsaved changes need confirmation).
 
@@ -836,8 +866,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `toolbars.md`
 - **android_equivalent:** Multiple action slots
 - **web_equivalent:** Button group HTML
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — UI::Toolbar (src/ui/views/toolbar.cr) only ships flat add_item(id:, label:, icon:) and has no group concept. Tracked in phase-10-pre-2-close.md "new gaps surfaced" item 3.`
+- **coverage_today:** partial (`src/ui/views/toolbar_item_group.cr:60` — `class ToolbarItemGroup < View` sharing `Toolbar::ToolbarItem` value type; visitor entry points at `src/ui/renderers/web_renderer.cr:3272` (`<div role="group" aria-label="...">` with button siblings), `src/ui/renderers/uikit_renderer.cr:4153` (horizontal UIStackView), `src/ui/renderers/appkit_renderer.cr:4047` (horizontal NSStackView), `src/ui/renderers/android_renderer.cr:3391` (horizontal LinearLayout). Toolbar host integration — adding groups inline within a `UI::Toolbar` — tracked as follow-up under B-011.) # was: missing — Phase 10B.4 shipped standalone widget class + 4 renderer visit methods + spec; Toolbar host integration tracked under B-011 follow-up.
+- **crystal_api_shape:** `group = UI::ToolbarItemGroup.new("Formatting"); group.add_item("bold", "Bold"); group.add_item("italic", "Italic")`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Grouped toolbar items that visually belong together.
 
@@ -887,8 +917,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `toolbars.md`
 - **android_equivalent:** `Spacer` between actions
 - **web_equivalent:** Flex spacer
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — UI::Toolbar (src/ui/views/toolbar.cr) only ships flat add_item(id:, label:, icon:) and has no spacer concept. Tracked in phase-10-pre-2-close.md "new gaps surfaced" item 3.`
+- **coverage_today:** partial (`src/ui/views/toolbar_spacer.cr:36` — `class ToolbarSpacer < View` with `fixed_size : Float64?` (`flexible?` getter); visitor entry points at `src/ui/renderers/web_renderer.cr:3307` (`<div aria-hidden="true">` with `flex: 1 1 auto` or `flex: 0 0 <size>px`), `src/ui/renderers/uikit_renderer.cr:4193` (UIView placeholder), `src/ui/renderers/appkit_renderer.cr:4087` (NSView placeholder), `src/ui/renderers/android_renderer.cr:3429` (`android.widget.Space`). NSToolbar / UIToolbar host integration (mapping to `flexibleSpace` identifiers) tracked as follow-up under B-011.) # was: missing — Phase 10B.4 shipped standalone widget class + 4 renderer visit methods + spec; native toolbar host integration tracked under B-011 follow-up.
+- **crystal_api_shape:** `flex_spacer = UI::ToolbarSpacer.new; fixed_spacer = UI::ToolbarSpacer.new(16.0)`
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Spacer between toolbar items, fixed or flexible.
 
@@ -1125,10 +1155,15 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `date-pickers.md`
 - **android_equivalent:** Material `DatePicker` modal
 - **web_equivalent:** `<input type="date">`
-- **coverage_today:** partial (`src/ui/views/date_picker.cr:4-10` — `class DatePicker < View` with `selected_date`, `mode`, `minimum_date`, `maximum_date`, `on_change`; visitors at `src/ui/renderers/uikit_renderer.cr:1408`, `src/ui/renderers/appkit_renderer.cr:1353`, `src/ui/renderers/web_renderer.cr:957`, `src/ui/renderers/android_renderer.cr:1456`. No `date_picker_style` switch — only one rendering mode per platform today.)
-- **crystal_api_shape:** `# Not yet implemented — UI::DatePicker (src/ui/views/date_picker.cr:4-22) has no date_picker_style property; only `mode` (a DatePickerMode enum) ships today. Tracked in phase-10-pre-2-close.md "new gaps surfaced".`
+- **coverage_today:** full (Phase 10D-polish iter 2 — `UI::DatePicker#style = UI::DatePickerStyle::Compact` ships; DatePickerFacade applies `.datePickerStyle(.compact)`.)
+- **crystal_api_shape:** `picker.style = UI::DatePickerStyle::Compact` (`src/ui/views/date_picker.cr`).
 - **platforms:** ios, ipados, macos, android, web_wide, web_narrow
 - **description:** Compact field showing the value; tap/click to open calendar popover.
+- **demo_status:** documented-with-default-experience
+- **usage_doc:** ../../../.claude/skills/apple-platform-guide/usage/date-picker.md
+- **canonical_example:** samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr (editor sheet picker)
+- **evidence:** ../handoff/phase-10-d-polish-screenshots/06_datepicker_deadline.png
+- **override_path_status:** public-knobs (mode + bounds + style + on_change). Year-display offset tracked separately in B-DATEPICKER-EPOCH-CONVERSION.
 
 ### `:graphical_date_picker_style`
 
@@ -1142,8 +1177,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `date-pickers.md`
 - **android_equivalent:** Material `DatePicker` inline mode
 - **web_equivalent:** Calendar grid widget
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — UI::DatePicker has no date_picker_style property (same gap as :compact_date_picker_style).`
+- **coverage_today:** full (Phase 10D-polish iter 2 — `UI::DatePickerStyle::Graphical` → `.datePickerStyle(.graphical)`)
+- **crystal_api_shape:** `picker.style = UI::DatePickerStyle::Graphical`
 - **platforms:** ios, ipados, macos, android, web_wide
 - **description:** Expanded calendar view inline. Suitable for date-pickers in forms with space.
 
@@ -1159,8 +1194,8 @@ Class D entries carry the 12 common-schema fields PLUS `crystal_api_shape` and `
 - **hig_page:** `date-pickers.md`
 - **android_equivalent:** —
 - **web_equivalent:** Custom wheel/drum
-- **coverage_today:** missing
-- **crystal_api_shape:** `# Not yet implemented — UI::DatePicker has no date_picker_style property (same gap as :compact_date_picker_style).`
+- **coverage_today:** full (Phase 10D-polish iter 2 — `UI::DatePickerStyle::Wheels` → `.datePickerStyle(.wheel)` on iOS)
+- **crystal_api_shape:** `picker.style = UI::DatePickerStyle::Wheels`
 - **platforms:** ios, ipados
 - **description:** iOS-classic wheel picker. Use sparingly per HIG; compact is preferred.
 

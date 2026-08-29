@@ -24,28 +24,38 @@ module UI
 
   # PathView — Vector path primitive driven by an explicit drawing command sequence.
   class PathView < View
+    # Ordered list of option labels.
     property segments : Array(PathSegment) = [] of PathSegment
+    # Solid fill color for the shape body.
     property fill_color : Color? = nil
+    # Stroke / outline color for the shape.
     property stroke_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
+    # Stroke / outline width in pt.
     property stroke_width : Float64 = 1.0
+    # Intrinsic width in pt.
     property width : Float64 = 100.0
+    # Intrinsic height in pt.
     property height : Float64 = 100.0
 
     def initialize(@width : Float64 = 100.0, @height : Float64 = 100.0)
     end
 
+    # Moves the cursor to `(x, y)` without drawing.
     def move_to(x : Float64, y : Float64)
       @segments << PathSegment.new(command: PathCommand::MoveTo, x: x, y: y)
     end
 
+    # Draws a line from the current cursor to `(x, y)`.
     def line_to(x : Float64, y : Float64)
       @segments << PathSegment.new(command: PathCommand::LineTo, x: x, y: y)
     end
 
+    # Draws a curve from the current cursor to the destination.
     def curve_to(x : Float64, y : Float64, cx1 : Float64, cy1 : Float64, cx2 : Float64, cy2 : Float64)
       @segments << PathSegment.new(command: PathCommand::CurveTo, x: x, y: y, control_x1: cx1, control_y1: cy1, control_x2: cx2, control_y2: cy2)
     end
 
+    # Closes the overlay / modal.
     def close
       @segments << PathSegment.new(command: PathCommand::Close)
     end

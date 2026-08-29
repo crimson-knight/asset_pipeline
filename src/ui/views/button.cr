@@ -70,6 +70,39 @@ module UI
     # Foreground (label) color
     property foreground_color : Color = Color.new(r: 0.0, g: 0.478, b: 1.0)
 
+    # Maximum label lines. Default `1` keeps the single-line, truncating
+    # CTA behavior. Set `0` for unlimited (wrap to as many lines as needed)
+    # or `n > 1` for a wrapping cap — used for content buttons whose label is
+    # user text (e.g. a tappable thought card) that must wrap, not truncate.
+    # The SwiftUI facade also applies `.fixedSize(vertical:)` so the wrapped
+    # label takes its natural multi-line height inside a width-constrained
+    # (fill_horizontal) container.
+    property number_of_lines : Int32 = 1
+
+    # Horizontal alignment of the label text.
+    #
+    # `nil` — the default — means "let the renderer decide from context": the
+    # browser's native `<button>` centres, and the SwiftUI facade centres unless
+    # the button was pinned to fill its row (`fill_horizontal`), in which case it
+    # reads leading, because a row-filling label is usually body text (a wrapping
+    # tappable affirmation / thought card, matching the Expo design's
+    # left-aligned Pressable text).
+    #
+    # SET IT EXPLICITLY AND THE RENDERER OBEYS — including on native, which is
+    # new. This property used to be typed `Alignment = Center` and to end with
+    # the sentence "native button renderers currently treat the label as
+    # centered", which was the documentation of a GAP: on iOS nothing read it,
+    # so `fill_horizontal` alone decided, and every full-width call to action
+    # came out with its label jammed against the leading edge of a 349pt capsule
+    # (measured on `00-error-dark`, ~690px / 230pt of empty fill to the label's
+    # right). Because `Center` was also the type default, no renderer could tell
+    # "the caller asked for centre" from "the caller said nothing" — so the fix
+    # needed the third state, not a new default.
+    #
+    # A CTA should say `Alignment::Center`. A content button whose label is the
+    # user's own prose should say `Alignment::Leading` or leave this nil.
+    property text_alignment : Alignment? = nil
+
     # Whether the button is disabled (non-interactive).
     #
     # Reactive: after the renderer has emitted the SwiftUI hosting view,
@@ -83,6 +116,7 @@ module UI
     # rebuilding the whole screen.
     getter disabled : Bool = false
 
+    # Assigns the disabled flag.
     def disabled=(new_value : Bool) : Bool
       @disabled = new_value
       {% if flag?(:macos) || flag?(:ios) %}
@@ -95,6 +129,18 @@ module UI
 
     # Callback invoked when the button is tapped
     property on_tap : Proc(Nil)? = nil
+
+    # Commit the currently edited native text field before invoking `on_tap`.
+    #
+    # iOS can deliver a SwiftUI Button action in the same turn as the text
+    # field's final AutoFill/editing callback. A form submitter that reads its
+    # Crystal model immediately can therefore observe the previous value even
+    # though the field visibly contains the new one. Opting in dismisses the
+    # keyboard first and dispatches the action on the following main-run-loop
+    # turn, after the field binding has committed. This is intentionally not a
+    # global Button default: toolbar and navigation buttons should not dismiss
+    # a field unless their caller says they submit that field.
+    property commits_text_input : Bool = false
 
     # Semantic role for the button. HIG-standard values:
     #   :default      — normal/primary action (no special styling)
@@ -131,6 +177,16 @@ module UI
       visitor.visit(self)
     end
 
+    # Phase 10B.2a — default AX role: `:button`.
+    def default_accessibility_role : Symbol?
+      :button
+    end
+
+    # Phase 10B.2b — interactive widgets default to focusable.
+    def default_focusable : Bool
+      true
+    end
+
     # ---- Phase 3 Remediation 4 reactive overrides ----------------------
     #
     # Override the three setters that the SwiftKit bridge can mutate at
@@ -144,6 +200,7 @@ module UI
     # delegates to a single helper so all three call-sites stay
     # consistent.
 
+    # Assigns the background fill.
     def background=(new_color : Color?) : Color?
       @background = new_color
       {% if flag?(:macos) || flag?(:ios) %}
@@ -158,6 +215,7 @@ module UI
       new_color
     end
 
+    # Assigns the foreground color.
     def foreground_color=(new_color : Color) : Color
       @foreground_color = new_color
       {% if flag?(:macos) || flag?(:ios) %}
@@ -170,6 +228,7 @@ module UI
       new_color
     end
 
+    # Assigns the corner radius (pt).
     def corner_radius=(new_radius : Float64) : Float64
       @corner_radius = new_radius
       {% if flag?(:macos) || flag?(:ios) %}

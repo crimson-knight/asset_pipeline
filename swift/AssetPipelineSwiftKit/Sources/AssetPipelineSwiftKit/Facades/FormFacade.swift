@@ -58,6 +58,17 @@ public class FormFacade: NSObject {
             }
         )
 
+        // macOS defaults Form to .columns, which right-aligns labels into a
+        // separate column that clips at narrow widths and drops the grouped
+        // section chrome entirely. .grouped is the System Settings look and
+        // matches what Form already renders on iOS — use it as the macOS
+        // default.
+        #if os(macOS)
+        if #available(macOS 13.0, *) {
+            content = AnyView(content.formStyle(.grouped))
+        }
+        #endif
+
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(content)
     }

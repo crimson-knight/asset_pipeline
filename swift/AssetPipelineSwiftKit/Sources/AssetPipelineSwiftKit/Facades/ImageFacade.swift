@@ -20,31 +20,43 @@ public class ImageFacade: NSObject {
         overrides: ImageOverrides
     ) -> APSKPlatformView {
         let base: Image
+        // Resolution order: absolute file path (load off disk) → bundled asset
+        // catalog name → SF Symbol. The file-path branch lets consumers that are
+        // NOT packaged as a .app bundle (e.g. a bare dev binary) still load real
+        // image files (backgrounds, logos) by absolute path — without it,
+        // NSImage(named:)/UIImage(named:) only resolves bundled resources.
         #if canImport(UIKit)
-        if UIImage(named: source) != nil {
+        if source.hasPrefix("/"), let img = UIImage(contentsOfFile: source) {
+            base = Image(uiImage: img)
+        } else if UIImage(named: source) != nil {
             base = Image(source)
         } else {
             base = Image(systemName: source)
         }
         #else
-        if NSImage(named: NSImage.Name(source)) != nil {
+        if source.hasPrefix("/"), let img = NSImage(contentsOfFile: source) {
+            base = Image(nsImage: img)
+        } else if NSImage(named: NSImage.Name(source)) != nil {
             base = Image(source)
         } else {
             base = Image(systemName: source)
         }
         #endif
 
-        var content: AnyView = AnyView(base)
+        var content: AnyView
 
         switch overrides.contentMode {
-        case "fit":
-            content = AnyView(base.resizable().aspectRatio(contentMode: .fit))
         case "fill":
             content = AnyView(base.resizable().aspectRatio(contentMode: .fill))
         case "stretch":
             content = AnyView(base.resizable())
         default:
-            break
+            // "fit" OR nil — Fit is UI::Image's documented default content_mode,
+            // and the Crystal populator omits content_mode when it equals the
+            // default. Without resizing here, a default Image is NOT `.resizable()`
+            // and renders at intrinsic size — a sized/hero image (frame via
+            // minimum_width/height) stays tiny and can't scale. Treat default as Fit.
+            content = AnyView(base.resizable().aspectRatio(contentMode: .fit))
         }
 
         content = CommonModifiers.apply(content, overrides: overrides)

@@ -7,11 +7,17 @@ require "../view"
 module UI
   # NavigationSplitView — Multi-column navigation container (sidebar + content + detail) for iPad and macOS.
   class NavigationSplitView < View
+    # Wrapped child view.
     property sidebar : View? = nil
+    # Child view rendered inside this container.
     property content : View? = nil
+    # Wrapped child view.
     property detail : View? = nil
+    # Numeric value (pt unless otherwise noted).
     property sidebar_width : Float64 = 250.0
+    # Boolean toggle.
     property shows_sidebar : Bool = true
+    # Initial visibility / collapse state for each column.
     property column_visibility : Symbol = :all # :all, :double_column, :detail_only
 
     # Phase 5 v2 — Apple semantic material override for the sidebar pane.
@@ -32,6 +38,11 @@ module UI
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:navigation`.
+    def default_accessibility_role : Symbol?
+      :navigation
     end
   end
 end

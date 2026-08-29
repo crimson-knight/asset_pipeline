@@ -79,22 +79,27 @@ module UI::AXTest
 
     # --- Convenience Queries (search entire app tree) ---
 
-    def find(role : String? = nil, label : String? = nil, title : String? = nil, identifier : String? = nil) : Element?
-      @root.find(role: role, label: label, title: title, identifier: identifier)
+    # max_depth bounds the recursive walk (forwarded to Element#find). It matters
+    # for large external trees: an unmatched query over a real app (e.g. Finder)
+    # would otherwise walk the default depth-10 of a very wide tree — millions of
+    # cross-process AX reads. Callers searching their own (small) tree can leave
+    # the default; callers probing a big foreign app should pass a shallow depth.
+    def find(role : String? = nil, label : String? = nil, title : String? = nil, identifier : String? = nil, max_depth : Int32 = 10) : Element?
+      @root.find(role: role, label: label, title: title, identifier: identifier, max_depth: max_depth)
     end
 
-    def find_all(role : String? = nil, label : String? = nil, title : String? = nil, identifier : String? = nil) : Array(Element)
-      @root.find_all(role: role, label: label, title: title, identifier: identifier)
+    def find_all(role : String? = nil, label : String? = nil, title : String? = nil, identifier : String? = nil, max_depth : Int32 = 10) : Array(Element)
+      @root.find_all(role: role, label: label, title: title, identifier: identifier, max_depth: max_depth)
     end
 
     # Find a descendant of the app's root by accessibility identifier.
-    def find_by_id(identifier : String) : Element?
-      @root.find_by_id(identifier)
+    def find_by_id(identifier : String, max_depth : Int32 = 10) : Element?
+      @root.find_by_id(identifier, max_depth: max_depth)
     end
 
     # Find a descendant of the app's root by accessibility identifier, raising if not found.
-    def find_by_id!(identifier : String) : Element
-      @root.find_by_id!(identifier)
+    def find_by_id!(identifier : String, max_depth : Int32 = 10) : Element
+      @root.find_by_id!(identifier, max_depth: max_depth)
     end
 
     # --- Focus (A4) ---

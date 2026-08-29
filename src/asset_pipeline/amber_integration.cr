@@ -77,14 +77,116 @@ require "../ui"
 
 # Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
+  # Forward declaration so `ScreenContext#app_class` can carry a
+  # `UI::App.class` value before `UI::App` lands in `native_app.cr`
+  # (which is required AFTER this file). The full abstract class
+  # definition lives there. Mirrors the `Controller` forward-
+  # declaration pattern in `native_app.cr`.
+  abstract class App
+  end
+
+  # Forward declaration so `ScreenContext#active_screen_class` can
+  # carry a `UI::Screen.class` value at class-body time. The full
+  # abstract class definition lives below (line 227+). Mirrors the
+  # `Controller` forward-declaration pattern in `native_app.cr`.
+  abstract class Screen
+  end
+
   # Per-request value object passed to `UI::Screen#build`. Concrete
   # `ScreenContext::Web` lives below.
+  #
+  # # Phase 10B.0 — `platform` field (Tier 2 resolver hook).
+  #
+  # `ScreenContext` carries a `platform : Symbol` so `UI::WidgetRoute.resolve`
+  # can branch on the runtime platform identity when picking a widget
+  # for a given intent. The supported values are
+  # `:ios`, `:ipados`, `:macos`, `:android`, `:web_wide`, `:web_narrow`.
+  #
+  # How the value flows from app boot to screen build:
+  #
+  #   * **Web** — `ScreenContext::Web` defaults to `:web_wide`. Consumer
+  #     apps that want viewport-aware routing (`:web_narrow`) detect the
+  #     viewport client-side and pass the chosen value through their
+  #     `compute_screen_html` override.
+  #   * **Native** — `ScreenContext::Native` carries the platform-specific
+  #     symbol the host App sets at construction (`:ios`, `:ipados`,
+  #     `:macos`, or `:android`). The `UI::ActionDispatcher` threads it
+  #     through `build_context` on every dispatch so the in-context
+  #     resolver sees the same platform value the renderer uses.
   abstract class ScreenContext
     abstract def params : Hash(String, String)
     abstract def params_multi : Hash(String, Array(String))
     abstract def flash_data : Hash(String, String)
     abstract def design_tokens : UI::DesignTokens::Tokens
     abstract def csrf_token : String?
+
+    # The platform identity for this build. `UI::WidgetRoute.resolve` reads
+    # this to pick the right widget for the running target. Defaults
+    # to `:web_wide` so any code path that constructs a bare context
+    # without setting the field is interpreted as "desktop web."
+    #
+    # Concrete subclasses override the getter or set the property in
+    # `initialize`. The default-here approach preserves backwards-
+    # compatibility with any pre-Phase-10B caller that constructed a
+    # `ScreenContext` subclass without passing `platform:`.
+    def platform : Symbol
+      :web_wide
+    end
+
+    # Phase 10B.0 iter-9 (Codex Finding 1): the active `UI::App` class
+    # for this build. `UI::WidgetRoute::Registry.resolve_for` reads this to
+    # isolate app-scoped overrides — without an app-class key, an
+    # override registered against `AppA` would leak into `AppB`'s
+    # resolution path (defeating the purpose of keying the override
+    # table by app class).
+    #
+    # Optional — nil means "no app context"; the resolver simply
+    # skips the app-override tier in that case. Specs that don't bind
+    # to a `UI::App` (most unit tests) work without setting this.
+    # Production callsites (the `ActionDispatcher` for native, the
+    # Amber `compute_screen_html` path for web) set it from the live
+    # `UI::App` subclass.
+    property app_class : (UI::App.class)? = nil
+
+    # Phase 10B.0 iter-9 (Codex Finding 2): the active `UI::Screen`
+    # class for this build. Replaces the prior explicit `screen_class:`
+    # kwarg on `UI::WidgetRoute.resolve` — the public resolver now reads
+    # the active screen class from the context so the call-site stays
+    # narrow (`UI::WidgetRoute.resolve(intent_id, ctx)` matches the brief
+    # signature). The host that builds the context — `ActionDispatcher`
+    # for native, `compute_screen_html` for web — sets this to the
+    # screen class being built. Screens that call `UI::WidgetRoute.resolve`
+    # from their own `build` method can set
+    # `ctx.active_screen_class = self.class` defensively when the host
+    # didn't set it (e.g. unit tests that instantiate a context bare).
+    #
+    # `UI::WidgetRoute::Registry.resolve_for` consults this when no
+    # explicit `screen_class:` kwarg is passed. Without either source,
+    # the resolver skips the screen-override tier.
+    property active_screen_class : (UI::Screen.class)? = nil
+
+    # Phase 10B.2c — system-level user-preference snapshot read by
+    # views at render time (`reduce_motion`, `increase_contrast`,
+    # `dynamic_type_size`, `color_scheme`, `accessibility_enabled`).
+    #
+    # Defaults to `UI::Environment.default` (the accessibility-
+    # conservative no-preference baseline) so callers that construct a
+    # bare context still get a well-defined value. The host populates
+    # this from a request source on every render:
+    #
+    #   * Web (Amber): `compute_screen_html` reads HTTP client hints
+    #     and seeds via `UI::Environment.from_request_hints(...)`.
+    #   * Native dispatcher: `build_context` threads the
+    #     dispatcher-level `environment` property (which the host App
+    #     populates at boot from `UIAccessibility` / `NSWorkspace` /
+    #     Android `Settings.Global` queries).
+    #
+    # Widgets that animate / depend on contrast / dynamic-type read
+    # this and call `UI::Animation.duration_with_environment(env, ms)`
+    # (or equivalent helpers) so the same view tree renders correctly
+    # under different user preferences. See `UI::Snackbar#effective_duration`
+    # for the canonical reactivity proof.
+    property environment : UI::Environment = UI::Environment.default
 
     # Web-target concrete ScreenContext. Wraps the scalar/multi params,
     # the flash messages, the design-token bundle, and the CSRF token
@@ -96,13 +198,22 @@ module UI
       getter design_tokens : UI::DesignTokens::Tokens
       getter csrf_token : String?
 
+      # Phase 10B.0 — viewport class. Defaults to `:web_wide` (desktop /
+      # tablet-landscape). Consumer apps that want narrow-mode routing
+      # (`:web_narrow`) detect the viewport client-side and pass the
+      # chosen value into `ScreenContext::Web.new(platform: :web_narrow, ...)`.
+      getter platform : Symbol
+
       def initialize(
         @params : Hash(String, String),
         @params_multi : Hash(String, Array(String)),
         @flash_data : Hash(String, String),
         @design_tokens : UI::DesignTokens::Tokens,
-        @csrf_token : String?
+        @csrf_token : String?,
+        @platform : Symbol = :web_wide,
+        environment : UI::Environment = UI::Environment.default,
       )
+        self.environment = environment
       end
     end
   end
@@ -112,11 +223,34 @@ module UI
   #
   #     UI::AmberConfig.design_tokens = UI::DesignTokens::Tokens
   #       .default.with_brand(AcmeBrand.new)
+  #     UI::AmberConfig.active_app = SpikeApp
   #
   # The configured tokens are passed into every `UI::ScreenContext`
   # built by `UI::ScreenHelpers#compute_screen_html`.
+  #
+  # # Phase 10B.0 iter-10 (Codex Finding 1) — `active_app`.
+  #
+  # The web-target `compute_screen_html` path needs to seed
+  # `ctx.app_class` so `UI::WidgetRoute::Registry.resolve_for` can apply
+  # app-scoped overrides for the running app. There's no per-request
+  # source of the App class on the controller side (controllers are
+  # user-authored and only know the screen class they're rendering),
+  # so apps bind their `UI::App` subclass here at boot:
+  #
+  #     UI::AmberConfig.active_app = SpikeApp
+  #
+  # `compute_screen_html` reads this and threads it onto the
+  # `ScreenContext` so the resolver isolates app overrides correctly
+  # on the web target (mirroring the native dispatcher's
+  # `ctx.app_class = @app` behavior).
+  #
+  # If the caller wants a different app for a specific render (rare,
+  # e.g. multi-tenant routing where one HTTP server hosts more than
+  # one `UI::App`), they can pass `app_class:` directly to
+  # `compute_screen_html` — the kwarg wins over `AmberConfig.active_app`.
   module AmberConfig
     @@design_tokens : UI::DesignTokens::Tokens = UI::DesignTokens::Tokens.default
+    @@active_app : (UI::App.class)? = nil
 
     def self.design_tokens : UI::DesignTokens::Tokens
       @@design_tokens
@@ -124,6 +258,18 @@ module UI
 
     def self.design_tokens=(tokens : UI::DesignTokens::Tokens) : UI::DesignTokens::Tokens
       @@design_tokens = tokens
+    end
+
+    # The active `UI::App` subclass for this process. Set once at
+    # boot so `compute_screen_html` can thread `app_class` onto every
+    # web `ScreenContext`. nil means "no app context" — the resolver
+    # skips the app-override tier in that case.
+    def self.active_app : (UI::App.class)?
+      @@active_app
+    end
+
+    def self.active_app=(app_class : (UI::App.class)?) : (UI::App.class)?
+      @@active_app = app_class
     end
   end
 
@@ -148,6 +294,39 @@ module UI
   #     end
   abstract class Screen
     abstract def build(context : ScreenContext) : UI::View
+
+    # Phase 10B.0 — class-level macro that registers a screen-scoped
+    # Tier 2 intent override. Wraps the registry call so the screen's
+    # class itself (not a fresh instance) is the key.
+    #
+    #     class TodosScreen < UI::Screen
+    #       override_widget :swipe_actions, AcmeFancySwipeRow
+    #
+    #       def build(context)
+    #         # ...
+    #       end
+    #     end
+    #
+    # Implemented as a macro (rather than a regular class method) so
+    # `@type` resolves to the screen subclass at the call site, not
+    # the abstract base class. Class-method emission is compile-time
+    # code, gap-safe.
+    macro override_widget(intent_id, widget_class)
+      def self._register_intent_override_{{intent_id.id}} : Nil
+        ::UI::WidgetRoute::Registry.register_screen_override(
+          {{@type}},
+          {{intent_id}},
+          {{widget_class}},
+        )
+        nil
+      end
+
+      # Class-load side effect: register immediately. iOS class-init
+      # gap recovery: the framework's screen-bootstrap pass could
+      # re-invoke `_register_intent_override_*` methods by name, in
+      # the same shape as `UI::App._bootstrap_screen_*` recovery.
+      _register_intent_override_{{intent_id.id}}
+    end
   end
 
   # Phase 8C — Amber-router contribution from `UI::App`.
@@ -250,13 +429,53 @@ module UI
     # The renderer's `design_tokens` are seeded from
     # `UI::AmberConfig.design_tokens` so apps that configured a brand
     # override at boot pick it up automatically.
-    def compute_screen_html(screen_class : UI::Screen.class) : String
+    #
+    # # Phase 10B.0 iter-10 (Codex Finding 1) — `app_class` seeding.
+    #
+    # The web target seeds `ctx.app_class` so
+    # `UI::WidgetRoute::Registry.resolve_for` can apply app-scoped overrides
+    # for this app's running build. Source precedence:
+    #
+    #   1. Explicit `app_class:` kwarg (most specific — used by
+    #      multi-tenant setups that route distinct apps off the same
+    #      server).
+    #   2. `UI::AmberConfig.active_app` (set once at boot — the
+    #      common path).
+    #   3. nil (resolver skips the app-override tier — only the
+    #      platform default remains).
+    #
+    # `ctx.active_screen_class` is seeded from `screen_class` (the
+    # method's required arg), so screens calling `UI::WidgetRoute.resolve`
+    # automatically see the screen-tier override table without
+    # boilerplate.
+    def compute_screen_html(
+      screen_class : UI::Screen.class,
+      app_class : (UI::App.class)? = nil,
+      environment : UI::Environment? = nil,
+    ) : String
       ctx = build_screen_context
+      ctx.app_class = app_class || UI::AmberConfig.active_app
+      ctx.active_screen_class = screen_class
+      # Phase 10B.2c — environment precedence:
+      #   1. explicit kwarg (host knows the values per-request),
+      #   2. otherwise the value `build_screen_context` already seeded
+      #      from request hints (the default override hook for apps
+      #      that subclass `build_screen_context`).
+      if env = environment
+        ctx.environment = env
+      end
       screen = screen_class.new
       view_tree = screen.build(ctx)
       renderer = UI::Web::Renderer.new
       renderer.design_tokens = ctx.design_tokens
-      render_context = UI::RenderContext.new(csrf_token: ctx.csrf_token)
+      # Phase 10B.2c iter 2 — thread the ScreenContext's environment
+      # onto the RenderContext so renderer-side visit methods (e.g.
+      # the Snackbar's effective_duration → data-duration emit) can
+      # honor user accessibility preferences at render time.
+      render_context = UI::RenderContext.new(
+        csrf_token: ctx.csrf_token,
+        environment: ctx.environment,
+      )
       html = renderer.render(view_tree, render_context: render_context)
       @screen_html = html
       html
@@ -265,6 +484,15 @@ module UI
     # Build a `UI::ScreenContext::Web` from the current Amber
     # controller's request. Override in a subclass if a non-default
     # context shape is required.
+    #
+    # Phase 10B.2c — environment seeding: the default implementation
+    # reads HTTP client-hint headers (`Sec-CH-Prefers-Reduced-Motion`
+    # etc.) from `request.headers` if the controller exposes a
+    # `request` method, and seeds `ctx.environment` via
+    # `UI::Environment.from_request_hints`. Hosts that need a richer
+    # source (e.g. session-stored user preferences) override this
+    # method to construct their own `ScreenContext::Web` with the
+    # `environment:` kwarg populated.
     private def build_screen_context : UI::ScreenContext::Web
       UI::ScreenContext::Web.new(
         params: params_scalar_hash,
@@ -272,7 +500,42 @@ module UI
         flash_data: flash_hash,
         design_tokens: UI::AmberConfig.design_tokens,
         csrf_token: amber_csrf_token,
+        environment: environment_from_request,
       )
+    end
+
+    # Read client-hint preference headers and convert via
+    # `UI::Environment.from_request_hints`. Default implementation
+    # returns the conservative default — Amber controllers override
+    # this to read `request.headers` (or any other per-app source,
+    # e.g. session-stored user preferences).
+    #
+    # Apps wanting the out-of-the-box HTTP-client-hints path override
+    # in `ApplicationController`:
+    #
+    #     class ApplicationController < Amber::Controller::Base
+    #       include UI::ScreenHelpers
+    #
+    #       private def environment_from_request : UI::Environment
+    #         hints = {} of String => String
+    #         {"Sec-CH-Prefers-Reduced-Motion",
+    #          "Sec-CH-Prefers-Contrast",
+    #          "Sec-CH-Prefers-Color-Scheme",
+    #          "Sec-CH-Prefers-Reduced-Transparency"}.each do |name|
+    #           if value = request.headers[name]?
+    #             hints[name] = value.to_s
+    #           end
+    #         end
+    #         UI::Environment.from_request_hints(hints)
+    #       end
+    #     end
+    #
+    # Kept overridable + default-conservative so the include path
+    # works in unit tests (no `request` available) without compile
+    # errors. The brief's "request-derived hints" hook lives at this
+    # method — apps wire it in their controller base.
+    private def environment_from_request : UI::Environment
+      UI::Environment.default
     end
 
     # Flattened scalar form of params. Multi-value params (checkbox

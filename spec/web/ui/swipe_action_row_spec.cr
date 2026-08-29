@@ -5,7 +5,7 @@ require "spec"
 describe UI::SwipeAction do
   it "constructs with label, role, icon, and on_tap" do
     fired = false
-    action = UI::SwipeAction.new("Delete", on_tap: ->{ fired = true; nil }, role: :destructive, icon: "trash")
+    action = UI::SwipeAction.new("Delete", on_tap: -> { fired = true; nil }, role: :destructive, icon: "trash")
     action.label.should eq "Delete"
     action.role.should eq :destructive
     action.icon.should eq "trash"
@@ -140,7 +140,7 @@ class TestSARVisitor < UI::PlatformVisitor
   end
 
   # All abstract methods stubbed.
-  {% for klass in %w(Label Button VStack HStack ZStack Image TextField ScrollView Spacer Toggle Checkbox RadioGroup Slider NavigationStack NavigationLink TabView ProgressView ActivityIndicator Alert Picker IconButton ListView OutlineView SecureField Stepper SegmentedControl DatePicker TimePicker SearchField TextArea Grid Form NavigationSplitView Toolbar Sheet Popover ConfirmationDialog Snackbar Card Surface Divider GlassBackground AsyncImage RichText LinkButton MenuButton ToggleButton TextEditor Circle Rectangle RoundedRectangle Capsule Canvas PathView MapView ChartView WebViewComponent ColorPicker VideoPlayer Tooltip ActivityView DisclosureGroup PageControl ComboBox RatingIndicator ActionSheetWithWebFallback ContextMenuWithWebFallback PathControlWithWebFallback) %}
+  {% for klass in %w(Label Button VStack HStack ZStack Image TextField ScrollView Spacer Toggle Checkbox RadioGroup Slider NavigationStack NavigationLink TabView ProgressView ActivityIndicator Alert Picker IconButton ListView OutlineView SecureField Stepper SegmentedControl DatePicker TimePicker SearchField TextArea Grid Form NavigationSplitView Toolbar Sheet Popover ConfirmationDialog Snackbar Card Surface Divider GlassBackground AsyncImage RichText LinkButton MenuButton ToggleButton TextEditor Circle Rectangle RoundedRectangle Capsule Canvas PathView MapView ChartView WebViewComponent ColorPicker VideoPlayer Tooltip ActivityView DisclosureGroup PageControl ComboBox RatingIndicator ActionSheetWithWebFallback ContextMenuWithWebFallback PathControlWithWebFallback InlineActionRow AndroidSwipeActionRow FullScreenCover Inspector ToolbarItemGroup ToolbarSpacer) %}
     def visit(view : UI::{{klass.id}})
     end
   {% end %}

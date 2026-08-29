@@ -70,7 +70,70 @@ describe UI::Native::Populator, "#populate_button" do
       FakeLibObjCBridge.refute_sent(:setRole)
       FakeLibObjCBridge.refute_sent(:setStyle)
       FakeLibObjCBridge.refute_sent(:setDisabled)
+      FakeLibObjCBridge.refute_sent(:setCommitsTextInput)
       FakeLibObjCBridge.refute_sent(:setSymbolName)
+
+      # Font default is size:17 weight::regular family:"system" → no
+      # font setters. UI::Button#font was previously dropped entirely;
+      # the default-construction case must still emit nothing.
+      FakeLibObjCBridge.refute_sent(:setFontSize)
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
+      FakeLibObjCBridge.refute_sent(:setFontFamily)
+      # fill_horizontal default false → no fill frame.
+      FakeLibObjCBridge.refute_sent(:setFillHorizontal)
+      # foreground_color default (system blue) → not seeded; keep system label.
+      FakeLibObjCBridge.refute_sent(:setForegroundColor)
+    end
+
+    it "seeds setForegroundColor when foreground_color is explicitly set" do
+      view = UI::Button.new("Achieved")
+      view.foreground_color = UI::Color.new(r: 0.184, g: 0.608, b: 0.325) # #2F9B53
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setForegroundColor, times: 1)
+    end
+
+    it "emits setFillHorizontal when fill_horizontal=true" do
+      view = UI::Button.new("I always procrastinate")
+      view.fill_horizontal = true
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFillHorizontal, times: 1, args: [target, "true"])
+    end
+  end
+
+  describe "font override" do
+    it "emits setFontSize + setFontWeight when font size/weight overridden" do
+      view = UI::Button.new("Start your day")
+      view.font = UI::Font.new(size: 22.0, weight: :bold)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1,
+        args: [target, "22.0"])
+      # :bold maps to SwiftUI Font.Weight rawValue 3.
+      FakeLibObjCBridge.assert_sent(:setFontWeight, times: 1,
+        args: [target, "3.0"])
+      FakeLibObjCBridge.refute_sent(:setFontFamily)
+    end
+
+    it "emits setFontFamily when a custom family is set" do
+      view = UI::Button.new("Start your day")
+      view.font = UI::Font.new(family: "Alegreya-Medium", size: 18.0)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFontFamily, times: 1,
+        args: [target, "Alegreya-Medium"])
+      FakeLibObjCBridge.assert_sent(:setFontSize, times: 1,
+        args: [target, "18.0"])
+    end
+
+    it "skips setFontWeight when only family+size are set (regular weight)" do
+      view = UI::Button.new("Start your day")
+      view.font = UI::Font.new(family: "Alegreya-Medium", size: 18.0)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      # Custom faces carry their own weight; default :regular → no weight setter.
+      FakeLibObjCBridge.refute_sent(:setFontWeight)
     end
   end
 
@@ -101,6 +164,23 @@ describe UI::Native::Populator, "#populate_button" do
       UI::Native::Populator.populate_button(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setCornerRadius, times: 1,
         args: [target, "12.0"])
+    end
+
+    # A bordered + rounded button (e.g. an Expo "secondary" outline button) must
+    # emit corner radius ALONGSIDE the border so the Swift facade can stroke the
+    # outline with the SAME corner radius as the clipped background — otherwise
+    # the border rendered as a square rectangle around a rounded pill.
+    it "emits setCornerRadius with setBorderWidth/Color for a rounded outline button" do
+      view = UI::Button.new("Reset to Defaults")
+      view.corner_radius = 10.0
+      view.border_width = 1.0
+      view.border_color = UI::Color.new(r: 0.847, g: 0.855, b: 0.863) # #d8dadc
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setCornerRadius, times: 1, args: [target, "10.0"])
+      FakeLibObjCBridge.assert_sent(:setBorderWidth, times: 1, args: [target, "1.0"])
+      FakeLibObjCBridge.assert_sent(:setBorderColor, times: 1,
+        args: [target, "rgba(0.847,0.855,0.863,1.0)"])
     end
   end
 
@@ -207,6 +287,25 @@ describe UI::Native::Populator, "#populate_button" do
     end
   end
 
+  describe "number_of_lines override" do
+    it "skips setNumberOfLines at the single-line default (1)" do
+      view = UI::Button.new("Save")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setNumberOfLines)
+    end
+
+    it "emits setNumberOfLines:0 when the label opts into wrapping" do
+      # A tappable content button (e.g. a thought card) whose long user text
+      # must wrap, not truncate.
+      view = UI::Button.new("I am not good enough and I constantly feel judged")
+      view.number_of_lines = 0
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setNumberOfLines, times: 1, args: [target, "0.0"])
+    end
+  end
+
   describe "disabled override" do
     it "skips setDisabled: when disabled=false (type default)" do
       view = UI::Button.new("Save")
@@ -221,6 +320,23 @@ describe UI::Native::Populator, "#populate_button" do
       target = FakeLibObjCBridge.next_sentinel_pointer
       UI::Native::Populator.populate_button(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setDisabled, times: 1, args: [target, "true"])
+    end
+  end
+
+  describe "text input commit override" do
+    it "skips setCommitsTextInput when the button is not a form submitter" do
+      view = UI::Button.new("Save")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setCommitsTextInput)
+    end
+
+    it "sends setCommitsTextInput:true for an opted-in form submitter" do
+      view = UI::Button.new("Send request")
+      view.commits_text_input = true
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setCommitsTextInput, times: 1, args: [target, "true"])
     end
   end
 

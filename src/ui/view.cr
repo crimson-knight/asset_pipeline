@@ -18,18 +18,28 @@ module UI
   # itself (e.g. the CSRF token for `UI::Form`'s hidden-input
   # injection).
   #
+  # Phase 10B.2c iter 2 — Now also carries the `UI::Environment` so
+  # widgets that react to user preferences (e.g. `UI::Snackbar`'s
+  # `effective_duration` honoring reduce-motion) can read the
+  # environment at visit time from the renderer-side context. The
+  # `ScreenContext`'s environment is copied here when the host builds
+  # the render context (`compute_screen_html` does this); test paths
+  # that construct a `RenderContext` directly pass `environment:`
+  # explicitly or accept the conservative default.
+  #
   # Lives in the core `UI` namespace (rather than the Amber integration
   # file) so the web renderer can read it without requiring the Amber
   # integration to be loaded. Apps not using Amber simply pass a fresh
   # `RenderContext.empty` or omit the argument.
   struct RenderContext
     getter csrf_token : String?
+    getter environment : UI::Environment
 
-    def initialize(@csrf_token : String? = nil)
+    def initialize(@csrf_token : String? = nil, @environment : UI::Environment = UI::Environment.default)
     end
 
     def self.empty : RenderContext
-      new(csrf_token: nil)
+      new(csrf_token: nil, environment: UI::Environment.default)
     end
   end
 
@@ -80,10 +90,45 @@ module UI
     DateAndTime # Both date and time
   end
 
+  # Visual style for date/time pickers.
+  # Phase 10D-polish iter 2 (B-DATEPICKER-STYLE-PROPERTY).
+  #
+  # * `Automatic` — let the platform pick the HIG-correct style for the
+  #   mode (`.date` → graphical on iOS; `.compact` on macOS).
+  # * `Compact` — inline button that pops a wheel/calendar overlay when
+  #   tapped. The asset_pipeline default for in-form usage.
+  # * `Graphical` — full inline calendar / clock face. SwiftUI's
+  #   `.graphical` (iOS) / `.field` (macOS) date picker style.
+  # * `Wheels` — spinning wheel picker. SwiftUI `.wheel`.
+  enum DatePickerStyle
+    Automatic
+    Compact
+    Graphical
+    Wheels
+  end
+
   # Style for progress indicators
   enum ProgressStyle
     Linear   # Horizontal progress bar
     Circular # Spinning circular progress
+  end
+
+  # Direction of a discrete swipe gesture. Used with UI::View#on_swipe to
+  # attach directional swipe handlers (e.g. "swipe down to dismiss sheet",
+  # "swipe left for destructive action"). Continuous pan/drag is out of scope.
+  #
+  # Per-platform mapping:
+  #   UIKit  — UISwipeGestureRecognizer with the matching direction mask.
+  #   AppKit — NSPanGestureRecognizer; the .ended state classifies the
+  #            dominant translation component (threshold ~30 pt) to select
+  #            the direction. Horizontal translation dominance wins over
+  #            vertical when both exceed the threshold simultaneously.
+  #   Web    — no-op; swipe handlers are silently ignored.
+  enum SwipeDirection
+    Left
+    Right
+    Up
+    Down
   end
 
   # Style for list views
@@ -113,7 +158,19 @@ module UI
     family : String = "system",
     size : Float64 = 17.0,
     weight : Symbol = :regular,
-    italic : Bool = false
+    italic : Bool = false,
+    # LETTER SPACING, IN POINTS. Positive opens the line up, negative tightens
+    # it; 0.0 is the face's own default and is what every existing call site
+    # gets, so nothing that does not ask for tracking moves.
+    #
+    # WHY A FONT NEEDS IT. Type at display sizes is drawn TOO LOOSE at the
+    # face's default and small caps are drawn far too tight — which is why every
+    # serious type ramp carries a tracking value per step. A design system that
+    # publishes one (`--display-track: -.015em` on every heading, `.12em` to
+    # `.17em` on ten uppercase micro-labels) and a renderer with no field to
+    # carry it will draw the right face at the wrong colour of grey, and no
+    # amount of getting the family right fixes it.
+    tracking : Float64 = 0.0
 
   # Value type representing edge insets (padding/margins)
   record EdgeInsets,
@@ -121,6 +178,125 @@ module UI
     trailing : Float64 = 0.0,
     bottom : Float64 = 0.0,
     leading : Float64 = 0.0
+
+  # Phase 10B.2b — Custom accessibility action surfaced to assistive tech
+  # (VoiceOver / TalkBack / NSAccessibility). Each action carries a
+  # human-readable `name` (announced by the screen reader as a verb
+  # users invoke via the rotor / actions menu) plus a `callback` Proc
+  # invoked when the user activates the action.
+  #
+  # Per-platform mapping:
+  #   - UIKit  -> `UIAccessibilityCustomAction(name:target:selector:)`
+  #              array passed to `setAccessibilityCustomActions:`.
+  #   - AppKit -> `NSAccessibilityCustomAction(name:handler:)` array
+  #              passed to `setAccessibilityCustomActions:`. Available
+  #              on macOS 10.13+.
+  #   - Web    -> emits `data-ax-actions="action1,action2"` plus a
+  #              `data-ax-action-N-token="<n>"` attribute per action so
+  #              a JS shim can dispatch keystroke-driven custom actions.
+  #              The element is ensured focusable when actions exist.
+  #   - Android -> best-effort `AccessibilityNodeInfo.addAction` via the
+  #              accessibility delegate. JNI surface is documented as a
+  #              deferred limitation when the bridge entry point is not
+  #              wired (10B.2b iter 1 ships the Crystal-side data path
+  #              and a stub log call).
+  class AccessibilityAction
+    getter name : String
+    getter callback : Proc(Nil)
+
+    def initialize(@name : String, &block : -> Nil)
+      @callback = block
+    end
+
+    # Spec convenience — constructs an action that records its
+    # invocation onto the given Channel/Array. Mostly used by tests
+    # so the Crystal-side surface stays plain.
+    def self.new(name : String, callback : Proc(Nil)) : AccessibilityAction
+      new(name) { callback.call }
+    end
+
+    # Invoke the underlying callback. Renderers / dispatchers call this
+    # from the native action trampoline.
+    def call : Nil
+      @callback.call
+    end
+  end
+
+  # Phase 10B.2b — Keyboard shortcut binding for a view. The `key` is a
+  # single character (or a special key name like `:return`, `:escape`,
+  # `:tab`, `:up`, `:down`, `:left`, `:right`, `:space`, `:delete`,
+  # `:backspace`, `:f1`...`:f12`). `modifiers` is a set of modifier
+  # symbols: `:command`, `:control`, `:option` / `:alt`, `:shift`.
+  #
+  # Per-platform mapping:
+  #   - Web    -> `accesskey` attribute (single character only) plus a
+  #              `data-keyboard-shortcut` attribute carrying the full
+  #              canonical string ("Cmd+Shift+P") for JS handlers that
+  #              want richer dispatch.
+  #   - UIKit  -> `UIKeyCommand` entries pushed onto the view's
+  #              `keyCommands` (we maintain an Objective-C side list
+  #              via `apsk_view_add_key_command`).
+  #   - AppKit -> on `NSButton`-like controls we set `keyEquivalent` +
+  #              `keyEquivalentModifierMask` directly. Non-control views
+  #              fall through.
+  #   - Android -> no first-class analog beyond `View.setOnKeyListener`;
+  #              documented as a deferred limitation.
+  struct KeyboardShortcut
+    getter key : String
+    getter modifiers : Array(Symbol)
+
+    def initialize(key : String | Symbol, @modifiers : Array(Symbol) = [] of Symbol)
+      @key = key.to_s
+    end
+
+    # Canonical "Cmd+Shift+P"-style label. Renderers / specs can use
+    # this directly without re-implementing the join. Modifier ordering
+    # matches macOS HIG: Control, Option, Shift, Command.
+    def canonical : String
+      parts = [] of String
+      parts << "Control" if @modifiers.includes?(:control)
+      parts << "Option" if @modifiers.includes?(:option) || @modifiers.includes?(:alt)
+      parts << "Shift" if @modifiers.includes?(:shift)
+      parts << "Command" if @modifiers.includes?(:command) || @modifiers.includes?(:cmd)
+      parts << @key
+      parts.join("+")
+    end
+
+    # Single-character "access key" used by HTML's `accesskey` attribute.
+    # Returns the first character of `key` when `key` is a printable
+    # single-character string; nil for named keys like `:return`.
+    def accesskey_char : String?
+      return nil if @key.size != 1
+      @key
+    end
+
+    # UIKit `UIKeyModifierFlags` bitmask. Bit positions per the
+    # UIKit public header:
+    #   UIKeyModifierAlphaShift = 1 << 16
+    #   UIKeyModifierShift      = 1 << 17
+    #   UIKeyModifierControl    = 1 << 18
+    #   UIKeyModifierAlternate  = 1 << 19
+    #   UIKeyModifierCommand    = 1 << 20
+    #   UIKeyModifierNumericPad = 1 << 21
+    def uikit_modifier_mask : UInt64
+      mask = 0_u64
+      mask |= (1_u64 << 17) if @modifiers.includes?(:shift)
+      mask |= (1_u64 << 18) if @modifiers.includes?(:control)
+      mask |= (1_u64 << 19) if @modifiers.includes?(:option) || @modifiers.includes?(:alt)
+      mask |= (1_u64 << 20) if @modifiers.includes?(:command) || @modifiers.includes?(:cmd)
+      mask
+    end
+
+    # AppKit `NSEventModifierFlags`. Bit positions per AppKit header:
+    #   NSEventModifierFlagShift   = 1 << 17
+    #   NSEventModifierFlagControl = 1 << 18
+    #   NSEventModifierFlagOption  = 1 << 19
+    #   NSEventModifierFlagCommand = 1 << 20
+    # (Same bit layout as UIKit for the four general modifiers.)
+    def appkit_modifier_mask : UInt64
+      uikit_modifier_mask
+    end
+  end
 
   # Abstract base class for all UI views.
   #
@@ -133,6 +309,176 @@ module UI
 
     # Accessibility label read by screen readers
     property accessibility_label : String? = nil
+
+    # Phase 10B.2a — Supplemental hint announced after the label, used to
+    # explain *what activating this element does* (e.g. "Double-tap to
+    # open settings"). Web maps to `aria-describedby` (or `aria-description`
+    # when the hint stands alone); UIKit maps to `accessibilityHint`;
+    # AppKit maps to `setAccessibilityHelp:` (the closest AppKit equivalent
+    # — AppKit lacks a first-class hint slot). Android concatenates the
+    # hint onto `contentDescription` with a separator since Android's AX
+    # API surfaces a single string per view.
+    property accessibility_hint : String? = nil
+
+    # Phase 10B.2a — Explicit semantic role for assistive tech. When `nil`
+    # the View's `accessibility_role` getter falls back to the widget
+    # subclass's `default_accessibility_role`. Set explicitly to override
+    # the default (e.g. a `UI::Label` acting as a section header should set
+    # `accessibility_role = :header`).
+    #
+    # Canonical role symbols (per-platform mapping table lives in the
+    # phase 10B.2a close handoff):
+    #   :button   :link        :text        :header     :image
+    #   :tab      :tab_list    :tab_panel   :list       :list_item
+    #   :checkbox :radio       :switch      :slider     :progress_bar
+    #   :search   :dialog      :alert       :menu       :menu_item
+    #   :none     — explicit "no role" (web emits `role="none"`).
+    property accessibility_role : Symbol? = nil
+
+    # Phase 10B.2a — UIKit-style traits surfaced to assistive tech as a
+    # set of capability flags. Examples:
+    #   :selected         — the element is in a selected state
+    #   :not_enabled      — the element is non-interactive
+    #   :plays_sound      — activating the element produces audio
+    #   :starts_media     — activating begins media playback
+    #   :causes_page_turn — activating navigates to a new screen
+    #   :updates_frequently — value changes rapidly (announce sparingly)
+    #
+    # Per-platform mapping:
+    #   UIKit  — bitwise OR of UIAccessibilityTraits values.
+    #   AppKit — best-effort via `setAccessibilityCustomRole` /
+    #            `setAccessibilitySelected:`; unmapped traits fall through.
+    #   Web    — mapped to `aria-selected`, `aria-disabled`, etc. where
+    #            an analog exists.
+    #   Android — applied via `AccessibilityNodeInfo` flags where supported.
+    property accessibility_traits : Array(Symbol) = [] of Symbol
+
+    # Phase 10B.2a — Current value as a human-readable string. Used by
+    # screen readers when the role implies a value (slider, progress,
+    # toggle, segmented control). Examples: `"On"`, `"75%"`, `"3 of 7"`.
+    # Web emits `aria-valuetext`; UIKit emits `accessibilityValue`;
+    # AppKit emits `setAccessibilityValue:`; Android emits
+    # `setStateDescription` (API 30+; older versions silently no-op).
+    property accessibility_value : String? = nil
+
+    # Phase 10B.2a — Stable identifier surfaced to platform AX trees for
+    # automated UI testing. This is intentionally distinct from `test_id`:
+    #   - `test_id` is the asset_pipeline / AXTest convention; the AppKit
+    #     and UIKit renderers historically map it to `accessibilityIdentifier`.
+    #   - `accessibility_identifier` is the explicit XCTest /
+    #     Espresso-friendly slot. When both are set, the explicit
+    #     `accessibility_identifier` wins on AppKit and UIKit.
+    #   - Web emits both as `data-testid` (test_id) and
+    #     `data-accessibility-id` (accessibility_identifier) so test
+    #     drivers that already query the latter don't break.
+    property accessibility_identifier : String? = nil
+
+    # Phase 10B.2b — Custom accessibility actions surfaced to assistive
+    # tech. Each action carries a human-readable name and a callback.
+    # See `UI::AccessibilityAction`. Renderers walk this array and
+    # emit per-platform custom actions (UIKit `UIAccessibilityCustomAction`,
+    # AppKit `NSAccessibilityCustomAction`, web data-attribute hooks,
+    # Android best-effort).
+    property accessibility_actions : Array(AccessibilityAction) = [] of AccessibilityAction
+
+    # Phase 10B.2b — Requests that the view receive focus on render. When
+    # toggled true (e.g. via a controller reaction), the matching native
+    # renderer calls `becomeFirstResponder` / `makeFirstResponder:` /
+    # `requestFocus()` on the resolved native view. Web emits an
+    # `autofocus` attribute on form controls and a `data-focused="true"`
+    # hook for non-form elements that a JS shim can act on.
+    property focused : Bool = false
+
+    # Phase 10B.2b — Whether this view participates in keyboard focus
+    # traversal. `nil` means "use the widget's default" (interactive
+    # widgets default to focusable, layout primitives to non-focusable).
+    # Set explicitly to override. Web emits `tabindex="0"` (focusable)
+    # or `tabindex="-1"` (programmatic-focus-only). Native renderers
+    # call `setIsAccessibilityElement:` / `setFocusable` to reflect the
+    # choice.
+    property focusable : Bool? = nil
+
+    # Phase 10B.2b — Explicit tab order index. Web emits `tabindex="<n>"`.
+    # On native platforms `tab_index` is advisory because keyboard
+    # traversal order is determined by the platform's focus engine; we
+    # surface the value in `accessibility_identifier` test attribute
+    # form so XCUITest / Espresso can introspect intent.
+    property tab_index : Int32? = nil
+
+    # Phase 10B.2b — Keyboard shortcut binding. See `UI::KeyboardShortcut`.
+    # Web emits an `accesskey` attribute plus a `data-keyboard-shortcut`
+    # canonical string. UIKit and AppKit thread the modifier mask into
+    # the platform's key command / key equivalent APIs.
+    property keyboard_shortcut : KeyboardShortcut? = nil
+
+    # Chainable convenience setter: `view.with_keyboard_shortcut("S",
+    # modifiers: [:command])`. Returns `self`.
+    def with_keyboard_shortcut(key : String | Symbol, modifiers : Array(Symbol) = [] of Symbol) : self
+      @keyboard_shortcut = KeyboardShortcut.new(key, modifiers)
+      self
+    end
+
+    # Phase 10B.2b — Per-widget default for `focusable` when the caller
+    # leaves the property at `nil`. Interactive subclasses (`Button`,
+    # `TextField`, `Toggle`, …) override this to return `true`; layout
+    # primitives and decorative views return `false`. The
+    # `effective_focusable` getter applies the precedence.
+    def default_focusable : Bool
+      false
+    end
+
+    # Phase 10B.2b — Resolved focusability: explicit `focusable` when
+    # set, otherwise the subclass default. Renderers MUST call this
+    # method rather than read `@focusable` directly so the default-
+    # inference path runs.
+    def effective_focusable : Bool
+      f = @focusable
+      f.nil? ? default_focusable : f
+    end
+
+    # Phase 10B.2b — Resolved tab-index emission. Returns the explicit
+    # `tab_index` when the caller set one. When `focusable` was
+    # explicitly set to `false` on a widget whose default is focusable,
+    # returns `-1` so the renderer can opt the element out of tab
+    # traversal. Otherwise returns `nil` and the renderer skips the
+    # `tabindex` attribute — HTML form controls already have an
+    # implicit tab order, so unconditional `tabindex="0"` emission
+    # would just produce noise.
+    def effective_tab_index : Int32?
+      if t = @tab_index
+        return t
+      end
+      # Explicit opt-out: focusable was set to false but the widget
+      # default is true (or vice versa needs explicit override).
+      if @focusable == false && default_focusable
+        return -1
+      end
+      # Explicit opt-in on a widget whose default is non-focusable —
+      # emit tabindex="0" so the browser puts it in the tab order.
+      if @focusable == true && !default_focusable
+        return 0
+      end
+      nil
+    end
+
+    # Phase 10B.2a — Per-widget default semantic role. Subclasses override
+    # to return the role symbol that matches the widget's HIG semantics.
+    # The base default is `nil`, which on web emits no `role=` attribute
+    # (the HTML tag's intrinsic role wins). The `accessibility_role`
+    # getter is overridden via `effective_accessibility_role` so callers
+    # never need to pick between the explicit and default channels.
+    def default_accessibility_role : Symbol?
+      nil
+    end
+
+    # Phase 10B.2a — The resolved role: the explicitly set
+    # `accessibility_role`, falling back to the subclass's
+    # `default_accessibility_role`. Renderers MUST call this method
+    # instead of reading the raw `accessibility_role` property so the
+    # default-role inference path runs.
+    def effective_accessibility_role : Symbol?
+      @accessibility_role || default_accessibility_role
+    end
 
     # Padding around the view content
     property padding : EdgeInsets = EdgeInsets.new
@@ -149,6 +495,14 @@ module UI
     # Shape modifiers
     property corner_radius : Float64 = 0.0
     property clip_to_bounds : Bool = false
+
+    # When true this view (and its subtree) is invisible to hit-testing:
+    # UIKit gets userInteractionEnabled=false, web gets pointer-events:none.
+    # For informational overlays (badges, ribbons) stacked over interactive
+    # content — a full-screen overlay view otherwise SWALLOWS every touch on
+    # native platforms even though clicks pass through in a browser (root
+    # cause of the 2026-07-23 dead-tap bug in the demo shell).
+    property touch_passthrough : Bool = false
 
     # Shadow modifier
     property shadow_radius : Float64 = 0.0
@@ -189,10 +543,21 @@ module UI
     #
     # When `true`, the renderer treats this view as a full-screen root
     # and:
-    #   - iOS / macOS: pins the view's width to the device screen width
-    #     and lets its height grow to the screen height (or scroll if
-    #     content exceeds it). Replaces the brittle hardcoded
-    #     `content_width = 340.0` pattern.
+    #   - iOS: pins the view's width to the device screen width and lets
+    #     its height grow (or scroll if content exceeds it). Replaces the
+    #     brittle hardcoded `content_width = 340.0` pattern.
+    #   - macOS: adds only a SOFT upper cap at the metric width (priority
+    #     500), NOT an exact width pin. The actual fill comes from the host
+    #     installing the rendered content pinned to the window's content
+    #     area (`objc_install_content_view` for capture windows /
+    #     `objc_window_set_filling_content_view` for interactive windows).
+    #     An exact pin here would force a resizable window to the metric
+    #     width and lock horizontal resize (the window's size is a free
+    #     variable Auto Layout will grow to satisfy a near-required pin —
+    #     see commit "fix(macos): window opened at screen width"). Hosts
+    #     that set their contentView via raw `setContentView:` without
+    #     pinning MUST migrate to `objc_window_set_filling_content_view`
+    #     for `root_fill` to fill; otherwise the view hugs its content.
     #   - Web: emits `min-height: 100dvh` + `width: 100%` (CSS dvh
     #     respects mobile address-bar resizing).
     #
@@ -208,6 +573,25 @@ module UI
     # Chainable shortcut for `self.root_fill = true`. Returns self.
     def fill_screen! : self
       @root_fill = true
+      self
+    end
+
+    # Cross-platform "flex-grow": when `true`, this view GROWS to fill the remaining
+    # space along its containing stack's main axis (the horizontal axis of an `HStack`).
+    # It becomes the row's flexible absorber, the way a `Spacer` does — but as a real
+    # control (e.g. a compose `TextField` that expands to fill the row beside a
+    # fixed-size send button). Without an absorber, a horizontal row of fixed-width
+    # children over-constrains UIKit's Fill distribution and the row mispositions.
+    #
+    # Renderer mapping: AppKit / UIKit lower the view's horizontal content-hugging
+    # priority (so the stack stretches it); the web renderer emits `flex: 1`. Do NOT
+    # combine with an exact width pin (`minimum_width == maximum_width`) — the pin wins
+    # and defeats the grow.
+    property fill_horizontal : Bool = false
+
+    # Chainable shortcut for `self.fill_horizontal = true`. Returns self.
+    def grow! : self
+      @fill_horizontal = true
       self
     end
 
@@ -259,9 +643,158 @@ module UI
       self
     end
 
+    # -------------------------------------------------------------------------
+    # Discrete gesture surface — swipe (4 directions) + long-press.
+    #
+    # "Discrete" means each recognizer fires once per completed gesture: a
+    # swipe fires when the finger lifts in the recognized direction; a long-
+    # press fires when the hold threshold is crossed. Continuous pan/drag
+    # tracking is intentionally out of scope.
+    #
+    # Per-platform behavior:
+    #   UIKit  — UISwipeGestureRecognizer (per direction) + UILongPressGestureRecognizer.
+    #            cancelsTouchesInView is left at the default (YES) for swipe, set
+    #            to NO for long-press so child buttons still fire on tap.
+    #   AppKit — NSPanGestureRecognizer classifies direction at .ended by the
+    #            dominant translation component (threshold 30 pt). A separate
+    #            NSPressGestureRecognizer backs long-press.
+    #   Web    — no-op; both handler types are silently ignored.
+    # -------------------------------------------------------------------------
+
+    # Swipe handler storage. Lazily initialized on first registration.
+    # Direction is the key; only the last-registered handler per direction
+    # is kept (matches UIKit's one-recognizer-per-direction model).
+    @swipe_handlers : Hash(SwipeDirection, Proc(Nil))? = nil
+
+    # Returns the swipe handler map, nil when no handlers have been registered.
+    # Renderers walk registered directions without forcing allocation.
+    def swipe_handlers : Hash(SwipeDirection, Proc(Nil))?
+      @swipe_handlers
+    end
+
+    # Register a swipe handler for `direction`. Replaces any previously
+    # registered handler for the same direction. The block is invoked on the
+    # main thread when the platform recognizer fires.
+    def on_swipe(direction : SwipeDirection, &block : -> Nil) : Nil
+      map = @swipe_handlers ||= Hash(SwipeDirection, Proc(Nil)).new
+      map[direction] = block
+    end
+
+    # Optional long-press callback. When non-nil the renderer attaches a
+    # long-press gesture recognizer (minimum hold: 0.5 s) whose action
+    # invokes this proc. The proc runs on the main thread.
+    property on_long_press : Proc(Nil)? = nil
+
+    # Convenience block-based setter. Equivalent to assigning `on_long_press`
+    # directly but avoids the explicit Proc wrapper at call sites.
+    def on_long_press(&block : -> Nil) : Nil
+      @on_long_press = block
+    end
+
     # Accept a platform visitor for rendering dispatch.
     # Each concrete view type calls `visitor.visit(self)`.
     abstract def accept(visitor : PlatformVisitor)
+
+    # ------------------------------------------------------------------
+    # In-place reconciliation hooks (iOS Rerender focus preservation).
+    #
+    # The reconciler walks a freshly-built view tree against the mounted
+    # native tree, aligning by position. `reconcile_kind` must equal the
+    # `NativeView#view_kind` the renderer stamped for this view's native
+    # node; `reconcile_children` must return this view's children in the
+    # SAME order the renderer adds native children. The default is a leaf
+    # with no children — containers override `reconcile_children`. Any
+    # mismatch (kind or child count) makes the reconciler abort to the
+    # safe destructive render path, so an unhandled container/widget is
+    # never silently mis-reconciled — it just falls back.
+    # ------------------------------------------------------------------
+    def reconcile_kind : String
+      self.class.name
+    end
+
+    def reconcile_children : Array(View)
+      [] of View
+    end
+
+    # Phase 10B.0 — declare which capabilities this view class supports
+    # for a given Tier 2 intent. Used by `UI::WidgetRoute::Registry` to
+    # validate overrides at registration time. Subclasses call this
+    # exactly once per intent they claim to satisfy:
+    #
+    #     class UI::SwipeActionRow < UI::View
+    #       declares_capabilities :swipe_actions, {
+    #         supports_edge_trailing: true,
+    #         supports_role_destructive: {ios: true, macos: false, web_wide: true},
+    #         supports_role_default: true,
+    #       }
+    #     end
+    #
+    # # Capability value shapes (Phase 10B.1b)
+    #
+    # * `true` — full support on every platform the intent can resolve to.
+    # * `false` — no support anywhere (declarative "I do not back this").
+    # * `:partial` — fuzzy legacy "some platforms, unspecified." Accepted
+    #   for back-compat but the 10B.1b audit prefers explicit Hash form
+    #   below.
+    # * `Hash(Symbol, Bool)` — platform-keyed support map. Keys are
+    #   platform symbols (`:ios`, `:ipados`, `:macos`, `:web_wide`,
+    #   `:web_narrow`, `:android`); the value is whether the renderer for
+    #   that platform actually backs the capability. `UI::WidgetRoute::Registry`
+    #   walks this hash at registration time to detect "claims iOS but
+    #   rendered on macOS" mismatches, and again at resolve time when
+    #   `capabilities_required:` is passed to `UI::WidgetRoute.resolve`.
+    #
+    # Both NamedTuple shorthand (`{ios: true, macos: false}`) and rocket-
+    # style HashLiteral (`{:ios => true, :macos => false}`) are accepted
+    # for the per-capability platform map. They produce the same
+    # `Hash(Symbol, Bool)` at the cap site.
+    #
+    # The macro emits a class-level hook method
+    # `_declare_capabilities_for_intent_<intent_id>` that runs the
+    # `UI::WidgetRoute::Registry.declare_widget_capabilities` write. Like
+    # `UI::App`'s `_bootstrap_screen_*` pattern, method definitions are
+    # compile-time-emitted code, unaffected by the iOS class-init gap
+    # (see [[project_crystal_ios_class_init_gap]]). The class-load side
+    # effect of invoking the named method then writes the capability
+    # bag into the registry.
+    macro declares_capabilities(intent_id, capabilities)
+      def self._declare_capabilities_for_intent_{{intent_id.id}} : Nil
+        caps = {} of Symbol => ::UI::WidgetRoute::Registry::CapabilityValue
+        {% for key, value in capabilities %}
+          {% if value.is_a?(HashLiteral) || value.is_a?(NamedTupleLiteral) %}
+            _cap_h_{{intent_id.id}}_{{key.id}} = {} of Symbol => Bool
+            {% for plat_key, plat_value in value %}
+              {% if plat_key.is_a?(SymbolLiteral) %}
+                # Rocket-style HashLiteral key (e.g. `:ios => true`) is
+                # already a SymbolLiteral. Emit it directly — calling
+                # `.symbolize` would wrap it as `:":ios"`, which then
+                # never matches a `:ios` lookup downstream.
+                _cap_h_{{intent_id.id}}_{{key.id}}[{{plat_key}}] = {{plat_value}}
+              {% else %}
+                # NamedTupleLiteral key (`ios: true`) arrives as a
+                # MacroId; symbolize it into `:ios`.
+                _cap_h_{{intent_id.id}}_{{key.id}}[{{plat_key.symbolize}}] = {{plat_value}}
+              {% end %}
+            {% end %}
+            caps[{% if key.is_a?(SymbolLiteral) %}{{key}}{% else %}{{key.symbolize}}{% end %}] = _cap_h_{{intent_id.id}}_{{key.id}}
+          {% else %}
+            caps[{% if key.is_a?(SymbolLiteral) %}{{key}}{% else %}{{key.symbolize}}{% end %}] = {{value}}
+          {% end %}
+        {% end %}
+        ::UI::WidgetRoute::Registry.declare_widget_capabilities(
+          {{@type}},
+          {{intent_id}},
+          caps,
+        )
+        nil
+      end
+
+      # Class-load side effect: register the declaration eagerly. iOS
+      # embedding may skip this write (class-init gap). The named
+      # method above is the recovery hatch — re-running it from a
+      # framework bootstrap routine restores the declaration.
+      _declare_capabilities_for_intent_{{intent_id.id}}
+    end
 
     # Coerce a fluid size argument into its CSS string form. Numbers are
     # treated as pixel values; strings pass through unchanged.

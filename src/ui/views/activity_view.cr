@@ -10,8 +10,11 @@ module UI
   # like Copy and Print, in addition to quick access to frequently used apps."
   # Each destination is a circular icon (~60pt) with a label below it.
   struct ActivityDestination
-    property icon_symbol : String  # SF Symbol name (e.g. "envelope", "message")
+    # SF Symbol name (Apple) / icon identifier (Android / web) for the icon.
+    property icon_symbol : String # SF Symbol name (e.g. "envelope", "message")
+    # Caption / accessibility label rendered alongside the control.
     property label : String
+    # Invoked with the newly-selected item when the user picks an option.
     property on_select : Proc(Nil)?
 
     def initialize(@icon_symbol : String, @label : String, @on_select : Proc(Nil)? = nil)
@@ -23,10 +26,14 @@ module UI
   # Each action tile is a rounded-rect button with icon + label,
   # laid out in a two-column grid below the destination row.
   struct ActivityAction
-    property icon_symbol : String  # SF Symbol name (e.g. "doc.on.doc", "printer")
+    # SF Symbol name (Apple) / icon identifier (Android / web) for the icon.
+    property icon_symbol : String # SF Symbol name (e.g. "doc.on.doc", "printer")
+    # Caption / accessibility label rendered alongside the control.
     property label : String
+    # Invoked with the newly-selected item when the user picks an option.
     property on_select : Proc(Nil)?
-    property role : Symbol?        # :destructive to render label red; nil for default
+    # Semantic role (e.g. `:primary`, `:destructive`, `:cancel`).
+    property role : Symbol? # :destructive to render label red; nil for default
 
     def initialize(@icon_symbol : String, @label : String,
                    @on_select : Proc(Nil)? = nil, @role : Symbol? = nil)
@@ -64,13 +71,17 @@ module UI
     # Optional native share payload. These values power UIActivityViewController
     # / NSSharingServicePicker for real app flows.
     property share_text : String? = nil
+    # Text value.
     property share_url : String? = nil
+    # Text value.
     property share_subject : String? = nil
 
     # Zone 1 — Header
     property title : String
+    # Secondary line shown beneath the title.
     property subtitle : String?
-    property thumbnail : View?      # Optional preview; typically UI::Image
+    # Optional thumbnail image source.
+    property thumbnail : View? # Optional preview; typically UI::Image
 
     # Zone 2 — Horizontal destination row
     property destinations : Array(ActivityDestination) = [] of ActivityDestination
@@ -96,17 +107,21 @@ module UI
 
   # Presentation state for an ActivityView share sheet.
   class ActivityViewPresenter
+    # The ActivityView instance being presented.
     property activity_view : ActivityView
+    # Whether the controller is in the act of presenting the overlay.
     property is_presenting : Bool = false
 
     def initialize(@activity_view : ActivityView)
     end
 
+    # Presents the overlay / modal.
     def present
       @is_presenting = true
       @activity_view.is_presented = true
     end
 
+    # Dismisses the overlay / modal.
     def dismiss
       @is_presenting = false
       @activity_view.is_presented = false

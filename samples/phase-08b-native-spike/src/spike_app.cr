@@ -1,4 +1,7 @@
-# lint:disable=family_1/screen_file_suffix,family_1/controller_file_suffix
+# lint:disable=family_1/screen_file_suffix,family_1/controller_file_suffix,family_4/interactive_widget_test_id
+# (Native spike: end-to-end flow demo. Widgets are introspected by
+#  accessibility_label in this Phase 8B spike; production screens go
+#  through normal test_id discipline.)
 # Phase 10A.0a: this is an intentional single-file spike that declares multiple
 # screens + controllers; per-class file-suffix rules are disabled accordingly.
 # Phase 8B macOS spike — Sign-in -> Todos with read-back proof.

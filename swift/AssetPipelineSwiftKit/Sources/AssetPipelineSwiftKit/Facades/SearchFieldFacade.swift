@@ -11,6 +11,8 @@
 import SwiftUI
 import Foundation
 
+// watchOS: gated off for the initial watch compile (UIKit-only / not in watch subset).
+#if !os(watchOS)
 @objc(APSKSearchFieldFacade)
 public class SearchFieldFacade: NSObject {
     @objc public static func makeSearchField(
@@ -47,3 +49,4 @@ private struct SearchStorageHost<Content: View>: View {
     let content: Content
     var body: some View { content }
 }
+#endif

@@ -3,6 +3,9 @@
 import SwiftUI
 import Foundation
 
+// watchOS: ENABLED (Phase D Bucket-2 P2 port, 2026-06-02). Pure SwiftUI —
+// `Stepper(value:in:step:)` is watch-native; no UIKit or watch-unavailable APIs,
+// so this is a straight un-gate. See watch-facade-bucket-audit.md.
 @objc(APSKStepperFacade)
 public class StepperFacade: NSObject {
     @objc public static func makeStepper(

@@ -7,8 +7,10 @@
 # `objc_msgSend` happens inside C trampolines in
 # `src/ui/native/swiftkit_bridge.m`.
 #
-# Module is gated on `flag?(:macos) || flag?(:ios)` — Web and Android
-# builds never touch SwiftKit. The spec environment provides a fake
+# Module is gated on `flag?(:macos) || flag?(:ios) || flag?(:watchos)` — Web and
+# Android builds never touch SwiftKit. watchOS reaches the same SwiftKit facades
+# (which return the `APSKWatchHostView` boundary node on watch) so the
+# `UI::WatchKit::Renderer` can compose them. The spec environment provides a fake
 # wrapper at `spec/support/fake_lib_objc_bridge.cr`.
 #
 # Phase 3 ships the Button facade end-to-end. The widget coverage list
@@ -17,9 +19,17 @@
 # follow-up commits documented in the handoff message. Phase 5's glass
 # material work extends THIS module — it does not introduce a new lib.
 
-{% if flag?(:macos) || flag?(:ios) %}
+{% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
   @[Link(framework: "Foundation")]
   lib LibSwiftKitBridge
+    # Phase 12.A — Interaction-contracts NSLog bridge. See
+    # swiftkit_bridge.m §"Interaction-contracts NSLog bridge".
+    fun apsk_apic_log(msg : UInt8*)
+
+    # Register a font file at runtime (CTFontManager, process scope) so
+    # UI::Font.family can name it. Returns true on success / already-registered.
+    fun apsk_register_font(path : UInt8*) : Bool
+
     # -------------------------------------------------------------------------
     # Runtime initialization. Called once during app startup, after
     # Crystal's `GC.init`, to hand the address of Crystal's
@@ -95,6 +105,9 @@
     fun apsk_menu_button_overrides_new : Void*
     fun apsk_toggle_button_overrides_new : Void*
     fun apsk_list_view_overrides_new : Void*
+    # Phase 10D-refocus — SwipeActionRow overrides allocator (SwiftUI
+    # `.swipeActions(edge:)` bridge backing UI::SwipeActionRow on iOS).
+    fun apsk_swipe_action_row_overrides_new : Void*
 
     # ---- Glass (P1 — the Phase 3 "headline visual differentiator") -----
     fun apsk_glass_background_overrides_new : Void*
@@ -138,6 +151,14 @@
     # Setter for an `Int`-typed scalar property (used by selectedIndex on
     # TabView / MenuButton facades).
     fun apsk_overrides_set_int(target : Void*, setter_name : UInt8*, value : Int64)
+    # Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter.
+    # Used by `apskAccessibilityTraitsMask` (Swift `NSNumber?`). Unlike
+    # `apsk_overrides_set_int`, this boxes the value via NSNumber before
+    # calling the setter so the property receives a boxed reference type.
+    fun apsk_overrides_set_uint64_boxed(target : Void*, setter_name : UInt8*, value : UInt64)
+    # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — set an `AnyObject?`
+    # property from a raw ObjC pointer (UIView*/NSView*). NULL clears.
+    fun apsk_overrides_set_object_ptr(target : Void*, setter_name : UInt8*, object_ptr : Void*)
 
     # -------------------------------------------------------------------------
     # Facade entry points. Each returns a +1 retained platform view
@@ -208,7 +229,7 @@
     fun apsk_make_navigation_split_view(child_views : Void*, child_count : Int32,
                                         overrides : Void*) : Void*
     fun apsk_make_tab_view(child_views : Void*, child_count : Int32,
-                           overrides : Void*) : Void*
+                           overrides : Void*, action_token : UInt64) : Void*
     fun apsk_make_sheet(child_views : Void*, child_count : Int32,
                         overrides : Void*, dismiss_token : UInt64) : Void*
     fun apsk_make_popover(child_views : Void*, child_count : Int32,
@@ -226,6 +247,12 @@
                        overrides : Void*) : Void*
     fun apsk_make_surface(child_views : Void*, child_count : Int32,
                           overrides : Void*) : Void*
+    # watchOS-only: declarative VStack/HStack composition of child boundary nodes.
+    # axis: 0 = vertical, 1 = horizontal. alignment: 0 = leading/top, 1 = center,
+    # 2 = trailing/bottom. Returns an APSKWatchHostView box; NULL off-watch.
+    fun apsk_make_watch_stack(child_views : Void*, child_count : Int32,
+                              axis : Int64, spacing : Float64, alignment : Int64,
+                              overrides : Void*, root_fill : Int32) : Void*
     fun apsk_make_menu_button(label : UInt8*, overrides : Void*) : Void*
     fun apsk_make_toggle_button(label : UInt8*, overrides : Void*,
                                 action_token : UInt64) : Void*
@@ -235,6 +262,14 @@
     # facade can slice items back into SwiftUI `Section`s.
     fun apsk_make_list_view(child_views : Void*, child_count : Int32,
                             overrides : Void*) : Void*
+    # Phase 10D-refocus — SwipeActionRow facade entry. Wraps a single
+    # content view in a SwiftUI List harness that activates
+    # `.swipeActions(edge: .leading)` + `.swipeActions(edge: .trailing)`
+    # so the row exposes the native iOS Mail-style swipe gesture with
+    # full-row-height tinted tile actions. The action tokens, labels,
+    # icons, roles, and tints are populated on the overrides via the
+    # standard array-setter senders before this call.
+    fun apsk_make_swipe_action_row(content_view : Void*, overrides : Void*) : Void*
 
     # ---- Glass facade (P1) --------------------------------------------
     # `child_view` is a single platform-view pointer (the content the
@@ -275,6 +310,17 @@
                                  overrides : Void*, dismiss_token : UInt64,
                                  out_state : Void**) : Void*
 
+    # Phase 12.C — reactive ConfirmationDialog facade entry (Codex iter-1
+    # BLOCKER 1 fix). `out_state` receives a +1 retained `BoolStorage*` so
+    # `NativeView.dismiss_reactive_presentations!` can flip the SwiftUI
+    # `.confirmationDialog(isPresented:)` binding during the cross-render
+    # sweep. Mirrors `apsk_make_sheet_reactive`. The legacy
+    # `apsk_make_confirmation_dialog` remains as a shim that calls this
+    # with `out_state = NULL`.
+    fun apsk_make_confirmation_dialog_reactive(title : UInt8*, message : UInt8*,
+                                               overrides : Void*,
+                                               out_state : Void**) : Void*
+
     # -------------------------------------------------------------------------
     # State mutators. Implemented directly in Swift via `@_cdecl` (see
     # `swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit/Facades/
@@ -300,6 +346,12 @@
     fun apsk_slider_set_value(state : Void*, value : Float64)
     # Phase 3 Remediation 10 — Sheet presentation mutator.
     fun apsk_sheet_set_presented(state : Void*, is_presented : Int32)
+    # Phase 12.C — ConfirmationDialog presentation mutator (Codex iter-1
+    # BLOCKER 1). Routes through `BoolStorage.setProgrammatically(_:)` on
+    # the Swift side so the SwiftUI `.confirmationDialog` modifier sees
+    # the new value, APIC markers fire, but the CallbackBridge is NOT
+    # invoked (Crystal initiated the mutation).
+    fun apsk_confirmation_dialog_set_presented(state : Void*, is_presented : Int32)
 
     # Drop the +1 retain Swift's `Unmanaged.passRetained` placed on the
     # state object inside the matching `apsk_make_*_reactive` call. Safe

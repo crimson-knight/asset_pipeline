@@ -46,11 +46,16 @@ struct ContentView: View {
     let initialSlug: String
 
     @State private var slug: String
-    /// Monotonic counter — bumped every time the Crystal coordinator
-    /// publishes a route change. Combined with `slug` in `.id()` so
-    /// even a same-slug republish (e.g. Editor → Todos return) forces
-    /// SwiftUI to discard + recreate the representable.
-    @State private var renderVersion: Int = 0
+    /// Bumped only on NAVIGATION (push/pop/replace_root). Combined with
+    /// `slug` in `.id()` so a route change discards + recreates the
+    /// representable (fresh makeUIView) — this preserves the Save→pop
+    /// stale-render fix.
+    @State private var navigationVersion: Int = 0
+    /// Bumped on a same-route Rerender (republish). Does NOT change `.id()`
+    /// — instead it flows into `updateUIView`, which attempts an in-place
+    /// reconcile (preserving text-field keyboard focus) and falls back to
+    /// a destructive re-render if Crystal can't reconcile.
+    @State private var reconcileVersion: Int = 0
 
     init(initialSlug: String) {
         self.initialSlug = initialSlug
@@ -68,33 +73,57 @@ struct ContentView: View {
         // queries `UI::DesignTokens::DeviceMetrics.current` and pads
         // by `safe_area_top_pt` / `safe_area_bottom_pt` so visible
         // controls stay clear of system chrome.
-        VoyagerHost(slug: slug, renderVersion: renderVersion)
-            // Phase 6.10 Rem 4 Item 1 — include renderVersion in the
-            // SwiftUI identity so route republishes always force a
-            // fresh `makeUIView` (defensive against the same-slug-
-            // return case where `.id(slug)` alone wouldn't change
-            // identity).
-            .id("\(slug)#\(renderVersion)")
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(Color(UIColor.systemGroupedBackground))
-            .ignoresSafeArea(.all)
-            .accessibilityIdentifier("voyager-root-host")
-            .accessibilityElement(children: .contain)
-        .onReceive(VoyagerBridge.routeChanged) { newSlug in
-            // Bump renderVersion FIRST so the new identity is in place
-            // BEFORE the slug update triggers re-evaluation; both
-            // changes coalesce into a single SwiftUI render pass.
-            renderVersion &+= 1
-            if newSlug != slug {
-                slug = newSlug
+        // Phase D Track 2 — the iOS analog of the macOS windowDidResize ->
+        // rebuild hook. A GeometryReader observes the live container size;
+        // any size change (device rotation, iPad multitasking, Stage Manager)
+        // bumps navigationVersion, which changes `.id`, discarding +
+        // recreating the host so `makeUIView` re-renders the Crystal tree with
+        // the NEW live DeviceMetrics. The metrics provider reads
+        // `objc_screen_width` / size class fresh on every render, so the WHOLE
+        // composition reflows on rotation exactly as it does on macOS resize —
+        // no constraints-only resize that can't change tree shape/spacing.
+        GeometryReader { geo in
+            VoyagerHost(slug: slug, navigationVersion: navigationVersion, reconcileVersion: reconcileVersion)
+                // Only navigationVersion is in the identity, so a same-route
+                // Rerender does NOT tear down the host (reconcileVersion flows
+                // into updateUIView instead). Navigation still forces a fresh
+                // makeUIView — preserving the Save→pop stale-render fix.
+                .id("\(slug)#\(navigationVersion)")
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .background(Color(UIColor.systemGroupedBackground))
+                .accessibilityIdentifier("voyager-root-host")
+                .accessibilityElement(children: .contain)
+            .onReceive(VoyagerBridge.routeEvents) { event in
+                if event.kind == .rerender && event.slug == slug {
+                    // Same-route Rerender: keep the host mounted, ask
+                    // updateUIView to reconcile in place.
+                    reconcileVersion &+= 1
+                } else {
+                    // Navigation (or a slug change): bump identity FIRST so
+                    // the new identity is in place before the slug update;
+                    // both coalesce into a single SwiftUI render pass.
+                    navigationVersion &+= 1
+                    if event.slug != slug {
+                        slug = event.slug
+                    }
+                }
+            }
+            .onChange(of: geo.size) { _ in
+                // Size class / bounds changed (rotation, multitasking). Force a
+                // fresh makeUIView so the Crystal tree rebuilds with the new
+                // DeviceMetrics. Same mechanism as a navigation rebuild; the
+                // initial layout's first non-zero size also bumps once, which
+                // is a harmless idempotent re-render of the same slug.
+                navigationVersion &+= 1
+            }
+            .onAppear {
+                // Make sure VoyagerBridge.initialize runs so the route-changed
+                // callback is registered BEFORE any tap handler inside the
+                // Crystal view tree fires coord.push(...).
+                VoyagerBridge.initialize()
             }
         }
-        .onAppear {
-            // Make sure VoyagerBridge.initialize runs so the route-changed
-            // callback is registered BEFORE any tap handler inside the
-            // Crystal view tree fires coord.push(...).
-            VoyagerBridge.initialize()
-        }
+        .ignoresSafeArea(.all)
     }
 }
 
@@ -118,7 +147,8 @@ struct ContentView: View {
 /// Crystal content for the current slug and swaps it in place.
 struct VoyagerHost: UIViewRepresentable {
     let slug: String
-    let renderVersion: Int
+    let navigationVersion: Int
+    let reconcileVersion: Int
 
     func makeUIView(context: Context) -> UIView {
         guard let crystalRoot = VoyagerBridge.render(slug: slug) else {
@@ -153,6 +183,10 @@ struct VoyagerHost: UIViewRepresentable {
         scroll.alwaysBounceVertical = true
         scroll.alwaysBounceHorizontal = false
         scroll.showsHorizontalScrollIndicator = false
+        // Dismiss the keyboard when the user drags the scroll view — the
+        // expected iOS behavior on a long scrolling form, and it keeps
+        // controls below the keyboard reachable after typing into a field.
+        scroll.keyboardDismissMode = .onDrag
         // Re-use the same AX identifier the bare-root path uses so
         // XCUITest selectors stay stable across the wrap / no-wrap
         // branches.
@@ -186,9 +220,20 @@ struct VoyagerHost: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
-        // Phase 6.10 Rem 4 Item 1 — safety net.
+        // In-place reconcile path (Stage 1 of the reconciliation design).
+        // A same-route Rerender bumped reconcileVersion (NOT the .id),
+        // so SwiftUI calls updateUIView on the SAME mounted host. Ask
+        // Crystal to update the existing native tree in place; if it can
+        // (returns true), the mounted views — including a focused
+        // UITextField — are preserved, so keyboard focus survives. If it
+        // can't, fall through to the destructive re-render below.
+        if VoyagerBridge.reconcile(slug: slug) {
+            return
+        }
+
+        // Phase 6.10 Rem 4 Item 1 — safety net (destructive fallback).
         //
-        // Slug changes are normally handled by `.id("slug#renderVersion")`
+        // Slug changes are normally handled by `.id("slug#navigationVersion")`
         // on the SwiftUI side, which discards this representable and
         // calls `makeUIView` fresh. But if SwiftUI ever elides that
         // recreation (e.g. same identity hash, or a coalesced update),

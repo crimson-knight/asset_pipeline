@@ -10,6 +10,10 @@
 void voyager_init(void);
 void* voyager_render(const char* slug);
 const char* voyager_current_slug(void);
-void voyager_register_route_changed_callback(void (*cb)(const char*));
+// cb receives (slug, kind): kind 0 = navigation, 1 = same-route rerender.
+void voyager_register_route_changed_callback(void (*cb)(const char*, int));
+// Attempt an in-place reconcile for a same-route rerender. Returns 1 if
+// applied (host should NOT teardown), 0 to fall back to a full render.
+int voyager_reconcile(const char* slug);
 
 #endif

@@ -1,0 +1,63 @@
+name: VoyagerWatch
+# Voyager watchOS demo — proves the asset_pipeline SwiftKit facade catalog RENDERS
+# on a real watchOS device, not just compiles. The Crystal-side UI::WatchKit::Renderer
+# is blocked on a compiler fix (see handoff/2026-06-02-watchos-crystal-toolchain-blocker.md),
+# so this app bypasses Crystal entirely: it compiles the pure-Swift SwiftKit Sources
+# directly into the app target and renders each facade's `APSKWatchHostView.content`
+# (the SwiftUI body) in a SwiftUI watch view. This is a faithful render of exactly
+# the SwiftUI the Crystal renderer would compose — just driven from Swift.
+options:
+  bundleIdPrefix: com.assetpipeline.voyager
+  deploymentTarget:
+    watchOS: "10.0"
+settings:
+  EXCLUDED_ARCHS[sdk=watchsimulator*]: x86_64
+targets:
+  VoyagerWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Sources
+      # Compile the pure-Swift SwiftKit facade catalog directly into the app
+      # (the package has no non-test dependencies, so this needs no linking).
+      - path: ../../../swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.assetpipeline.voyager.VoyagerWatch
+      # Link the Crystal watch bridge lib (build/libvoyagerwatch.a, produced by
+      # build_crystal_lib.sh: the Crystal UI lib + UI::WatchKit::Renderer + bridge +
+      # swiftkit C trampolines) + the cross-built single-threaded libgc. The SwiftKit
+      # @objc facade classes are compiled in (sources above); the C trampolines
+      # resolve them at runtime via objc_getClass. ContentView calls
+      # voyager_watch_render() through the bridging header.
+      LIBRARY_SEARCH_PATHS:
+        - $(PROJECT_DIR)/build
+        - /tmp/crystal-cross-deps/watchos-simulator/lib
+      SWIFT_OBJC_BRIDGING_HEADER: Sources/Voyager-Watch-Bridging-Header.h
+      OTHER_LDFLAGS:
+        - -lvoyagerwatch
+        - -lgc
+        - -liconv
+        - -lobjc
+        - -framework
+        - Foundation
+        # UI::Notifications on watchOS calls UNUserNotificationCenter via
+        # notifications_bridge.m (compiled into libvoyagerwatch.a) — the agent
+        # can schedule a real local notification on the wrist.
+        - -framework
+        - UserNotifications
+        # UI::Speech on watchOS uses AVSpeechSynthesizer via speech_bridge.m —
+        # the agent reads its reply aloud on the wrist.
+        - -framework
+        - AVFoundation
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Voyager
+        # Modern single-target SwiftUI watch app, watch-ONLY (no iOS companion):
+        # WKApplication + WKWatchOnly are both required or the installer rejects it
+        # ("must specify WKCompanionAppBundleIdentifier ... or set WKWatchOnly").
+        WKApplication: true
+        WKWatchOnly: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    dependencies: []

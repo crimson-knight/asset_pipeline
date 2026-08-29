@@ -47,7 +47,11 @@ describe UI::Web::Renderer do
       label = UI::Label.new("Styled")
       label.font = UI::Font.new(family: "Helvetica", size: 14.0)
       html = render(label)
-      html.should contain("font-family: Helvetica")
+      # Family names are quoted so multi-word names (e.g. "Helvetica Neue")
+      # are valid CSS and don't silently fall back to the base sans-serif.
+      # The quotes are HTML-attribute-escaped to &quot; in the serialized
+      # style attribute (browsers decode them back to " when parsing).
+      html.should contain("font-family: &quot;Helvetica&quot;")
       html.should contain("font-size: 14.0px")
     end
 
@@ -406,6 +410,19 @@ describe UI::Web::Renderer do
       field.keyboard_type = UI::KeyboardType::NumberPad
       html = render(field)
       html.should contain("inputmode=\"numeric\"")
+    end
+
+    it "applies semantic autocomplete and keyboard action hints" do
+      field = UI::TextField.new("Email")
+      field.content_type = UI::TextContentType::EmailAddress
+      field.submit_label = UI::TextInputAction::Next
+      field.autocapitalization = UI::TextAutocapitalization::Never
+      field.autocorrection_disabled = true
+      html = render(field)
+      html.should contain("autocomplete=\"email\"")
+      html.should contain("enterkeyhint=\"next\"")
+      html.should contain("autocapitalize=\"never\"")
+      html.should contain("autocorrect=\"off\"")
     end
 
     it "applies font styles" do

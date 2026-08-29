@@ -20,7 +20,12 @@
 
 import SwiftUI
 
-#if canImport(UIKit)
+// watchOS gating: `canImport(UIKit)` is TRUE on watchOS but UIView/UIHostingController
+// are `API_UNAVAILABLE(watchos)`, so `os(watchOS)` MUST be matched first. watchOS
+// has no hosting controller — SwiftUI is the native layer.
+#if os(watchOS)
+// No APSKHostingController on watchOS; host(_:) boxes the SwiftUI content.
+#elseif canImport(UIKit)
 import UIKit
 // APSKPlatformView is declared in ViewOverrides.swift; do not redeclare.
 public typealias APSKHostingController = UIHostingController
@@ -45,7 +50,7 @@ public typealias APSKHostingController = NSHostingController
 /// modifying the platform view itself.
 private var kHostingControllerKey: UInt8 = 0
 
-#if canImport(UIKit)
+#if canImport(UIKit) && !os(watchOS)
 /// Phase 6.10 Rem 3 (Path A) — UIView subclass that fires a callback
 /// every time its window membership changes. Used as a 0-sized,
 /// hidden subview of the SwiftUI hosting controller's `.view` so we
@@ -202,7 +207,7 @@ enum HostingHelpers {
     /// embedded in a UIKit subtree (the Crystal renderer's UIStackView
     /// root model). AppKit is unaffected — NSHostingView reports actions
     /// independently of NSViewController containment.
-    static func host<V: View>(_ view: V) -> APSKPlatformView {
+    static func host<V: View>(_ view: V, kind: String = "") -> APSKPlatformView {
         // Apply the brand tint last so it cascades into every child view
         // SwiftUI considers part of this hosted root. Hosted roots are
         // isolated tint scopes — there is no propagation across
@@ -219,8 +224,14 @@ enum HostingHelpers {
         let sized = AnyView(tinted.frame(minWidth: 1, minHeight: 1))
 
         let platformView: APSKPlatformView
-        let lifetimeOwner: AnyObject
-        #if canImport(UIKit)
+        var lifetimeOwner: AnyObject? = nil
+        #if os(watchOS)
+        // watchOS: no UIView host — SwiftUI is native, so box the (tinted, sized)
+        // SwiftUI content. The box is self-owning; no hosting controller to retain.
+        // `kind` (empty unless the caller passes it) is the boundary node's stable
+        // identity for the reconciler; the Crystal renderer may also stamp it later.
+        platformView = APSKWatchHostView(content: sized, kind: kind)
+        #elseif canImport(UIKit)
         // UIHostingController + .view is the standard UIKit path.
         // `sizingOptions` is set BEFORE first access to `.view` so the
         // hosted UIView reports the SwiftUI intrinsic size on the first
@@ -268,12 +279,14 @@ enum HostingHelpers {
         // the container already strongly references the controller via
         // its stored property, but we keep the association too as a
         // belt-and-suspenders measure.
-        objc_setAssociatedObject(
-            platformView,
-            &kHostingControllerKey,
-            lifetimeOwner,
-            .OBJC_ASSOCIATION_RETAIN_NONATOMIC
-        )
+        if let owner = lifetimeOwner {
+            objc_setAssociatedObject(
+                platformView,
+                &kHostingControllerKey,
+                owner,
+                .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+            )
+        }
         return platformView
     }
 }
@@ -282,7 +295,16 @@ enum HostingHelpers {
 /// Container facades (TabView, Form, List) use this to compose child
 /// widgets that the Crystal renderer has already built and handed to Swift
 /// as raw platform pointers.
-#if canImport(UIKit)
+#if os(watchOS)
+// watchOS: a "hosted child" is the box's SwiftUI content, composed directly into
+// the parent's SwiftUI tree (no UIViewRepresentable bridge). Observed so an
+// in-place `content` swap on the boundary node (reconcile) re-renders the child
+// while it stays mounted — the focus-preserving update channel.
+struct APSKHostedChild: View {
+    @ObservedObject var view: APSKWatchHostView
+    var body: some View { view.content }
+}
+#elseif canImport(UIKit)
 struct APSKHostedChild: UIViewRepresentable {
     let view: APSKPlatformView
     func makeUIView(context: Context) -> APSKPlatformView { view }

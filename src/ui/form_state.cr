@@ -189,14 +189,12 @@ module UI
     end
 
     # Wrap a SecureField's on_change. Same shape as `wrap_text_handler`
-    # but typed for SecureField. The current SwiftKit bridge for
-    # SecureField does NOT carry the cleartext through to Crystal — the
-    # action token only signals "something changed" and the user's
-    # on_change is invoked with `""`. form_state.update therefore writes
-    # an empty string for the SecureField's name. Authors who need true
-    # password capture on macOS / iOS for Phase 8B should use a plain
-    # `UI::TextField` for now. A future SwiftKit bridge iteration will
-    # carry the actual typed password.
+    # but typed for SecureField. The SwiftKit SecureField facade reuses
+    # TextFieldFacade's `TextStorage`, whose binding fires the string
+    # trampoline (`CallbackBridge.fireString`) with the actual typed
+    # cleartext — so when the renderers register this handler on the
+    # string channel (`CallbackRegistry.register_string`), the real typed
+    # password flows into FormState under the field's `name` key.
     def self.wrap_secure_handler(view : UI::SecureField) : Proc(String, Nil)?
       name = view.name
       user_handler = view.on_change

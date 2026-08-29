@@ -19,16 +19,27 @@ module UI
   # area. Platform renderers can add true floating-panel bridges later while
   # the shard already has an honest in-app expression of the concept.
   class Panel < View
+    # Primary text shown on the control.
     property title : String
+    # Secondary line shown beneath the title.
     property subtitle : String? = nil
+    # Text value.
     property auxiliary_text : String? = nil
+    # Child view rendered inside this container.
     property content : View? = nil
+    # Wrapped child view.
     property footer : View? = nil
+    # Actions rendered as interactive affordances.
     property actions : Array(Button) = [] of Button
+    # Numeric value (pt unless otherwise noted).
     property preferred_width : Float64 = 320.0
+    # Numeric value (pt unless otherwise noted).
     property body_spacing : Float64 = 14.0
+    # Numeric value (pt unless otherwise noted).
     property action_spacing : Float64 = 8.0
+    # Visual style variant applied to the control.
     property style : PanelStyle = PanelStyle::Inspector
+    # Whether row separators are drawn.
     property shows_separators : Bool = true
 
     def initialize(
@@ -37,19 +48,22 @@ module UI
       @subtitle : String? = nil,
       @auxiliary_text : String? = nil,
       @footer : View? = nil,
-      @style : PanelStyle = PanelStyle::Inspector
+      @style : PanelStyle = PanelStyle::Inspector,
     )
     end
 
+    # Appends an action affordance and returns the newly-created action.
     def add_action(action : Button) : self
       @actions << action
       self
     end
 
+    # Returns the number of actions currently attached.
     def action_count : Int32
       @actions.size.to_i32
     end
 
+    # Returns a composed view that renders an equivalent surface on platforms without a dedicated native bridge.
     def fallback_view : View
       body = UI::VStack.new(spacing: body_spacing, alignment: UI::Alignment::Fill)
       body << build_header.as(UI::View)

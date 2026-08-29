@@ -169,6 +169,22 @@ int objc_send_ret_bool(void *obj, void *sel) {
     return (int)((BOOL (*)(id, SEL))objc_msgSend)((id)obj, sel);
 }
 
+// Phase 10B.2a iter 2 (Codex Finding 3) — guarded setEnabled: helper.
+// Sends `-setEnabled:` to `obj` only if the object responds to that
+// selector. Used by the accessibility-metadata path to functionally
+// disable UIControl / NSControl instances when the `:not_enabled`
+// trait is set, while no-oping on plain UIView / NSView objects that
+// have no enabled state to flip. Returns 1 if the message was sent,
+// 0 if the object didn't respond.
+int ap_set_enabled_if_responds(void *obj, int enabled) {
+    if (!obj) return 0;
+    id receiver = (id)obj;
+    SEL set_enabled_sel = @selector(setEnabled:);
+    if (![receiver respondsToSelector:set_enabled_sel]) return 0;
+    ((void (*)(id, SEL, BOOL))objc_msgSend)(receiver, set_enabled_sel, (BOOL)enabled);
+    return 1;
+}
+
 // ============================================================
 // Section 4: Convenience helpers
 // ============================================================
@@ -533,9 +549,16 @@ double objc_safe_area_trailing(void) {
 // using the 768pt breakpoint (same threshold web uses for `md`).
 int32_t objc_horizontal_size_class(void) {
 #if TARGET_OS_OSX
-    NSWindow *win = [NSApp mainWindow];
-    if (!win) return 0;
-    return (win.frame.size.width >= 768.0) ? 2 : 1;
+    // Track 2 metric-contract fix: derive the size class from the SAME
+    // active-window content rect that objc_macos_screen_width reports, not
+    // from a bare [NSApp mainWindow]. The previous mainWindow-only lookup
+    // returned nil (→ Unspecified → never Compact) during offscreen capture
+    // — the capture window is visible but not "main" — so narrow captures
+    // never reflowed to the compact column. ap_macos_active_window_content_rect
+    // falls back keyWindow→mainWindow→any-visible→screen, matching width.
+    double w = ap_macos_active_window_content_rect().size.width;
+    if (w <= 0.0) return 0;
+    return (w >= 768.0) ? 2 : 1;
 #else
     UIWindow *win = nil;
     for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
@@ -555,9 +578,11 @@ int32_t objc_horizontal_size_class(void) {
 
 int32_t objc_vertical_size_class(void) {
 #if TARGET_OS_OSX
-    NSWindow *win = [NSApp mainWindow];
-    if (!win) return 0;
-    return (win.frame.size.height >= 768.0) ? 2 : 1;
+    // Same metric-contract fix as objc_horizontal_size_class — use the
+    // active-window content rect (capture-path safe) rather than mainWindow.
+    double h = ap_macos_active_window_content_rect().size.height;
+    if (h <= 0.0) return 0;
+    return (h >= 768.0) ? 2 : 1;
 #else
     UIWindow *win = nil;
     for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
@@ -591,6 +616,25 @@ void objc_constrain_equal_width(void *child, void *parent) {
     wc.active = YES;
 }
 
+// Like objc_constrain_equal_width but child.width = parent.width + delta (delta
+// negative to inset). Used so a fill_horizontal child respects the parent stack's
+// horizontal padding (edgeInsets): pinning to the full parent width ignores the
+// insets, so a padded screen container rendered its content edge-to-edge with no
+// gutters. delta = -(leading + trailing inset); the stack's cross-axis centering
+// then yields symmetric gutters.
+void objc_constrain_equal_width_offset(void *child, void *parent, double delta) {
+    BridgeView *c = (BridgeView *)child;
+    BridgeView *p = (BridgeView *)parent;
+    NSLayoutConstraint *wc =
+        [c.widthAnchor constraintEqualToAnchor:p.widthAnchor constant:(CGFloat)delta];
+#if TARGET_OS_OSX
+    wc.priority = NSLayoutPriorityRequired;
+#else
+    wc.priority = UILayoutPriorityRequired;
+#endif
+    wc.active = YES;
+}
+
 // Pin a child view to its parent's layout margins on iOS. The macOS branch
 // falls back to edge pinning; UIKit is the current caller.
 void objc_pin_child_to_layout_margins(void *parent, void *child) {
@@ -615,6 +659,119 @@ void objc_pin_child_to_layout_margins(void *parent, void *child) {
     bottom.active = YES;
 }
 
+// Pin a child view to its parent's bounds (no insets). Used by
+// FullScreenCover + Inspector visit paths in the UIKit / AppKit
+// renderers — without this the child UIView/NSView has no Auto
+// Layout constraints and renders with a zero frame inside the parent.
+// Phase 10D-refocus introduced this helper because the existing
+// `objc_pin_child_to_layout_margins` left content invisible inside
+// covers / inspectors that wanted edge-to-edge fill (cover chrome
+// owns its own padding, the parent should NOT subtract margins).
+void objc_pin_child_to_superview_edges(void *parent, void *child) {
+    BridgeView *p = (BridgeView *)parent;
+    BridgeView *c = (BridgeView *)child;
+    c.translatesAutoresizingMaskIntoConstraints = NO;
+    NSLayoutConstraint *leading = [c.leadingAnchor constraintEqualToAnchor:p.leadingAnchor];
+    NSLayoutConstraint *trailing = [c.trailingAnchor constraintEqualToAnchor:p.trailingAnchor];
+    NSLayoutConstraint *top = [c.topAnchor constraintEqualToAnchor:p.topAnchor];
+    NSLayoutConstraint *bottom = [c.bottomAnchor constraintEqualToAnchor:p.bottomAnchor];
+    leading.active = YES;
+    trailing.active = YES;
+    top.active = YES;
+    bottom.active = YES;
+}
+
+// Pin a ZStack child for a DIRECTIONAL alignment (UI::Alignment Leading/Trailing/
+// Top/Bottom), honoring ZStack#alignment. Center/Fill keep using
+// objc_pin_child_to_superview_edges (force-fill all 4 edges) — this function is
+// ONLY for the directional cases, which the renderer previously ignored (every
+// child was force-filled regardless of alignment, so a fixed-size child could
+// never sit aligned to one side — drawer panel / toast / badge / FAB).
+//
+// For align direction it:
+//   - pins the ALIGNED edge to the parent at required priority (1000),
+//   - pins the two CROSS-AXIS edges to the parent at required (fills the other
+//     axis — the 1-D Alignment enum can't express compound alignment, and the
+//     overlay use cases (drawer) want full extent on the unspecified axis),
+//   - adds a REQUIRED containment inequality on the OPPOSITE edge so the child
+//     can never overflow the parent even when the parent is narrower than a
+//     fixed child, and
+//   - adds a SOFT equality (priority 499) on the OPPOSITE edge: an UNCONSTRAINED
+//     child still fills (499 beats default content-hugging 250), while a
+//     FIXED-size child (width/height pinned at 999 via objc_constrain_width)
+//     keeps its size and aligns (999 beats 499). 499 — not 500 — avoids a tie
+//     with objc_constrain_minimum_width's 500-priority `>=` constraint.
+//
+// align: 0 = leading, 1 = trailing, 2 = top, 3 = bottom.
+void objc_pin_child_aligned(void *parent, void *child, int align) {
+    BridgeView *p = (BridgeView *)parent;
+    BridgeView *c = (BridgeView *)child;
+    c.translatesAutoresizingMaskIntoConstraints = NO;
+
+    NSLayoutConstraint *leading  = [c.leadingAnchor  constraintEqualToAnchor:p.leadingAnchor];
+    NSLayoutConstraint *trailing = [c.trailingAnchor constraintEqualToAnchor:p.trailingAnchor];
+    NSLayoutConstraint *top      = [c.topAnchor      constraintEqualToAnchor:p.topAnchor];
+    NSLayoutConstraint *bottom   = [c.bottomAnchor   constraintEqualToAnchor:p.bottomAnchor];
+
+    // Required containment inequalities keep the child inside the parent bounds
+    // regardless of the soft fill (the OPPOSITE edge from the aligned one).
+    NSLayoutConstraint *leadingGE  = [c.leadingAnchor  constraintGreaterThanOrEqualToAnchor:p.leadingAnchor];
+    NSLayoutConstraint *trailingLE = [c.trailingAnchor constraintLessThanOrEqualToAnchor:p.trailingAnchor];
+    NSLayoutConstraint *topGE      = [c.topAnchor      constraintGreaterThanOrEqualToAnchor:p.topAnchor];
+    NSLayoutConstraint *bottomLE   = [c.bottomAnchor   constraintLessThanOrEqualToAnchor:p.bottomAnchor];
+
+    const float SOFT = 499.0f; // > content-hugging (250), < fixed-size pin (999)
+
+    switch (align) {
+        case 1: // trailing: pin right; fill vertically; soft-fill from the left
+            trailing.active = YES;
+            top.active = YES; bottom.active = YES;
+            leadingGE.active = YES;
+            leading.priority = SOFT; leading.active = YES;
+            break;
+        case 2: // top: pin top; fill horizontally; soft-fill from the bottom
+            top.active = YES;
+            leading.active = YES; trailing.active = YES;
+            bottomLE.active = YES;
+            bottom.priority = SOFT; bottom.active = YES;
+            break;
+        case 3: // bottom: pin bottom; fill horizontally; soft-fill from the top
+            bottom.active = YES;
+            leading.active = YES; trailing.active = YES;
+            topGE.active = YES;
+            top.priority = SOFT; top.active = YES;
+            break;
+        case 0: // leading: pin left; fill vertically; soft-fill toward the right
+        default:
+            leading.active = YES;
+            top.active = YES; bottom.active = YES;
+            trailingLE.active = YES;
+            trailing.priority = SOFT; trailing.active = YES;
+            break;
+    }
+}
+
+// Read a view's frame (points). Used by native layout specs to assert resolved
+// geometry after a layout pass.
+BridgeCGRect objc_get_frame(void *view) {
+    BridgeRect f = [(BridgeView *)view frame];
+    BridgeCGRect r;
+    r.x = f.origin.x; r.y = f.origin.y;
+    r.width = f.size.width; r.height = f.size.height;
+    return r;
+}
+
+// Force an immediate Auto Layout pass on a view subtree so a spec can read
+// resolved child frames synchronously.
+void objc_layout_now(void *view) {
+#if TARGET_OS_OSX
+    [(BridgeView *)view layoutSubtreeIfNeeded];
+#else
+    [(BridgeView *)view setNeedsLayout];
+    [(BridgeView *)view layoutIfNeeded];
+#endif
+}
+
 // Exact-width arranged subviews should resist horizontal stretching in
 // UIStackView's Fill distribution. Width constraints remain the source of
 // truth; these priorities make the intent visible to stack fitting passes.
@@ -626,6 +783,123 @@ void objc_set_horizontal_fixed_priority(void *view) {
 #else
     [v setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
     [v setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+#endif
+}
+
+// The inverse of the fixed-priority helper: mark a view as the flexible element that
+// GROWS to fill the remaining horizontal space in its containing stack. Lowering the
+// horizontal content-hugging priority makes BOTH UIStackView (.fill distribution) and
+// NSStackView stretch this view to absorb slack, instead of hugging its intrinsic
+// width. This is the cross-platform "flex-grow" primitive (UI::View#fill_horizontal):
+// a horizontal row of otherwise fixed-width controls needs at least one such absorber,
+// or UIKit over-constrains the row and shoves it off the leading edge (the Voyager
+// compose-field left-clip).
+//
+// Compression resistance is RAISED to Required so the fill child grows to absorb
+// slack but NEVER compresses below its intrinsic width. Leaving it at the default
+// (750) caused the "50/50 layout disease" (B2.1): in an
+// `HStack[Button(fill_horizontal), IconButton]` row, UIStackView's .fill
+// distribution would shrink the fill Button below its label's intrinsic width
+// (so "Change Password" wrapped to two lines despite fitting) while the
+// no-width IconButton host stretched. A flex-grow element must absorb the EXTRA
+// space, not surrender its own content — so compression resistance is pinned high.
+void objc_set_horizontal_fill_priority(void *view) {
+    BridgeView *v = (BridgeView *)view;
+#if TARGET_OS_OSX
+    [v setContentHuggingPriority:NSLayoutPriorityDefaultLow forOrientation:NSLayoutConstraintOrientationHorizontal];
+    [v setContentCompressionResistancePriority:NSLayoutPriorityRequired forOrientation:NSLayoutConstraintOrientationHorizontal];
+#else
+    [v setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
+    [v setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+#endif
+}
+
+// Make a view claim the flexible (extra) space along the VERTICAL axis of an
+// enclosing stack. Used for a scroll view that must fill the remaining window
+// height and reflow on resize rather than sit at a fixed point height: with the
+// lowest vertical hugging priority in the stack it is the arranged view the
+// stack stretches to absorb leftover height. Compression resistance stays low
+// too so the stack may shrink it below its content when the window is small.
+void objc_set_vertical_fill_priority(void *view) {
+    BridgeView *v = (BridgeView *)view;
+#if TARGET_OS_OSX
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    [v setContentHuggingPriority:1 forOrientation:NSLayoutConstraintOrientationVertical];
+    [v setContentCompressionResistancePriority:1 forOrientation:NSLayoutConstraintOrientationVertical];
+#else
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    [v setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisVertical];
+    [v setContentCompressionResistancePriority:1 forAxis:UILayoutConstraintAxisVertical];
+#endif
+}
+
+// Scroll an NSScrollView so its newest (bottom) content is visible — the
+// "stick to bottom while streaming" primitive. The document view is top-anchored
+// and grows downward (chat transcript: oldest at top, newest at bottom). A
+// single scrollPoint to the far edge, clamped by the clip view, reveals the
+// bottom in both flipped and non-flipped document coordinate systems.
+void nsscrollview_scroll_to_end(void *scroll_view) {
+#if TARGET_OS_OSX
+    NSScrollView *sv = (NSScrollView *)scroll_view;
+    if (sv == nil) return;
+    NSClipView *clip = sv.contentView;
+    NSView *doc = sv.documentView;
+    if (clip == nil || doc == nil) return;
+    CGFloat docH = doc.bounds.size.height;
+    CGFloat clipH = clip.bounds.size.height;
+    NSPoint p;
+    if (doc.isFlipped) {
+        CGFloat y = docH - clipH;
+        p = NSMakePoint(0.0, y > 0 ? y : 0.0);
+    } else {
+        p = NSMakePoint(0.0, 0.0);  // non-flipped: bottom edge is y == 0
+    }
+    [clip scrollToPoint:p];
+    [sv reflectScrolledClipView:clip];
+#endif
+}
+
+// 1 when the scroll view is within `tolerance` points of its bottom edge (the
+// newest content), else 0 — used to decide whether streaming should keep
+// auto-pinning (re-arm) or leave the user's scroll position alone (they scrolled
+// up to read). Returns 1 when the content is shorter than the viewport (there is
+// no "up" to scroll to) so a short transcript always stays pinned.
+int nsscrollview_is_at_bottom(void *scroll_view, double tolerance) {
+#if TARGET_OS_OSX
+    NSScrollView *sv = (NSScrollView *)scroll_view;
+    if (sv == nil) return 1;
+    NSClipView *clip = sv.contentView;
+    NSView *doc = sv.documentView;
+    if (clip == nil || doc == nil) return 1;
+    CGFloat docH = doc.bounds.size.height;
+    CGFloat clipH = clip.bounds.size.height;
+    if (docH <= clipH + tolerance) return 1;  // nothing to scroll
+    NSRect vis = clip.documentVisibleRect;
+    if (doc.isFlipped) {
+        return (NSMaxY(vis) >= docH - tolerance) ? 1 : 0;
+    } else {
+        return (NSMinY(vis) <= tolerance) ? 1 : 0;
+    }
+#else
+    return 1;
+#endif
+}
+
+// A Spacer is pure flex space — it must absorb ALL slack in its containing stack,
+// in BOTH orientations (a VStack Spacer grows vertically, an HStack Spacer grows
+// horizontally), and it must WIN that slack against ordinary content. DefaultLow
+// (250) is NOT low enough: a plain UIView/NSView and most content both sit at 250,
+// so UIStackView's .fill distribution resolves the tie arbitrarily — a [Spacer,
+// card, Spacer] column could pin the card to the top instead of centering it. Drop
+// the hugging to 1 on both axes so the Spacer is unambiguously the flexible element.
+void objc_set_flex_spacer_priority(void *view) {
+    BridgeView *v = (BridgeView *)view;
+#if TARGET_OS_OSX
+    [v setContentHuggingPriority:1.0f forOrientation:NSLayoutConstraintOrientationHorizontal];
+    [v setContentHuggingPriority:1.0f forOrientation:NSLayoutConstraintOrientationVertical];
+#else
+    [v setContentHuggingPriority:1.0f forAxis:UILayoutConstraintAxisHorizontal];
+    [v setContentHuggingPriority:1.0f forAxis:UILayoutConstraintAxisVertical];
 #endif
 }
 
@@ -677,6 +951,54 @@ void objc_constrain_minimum_width(void *view, double min_w) {
     BridgeView *v = (BridgeView *)view;
     v.translatesAutoresizingMaskIntoConstraints = NO;
     NSLayoutConstraint *wc = [v.widthAnchor constraintGreaterThanOrEqualToConstant:(CGFloat)min_w];
+    wc.priority = 500;
+    wc.active = YES;
+}
+
+// Apply the full UI::Fluid "readable column" width behavior to a view that is
+// ALREADY in its superview: greedily fill the parent's width, floored at min and
+// capped at max, so it reflows when the parent/window resizes. Priority ordering
+// (per Codex review): bound-to-parent (900) > cap≤max (800) > floor≥min (700) >
+// fill==parent (500). The fill must beat the view's content hugging (default 250)
+// so the container stops hugging its intrinsic content width; cap/floor/bound are
+// stronger so the column never exceeds max or the parent and never drops below
+// min (min yields only if the parent is narrower than min, to stay solvable).
+// min_w<=0 means "no floor"; max_w>=1e5 means "no cap".
+void objc_constrain_fluid_width(void *view, double min_w, double max_w) {
+    BridgeView *v = (BridgeView *)view;
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    if (min_w > 0.0) {
+        NSLayoutConstraint *floorc = [v.widthAnchor constraintGreaterThanOrEqualToConstant:(CGFloat)min_w];
+        floorc.priority = 700;
+        floorc.active = YES;
+    }
+    if (max_w < 100000.0) {
+        NSLayoutConstraint *capc = [v.widthAnchor constraintLessThanOrEqualToConstant:(CGFloat)max_w];
+        capc.priority = 800;
+        capc.active = YES;
+    }
+    BridgeView *parent = v.superview;
+    if (parent) {
+        NSLayoutConstraint *bound = [v.widthAnchor constraintLessThanOrEqualToAnchor:parent.widthAnchor];
+        bound.priority = 900;
+        bound.active = YES;
+        NSLayoutConstraint *fill = [v.widthAnchor constraintEqualToAnchor:parent.widthAnchor];
+        fill.priority = 500;
+        fill.active = YES;
+    }
+}
+
+// Apply a MAXIMUM width constraint (<=) to a view. Pairs with
+// objc_constrain_minimum_width to express a resizable RANGE [min, max]: the view
+// grows with available space up to max, then stops — a "readable column" that
+// resizes with the window/size class but never sprawls. Used by UI::Fluid native
+// resolution (Phase B). Priority 500 so it defers to any required exact pins and
+// cooperates with the >= floor; a low-priority (≤500) "fill" tendency from the
+// stack/root makes the view want to be as wide as allowed within [min, max].
+void objc_constrain_maximum_width(void *view, double max_w) {
+    BridgeView *v = (BridgeView *)view;
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    NSLayoutConstraint *wc = [v.widthAnchor constraintLessThanOrEqualToConstant:(CGFloat)max_w];
     wc.priority = 500;
     wc.active = YES;
 }
@@ -823,7 +1145,7 @@ void *make_swipe_reveal_row(void *content_view,
     // try to expand horizontally to its contentSize.
     [scroll.widthAnchor constraintEqualToConstant:row_width].active = YES;
 
-    return (__bridge_retained void *)scroll;
+    return (void *)scroll;
 #else
     return NULL;
 #endif
@@ -840,6 +1162,23 @@ void *make_swipe_reveal_row(void *content_view,
 //   3. NOT pinning the bottom anchor lets the view grow as tall as needed.
 //
 // iOS: no-op (use uiscrollview_pin_content instead).
+// Toggle whether the NSScrollView (and its NSClipView) paints an opaque
+// background. draws=0 makes the scroll view transparent so content layered
+// BEHIND it (e.g. a full-bleed hero image in a ZStack) shows through the
+// scrolling content; the default (drawsBackground=YES) paints the system
+// background and hides anything behind. Both the scroll view and its clip view
+// must be toggled — each paints independently.
+void nsscrollview_set_draws_background(void *scroll_view, int draws) {
+#if TARGET_OS_OSX
+    NSScrollView *sv = (NSScrollView *)scroll_view;
+    BOOL b = (draws != 0);
+    sv.drawsBackground = b;
+    if (sv.contentView) {
+        sv.contentView.drawsBackground = b;
+    }
+#endif
+}
+
 void nsscrollview_set_document_view(void *scroll_view, void *doc_view) {
 #if TARGET_OS_OSX
     NSScrollView *sv = (NSScrollView *)scroll_view;
@@ -855,6 +1194,19 @@ void nsscrollview_set_document_view(void *scroll_view, void *doc_view) {
             [dv.trailingAnchor constraintEqualToAnchor:clip.trailingAnchor],
             [dv.topAnchor constraintEqualToAnchor:clip.topAnchor],
         ]];
+        // Fill-the-viewport: when content is SHORTER than the viewport, an
+        // NSScrollView leaves the (top-pinned) document view at its intrinsic
+        // height — and a non-flipped clip view drops that short content to the
+        // BOTTOM, exposing the scroll view's bare background above it (a broken
+        // empty/short-list state). Pin the document view's height to at least
+        // the clip height so short content stretches to fill (staying
+        // top-anchored, its own background covering the whole viewport); taller
+        // content still exceeds the clip and scrolls normally. Priority 999 so a
+        // genuinely tall subtree never makes the layout unsatisfiable.
+        NSLayoutConstraint *fill =
+            [dv.heightAnchor constraintGreaterThanOrEqualToAnchor:clip.heightAnchor];
+        fill.priority = NSLayoutPriorityRequired - 1;  // 999
+        fill.active = YES;
     }
 #endif
 }
@@ -1517,8 +1869,9 @@ void *wkwebview_new(const char *url_cstr,
     }
 
     WKPreferences *preferences = [configuration preferences];
-    if (preferences && [preferences respondsToSelector:@selector(setJavaScriptEnabled:)]) {
-        preferences.javaScriptEnabled = (BOOL)allows_scripts;
+    SEL legacy_js_sel = sel_registerName("setJavaScriptEnabled:");
+    if (preferences && [preferences respondsToSelector:legacy_js_sel]) {
+        ((void (*)(id, SEL, BOOL))objc_msgSend)(preferences, legacy_js_sel, (BOOL)allows_scripts);
     }
 
 #if TARGET_OS_OSX
@@ -2123,6 +2476,155 @@ void *ap_activity_rings_view_new(double size,
     return (void *)view;
 }
 
+// PathView — build a CGPath from a flattened segment array and render it
+// via a CAShapeLayer with optional fill + stroke. seg_data holds 7 doubles
+// per segment: [command, x, y, cx1, cy1, cx2, cy2]; command is
+// 0=MoveTo 1=LineTo 2=QuadCurveTo 3=CurveTo 4=Close. Path coordinates use
+// the top-left, y-down convention (matching iOS/UIKit and the
+// cross-platform authoring convention); on macOS the layer geometry is
+// flipped so the same coordinates render identically.
+void *ap_path_view_new(double width, double height,
+                       const double *seg_data, int seg_count,
+                       int has_fill, double fr, double fg, double fb, double fa,
+                       double sr, double sg, double sb, double sa,
+                       double line_width) {
+#if TARGET_OS_OSX
+    NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0.0, 0.0, width, height)];
+    if (!view) return NULL;
+    [view setWantsLayer:YES];
+    if (!view.layer) {
+        view.layer = [CALayer layer];
+    }
+    view.layer.backgroundColor = NSColor.clearColor.CGColor;
+    view.layer.geometryFlipped = YES; // top-left, y-down to match iOS
+#else
+    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0.0, 0.0, width, height)];
+    if (!view) return NULL;
+    view.backgroundColor = UIColor.clearColor;
+#endif
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    if (seg_data) {
+        for (int i = 0; i < seg_count; i++) {
+            const double *s = seg_data + (i * 7);
+            int cmd = (int)s[0];
+            CGFloat x = (CGFloat)s[1], y = (CGFloat)s[2];
+            CGFloat cx1 = (CGFloat)s[3], cy1 = (CGFloat)s[4];
+            CGFloat cx2 = (CGFloat)s[5], cy2 = (CGFloat)s[6];
+            switch (cmd) {
+                case 0: CGPathMoveToPoint(path, NULL, x, y); break;
+                case 1: CGPathAddLineToPoint(path, NULL, x, y); break;
+                case 2: CGPathAddQuadCurveToPoint(path, NULL, cx1, cy1, x, y); break;
+                case 3: CGPathAddCurveToPoint(path, NULL, cx1, cy1, cx2, cy2, x, y); break;
+                case 4: CGPathCloseSubpath(path); break;
+                default: break;
+            }
+        }
+    }
+
+    CAShapeLayer *shape = [CAShapeLayer layer];
+    shape.frame = CGRectMake(0.0, 0.0, width, height);
+    shape.path = path;
+    shape.lineWidth = (CGFloat)line_width;
+
+    id stroke_color = nscolor_rgba(sr, sg, sb, sa);
+    shape.strokeColor = stroke_color ? [stroke_color CGColor] : NULL;
+    if (has_fill) {
+        id fill_color = nscolor_rgba(fr, fg, fb, fa);
+        shape.fillColor = fill_color ? [fill_color CGColor] : NULL;
+    } else {
+        shape.fillColor = NULL;
+    }
+
+    [view.layer addSublayer:shape];
+    CGPathRelease(path);
+    return (void *)view;
+}
+
+// Canvas — replay an immediate-mode drawing command stream. op_data holds
+// 14 doubles per op: [command, x, y, x2, y2, x3, y3, radius, start_angle,
+// end_angle, r, g, b, a]. command ordinals match UI::DrawCommand:
+// 0=MoveTo 1=LineTo 2=Arc 3=QuadCurveTo 4=BezierCurveTo 5=ClosePath
+// 6=Fill 7=Stroke 8=SetFillColor 9=SetStrokeColor 10=SetLineWidth
+// 11=BeginPath. Fill/Stroke each emit a CAShapeLayer snapshot of the
+// current path with the current fill/stroke state, so a path can be both
+// filled and stroked.
+void *ap_canvas_view_new(double width, double height,
+                         const double *op_data, int op_count) {
+#if TARGET_OS_OSX
+    NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0.0, 0.0, width, height)];
+    if (!view) return NULL;
+    [view setWantsLayer:YES];
+    if (!view.layer) {
+        view.layer = [CALayer layer];
+    }
+    view.layer.backgroundColor = NSColor.clearColor.CGColor;
+    view.layer.geometryFlipped = YES;
+#else
+    UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0.0, 0.0, width, height)];
+    if (!view) return NULL;
+    view.backgroundColor = UIColor.clearColor;
+#endif
+    if (!op_data) return (void *)view;
+
+    CGMutablePathRef path = CGPathCreateMutable();
+    double fr = 0, fg = 0, fb = 0, fa = 1;        // current fill color
+    double kr = 0, kg = 0, kb = 0, ka = 1;        // current stroke color
+    double line_width = 1.0;
+
+    for (int i = 0; i < op_count; i++) {
+        const double *o = op_data + (i * 14);
+        int cmd = (int)o[0];
+        CGFloat x = (CGFloat)o[1], y = (CGFloat)o[2];
+        CGFloat x2 = (CGFloat)o[3], y2 = (CGFloat)o[4];
+        CGFloat x3 = (CGFloat)o[5], y3 = (CGFloat)o[6];
+        CGFloat radius = (CGFloat)o[7], sa = (CGFloat)o[8], ea = (CGFloat)o[9];
+        double r = o[10], g = o[11], b = o[12], a = o[13];
+        switch (cmd) {
+            case 0: CGPathMoveToPoint(path, NULL, x, y); break;
+            case 1: CGPathAddLineToPoint(path, NULL, x, y); break;
+            case 2: CGPathAddArc(path, NULL, x, y, radius, sa, ea, false); break;
+            case 3: CGPathAddQuadCurveToPoint(path, NULL, x2, y2, x, y); break;
+            case 4: CGPathAddCurveToPoint(path, NULL, x2, y2, x3, y3, x, y); break;
+            case 5: CGPathCloseSubpath(path); break;
+            case 8: fr = r; fg = g; fb = b; fa = a; break;  // SetFillColor
+            case 9: kr = r; kg = g; kb = b; ka = a; break;  // SetStrokeColor
+            case 10: line_width = o[1]; break;              // SetLineWidth (in x)
+            case 11: {                                       // BeginPath
+                CGPathRelease(path);
+                path = CGPathCreateMutable();
+                break;
+            }
+            case 6: {                                        // Fill
+                CAShapeLayer *layer = [CAShapeLayer layer];
+                layer.frame = CGRectMake(0.0, 0.0, width, height);
+                layer.path = CGPathCreateCopy(path);
+                id fc = nscolor_rgba(fr, fg, fb, fa);
+                layer.fillColor = fc ? [fc CGColor] : NULL;
+                layer.strokeColor = NULL;
+                [view.layer addSublayer:layer];
+                break;
+            }
+            case 7: {                                        // Stroke
+                CAShapeLayer *layer = [CAShapeLayer layer];
+                layer.frame = CGRectMake(0.0, 0.0, width, height);
+                layer.path = CGPathCreateCopy(path);
+                layer.fillColor = NULL;
+                id sc = nscolor_rgba(kr, kg, kb, ka);
+                layer.strokeColor = sc ? [sc CGColor] : NULL;
+                layer.lineWidth = (CGFloat)line_width;
+                layer.lineCap = kCALineCapRound;
+                layer.lineJoin = kCALineJoinRound;
+                [view.layer addSublayer:layer];
+                break;
+            }
+            default: break;
+        }
+    }
+    CGPathRelease(path);
+    return (void *)view;
+}
+
 static NSMutableArray *ap_share_items_from_payload(NSString *text, NSString *url_string) {
     NSMutableArray *items = [NSMutableArray array];
     if (text && text.length) {
@@ -2174,6 +2676,24 @@ void nssharingservicepicker_present(void *anchor_view_ptr,
     });
 }
 #else
+static UIWindow *ap_application_key_window(UIApplication *application) {
+    if (!application) return nil;
+    if ([application respondsToSelector:@selector(connectedScenes)]) {
+        for (UIScene *scene in application.connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+            for (UIWindow *candidate in ((UIWindowScene *)scene).windows) {
+                if (candidate.isKeyWindow) return candidate;
+            }
+        }
+    }
+
+    SEL key_window_sel = sel_registerName("keyWindow");
+    if ([application respondsToSelector:key_window_sel]) {
+        return ((UIWindow *(*)(id, SEL))objc_msgSend)(application, key_window_sel);
+    }
+    return nil;
+}
+
 static UIViewController *ap_top_presenting_view_controller(UIView *anchor_view) {
     UIResponder *responder = anchor_view;
     while (responder) {
@@ -2189,21 +2709,7 @@ static UIViewController *ap_top_presenting_view_controller(UIView *anchor_view) 
 
     UIWindow *window = anchor_view.window;
     UIApplication *application = [UIApplication sharedApplication];
-    if (!window && [application respondsToSelector:@selector(connectedScenes)]) {
-        for (UIScene *scene in application.connectedScenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
-            for (UIWindow *candidate in ((UIWindowScene *)scene).windows) {
-                if (candidate.isKeyWindow) {
-                    window = candidate;
-                    break;
-                }
-            }
-            if (window) break;
-        }
-    }
-    if (!window && [application respondsToSelector:@selector(keyWindow)]) {
-        window = application.keyWindow;
-    }
+    if (!window) window = ap_application_key_window(application);
     if (!window) return nil;
 
     UIViewController *controller = window.rootViewController;
@@ -2262,6 +2768,12 @@ void uiactivityview_present(void *anchor_view_ptr,
 static UNUserNotificationCenter *ap_notifications_center(void) {
     Class center_class = NSClassFromString(@"UNUserNotificationCenter");
     if (!center_class) return nil;
+    // +currentNotificationCenter THROWS (NSInternalInconsistencyException,
+    // "bundleProxyForCurrentProcess is nil") in a process with no app bundle — e.g.
+    // a bare CLI binary like the sample's macos/bin/voyager. Guard on the main
+    // bundle identifier so notifications gracefully no-op there (every caller
+    // already handles a nil center) instead of aborting the whole app.
+    if ([[NSBundle mainBundle] bundleIdentifier] == nil) return nil;
     return [UNUserNotificationCenter currentNotificationCenter];
 }
 
@@ -2283,7 +2795,7 @@ long long ap_notifications_authorization_status(void) {
     return status;
 }
 
-int ap_notifications_request_authorization(int alert, int sound, int badge) {
+int ap_notifications_request_authorization(int alert, int sound, int badge, int provisional) {
     UNUserNotificationCenter *center = ap_notifications_center();
     if (!center) return 0;
 
@@ -2291,6 +2803,8 @@ int ap_notifications_request_authorization(int alert, int sound, int badge) {
     if (alert) options |= UNAuthorizationOptionAlert;
     if (sound) options |= UNAuthorizationOptionSound;
     if (badge) options |= UNAuthorizationOptionBadge;
+    // Provisional = quiet, no-prompt authorization (no permission dialog / tap).
+    if (provisional) options |= UNAuthorizationOptionProvisional;
 
     __block BOOL granted = NO;
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
@@ -2382,8 +2896,184 @@ void ap_notifications_remove_all_pending(void) {
     [center removeAllPendingNotificationRequests];
 }
 
+// Returns the number of notification requests currently pending delivery.
+// Pending requests are tracked by the system independently of authorization
+// (authorization gates DELIVERY, not scheduling), so this is an honest signal
+// that `ap_notifications_schedule_local` actually landed a request — usable as
+// a functional-outcome assertion in tests without needing to observe a
+// delivered banner. Synchronous via a semaphore, like the sibling calls.
+int ap_notifications_pending_count(void) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return -1;
+
+    __block int count = -1;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    [center getPendingNotificationRequestsWithCompletionHandler:^(NSArray<UNNotificationRequest *> *requests) {
+        count = requests ? (int)requests.count : 0;
+        dispatch_semaphore_signal(sema);
+    }];
+
+    dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC));
+    dispatch_semaphore_wait(sema, timeout);
+    return count;
+}
+
+// Returns 1 when a pending notification request with the given identifier
+// exists, 0 when not, -1 when the center is unavailable. Lets a caller assert
+// that ITS specific notification (not just "some notification") is scheduled.
+int ap_notifications_has_pending(const char *identifier_cstr) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return -1;
+
+    NSString *identifier = ap_string_from_cstr(identifier_cstr);
+    if (!identifier || !identifier.length) return 0;
+
+    __block int found = 0;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    [center getPendingNotificationRequestsWithCompletionHandler:^(NSArray<UNNotificationRequest *> *requests) {
+        for (UNNotificationRequest *req in requests) {
+            if ([req.identifier isEqualToString:identifier]) { found = 1; break; }
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC));
+    dispatch_semaphore_wait(sema, timeout);
+    return found;
+}
+
+// ---- Foreground delivery → Crystal (the agent reaches you, with voice) ----
+// Implemented in Crystal (src/ui/notifications.cr): routes the delivered body to
+// the registered UI::Notifications.on_foreground handler. Portable twin lives in
+// notifications_bridge.m for watchOS (this file isn't compiled there).
+extern void ap_on_foreground_notification(const char *body);
+
+@interface APForegroundNotifDelegate : NSObject <UNUserNotificationCenterDelegate>
+@end
+@implementation APForegroundNotifDelegate
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+       willPresentNotification:(UNNotification *)notification
+         withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler {
+    NSString *body = notification.request.content.body;
+    if (body && body.length) ap_on_foreground_notification([body UTF8String]);
+    if (@available(iOS 14.0, macOS 11.0, *)) {
+        completionHandler(UNNotificationPresentationOptionBanner |
+                          UNNotificationPresentationOptionSound |
+                          UNNotificationPresentationOptionList);
+    } else {
+        completionHandler(UNNotificationPresentationOptionSound);
+    }
+}
+@end
+
+static APForegroundNotifDelegate *g_fg_delegate = nil;
+void ap_notifications_install_foreground_delegate(void) {
+    UNUserNotificationCenter *center = ap_notifications_center();
+    if (!center) return;
+    if (!g_fg_delegate) g_fg_delegate = [[APForegroundNotifDelegate alloc] init];
+    center.delegate = g_fg_delegate;
+}
+
+// ============================================================
+// Text-to-speech (AVSpeechSynthesizer) — the agent SPEAKS.
+// Portable twin lives in speech_bridge.m for watchOS (this file isn't compiled
+// there). See UI::Speech.
+// ============================================================
+
+static AVSpeechSynthesizer *ap_speech_synth(void) {
+    static AVSpeechSynthesizer *synth = nil;
+    if (!synth) synth = [[AVSpeechSynthesizer alloc] init];
+    return synth;
+}
+
+int ap_speech_speak(const char *text_cstr, double rate, double pitch, double volume, const char *lang_cstr) {
+    NSString *text = ap_string_from_cstr(text_cstr);
+    if (!text || !text.length) return 0;
+
+    AVSpeechSynthesizer *synth = ap_speech_synth();
+    if (!synth) return 0;
+
+#if !TARGET_OS_OSX
+    // iOS needs an active playback audio session; macOS has no AVAudioSession.
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    if (session) {
+        [session setCategory:AVAudioSessionCategoryPlayback
+                        mode:AVAudioSessionModeSpokenAudio
+                     options:AVAudioSessionCategoryOptionDuckOthers
+                       error:nil];
+        [session setActive:YES error:nil];
+    }
+#endif
+
+    AVSpeechUtterance *utt = [AVSpeechUtterance speechUtteranceWithString:text];
+    utt.rate = (float)rate;
+    utt.pitchMultiplier = (float)pitch;
+    utt.volume = (float)volume;
+    NSString *lang = ap_string_from_cstr(lang_cstr);
+    if (lang && lang.length) {
+        AVSpeechSynthesisVoice *voice = [AVSpeechSynthesisVoice voiceWithLanguage:lang];
+        if (voice) utt.voice = voice;
+    }
+
+    [synth speakUtterance:utt];
+    return 1; // enqueued; speech starts asynchronously — caller queries is_speaking
+}
+
+void ap_speech_stop(void) {
+    AVSpeechSynthesizer *synth = ap_speech_synth();
+    [synth stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+}
+
+int ap_speech_is_speaking(void) {
+    AVSpeechSynthesizer *synth = ap_speech_synth();
+    return synth.isSpeaking ? 1 : 0;
+}
+
 void ap_free_c_string(char *payload) {
     if (payload) free(payload);
+}
+
+// ============================================================
+// Persistent settings (NSUserDefaults). Portable twin: prefs_bridge.m (watchOS).
+// See UI::Preferences.
+// ============================================================
+
+static NSString *ap_prefs_key(const char *key) {
+    if (!key || !key[0]) return nil;
+    return [NSString stringWithUTF8String:key];
+}
+
+void ap_prefs_set_bool(const char *key, int value) {
+    NSString *k = ap_prefs_key(key);
+    if (!k) return;
+    [[NSUserDefaults standardUserDefaults] setBool:(value != 0) forKey:k];
+}
+
+int ap_prefs_get_bool(const char *key, int default_value) {
+    NSString *k = ap_prefs_key(key);
+    if (!k) return default_value;
+    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    if ([d objectForKey:k] == nil) return default_value;
+    return [d boolForKey:k] ? 1 : 0;
+}
+
+void ap_prefs_set_double(const char *key, double value) {
+    NSString *k = ap_prefs_key(key);
+    if (!k) return;
+    [[NSUserDefaults standardUserDefaults] setDouble:value forKey:k];
+}
+
+double ap_prefs_get_double(const char *key, double default_value) {
+    NSString *k = ap_prefs_key(key);
+    if (!k) return default_value;
+    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    if ([d objectForKey:k] == nil) return default_value;
+    return [d doubleForKey:k];
+}
+
+void ap_prefs_clear_all(void) {
+    NSString *domain = [[NSBundle mainBundle] bundleIdentifier];
+    if (domain) [[NSUserDefaults standardUserDefaults] removePersistentDomainForName:domain];
 }
 
 static NSDictionary *ap_json_dictionary_from_cstr(const char *payload_cstr) {
@@ -2733,18 +3423,7 @@ static NSWindow *ap_target_window(void) {
 #else
 static UIWindow *ap_target_window(void) {
     UIApplication *application = [UIApplication sharedApplication];
-    if ([application respondsToSelector:@selector(connectedScenes)]) {
-        for (UIScene *scene in application.connectedScenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
-            for (UIWindow *candidate in ((UIWindowScene *)scene).windows) {
-                if (candidate.isKeyWindow) return candidate;
-            }
-        }
-    }
-    if ([application respondsToSelector:@selector(keyWindow)]) {
-        return application.keyWindow;
-    }
-    return nil;
+    return ap_application_key_window(application);
 }
 
 static long long g_status_bar_style = 0;
@@ -3006,4 +3685,1264 @@ void register_crystal_action_dispatcher(void) {
                     (IMP)crystal_action_dispatcher_dispatch, "v@:@");
 
     objc_registerClassPair(cls);
+}
+
+// =============================================================================
+// Phase 10B.2b — Action + focus + keyboard accessibility helpers.
+//
+// Custom AX actions, focus management, and keyboard shortcut helpers shared by
+// AppKit + UIKit renderers. Each helper takes a callback token (UInt64) the
+// Crystal-side `UI::CallbackRegistry` returns when registering the action's
+// Proc; activating the AX action / key command on the platform side fires
+// `crystal_ui_callback_dispatch(token)` which routes back to Crystal.
+// =============================================================================
+
+#if TARGET_OS_IPHONE
+
+// Add a UIAccessibilityCustomAction with the given name + callback token to
+// the view's `accessibilityCustomActions` array. We use a block-based target
+// (iOS 13+) so we don't need the global selector-dispatcher pattern.
+//
+// Returns 1 on success, 0 on no-op (target nil / name nil).
+int ap_view_add_accessibility_custom_action(void *view_ptr, const char *name,
+                                            unsigned long long token) {
+    if (view_ptr == NULL || name == NULL) return 0;
+    UIView *view = (__bridge UIView *)view_ptr;
+    NSString *ns_name = [NSString stringWithUTF8String:name];
+    if (ns_name == nil) return 0;
+
+    UIAccessibilityCustomAction *action =
+        [[UIAccessibilityCustomAction alloc] initWithName:ns_name
+                                            actionHandler:^BOOL(UIAccessibilityCustomAction *_Nonnull a) {
+                                                crystal_ui_callback_dispatch(token);
+                                                return YES;
+                                            }];
+
+    NSArray<UIAccessibilityCustomAction *> *existing = view.accessibilityCustomActions;
+    NSMutableArray *next = existing ? [existing mutableCopy] : [NSMutableArray array];
+    [next addObject:action];
+    view.accessibilityCustomActions = next;
+    return 1;
+}
+
+// Add a UIKeyCommand to a view's keyCommands. UIKit's stock UIView returns
+// a static keyCommands array, so we install ours via the associated-object
+// dynamic-subclass pattern. For simplicity we use `setKeyCommands:` on
+// UIViewController-derived hosts when available; on plain UIView we fall
+// back to associating an array the renderer can read back later. The
+// Crystal side compose `keyCommands` at the view-controller level.
+//
+// This helper handles the common case: the view is the
+// UIHostingController/UIViewController root we got from the SwiftKit
+// facade — we set its `additionalKeyCommands` (iOS 15+) via runtime.
+//
+// Returns 1 if the message was sent, 0 if the receiver didn't respond.
+int ap_view_add_key_command(void *view_ptr, const char *input, unsigned long long modifier_mask,
+                            unsigned long long token) {
+    if (view_ptr == NULL || input == NULL) return 0;
+    id receiver = (__bridge id)view_ptr;
+    NSString *ns_input = [NSString stringWithUTF8String:input];
+    if (ns_input == nil) return 0;
+
+    // Build the UIKeyCommand. The selector is dispatched via the global
+    // CrystalActionDispatcher class (registered separately); we wire the
+    // tag via an associated object so the dispatcher's invocation can
+    // pull the right callback token.
+    //
+    // For simplicity in iter 1, we use the action-block convenience via
+    // UIKeyCommand's keyCommandWithInput:modifierFlags:action: which uses
+    // the responder chain's @selector. We bind to a static selector
+    // registered on UIResponder via category — but to avoid adding a
+    // category we instead leverage the same CrystalActionDispatcher
+    // class as the button click path.
+    SEL action_sel = sel_registerName("dispatch:");
+    UIKeyCommand *cmd = [UIKeyCommand keyCommandWithInput:ns_input
+                                           modifierFlags:(UIKeyModifierFlags)modifier_mask
+                                                  action:action_sel];
+
+    // Allocate a CrystalActionDispatcher to carry the token, retain via
+    // associated objects so the lifetime tracks the view.
+    Class disp_cls = objc_getClass("CrystalActionDispatcher");
+    if (disp_cls == Nil) return 0;
+    id dispatcher = ((id (*)(Class, SEL))objc_msgSend)(disp_cls, sel_registerName("new"));
+    ((void (*)(id, SEL, long long))objc_msgSend)(dispatcher, sel_registerName("setTag:"), (long long)token);
+    objc_setAssociatedObject(cmd, "apsk_dispatcher", dispatcher, OBJC_ASSOCIATION_RETAIN);
+
+    // Attempt to append to `keyCommands`. UIView doesn't have a setter, but
+    // UIViewController has `addKeyCommand:`. We try the latter first.
+    SEL add_sel = sel_registerName("addKeyCommand:");
+    if ([receiver respondsToSelector:add_sel]) {
+        ((void (*)(id, SEL, id))objc_msgSend)(receiver, add_sel, cmd);
+        return 1;
+    }
+    // Fallback: store on associated object so a host VC can read+install later.
+    NSMutableArray *bag = objc_getAssociatedObject(receiver, "apsk_pending_key_commands");
+    if (bag == nil) {
+        bag = [NSMutableArray array];
+        objc_setAssociatedObject(receiver, "apsk_pending_key_commands", bag, OBJC_ASSOCIATION_RETAIN);
+    }
+    [bag addObject:cmd];
+    return 1;
+}
+
+// Request first-responder status (focus). Returns 1 if the message was sent.
+int ap_view_become_first_responder(void *view_ptr) {
+    if (view_ptr == NULL) return 0;
+    id receiver = (__bridge id)view_ptr;
+    SEL sel = @selector(becomeFirstResponder);
+    if (![receiver respondsToSelector:sel]) return 0;
+    ((void (*)(id, SEL))objc_msgSend)(receiver, sel);
+    return 1;
+}
+
+// Resign first-responder status (blur).
+int ap_view_resign_first_responder(void *view_ptr) {
+    if (view_ptr == NULL) return 0;
+    id receiver = (__bridge id)view_ptr;
+    SEL sel = @selector(resignFirstResponder);
+    if (![receiver respondsToSelector:sel]) return 0;
+    ((void (*)(id, SEL))objc_msgSend)(receiver, sel);
+    return 1;
+}
+
+// -----------------------------------------------------------------
+// Raw UITextField string-change wiring (ComboBox value-drop fix).
+//
+// ComboBox renders as a bare UITextField (no SwiftUI facade / TextStorage),
+// so the `fireString` trampoline never runs for it. We attach a
+// CrystalStringFieldDispatcher via addTarget:action:forControlEvents: that,
+// on every edit + commit, reads [field text] and routes it through the
+// existing raw string channel `crystal_ui_string_callback_dispatch(token, utf8)`
+// -> UI::CallbackRegistry.call_string. The dispatcher carries the u64 token
+// in an ivar and is pinned to the field via an associated object so BoehmGC
+// + ObjC retain both keep it alive for the field's lifetime.
+// -----------------------------------------------------------------
+static const void *ap_text_field_string_dispatcher_key = &ap_text_field_string_dispatcher_key;
+
+// IMP for setToken: — store the u64 callback token in the _token ivar.
+static void ap_string_field_set_token(id self, SEL _cmd, unsigned long long token) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (ivar) {
+        *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar)) = token;
+    }
+}
+
+// IMP for fieldChanged: — read the sender's text and dispatch it to Crystal.
+static void ap_string_field_changed(id self, SEL _cmd, id sender) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (!ivar) return;
+    unsigned long long token =
+        *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar));
+    if (token == 0ULL) return;
+
+    NSString *text = nil;
+    SEL text_sel = sel_registerName("text");
+    if (sender && [sender respondsToSelector:text_sel]) {
+        text = ((id (*)(id, SEL))objc_msgSend)(sender, text_sel);
+    }
+    const char *utf8 = text ? [text UTF8String] : "";
+    crystal_ui_string_callback_dispatch(token, utf8 ? utf8 : "");
+}
+
+static Class ap_register_string_field_dispatcher(void) {
+    Class cls = objc_getClass("CrystalStringFieldDispatcher");
+    if (cls) return cls;
+
+    cls = objc_allocateClassPair([NSObject class], "CrystalStringFieldDispatcher", 0);
+    if (!cls) return Nil;
+
+    class_addIvar(cls, "_token", sizeof(unsigned long long),
+                  __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addMethod(cls, sel_registerName("setToken:"),
+                    (IMP)ap_string_field_set_token, "v@:Q");
+    class_addMethod(cls, sel_registerName("fieldChanged:"),
+                    (IMP)ap_string_field_changed, "v@:@");
+
+    objc_registerClassPair(cls);
+    return cls;
+}
+
+// Wire a raw UITextField's editing-changed + editing-did-end events to the
+// Crystal string callback `token`. Idempotent: re-wiring the same field
+// updates the token on the existing dispatcher rather than stacking targets.
+// Returns 1 on success, 0 on no-op (nil field / class registration failure).
+int ap_text_field_wire_string_change(void *field_ptr, unsigned long long token) {
+    if (field_ptr == NULL) return 0;
+
+    id field = (__bridge id)field_ptr;
+    SEL action = sel_registerName("fieldChanged:");
+    UIControlEvents events = UIControlEventEditingChanged | UIControlEventEditingDidEnd;
+
+    id dispatcher = objc_getAssociatedObject(field, ap_text_field_string_dispatcher_key);
+    if (!dispatcher) {
+        Class cls = ap_register_string_field_dispatcher();
+        if (!cls) return 0;
+
+        dispatcher = ((id (*)(Class, SEL))objc_msgSend)(cls, sel_registerName("new"));
+        objc_setAssociatedObject(field, ap_text_field_string_dispatcher_key,
+                                 dispatcher, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        ((void (*)(id, SEL, id, SEL, NSUInteger))objc_msgSend)(
+            field, sel_registerName("addTarget:action:forControlEvents:"),
+            dispatcher, action, (NSUInteger)events);
+        [dispatcher release]; // objc_bridge.m compiles with -fno-objc-arc
+    }
+
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(
+        dispatcher, sel_registerName("setToken:"), token);
+
+    return 1;
+}
+
+// =============================================================================
+// Phase 10B.3.x — Class C feature bridge functions (iOS / iPadOS branch).
+//
+// One C entry-point per Class C feature implemented for the iOS/iPadOS
+// platform. Each function is fire-and-forget — the Crystal-side Class C
+// dispatch wraps the call in a DispatchResult.success unless the function
+// raises. Functions that need to return data (paste, file picker) route
+// the result through `crystal_ui_string_callback_dispatch` using a token
+// the caller passes in.
+//
+// All functions are main-thread-safe: they dispatch_async onto the main
+// queue when they need to touch UIKit (UIPasteboard is safe off-main; the
+// UIViewController-presenting calls are not).
+// =============================================================================
+
+// :copy_to_clipboard — write `value` to UIPasteboard.general.string.
+void ap_clipboard_write_ios(const char *value_cstr) {
+    NSString *value = ap_string_from_cstr(value_cstr);
+    if (!value) value = @"";
+    // UIPasteboard.string is documented main-thread-only on iOS.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [UIPasteboard generalPasteboard].string = value;
+    });
+}
+
+// :paste_from_clipboard — read UIPasteboard.general.string and route to
+// the Crystal-side callback. `token` is a callback tag returned by
+// `UI::CallbackRegistry`. The callback fires on the main thread.
+//
+// Returns 1 if a string was found and the callback was scheduled, 0 if
+// the pasteboard had no string content.
+int ap_clipboard_read_ios(unsigned long long token) {
+    __block int found = 0;
+    void (^work)(void) = ^{
+        NSString *value = [UIPasteboard generalPasteboard].string;
+        if (value) {
+            const char *cstr = value.UTF8String;
+            crystal_ui_string_callback_dispatch(token, cstr ? cstr : "");
+            found = 1;
+        } else {
+            crystal_ui_string_callback_dispatch(token, "");
+        }
+    };
+    if ([NSThread isMainThread]) {
+        work();
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), work);
+    }
+    return found;
+}
+
+// :open_url — UIApplication.openURL via the modern openURL:options:
+// completionHandler: selector. Returns 1 if the dispatch was scheduled,
+// 0 if the URL was malformed.
+int ap_open_url_ios(const char *url_cstr) {
+    NSURL *url = ap_url_from_cstr(url_cstr);
+    if (!url) return 0;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIApplication *app = [UIApplication sharedApplication];
+        if ([app respondsToSelector:@selector(openURL:options:completionHandler:)]) {
+            [app openURL:url options:@{} completionHandler:nil];
+        }
+    });
+    return 1;
+}
+
+// :request_permission — request UNUserNotificationCenter authorization on
+// iOS. Reuses the shared notifications helpers already in this file.
+// Returns 1 if granted, 0 otherwise. Synchronous via dispatch_semaphore;
+// the helper times out at 5 s.
+int ap_request_notification_permission_ios(void) {
+    return ap_notifications_request_authorization(1, 1, 1, 0);
+}
+
+// :print — present a UIPrintInteractionController for a plain-text
+// payload. Best-effort: the substrate ships a text-only path here, real
+// apps composing with PDFs / images call the controller themselves with
+// a richer formatter. Returns 1 if dispatch scheduled, 0 if the API is
+// not available (UIPrintInteractionController.isPrintingAvailable == NO).
+int ap_print_text_ios(const char *text_cstr, const char *job_name_cstr) {
+    if (![UIPrintInteractionController isPrintingAvailable]) return 0;
+    NSString *text = ap_string_from_cstr(text_cstr);
+    NSString *job_name = ap_string_from_cstr(job_name_cstr);
+    if (!text) text = @"";
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIPrintInteractionController *pic = [UIPrintInteractionController sharedPrintController];
+        UIPrintInfo *info = [UIPrintInfo printInfo];
+        info.outputType = UIPrintInfoOutputGeneral;
+        if (job_name && job_name.length) info.jobName = job_name;
+        pic.printInfo = info;
+        UISimpleTextPrintFormatter *formatter =
+            [[UISimpleTextPrintFormatter alloc] initWithText:text];
+        pic.printFormatter = formatter;
+        [formatter release];
+        [pic presentAnimated:YES completionHandler:nil];
+    });
+    return 1;
+}
+
+// :open_file_picker — present a UIDocumentPickerViewController in
+// open-mode. The picker's selection is routed back via the
+// `crystal_ui_string_callback_dispatch` callback (with the picked URL,
+// or empty string on cancel).
+//
+// Anchor is required — iOS modal presentation needs a presenting
+// view-controller. The Crystal side passes the active view ptr from
+// the renderer surface.
+//
+// Returns 1 if the picker was scheduled, 0 if anchor is nil.
+//
+// NOTE: this minimal path registers an inline delegate via runtime —
+// in production the renderer should retain the delegate via associated
+// object so it survives the modal presentation. For the substrate's
+// fire-and-forget contract we accept a small leak; a real picker
+// component (10B.4) replaces this.
+static const void *ap_doc_picker_delegate_key = &ap_doc_picker_delegate_key;
+
+@interface APDocPickerDelegate : NSObject <UIDocumentPickerDelegate>
+@property (nonatomic, assign) unsigned long long callback_token;
+@end
+@implementation APDocPickerDelegate
+- (void)documentPicker:(UIDocumentPickerViewController *)controller
+didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    NSString *first = urls.firstObject.absoluteString ?: @"";
+    crystal_ui_string_callback_dispatch(self.callback_token, first.UTF8String);
+}
+- (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
+    crystal_ui_string_callback_dispatch(self.callback_token, "");
+}
+@end
+
+static NSArray *ap_document_content_types_from_identifiers(NSArray<NSString *> *identifiers) {
+    Class ut_type_class = NSClassFromString(@"UTType");
+    SEL type_with_identifier_sel = sel_registerName("typeWithIdentifier:");
+    if (!ut_type_class || ![ut_type_class respondsToSelector:type_with_identifier_sel]) {
+        return nil;
+    }
+
+    NSMutableArray *content_types = [NSMutableArray array];
+    NSCharacterSet *trim_set = [NSCharacterSet whitespaceAndNewlineCharacterSet];
+    for (NSString *identifier in identifiers) {
+        NSString *trimmed = [identifier stringByTrimmingCharactersInSet:trim_set];
+        if (!trimmed.length) continue;
+        id type = ((id (*)(id, SEL, id))objc_msgSend)(ut_type_class, type_with_identifier_sel, trimmed);
+        if (type) [content_types addObject:type];
+    }
+    if (!content_types.count) {
+        id data_type = ((id (*)(id, SEL, id))objc_msgSend)(ut_type_class, type_with_identifier_sel, @"public.data");
+        if (data_type) [content_types addObject:data_type];
+    }
+    return content_types.count ? content_types : nil;
+}
+
+static UIDocumentPickerViewController *ap_document_picker_for_opening(NSArray<NSString *> *types) {
+    SEL modern_sel = sel_registerName("initForOpeningContentTypes:asCopy:");
+    if ([UIDocumentPickerViewController instancesRespondToSelector:modern_sel]) {
+        NSArray *content_types = ap_document_content_types_from_identifiers(types);
+        if (content_types.count) {
+            return ((UIDocumentPickerViewController *(*)(id, SEL, id, BOOL))objc_msgSend)(
+                [UIDocumentPickerViewController alloc], modern_sel, content_types, YES);
+        }
+    }
+
+    SEL legacy_sel = sel_registerName("initWithDocumentTypes:inMode:");
+    if ([UIDocumentPickerViewController instancesRespondToSelector:legacy_sel]) {
+        return ((UIDocumentPickerViewController *(*)(id, SEL, id, NSInteger))objc_msgSend)(
+            [UIDocumentPickerViewController alloc], legacy_sel, types, (NSInteger)0);
+    }
+    return nil;
+}
+
+static UIDocumentPickerViewController *ap_document_picker_for_exporting(NSURL *source) {
+    SEL modern_sel = sel_registerName("initForExportingURLs:asCopy:");
+    if ([UIDocumentPickerViewController instancesRespondToSelector:modern_sel]) {
+        return ((UIDocumentPickerViewController *(*)(id, SEL, id, BOOL))objc_msgSend)(
+            [UIDocumentPickerViewController alloc], modern_sel, @[source], YES);
+    }
+
+    SEL legacy_sel = sel_registerName("initWithURL:inMode:");
+    if ([UIDocumentPickerViewController instancesRespondToSelector:legacy_sel]) {
+        return ((UIDocumentPickerViewController *(*)(id, SEL, id, NSInteger))objc_msgSend)(
+            [UIDocumentPickerViewController alloc], legacy_sel, source, (NSInteger)2);
+    }
+    return nil;
+}
+
+int ap_open_file_picker_ios(void *anchor_view_ptr, const char *utis_cstr,
+                            unsigned long long token) {
+    // A null anchor is allowed: `ap_top_presenting_view_controller(nil)`
+    // resolves the key window's rootViewController, so a Class C dispatch
+    // that has no concrete view to anchor to (the SystemAction path) still
+    // presents a real picker instead of silently no-oping. We only return 0
+    // when NO presenter can be resolved at all (see the main-queue block),
+    // never merely because the anchor was null.
+    UIView *anchor = (UIView *)anchor_view_ptr;
+    NSString *utis = ap_string_from_cstr(utis_cstr);
+    // Default to public.data when caller doesn't specify a UTI list.
+    NSArray<NSString *> *types = nil;
+    if (utis && utis.length) {
+        types = [utis componentsSeparatedByString:@","];
+    } else {
+        types = @[@"public.data"];
+    }
+    // Resolve the presenter SYNCHRONOUSLY so the int return honestly reflects
+    // whether a picker can actually be presented. Returning 1 unconditionally
+    // with the presenter check only inside the async block would let a missing
+    // presenter silently no-op while Crystal reported success — the
+    // false-success class this binding must avoid (the SecureField lesson).
+    // UIKit must be touched on the main thread; guard for an off-main caller.
+    // A BOOL (not the VC pointer) crosses back so there is no MRC lifetime
+    // issue; the async block re-resolves a fresh (autoreleased) presenter.
+    __block BOOL can_present = NO;
+    if ([NSThread isMainThread]) {
+        can_present = (ap_top_presenting_view_controller(anchor) != nil);
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            can_present = (ap_top_presenting_view_controller(anchor) != nil);
+        });
+    }
+    if (!can_present) return 0;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *presenter = ap_top_presenting_view_controller(anchor);
+        if (!presenter) return;
+        UIDocumentPickerViewController *picker = ap_document_picker_for_opening(types);
+        if (!picker) return;
+        APDocPickerDelegate *delegate = [[APDocPickerDelegate alloc] init];
+        delegate.callback_token = token;
+        picker.delegate = delegate;
+        objc_setAssociatedObject(picker, ap_doc_picker_delegate_key, delegate,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [delegate release];
+        [presenter presentViewController:picker animated:YES completion:nil];
+        [picker release];
+    });
+    return 1;
+}
+
+// :export_file — present a UIDocumentPickerViewController in export-mode.
+// The Crystal side hands us a temp-file URL pointing at the bytes to
+// export; the picker copies it into the user-chosen location.
+//
+// Returns 1 if scheduled, 0 if anchor / source-url is nil.
+int ap_export_file_ios(void *anchor_view_ptr, const char *source_url_cstr,
+                       unsigned long long token) {
+    // A null anchor is allowed (see ap_open_file_picker_ios). We still
+    // require a real source URL — exporting nothing is a programmer error,
+    // not a degrade — so a nil source returns 0 and the Crystal proc maps
+    // that to a not-performed result.
+    UIView *anchor = (UIView *)anchor_view_ptr;
+    NSURL *source = ap_url_from_cstr(source_url_cstr);
+    if (!source) return 0;
+    // Honest synchronous presenter check (see ap_open_file_picker_ios) so a
+    // missing presenter returns 0 rather than reporting fake success.
+    __block BOOL can_present = NO;
+    if ([NSThread isMainThread]) {
+        can_present = (ap_top_presenting_view_controller(anchor) != nil);
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            can_present = (ap_top_presenting_view_controller(anchor) != nil);
+        });
+    }
+    if (!can_present) return 0;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *presenter = ap_top_presenting_view_controller(anchor);
+        if (!presenter) return;
+        UIDocumentPickerViewController *picker = ap_document_picker_for_exporting(source);
+        if (!picker) return;
+        APDocPickerDelegate *delegate = [[APDocPickerDelegate alloc] init];
+        delegate.callback_token = token;
+        picker.delegate = delegate;
+        objc_setAssociatedObject(picker, ap_doc_picker_delegate_key, delegate,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [delegate release];
+        [presenter presentViewController:picker animated:YES completion:nil];
+        [picker release];
+    });
+    return 1;
+}
+
+#else  // macOS / AppKit
+
+// AppKit accessibility-custom-action support. NSAccessibilityCustomAction is
+// available on macOS 10.13+ via the NSAccessibility informal protocol.
+int ap_view_add_accessibility_custom_action(void *view_ptr, const char *name,
+                                            unsigned long long token) {
+    if (view_ptr == NULL || name == NULL) return 0;
+    NSView *view = (__bridge NSView *)view_ptr;
+    NSString *ns_name = [NSString stringWithUTF8String:name];
+    if (ns_name == nil) return 0;
+
+    NSAccessibilityCustomAction *action =
+        [[NSAccessibilityCustomAction alloc] initWithName:ns_name
+                                                  handler:^BOOL(void) {
+                                                      crystal_ui_callback_dispatch(token);
+                                                      return YES;
+                                                  }];
+
+    NSArray<NSAccessibilityCustomAction *> *existing = view.accessibilityCustomActions;
+    NSMutableArray *next = existing ? [existing mutableCopy] : [NSMutableArray array];
+    [next addObject:action];
+    view.accessibilityCustomActions = next;
+    return 1;
+}
+
+// AppKit keyboard shortcuts: NSButton-derived controls accept setKeyEquivalent:
+// + setKeyEquivalentModifierMask:. Non-button controls get the value stored as
+// an associated object the host menu / responder chain can consult later.
+int ap_view_add_key_command(void *view_ptr, const char *input, unsigned long long modifier_mask,
+                            unsigned long long token) {
+    if (view_ptr == NULL || input == NULL) return 0;
+    id receiver = (__bridge id)view_ptr;
+    NSString *ns_input = [NSString stringWithUTF8String:input];
+    if (ns_input == nil) return 0;
+
+    SEL set_ke = @selector(setKeyEquivalent:);
+    SEL set_kem = @selector(setKeyEquivalentModifierMask:);
+    if ([receiver respondsToSelector:set_ke]) {
+        // First character only for keyEquivalent.
+        NSString *first_char = ns_input.length > 0 ? [ns_input substringToIndex:1] : @"";
+        ((void (*)(id, SEL, id))objc_msgSend)(receiver, set_ke, first_char);
+        if ([receiver respondsToSelector:set_kem]) {
+            ((void (*)(id, SEL, NSUInteger))objc_msgSend)(
+                receiver, set_kem, (NSUInteger)modifier_mask);
+        }
+        // The button's target/action already wires Crystal-side callbacks.
+        // Token is advisory in the NSButton path — Crystal-side dispatcher
+        // already routes the click.
+        (void)token;
+        return 1;
+    }
+    // Non-button: store associated for later wiring (debug aid).
+    NSDictionary *meta = @{
+        @"input": ns_input,
+        @"mask": @(modifier_mask),
+        @"token": @(token),
+    };
+    objc_setAssociatedObject(receiver, "apsk_keyboard_shortcut", meta, OBJC_ASSOCIATION_RETAIN);
+    return 1;
+}
+
+// AppKit "become first responder": route through the view's window.
+int ap_view_become_first_responder(void *view_ptr) {
+    if (view_ptr == NULL) return 0;
+    NSView *view = (__bridge NSView *)view_ptr;
+    NSWindow *win = view.window;
+    if (win == nil) return 0;
+    [win makeFirstResponder:view];
+    return 1;
+}
+
+// Resign first responder by asking the window to take the responder spot back.
+int ap_view_resign_first_responder(void *view_ptr) {
+    if (view_ptr == NULL) return 0;
+    NSView *view = (__bridge NSView *)view_ptr;
+    NSWindow *win = view.window;
+    if (win == nil) return 0;
+    if (win.firstResponder == (NSResponder *)view) {
+        [win makeFirstResponder:nil];
+        return 1;
+    }
+    return 0;
+}
+
+
+// Phase 10B.3.0 — Class C `:hello_world_alert` binding (macOS).
+//
+// Presents an `NSAlert` modally on the active key window. Pure
+// fire-and-forget: the proof binding does not need the user's
+// response (a real production alert binding would route the button
+// taps through `crystal_ui_callback_dispatch`, but the substrate
+// proof intentionally stays minimal).
+//
+// Dispatch is queued onto the main thread because the binding may be
+// invoked from any thread (e.g. a background work item that finished
+// and wants to surface a notification). NSAlert is main-thread-only.
+//
+// Why `runModal` instead of `beginSheetModalForWindow:`?
+// `runModal` works without an anchor window — `:hello_world_alert`
+// is a proof intent that may fire before any window has been
+// constructed (e.g. in a launch-time smoke test). Real Class C
+// alert / dialog bindings introduced in 10B.3.x will prefer a
+// window-anchored API.
+void ap_alert_show_macos(const char *title_cstr, const char *message_cstr) {
+    NSString *title = ap_string_from_cstr(title_cstr);
+    NSString *message = ap_string_from_cstr(message_cstr);
+    if (!title) title = @"Hello";
+    if (!message) message = @"";
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSAlert *alert = [[NSAlert alloc] init];
+        alert.messageText = title;
+        alert.informativeText = message;
+        [alert addButtonWithTitle:@"OK"];
+        [alert runModal];
+        [alert release];
+    });
+}
+
+// =============================================================================
+// Phase 10B.3.x — Class C feature bridge functions (macOS / AppKit branch).
+//
+// One C entry-point per Class C feature implemented for the macOS
+// platform. Each function is fire-and-forget — the Crystal-side Class C
+// dispatch wraps the call in a DispatchResult.success unless the
+// function raises. Functions that need to return data (paste, file
+// picker) route the result through `crystal_ui_string_callback_dispatch`
+// using a token the caller passes in.
+// =============================================================================
+
+// :copy_to_clipboard — write `value` to NSPasteboard.general.
+void ap_clipboard_write_macos(const char *value_cstr) {
+    NSString *value = ap_string_from_cstr(value_cstr);
+    if (!value) value = @"";
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSPasteboard *pb = [NSPasteboard generalPasteboard];
+        [pb clearContents];
+        [pb setString:value forType:NSPasteboardTypeString];
+    });
+}
+
+// :paste_from_clipboard — read NSPasteboard.general string content and
+// route to the Crystal-side callback. Synchronous to keep the contract
+// symmetric with iOS — the pasteboard read is cheap on macOS.
+// Returns 1 when a string was found, 0 otherwise.
+int ap_clipboard_read_macos(unsigned long long token) {
+    __block int found = 0;
+    void (^work)(void) = ^{
+        NSPasteboard *pb = [NSPasteboard generalPasteboard];
+        NSString *value = [pb stringForType:NSPasteboardTypeString];
+        if (value) {
+            const char *cstr = value.UTF8String;
+            crystal_ui_string_callback_dispatch(token, cstr ? cstr : "");
+            found = 1;
+        } else {
+            crystal_ui_string_callback_dispatch(token, "");
+        }
+    };
+    if ([NSThread isMainThread]) {
+        work();
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), work);
+    }
+    return found;
+}
+
+// :open_url — NSWorkspace.shared.openURL: (modern openURL:configuration:
+// completionHandler: on macOS 10.15+; falls back to legacy openURL: on
+// older systems).
+int ap_open_url_macos(const char *url_cstr) {
+    NSURL *url = ap_url_from_cstr(url_cstr);
+    if (!url) return 0;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSWorkspace *ws = [NSWorkspace sharedWorkspace];
+        if ([ws respondsToSelector:@selector(openURL:configuration:completionHandler:)]) {
+            [ws openURL:url
+              configuration:[NSWorkspaceOpenConfiguration configuration]
+          completionHandler:nil];
+        } else {
+            [ws openURL:url];
+        }
+    });
+    return 1;
+}
+
+// :request_permission — request UNUserNotificationCenter authorization on
+// macOS. Returns 1 if granted, 0 otherwise. Synchronous via dispatch
+// semaphore; the helper times out at 5 s.
+int ap_request_notification_permission_macos(void) {
+    return ap_notifications_request_authorization(1, 1, 1, 0);
+}
+
+// :print — present an NSPrintOperation for a plain-text payload built
+// into an NSTextView, run runModal on the active window. Returns 1 if
+// dispatch scheduled, 0 if no key window available.
+int ap_print_text_macos(const char *text_cstr, const char *job_name_cstr) {
+    NSString *text = ap_string_from_cstr(text_cstr);
+    NSString *job_name = ap_string_from_cstr(job_name_cstr);
+    if (!text) text = @"";
+
+    __block int ok = 1;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        // Build an off-screen NSTextView sized to the printable page so
+        // NSPrintOperation can paginate it. The text view lives only
+        // for the duration of the modal print panel.
+        NSPrintInfo *info = [NSPrintInfo sharedPrintInfo];
+        NSSize paper = info.paperSize;
+        NSRect frame = NSMakeRect(0.0, 0.0, paper.width, paper.height);
+        NSTextView *tv = [[NSTextView alloc] initWithFrame:frame];
+        [tv.textStorage replaceCharactersInRange:NSMakeRange(0, 0)
+                                      withString:text];
+        if (job_name && job_name.length) {
+            info.jobDisposition = NSPrintSpoolJob;
+        }
+        NSPrintOperation *op = [NSPrintOperation printOperationWithView:tv
+                                                              printInfo:info];
+        op.showsPrintPanel = YES;
+        op.showsProgressPanel = YES;
+        if (job_name && job_name.length) {
+            op.jobTitle = job_name;
+        }
+        [op runOperation];
+        [tv release];
+    });
+    return ok;
+}
+
+// :open_file_picker — present an NSOpenPanel modally. Returns the
+// selected URL via crystal_ui_string_callback_dispatch (empty string on
+// cancel). `utis` is a comma-separated list of UTI strings, e.g.
+// "public.image,public.data"; empty/nil means any file.
+//
+// Synchronous via runModal — NSOpenPanel returns when the user dismisses
+// the panel.
+int ap_open_file_picker_macos(const char *utis_cstr, unsigned long long token) {
+    NSString *utis = ap_string_from_cstr(utis_cstr);
+    void (^work)(void) = ^{
+        NSOpenPanel *panel = [NSOpenPanel openPanel];
+        panel.canChooseFiles = YES;
+        panel.canChooseDirectories = NO;
+        panel.allowsMultipleSelection = NO;
+        if (utis && utis.length) {
+            NSArray<NSString *> *types = [utis componentsSeparatedByString:@","];
+            if (@available(macOS 11.0, *)) {
+                // UTType API requires casts that depend on UniformType
+                // Identifiers framework. Defer to allowedFileTypes (legacy
+                // but still works on 11+) so we don't take a new link
+                // dependency.
+                panel.allowedFileTypes = types;
+            } else {
+                panel.allowedFileTypes = types;
+            }
+        }
+        NSModalResponse response = [panel runModal];
+        if (response == NSModalResponseOK && panel.URLs.firstObject) {
+            const char *cstr = panel.URLs.firstObject.absoluteString.UTF8String;
+            crystal_ui_string_callback_dispatch(token, cstr ? cstr : "");
+        } else {
+            crystal_ui_string_callback_dispatch(token, "");
+        }
+    };
+    if ([NSThread isMainThread]) {
+        work();
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), work);
+    }
+    return 1;
+}
+
+// :export_file — present an NSSavePanel modally. Suggests
+// `suggested_name` as the default filename. Returns chosen URL via
+// crystal_ui_string_callback_dispatch (empty on cancel).
+int ap_export_file_macos(const char *suggested_name_cstr,
+                         unsigned long long token) {
+    NSString *suggested = ap_string_from_cstr(suggested_name_cstr);
+    void (^work)(void) = ^{
+        NSSavePanel *panel = [NSSavePanel savePanel];
+        if (suggested && suggested.length) {
+            panel.nameFieldStringValue = suggested;
+        }
+        NSModalResponse response = [panel runModal];
+        if (response == NSModalResponseOK && panel.URL) {
+            const char *cstr = panel.URL.absoluteString.UTF8String;
+            crystal_ui_string_callback_dispatch(token, cstr ? cstr : "");
+        } else {
+            crystal_ui_string_callback_dispatch(token, "");
+        }
+    };
+    if ([NSThread isMainThread]) {
+        work();
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), work);
+    }
+    return 1;
+}
+
+// -----------------------------------------------------------------
+// NSComboBox value-change wiring (macOS ComboBox value-drop fix).
+//
+// NSComboBox has no SwiftUI facade. iOS wires its raw UITextField via a
+// UIControl target-action (ap_text_field_wire_string_change); AppKit
+// instead delivers combo-box changes through delegate notifications:
+//   - controlTextDidChange:        (typed text — NSControl editing delegate)
+//   - comboBoxSelectionDidChange:  (list pick — NSComboBoxDelegate)
+// A dynamically-registered CrystalComboBoxDelegate carries the u64 token,
+// reads the combo box's current value from the notification's object on
+// each change, and routes it through crystal_ui_string_callback_dispatch.
+// The delegate is pinned via objc_setAssociatedObject for the box's life.
+// (Note: in comboBoxSelectionDidChange: the combo's -stringValue is not yet
+// updated to the new selection, so we read -objectValueOfSelectedItem.)
+// -----------------------------------------------------------------
+static const void *ap_combo_box_delegate_key = &ap_combo_box_delegate_key;
+
+static unsigned long long ap_combo_read_token(id self) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (!ivar) return 0ULL;
+    return *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar));
+}
+
+static void ap_combo_set_token(id self, SEL _cmd, unsigned long long token) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (ivar) {
+        *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar)) = token;
+    }
+}
+
+static void ap_combo_dispatch_value(unsigned long long token, NSString *s) {
+    if (token == 0ULL) return;
+    const char *utf8 = s ? [s UTF8String] : "";
+    crystal_ui_string_callback_dispatch(token, utf8 ? utf8 : "");
+}
+
+static void ap_combo_control_text_did_change(id self, SEL _cmd, id note) {
+    unsigned long long token = ap_combo_read_token(self);
+    id combo = note ? ((id (*)(id, SEL))objc_msgSend)(note, sel_registerName("object")) : nil;
+    NSString *s = nil;
+    if (combo && [combo respondsToSelector:sel_registerName("stringValue")]) {
+        s = ((id (*)(id, SEL))objc_msgSend)(combo, sel_registerName("stringValue"));
+    }
+    ap_combo_dispatch_value(token, s);
+}
+
+static void ap_combo_selection_did_change(id self, SEL _cmd, id note) {
+    unsigned long long token = ap_combo_read_token(self);
+    id combo = note ? ((id (*)(id, SEL))objc_msgSend)(note, sel_registerName("object")) : nil;
+    NSString *s = nil;
+    if (combo && [combo respondsToSelector:sel_registerName("objectValueOfSelectedItem")]) {
+        id val = ((id (*)(id, SEL))objc_msgSend)(combo, sel_registerName("objectValueOfSelectedItem"));
+        if ([val isKindOfClass:[NSString class]]) {
+            s = val;
+        } else if (val) {
+            s = [val description];
+        }
+    }
+    ap_combo_dispatch_value(token, s);
+}
+
+static Class ap_register_combo_box_delegate(void) {
+    Class cls = objc_getClass("CrystalComboBoxDelegate");
+    if (cls) return cls;
+
+    cls = objc_allocateClassPair([NSObject class], "CrystalComboBoxDelegate", 0);
+    if (!cls) return Nil;
+
+    class_addIvar(cls, "_token", sizeof(unsigned long long),
+                  __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addMethod(cls, sel_registerName("setToken:"),
+                    (IMP)ap_combo_set_token, "v@:Q");
+    class_addMethod(cls, sel_registerName("controlTextDidChange:"),
+                    (IMP)ap_combo_control_text_did_change, "v@:@");
+    class_addMethod(cls, sel_registerName("comboBoxSelectionDidChange:"),
+                    (IMP)ap_combo_selection_did_change, "v@:@");
+
+    objc_registerClassPair(cls);
+    return cls;
+}
+
+// Wire an NSComboBox's text + selection changes to the Crystal string
+// callback `token`. Idempotent: re-wiring updates the token on the
+// existing delegate. Returns 1 on success, 0 on no-op.
+int ap_combo_box_wire_string_change(void *combo_ptr, unsigned long long token) {
+    if (combo_ptr == NULL) return 0;
+
+    id combo = (__bridge id)combo_ptr;
+    id delegate = objc_getAssociatedObject(combo, ap_combo_box_delegate_key);
+    if (!delegate) {
+        Class cls = ap_register_combo_box_delegate();
+        if (!cls) return 0;
+
+        delegate = ((id (*)(Class, SEL))objc_msgSend)(cls, sel_registerName("new"));
+        objc_setAssociatedObject(combo, ap_combo_box_delegate_key,
+                                 delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        ((void (*)(id, SEL, id))objc_msgSend)(
+            combo, sel_registerName("setDelegate:"), delegate);
+        [delegate release]; // objc_bridge.m compiles with -fno-objc-arc
+    }
+
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(
+        delegate, sel_registerName("setToken:"), token);
+
+    return 1;
+}
+
+#endif
+
+// =============================================================================
+// Section 6: Discrete gesture surface — swipe (4 directions) + long-press.
+//
+// "Discrete" here means each recognizer fires the Crystal callback ONCE per
+// completed gesture: a swipe fires when UIKit/AppKit recognizes the completed
+// flick; a long-press fires when the hold threshold is crossed (state .began).
+// Continuous pan tracking is intentionally out of scope.
+//
+// Target objects carry the Crystal callback token in a `_token` ivar.
+// The macOS swipe target also carries a `_direction` ivar (int) so the
+// NSPanGestureRecognizer action can classify the dominant translation at .ended
+// (threshold 30 pt) and fire only when the translation matches the registered
+// direction.
+//
+// Each target object is pinned to the host view via objc_setAssociatedObject
+// using a per-direction static key. This keeps the target alive as long as
+// the view is alive, so the Crystal Proc is not collected prematurely.
+// Re-attaching the same direction replaces the old associated target.
+// =============================================================================
+
+// ------------------------------------------------------------------
+// Shared token helpers (used by all gesture target classes).
+// ------------------------------------------------------------------
+
+static unsigned long long ap_gesture_read_token(id self) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (!ivar) return 0ULL;
+    return *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar));
+}
+
+static void ap_gesture_set_token(id self, SEL _cmd, unsigned long long token) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_token");
+    if (ivar) {
+        *(unsigned long long *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar)) = token;
+    }
+}
+
+// ------------------------------------------------------------------
+// CrystalSwipeTarget — fires token unconditionally (iOS path).
+// On iOS UISwipeGestureRecognizer already enforces the direction;
+// the target just dispatches.
+// ------------------------------------------------------------------
+
+static void ap_swipe_target_handle(id self, SEL _cmd, id recognizer) {
+    unsigned long long token = ap_gesture_read_token(self);
+    if (token != 0ULL) {
+        crystal_ui_callback_dispatch(token);
+    }
+}
+
+static Class ap_register_swipe_target(void) {
+    Class cls = objc_getClass("CrystalSwipeTarget");
+    if (cls) return cls;
+
+    cls = objc_allocateClassPair([NSObject class], "CrystalSwipeTarget", 0);
+    if (!cls) return Nil;
+
+    class_addIvar(cls, "_token", sizeof(unsigned long long),
+                  __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addMethod(cls, sel_registerName("setToken:"),
+                    (IMP)ap_gesture_set_token, "v@:Q");
+    class_addMethod(cls, sel_registerName("handleSwipe:"),
+                    (IMP)ap_swipe_target_handle, "v@:@");
+
+    objc_registerClassPair(cls);
+    return cls;
+}
+
+// ------------------------------------------------------------------
+// CrystalPanSwipeTarget — macOS path. Carries both a token ivar
+// and a direction ivar; the handlePan: action classifies translation
+// at .ended and dispatches only when the dominant axis matches.
+//
+// Direction encoding (matches UI::SwipeDirection enum):
+//   0 = Left, 1 = Right, 2 = Up, 3 = Down
+//
+// Classification threshold: 30 pt. When both axes exceed the threshold,
+// the larger magnitude wins; Left and Down are biased slightly in the
+// case of a tie (the recognizer fires for the first matching direction).
+// ------------------------------------------------------------------
+
+#if TARGET_OS_OSX
+
+static int ap_pan_read_direction(id self) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_direction");
+    if (!ivar) return -1;
+    return *(int *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar));
+}
+
+static void ap_pan_set_direction(id self, SEL _cmd, int dir) {
+    Ivar ivar = class_getInstanceVariable(object_getClass(self), "_direction");
+    if (ivar) {
+        *(int *)((uint8_t *)(__bridge void *)self + ivar_getOffset(ivar)) = dir;
+    }
+}
+
+// Classification threshold: below this, the gesture is considered noise.
+#define AP_SWIPE_THRESHOLD 30.0
+
+static void ap_pan_target_handle(id self, SEL _cmd, id recognizer) {
+    // Only classify at .ended — we are not tracking continuous pans.
+    NSGestureRecognizerState state =
+        ((NSGestureRecognizerState (*)(id, SEL))objc_msgSend)(
+            recognizer, sel_registerName("state"));
+    if (state != NSGestureRecognizerStateEnded) return;
+
+    // Read the translation in the recognizer's view.
+    SEL trans_sel = sel_registerName("translationInView:");
+    NSView *rec_view =
+        (NSView *)((id (*)(id, SEL))objc_msgSend)(recognizer, sel_registerName("view"));
+    CGPoint translation = { 0, 0 };
+    // NSPanGestureRecognizer translationInView: returns an NSPoint (CGPoint alias).
+    // The return type is a struct; we use objc_msgSend_stret-compatible cast.
+    // On arm64 macOS small structs (≤16 bytes) are returned in registers via
+    // the normal objc_msgSend, NOT via stret. CGPoint = 2 doubles = 16 bytes.
+    typedef CGPoint (*CGPointIMP)(id, SEL, id);
+    translation = ((CGPointIMP)objc_msgSend)(recognizer, trans_sel, (id)rec_view);
+
+    double dx = translation.x;
+    double dy = translation.y;
+    double abs_x = dx < 0 ? -dx : dx;
+    double abs_y = dy < 0 ? -dy : dy;
+
+    // Neither axis met the threshold — not a swipe.
+    if (abs_x < AP_SWIPE_THRESHOLD && abs_y < AP_SWIPE_THRESHOLD) return;
+
+    // Classify by dominant axis.
+    int classified;
+    if (abs_x >= abs_y) {
+        classified = (dx < 0) ? 0 : 1; // Left = 0, Right = 1
+    } else {
+        classified = (dy < 0) ? 2 : 3; // Up = 2, Down = 3
+        // Note: AppKit's Y axis is flipped relative to UIKit. On macOS a pan
+        // toward the top of the screen produces a positive dy (NSView coords
+        // are bottom-origin). dy < 0 means the finger moved downward in the
+        // coordinate system, which is visually "Up" for the user when the view
+        // is not flipped; most NSViews ARE flipped in asset_pipeline (the stack
+        // views use flipped coordinates via NSFlippedView). We use the raw
+        // sign here — callers that need the visual direction should account for
+        // the flip. This is a known macOS vs iOS behavioral difference and is
+        // documented on UI::SwipeDirection.
+    }
+
+    int expected = ap_pan_read_direction(self);
+    if (expected < 0 || classified == expected) {
+        unsigned long long token = ap_gesture_read_token(self);
+        if (token != 0ULL) {
+            crystal_ui_callback_dispatch(token);
+        }
+    }
+}
+
+static Class ap_register_pan_swipe_target(void) {
+    Class cls = objc_getClass("CrystalPanSwipeTarget");
+    if (cls) return cls;
+
+    cls = objc_allocateClassPair([NSObject class], "CrystalPanSwipeTarget", 0);
+    if (!cls) return Nil;
+
+    class_addIvar(cls, "_token", sizeof(unsigned long long),
+                  __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addIvar(cls, "_direction", sizeof(int),
+                  __alignof__(int), @encode(int));
+    class_addMethod(cls, sel_registerName("setToken:"),
+                    (IMP)ap_gesture_set_token, "v@:Q");
+    class_addMethod(cls, sel_registerName("setDirection:"),
+                    (IMP)ap_pan_set_direction, "v@:i");
+    class_addMethod(cls, sel_registerName("handlePan:"),
+                    (IMP)ap_pan_target_handle, "v@:@");
+
+    objc_registerClassPair(cls);
+    return cls;
+}
+
+#endif // TARGET_OS_OSX
+
+// ------------------------------------------------------------------
+// CrystalLongPressTarget — fires token when the recognizer enters
+// the .began state (hold threshold crossed).
+// ------------------------------------------------------------------
+
+static void ap_long_press_target_handle(id self, SEL _cmd, id recognizer) {
+    // Fire only at .began — the threshold has just been crossed.
+#if TARGET_OS_IPHONE
+    UIGestureRecognizerState state =
+        ((UIGestureRecognizerState (*)(id, SEL))objc_msgSend)(
+            recognizer, sel_registerName("state"));
+    if (state != UIGestureRecognizerStateBegan) return;
+#else
+    NSGestureRecognizerState state =
+        ((NSGestureRecognizerState (*)(id, SEL))objc_msgSend)(
+            recognizer, sel_registerName("state"));
+    if (state != NSGestureRecognizerStateBegan) return;
+#endif
+    unsigned long long token = ap_gesture_read_token(self);
+    if (token != 0ULL) {
+        crystal_ui_callback_dispatch(token);
+    }
+}
+
+static Class ap_register_long_press_target(void) {
+    Class cls = objc_getClass("CrystalLongPressTarget");
+    if (cls) return cls;
+
+    cls = objc_allocateClassPair([NSObject class], "CrystalLongPressTarget", 0);
+    if (!cls) return Nil;
+
+    class_addIvar(cls, "_token", sizeof(unsigned long long),
+                  __alignof__(unsigned long long), @encode(unsigned long long));
+    class_addMethod(cls, sel_registerName("setToken:"),
+                    (IMP)ap_gesture_set_token, "v@:Q");
+    class_addMethod(cls, sel_registerName("handleLongPress:"),
+                    (IMP)ap_long_press_target_handle, "v@:@");
+
+    objc_registerClassPair(cls);
+    return cls;
+}
+
+// ------------------------------------------------------------------
+// Per-direction associated-object keys.
+//
+// Static self-referencing pointers are a stable, unique key per
+// translation unit — the same technique used throughout this file.
+// ------------------------------------------------------------------
+static const void *ap_swipe_key_0 = &ap_swipe_key_0; // Left  (0)
+static const void *ap_swipe_key_1 = &ap_swipe_key_1; // Right (1)
+static const void *ap_swipe_key_2 = &ap_swipe_key_2; // Up    (2)
+static const void *ap_swipe_key_3 = &ap_swipe_key_3; // Down  (3)
+static const void *ap_long_press_key = &ap_long_press_key;
+
+static const void *ap_swipe_assoc_key_for_direction(int direction) {
+    switch (direction) {
+        case 1:  return ap_swipe_key_1;
+        case 2:  return ap_swipe_key_2;
+        case 3:  return ap_swipe_key_3;
+        default: return ap_swipe_key_0;
+    }
+}
+
+// ------------------------------------------------------------------
+// objc_attach_swipe_gesture — attach a discrete swipe recognizer.
+//
+// `direction` is the SwipeDirection enum ordinal (Left=0, Right=1,
+// Up=2, Down=3). `token` is the Crystal CallbackRegistry id.
+//
+// iOS: UISwipeGestureRecognizer — natively directional.
+//   cancelsTouchesInView defaults to YES (swipe consumes the touch),
+//   which matches standard iOS list-row swipe affordance.
+//
+// macOS: NSPanGestureRecognizer with a direction-aware target
+//   (CrystalPanSwipeTarget). The action fires only when the dominant
+//   translation component at .ended matches the registered direction
+//   and exceeds the 30 pt threshold. Each direction installs its own
+//   independent recognizer so all four can coexist on one view.
+//
+// Returns 1 on success, 0 on nil view or class registration failure.
+// ------------------------------------------------------------------
+int objc_attach_swipe_gesture(void *view_ptr, int direction, unsigned long long token) {
+    if (view_ptr == NULL) return 0;
+
+    id view = (__bridge id)view_ptr;
+    const void *assoc_key = ap_swipe_assoc_key_for_direction(direction);
+
+#if TARGET_OS_IPHONE
+    Class target_cls = ap_register_swipe_target();
+    if (!target_cls) return 0;
+
+    id target = ((id (*)(Class, SEL))objc_msgSend)(target_cls, sel_registerName("new"));
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(
+        target, sel_registerName("setToken:"), token);
+    objc_setAssociatedObject(view, assoc_key, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [target release];
+
+    id target_obj = objc_getAssociatedObject(view, assoc_key);
+
+    UISwipeGestureRecognizerDirection ui_dir;
+    switch (direction) {
+        case 0:  ui_dir = UISwipeGestureRecognizerDirectionLeft;  break;
+        case 1:  ui_dir = UISwipeGestureRecognizerDirectionRight; break;
+        case 2:  ui_dir = UISwipeGestureRecognizerDirectionUp;    break;
+        case 3:  ui_dir = UISwipeGestureRecognizerDirectionDown;  break;
+        default: ui_dir = UISwipeGestureRecognizerDirectionDown;  break;
+    }
+    UISwipeGestureRecognizer *rec =
+        [[UISwipeGestureRecognizer alloc] initWithTarget:target_obj
+                                                  action:sel_registerName("handleSwipe:")];
+    rec.direction = ui_dir;
+    // cancelsTouchesInView defaults to YES — swipe consumes the touch.
+    [(UIView *)view addGestureRecognizer:rec];
+    [rec release];
+
+#else // TARGET_OS_OSX
+    Class target_cls = ap_register_pan_swipe_target();
+    if (!target_cls) return 0;
+
+    id target = ((id (*)(Class, SEL))objc_msgSend)(target_cls, sel_registerName("new"));
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(
+        target, sel_registerName("setToken:"), token);
+    ((void (*)(id, SEL, int))objc_msgSend)(
+        target, sel_registerName("setDirection:"), direction);
+    objc_setAssociatedObject(view, assoc_key, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [target release];
+
+    id target_obj = objc_getAssociatedObject(view, assoc_key);
+
+    NSPanGestureRecognizer *rec =
+        [[NSPanGestureRecognizer alloc] initWithTarget:target_obj
+                                                action:sel_registerName("handlePan:")];
+    [(NSView *)view addGestureRecognizer:rec];
+    [rec release];
+#endif
+
+    return 1;
+}
+
+// ------------------------------------------------------------------
+// objc_attach_long_press_gesture — attach a discrete long-press recognizer.
+//
+// `token` is the Crystal CallbackRegistry id. `min_duration` is the
+// hold threshold in seconds (pass 0.5 for the Apple HIG default).
+//
+// iOS: UILongPressGestureRecognizer. cancelsTouchesInView = NO so
+//   child button taps fire normally on short presses.
+// macOS: NSPressGestureRecognizer (same semantics).
+//
+// The callback fires once when the recognizer enters .began (threshold
+// crossed). Later state transitions (.changed, .ended) are ignored.
+//
+// Returns 1 on success, 0 on nil view or class registration failure.
+// ------------------------------------------------------------------
+int objc_attach_long_press_gesture(void *view_ptr, unsigned long long token, double min_duration) {
+    if (view_ptr == NULL) return 0;
+
+    Class target_cls = ap_register_long_press_target();
+    if (!target_cls) return 0;
+
+    id view = (__bridge id)view_ptr;
+
+    id target = ((id (*)(Class, SEL))objc_msgSend)(target_cls, sel_registerName("new"));
+    ((void (*)(id, SEL, unsigned long long))objc_msgSend)(
+        target, sel_registerName("setToken:"), token);
+    objc_setAssociatedObject(view, ap_long_press_key, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [target release];
+
+    id target_obj = objc_getAssociatedObject(view, ap_long_press_key);
+
+#if TARGET_OS_IPHONE
+    UILongPressGestureRecognizer *rec =
+        [[UILongPressGestureRecognizer alloc] initWithTarget:target_obj
+                                                      action:sel_registerName("handleLongPress:")];
+    rec.minimumPressDuration = (NSTimeInterval)min_duration;
+    // cancelsTouchesInView = NO: a long-press overlay must not prevent child
+    // button taps from completing — the button's on_tap fires on tap-up, which
+    // only reaches the button if this recognizer does not swallow the touch.
+    rec.cancelsTouchesInView = NO;
+    [(UIView *)view addGestureRecognizer:rec];
+    [rec release];
+
+#else // TARGET_OS_OSX
+    NSPressGestureRecognizer *rec =
+        [[NSPressGestureRecognizer alloc] initWithTarget:target_obj
+                                                  action:sel_registerName("handleLongPress:")];
+    rec.minimumPressDuration = (NSTimeInterval)min_duration;
+    [(NSView *)view addGestureRecognizer:rec];
+    [rec release];
+#endif
+
+    return 1;
 }

@@ -425,6 +425,26 @@ module UI
       nil
     end
 
+    # Phase 10B.0 — register an app-scoped Tier 2 intent override.
+    #
+    # Apps call this to swap the framework's default widget for a
+    # given intent. Capability validation runs at the registration
+    # call (inside the Registry) — a widget that doesn't declare
+    # enough capability coverage raises `UI::WidgetRoute::IncompatibleOverride`.
+    #
+    #     class AcmeApp < UI::App
+    #       override_widget :swipe_actions, AcmeFancySwipeRow
+    #     end
+    #
+    # The class-level method writes into `UI::WidgetRoute::Registry` so the
+    # override survives screen rebuilds. Class methods are compile-time-
+    # emitted code, unaffected by the iOS class-init gap (see the
+    # `bootstrap!` rationale above).
+    def self.override_widget(intent_id : Symbol, widget_class : UI::View.class) : Nil
+      ::UI::WidgetRoute::Registry.register_app_override(self, intent_id, widget_class)
+      nil
+    end
+
 
     # When any class subclasses `UI::App`, install a generated
     # `bootstrap!` whose body explicitly calls every `_bootstrap_screen_*`

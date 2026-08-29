@@ -23,6 +23,9 @@
 
 import SwiftUI
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @objc(APSKButtonFacade)
 public class ButtonFacade: NSObject {
@@ -80,6 +83,23 @@ private struct APSKButtonHost: View {
 
     var body: some View {
         let action: () -> Void = { [actionToken] in
+            #if canImport(UIKit) && !os(watchOS)
+            if overrides.commitsTextInput?.boolValue == true {
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder),
+                    to: nil,
+                    from: nil,
+                    for: nil
+                )
+                // Resigning commits UIKit/SwiftUI's final editing value. Run
+                // the Crystal callback on the next turn so a submitter cannot
+                // race that binding update and post the previous value.
+                DispatchQueue.main.async {
+                    CallbackBridge.fire(token: actionToken, value: 0.0)
+                }
+                return
+            }
+            #endif
             CallbackBridge.fire(token: actionToken, value: 0.0)
         }
 
@@ -100,38 +120,71 @@ private struct APSKButtonHost: View {
             return mw.doubleValue == mxw.doubleValue
         }()
 
+        // Build the label content once so every Button-initializer branch
+        // shares it. `numberOfLines` (nil = single-line CTA default) opts a
+        // content button's label into wrapping: `.lineLimit` + `.fixedSize`
+        // make a long label (e.g. a tappable thought card's user text) take its
+        // natural multi-line height instead of truncating inside a
+        // fill_horizontal container. When nil, behavior is identical to before.
+        var labelContent: AnyView
+        if let symbol = overrides.symbolName {
+            labelContent = AnyView(Label(label, systemImage: symbol))
+        } else {
+            labelContent = AnyView(Text(label))
+        }
+        if let lines = overrides.numberOfLines {
+            let limit = lines.intValue
+            labelContent = AnyView(
+                labelContent
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(limit == 0 ? nil : limit)
+            )
+        }
+        // Stretch the LABEL (inside the Button) to fill the width when the button
+        // is fill_horizontal (or a stretched-prominent CTA). Doing it here — not
+        // by framing the whole Button afterward — makes the Button itself
+        // full-width BEFORE its background/clip are applied, so a sage CTA's
+        // background fills the row instead of hugging the label. fill_horizontal
+        // leading-aligns its label; prominent centers.
+        let fillH = overrides.fillHorizontal?.boolValue == true
+        if wantsStretchedProminent || fillH {
+            // A DECLARED ALIGNMENT BEATS THE CONTEXTUAL ONE. `fillHorizontal`
+            // implying `.leading` is right for a wrapping content button and
+            // wrong for a full-width CTA — it is what left "Call (603)
+            // 555-0188" jammed against the leading edge of a 349pt gold capsule
+            // on five screens. `labelAlignment` is how a call site says which
+            // it is; nil keeps the old contextual default so no existing caller
+            // moves. See ButtonOverrides.labelAlignment.
+            // One token drives BOTH modifiers. The frame decides where the text
+            // block sits; `multilineTextAlignment` decides how a wrapped
+            // label's lines sit inside that block. Setting only the first
+            // centres a two-line CTA as a left-ragged slab.
+            let token = overrides.labelAlignment ?? (fillH ? "leading" : "center")
+            let frameAlignment: Alignment
+            let lineAlignment: TextAlignment
+            switch token {
+            case "center":
+                frameAlignment = .center
+                lineAlignment = .center
+            case "trailing":
+                frameAlignment = .trailing
+                lineAlignment = .trailing
+            default:
+                frameAlignment = .leading
+                lineAlignment = .leading
+            }
+            labelContent = AnyView(
+                labelContent
+                    .multilineTextAlignment(lineAlignment)
+                    .frame(maxWidth: .infinity, alignment: frameAlignment)
+            )
+        }
+
         var base: AnyView
         if overrides.role == "destructive" {
-            if let symbol = overrides.symbolName {
-                base = AnyView(
-                    Button(role: .destructive, action: action) {
-                        Label(label, systemImage: symbol)
-                            .frame(maxWidth: wantsStretchedProminent ? .infinity : nil)
-                    }
-                )
-            } else {
-                base = AnyView(
-                    Button(role: .destructive, action: action) {
-                        Text(label)
-                            .frame(maxWidth: wantsStretchedProminent ? .infinity : nil)
-                    }
-                )
-            }
-        } else if let symbol = overrides.symbolName {
-            base = AnyView(
-                Button(action: action) {
-                    Label(label, systemImage: symbol)
-                        .frame(maxWidth: wantsStretchedProminent ? .infinity : nil)
-                }
-            )
-        } else if wantsStretchedProminent {
-            base = AnyView(
-                Button(action: action) {
-                    Text(label).frame(maxWidth: .infinity)
-                }
-            )
+            base = AnyView(Button(role: .destructive, action: action) { labelContent })
         } else {
-            base = AnyView(Button(label, action: action))
+            base = AnyView(Button(action: action) { labelContent })
         }
 
         // BX6 / BX9: apply minHeight/minWidth as exact frame() pins
@@ -273,7 +326,26 @@ private struct APSKButtonHost: View {
         if overrides.role == "secondary" && overrides.style == nil {
             content = AnyView(content.buttonStyle(.bordered))
         }
-        if let weight = overrides.fontWeight {
+        // Font cascade. Mirrors LabelFacade so a Crystal-side
+        // `button.font = UI::Font.new(...)` reaches the rendered label.
+        // Priority: custom registered family → system size(+weight) →
+        // weight-only (back-compat with the prior fontWeight-only path).
+        if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
+            // Custom registered font (e.g. "Alegreya-Medium"). Use the
+            // PostScript name for an exact face — custom fonts don't
+            // reliably honour `.fontWeight()`. Size: explicit fontSize else
+            // SwiftUI body default (~17).
+            let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
+            content = AnyView(content.font(.custom(fam, size: CGFloat(sz))))
+        } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
+            let weight: Font.Weight
+            if let w = overrides.fontWeight {
+                weight = Font.Weight(rawValue: w.intValue) ?? .regular
+            } else {
+                weight = .regular
+            }
+            content = AnyView(content.font(.system(size: CGFloat(sz.doubleValue), weight: weight)))
+        } else if let weight = overrides.fontWeight {
             let resolved = Font.Weight(rawValue: weight.intValue) ?? .regular
             content = AnyView(content.fontWeight(resolved))
         }
@@ -284,6 +356,27 @@ private struct APSKButtonHost: View {
         // needed to re-render the button when Crystal flips disabled.
         if state.isDisabled {
             content = AnyView(content.disabled(true))
+        }
+
+        // B2.5 — apply the button's own padding to the LABEL content BEFORE
+        // the background / clip layers below. CommonModifiers.apply (run at the
+        // end) layers padding OUTSIDE the background, so for a filled button
+        // (sage "Listen now" CTA) the colored pill hugged the text and the
+        // padding became dead outer margin — Seth: "wrapping right to the text
+        // with no margin." Applying `.padding(insets)` here, ahead of
+        // `.background()` / `.clipShape()`, makes the fill wrap the padded label
+        // (the canonical SwiftUI order: content → padding → background → clip).
+        // The same insets are nulled on the `shadowed` overrides further down so
+        // CommonModifiers does not double-apply them outside the background.
+        if overrides.paddingTop != nil || overrides.paddingLeading != nil
+            || overrides.paddingBottom != nil || overrides.paddingTrailing != nil {
+            let insets = EdgeInsets(
+                top: overrides.paddingTop.map { CGFloat($0.doubleValue) } ?? 0,
+                leading: overrides.paddingLeading.map { CGFloat($0.doubleValue) } ?? 0,
+                bottom: overrides.paddingBottom.map { CGFloat($0.doubleValue) } ?? 0,
+                trailing: overrides.paddingTrailing.map { CGFloat($0.doubleValue) } ?? 0
+            )
+            content = AnyView(content.padding(insets))
         }
 
         // ----- Reactive (Remediation 4) override layer ---------------------
@@ -318,6 +411,31 @@ private struct APSKButtonHost: View {
             )
         }
 
+        // Border (outline) — drawn HERE, on the same frame as the clipped
+        // background, using the button's OWN corner radius so the outline
+        // matches the rounded pill. Delegating this to CommonModifiers drew a
+        // SQUARE border: the shadowed overrides null `cornerRadius`, so its
+        // overlay used `RoundedRectangle(cornerRadius: 0)` around a rounded
+        // button. Surfaced by Happy Coach's bordered "Reset to Defaults"
+        // secondary button (square outline, wider than the pill). The matching
+        // border fields are nulled on the shadow below so CommonModifiers skips
+        // its (square) version.
+        if let bw = overrides.borderWidth, let bc = overrides.borderColor {
+            let radius = CGFloat(state.cornerRadius?.doubleValue ?? 0)
+            #if canImport(UIKit)
+            let strokeColor = Color(uiColor: bc)
+            #elseif canImport(AppKit)
+            let strokeColor = Color(nsColor: bc)
+            #endif
+            content = AnyView(content.overlay(
+                RoundedRectangle(cornerRadius: radius)
+                    .stroke(strokeColor, lineWidth: CGFloat(bw.doubleValue))
+            ))
+        }
+
+        // (fill_horizontal is handled by stretching the LABEL above, so the
+        // Button — and its background — fill the width, not just the label.)
+
         // Apply common (View-level) overrides last, excluding the three
         // reactive fields that the state layer above already handled.
         // We shadow them on a copy of the overrides so CommonModifiers
@@ -332,6 +450,18 @@ private struct APSKButtonHost: View {
         // a second outer frame that would double-stack.
         shadowed.minHeight = nil
         shadowed.minWidth = nil
+        // B2.5 — padding was already applied to the content above (inside the
+        // background/clip). Null it on the shadow so CommonModifiers does not
+        // re-apply it as a second, OUTER inset (which left the fill hugging the
+        // text and pushed dead margin around the pill).
+        shadowed.paddingTop = nil
+        shadowed.paddingLeading = nil
+        shadowed.paddingBottom = nil
+        shadowed.paddingTrailing = nil
+        // Border is drawn above (with the correct corner radius); null it on the
+        // shadow so CommonModifiers does not also stroke a square outline.
+        shadowed.borderWidth = nil
+        shadowed.borderColor = nil
         shadowed.fontWeight = overrides.fontWeight
         shadowed.role = overrides.role
         shadowed.style = overrides.style

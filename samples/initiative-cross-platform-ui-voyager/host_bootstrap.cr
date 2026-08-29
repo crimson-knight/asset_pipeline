@@ -32,8 +32,20 @@ module Voyager
     # `dispatcher.mount_screen` for the initial route, assigns
     # `Voyager.state` and `Voyager.dispatcher`. Returns the constructed
     # collaborators for host-level pinning.
-    def self.build(initial_route_id : Symbol = :sign_in) : Result
+    #
+    # Phase 10D — `platform` arg is now wired through to the dispatcher
+    # so `UI::WidgetRoute.resolve` returns the correct widget for the running
+    # target. iOS / macOS bridge files set this explicitly; defaults to
+    # the Crystal compile-time flag (`:ios` under `-Dios`, `:macos`
+    # under `-Dmacos`, `:web_wide` otherwise).
+    def self.build(initial_route_id : Symbol = :sign_in,
+                   platform : Symbol = default_platform) : Result
       VoyagerApp.bootstrap!
+
+      # Test determinism: VOYAGER_RESET_PREFS=1 wipes persisted settings BEFORE
+      # State.new reads them, so UI tests start from known defaults despite the
+      # new UI::Preferences persistence. No-op in normal use.
+      UI::Preferences.clear_all if ENV["VOYAGER_RESET_PREFS"]? == "1"
 
       state = Voyager::State.new
       Voyager.state = state
@@ -49,9 +61,16 @@ module Voyager
         session: session,
         flash: flash,
         design_tokens: UI::DesignTokens::Tokens.default,
+        platform: platform,
       )
       dispatcher.mount_screen(coord.current)
       Voyager.dispatcher = dispatcher
+
+      # Cohesion payoff: when an agent notification is delivered while the app is
+      # open, read it aloud (UI::Notifications foreground delivery → UI::Speech).
+      # The agent reaches you AND talks to you — on macOS, iOS, and the wrist.
+      # Installs the platform UNUserNotificationCenter delegate; no-op on web.
+      UI::Notifications.on_foreground { |body| UI::Speech.speak(body, rate: Voyager.state.speech_rate) }
 
       Result.new(
         state: state,
@@ -60,6 +79,26 @@ module Voyager
         flash: flash,
         dispatcher: dispatcher,
       )
+    end
+
+    # Compile-time-derived default platform. Mirrors the same
+    # platform-symbol lookup `UI::Environment.platform` does so the
+    # dispatcher's intent resolver picks the right widget on every
+    # build target.
+    def self.default_platform : Symbol
+      {% if flag?(:macos) %}
+        :macos
+      {% elsif flag?(:ipados) %}
+        :ipados
+      {% elsif flag?(:ios) %}
+        :ios
+      {% elsif flag?(:watchos) %}
+        :watchos
+      {% elsif flag?(:android) %}
+        :android
+      {% else %}
+        :web_wide
+      {% end %}
     end
   end
 end

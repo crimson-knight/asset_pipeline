@@ -54,7 +54,11 @@ describe "Voyager dispatcher integration" do
     d.session["user_email"]?.should eq "seth@example.com"
   end
 
-  it "Todos edit_row → Navigate(:todo_editor) with todo_id in mounted ctx.params" do
+  # Phase 10D-polish B3 — the editor is now a modal UI::Sheet rather than
+  # a pushed :todo_editor route. edit_row sets pending_editor_todo_id and
+  # returns Rerender; the navigation stack stays on :todos while the sheet
+  # is presented in place.
+  it "Todos edit_row → Rerender (sheet) keeps the stack on :todos and seeds pending_editor_todo_id" do
     fresh_state!
     d = make_dispatcher(:sign_in)
     # Sign in first → [todos]
@@ -67,12 +71,10 @@ describe "Voyager dispatcher integration" do
     # Edit on_tap does — the brief's action_ref convention).
     d.dispatch(:edit_row, {"todo_id" => "3"})
 
-    d.navigation.current.id.should eq :todo_editor
-    d.navigation.routes.map(&.id).should eq [:todos, :todo_editor]
-    # The Navigate's params hash seeded the mounted screen's FormState
-    # (dispatcher.mount_screen does this in translate_result before
-    # coord.push).
-    d.current_form_state.values["todo_id"]?.should eq "3"
+    # No push — the editor presents as a sheet over :todos.
+    d.navigation.current.id.should eq :todos
+    d.navigation.routes.map(&.id).should eq [:todos]
+    Voyager.state.pending_editor_todo_id.should eq 3
   end
 
   it "Settings toggle_filter → Rerender (state flipped, stack unchanged)" do
@@ -87,18 +89,25 @@ describe "Voyager dispatcher integration" do
     d.navigation.routes.map(&.id).should eq initial_stack
   end
 
-  it "Editor cancel → Pop to :todos (stack policy)" do
+  # Phase 10D-polish B3 — the editor sheet is dismissed via
+  # :close_editor_sheet (no navigation pop, since opening it never pushed
+  # a route). Closing clears pending_editor_todo_id and the stack stays
+  # on :todos throughout.
+  it "Editor sheet open → close clears pending_editor_todo_id (stack stays :todos)" do
     fresh_state!
     d = make_dispatcher(:sign_in)
     d.current_form_state.update("email", "x@example.com")
     d.current_form_state.update("password", "p")
     d.dispatch(:submit)
-    # Now [todos]. Open editor.
+    # Now [todos]. Open the editor sheet.
     d.dispatch(:edit_row, {"todo_id" => "1"})
-    d.navigation.routes.map(&.id).should eq [:todos, :todo_editor]
+    d.navigation.routes.map(&.id).should eq [:todos]
+    Voyager.state.pending_editor_todo_id.should eq 1
 
-    d.dispatch(:cancel)
+    # Cancel the sheet.
+    d.dispatch(:close_editor_sheet)
 
+    Voyager.state.pending_editor_todo_id.should be_nil
     d.navigation.routes.map(&.id).should eq [:todos]
     d.navigation.current.id.should eq :todos
   end

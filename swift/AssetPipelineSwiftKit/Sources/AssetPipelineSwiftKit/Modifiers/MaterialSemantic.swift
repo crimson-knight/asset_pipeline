@@ -63,13 +63,25 @@ public enum MaterialSemanticResolver {
         case "sheet":
             return .thickMaterial
         case "header_view", "headerview":
+            #if os(watchOS)
+            return .regularMaterial // SwiftUI `.bar` is unavailable on watchOS; closest available chrome material
+            #else
             return .bar
+            #endif
         case "window_background", "windowbackground":
             return .regularMaterial
         case "hud_window", "hudwindow":
+            #if os(watchOS)
+            return .regularMaterial // SwiftUI `.bar` is unavailable on watchOS; closest available chrome material
+            #else
             return .bar
+            #endif
         case "titlebar":
+            #if os(watchOS)
+            return .regularMaterial // SwiftUI `.bar` is unavailable on watchOS; closest available chrome material
+            #else
             return .bar
+            #endif
         case "system_resolved", "systemresolved":
             return nil
         default:

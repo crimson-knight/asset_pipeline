@@ -1,0 +1,1534 @@
+# Catalog coverage manifest
+#
+# Authoritative source of truth for the widget + intent scoreboards
+# enforced by docs/initiative-cross-platform-ui/merge-readiness-gate.md.
+#
+# Maintained by the architect. Validated by scripts/validate_catalog_coverage.cr.
+# Initial state is RED — every widget and intent starts uncovered. Rows flip
+# to green as phases close, gated by source-hash freshness checks.
+#
+# Schema v1 — see merge-readiness-gate.md §"The catalog-coverage manifest"
+
+schema_version: 1
+generated_at: "2026-05-28T00:00:00Z"
+
+# Widget coverage scoreboard
+# Keyed to docs/initiative-cross-platform-ui/tier-matrix.md
+# 17 Tier 1 + 59 Tier 2 = 76 widgets
+
+widgets:
+
+  # ---------- Tier 1 (Brand-universal) ----------
+
+  - name: Capsule
+    tier: 1
+    widget_class: static-primitive
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Card
+    tier: 1
+    widget_class: container-layout
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Circle
+    tier: 1
+    widget_class: static-primitive
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ColumnView
+    tier: 1
+    widget_class: container-layout
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Divider
+    tier: 1
+    widget_class: static-primitive
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Grid
+    tier: 1
+    widget_class: container-layout
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: HStack
+    tier: 1
+    widget_class: container-layout
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr
+      line: 61
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Image
+    tier: 1
+    widget_class: media
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Label
+    tier: 1
+    widget_class: list-presentation
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/sign_in_screen.cr
+      line: 36
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Panel
+    tier: 1
+    widget_class: container-layout
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: PathView
+    tier: 1
+    widget_class: static-primitive
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Rectangle
+    tier: 1
+    widget_class: static-primitive
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: RoundedRectangle
+    tier: 1
+    widget_class: static-primitive
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Spacer
+    tier: 1
+    widget_class: static-primitive
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr
+      line: 70
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Surface
+    tier: 1
+    widget_class: container-layout
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: VStack
+    tier: 1
+    widget_class: container-layout
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/sign_in_screen.cr
+      line: 24
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ZStack
+    tier: 1
+    widget_class: container-layout
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  # ---------- Tier 2 (Platform default) ----------
+
+  - name: ActivityIndicator
+    tier: 2
+    widget_class: data-viz
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ActivityRing
+    tier: 2
+    widget_class: data-viz
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ActivityRings
+    tier: 2
+    widget_class: data-viz
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ActivityView
+    tier: 2
+    widget_class: system-bridge
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":share_link"]
+
+  - name: Alert
+    tier: 2
+    widget_class: modal-presentation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":alert"]
+
+  - name: AsyncImage
+    tier: 2
+    widget_class: media
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Button
+    tier: 2
+    widget_class: button-cluster
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/sign_in_screen.cr
+      line: 80
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: [V2]
+    widget_intents: []
+
+  - name: Canvas
+    tier: 2
+    widget_class: media
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ChartView
+    tier: 2
+    widget_class: data-viz
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Checkbox
+    tier: 2
+    widget_class: form-control
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/todos_screen.cr
+      line: 206
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ColorPicker
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ComboBox
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ConfirmationDialog
+    tier: 2
+    widget_class: modal-presentation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: [V1]
+    widget_intents: [":confirmation_dialog"]
+
+  - name: DatePicker
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: DisclosureGroup
+    tier: 2
+    widget_class: list-presentation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Form
+    tier: 2
+    widget_class: container-layout
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":form_style"]
+
+  - name: FullScreenCover
+    tier: 2
+    widget_class: modal-presentation
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/phase_10/new_widgets_screen.cr
+      line: 114
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: [":full_screen_cover"]
+
+  - name: Gauge
+    tier: 2
+    widget_class: data-viz
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: GlassBackground
+    tier: 2
+    widget_class: system-bridge
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: IconButton
+    tier: 2
+    widget_class: button-cluster
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ImageWell
+    tier: 2
+    widget_class: media
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Inspector
+    tier: 2
+    widget_class: modal-presentation
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/phase_10/new_widgets_screen.cr
+      line: 156
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: [":inspector"]
+
+  - name: LinkButton
+    tier: 2
+    widget_class: button-cluster
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ListView
+    tier: 2
+    widget_class: list-presentation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":list"]
+
+  - name: MapView
+    tier: 2
+    widget_class: media
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: MenuButton
+    tier: 2
+    widget_class: button-cluster
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":menu"]
+
+  - name: NavigationLink
+    tier: 2
+    widget_class: navigation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":navigation_link"]
+
+  - name: NavigationSplitView
+    tier: 2
+    widget_class: navigation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":navigation_split_view"]
+
+  - name: NavigationStack
+    tier: 2
+    widget_class: navigation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":navigation_stack"]
+
+  - name: OutlineView
+    tier: 2
+    widget_class: list-presentation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: PageControl
+    tier: 2
+    widget_class: navigation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Picker
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Popover
+    tier: 2
+    widget_class: modal-presentation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: [V2]
+    widget_intents: [":popover"]
+
+  - name: ProgressView
+    tier: 2
+    widget_class: data-viz
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: RadioGroup
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: RatingIndicator
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: RichText
+    tier: 2
+    widget_class: list-presentation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ScrollView
+    tier: 2
+    widget_class: container-layout
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: SearchField
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":searchable"]
+
+  - name: SecureField
+    tier: 2
+    widget_class: form-control
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/sign_in_screen.cr
+      line: 71
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: SegmentedControl
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":segmented_picker_style"]
+
+  - name: Sheet
+    tier: 2
+    widget_class: modal-presentation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":sheet"]
+
+  - name: Slider
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Snackbar
+    tier: 2
+    widget_class: list-presentation
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/phase_10/environment_reactivity_screen.cr
+      line: 115
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Stepper
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: TabView
+    tier: 2
+    widget_class: navigation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: TextArea
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: TextEditor
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: TextField
+    tier: 2
+    widget_class: form-control
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/sign_in_screen.cr
+      line: 58
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: TimePicker
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Toggle
+    tier: 2
+    widget_class: form-control
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/settings_screen.cr
+      line: 37
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: ToggleButton
+    tier: 2
+    widget_class: button-cluster
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: TokenField
+    tier: 2
+    widget_class: form-control
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: Toolbar
+    tier: 2
+    widget_class: navigation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: [":toolbar"]
+
+  - name: ToolbarItemGroup
+    tier: 2
+    widget_class: navigation
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/phase_10/new_widgets_screen.cr
+      line: 54
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: [":toolbar_item_group"]
+
+  - name: ToolbarSpacer
+    tier: 2
+    widget_class: navigation
+    canonical_example:
+      file: samples/initiative-cross-platform-ui-voyager/screens/phase_10/new_widgets_screen.cr
+      line: 66
+      deep_link: null
+      capture_scenario: null
+      source_hash: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: demonstrated-in-Voyager
+    blocking_p1s: []
+    widget_intents: [":toolbar_spacer"]
+
+  - name: Tooltip
+    tier: 2
+    widget_class: list-presentation
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: VideoPlayer
+    tier: 2
+    widget_class: media
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+  - name: WebViewComponent
+    tier: 2
+    widget_class: media
+    canonical_example: null
+    usage_doc: null
+    evidence: null
+    override_path_status: not-yet-set
+    demo_status: not-demonstrated
+    blocking_p1s: []
+    widget_intents: []
+
+# P1 violations against demonstrated widgets
+# Codex BLOCKER 3 — scoreboard starts red with already-filed P1s.
+# Closed when reproduced-by-spec, fixed, and regression spec passes.
+
+blocking_p1_violations:
+
+  - id: V1
+    title: "UI::ConfirmationDialog auto-closes on Voyager todo row tap"
+    affected_widgets: [ConfirmationDialog]
+    contract_violated: presentation-lifecycle-contract C1
+    reproduction_spec: spec/native_ios/ui_interaction/confirmation_dialog_spec.cr
+    discovered_at: "2026-05-28"
+    discovered_in: owner-hand-test-iter-2-against-phase-10-d-polish-worktree
+    # Phase 12.A Codex BLOCKER 1 correction: target code path lives in the
+    # phase-10-d-polish worktree, NOT in current main's Voyager. Spec is
+    # pre-staged with marker assertions; becomes executable when the
+    # worktree merges back AND tap coordinates are captured.
+    status: pre-staged-pending-worktree-merge
+    fix_status: not-started
+    worktree_source: phase-10-d-polish
+
+  - id: V2
+    title: "Voyager todos header sort buttons crash on tap"
+    affected_widgets: [Button, Popover]
+    contract_violated: presentation-lifecycle-contract C4 (suspected) or callback-GC (suspected)
+    reproduction_spec: spec/native_ios/ui_interaction/voyager_toolbar_spec.cr
+    discovered_at: "2026-05-28"
+    discovered_in: owner-hand-test-iter-2-against-phase-10-d-polish-worktree
+    status: pre-staged-pending-worktree-merge
+    fix_status: not-started
+    worktree_source: phase-10-d-polish
+
+# Intent coverage scoreboard
+# Keyed to docs/initiative-cross-platform-ui/architecture/intent-catalog.md
+# 1 Class A + 18 Class B + 9 Class C + 64 Class D = 92 intents
+
+intents:
+
+  # ---- Class A — Widget-routing intents ----
+
+  - identifier: ":swipe_actions"
+    class: A
+    primary_apple_name: swipeActions
+    owning_widgets: []  # No widget has full coverage yet — SwipeActionRow is the bridge
+    coverage_status: not-verified
+
+  # ---- Class B — Framework-contract intents (accessibility + dynamic type) ----
+
+  - identifier: ":accessibility_label"
+    class: B
+    primary_apple_name: accessibilityLabel
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_hint"
+    class: B
+    primary_apple_name: accessibilityHint
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_value"
+    class: B
+    primary_apple_name: accessibilityValue
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_action"
+    class: B
+    primary_apple_name: accessibilityAction
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_rotor"
+    class: B
+    primary_apple_name: AccessibilityRotor
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_focused"
+    class: B
+    primary_apple_name: accessibilityFocused
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_reduce_motion"
+    class: B
+    primary_apple_name: accessibilityReduceMotion
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":dynamic_type_size"
+    class: B
+    primary_apple_name: dynamicTypeSize
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_increase_contrast"
+    class: B
+    primary_apple_name: accessibilityIncreaseContrast
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_differentiate_without_color"
+    class: B
+    primary_apple_name: accessibilityDifferentiateWithoutColor
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_voice_over_enabled"
+    class: B
+    primary_apple_name: accessibilityVoiceOverEnabled
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_switch_control"
+    class: B
+    primary_apple_name: accessibilitySwitchControl
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_voice_control"
+    class: B
+    primary_apple_name: accessibilityVoiceControl
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_full_keyboard_access"
+    class: B
+    primary_apple_name: accessibilityFullKeyboardAccess
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_element"
+    class: B
+    primary_apple_name: accessibilityElement
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_captions"
+    class: B
+    primary_apple_name: accessibilityCaptions
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_assistive_access"
+    class: B
+    primary_apple_name: accessibilityAssistiveAccess
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":accessibility_dim_flashing_lights"
+    class: B
+    primary_apple_name: accessibilityDimFlashingLights
+    owning_widgets: []
+    coverage_status: not-verified
+
+  # ---- Class C — Cross-platform-bridged intents ----
+
+  - identifier: ":share_link"
+    class: C
+    primary_apple_name: ShareLink
+    owning_widgets: [ActivityView]
+    coverage_status: not-verified
+
+  - identifier: ":copyable"
+    class: C
+    primary_apple_name: copyable
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":paste_button"
+    class: C
+    primary_apple_name: PasteButton
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":authorization_request"
+    class: C
+    primary_apple_name: requestAuthorization
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":open_url"
+    class: C
+    primary_apple_name: openURL
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":on_open_url"
+    class: C
+    primary_apple_name: onOpenURL
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":ui_print_interaction_controller"
+    class: C
+    primary_apple_name: UIPrintInteractionController
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":file_importer"
+    class: C
+    primary_apple_name: fileImporter
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":file_exporter"
+    class: C
+    primary_apple_name: fileExporter
+    owning_widgets: []
+    coverage_status: not-verified
+
+  # ---- Class D — Native modifier intents (64 entries) ----
+
+  - identifier: ":list"
+    class: D
+    primary_apple_name: List
+    owning_widgets: [ListView]
+    coverage_status: not-verified
+
+  - identifier: ":list_row_separator"
+    class: D
+    primary_apple_name: listRowSeparator
+    owning_widgets: [ListView]
+    coverage_status: not-verified
+
+  - identifier: ":list_section_spacing"
+    class: D
+    primary_apple_name: listSectionSpacing
+    owning_widgets: [ListView]
+    coverage_status: not-verified
+
+  - identifier: ":list_section_index_visibility"
+    class: D
+    primary_apple_name: listSectionIndexVisibility
+    owning_widgets: [ListView]
+    coverage_status: not-verified
+
+  - identifier: ":refreshable"
+    class: D
+    primary_apple_name: refreshable
+    owning_widgets: [ListView, ScrollView]
+    coverage_status: not-verified
+
+  - identifier: ":searchable"
+    class: D
+    primary_apple_name: searchable
+    owning_widgets: [SearchField]
+    coverage_status: not-verified
+
+  - identifier: ":search_suggestions"
+    class: D
+    primary_apple_name: searchSuggestions
+    owning_widgets: [SearchField]
+    coverage_status: not-verified
+
+  - identifier: ":search_scopes"
+    class: D
+    primary_apple_name: searchScopes
+    owning_widgets: [SearchField]
+    coverage_status: not-verified
+
+  - identifier: ":on_move"
+    class: D
+    primary_apple_name: onMove
+    owning_widgets: [ListView]
+    coverage_status: not-verified
+
+  - identifier: ":on_delete"
+    class: D
+    primary_apple_name: onDelete
+    owning_widgets: [ListView]
+    coverage_status: not-verified
+
+  - identifier: ":sheet"
+    class: D
+    primary_apple_name: sheet
+    owning_widgets: [Sheet]
+    coverage_status: not-verified
+
+  - identifier: ":full_screen_cover"
+    class: D
+    primary_apple_name: fullScreenCover
+    owning_widgets: [FullScreenCover]
+    coverage_status: not-verified
+
+  - identifier: ":popover"
+    class: D
+    primary_apple_name: popover
+    owning_widgets: [Popover]
+    coverage_status: not-verified
+
+  - identifier: ":inspector"
+    class: D
+    primary_apple_name: inspector
+    owning_widgets: [Inspector]
+    coverage_status: not-verified
+
+  - identifier: ":alert"
+    class: D
+    primary_apple_name: alert
+    owning_widgets: [Alert]
+    coverage_status: not-verified
+
+  - identifier: ":confirmation_dialog"
+    class: D
+    primary_apple_name: confirmationDialog
+    owning_widgets: [ConfirmationDialog]
+    coverage_status: not-verified
+
+  - identifier: ":presentation_detents"
+    class: D
+    primary_apple_name: presentationDetents
+    owning_widgets: [Sheet]
+    coverage_status: not-verified
+
+  - identifier: ":presentation_drag_indicator"
+    class: D
+    primary_apple_name: presentationDragIndicator
+    owning_widgets: [Sheet]
+    coverage_status: not-verified
+
+  - identifier: ":interactive_dismiss_disabled"
+    class: D
+    primary_apple_name: interactiveDismissDisabled
+    owning_widgets: [Sheet, Popover]
+    coverage_status: not-verified
+
+  - identifier: ":toolbar"
+    class: D
+    primary_apple_name: toolbar
+    owning_widgets: [Toolbar]
+    coverage_status: not-verified
+
+  - identifier: ":toolbar_item"
+    class: D
+    primary_apple_name: ToolbarItem
+    owning_widgets: [Toolbar]
+    coverage_status: not-verified
+
+  - identifier: ":toolbar_item_group"
+    class: D
+    primary_apple_name: ToolbarItemGroup
+    owning_widgets: [ToolbarItemGroup]
+    coverage_status: not-verified
+
+  - identifier: ":toolbar_item_placement"
+    class: D
+    primary_apple_name: ToolbarItemPlacement
+    owning_widgets: [Toolbar]
+    coverage_status: not-verified
+
+  - identifier: ":toolbar_background"
+    class: D
+    primary_apple_name: toolbarBackground
+    owning_widgets: [Toolbar]
+    coverage_status: not-verified
+
+  - identifier: ":toolbar_spacer"
+    class: D
+    primary_apple_name: ToolbarSpacer
+    owning_widgets: [ToolbarSpacer]
+    coverage_status: not-verified
+
+  - identifier: ":form_style"
+    class: D
+    primary_apple_name: formStyle
+    owning_widgets: [Form]
+    coverage_status: not-verified
+
+  - identifier: ":grouped_form_style"
+    class: D
+    primary_apple_name: groupedFormStyle
+    owning_widgets: [Form]
+    coverage_status: not-verified
+
+  - identifier: ":columns_form_style"
+    class: D
+    primary_apple_name: columnsFormStyle
+    owning_widgets: [Form]
+    coverage_status: not-verified
+
+  - identifier: ":navigation_stack"
+    class: D
+    primary_apple_name: NavigationStack
+    owning_widgets: [NavigationStack]
+    coverage_status: not-verified
+
+  - identifier: ":navigation_split_view"
+    class: D
+    primary_apple_name: NavigationSplitView
+    owning_widgets: [NavigationSplitView]
+    coverage_status: not-verified
+
+  - identifier: ":navigation_link"
+    class: D
+    primary_apple_name: NavigationLink
+    owning_widgets: [NavigationLink]
+    coverage_status: not-verified
+
+  - identifier: ":navigation_destination"
+    class: D
+    primary_apple_name: navigationDestination
+    owning_widgets: [NavigationStack]
+    coverage_status: not-verified
+
+  - identifier: ":navigation_path"
+    class: D
+    primary_apple_name: NavigationPath
+    owning_widgets: [NavigationStack]
+    coverage_status: not-verified
+
+  - identifier: ":menu_picker_style"
+    class: D
+    primary_apple_name: menuPickerStyle
+    owning_widgets: [Picker]
+    coverage_status: not-verified
+
+  - identifier: ":segmented_picker_style"
+    class: D
+    primary_apple_name: segmentedPickerStyle
+    owning_widgets: [SegmentedControl, Picker]
+    coverage_status: not-verified
+
+  - identifier: ":wheel_picker_style"
+    class: D
+    primary_apple_name: wheelPickerStyle
+    owning_widgets: [Picker]
+    coverage_status: not-verified
+
+  - identifier: ":palette_picker_style"
+    class: D
+    primary_apple_name: palettePickerStyle
+    owning_widgets: [Picker]
+    coverage_status: not-verified
+
+  - identifier: ":inline_picker_style"
+    class: D
+    primary_apple_name: inlinePickerStyle
+    owning_widgets: [Picker]
+    coverage_status: not-verified
+
+  - identifier: ":compact_date_picker_style"
+    class: D
+    primary_apple_name: compactDatePickerStyle
+    owning_widgets: [DatePicker]
+    coverage_status: not-verified
+
+  - identifier: ":graphical_date_picker_style"
+    class: D
+    primary_apple_name: graphicalDatePickerStyle
+    owning_widgets: [DatePicker]
+    coverage_status: not-verified
+
+  - identifier: ":wheel_date_picker_style"
+    class: D
+    primary_apple_name: wheelDatePickerStyle
+    owning_widgets: [DatePicker]
+    coverage_status: not-verified
+
+  - identifier: ":menu"
+    class: D
+    primary_apple_name: Menu
+    owning_widgets: [MenuButton]
+    coverage_status: not-verified
+
+  - identifier: ":ui_menu"
+    class: D
+    primary_apple_name: UIMenu
+    owning_widgets: [MenuButton]
+    coverage_status: not-verified
+
+  - identifier: ":ui_action"
+    class: D
+    primary_apple_name: UIAction
+    owning_widgets: [Button, MenuButton]
+    coverage_status: not-verified
+
+  - identifier: ":context_menu"
+    class: D
+    primary_apple_name: contextMenu
+    owning_widgets: []  # Tier 3 widget
+    coverage_status: not-verified
+
+  - identifier: ":primary_action"
+    class: D
+    primary_apple_name: primaryAction
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":draggable"
+    class: D
+    primary_apple_name: draggable
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":drop_destination"
+    class: D
+    primary_apple_name: dropDestination
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":transferable"
+    class: D
+    primary_apple_name: Transferable
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":transition"
+    class: D
+    primary_apple_name: transition
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":matched_geometry_effect"
+    class: D
+    primary_apple_name: matchedGeometryEffect
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":animation"
+    class: D
+    primary_apple_name: animation
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":phase_animator"
+    class: D
+    primary_apple_name: phaseAnimator
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":keyframe_animator"
+    class: D
+    primary_apple_name: KeyframeAnimator
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":sensory_feedback"
+    class: D
+    primary_apple_name: sensoryFeedback
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":ui_impact_feedback_generator"
+    class: D
+    primary_apple_name: UIImpactFeedbackGenerator
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":ui_notification_feedback_generator"
+    class: D
+    primary_apple_name: UINotificationFeedbackGenerator
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":ui_selection_feedback_generator"
+    class: D
+    primary_apple_name: UISelectionFeedbackGenerator
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":tap_gesture"
+    class: D
+    primary_apple_name: TapGesture
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":long_press_gesture"
+    class: D
+    primary_apple_name: LongPressGesture
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":drag_gesture"
+    class: D
+    primary_apple_name: DragGesture
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":magnify_gesture"
+    class: D
+    primary_apple_name: MagnifyGesture
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":rotate_gesture"
+    class: D
+    primary_apple_name: RotateGesture
+    owning_widgets: []
+    coverage_status: not-verified
+
+  - identifier: ":spatial_tap_gesture"
+    class: D
+    primary_apple_name: SpatialTapGesture
+    owning_widgets: []
+    coverage_status: not-verified
+
+# NOTE — Initial intent set is the 92 entries extracted from intent-catalog.md
+# via scripts/validate_catalog_coverage.cr's --check-extraction pass.
+# The remaining Class D intents beyond this initial extraction (the catalog
+# has additional entries past the gesture cluster) are added in a follow-up
+# commit. The validator is permissive on intent count during ramp-up but
+# strict on widget coverage from day one.

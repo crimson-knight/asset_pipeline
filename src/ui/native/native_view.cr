@@ -3,6 +3,10 @@
 
 require "./native_handle"
 require "./callback_registry"
+{% if flag?(:macos) || flag?(:ios) %}
+  require "./swiftkit_bridge"
+  require "./interaction_contracts"
+{% end %}
 
 module UI
   # A rendered native view tree node wrapping a platform-specific handle.
@@ -63,9 +67,45 @@ module UI
     # this view. Cleaned up during `teardown!`.
     @callback_ids : Array(UInt64)
 
+    # The UI::View class name this native view was produced from (e.g.
+    # "UI::Label"). Used by the in-place reconciler to align + gate the
+    # mounted native tree against a freshly-built view tree. Inferred from
+    # the handle's debug label so the renderer visits don't each need a
+    # change; an unknown label leaves this nil, which makes the reconciler
+    # abort safely (fall back to a destructive render). See
+    # docs/.../handoff/inplace-reconciliation-design-2026-05-31.md.
+    getter view_kind : String?
+
     def initialize(@handle : NativeHandle, @children : Array(NativeView) = [] of NativeView)
+      @view_kind = NativeView.infer_view_kind(@handle.label)
       @state = State::Created
       @callback_ids = [] of UInt64
+    end
+
+    # Map a renderer debug label (passed to `ObjC.owned(ptr, label: ...)`)
+    # to the originating UI::View class name. Only labels the reconciler
+    # needs are mapped; anything else returns nil so the reconciler aborts
+    # to the safe destructive path. Keep in sync with the UIKit renderer's
+    # `ObjC.owned(..., label:)` strings.
+    def self.infer_view_kind(label : String?) : String?
+      return nil if label.nil?
+      case label
+      when "UIHostingController[Label]"       then "UI::Label"
+      when "UIHostingController[Button]"      then "UI::Button"
+      when "UIStackView[v]"                   then "UI::VStack"
+      when "UIStackView[h]"                   then "UI::HStack"
+      when "UIView[zstack]"                   then "UI::ZStack"
+      when "UIScrollView"                     then "UI::ScrollView"
+      when "UIView[spacer]"                   then "UI::Spacer"
+      when "UIHostingController[Image]"       then "UI::Image"
+      when "UIHostingController[Divider]"     then "UI::Divider"
+      when "UIHostingController[TextField]"   then "UI::TextField"
+      when "UIHostingController[SecureField]" then "UI::SecureField"
+      when "UIHostingController[SearchField]" then "UI::SearchField"
+      when "UIHostingController[TextArea]"    then "UI::TextArea"
+      when "UIHostingController[TextEditor]"  then "UI::TextEditor"
+      else                                         nil
+      end
     end
 
     # Add a child to this view's children array.
@@ -187,6 +227,227 @@ module UI
     # Returns `true` if the view has been torn down.
     def torn_down? : Bool
       @state.torn_down?
+    end
+
+    # Phase 12.C — depth-first iterative walk that yields every
+    # NativeHandle in this subtree carrying a non-nil `reactive_kind`.
+    # Used by the renderer-side cross-render sweep
+    # (`NativeView.dismiss_reactive_presentations!`).
+    #
+    # Iterative (not recursive) because Crystal forbids recursive
+    # yields — the block would inline indefinitely. Yields directly
+    # inside the pop loop so no result array is materialised; the only
+    # allocation per call is the work-stack.
+    #
+    # Torn-down nodes are pruned (their subtrees are skipped) because
+    # their handles are released — dispatching through them would
+    # crash.
+    def walk_reactive_handles(& : NativeHandle ->) : Nil
+      # Per-node `next if node.state.torn_down?` inside the loop covers
+      # both root and descendant torn-down skipping (Codex iter-2
+      # observation: the prior outer `return if @state.torn_down?` was
+      # redundant with this check).
+      stack = [self]
+      until stack.empty?
+        node = stack.pop
+        next if node.state.torn_down?
+        h = node.handle
+        yield h if h.reactive_kind && !h.released?
+        node.children.reverse_each { |c| stack << c }
+      end
+    end
+
+    # Phase 12.C iter-4 (V1 fix Option A) — depth-first walk that yields
+    # every NativeView (not handle) in this subtree with a non-nil
+    # `reactive_kind`. Used by the host bridges to build the reuse
+    # registry passed into the next render's renderer.
+    def walk_reactive_views(& : NativeView ->) : Nil
+      stack = [self]
+      until stack.empty?
+        node = stack.pop
+        next if node.state.torn_down?
+        if (kind = node.handle.reactive_kind) && !node.handle.released?
+          yield node
+        end
+        node.children.reverse_each { |c| stack << c }
+      end
+    end
+
+    # Phase 12.D (continuing-presentation reuse) — build the
+    # identity-keyed reuse registry from a prior render's root.
+    #
+    # Walks `prior`'s reactive-presentation subtree (Sheet,
+    # ConfirmationDialog, ...) and keys each surviving NativeView by its
+    # handle's `presentation_identity`. The result is handed to the next
+    # render's renderer (`reuse_registry:`) so a presentation whose
+    # identity persists into the fresh tree REUSES the prior NativeView
+    # — carrying its native hosting view + SwiftKit state handle across
+    # the destructive re-render so SwiftUI never sees a dismissal.
+    #
+    # Platform-agnostic (no SwiftKit symbols) so the construction is
+    # exercisable in the web spec lane. The `reuse_from:` renderer
+    # entry point and both Voyager hosts call this so the registry is
+    # built ONE canonical way. Returns an empty hash when `prior` is
+    # nil (first render) — last-render-wins on duplicate identities,
+    # matching the hosts' prior hand-rolled loop.
+    def self.build_reuse_registry(prior : NativeView?) : Hash(String, NativeView)
+      registry = {} of String => NativeView
+      return registry if prior.nil?
+      prior.walk_reactive_views do |reactive_view|
+        if id = reactive_view.handle.presentation_identity
+          registry[id] = reactive_view
+        end
+      end
+      registry
+    end
+
+    # Phase 12.C iter-4 (V1 fix Option A) — marker set by the renderer
+    # when it carries this NativeView into the new render's tree
+    # instead of allocating a fresh one. Read by the bridge after
+    # render to remove the reused NativeView from its prior parent so
+    # the prior tree's GC pass doesn't release the shared NativeHandle.
+    property? reused : Bool = false
+
+    # Phase 12.C iter-4 (V1 fix Option A) — recursively prunes any
+    # descendant whose `reused?` flag is set. Called on the prior
+    # `@@last_native` after the next render completes so the prior tree
+    # holds NO references to NativeViews that the new tree now owns.
+    # When the prior tree's GC/finalize chain fires, it doesn't reach
+    # the reused subtree.
+    def detach_reused! : Nil
+      return if @state.torn_down?
+      @children.reject! do |child|
+        if child.reused?
+          # The NEW tree now owns this NativeView and its descendants;
+          # do NOT recurse into it. Clear the reused flag so the new
+          # tree's own detach pass (next render) doesn't treat it as
+          # already-extracted.
+          child.reused = false
+          true # remove from this parent's children array
+        else
+          child.detach_reused!
+          false
+        end
+      end
+    end
+
+    # Phase 12.C — cross-render reactive-presentation sweep (Path A
+    # of the V1 lifecycle fix, presentation-lifecycle-contract C1).
+    #
+    # Hosts that hold a `NativeView` across re-render calls (the
+    # Voyager iOS bridge's `@@last_native`, the macOS host's
+    # `@@active_native`) MUST call this AFTER building the new
+    # render's tree but BEFORE swapping the host root. Pass BOTH the
+    # prior tree (whose orphaned presentations need binding-flips)
+    # AND the fresh tree (so surviving identities are spared).
+    #
+    # Identity-aware semantics (Codex P12.C iter-1 BLOCKER 2):
+    #   * If a `:sheet` (or `:confirmation_dialog`) handle in `prior`
+    #     has a `presentation_identity` that ALSO exists in `fresh`
+    #     with a non-nil state_handle, the handle is considered a
+    #     CONTINUING presentation — we leave its binding alone so an
+    #     unrelated Rerender (e.g., a checkbox toggle while the
+    #     editor sheet is open) does NOT close the sheet.
+    #   * If the identity is missing from `fresh` (or `fresh` is nil),
+    #     the handle is ORPHANED — we flip its binding to false so
+    #     SwiftUI sees `cause=binding-dismiss` instead of
+    #     `cause=tree-removal` when the host swap discards the old
+    #     UIView.
+    #
+    # Why a Rerender on a continuing presentation still works:
+    #   Phase 12.C BEHAVIOUR (sweep alone): the OLD UIHostingView still
+    #   gets torn out by the host swap (V1 hazard for the surviving
+    #   identity), and the new tree mounts a FRESH hosting view at the
+    #   same identity — so the visual transition was a re-present rather
+    #   than a dismiss. That residual is RESOLVED in Phase 12.D
+    #   (continuing-presentation reuse): when the host constructs the
+    #   next renderer with `reuse_from:` (or passes a `reuse_registry:`),
+    #   the renderer's `try_reuse` carries the surviving NativeView +
+    #   SwiftKit state handle into the fresh tree verbatim, so the OLD
+    #   hosting view is NOT torn out and SwiftUI never re-presents. This
+    #   sweep then only flips bindings on ORPHANED handles (identity gone
+    #   from `fresh`); continuing identities are skipped here AND were
+    #   already extracted from `prior` by `detach_reused!`, so they never
+    #   reach this loop. See `NativeView.build_reuse_registry` +
+    #   `UIKit::Renderer#try_reuse` / `#retire_prior!`.
+    #
+    # Idempotent on first-render (`prior == nil`) and on already-
+    # dismissed bindings.
+    #
+    # Main-thread invariant: the underlying `apsk_*_set_presented`
+    # bridges route writes through `apskMainAsync`, which fast-paths
+    # synchronously on the main thread and dispatches async otherwise.
+    # Callers SHOULD invoke this on the main thread; otherwise the
+    # binding flip may land AFTER the host swap, defeating the fix.
+    # Both Voyager hosts (iOS via UIViewRepresentable, macOS via the
+    # AppKit run loop) are main-threaded.
+    def self.dismiss_reactive_presentations!(prior : NativeView?, fresh : NativeView? = nil) : Nil
+      return if prior.nil?
+      {% if flag?(:macos) || flag?(:ios) %}
+        surviving = collect_surviving_identities(fresh)
+        prior.walk_reactive_handles do |handle|
+          state_ptr = handle.state_handle
+          next if state_ptr.nil?
+          identity = handle.presentation_identity
+          # Codex iter-2 BLOCKER 2 — DEFENSIVE nil-identity policy.
+          # If the handle has no identity, we cannot prove it's an
+          # orphan; sweeping it would violate C1 (Rerender MUST NOT
+          # dismiss a modal without explicit dismissal). Skip it.
+          # Authors who want their sheet to participate in C1
+          # cross-render survival MUST set `test_id` or
+          # `accessibility_label` so the sweep can pair the prior +
+          # fresh handles.
+          next if identity.nil?
+          # Skip identities the new tree still presents — those are
+          # CONTINUING presentations, not orphans.
+          next if surviving.includes?(identity)
+
+          case handle.reactive_kind
+          when :sheet
+            LibSwiftKitBridge.apsk_sheet_set_presented(state_ptr, 0)
+            UI::InteractionContracts.emit_for(
+              "Sheet",
+              "programmatic-dismiss-on-rerender",
+              identity || handle.label,
+              reason: "cross-render-sweep",
+            )
+          when :confirmation_dialog
+            LibSwiftKitBridge.apsk_confirmation_dialog_set_presented(state_ptr, 0)
+            UI::InteractionContracts.emit_for(
+              "ConfirmationDialog",
+              "programmatic-dismiss-on-rerender",
+              identity || handle.label,
+              reason: "cross-render-sweep",
+            )
+          else
+            # Unknown reactive_kind — silently skip; future
+            # presentations (Popover / Alert) extend the case above.
+          end
+        end
+      {% end %}
+      nil
+    end
+
+    # Build the set of `presentation_identity` values still presented
+    # by the fresh tree. A handle qualifies as "surviving" when:
+    #   * its `reactive_kind` is a presentation kind
+    #   * it carries a non-nil `presentation_identity`
+    #   * its `state_handle` is non-nil (i.e. the reactive entry was
+    #     actually invoked — defensive)
+    #
+    # Callers compare a prior handle's identity against this set to
+    # decide whether to flip its binding.
+    private def self.collect_surviving_identities(fresh : NativeView?) : Set(String)
+      surviving = Set(String).new
+      return surviving if fresh.nil?
+      fresh.walk_reactive_handles do |handle|
+        next unless handle.reactive_kind
+        next if handle.state_handle.nil?
+        if id = handle.presentation_identity
+          surviving.add(id)
+        end
+      end
+      surviving
     end
 
     private def check_not_torn_down! : Nil

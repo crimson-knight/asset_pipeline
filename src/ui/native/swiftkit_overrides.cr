@@ -105,6 +105,14 @@ module UI
         # Scalar Int setter (selectedIndex etc.). nil skips.
         def set_int(target : String, setter : Symbol, value : Int32?)
         end
+
+        # Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter
+        # used by `apskAccessibilityTraitsMask`. Default no-op; the
+        # production SwiftKit sender overrides this to dispatch through
+        # `apsk_overrides_set_uint64_boxed`. The recording spec sender
+        # records the call so tests can assert the composed bitmask.
+        def set_uint64(target : String, setter : Symbol, value : UInt64?)
+        end
       end
 
       # Populate the common `APSKViewOverrides` fields from any `UI::View`.
@@ -149,11 +157,110 @@ module UI
         sender.set_number(target, :setMaxWidth, view.maximum_width)
         sender.set_number(target, :setMaxHeight, view.maximum_height)
 
-        sender.set_string(target, :setAccessibilityIdentifier, view.test_id)
+        # Identifier precedence (Phase 10B.2a): explicit
+        # `accessibility_identifier` wins over the legacy `test_id`.
+        # Native renderers (AppKit/UIKit) implement the same precedence;
+        # the SwiftKit-backed path now mirrors it via the Populator so
+        # the two paths stay consistent.
+        resolved_identifier = view.accessibility_identifier || view.test_id
+        sender.set_string(target, :setAccessibilityIdentifier, resolved_identifier)
         # Renamed selector — see ViewOverrides.swift. The accessor remains
         # `apskAccessibilityLabel`; the setter is `setApskAccessibilityLabel:`.
         # Avoids the iOS UIAccessibility.accessibilityLabel selector clash.
         sender.set_string(target, :setApskAccessibilityLabel, view.accessibility_label)
+
+        # Phase 10B.2a iter 2 (Codex Finding 1) — forward the 5 new
+        # static accessibility metadata properties added in iter 1 to
+        # the SwiftKit ViewOverrides slots:
+        #   accessibility_hint       -> apskAccessibilityHint
+        #   accessibility_value      -> apskAccessibilityValue
+        #   accessibility_role       -> apskAccessibilityRole (string)
+        #   accessibility_traits +   -> apskAccessibilityTraitsMask (UInt64
+        #     role-trait bit               bitmask, OR of trait + role bits)
+        sender.set_string(target, :setApskAccessibilityHint, view.accessibility_hint)
+        sender.set_string(target, :setApskAccessibilityValue, view.accessibility_value)
+        if role_sym = view.effective_accessibility_role
+          sender.set_string(target, :setApskAccessibilityRole, role_sym.to_s)
+        end
+
+        # Compose the UIAccessibilityTraits bitmask: each trait symbol
+        # OR'd with the role-derived trait bit. The bit positions match
+        # the canonical table in `uikit_renderer.cr#uikit_trait_bitmask`
+        # AND the Swift-side `CommonModifiers.apply` reader.
+        traits_mask = 0_u64
+        view.accessibility_traits.each do |trait|
+          traits_mask |= populator_trait_bit(trait)
+        end
+        if role_sym = view.effective_accessibility_role
+          traits_mask |= populator_role_trait_bit(role_sym)
+        end
+        if traits_mask != 0_u64
+          sender.set_uint64(target, :setApskAccessibilityTraitsMask, traits_mask)
+        end
+
+        # Phase 10B.2b — Surface the action / focus / keyboard slots to
+        # SwiftKit. The Swift side reads each via the matching
+        # `apsk*` selector and applies the SwiftUI modifier
+        # (`.accessibilityAction(named:)`, `.accessibilityFocused`,
+        # `.keyboardShortcut`).
+        #
+        # Action names — joined as a comma-separated string so the
+        # populator stays on the existing string-slot surface. The
+        # Swift side splits on comma. Names containing commas are
+        # URL-encoded to round-trip cleanly, matching the web
+        # renderer's encoding.
+        unless view.accessibility_actions.empty?
+          escaped = view.accessibility_actions.map do |action|
+            action.name.gsub(",", "%2C")
+          end
+          sender.set_string(target, :setApskAccessibilityActions, escaped.join(","))
+          sender.set_int(target, :setApskAccessibilityActionCount,
+            view.accessibility_actions.size)
+        end
+
+        # Focused flag. Boolean-as-int.
+        sender.set_bool(target, :setApskFocused, view.focused ? true : nil)
+
+        # Keyboard shortcut: surface the canonical string + modifier
+        # mask separately so the Swift side can build a SwiftUI
+        # `.keyboardShortcut(KeyEquivalent, modifiers:)` directly.
+        if ks = view.keyboard_shortcut
+          sender.set_string(target, :setApskKeyboardShortcutKey, ks.key)
+          sender.set_uint64(target, :setApskKeyboardShortcutModifiers, ks.uikit_modifier_mask)
+        end
+      end
+
+      # Phase 10B.2a iter 2 (Codex Finding 1) — canonical UIAccessibility
+      # trait bit table, shared between the Crystal Populator (this
+      # method) and the SwiftKit CommonModifiers reader. MUST stay in
+      # lockstep with `uikit_renderer.cr#uikit_trait_bitmask`.
+      def self.populator_trait_bit(trait : Symbol) : UInt64
+        case trait
+        when :selected                  then 0x0010_u64 # 1 << 4
+        when :not_enabled               then 0x0200_u64 # 1 << 9
+        when :plays_sound               then 0x0020_u64 # 1 << 5
+        when :starts_media              then 0x0800_u64 # 1 << 11
+        when :causes_page_turn          then 0x4000_u64 # 1 << 14
+        when :updates_frequently        then 0x0400_u64 # 1 << 10
+        when :adjustable                then 0x1000_u64 # 1 << 12
+        when :allows_direct_interaction then 0x2000_u64 # 1 << 13
+        else                                 0_u64
+        end
+      end
+
+      # Phase 10B.2a iter 2 (Codex Finding 1) — role -> trait bit. MUST
+      # stay in lockstep with `uikit_renderer.cr#uikit_role_trait_bitmask`.
+      def self.populator_role_trait_bit(role : Symbol) : UInt64
+        case role
+        when :button      then 0x0001_u64  # 1 << 0
+        when :link        then 0x0002_u64  # 1 << 1
+        when :header      then 0x10000_u64 # 1 << 16
+        when :image, :img then 0x0008_u64  # 1 << 3
+        when :search      then 0x0004_u64  # 1 << 2
+        when :text        then 0x0080_u64  # 1 << 7
+        when :tab         then 0x8000_u64  # 1 << 15
+        else                   0_u64
+        end
       end
 
       # Populate an `APSKButtonOverrides` instance from a `UI::Button`.
@@ -184,8 +291,74 @@ module UI
         # Disabled: false is the type default.
         sender.set_bool(target, :setDisabled, view.disabled ? true : nil)
 
+        # Form submitters opt into committing the active native text field
+        # before their callback runs. See UI::Button#commits_text_input.
+        sender.set_bool(target, :setCommitsTextInput, view.commits_text_input ? true : nil)
+
+        # Line cap: 1 (single-line, truncating) is the type default; emit only
+        # when the developer opts into wrapping (0 = unlimited, n > 1 = capped).
+        nl = view.number_of_lines
+        sender.set_number(target, :setNumberOfLines, nl == 1 ? nil : nl.to_f64)
+
         # SF Symbol leading glyph.
         sender.set_string(target, :setSymbolName, view.symbol)
+
+        # Font size / weight / family. The Crystal `UI::Font` type default is
+        # `Font.new(size: 17.0, weight: :regular, family: "system")` — exactly
+        # SwiftUI's body default — so only emit when the developer overrode a
+        # field. Previously `UI::Button#font` was dropped entirely (no setter),
+        # so a Crystal-side `button.font = Font.new(size: 22, weight: :bold)`
+        # rendered at the SwiftUI body default. Mirrors populate_label.
+        font = view.font
+        if font.size != 17.0
+          sender.set_number(target, :setFontSize, font.size)
+        end
+        if font.weight != :regular
+          sender.set_number(target, :setFontWeight,
+            swiftui_font_weight_rawvalue(font.weight).to_f64)
+        end
+        # Custom font family / PostScript name (e.g. "Alegreya-Medium"). Default
+        # "system" → SwiftUI system font; the consumer registers the TTF first
+        # (LibSwiftKitBridge.apsk_register_font).
+        if font.family != "system" && !font.family.empty?
+          sender.set_string(target, :setFontFamily, font.family)
+        end
+        if font.tracking != 0.0
+          sender.set_number(target, :setTracking, font.tracking)
+        end
+
+        # fill_horizontal: the renderer pins the button wide, but a plain text
+        # button centers its label. Tell the facade to fill + leading-align the
+        # label so a row/card-filling button reads left, not centered.
+        if view.fill_horizontal
+          sender.set_bool(target, :setFillHorizontal, true)
+        end
+
+        # A DECLARED LABEL ALIGNMENT, WHICH THE FACADE PREFERS TO THE
+        # `fill_horizontal → leading` DEFAULT ABOVE.
+        #
+        # `text_alignment` is nil until a call site sets it, and only a non-nil
+        # value crosses the bridge — so every button that says nothing keeps the
+        # exact behaviour it had, and a full-width call to action can finally
+        # say `Alignment::Center` and be obeyed on iOS. Before this, the Crystal
+        # property was documented and unread on native, and every CTA in the
+        # demo shell rendered left-jammed inside a full-width capsule.
+        if declared = view.text_alignment
+          sender.set_string(target, :setLabelAlignment, swiftui_label_alignment(declared))
+        end
+
+        # Foreground (label) color — SEEDED at construction so the initial render
+        # reflects an explicitly-set color. Previously only the runtime reactive
+        # setter (apsk_button_set_foreground_color) applied it, so a button whose
+        # foreground_color was set BEFORE render showed the system default label
+        # color — e.g. a non-white label on a light card rendered invisible
+        # (Happy Coach MyThoughts settled cards: green text vanished on white).
+        # Emit only when non-default (default = system blue) so standard buttons
+        # keep the system label color.
+        fg = view.foreground_color
+        unless fg.r == 0.0 && fg.g == 0.478 && fg.b == 1.0
+          sender.set_color(target, :setForegroundColor, fg)
+        end
       end
 
       # ---------------------------------------------------------------
@@ -230,11 +403,40 @@ module UI
           sender.set_number(target, :setFontWeight,
             swiftui_font_weight_rawvalue(font.weight).to_f64)
         end
+        # Custom font family / PostScript name (e.g. "Alegreya-Medium"). Default
+        # "system" → SwiftUI system font, so only emit a real family. The consumer
+        # must register the TTF first (LibSwiftKitBridge.apsk_register_font).
+        if font.family != "system" && !font.family.empty?
+          sender.set_string(target, :setFontFamily, font.family)
+        end
 
         # Phase 6.11 — strikethrough toggle. Emit only when set so the
         # SwiftUI facade keeps its default (no strikethrough) untouched.
         if view.strikethrough
           sender.set_bool(target, :setStrikethrough, true)
+        end
+
+        # fill_horizontal: the renderer pins the label's hosting view to fill the
+        # container width, but the SwiftUI Text then centers in it. Tell the facade
+        # to apply a maxWidth frame so the text fills + aligns (leading by default)
+        # — a full-width title/subtitle reads left-aligned, not centered.
+        if view.fill_horizontal
+          sender.set_bool(target, :setFillHorizontal, true)
+        end
+
+        # Explicit wrapping width — pins the label to this width so SwiftUI
+        # reserves the correct multi-line height (fixes the wrapping-label
+        # height under-reservation / overlap). set_number no-ops on nil.
+        sender.set_number(target, :setPreferredMaxLayoutWidth, view.preferred_max_layout_width)
+
+        # LEADING AND TRACKING. Both are nil/0.0 by default and only a set value
+        # crosses the bridge, so every label that says nothing keeps exactly the
+        # behaviour it had. See `UI::Label#line_spacing` and `UI::Font#tracking`
+        # for why a stack with neither cannot lead a heading differently from a
+        # paragraph, and draws a display face at the wrong letter-spacing.
+        sender.set_number(target, :setLineSpacing, view.line_spacing)
+        if font.tracking != 0.0
+          sender.set_number(target, :setTracking, font.tracking)
         end
       end
 
@@ -243,6 +445,18 @@ module UI
       # mapping mirrors ButtonFacade.swift's private `Font.Weight`
       # extension. ultraLight = -3, thin = -2, light = -1, regular = 0,
       # medium = 1, semibold = 2, bold = 3, heavy = 4, black = 5.
+      # The token `APSKButtonOverrides.labelAlignment` switches on. Only the
+      # three horizontal cases mean anything to a label inside a button frame;
+      # the stack-only members of `UI::Alignment` (Top/Bottom/Fill) fall back to
+      # the reading direction rather than inventing a vertical answer.
+      def self.swiftui_label_alignment(alignment : UI::Alignment) : String
+        case alignment
+        when UI::Alignment::Center   then "center"
+        when UI::Alignment::Trailing then "trailing"
+        else                              "leading"
+        end
+      end
+
       def self.swiftui_font_weight_rawvalue(weight : Symbol) : Int32
         case weight
         when :ultra_light, :ultralight then -3
@@ -255,6 +469,24 @@ module UI
         when :heavy                    then 4
         when :black                    then 5
         else                                0
+        end
+      end
+
+      # Emit font size/weight/family setters only when they differ from the
+      # UI::Font type defaults (size 17, weight :regular, family "system") — the
+      # §11 default-detection invariant. Shared by the text-input populators;
+      # mirrors the inline logic in populate_label / populate_button so a
+      # Crystal-side `view.font = Font.new(...)` reaches the SwiftUI facade.
+      def self.emit_font(target : String, font : UI::Font, sender : Sender)
+        if font.size != 17.0
+          sender.set_number(target, :setFontSize, font.size)
+        end
+        if font.weight != :regular
+          sender.set_number(target, :setFontWeight,
+            swiftui_font_weight_rawvalue(font.weight).to_f64)
+        end
+        if font.family != "system" && !font.family.empty?
+          sender.set_string(target, :setFontFamily, font.family)
         end
       end
 
@@ -274,14 +506,60 @@ module UI
         sender.set_bool(target, :setSecureEntry, view.secure_entry ? true : nil)
         kt = view.keyboard_type
         unless kt == UI::KeyboardType::Default
-          sender.set_string(target, :setKeyboardType, kt.to_s.downcase)
+          keyboard_token = case kt
+                           when UI::KeyboardType::EmailAddress then "email"
+                           when UI::KeyboardType::NumberPad    then "number"
+                           when UI::KeyboardType::PhonePad     then "phone"
+                           when UI::KeyboardType::URL          then "url"
+                           else                                     "default"
+                           end
+          sender.set_string(target, :setKeyboardType, keyboard_token)
+        end
+        unless view.content_type == UI::TextContentType::None
+          content_token = case view.content_type
+                          when UI::TextContentType::Name               then "name"
+                          when UI::TextContentType::FullStreetAddress  then "fullstreetaddress"
+                          when UI::TextContentType::StreetAddressLine1 then "streetaddressline1"
+                          when UI::TextContentType::AddressCity        then "addresscity"
+                          when UI::TextContentType::AddressState       then "addressstate"
+                          when UI::TextContentType::PostalCode         then "postalcode"
+                          when UI::TextContentType::TelephoneNumber    then "telephonenumber"
+                          when UI::TextContentType::EmailAddress       then "emailaddress"
+                          else                                              "none"
+                          end
+          sender.set_string(target, :setContentType, content_token)
+        end
+        unless view.submit_label == UI::TextInputAction::Default
+          sender.set_string(target, :setSubmitLabel, view.submit_label.to_s.downcase)
+        end
+        if view.keyboard_toolbar
+          sender.set_bool(target, :setKeyboardToolbar, true)
+        end
+        unless view.autocapitalization == UI::TextAutocapitalization::Default
+          sender.set_string(target, :setAutocapitalization,
+            view.autocapitalization.to_s.downcase)
+        end
+        sender.set_bool(target, :setAutocorrectionDisabled, view.autocorrection_disabled)
+        emit_font(target, view.font, sender)
+
+        # Placeholder tint — nil by default (set_color no-ops on nil), so the
+        # kit's contrast-safe placeholder stays unless the consumer overrides.
+        sender.set_color(target, :setPlaceholderColor, view.placeholder_color)
+
+        # Visual chrome — emit only when non-default (RoundedBorder) so existing
+        # fields keep their boxed style. "underline" = bottom-rule only (Expo
+        # onboarding inputs); "plain" = no chrome.
+        unless view.style == UI::TextFieldStyle::RoundedBorder
+          sender.set_string(target, :setBorderStyle, view.style.to_s.downcase)
         end
       end
 
       def self.populate_secure_field(target : String, view : UI::SecureField, sender : Sender)
         populate_view_common(target, view, sender)
-        # No widget-specific overrides today; the SwiftUI SecureField default
-        # already handles obscured entry + accessibility traits.
+        # The SwiftUI SecureField default handles obscured entry + a11y traits;
+        # only the brand font flows through (so a password field matches its
+        # sibling text fields). UI::SecureField#font was previously dropped.
+        emit_font(target, view.font, sender)
       end
 
       def self.populate_search_field(target : String, view : UI::SearchField, sender : Sender)
@@ -300,6 +578,7 @@ module UI
         if ll = view.line_limit
           sender.set_number(target, :setLineLimit, ll.to_f64)
         end
+        emit_font(target, view.font, sender)
       end
 
       def self.populate_text_editor(target : String, view : UI::TextEditor, sender : Sender)
@@ -319,8 +598,14 @@ module UI
         populate_view_common(target, view, sender)
         sender.set_color(target, :setForegroundColor, view.tint_color)
         sender.set_number(target, :setIconSize, view.icon_size == 24.0 ? nil : view.icon_size)
+        # Explicit non-square dimensions override icon_size (e.g. hamburger 22×18).
+        sender.set_number(target, :setIconWidth, view.icon_width)
+        sender.set_number(target, :setIconHeight, view.icon_height)
         sender.set_bool(target, :setDisabled, view.disabled ? true : nil)
         sender.set_string(target, :setLabel, view.label)
+        # Chrome: true (default) keeps the platform button bezel; only emit when
+        # the developer opts into a bare icon (.buttonStyle(.plain)).
+        sender.set_bool(target, :setBordered, view.bordered ? nil : false)
       end
 
       def self.populate_divider(target : String, view : UI::Divider, sender : Sender)
@@ -388,6 +673,12 @@ module UI
         populate_view_common(target, view, sender)
         unless view.mode == UI::DatePickerMode::Date
           sender.set_string(target, :setDatePickerMode, view.mode.to_s.downcase)
+        end
+        # Phase 10D-polish iter 2 (B-DATEPICKER-STYLE-PROPERTY) — only
+        # emit when non-default; the facade switch reads "compact" /
+        # "graphical" / "wheels" / nil.
+        unless view.style == UI::DatePickerStyle::Automatic
+          sender.set_string(target, :setDatePickerStyle, view.style.to_s.downcase)
         end
       end
 
@@ -470,6 +761,9 @@ module UI
         end
         sender.set_bool(target, :setShowsDragIndicator,
           view.shows_drag_indicator ? nil : false)
+        # Phase 10D-polish iter 2 (B-SHEET-INTERACTIVE-DISMISS-DISABLED)
+        sender.set_bool(target, :setInteractiveDismissDisabled,
+          view.interactive_dismiss_disabled ? true : nil)
         # Phase 5 v2: forward AppleSemantic override (or HIG default :sheet)
         # so the SwiftKit facade applies `.presentationBackground(.thickMaterial)`
         # on the presented sheet body (iOS 16.4+ / macOS 13.3+).
@@ -674,6 +968,109 @@ module UI
           sender.set_int_array(target, :setSectionItemCounts,
             view.sections.map { |s| s.items.size })
         end
+
+        # Phase 10D-final — per-row Mail-app row metadata.
+        # The visit method registers tokens + populates the parallel
+        # flat arrays for leading/trailing swipe actions and row taps.
+        # The populator only emits the static fields the visitor cannot
+        # build (style / sections); per-row arrays are emitted from
+        # `visit(UI::ListView)` directly using the same sender so the
+        # token registrations and the parallel arrays stay co-located.
+
+        # Phase 10D-polish A4 — default 16pt row inset. nil → use the
+        # SwiftUI platform default. The widget default is 16.0 so iOS
+        # consumers get Mail-style row chrome without intervention.
+        if inset = view.content_inset_horizontal
+          sender.set_number(target, :setContentInsetHorizontal, inset)
+        end
+
+        # Phase 10D-polish A3 — row removal animation duration.
+        # 0.0 disables; default is 0.4s per owner spec.
+        sender.set_number(target, :setRowRemovalDurationSeconds, view.row_removal_duration_seconds)
+
+        # Phase 10D-polish A2 — drag-handle visibility default. The
+        # facade only renders the handle when `moveToken != nil` AND
+        # `showsDragHandle == true`.
+        sender.set_bool(target, :setShowsDragHandle, view.shows_drag_handle)
+      end
+
+      # ---------------------------------------------------------------
+      # Phase 10D-refocus — SwipeActionRow populator.
+      #
+      # Emits the per-action parallel arrays (labels / icons / roles /
+      # tints) onto the overrides instance. Action tokens are registered
+      # by the visit method (the populator has no CallbackRegistry
+      # handle) and emitted via `sender.set_uint64_array` after this
+      # call returns — same split as `populate_alert` / `Alert.visit`.
+      #
+      # Tint is derived from the action role:
+      #   :destructive → "red" (SwiftUI .destructive role overrides; we
+      #                  still emit "red" so callers that explicitly set
+      #                  a different tint via SwipeAction#icon-based
+      #                  metadata in future can override).
+      #   :default    → "" (SwiftUI default — system blue for trailing,
+      #                  system blue for leading too).
+      # When SwipeAction grows an explicit `tint:` property in a later
+      # slice the populator should read it directly instead.
+      def self.populate_swipe_action_row(target : String, view : UI::SwipeActionRow, sender : Sender)
+        populate_view_common(target, view, sender)
+
+        # Phase 10D-polish iter 2 (B-LIST-SWIPE-TINT) — honor
+        # `SwipeAction#tint` when explicitly set; fall back to the
+        # role-derived default otherwise.
+        unless view.leading_actions.empty?
+          sender.set_string_array(target, :setLeadingLabels,
+            view.leading_actions.map(&.label))
+          sender.set_string_array(target, :setLeadingIcons,
+            view.leading_actions.map { |a| a.icon || "" })
+          sender.set_string_array(target, :setLeadingRoles,
+            view.leading_actions.map(&.role.to_s))
+          sender.set_string_array(target, :setLeadingTints,
+            view.leading_actions.map { |a|
+              if t = a.tint
+                t.to_s
+              else
+                # Default tint inference: destructive → red, otherwise
+                # leading swipe defaults to system green (per iOS Mail
+                # convention — leading = positive / archive).
+                case a.role
+                when :destructive then "red"
+                else                   "green"
+                end
+              end
+            })
+          sender.set_string_array(target, :setLeadingLabelStyles,
+            view.leading_actions.map(&.label_style.to_s))
+        end
+
+        unless view.trailing_actions.empty?
+          sender.set_string_array(target, :setTrailingLabels,
+            view.trailing_actions.map(&.label))
+          sender.set_string_array(target, :setTrailingIcons,
+            view.trailing_actions.map { |a| a.icon || "" })
+          sender.set_string_array(target, :setTrailingRoles,
+            view.trailing_actions.map(&.role.to_s))
+          sender.set_string_array(target, :setTrailingTints,
+            view.trailing_actions.map { |a|
+              if t = a.tint
+                t.to_s
+              else
+                case a.role
+                when :destructive then "" # SwiftUI .destructive role → red automatically
+                else                   "blue"
+                end
+              end
+            })
+          sender.set_string_array(target, :setTrailingLabelStyles,
+            view.trailing_actions.map(&.label_style.to_s))
+        end
+
+        # Row width pin — when set on the UI::SwipeActionRow (via
+        # maximum_width / minimum_width to the same value), the facade
+        # applies `.frame(width:)` so the single-row List collapses
+        # horizontally to match the surrounding stack's content_width.
+        rw = view.maximum_width || view.minimum_width
+        sender.set_number(target, :setRowWidth, rw)
       end
 
       # ---------------------------------------------------------------
@@ -707,12 +1104,12 @@ module UI
         emit = apple_step != :regular || view.material != :regular
         if emit
           key = case apple_step
-                when :ultra_thin  then "ultraThin"
-                when :thin        then "thin"
-                when :regular     then "regular"
-                when :thick       then "thick"
-                when :chrome      then "ultraThick" # closest SwiftUI Material analogue
-                else                   apple_step.to_s
+                when :ultra_thin then "ultraThin"
+                when :thin       then "thin"
+                when :regular    then "regular"
+                when :thick      then "thick"
+                when :chrome     then "ultraThick" # closest SwiftUI Material analogue
+                else                  apple_step.to_s
                 end
           sender.set_string(target, :setMaterial, key)
         end
@@ -748,11 +1145,11 @@ module UI
     # the pointer captured at construction time. Symbol setter names are
     # stringified once at the C boundary via `to_s.to_unsafe`.
     #
-    # The sender is gated on `flag?(:macos) || flag?(:ios)` because
-    # `LibSwiftKitBridge` only resolves under those builds. The web /
+    # The sender is gated on `flag?(:macos) || flag?(:ios) || flag?(:watchos)`
+    # because `LibSwiftKitBridge` only resolves under those builds. The web /
     # Android renderers never reach this code path.
     # ---------------------------------------------------------------------
-    {% if flag?(:macos) || flag?(:ios) %}
+    {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
       class SwiftKitObjCSender < Populator::Sender
         # The `APSK*Overrides` pointer returned by `apsk_*_overrides_new`.
         # Lives at least as long as the sender; the renderer drops the
@@ -845,6 +1242,15 @@ module UI
           LibSwiftKitBridge.apsk_overrides_set_int(
             @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe,
             value.to_i64,
+          )
+        end
+
+        # Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter.
+        # Used by `apskAccessibilityTraitsMask` (Swift `NSNumber?`).
+        def set_uint64(target : String, setter : Symbol, value : UInt64?)
+          return if value.nil?
+          LibSwiftKitBridge.apsk_overrides_set_uint64_boxed(
+            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe, value,
           )
         end
       end

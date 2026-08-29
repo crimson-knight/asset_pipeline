@@ -37,7 +37,6 @@
 # samples/initiative-cross-platform-ui-demo/ios/build_crystal_lib.sh.
 
 {% if flag?(:ios) %}
-
   require "../app"
   require "../host_bootstrap"
   require "../../../src/ui/renderers/uikit_renderer"
@@ -69,7 +68,11 @@
     @@dispatcher : UI::ActionDispatcher? = nil
     @@last_native : UI::NativeView? = nil
     @@current_slug_buf : Bytes? = nil
-    @@swift_route_changed_cb : (LibC::Char* -> Void)? = nil
+    # Carries (slug, change_kind) to Swift. kind: 0 = Navigation,
+    # 1 = Rerender. Swift uses kind to choose host teardown (navigation)
+    # vs in-place reconcile (rerender) — see the in-place reconciliation
+    # design doc + project_reactive_text_focus_loss memory.
+    @@swift_route_changed_cb : (LibC::Char*, Int32 -> Void)? = nil
     # Phase 6.10 Rem 4 — suppress the Swift route-changed callback
     # during the initial coord/slug resync (see render_slug). Without
     # this guard, replace_root → notify → Swift cb → render_slug →
@@ -116,6 +119,21 @@
       UI::Probes::TapProbe.reset
       UI::Probes::FormRowProbe.reset
       UI::Probes::RuntimeOverrideProbe.reset
+
+      # Phase 10D — iOS class-init gap recovery for the Phase 10 intent
+      # substrates. The module-body bootstrap calls in
+      # `src/ui/widget_route/bootstrap.cr` + `src/ui/system_action/bootstrap.cr`
+      # only fire when `_main` runs, and iOS hides `_main` for Swift
+      # `@main`. Without these explicit re-installs, the Phase 10
+      # exerciser screens (and every Tier 2 intent resolution call)
+      # crash with EXC_BAD_ACCESS in `Hash#find_entry` because
+      # `UI::WidgetRoute::Registry::@@defaults` was never written. Both
+      # bootstrap modules now ship an explicit `install` class method
+      # that re-runs the registrations; this is the same pattern the
+      # rest of `initialize_runtime` uses (probe.reset, etc.). Calls
+      # are idempotent — last-wins on every registry table.
+      UI::WidgetRoute::Bootstrap.install
+      UI::SystemAction::Bootstrap.install
 
       # Allocate the slug buffer here (NOT as a class-var default) so the
       # iOS class-init gap can't strand it as nil. 64 bytes accommodates
@@ -172,15 +190,19 @@
       # Phase 8B Codex iter-4 finding #1 + 8D.1 macOS pattern).
       # Re-mounting here would double-bump the token.
       coord = @@coord.not_nil!
-      coord.on_change do |route|
-        slug = Voyager.slug_for_route_id(route.id)
+      # Subscribe with the change KIND so Swift can distinguish a
+      # navigation (host teardown) from a same-route Rerender (in-place
+      # reconcile that preserves text-field focus).
+      coord.on_change_event do |change|
+        slug = Voyager.slug_for_route_id(change.route.id)
         copy_slug_to_buf(slug)
         cb = @@swift_route_changed_cb
         buf = @@current_slug_buf
+        kind = change.kind.rerender? ? 1 : 0
         if @@suppress_route_changed
           # Initial resync — Swift callback intentionally suppressed.
         elsif !cb.nil? && !buf.nil?
-          cb.call(buf.to_unsafe.as(LibC::Char*))
+          cb.call(buf.to_unsafe.as(LibC::Char*), kind)
         end
       end
 
@@ -206,8 +228,100 @@
       @@current_slug_buf.not_nil!.to_unsafe.as(LibC::Char*)
     end
 
-    def self.register_route_changed(cb : LibC::Char* -> Void) : Nil
+    def self.register_route_changed(cb : (LibC::Char*, Int32) -> Void) : Nil
       @@swift_route_changed_cb = cb
+    end
+
+    # In-place reconciliation for a same-route Rerender. Swift calls this
+    # INSTEAD of tearing down the host. We rebuild the NEW UI::View tree,
+    # walk it in parallel with the MOUNTED native tree (@@last_native),
+    # and — only if the structure matches exactly — push changed leaf
+    # values (Label text) onto the EXISTING native views in place. The
+    # mounted text input is left untouched, so its first responder + live
+    # editing buffer survive. Returns true if applied in place; false on
+    # ANY mismatch (caller falls back to the destructive render — safe).
+    #
+    # Two-phase: collect ops first (a deep mismatch aborts BEFORE any
+    # mutation), then apply. Does NOT render a new native tree, does NOT
+    # swap @@last_native, does NOT teardown anything.
+    def self.reconcile_slug(slug : String) : Bool
+      initialize_runtime
+
+      mounted = @@last_native
+      return false if mounted.nil?
+      return false if mounted.state.torn_down? || mounted.handle.released?
+
+      coord = @@coord.not_nil!
+      dispatcher = @@dispatcher.not_nil!
+      route = Voyager.route_for_slug(slug)
+      current_slug = Voyager.slug_for_route_id(coord.current.id)
+      # Same-route only — reconcile never crosses a navigation, and must
+      # NOT trip render_slug's initial-resync (depth==1 mismatch) block.
+      return false unless route.id == coord.current.id
+      return false unless slug == current_slug
+
+      reg = VoyagerApp.registration_for(coord.current.id)
+      screen_class = reg.screen_class
+      return false if screen_class.nil?
+
+      # Construct a renderer for its provider-install side effect only
+      # (installs DesignTokens::Device provider that screens query during
+      # build). We do NOT render with it. Same ordering as render_slug.
+      UI::UIKit::Renderer.new
+
+      ctx = UI::ScreenContext::Native.new(
+        form_state: dispatcher.current_form_state,
+        session: dispatcher.session,
+        flash: dispatcher.flash,
+        design_tokens: dispatcher.design_tokens,
+        navigation: dispatcher.navigation,
+        action_params: {} of String => String,
+        platform: dispatcher.platform,
+        environment: dispatcher.environment,
+      )
+
+      view = screen_class.new.build(ctx)
+      view.accessibility_label = "voyager-root-#{current_slug}" if view.accessibility_label.to_s.empty?
+      view.test_id = "voyager-root-#{current_slug}" if view.test_id.to_s.empty?
+
+      ops = [] of Tuple(Void*, String)
+      return false unless collect_reconcile_ops(view, mounted, ops)
+
+      ops.each do |state, text|
+        LibSwiftKitBridge.apsk_label_set_text(state, text.to_unsafe)
+      end
+      true
+    rescue
+      # Any unexpected error → fall back to the safe destructive path.
+      false
+    end
+
+    # Walk (new UI::View node, mounted NativeView node) in parallel.
+    # Returns false on ANY structural/kind mismatch WITHOUT having
+    # mutated anything (ops are only appended, applied by the caller after
+    # a full successful walk). Records Label text updates as (state_ptr,
+    # text) ops against the MOUNTED label's reactive state handle.
+    private def self.collect_reconcile_ops(view : UI::View, native : UI::NativeView, ops : Array(Tuple(Void*, String))) : Bool
+      return false if native.state.torn_down? || native.handle.released?
+
+      native_kind = native.view_kind
+      return false if native_kind.nil?
+      return false unless native_kind == view.reconcile_kind
+
+      if view.is_a?(UI::Label)
+        state = native.handle.state_handle
+        return false if state.nil? || state.null?
+        ops << {state, view.text}
+      end
+      # Text inputs: intentionally NOT updated — preserve first responder
+      # + live buffer. Other leaves: no-op for Stage 1.
+
+      children = view.reconcile_children
+      return false unless children.size == native.children.size
+      children.each_with_index do |child, idx|
+        return false unless collect_reconcile_ops(child, native.children[idx], ops)
+      end
+      true
     end
 
     # Build + render the requested slug. The slug Swift passes is the
@@ -271,6 +385,17 @@
       reg = VoyagerApp.registration_for(coord.current.id)
       screen_class = reg.screen_class
 
+      # Phase 12.C iter-4 (V1 fix Option A) / Phase 12.D — build the
+      # reuse registry from the prior render's reactive-presentation
+      # NativeViews. The renderer hands back these EXISTING NativeViews
+      # verbatim for any sheet/dialog whose identity persists in the new
+      # tree, preserving the SwiftUI .sheet modifier's presentation
+      # across the Voyager rerender AND adopting the surviving state
+      # handle onto the new tree's view (Phase 12.D). Empty on first
+      # render (@@last_native nil). Built via the canonical helper so the
+      # hosts + the renderer's `reuse_from:` entry agree on construction.
+      reuse_registry = UI::NativeView.build_reuse_registry(@@last_native)
+
       # Phase 6.10 Rem 1 — fresh renderer per render call to match
       # Cascade's proven-working pattern. Reusing a single renderer
       # across slug changes produced inverted-order / collapsed-field
@@ -292,7 +417,7 @@
       # The macOS host avoids this by constructing the renderer ONCE
       # at startup; iOS uses a fresh renderer per call but must still
       # honor the install-before-query ordering.
-      renderer = UI::UIKit::Renderer.new
+      renderer = UI::UIKit::Renderer.new(reuse_registry: reuse_registry)
 
       # Defensive guard — not robust unknown-slug handling
       # (route_for_slug already maps unknown slugs to :sign_in).
@@ -323,12 +448,38 @@
         design_tokens: dispatcher.design_tokens,
         navigation: dispatcher.navigation,
         action_params: {} of String => String,
+        # Phase 10D — thread dispatcher.platform so screens calling
+        # `UI::WidgetRoute.resolve(intent_id, ctx)` get the iOS-keyed widget.
+        # Without this, the resolver would see the default `:macos` and
+        # pick `UI::InlineActionRow` on a `-Dios` build.
+        platform: dispatcher.platform,
+        environment: dispatcher.environment,
       )
       view = screen_class.new.build(ctx)
       view.accessibility_label = "voyager-root-#{current_slug}" if view.accessibility_label.to_s.empty?
       view.test_id = "voyager-root-#{current_slug}" if view.test_id.to_s.empty?
 
       native = renderer.render(view)
+
+      # Phase 12.C iter-4 (V1 fix Option A) — extract reused
+      # NativeViews from the prior tree. Any reactive presentation
+      # whose identity survived into the new render has had its
+      # NativeView returned by the renderer's visit method WITH
+      # `reused = true` set. Detach those from the prior tree so when
+      # `@@last_native` drops out of scope, Crystal's GC pass on the
+      # prior tree does NOT recurse into the surviving NativeViews —
+      # which would double-release the shared NativeHandle.
+      if prior_for_detach = @@last_native
+        prior_for_detach.detach_reused!
+      end
+
+      # Phase 12.C iter-1 — identity-aware cross-render presentation
+      # sweep. Runs AFTER detach so the survivors are out of the prior
+      # tree; the sweep then only flips bindings on ORPHANED handles
+      # (the editor sheet that the user closed, the share sheet that
+      # was completed, etc.). Idempotent on first render.
+      UI::NativeView.dismiss_reactive_presentations!(@@last_native, fresh: native)
+
       @@last_native = native
       native
     end
@@ -353,8 +504,13 @@
     VoyagerBridge.current_slug_ptr
   end
 
-  fun voyager_register_route_changed_callback(cb : LibC::Char* -> Void) : Void
+  fun voyager_register_route_changed_callback(cb : (LibC::Char*, Int32) -> Void) : Void
     VoyagerBridge.register_route_changed(cb)
   end
 
+  # Returns 1 if the same-route Rerender was reconciled in place, 0 if the
+  # caller should fall back to the destructive render path.
+  fun voyager_reconcile(slug_ptr : LibC::Char*) : Int32
+    VoyagerBridge.reconcile_slug(String.new(slug_ptr)) ? 1 : 0
+  end
 {% end %}

@@ -52,6 +52,7 @@ module UI
       fields : Array(Field) = [] of Field,
       footer : String? = nil
 
+    # Section groupings within the view.
     property sections : Array(FormSection) = [] of FormSection
 
     # Flat (non-sectioned) children appended via `<<`. Web visit renders
@@ -81,7 +82,7 @@ module UI
       *,
       @action : String? = nil,
       @method : String = "POST",
-      @csrf_token : String? = nil
+      @csrf_token : String? = nil,
     )
       # Default container-query root so `@container form (...)` rules and
       # the per-element render output both pick up `container-type:
@@ -90,6 +91,7 @@ module UI
       @container_query_name = "form"
     end
 
+    # Appends a section and returns the newly-created section.
     def add_section(header : String? = nil, footer : String? = nil) : FormSection
       section = FormSection.new(header: header, footer: footer)
       @sections << section
@@ -104,12 +106,18 @@ module UI
       self
     end
 
+    # Returns the number of fields currently configured.
     def field_count : Int32
       sections.sum(&.fields.size)
     end
 
     def accept(visitor : PlatformVisitor)
       visitor.visit(self)
+    end
+
+    # Phase 10B.2a — default AX role: `:form`.
+    def default_accessibility_role : Symbol?
+      :form
     end
   end
 end
