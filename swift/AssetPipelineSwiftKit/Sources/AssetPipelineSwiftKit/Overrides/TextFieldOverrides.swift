@@ -40,6 +40,9 @@ public class TextFieldOverrides: ViewOverrides {
     // trampoline with the current text — the Enter-to-send contract. nil = no
     // submit handler (Return does nothing, the prior behavior).
     @objc public var submitToken: NSNumber? = nil
+    // Previous-field callback token for the native iOS keyboard accessory.
+    // nil/0 disables the upward navigation button for the first field.
+    @objc public var previousToken: NSNumber? = nil
 
     @objc public override init() { super.init() }
 }

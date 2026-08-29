@@ -143,20 +143,6 @@ public class TextFieldFacade: NSObject {
             content = AnyView(content.onSubmit {
                 CallbackBridge.fireString(token: submitToken, value: storage.text)
             })
-
-            #if canImport(UIKit) && !os(watchOS)
-            if overrides.keyboardToolbar?.boolValue == true {
-                let title = toolbarTitle(for: overrides.submitLabel)
-                content = AnyView(content.toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button(title) {
-                            CallbackBridge.fireString(token: submitToken, value: storage.text)
-                        }
-                    }
-                })
-            }
-            #endif
         }
 
         if let label = submitLabel(for: overrides.submitLabel) {
@@ -192,6 +178,24 @@ public class TextFieldFacade: NSObject {
             default: break
             }
         }
+
+        // SwiftUI's `.toolbar(placement: .keyboard)` is not reliable when a
+        // TextField is hosted as one widget-sized UIHostingController inside a
+        // UIKit stack. It produced an empty assistant strip on iPhone while
+        // the Crystal model and facade tests both reported the right values.
+        // Install the input traits and accessory on the actual UITextField
+        // descendant after it enters the window. This is also an end-to-end
+        // guarantee that `.phonePad` reaches the keyboard UIKit presents.
+        content = AnyView(content.background(
+            NativeTextInputConfigurator(
+                storage: storage,
+                keyboardType: overrides.keyboardType,
+                submitLabel: overrides.submitLabel,
+                showsToolbar: overrides.keyboardToolbar?.boolValue == true,
+                previousToken: overrides.previousToken?.uint64Value ?? 0,
+                submitToken: overrides.submitToken?.uint64Value ?? 0
+            )
+        ))
         #endif
 
         content = CommonModifiers.apply(content, overrides: overrides)
@@ -207,17 +211,6 @@ public class TextFieldFacade: NSObject {
         case "search": return .search
         case "continue": return .continue
         default: return nil
-        }
-    }
-
-    private static func toolbarTitle(for token: String?) -> String {
-        switch token {
-        case "next": return "Next"
-        case "send": return "Send"
-        case "go": return "Go"
-        case "search": return "Search"
-        case "continue": return "Continue"
-        default: return "Done"
         }
     }
 
@@ -237,6 +230,210 @@ public class TextFieldFacade: NSObject {
     }
     #endif
 }
+
+#if os(iOS)
+/// A zero-sized marker inserted beside the SwiftUI TextField. Once mounted it
+/// locates the UIKit text field inside this widget's hosting controller and
+/// configures the surface iOS actually uses: keyboard type plus a deterministic
+/// Previous / Next / Done accessory. Each asset-pipeline TextField has its own
+/// hosting controller, so the search cannot cross into a neighboring field.
+private struct NativeTextInputConfigurator: UIViewRepresentable {
+    @ObservedObject var storage: TextStorage
+    let keyboardType: String?
+    let submitLabel: String?
+    let showsToolbar: Bool
+    let previousToken: UInt64
+    let submitToken: UInt64
+
+    func makeUIView(context: Context) -> NativeTextInputProbe {
+        NativeTextInputProbe(frame: .zero)
+    }
+
+    func updateUIView(_ probe: NativeTextInputProbe, context: Context) {
+        probe.configuration = .init(
+            storage: storage,
+            keyboardType: keyboardType,
+            submitLabel: submitLabel,
+            showsToolbar: showsToolbar,
+            previousToken: previousToken,
+            submitToken: submitToken
+        )
+        probe.installWhenMounted()
+    }
+}
+
+private final class NativeTextInputProbe: UIView {
+    struct Configuration {
+        let storage: TextStorage
+        let keyboardType: String?
+        let submitLabel: String?
+        let showsToolbar: Bool
+        let previousToken: UInt64
+        let submitToken: UInt64
+    }
+
+    var configuration: Configuration?
+    private var attempts = 0
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        attempts = 0
+        installWhenMounted()
+    }
+
+    func installWhenMounted() {
+        guard window != nil, let configuration else { return }
+        if let field = hostedTextField() {
+            apply(configuration, to: field)
+            attempts = 0
+            return
+        }
+
+        // SwiftUI can materialize its UITextField one run-loop turn after the
+        // representable marker. Retry briefly instead of accepting a property-
+        // level false green while leaving the native field unconfigured.
+        guard attempts < 8 else { return }
+        attempts += 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) { [weak self] in
+            self?.installWhenMounted()
+        }
+    }
+
+    private func hostedTextField() -> UITextField? {
+        var root: UIView = self
+        while let parent = root.superview {
+            root = parent
+            if root.next is APSKAttachingHostingController { break }
+        }
+        return firstTextField(in: root)
+    }
+
+    private func firstTextField(in view: UIView) -> UITextField? {
+        if let field = view as? UITextField { return field }
+        for child in view.subviews {
+            if let field = firstTextField(in: child) { return field }
+        }
+        return nil
+    }
+
+    private func apply(_ configuration: Configuration, to field: UITextField) {
+        let desiredKeyboard: UIKeyboardType
+        switch configuration.keyboardType {
+        case "email": desiredKeyboard = .emailAddress
+        case "number": desiredKeyboard = .numberPad
+        case "phone": desiredKeyboard = .phonePad
+        case "url": desiredKeyboard = .URL
+        default: desiredKeyboard = .default
+        }
+
+        field.keyboardType = desiredKeyboard
+
+        let signature = [
+            configuration.keyboardType ?? "default",
+            configuration.submitLabel ?? "default",
+            configuration.showsToolbar ? "toolbar" : "no-toolbar",
+            String(configuration.previousToken),
+            String(configuration.submitToken),
+        ].joined(separator: "|")
+        let accessoryChanged =
+            (field.inputAccessoryView as? NativeTextInputToolbar)?.configurationSignature != signature
+
+        if accessoryChanged {
+            if configuration.showsToolbar {
+                field.inputAccessoryView = makeAccessory(
+                    configuration,
+                    signature: signature,
+                    field: field
+                )
+            } else if field.inputAccessoryView is UIToolbar {
+                field.inputAccessoryView = nil
+            }
+        }
+
+        // This configurator mounts before the field is focused, so UIKit will
+        // pick these traits up when it creates the keyboard. Calling
+        // reloadInputViews() here creates a feedback loop in widget-sized
+        // SwiftUI hosting controllers: the reload invalidates the host, SwiftUI
+        // recreates the probe, and the newly mounted probe reloads it again.
+    }
+
+    private func makeAccessory(
+        _ configuration: Configuration,
+        signature: String,
+        field: UITextField
+    ) -> UIToolbar {
+        let toolbar = NativeTextInputToolbar(configurationSignature: signature)
+        toolbar.sizeToFit()
+
+        let previous = UIBarButtonItem(
+            image: UIImage(systemName: "chevron.up"),
+            primaryAction: UIAction { _ in
+                guard configuration.previousToken != 0 else { return }
+                CallbackBridge.fireString(
+                    token: configuration.previousToken,
+                    value: configuration.storage.text
+                )
+            }
+        )
+        previous.isEnabled = configuration.previousToken != 0
+        previous.accessibilityLabel = "Previous field"
+        previous.accessibilityIdentifier = "keyboard.previous"
+
+        let next = UIBarButtonItem(
+            image: UIImage(systemName: "chevron.down"),
+            primaryAction: UIAction { _ in
+                guard configuration.submitToken != 0 else { return }
+                CallbackBridge.fireString(
+                    token: configuration.submitToken,
+                    value: configuration.storage.text
+                )
+            }
+        )
+        next.isEnabled = configuration.submitToken != 0 && configuration.submitLabel != "done"
+        next.accessibilityLabel = "Next field"
+        next.accessibilityIdentifier = "keyboard.next"
+
+        let done = UIBarButtonItem(
+            title: "Done",
+            primaryAction: UIAction { [weak field] _ in
+                if configuration.submitLabel == "done", configuration.submitToken != 0 {
+                    CallbackBridge.fireString(
+                        token: configuration.submitToken,
+                        value: configuration.storage.text
+                    )
+                } else {
+                    field?.resignFirstResponder()
+                }
+            }
+        )
+        done.accessibilityIdentifier = "keyboard.done"
+
+        let flexible = UIBarButtonItem(
+            barButtonSystemItem: .flexibleSpace,
+            target: nil,
+            action: nil
+        )
+        toolbar.items = [previous, next, flexible, done]
+        return toolbar
+    }
+}
+
+/// The signature lives on the installed accessory instead of the ephemeral
+/// SwiftUI probe. If SwiftUI remounts that probe, it can recognize the native
+/// toolbar already attached to the field and avoid replacing it in a loop.
+private final class NativeTextInputToolbar: UIToolbar {
+    let configurationSignature: String
+
+    init(configurationSignature: String) {
+        self.configurationSignature = configurationSignature
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+#endif
 
 // Per-field state holder. SwiftUI requires the bound state to outlive
 // individual layout passes; we keep it on a class object that the

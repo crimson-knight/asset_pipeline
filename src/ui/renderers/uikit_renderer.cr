@@ -808,6 +808,12 @@
           sender.set_number(target_str, :setSubmitToken, submit_token.to_f64)
         end
 
+        previous_token = 0_u64
+        if previous_handler = view.on_previous
+          previous_token = UI::CallbackRegistry.register_string(previous_handler)
+          sender.set_number(target_str, :setPreviousToken, previous_token.to_f64)
+        end
+
         ptr = LibSwiftKitBridge.apsk_make_text_field(
           view.placeholder.to_unsafe, view.text.to_unsafe,
           overrides_ptr, action_token,
@@ -816,6 +822,7 @@
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
         native.track_callback_id(submit_token) unless submit_token == 0_u64
+        native.track_callback_id(previous_token) unless previous_token == 0_u64
         push_native(native)
       end
 
