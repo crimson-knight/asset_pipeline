@@ -467,6 +467,7 @@ describe UI do
       field.content_type.should eq(UI::TextContentType::None)
       field.submit_label.should eq(UI::TextInputAction::Default)
       field.keyboard_toolbar.should be_false
+      field.on_previous.should be_nil
       field.autocapitalization.should eq(UI::TextAutocapitalization::Default)
       field.autocorrection_disabled.should be_nil
     end

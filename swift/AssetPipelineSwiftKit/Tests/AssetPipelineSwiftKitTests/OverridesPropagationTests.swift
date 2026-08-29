@@ -200,6 +200,7 @@ final class OverridesPropagationTests: XCTestCase {
         overrides.autocapitalization = "never"
         overrides.autocorrectionDisabled = NSNumber(value: true)
         overrides.submitToken = NSNumber(value: 7)
+        overrides.previousToken = NSNumber(value: 6)
         let view = TextFieldFacade.makeTextField(
             placeholder: "Phone",
             initialText: "",
@@ -210,6 +211,7 @@ final class OverridesPropagationTests: XCTestCase {
         XCTAssertEqual(overrides.contentType, "telephonenumber")
         XCTAssertEqual(overrides.submitLabel, "next")
         XCTAssertEqual(overrides.keyboardToolbar?.boolValue, true)
+        XCTAssertEqual(overrides.previousToken?.uint64Value, 6)
     }
     #endif
 

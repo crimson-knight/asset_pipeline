@@ -118,6 +118,12 @@ module UI
     # behavior). This is the Enter-to-send primitive.
     property on_submit : Proc(String, Nil)? = nil
 
+    # Callback invoked by the previous-field control in the iOS keyboard
+    # accessory. This is deliberately separate from `on_submit`: form owners
+    # decide which field precedes this one, while the renderer owns the native
+    # keyboard surface that exposes the action.
+    property on_previous : Proc(String, Nil)? = nil
+
     # Construct a TextField. `text:` pre-populates the value (useful
     # when re-rendering a form after a failed submit). `name:` sets the
     # HTML form-input name for web POST submission.
