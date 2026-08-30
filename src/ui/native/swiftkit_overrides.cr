@@ -667,6 +667,9 @@ module UI
 
       def self.populate_picker(target : String, view : UI::Picker, sender : Sender)
         populate_view_common(target, view, sender)
+        if color = view.text_color
+          sender.set_color(target, :setForegroundColor, color)
+        end
         unless view.style == UI::PickerStyle::Menu
           sender.set_string(target, :setPickerStyle, view.style.to_s.downcase)
         end
