@@ -18,6 +18,7 @@ module UI
 
     # Visual style
     property style : PickerStyle = PickerStyle::Menu
+    property text_color : Color? = nil
 
     # Callback when selection changes
     property on_change : Proc(Int32, Nil)? = nil

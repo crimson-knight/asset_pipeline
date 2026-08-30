@@ -81,6 +81,7 @@ module UI
     Segmented # Segmented control inline
     Menu      # Dropdown/popup menu
     Inline    # Expanded inline
+    Input     # Compact field; wheel replaces the keyboard on iOS
   end
 
   # Mode for date/time pickers

@@ -467,6 +467,17 @@ describe UI::Native::Populator, "Group 2 default-detection" do
   end
 
   describe "#populate_picker" do
+    it "emits the compact input presentation and its brand text color" do
+      view = UI::Picker.new(["NH", "MA"])
+      view.style = UI::PickerStyle::Input
+      view.text_color = UI::Color.new(0.1, 0.2, 0.3)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_picker(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setPickerStyle, times: 1, args: [target, "input"])
+      FakeLibObjCBridge.assert_sent(:setForegroundColor, times: 1,
+        args: [target, "rgba(0.1,0.2,0.3,1.0)"])
+    end
+
     it "skips pickerStyle at default (Menu)" do
       view = UI::Picker.new(["a", "b"])
       target = FakeLibObjCBridge.next_sentinel_pointer

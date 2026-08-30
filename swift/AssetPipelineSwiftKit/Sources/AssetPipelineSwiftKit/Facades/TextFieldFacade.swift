@@ -69,7 +69,7 @@ public class TextFieldFacade: NSObject {
             return Color(nsColor: $0)
             #endif
         }
-        let base: AnyView = AnyView(
+        var base: AnyView = AnyView(
             PromptOverlayField(
                 storage: storage,
                 placeholder: placeholder,
@@ -78,6 +78,17 @@ public class TextFieldFacade: NSObject {
                 requestedFocus: overrides.apskFocused?.boolValue ?? false
             )
         )
+        #if os(iOS)
+        // A form editor must have a stable one-line intrinsic height. A
+        // SwiftUI placeholder ZStack inside widget-sized hosting controllers
+        // can remeasure as several rows while the keyboard changes the root
+        // proposal. Use a real single-line UITextField for native forms.
+        if overrides.nativeFocusNavigation?.boolValue == true {
+            base = AnyView(NativeFormTextField(
+                storage: storage, placeholder: placeholder, overrides: overrides
+            ).frame(height: max(28, CGFloat(overrides.fontSize?.doubleValue ?? 17) * 1.5)))
+        }
+        #endif
 
         var content: AnyView = base
 
@@ -470,7 +481,7 @@ private final class NativeTextInputProbe: UIView {
 /// hosting controllers. Keeping this inside UIKit preserves the scroll offset,
 /// the mounted editor and the keyboard; a Crystal callback would rebuild all
 /// three merely to move first responder one field.
-private enum NativeTextInputFocusNavigator {
+enum NativeTextInputFocusNavigator {
     static func moveCurrent(by offset: Int) -> Bool {
         guard let field = currentField() else { return false }
         return move(from: field, by: offset)
@@ -552,6 +563,90 @@ private enum NativeTextInputFocusNavigator {
         // The host compresses its root when the keyboard frame settles. Reveal
         // once more after that animation so lower fields remain above it.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: revealNow)
+    }
+}
+
+private struct NativeFormTextField: UIViewRepresentable {
+    @ObservedObject var storage: TextStorage
+    let placeholder: String
+    let overrides: TextFieldOverrides
+
+    func makeCoordinator() -> Coordinator { Coordinator(storage: storage) }
+
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        field.delegate = context.coordinator
+        field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
+        field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        field.text = storage.text
+        return field
+    }
+
+    func updateUIView(_ field: UITextField, context: Context) {
+        context.coordinator.storage = storage
+        context.coordinator.action = overrides.submitLabel
+        if !field.isFirstResponder && field.text != storage.text { field.text = storage.text }
+        field.isSecureTextEntry = overrides.secureEntry?.boolValue ?? false
+        field.font = UIFont(name: overrides.fontFamily ?? "", size: CGFloat(overrides.fontSize?.doubleValue ?? 17))
+            ?? UIFont.systemFont(ofSize: CGFloat(overrides.fontSize?.doubleValue ?? 17))
+        field.textColor = overrides.foregroundColor ?? .label
+        field.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: [
+            .foregroundColor: overrides.placeholderColor ?? UIColor.secondaryLabel
+        ])
+        switch overrides.contentType {
+        case "name": field.textContentType = .name
+        case "streetaddressline1": field.textContentType = .streetAddressLine1
+        case "addresscity": field.textContentType = .addressCity
+        case "postalcode": field.textContentType = .postalCode
+        case "telephonenumber": field.textContentType = .telephoneNumber
+        case "emailaddress": field.textContentType = .emailAddress
+        default: break
+        }
+        switch overrides.autocapitalization {
+        case "never": field.autocapitalizationType = .none
+        case "words": field.autocapitalizationType = .words
+        case "sentences": field.autocapitalizationType = .sentences
+        case "characters": field.autocapitalizationType = .allCharacters
+        default: break
+        }
+        if overrides.autocorrectionDisabled?.boolValue == true { field.autocorrectionType = .no }
+        field.returnKeyType = overrides.submitLabel == "next" ? .next : .done
+        if overrides.apskFocused?.boolValue == true && !field.isFirstResponder {
+            DispatchQueue.main.async { [weak field] in field?.becomeFirstResponder() }
+        }
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var storage: TextStorage
+        var action: String?
+        init(storage: TextStorage) { self.storage = storage }
+        @objc func changed(_ field: UITextField) { storage.binding.wrappedValue = field.text ?? "" }
+        func textFieldDidEndEditing(_ field: UITextField) {
+            field.text = (field.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            changed(field)
+        }
+        func textField(_ field: UITextField, shouldChangeCharactersIn range: NSRange, replacementString replacement: String) -> Bool {
+            // Trim pasted/AutoFill boundaries without eating the spaces a
+            // person types between words. UITextField is never multiline.
+            if replacement.count > 1 || replacement.contains(where: { $0.isNewline }) {
+                let clean = replacement.replacingOccurrences(of: "[\\r\\n\\t]+", with: " ", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let current = field.text ?? ""
+                guard let swiftRange = Range(range, in: current) else { return false }
+                field.text = current.replacingCharacters(in: swiftRange, with: clean)
+                changed(field)
+                return false
+            }
+            return true
+        }
+        func textFieldShouldReturn(_ field: UITextField) -> Bool {
+            changed(field)
+            if action != "next" || !NativeTextInputFocusNavigator.move(from: field, by: 1) {
+                field.resignFirstResponder()
+            }
+            return false
+        }
     }
 }
 
