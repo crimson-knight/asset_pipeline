@@ -1,6 +1,8 @@
 // HostingHelpers — platform-conditional aliases and the single `host(_:)`
 // helper every facade routes through to wrap a SwiftUI view in a hosting
-// controller and return the controller's `.view` as a raw platform pointer.
+// surface and return it as a raw platform pointer. UIKit returns a transparent
+// lifecycle container around the controller-owned SwiftUI root; AppKit returns
+// NSHostingView directly.
 //
 // Architectural decision (§5.6): one `UIHostingController` per widget facade.
 // This matches the "Crystal builds a widget, hands the pointer to a parent"
@@ -51,11 +53,10 @@ public typealias APSKHostingController = NSHostingController
 private var kHostingControllerKey: UInt8 = 0
 
 #if canImport(UIKit) && !os(watchOS)
-/// Phase 6.10 Rem 3 (Path A) — UIView subclass that fires a callback
-/// every time its window membership changes. Used as a 0-sized,
-/// hidden subview of the SwiftUI hosting controller's `.view` so we
-/// observe `didMoveToWindow` reliably without giving up the SwiftUI
-/// rendering surface.
+/// UIKit container for a SwiftUI hosting controller's render surface.
+/// The container observes its own window membership so it can keep the
+/// controller hierarchy in sync without inserting private implementation
+/// views below `UIHostingController.view`.
 ///
 /// Rejected approaches (per Codex review 1 + 2):
 /// - `deinit` cleanup: the parent VC's `children` array retains its
@@ -71,26 +72,34 @@ private var kHostingControllerKey: UInt8 = 0
 ///   discard — SwiftUI never asks the off-screen controller's view
 ///   to disappear normally.
 ///
-/// Accepted approach: insert a hidden 0pt × 0pt sentinel UIView as a
-/// subview of the hosting controller's `.view`. UIKit forwards
-/// `didMoveToWindow` to every subview when their ancestor view's
-/// window membership changes, so the sentinel reliably tracks
-/// window-add and window-remove events. The hosting controller's
-/// SwiftUI render surface is untouched.
+/// Accepted approach: return a transparent container whose only visible
+/// child is `UIHostingController.view`. The container is the lifecycle
+/// observer and the hosting view remains an unmodified SwiftUI-owned root.
+/// This follows UIKit's view-controller containment shape and avoids the
+/// iOS 26 runtime warning emitted when application views are added directly
+/// below `UIHostingController.view`.
 @available(iOS 13.0, tvOS 13.0, *)
-final class APSKHostingWindowSentinel: UIView {
-    /// Invoked every time this view's window membership changes
-    /// (either becoming non-nil or going nil).
-    var onWindowChange: ((UIWindow?) -> Void)?
+final class APSKHostingContainerView: UIView {
+    let hostingController: UIHostingController<AnyView>
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        // Hidden + non-interactive so the sentinel never intercepts
-        // touches or appears in the AX tree.
-        isHidden = true
-        isUserInteractionEnabled = false
+    init(hostingController: UIHostingController<AnyView>) {
+        self.hostingController = hostingController
+        super.init(frame: .zero)
+
+        translatesAutoresizingMaskIntoConstraints = false
+        backgroundColor = .clear
         isAccessibilityElement = false
-        accessibilityElementsHidden = true
+
+        let hostedView = hostingController.view!
+        hostedView.translatesAutoresizingMaskIntoConstraints = false
+        hostedView.backgroundColor = .clear
+        addSubview(hostedView)
+        NSLayoutConstraint.activate([
+            hostedView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            hostedView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            hostedView.topAnchor.constraint(equalTo: topAnchor),
+            hostedView.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
     }
 
     @available(*, unavailable)
@@ -100,82 +109,31 @@ final class APSKHostingWindowSentinel: UIView {
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        onWindowChange?(window)
-    }
-}
-
-/// Phase 6.10 Rem 3 (Path A) — UIHostingController subclass that
-/// installs an `APSKHostingWindowSentinel` as a hidden subview of its
-/// `.view` and uses the sentinel's `didMoveToWindow` callback to
-/// drive attach + detach against the responder-chain's parent
-/// UIViewController.
-///
-/// Why this exists: SwiftUI's `Button` (and every other interactive
-/// SwiftUI control hosted via `UIHostingController`) wires its
-/// `action: () -> Void` closure through the SwiftUI gesture scheduler,
-/// which in turn depends on the hosting controller being in the parent
-/// VC hierarchy (`addChild` + `didMove(toParent:)`). When the Crystal
-/// renderer adds the controller's `.view` as a UIStackView's arranged
-/// subview WITHOUT registering the controller as a child VC, the
-/// gesture scheduler never observes the host's responder chain and the
-/// SwiftUI Button's action closure is never invoked. Confirmed via
-/// 11+ XCUITest variants in Rem 2 (see
-/// `handoff/phase-06.10-remediation-2-codex-blocker.md`).
-///
-/// Generic parameter is bound to `AnyView` because every call site
-/// wraps its content in an `AnyView` at `HostingHelpers.host` entry.
-@available(iOS 13.0, tvOS 13.0, *)
-final class APSKAttachingHostingController: UIHostingController<AnyView> {
-    private weak var sentinel: APSKHostingWindowSentinel?
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        installSentinel()
-    }
-
-    private func installSentinel() {
-        guard sentinel == nil else { return }
-        let s = APSKHostingWindowSentinel(frame: .zero)
-        s.translatesAutoresizingMaskIntoConstraints = false
-        s.onWindowChange = { [weak self] window in
-            guard let self = self else { return }
-            if window != nil {
-                self.attachIfNeeded()
-            } else {
-                self.detachIfNeeded()
-            }
+        if window != nil {
+            attachIfNeeded()
+        } else {
+            detachIfNeeded()
         }
-        view.addSubview(s)
-        // 0pt × 0pt sentinel pinned at the host view's origin. UIKit
-        // still routes window-membership change events through it
-        // because subview lifecycle is independent of frame size.
-        NSLayoutConstraint.activate([
-            s.widthAnchor.constraint(equalToConstant: 0),
-            s.heightAnchor.constraint(equalToConstant: 0),
-            s.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            s.topAnchor.constraint(equalTo: view.topAnchor),
-        ])
-        sentinel = s
     }
 
     private func attachIfNeeded() {
-        guard parent == nil, view.window != nil else { return }
+        guard hostingController.parent == nil, window != nil else { return }
         if let parent = nextParentViewController() {
-            parent.addChild(self)
-            didMove(toParent: parent)
+            parent.addChild(hostingController)
+            hostingController.didMove(toParent: parent)
         }
     }
 
     private func detachIfNeeded() {
-        guard parent != nil else { return }
-        willMove(toParent: nil)
-        removeFromParent()
+        guard hostingController.parent != nil else { return }
+        hostingController.willMove(toParent: nil)
+        hostingController.removeFromParent()
     }
 
     private func nextParentViewController() -> UIViewController? {
-        var responder: UIResponder? = view.next
+        var responder: UIResponder? = next
         while let r = responder {
-            if let vc = r as? UIViewController, vc !== self {
+            if let vc = r as? UIViewController, vc !== hostingController {
                 return vc
             }
             responder = r.next
@@ -197,16 +155,12 @@ enum HostingHelpers {
     /// The `.frame(minWidth: 1, minHeight: 1)` defensive sizing is required
     /// for the SwiftUI Form/List re-measure quirk documented in §5.6.
     ///
-    /// Phase 6.10 Rem 3 (Path A): on UIKit an
-    /// `APSKHostingControllerAttacher` is attached via ObjC association
-    /// to the returned hosted view so the hosting controller can be
-    /// registered as a child VC of the responder-chain's parent
-    /// UIViewController the moment the view enters a window. This is
-    /// required for SwiftUI's gesture scheduler to fire Button / Toggle
-    /// / Slider callbacks when the hosting controller's `.view` is
-    /// embedded in a UIKit subtree (the Crystal renderer's UIStackView
-    /// root model). AppKit is unaffected — NSHostingView reports actions
-    /// independently of NSViewController containment.
+    /// On UIKit the returned platform view is a transparent lifecycle
+    /// container. Its hosted child remains the controller-owned SwiftUI
+    /// root while the container performs standards-compliant parent view
+    /// controller attachment when it enters a window. AppKit is unaffected
+    /// — NSHostingView reports actions independently of NSViewController
+    /// containment.
     static func host<V: View>(_ view: V, kind: String = "") -> APSKPlatformView {
         // Apply the brand tint last so it cascades into every child view
         // SwiftUI considers part of this hosted root. Hosted roots are
@@ -232,33 +186,22 @@ enum HostingHelpers {
         // identity for the reconciler; the Crystal renderer may also stamp it later.
         platformView = APSKWatchHostView(content: sized, kind: kind)
         #elseif canImport(UIKit)
-        // UIHostingController + .view is the standard UIKit path.
+        // UIHostingController nested in a transparent container is the
+        // standard UIKit containment path for a view returned to callers
+        // that do not themselves own a child-view-controller slot.
         // `sizingOptions` is set BEFORE first access to `.view` so the
         // hosted UIView reports the SwiftUI intrinsic size on the first
         // layout pass; the prior order produced a CGSizeZero report and
         // collapsed the button to invisible inside a UIStackView.
-        // Phase 6.10 Rem 3 (Path A): use the
-        // `APSKAttachingHostingController` subclass that registers
-        // itself as a child VC of the responder-chain's parent
-        // UIViewController on first layout. This is the missing
-        // handshake SwiftUI's gesture scheduler needs to fire Button /
-        // Toggle / Slider action closures when the hosting controller's
-        // `.view` is embedded in a UIKit subtree.
-        //
-        // Returning `controller.view` directly (not a wrapper view)
-        // preserves the layout shape every Crystal caller already
-        // expects — the renderer's `objc_constrain_*` helpers and
-        // UIStackView arranged-subview intrinsic-size invariants still
-        // see the unmodified UIHostingController.view, identical to the
-        // pre-Rem-3 path.
-        let controller = APSKAttachingHostingController(rootView: sized)
+        // The container registers the controller as a child of the
+        // responder-chain parent when it enters a window. Its edge
+        // constraints propagate the hosted view's intrinsic size to the
+        // renderer's UIStackView and preserve the public UIView contract.
+        let controller = UIHostingController(rootView: sized)
         if #available(iOS 16.0, *) {
             controller.sizingOptions = [.intrinsicContentSize]
         }
-        let hostedView = controller.view!
-        hostedView.translatesAutoresizingMaskIntoConstraints = false
-        hostedView.backgroundColor = .clear
-        platformView = hostedView
+        platformView = APSKHostingContainerView(hostingController: controller)
         lifetimeOwner = controller
         #else
         // NSHostingView is the AppKit-native shortcut: the view *is* the
