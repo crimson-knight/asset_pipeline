@@ -8,8 +8,8 @@ import PackageDescription
 // matching `@objc` facade class here (e.g. `APSKButtonFacade.makeButton`).
 // The facade builds the SwiftUI view and returns a raw `UIView`/`NSView`
 // pointer that the Crystal renderer can embed in its native parent tree.
-// UIKit uses a transparent lifecycle container around UIHostingController;
-// AppKit uses NSHostingView directly.
+// UIKit embeds its lifecycle observer via UIViewRepresentable and returns the
+// UIHostingController root; AppKit uses NSHostingView directly.
 //
 // Build slices (validated by the iOS / macOS sample build scripts):
 //

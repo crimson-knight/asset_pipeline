@@ -1,8 +1,8 @@
 // HostingHelpers — platform-conditional aliases and the single `host(_:)`
 // helper every facade routes through to wrap a SwiftUI view in a hosting
-// surface and return it as a raw platform pointer. UIKit returns a transparent
-// lifecycle container around the controller-owned SwiftUI root; AppKit returns
-// NSHostingView directly.
+// surface and return it as a raw platform pointer. UIKit embeds its lifecycle
+// observer in the SwiftUI content via UIViewRepresentable and returns the
+// controller-owned root unchanged; AppKit returns NSHostingView directly.
 //
 // Architectural decision (§5.6): one `UIHostingController` per widget facade.
 // This matches the "Crystal builds a widget, hands the pointer to a parent"
@@ -53,10 +53,8 @@ public typealias APSKHostingController = NSHostingController
 private var kHostingControllerKey: UInt8 = 0
 
 #if canImport(UIKit) && !os(watchOS)
-/// UIKit container for a SwiftUI hosting controller's render surface.
-/// The container observes its own window membership so it can keep the
-/// controller hierarchy in sync without inserting private implementation
-/// views below `UIHostingController.view`.
+/// Weak indirection lets the SwiftUI content capture its hosting controller
+/// before the controller itself has been initialized.
 ///
 /// Rejected approaches (per Codex review 1 + 2):
 /// - `deinit` cleanup: the parent VC's `children` array retains its
@@ -72,34 +70,25 @@ private var kHostingControllerKey: UInt8 = 0
 ///   discard — SwiftUI never asks the off-screen controller's view
 ///   to disappear normally.
 ///
-/// Accepted approach: return a transparent container whose only visible
-/// child is `UIHostingController.view`. The container is the lifecycle
-/// observer and the hosting view remains an unmodified SwiftUI-owned root.
-/// This follows UIKit's view-controller containment shape and avoids the
-/// iOS 26 runtime warning emitted when application views are added directly
-/// below `UIHostingController.view`.
+/// Accepted approach: insert the lifecycle observer through the SwiftUI tree's
+/// `UIViewRepresentable` boundary. This is the supported way for application
+/// code to participate below `UIHostingController.view` on iOS 26, keeps the
+/// returned root view and its ownership contract unchanged, and still gives us
+/// reliable window-add/window-remove callbacks.
 @available(iOS 13.0, tvOS 13.0, *)
-final class APSKHostingContainerView: UIView {
-    let hostingController: UIHostingController<AnyView>
+final class APSKHostingControllerBox {
+    weak var controller: APSKAttachingHostingController?
+}
 
-    init(hostingController: UIHostingController<AnyView>) {
-        self.hostingController = hostingController
-        super.init(frame: .zero)
+@available(iOS 13.0, tvOS 13.0, *)
+final class APSKHostingWindowObserverView: UIView {
+    weak var hostingController: APSKAttachingHostingController?
 
-        translatesAutoresizingMaskIntoConstraints = false
+    override init(frame: CGRect) {
+        super.init(frame: frame)
         backgroundColor = .clear
+        isUserInteractionEnabled = false
         isAccessibilityElement = false
-
-        let hostedView = hostingController.view!
-        hostedView.translatesAutoresizingMaskIntoConstraints = false
-        hostedView.backgroundColor = .clear
-        addSubview(hostedView)
-        NSLayoutConstraint.activate([
-            hostedView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            hostedView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            hostedView.topAnchor.constraint(equalTo: topAnchor),
-            hostedView.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
     }
 
     @available(*, unavailable)
@@ -110,30 +99,51 @@ final class APSKHostingContainerView: UIView {
     override func didMoveToWindow() {
         super.didMoveToWindow()
         if window != nil {
-            attachIfNeeded()
+            hostingController?.attachIfNeeded()
         } else {
-            detachIfNeeded()
+            hostingController?.detachIfNeeded()
         }
     }
+}
 
-    private func attachIfNeeded() {
-        guard hostingController.parent == nil, window != nil else { return }
+@available(iOS 13.0, tvOS 13.0, *)
+private struct APSKHostingWindowObserver: UIViewRepresentable {
+    let box: APSKHostingControllerBox
+
+    func makeUIView(context: Context) -> APSKHostingWindowObserverView {
+        let observer = APSKHostingWindowObserverView(frame: .zero)
+        observer.hostingController = box.controller
+        return observer
+    }
+
+    func updateUIView(_ observer: APSKHostingWindowObserverView, context: Context) {
+        observer.hostingController = box.controller
+    }
+}
+
+/// UIHostingController subclass that uses the representable observer above to
+/// mirror its window membership into UIKit child-controller containment.
+@available(iOS 13.0, tvOS 13.0, *)
+final class APSKAttachingHostingController: UIHostingController<AnyView> {
+
+    fileprivate func attachIfNeeded() {
+        guard parent == nil, view.window != nil else { return }
         if let parent = nextParentViewController() {
-            parent.addChild(hostingController)
-            hostingController.didMove(toParent: parent)
+            parent.addChild(self)
+            didMove(toParent: parent)
         }
     }
 
-    private func detachIfNeeded() {
-        guard hostingController.parent != nil else { return }
-        hostingController.willMove(toParent: nil)
-        hostingController.removeFromParent()
+    fileprivate func detachIfNeeded() {
+        guard parent != nil else { return }
+        willMove(toParent: nil)
+        removeFromParent()
     }
 
     private func nextParentViewController() -> UIViewController? {
-        var responder: UIResponder? = next
+        var responder: UIResponder? = view.next
         while let r = responder {
-            if let vc = r as? UIViewController, vc !== hostingController {
+            if let vc = r as? UIViewController, vc !== self {
                 return vc
             }
             responder = r.next
@@ -155,12 +165,10 @@ enum HostingHelpers {
     /// The `.frame(minWidth: 1, minHeight: 1)` defensive sizing is required
     /// for the SwiftUI Form/List re-measure quirk documented in §5.6.
     ///
-    /// On UIKit the returned platform view is a transparent lifecycle
-    /// container. Its hosted child remains the controller-owned SwiftUI
-    /// root while the container performs standards-compliant parent view
-    /// controller attachment when it enters a window. AppKit is unaffected
-    /// — NSHostingView reports actions independently of NSViewController
-    /// containment.
+    /// On UIKit a zero-size representable observer inside the SwiftUI content
+    /// performs standards-compliant parent view-controller attachment when the
+    /// root enters a window. AppKit is unaffected — NSHostingView reports
+    /// actions independently of NSViewController containment.
     static func host<V: View>(_ view: V, kind: String = "") -> APSKPlatformView {
         // Apply the brand tint last so it cascades into every child view
         // SwiftUI considers part of this hosted root. Hosted roots are
@@ -186,22 +194,31 @@ enum HostingHelpers {
         // identity for the reconciler; the Crystal renderer may also stamp it later.
         platformView = APSKWatchHostView(content: sized, kind: kind)
         #elseif canImport(UIKit)
-        // UIHostingController nested in a transparent container is the
-        // standard UIKit containment path for a view returned to callers
-        // that do not themselves own a child-view-controller slot.
+        // UIHostingController with its lifecycle observer embedded through
+        // UIViewRepresentable keeps the controller-owned root unchanged.
         // `sizingOptions` is set BEFORE first access to `.view` so the
         // hosted UIView reports the SwiftUI intrinsic size on the first
         // layout pass; the prior order produced a CGSizeZero report and
         // collapsed the button to invisible inside a UIStackView.
-        // The container registers the controller as a child of the
-        // responder-chain parent when it enters a window. Its edge
-        // constraints propagate the hosted view's intrinsic size to the
-        // renderer's UIStackView and preserve the public UIView contract.
-        let controller = UIHostingController(rootView: sized)
+        // The weak box breaks the construction cycle: SwiftUI captures the
+        // box first, then the controller is installed before `.view` is loaded
+        // and the representable is materialized.
+        let box = APSKHostingControllerBox()
+        let observed = AnyView(
+            sized.background(
+                APSKHostingWindowObserver(box: box)
+                    .frame(width: 0, height: 0)
+            )
+        )
+        let controller = APSKAttachingHostingController(rootView: observed)
+        box.controller = controller
         if #available(iOS 16.0, *) {
             controller.sizingOptions = [.intrinsicContentSize]
         }
-        platformView = APSKHostingContainerView(hostingController: controller)
+        let hostedView = controller.view!
+        hostedView.translatesAutoresizingMaskIntoConstraints = false
+        hostedView.backgroundColor = .clear
+        platformView = hostedView
         lifetimeOwner = controller
         #else
         // NSHostingView is the AppKit-native shortcut: the view *is* the
@@ -219,9 +236,8 @@ enum HostingHelpers {
         // Keep the lifetime owner pinned for as long as the platform
         // view lives. On AppKit they are the same object, but the
         // association is cheap and uniform across platforms. On UIKit
-        // the container already strongly references the controller via
-        // its stored property, but we keep the association too as a
-        // belt-and-suspenders measure.
+        // the returned hosting view is controller-owned, so the association
+        // is the lifetime edge that keeps the controller alive.
         if let owner = lifetimeOwner {
             objc_setAssociatedObject(
                 platformView,

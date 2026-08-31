@@ -20,9 +20,32 @@ import SnapshotTesting
 
 #if canImport(AppKit)
 import AppKit
+
+private final class APSKSnapshotWindow: NSWindow {
+    override var backingScaleFactor: CGFloat { 2 }
+}
 #endif
 
 final class SnapshotTests: XCTestCase {
+
+    #if canImport(AppKit)
+    private var snapshotWindow: NSWindow?
+
+    private var imageSnapshot: Snapshotting<NSView, NSImage> {
+        // Retain strict structural coverage while allowing subpixel
+        // antialiasing differences between attached and headless macOS hosts.
+        .image(precision: 0.97, perceptualPrecision: 0.98)
+    }
+    #endif
+
+    #if canImport(AppKit)
+    override func invokeTest() {
+        let baselineAppearance = NSAppearance(named: .darkAqua)!
+        baselineAppearance.performAsCurrentDrawingAppearance {
+            super.invokeTest()
+        }
+    }
+    #endif
 
     override func setUp() {
         super.setUp()
@@ -46,7 +69,7 @@ final class SnapshotTests: XCTestCase {
         view.frame = CGRect(x: 0, y: 0, width: 160, height: 48)
         layoutForSnapshot(view)
         #if canImport(AppKit)
-        assertSnapshot(of: view, as: .image, named: "default_button_macos")
+        assertSnapshot(of: view, as: imageSnapshot, named: "default_button_macos")
         #endif
     }
 
@@ -66,7 +89,7 @@ final class SnapshotTests: XCTestCase {
         view.frame = CGRect(x: 0, y: 0, width: 160, height: 48)
         layoutForSnapshot(view)
         #if canImport(AppKit)
-        assertSnapshot(of: view, as: .image, named: "default_button_ios")
+        assertSnapshot(of: view, as: imageSnapshot, named: "default_button_ios")
         #endif
     }
 
@@ -87,7 +110,7 @@ final class SnapshotTests: XCTestCase {
         view.frame = CGRect(x: 0, y: 0, width: 160, height: 48)
         layoutForSnapshot(view)
         #if canImport(AppKit)
-        assertSnapshot(of: view, as: .image, named: "background_override_ios")
+        assertSnapshot(of: view, as: imageSnapshot, named: "background_override_ios")
         #endif
     }
 
@@ -104,7 +127,7 @@ final class SnapshotTests: XCTestCase {
         view.frame = CGRect(x: 0, y: 0, width: 160, height: 48)
         layoutForSnapshot(view)
         #if canImport(AppKit)
-        assertSnapshot(of: view, as: .image, named: "corner_radius_zero_ios")
+        assertSnapshot(of: view, as: imageSnapshot, named: "corner_radius_zero_ios")
         #endif
     }
 
@@ -119,7 +142,7 @@ final class SnapshotTests: XCTestCase {
         view.frame = CGRect(x: 0, y: 0, width: 240, height: 160)
         layoutForSnapshot(view)
         #if canImport(AppKit)
-        assertSnapshot(of: view, as: .image, named: "glass_default_ios26")
+        assertSnapshot(of: view, as: imageSnapshot, named: "glass_default_ios26")
         #endif
     }
 
@@ -130,7 +153,25 @@ final class SnapshotTests: XCTestCase {
     /// zero-content state and the baseline PNG is blank.
     private func layoutForSnapshot(_ view: APSKPlatformView) {
         #if canImport(AppKit)
+        // Give NSHostingView a deterministic 2x backing surface. Detached
+        // views otherwise inherit either 1x or 2x from the current desktop,
+        // which made this gate depend on monitor and lock-screen state.
+        let window = APSKSnapshotWindow(
+            contentRect: CGRect(origin: .zero, size: view.frame.size),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.contentView = NSView(frame: CGRect(origin: .zero, size: view.frame.size))
+        window.contentView?.addSubview(view)
+        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+        window.orderFrontRegardless()
+        snapshotWindow = window
+
         // NSHostingView needs an explicit layout pass after sizing.
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
         view.layoutSubtreeIfNeeded()
         view.needsDisplay = true
         view.displayIfNeeded()

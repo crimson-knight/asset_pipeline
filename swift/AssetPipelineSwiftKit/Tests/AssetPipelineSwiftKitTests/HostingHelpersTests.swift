@@ -7,17 +7,14 @@ import UIKit
 
 @MainActor
 final class HostingHelpersTests: XCTestCase {
-    func testUIKitHostUsesExternalLifecycleContainer() {
+    func testUIKitHostReturnsTheControllerOwnedRoot() {
         let platformView = HostingHelpers.host(Text("Hosted content"))
-        guard let container = platformView as? APSKHostingContainerView else {
-            return XCTFail("UIKit host must return APSKHostingContainerView")
+        guard let controller = platformView.next as? APSKAttachingHostingController else {
+            return XCTFail("hosted root must retain its APSKAttachingHostingController responder")
         }
 
-        let hostedView = container.hostingController.view!
-        XCTAssertTrue(hostedView.superview === container)
-        XCTAssertFalse(container.isAccessibilityElement)
-        XCTAssertEqual(container.subviews.count, 1)
-        XCTAssertTrue(container.subviews.first === hostedView)
+        XCTAssertTrue(controller.view === platformView)
+        XCTAssertFalse(platformView.isAccessibilityElement)
     }
 
     func testUIKitHostAttachesDetachesAndReattachesController() {
@@ -26,26 +23,31 @@ final class HostingHelpersTests: XCTestCase {
         firstWindow.rootViewController = firstOwner
         firstWindow.makeKeyAndVisible()
 
-        let container = HostingHelpers.host(Text("Lifecycle")) as! APSKHostingContainerView
-        container.frame = firstOwner.view.bounds
-        firstOwner.view.addSubview(container)
+        let hostedView = HostingHelpers.host(Text("Lifecycle"))
+        let controller = hostedView.next as! APSKAttachingHostingController
+        hostedView.frame = firstOwner.view.bounds
+        firstOwner.view.addSubview(hostedView)
+        firstOwner.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
 
-        XCTAssertTrue(container.hostingController.parent === firstOwner)
+        XCTAssertTrue(controller.parent === firstOwner)
 
-        container.removeFromSuperview()
-        XCTAssertNil(container.hostingController.parent)
+        hostedView.removeFromSuperview()
+        XCTAssertNil(controller.parent)
 
         let secondOwner = UIViewController()
         let secondWindow = UIWindow(frame: firstWindow.frame)
         secondWindow.rootViewController = secondOwner
         secondWindow.makeKeyAndVisible()
-        container.frame = secondOwner.view.bounds
-        secondOwner.view.addSubview(container)
+        hostedView.frame = secondOwner.view.bounds
+        secondOwner.view.addSubview(hostedView)
+        secondOwner.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
 
-        XCTAssertTrue(container.hostingController.parent === secondOwner)
+        XCTAssertTrue(controller.parent === secondOwner)
 
-        container.removeFromSuperview()
-        XCTAssertNil(container.hostingController.parent)
+        hostedView.removeFromSuperview()
+        XCTAssertNil(controller.parent)
         firstWindow.isHidden = true
         secondWindow.isHidden = true
     }
