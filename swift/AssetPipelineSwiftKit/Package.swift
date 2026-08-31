@@ -6,9 +6,10 @@ import PackageDescription
 //
 // Each Tier 1 / Tier 2 widget in the Crystal `UI::*` hierarchy gets a
 // matching `@objc` facade class here (e.g. `APSKButtonFacade.makeButton`).
-// The facade builds the SwiftUI view, wraps it in a hosting controller,
-// and returns the controller's `.view` as a raw `UIView`/`NSView` pointer
-// that the Crystal renderer can embed in its native parent tree.
+// The facade builds the SwiftUI view and returns a raw `UIView`/`NSView`
+// pointer that the Crystal renderer can embed in its native parent tree.
+// UIKit embeds its lifecycle observer via UIViewRepresentable and returns the
+// UIHostingController root; AppKit uses NSHostingView directly.
 //
 // Build slices (validated by the iOS / macOS sample build scripts):
 //
