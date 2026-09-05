@@ -100,8 +100,15 @@ begin
   expected = File.read(File.join(__dir__, 'UITests', 'PropertyMeasurementTests.swift')).scan(/^\s*func (test\w+)\(/).size
   raise 'No native acceptance cases discovered.' if expected.zero?
   verify = lambda do |name, count, extra|
-    result = File.join(output, "#{name}.xcresult")
-    run.call("#{name}.log", {}, *base, '-resultBundlePath', result, *extra)
+    # Keep Xcode's live result database alongside its temporary build products,
+    # outside user-selected synced/file-provider directories. Copy the completed
+    # or failed evidence only after our bounded driver has exited.
+    result = File.join(derived, "#{name}.xcresult")
+    begin
+      run.call("#{name}.log", {}, *base, '-resultBundlePath', result, *extra)
+    ensure
+      FileUtils.cp_r(result, File.join(output, "#{name}.xcresult")) if File.directory?(result)
+    end
     summary = JSON.parse(capture.call('xcrun', 'xcresulttool', 'get', 'test-results', 'summary', '--path', result))
     File.write(File.join(output, "#{name}-summary.json"), JSON.pretty_generate(summary) + "\n")
     raise "#{name} did not pass every expected test with zero skips." unless summary['result'] == 'Passed' && summary['passedTests'] == count && summary['failedTests'] == 0 && summary['skippedTests'] == 0 && summary['expectedFailures'] == 0
