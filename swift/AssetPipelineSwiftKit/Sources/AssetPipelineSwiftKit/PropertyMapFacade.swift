@@ -333,15 +333,37 @@ public final class APSKPropertyMapView: UIView, MKMapViewDelegate, UIGestureReco
             }
         }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: edit ? "Move point" : "Add point", style: .default) { [weak self] _ in
-            guard let self else { return }
-            guard let fields = alert.textFields, let lon = Double((fields[0].text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)), let lat = Double((fields[1].text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)), lon.isFinite, lat.isFinite, abs(lon) <= 180, abs(lat) <= 85 else {
-                self.setValidation(false, message: "Enter a finite longitude (−180 to 180) and latitude (−85 to 85)."); return
-            }
-            if edit, let selected = self.selected { self.checkpoint(); self.rings[self.active].points[selected] = [lon, lat] } else { self.add([lon, lat]) }
+        let apply = UIAlertAction(title: edit ? "Move point" : "Add point", style: .default) { [weak self, weak alert] _ in
+            guard let self, let alert, let values = Self.coordinateValues(alert) else { return }
+            if edit, let selected = self.selected { self.checkpoint(); self.rings[self.active].points[selected] = values } else { self.add(values) }
             self.refresh()
-        })
+        }
+        alert.addAction(apply)
+        // Validate while typing, without dismissing the dialog or invalidating
+        // the last good map draft. Weak captures avoid alert/action/field cycles.
+        let updateValidity = { [weak alert, weak apply] in
+            guard let alert, let apply else { return }
+            let valid = Self.coordinateValues(alert) != nil
+            apply.isEnabled = valid
+            let message = valid
+                ? "WGS84 decimal degrees. Use a minus sign for west or south. Not survey-grade."
+                : "Enter a finite longitude (−180 to 180) and latitude (−85 to 85). Use a minus sign for west or south."
+            if alert.message != message { alert.message = message }
+        }
+        for field in alert.textFields ?? [] {
+            field.addAction(UIAction { _ in updateValidity() }, for: .editingChanged)
+        }
+        updateValidity()
         presenter()?.present(alert, animated: true)
+    }
+
+    private static func coordinateValues(_ alert: UIAlertController) -> [Double]? {
+        guard let fields = alert.textFields, fields.count == 2,
+              let longitude = Double((fields[0].text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)),
+              let latitude = Double((fields[1].text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)),
+              longitude.isFinite, latitude.isFinite,
+              abs(longitude) <= 180, abs(latitude) <= 85 else { return nil }
+        return [longitude, latitude]
     }
 
     private func reconcileOverlays() {
