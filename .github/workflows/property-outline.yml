@@ -1,0 +1,56 @@
+name: Property outline contract
+
+on:
+  pull_request:
+    branches: [phase-10-c-0]
+    paths:
+      - 'src/geometry/**'
+      - 'src/ui/**'
+      - 'swift/AssetPipelineSwiftKit/**'
+      - 'samples/property_measurement/**'
+      - 'spec/geometry/**'
+      - 'spec/fixtures/property_outline_v1.json'
+      - 'spec/web/ui/**'
+      - '.github/workflows/property-outline.yml'
+  push:
+    branches: [phase-10-c-0]
+    paths:
+      - 'src/geometry/**'
+      - 'src/ui/**'
+      - 'swift/AssetPipelineSwiftKit/**'
+      - 'samples/property_measurement/**'
+      - 'spec/geometry/**'
+      - 'spec/fixtures/property_outline_v1.json'
+      - 'spec/web/ui/**'
+      - '.github/workflows/property-outline.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: property-outline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable-contract:
+    name: Geometry and shared map regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: crystal-lang/install-crystal@d8ef131ecec0352ce0e39b81b0a6d95def58fe2f
+        with:
+          crystal: 1.21.0
+      - name: Run portable server/native contract and callback lifecycle tests
+        run: |
+          crystal spec spec/geometry/property_outline_spec.cr \
+            spec/web/ui/property_map_spec.cr \
+            spec/web/ui/native/native_view_spec.cr \
+            spec/web/ui/native/callback_registry_spec.cr
+      - name: Check patch whitespace
+        run: git diff --check
+
+# This is the portable contract gate, NOT an iOS runtime/imagery acceptance.
+# The separately retained samples/property_measurement/ios XCTest run must pass
+# before release. The historical initiative workflow targets another branch and
+# has placeholder/continue-on-error native lanes; those are not native proof.
