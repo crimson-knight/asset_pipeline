@@ -22,6 +22,9 @@
 {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
   @[Link(framework: "Foundation")]
   lib LibSwiftKitBridge
+    fun apsk_property_map_new : Void*
+    fun apsk_property_map_configure(view : Void*, json : UInt8*, draft_token : UInt64, save_token : UInt64)
+    fun apsk_property_map_validation(view : Void*, valid : Bool, message : UInt8*)
     # Phase 12.A — Interaction-contracts NSLog bridge. See
     # swiftkit_bridge.m §"Interaction-contracts NSLog bridge".
     fun apsk_apic_log(msg : UInt8*)

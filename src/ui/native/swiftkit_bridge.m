@@ -67,6 +67,26 @@ static inline NSString *apsk_nsstring(const char *utf8) {
     return [NSString stringWithUTF8String:utf8] ?: @"";
 }
 
+// Native MapKit property editor. The result is explicitly +1 owned by Crystal.
+void *apsk_property_map_new(void) {
+    Class cls = objc_getClass("APSKPropertyMapView");
+    if (!cls) return NULL;
+    id view = ((id (*)(id, SEL))objc_msgSend)(cls, sel_registerName("make"));
+    return [view retain];
+}
+
+void apsk_property_map_configure(void *view, const char *json, uint64_t draft_token, uint64_t save_token) {
+    if (!view) return;
+    ((void (*)(id, SEL, id, uint64_t, uint64_t))objc_msgSend)((id)view,
+        sel_registerName("configure:draftToken:saveToken:"), apsk_nsstring(json), draft_token, save_token);
+}
+
+void apsk_property_map_validation(void *view, bool valid, const char *message) {
+    if (!view) return;
+    ((void (*)(id, SEL, BOOL, id))objc_msgSend)((id)view,
+        sel_registerName("setValidation:message:"), valid ? YES : NO, apsk_nsstring(message));
+}
+
 // Box a UInt64 token into an NSNumber so `@objc` method signatures that
 // accept `actionToken: UInt64` can route through `objc_msgSend` cleanly.
 // Swift's `@objc` UInt64 lowers to `unsigned long long`; ObjC handles it

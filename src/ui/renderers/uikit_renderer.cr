@@ -3312,6 +3312,10 @@
       end
 
       def visit(view : UI::MapView)
+        if view.property_editor || view.property_outline
+          visit_property_map(view)
+          return
+        end
         span_delta = map_span_delta(view.zoom_level)
         ptr = LibObjCBridge.mkmapview_new(
           view.latitude,
@@ -3343,6 +3347,74 @@
         apply_common_properties(ptr, view)
         apply_default_surface_size(ptr, view, 320.0, 220.0)
         emit(ptr, "MKMapView")
+      end
+
+      private def visit_property_map(view : UI::MapView)
+        editor = view.property_editor
+        identity = editor ? "property-map:#{editor.key}" : "property-map-readonly:#{view.id || view.test_id || view.object_id}"
+        existing = @reuse_registry.try(&.[identity]?)
+        existing = nil if existing && (existing.state.torn_down? || existing.handle.released? || existing.handle.reactive_kind != :property_map)
+        native = if existing
+                   existing.reused = true
+                   existing.clear_callbacks!
+                   existing
+                 else
+                   ptr = LibSwiftKitBridge.apsk_property_map_new
+                   raise "Native property maps are unavailable in this SwiftKit build" if ptr.null?
+                   handle = ObjC.owned(ptr, label: "APSKPropertyMapView")
+                   handle.reactive_kind = :property_map
+                   handle.presentation_identity = identity
+                   NativeView.new(handle)
+                 end
+        ptr = native.handle.ptr!
+        draft_token = 0_u64
+        save_token = 0_u64
+        if editor
+          draft_token = native.track_callback_id(CallbackRegistry.register_string(->(raw : String) {
+            begin
+              outline = AssetPipeline::PropertyOutline.parse(raw)
+              area = outline.measurement
+              summary = "Approx. #{area.net_area_m2.round(1)} m² lawn · #{area.excluded_area_m2.round(1)} m² excluded. Not a survey."
+              LibSwiftKitBridge.apsk_property_map_validation(ptr, true, summary.to_unsafe)
+            rescue ex : AssetPipeline::PropertyOutline::Invalid
+              message = ex.message || "Check your outline before continuing."
+              LibSwiftKitBridge.apsk_property_map_validation(ptr, false, message.to_unsafe)
+            end
+            editor.on_draft_change.try(&.call(raw))
+            nil
+          }))
+          if editor.on_save
+            save_token = native.track_callback_id(CallbackRegistry.register_string(->(raw : String) {
+              begin
+                editor.on_save.try(&.call(AssetPipeline::PropertyOutline.parse(raw)))
+              rescue ex : AssetPipeline::PropertyOutline::Invalid
+                message = ex.message || "Check your outline before continuing."
+                LibSwiftKitBridge.apsk_property_map_validation(ptr, false, message.to_unsafe)
+              end
+              nil
+            }))
+          end
+        end
+        config = JSON.build do |json|
+          json.object do
+            json.field "editable", !editor.nil?
+            json.field "latitude", view.latitude
+            json.field "longitude", view.longitude
+            json.field "span", map_span_delta(view.zoom_level)
+            json.field "camera_revision", view.camera_revision
+            json.field "address", view.address_label
+            json.field "imagery", view.map_type == :satellite ? "satellite" : "hybrid"
+            json.field "outline", editor.try(&.initial_outline) || view.property_outline
+          end
+        end
+        LibSwiftKitBridge.apsk_property_map_configure(ptr, config.to_unsafe, draft_token, save_token)
+        LibObjCBridge.objc_send_bool(ptr, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
+        apply_common_properties(ptr, view)
+        # Do not collapse the native editor's accessible child controls into a
+        # single group element, even though plain MapView has a group role.
+        LibObjCBridge.objc_send_bool(ptr, sel("setIsAccessibilityElement:"), 0)
+        apply_default_surface_size(ptr, view, 360.0, editor ? 660.0 : 300.0)
+        push_native(native)
       end
 
       # -----------------------------------------------------------------

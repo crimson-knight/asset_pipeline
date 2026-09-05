@@ -181,6 +181,14 @@ module UI
       id
     end
 
+    # Rebind callbacks on an identity-retained native surface without growing
+    # the registry indefinitely. Use only after its synchronous native callbacks
+    # have completed, immediately before installing their replacements.
+    def clear_callbacks! : Nil
+      CallbackRegistry.unregister(@callback_ids)
+      @callback_ids.clear
+    end
+
     # Register a callback block and track its ID for cleanup during `teardown!`.
     def register_callback(&block : -> Nil) : UInt64
       register_callback(block)
