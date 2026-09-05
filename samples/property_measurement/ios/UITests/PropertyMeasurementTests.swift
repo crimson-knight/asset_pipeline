@@ -116,6 +116,12 @@ final class PropertyMeasurementTests: XCTestCase {
         let receipt = app.staticTexts["fixture-receipt"]
         XCTAssertEqual(receipt.label, "Outline saved on this device")
         let saved = try XCTUnwrap(receipt.value as? String)
+        // Independent host-side disk proof must match THIS saved outline,
+        // including the fresh exclusion ID, never a previous run's preferences.
+        let savedBytes = XCTAttachment(string: saved)
+        savedBytes.name = "property-saved-outline-json"
+        savedBytes.lifetime = .keepAlways
+        add(savedBytes)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(saved.utf8)) as? [String: Any])
         XCTAssertEqual(object["schema"] as? String, "ap.property-outline.v1")
         XCTAssertEqual((object["ring_ids"] as? [String])?.count, 2)

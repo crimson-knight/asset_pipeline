@@ -137,8 +137,12 @@ ruby samples/property_measurement/ios/test.rb \
 This rebuilds the native library, app and tests; ad-hoc signs only the synthetic
 app/test bundles; runs every discovered XCTest with zero permitted skips; then
 explicitly repeats the saved-outline cold-launch test last. It independently
-reads the app's real simulator preferences file and retains the canonical saved
-outline. Results, failures and code/dependency hashes remain in `receipt.json`,
+reads the app's real simulator preferences file and requires its exact bytes to
+match the fresh outline attached by XCTest, including its unique exclusion ID.
+CFPreferences may flush asynchronously; this check waits at most 5 seconds for
+actual disk convergence and records the wait, never accepting a prior outline.
+It retains the canonical saved outline. Results, failures and code/dependency
+hashes remain in `receipt.json`,
 the logs, XCTest result bundles and `outline-from-simulator-disk.json`.
 
 The startup fixture must initialize GC, the Crystal runtime **and top-level

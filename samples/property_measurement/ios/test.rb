@@ -119,12 +119,40 @@ begin
   # synthetic installation, so a separate persistence run leaves real prefs to
   # inspect on disk. The test terminates/relaunches and compares the full JSON.
   verify.call('persistence', 1, ['-only-testing:PropertyMeasurementFixtureUITests/PropertyMeasurementTests/testDrawExcludeUndoSaveAndRestoreFromDisk'])
+  attachments_dir = File.join(output, 'persistence-attachments')
+  capture.call('xcrun', 'xcresulttool', 'export', 'attachments', '--path', File.join(derived, 'persistence.xcresult'), '--output-path', attachments_dir)
+  attachment_manifest = JSON.parse(File.read(File.join(attachments_dir, 'manifest.json')))
+  saved_attachments = attachment_manifest.flat_map { |test| test.fetch('attachments') }.select { |entry| entry.fetch('suggestedHumanReadableName').start_with?('property-saved-outline-json_') }
+  raise 'Expected exactly one canonical outline attachment from the persistence test.' unless saved_attachments.size == 1
+  attachment_name = saved_attachments.first.fetch('exportedFileName')
+  raise 'Unsafe attachment filename.' unless File.basename(attachment_name) == attachment_name
+  expected_outline = File.read(File.join(attachments_dir, attachment_name))
+  JSON.parse(expected_outline)
   container = capture.call('xcrun', 'simctl', 'get_app_container', options[:simulator], receipt['bundle_id'], 'data').strip
-  preferences = JSON.parse(capture.call('plutil', '-convert', 'json', '-o', '-', File.join(container, 'Library', 'Preferences', receipt['bundle_id'] + '.plist')))
-  outline = JSON.parse(preferences.fetch('saved-outline'))
+  preferences_path = File.join(container, 'Library', 'Preferences', receipt['bundle_id'] + '.plist')
+  # CFPreferences flushes out of process. A successful UI cold launch can read
+  # its cache just before the plist reaches disk. Observe bounded, exact disk
+  # convergence; never accept an old outline merely because its shape is valid.
+  disk_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  saved_outline = nil
+  disk_reads = 0
+  loop do
+    if File.file?(preferences_path)
+      preferences = JSON.parse(capture.call('plutil', '-convert', 'json', '-o', '-', preferences_path))
+      saved_outline = preferences['saved-outline']
+      disk_reads += 1
+    end
+    break if saved_outline == expected_outline
+    raise 'Exact newly saved outline did not reach simulator disk within 5 seconds.' if Process.clock_gettime(Process::CLOCK_MONOTONIC) - disk_started >= 5
+    sleep 0.1
+  end
+  receipt['disk_read_attempts'] = disk_reads
+  receipt['disk_convergence_seconds'] = Process.clock_gettime(Process::CLOCK_MONOTONIC) - disk_started
+  receipt['disk_matches_xctest_saved_bytes'] = true
+  outline = JSON.parse(saved_outline)
   raise 'Saved simulator disk data is not a measured outline.' unless outline['schema'] == 'ap.property-outline.v1' && outline.fetch('ring_ids').size == 2 && outline.dig('measurement', 'net_area_m2').to_f > 0
   File.write(File.join(output, 'outline-from-simulator-disk.json'), JSON.pretty_generate(outline) + "\n")
-  receipt['saved_outline_sha256'] = Digest::SHA256.hexdigest(preferences.fetch('saved-outline'))
+  receipt['saved_outline_sha256'] = Digest::SHA256.hexdigest(saved_outline)
   receipt['status'] = 'passed'
 rescue StandardError => error
   receipt['status'] = 'failed'
