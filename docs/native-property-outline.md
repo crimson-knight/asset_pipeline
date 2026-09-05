@@ -145,6 +145,10 @@ The startup fixture must initialize GC, the Crystal runtime **and top-level
 constants** once before any other C-ABI call. Its explicit startup export passes
 valid argv to `Crystal.main_user_code`; thread-only initialization crashes the
 first floating-point serialization even though compilation succeeds.
+The build requires an iOS-capable Crystal toolchain and explicitly passes
+`-Dwithout_mt`, matching the UIKit consumer's main-thread ownership. A generic
+Crystal installation without the iOS platform support is not interchangeable;
+its failed cross-build must not be counted as simulator acceptance.
 
 Lower-level commands, for investigating a failed step:
 

@@ -14,7 +14,9 @@ while IFS= read -r task_source; do
   task_swift_sources+=("$task_source")
 done < <(find "$task_root/swift/AssetPipelineSwiftKit/Sources/AssetPipelineSwiftKit" -type f -name '*.swift' | LC_ALL=C sort)
 swiftc -emit-library -static -O -module-name AssetPipelineSwiftKit -target arm64-apple-ios17.0-simulator -sdk "$task_sdk" "${task_swift_sources[@]}" -o "$task_build/swiftkit_simulator.a"
-"${CRYSTAL:-crystal-alpha}" build "$task_dir/bridge.cr" --cross-compile --target=arm64-apple-ios-simulator -Dios -o "$task_build/bridge"
+# Match the real UIKit host: the OS main thread must own the Crystal main fiber,
+# not an alpha-runtime MT pool. This is independent of the simulator driver.
+"${CRYSTAL:-crystal-alpha}" build "$task_dir/bridge.cr" --cross-compile --target=arm64-apple-ios-simulator -Dios -Dwithout_mt -o "$task_build/bridge"
 ld -r -unexported_symbol _main "$task_build/bridge.o" -o "$task_build/bridge_fixed.o"
 ar rcs "$task_build/libpropertyfixture.a" "$task_build/bridge_fixed.o" "$task_build/objc.o" "$task_build/swiftkit.o"
 xcodegen generate --spec "$task_dir/project.yml"
