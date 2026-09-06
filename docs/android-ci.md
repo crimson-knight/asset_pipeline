@@ -199,6 +199,8 @@ instrumentation tests before the fixes above landed.
 | 7 | package history, ten-second sheet waits | 47/50 (taps dropped before the session was foreground) | 17/50 (launcher ANR dialog held focus) | **pass** |
 | 8 | error dialogs suppressed, basics promotion | 47/50 | 48/50 (landscape keyboard readiness) | **pass** |
 | 9 | foreground wait, stabilized taps, focus tap point | **pass** | 48/50 (landscape keyboard readiness) | **pass** |
+| 10 | 56 tests (basics suite), stable-root readiness | 55/56 (viewport tap mid-layout) | 54/56 (landscape keyboard) | **pass** |
+| 11 | keyboard settle, viewport taps, readiness diagnostics | 55/56 (dropped horizontal fling) | 54/56 (window focus lost while the keyboard was visible and active) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -221,4 +223,13 @@ landscape keyboard readiness wait: the keyboard was shown within a second of
 the tap, but the wait also required the dialog decor to equal the display
 size, which never holds on an image whose landscape navigation bar sits
 beside the window. The wait now requires a stable root size instead. From
-run 10 the suite is 54 tests, including the basics contract suite.
+run 10 the suite is 56 tests, including the basics contract suite.
+
+Run 11's readiness diagnostics named the API 35 clause: the keyboard was
+visible and active on a focused editor while the editor's window had no
+window focus, which is what a fullscreen extract-mode keyboard does in
+landscape. Sheet editors now also set `IME_FLAG_NO_EXTRACT_UI`. The local API
+35 trace showed the keyboard-restore retry's hide landing after its own show;
+the retry is now staged one action per interval. The remaining API 31 miss was
+a dropped horizontal fling on the software emulator; the gesture test repeats
+the real gesture up to three times before judging it.
