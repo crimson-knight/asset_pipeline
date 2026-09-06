@@ -109,3 +109,56 @@ not yet claimed here.
    and retain genuine 16 KB runtime evidence. Complete independent x86_64 CI,
    physical-phone and release gates separately; nothing here authorizes
    publishing or replaces those requirements.
+
+## Migration results — September 6, 2026 (continuation)
+
+The first migrated build failed to compile: the SDK 36 stubs declare
+`CompoundButton.OnCheckedChangeListener` and `RadioGroup.OnCheckedChangeListener`
+with non-null parameters, so the runtime's nullable `onCheckedChanged` overrides
+no longer matched. Both are corrected; no other listener signature changed.
+
+Target-36 packages built from source: both ABI libraries carry four `LOAD`
+segments aligned to `0x4000`, and `zipalign -c -P 16 -v 4` passes on the debug
+APK. This is the same alignment evidence as the frozen target-35 package, now
+for the migrated build.
+
+### Android 16 behavior audit of the host and runtime
+
+Read against the platform's target-36 behavior list. Code-level findings:
+
+- **Edge-to-edge enforcement.** The host never used
+  `windowOptOutEdgeToEdgeEnforcement`; `MainActivity` pads its root from
+  `systemBars()` and `ime()` insets, and the sheet window owns its own insets.
+  Nothing to migrate; behavior is exercised by the existing inset tests.
+- **Predictive back.** The manifest already opts in with
+  `enableOnBackInvokedCallback="true"` and navigation uses
+  `OnBackPressedDispatcher`. No `onBackPressed` override or `KEYCODE_BACK`
+  handling exists in production code.
+- **Large-screen orientation and resizability.** No `screenOrientation`,
+  `resizeableActivity` or aspect-ratio declarations exist, so nothing is ignored.
+- **Elegant text height, health, Bluetooth, local network, MediaStore, fixed-rate
+  scheduling.** None of these APIs appear in the runtime or host.
+- **Keyboard restoration after window recreation** is the one real delta.
+  Android 15 re-showed a saved-visible keyboard for a recreated sheet dialog
+  itself (`ImeTracker` reason `SHOW_RESTORE_IME_VISIBILITY`). Android 16 does not,
+  and both client strategies that worked before now fail: a direct
+  `showSoftInput` issued as the new dialog gains focus is rejected server-side at
+  `PHASE_SERVER_UPDATE_CLIENT_VISIBILITY` because the window is not yet the input
+  target, and an insets-controller request at that moment cancels the system's
+  own in-flight show (`PHASE_CLIENT_APPLY_ANIMATION`), after which the input method
+  hides. The sheet now declares `SOFT_INPUT_STATE_ALWAYS_VISIBLE` before its window
+  attaches when the saved state had a keyboard, requests the IME through the insets
+  controller immediately after `dialog.show()`, and at focus only confirms after a
+  bounded delay. The three landscape keyboard tests pass in batch on API 36 and
+  API 35 with this change; they failed on API 36 with every earlier strategy.
+
+### Test-protocol defects exposed by the API 36 run
+
+- The injected-Tab traversal assertion in `AndroidSemanticsTest` read focus
+  immediately after `pressKeyCode` returned. With an input method attached the
+  platform finishes traversal on a later main-loop turn, so the assertion was a
+  race on every API level; it now waits for the focus move. This was the
+  "intermittent" Tab failure.
+- The sheet drag test tapped Save while the expanded sheet was still laying out.
+  On the slower Linux x86_64 emulator the button moved between Espresso's
+  coordinate lookup and its tap. Both taps now wait for a stable rectangle.

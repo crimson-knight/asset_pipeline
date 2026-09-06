@@ -162,3 +162,26 @@ Physical ARM64 phone proof, the remaining component/device/accessibility matrix,
 generated-project release resolution, Amber/CLI/AgentC integration CI and public
 release proof remain separate full-goal gates. See the implementation plan for
 the acceptance criteria rather than treating this one fixture lane as parity.
+
+## Linux runner notes (first real remote runs, September 6, 2026)
+
+The declared workflow ran on GitHub's `ubuntu-24.04` runners with x86_64
+emulators at API 31, 35 and 36. Three host-portability defects surfaced and are
+fixed:
+
+- The runner preinstalls NDK 27.3 and exports it as `ANDROID_NDK_HOME`. The
+  resolver now walks `ANDROID_NDK_HOME`, `ANDROID_NDK_ROOT` and the SDK's pinned
+  directory and takes the first whose `Pkg.Revision` matches the pin.
+- The host's `gradle.properties` carried `org.gradle.java.home` pointing at one
+  Mac's Android Studio JDK. It is removed; the driver exports `JAVA_HOME` from the
+  toolchain resolver and CI sets it through `setup-java`.
+- The raw-JNI structural gate searched with ripgrep inside `if`; without `rg` the
+  command exited 127 and the violation branch never ran, so the gate reported PASS
+  on any host lacking it, including this runner. It now scans with perl and
+  self-tests.
+
+One runner in the matrix reported no `/dev/kvm`; the workflow fails that job
+loudly rather than skipping the device lane. Re-run the job on a fresh runner.
+Both packaged ABIs, the debug APK and the release bundle build on Linux, and the
+x86_64 libraries execute: API 31 and API 36 emulator jobs each completed all 50
+instrumentation tests before the fixes above landed.
