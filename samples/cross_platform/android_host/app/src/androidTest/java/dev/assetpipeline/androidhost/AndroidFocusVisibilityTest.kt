@@ -107,7 +107,15 @@ class AndroidFocusVisibilityTest {
                 if (!visible) SystemClock.sleep(50L)
             }
             assertTrue("Editor did not scroll fully into view", visible)
-            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).click(x, y))
+            // An injected tap can be dropped by a software emulator; retry it a
+            // bounded number of times before judging the keyboard that follows.
+            var tapped = false
+            for (attempt in 1..3) {
+                tapped = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).click(x, y)
+                if (tapped) break
+                SystemClock.sleep(400L)
+            }
+            assertTrue("Injected tap on the editor was dropped three times", tapped)
             awaitIme(scenario, true)
             scenario.recreate()
             awaitText("Focus visibility")

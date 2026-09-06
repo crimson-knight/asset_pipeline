@@ -52,7 +52,7 @@ class AndroidSheetViewportTest {
             last = now
             SystemClock.sleep(50L)
         }
-        inside(id).perform(scrollTo(), click())
+        NativeTaps.tap({ inside(id) })
     }
     private fun await(text: String) = assertTrue("Missing native text: $text", device.wait(Until.hasObject(By.text(text)), 5000L))
     private fun gone() = assertTrue("Native sheet did not close", device.wait(Until.gone(By.text("Edit a native draft")), 5000L))

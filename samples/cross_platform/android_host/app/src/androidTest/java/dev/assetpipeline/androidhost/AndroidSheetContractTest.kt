@@ -74,10 +74,10 @@ class AndroidSheetContractTest {
             last = now
             SystemClock.sleep(50L)
         }
-        onView(NativeTestIds.withTestId(id)).perform(click())
+        NativeTaps.tap({ onView(NativeTestIds.withTestId(id)) })
     }
     /** Tap a sheet control only after it stops moving. */
-    private fun tap(id: String) { awaitStable(id); inside(id).perform(scrollTo(), click()) }
+    private fun tap(id: String) { awaitStable(id); NativeTaps.tap({ inside(id) }) }
     /** Wait until the view's on-screen rectangle has not changed for 250 ms. */
     private fun awaitStable(id: String) {
         val deadline = SystemClock.uptimeMillis() + 5000L

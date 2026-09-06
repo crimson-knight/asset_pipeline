@@ -46,7 +46,7 @@ class AndroidDialogContractTest {
             last = now
             android.os.SystemClock.sleep(50L)
         }
-        onView(NativeTestIds.withTestId(id)).perform(click())
+        NativeTaps.tap({ onView(NativeTestIds.withTestId(id)) })
     }
     private fun nativeButton(text: String) = onView(withText(text)).inRoot(isDialog())
     private fun status(actions: Int = 0, cancels: Int = 0, confirms: Int = 0, underlying: Int = 0) =

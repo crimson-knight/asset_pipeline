@@ -79,8 +79,8 @@ class AndroidSheetWindowMatrixTest {
         throw AssertionError("View $id did not stop moving")
     }
     /** Tap a sheet control only after it stops moving. */
-    private fun tap(id: String) { awaitStable(id); inside(id).perform(scrollTo(), click()) }
-    private fun open(id: String) { awaitInteractive(); onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click()) }
+    private fun tap(id: String) { awaitStable(id); NativeTaps.tap({ inside(id) }) }
+    private fun open(id: String) { awaitInteractive(); NativeTaps.tap({ onView(NativeTestIds.withTestId(id)) }) }
     /**
      * The sheet window is created from a Crystal callback after the opening
      * tap returns. Espresso's root picker gives up quickly when no root matches
