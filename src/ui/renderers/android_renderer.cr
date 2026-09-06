@@ -202,6 +202,8 @@
 
       # --- SeekBar (Slider) ---
       fun android_seekbar_set_max(env : Void*, sb : Void*, max : Int32)
+      fun android_togglebutton_set_text_on_off(env : Void*, v : Void*, text : UInt8*, byte_len : Int32)
+      fun android_button_set_open_url_on_click(env : Void*, v : Void*, url : UInt8*, byte_len : Int32)
       fun android_progressbar_set_indeterminate(env : Void*, pb : Void*, indeterminate : Int32)
       fun android_seekbar_set_progress(env : Void*, sb : Void*, progress : Int32)
       fun android_seekbar_set_progress_tint(env : Void*, sb : Void*, argb : Int32)
@@ -2278,7 +2280,17 @@
         LibAndroidBridge.android_textview_set_text(
           @env, btn, view.label.to_unsafe, view.label.bytesize)
         apply_common_properties(btn, view)
-        emit(btn, "Button[link]")
+        global_btn = LibAndroidBridge.android_new_global_ref(@env, btn)
+        handle = JNI.wrap_global(global_btn, label: "Button[link]")
+        native = owned_native(handle)
+        if tap_handler = view.on_tap
+          # Crystal owns the tap; navigation or URL handling happens there.
+          callback_id = native.register_callback(tap_handler)
+          LibAndroidBridge.android_view_set_on_click_listener(@env, btn, callback_id)
+        elsif view.opens_in_browser && !view.url.empty?
+          LibAndroidBridge.android_button_set_open_url_on_click(@env, btn, view.url.to_unsafe, view.url.bytesize)
+        end
+        push_native(native, btn)
       end
 
       def visit(view : UI::MenuButton)
@@ -2338,10 +2350,19 @@
 
       def visit(view : UI::ToggleButton)
         btn = LibAndroidBridge.android_view_new(@env, "android/widget/ToggleButton", @context)
-        LibAndroidBridge.android_textview_set_text(
-          @env, btn, view.label.to_unsafe, view.label.bytesize)
+        # ToggleButton replaces its text with textOn/textOff on every state
+        # change; give both the label so the control keeps its name.
+        LibAndroidBridge.android_togglebutton_set_text_on_off(@env, btn, view.label.to_unsafe, view.label.bytesize)
+        LibAndroidBridge.android_switch_set_checked(@env, btn, view.is_selected ? 1 : 0)
         apply_common_properties(btn, view)
-        emit(btn, "ToggleButton")
+        global_btn = LibAndroidBridge.android_new_global_ref(@env, btn)
+        handle = JNI.wrap_global(global_btn, label: "ToggleButton")
+        native = owned_native(handle)
+        if toggle_handler = view.on_toggle
+          callback_id = native.track_callback_id(UI::CallbackRegistry.register_bool(toggle_handler))
+          LibAndroidBridge.android_view_set_on_checked_change_listener(@env, btn, callback_id)
+        end
+        push_native(native, btn)
       end
 
       def visit(view : UI::TextEditor)

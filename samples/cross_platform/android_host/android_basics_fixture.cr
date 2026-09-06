@@ -6,9 +6,11 @@ module AndroidBasicsFixture
   @@notes = "Line one\nLine two"
   @@progress = 0.35
   @@taps = 0
+  @@bold = false
+  @@link_taps = 0
 
   def self.reset
-    @@secret = ""; @@notes = "Line one\nLine two"; @@progress = 0.35; @@taps = 0
+    @@secret = ""; @@notes = "Line one\nLine two"; @@progress = 0.35; @@taps = 0; @@bold = false; @@link_taps = 0
   end
 
   def self.mark(view : UI::View, id : String) : UI::View
@@ -49,6 +51,16 @@ module AndroidBasicsFixture
     icon.accessibility_label = "Add item"
     root << mark(icon, "basics-icon")
     root << mark(UI::Label.new("Icon taps: #{@@taps}"), "basics-icon-echo")
+
+    toggle = UI::ToggleButton.new("Bold", @@bold) { |on| @@bold = on; nil }
+    root << mark(toggle, "basics-toggle-button")
+    root << mark(UI::Label.new("Bold: #{@@bold}"), "basics-toggle-echo")
+
+    link = UI::LinkButton.new("Docs", "https://example.invalid/docs")
+    link.on_tap = -> { @@link_taps += 1; nil }
+    root << mark(link, "basics-link")
+    root << mark(UI::Label.new("Link taps: #{@@link_taps}"), "basics-link-echo")
+    root << mark(UI::LinkButton.new("Open site", "https://example.invalid/"), "basics-link-browser")
     root
   end
 end

@@ -13,6 +13,10 @@ describe AndroidBasicsFixture do
     ids.should contain("basics-spinner")
     ids.should contain("basics-divider")
     ids.should contain("basics-icon")
+    ids.should contain("basics-toggle-button")
+    ids.should contain("basics-link")
+    root.children.select(UI::ToggleButton).first.is_selected.should be_false
+    root.children.select(UI::LinkButton).map(&.url).should eq(["https://example.invalid/docs", "https://example.invalid/"])
     root.children.select(UI::ProgressView).map(&.value).should eq([0.35, nil, 0.5])
     root.children.select(UI::ProgressView).map(&.style).should eq([UI::ProgressStyle::Linear, UI::ProgressStyle::Linear, UI::ProgressStyle::Circular])
     root.children.select(UI::ActivityIndicator).map(&.is_animating).should eq([true, false])
@@ -26,10 +30,15 @@ describe AndroidBasicsFixture do
     root.children.select(UI::TextArea).first.on_change.not_nil!.call("a\nb\nc")
     root.children.select(UI::IconButton).first.on_tap.not_nil!.call
     root.children.select(UI::Button).first.on_tap.try &.call
+    root.children.select(UI::ToggleButton).first.on_toggle.not_nil!.call(true)
+    root.children.select(UI::LinkButton).first.on_tap.not_nil!.call
     rebuilt = AndroidBasicsFixture.build.as(UI::VStack)
     rebuilt.children.select(UI::Label).map(&.text).should contain("Secret length: 4")
     rebuilt.children.select(UI::Label).map(&.text).should contain("Lines: 3")
     rebuilt.children.select(UI::Label).map(&.text).should contain("Icon taps: 1")
     rebuilt.children.select(UI::SecureField).first.text.should eq("1234")
+    rebuilt.children.select(UI::Label).map(&.text).should contain("Bold: true")
+    rebuilt.children.select(UI::Label).map(&.text).should contain("Link taps: 1")
+    rebuilt.children.select(UI::ToggleButton).first.is_selected.should be_true
   end
 end

@@ -1541,6 +1541,39 @@ void android_progressbar_set_indeterminate(void *env_ptr, void *pb, int32_t inde
     (*env)->DeleteLocalRef(env, cls);
 }
 
+void android_togglebutton_set_text_on_off(void *env_ptr, void *v, uint8_t *text, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = ap_jni_GetObjectClass(env, (jobject)v);
+    jmethodID on = ap_get_method(env, cls, "setTextOn", "(Ljava/lang/CharSequence;)V");
+    jmethodID off = ap_get_method(env, cls, "setTextOff", "(Ljava/lang/CharSequence;)V");
+    jmethodID text_method = ap_get_method(env, cls, "setText", "(Ljava/lang/CharSequence;)V");
+    jstring value = ap_new_string(env, text, byte_len);
+    if (value) {
+        if (on) ap_jni_CallVoidMethod(env, (jobject)v, on, value);
+        if (off) ap_jni_CallVoidMethod(env, (jobject)v, off, value);
+        if (text_method) ap_jni_CallVoidMethod(env, (jobject)v, text_method, value);
+        (*env)->DeleteLocalRef(env, value);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_button_set_open_url_on_click(void *env_ptr, void *v, uint8_t *url, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass listener_cls = ap_jni_FindClass(env, "dev/assetpipeline/androidhost/CrystalOpenUrlListener");
+    jmethodID ctor = listener_cls ? ap_get_method(env, listener_cls, "<init>", "(Ljava/lang/String;)V") : NULL;
+    jstring value = ap_new_string(env, url, byte_len);
+    jobject listener = (ctor && value) ? ap_jni_NewObject(env, listener_cls, ctor, value) : NULL;
+    if (listener) {
+        jclass cls = ap_jni_GetObjectClass(env, (jobject)v);
+        jmethodID method = ap_try_get_method(env, cls, "setOnClickListener", "(Landroid/view/View$OnClickListener;)V");
+        if (method) ap_jni_CallVoidMethod(env, (jobject)v, method, listener);
+        (*env)->DeleteLocalRef(env, cls);
+        (*env)->DeleteLocalRef(env, listener);
+    }
+    if (value) (*env)->DeleteLocalRef(env, value);
+    if (listener_cls) (*env)->DeleteLocalRef(env, listener_cls);
+}
+
 void android_seekbar_set_max(void *env_ptr, void *sb, int32_t max) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jclass cls = ap_jni_GetObjectClass(env, (jobject)sb);

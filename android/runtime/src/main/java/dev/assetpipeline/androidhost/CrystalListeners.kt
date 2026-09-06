@@ -2,6 +2,10 @@ package dev.assetpipeline.androidhost
 
 import android.text.Editable
 import android.text.TextWatcher
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import android.view.View
 import android.view.KeyEvent
 import android.widget.TextView
@@ -118,5 +122,17 @@ class CrystalItemSelectedListener(private val callbackId: Long) : AdapterView.On
     }
 
     override fun onNothingSelected(parent: AdapterView<*>?) {
+    }
+}
+
+/** A link button without a Crystal handler opens its URL in the platform browser. */
+class CrystalOpenUrlListener(private val url: String) : View.OnClickListener {
+    override fun onClick(v: View?) {
+        if (!NativeWindowScope.allows(v)) return
+        val context = v?.context ?: return
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try { context.startActivity(intent) } catch (missing: ActivityNotFoundException) {
+            Log.w("AssetPipelineLink", "No activity handles $url")
+        }
     }
 }

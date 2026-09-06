@@ -8,6 +8,7 @@ import android.text.method.PasswordTransformationMethod
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.ToggleButton
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso.onView
@@ -152,6 +153,40 @@ class AndroidBasicsContractTest {
             scrollToId("basics-icon-echo"); awaitText("Icon taps: 0")
             onView(NativeTestIds.withTestId("basics-icon")).perform(scrollTo(), click())
             scrollToId("basics-icon-echo"); awaitText("Icon taps: 1")
+        } finally { scenario.close() }
+    }
+
+    @Test fun toggleButtonKeepsItsLabelAndReportsStateToCrystal() {
+        val scenario = launch()
+        try {
+            awaitText("Native basics")
+            scenario.onActivity { activity ->
+                val toggle = view(activity, "basics-toggle-button") as ToggleButton
+                assertEquals("Toggle button keeps its label in both states", "Bold", toggle.text.toString())
+                assertFalse(toggle.isChecked)
+            }
+            scrollToId("basics-toggle-echo"); awaitText("Bold: false")
+            onView(NativeTestIds.withTestId("basics-toggle-button")).perform(scrollTo(), click())
+            scrollToId("basics-toggle-echo"); awaitText("Bold: true")
+            scenario.onActivity { activity ->
+                val toggle = view(activity, "basics-toggle-button") as ToggleButton
+                assertTrue(toggle.isChecked); assertEquals("Bold", toggle.text.toString())
+            }
+        } finally { scenario.close() }
+    }
+
+    @Test fun linkButtonCallsBackToCrystalOrOpensItsUrl() {
+        val scenario = launch()
+        try {
+            awaitText("Native basics")
+            scrollToId("basics-link-echo"); awaitText("Link taps: 0")
+            onView(NativeTestIds.withTestId("basics-link")).perform(scrollTo(), click())
+            scrollToId("basics-link-echo"); awaitText("Link taps: 1")
+            scenario.onActivity { activity ->
+                val browser = view(activity, "basics-link-browser")
+                assertTrue("A link without a Crystal handler must open its URL on tap", browser.hasOnClickListeners())
+                assertEquals("Open site", (browser as android.widget.Button).text.toString())
+            }
         } finally { scenario.close() }
     }
 }
