@@ -1531,6 +1531,16 @@ void android_view_set_id(void *env_ptr, void *v, int32_t view_id) {
     (*env)->DeleteLocalRef(env, cls);
 }
 
+void android_progressbar_set_indeterminate(void *env_ptr, void *pb, int32_t indeterminate) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = ap_jni_GetObjectClass(env, (jobject)pb);
+    jmethodID method = ap_get_method(env, cls, "setIndeterminate", "(Z)V");
+    if (method) {
+        ap_jni_CallVoidMethod(env, (jobject)pb, method, (jboolean)(indeterminate != 0));
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
 void android_seekbar_set_max(void *env_ptr, void *sb, int32_t max) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jclass cls = ap_jni_GetObjectClass(env, (jobject)sb);

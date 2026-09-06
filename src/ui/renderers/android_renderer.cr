@@ -202,6 +202,7 @@
 
       # --- SeekBar (Slider) ---
       fun android_seekbar_set_max(env : Void*, sb : Void*, max : Int32)
+      fun android_progressbar_set_indeterminate(env : Void*, pb : Void*, indeterminate : Int32)
       fun android_seekbar_set_progress(env : Void*, sb : Void*, progress : Int32)
       fun android_seekbar_set_progress_tint(env : Void*, sb : Void*, argb : Int32)
       fun android_seekbar_get_progress(env : Void*, sb : Void*) : Int32
@@ -1108,32 +1109,31 @@
       # Visit: ProgressView -> android.widget.ProgressBar
       # -----------------------------------------------------------------
       def visit(view : UI::ProgressView)
-        # ProgressBar default style is indeterminate circular spinner.
-        # For determinate linear we use android/widget/ProgressBar with horizontal style.
-        pb = LibAndroidBridge.android_view_new(@env, "android/widget/ProgressBar", @context)
-
+        # Material indicators, not a bare ProgressBar: a default ProgressBar is
+        # an indeterminate circular spinner regardless of setProgress, so a
+        # determinate value was silently ignored before.
+        class_name = view.style.circular? ? "com/google/android/material/progressindicator/CircularProgressIndicator" : "com/google/android/material/progressindicator/LinearProgressIndicator"
+        pb = LibAndroidBridge.android_view_new(@env, class_name, @context)
         if val = view.value
-          # Determinate: setIndeterminate(false), setProgress(0..10000)
+          LibAndroidBridge.android_progressbar_set_indeterminate(@env, pb, 0)
           LibAndroidBridge.android_seekbar_set_max(@env, pb, 10000)
           progress = (val * 10000).round.to_i.clamp(0, 10000)
           LibAndroidBridge.android_seekbar_set_progress(@env, pb, progress)
+        else
+          LibAndroidBridge.android_progressbar_set_indeterminate(@env, pb, 1)
         end
-        # else indeterminate: ProgressBar default behavior is indeterminate
-
         if tint = view.tint_color
           LibAndroidBridge.android_seekbar_set_progress_tint(@env, pb, color_to_argb(tint))
         end
-
         apply_common_properties(pb, view)
-
-        emit(pb, "ProgressBar")
+        emit(pb, view.style.circular? ? "CircularProgressIndicator" : "LinearProgressIndicator")
       end
-
       # -----------------------------------------------------------------
-      # Visit: ActivityIndicator -> android.widget.ProgressBar (spinner)
+      # Visit: ActivityIndicator -> Material CircularProgressIndicator (indeterminate)
       # -----------------------------------------------------------------
       def visit(view : UI::ActivityIndicator)
-        spinner = LibAndroidBridge.android_view_new(@env, "android/widget/ProgressBar", @context)
+        spinner = LibAndroidBridge.android_view_new(@env, "com/google/android/material/progressindicator/CircularProgressIndicator", @context)
+        LibAndroidBridge.android_progressbar_set_indeterminate(@env, spinner, 1)
 
         # Visibility: VISIBLE=0, INVISIBLE=4, GONE=8
         unless view.is_animating
@@ -1146,7 +1146,7 @@
 
         apply_common_properties(spinner, view)
 
-        emit(spinner, "ProgressBar[spinner]")
+        emit(spinner, "CircularProgressIndicator[spinner]")
       end
 
       # -----------------------------------------------------------------
