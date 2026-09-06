@@ -53,6 +53,16 @@ class AndroidSheetWindowMatrixTest {
         fail(message)
     }
     /**
+     * After a recreation the host drops taps until its session is foreground
+     * again (window-scope protection). A slow emulator can present the new
+     * Activity hundreds of milliseconds before that, so wait for it here.
+     */
+    private fun awaitInteractive() {
+        waitFor("Host session did not return to the foreground") { CrystalBridge.debugSessionState() == HostSession.State.FOREGROUND }
+        device.waitForIdle(1000)
+    }
+    private fun open(id: String) { awaitInteractive(); onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click()) }
+    /**
      * The sheet window is created from a Crystal callback after the opening
      * tap returns. Espresso's root picker gives up quickly when no root matches
      * `isDialog()`, which a slower emulator can hit; wait for it explicitly.
@@ -184,7 +194,7 @@ class AndroidSheetWindowMatrixTest {
     @Test fun largeTextAndRtlKeepNativeControlsReadableAndReachable() {
         for (language in listOf("en", "ar")) for (landscape in listOf(false, true)) {
             configured(WindowMatrixActivity.Profile(2f, language), landscape) { scenario ->
-                onView(NativeTestIds.withTestId("sheet-open-small-only")).perform(scrollTo(), click())
+                open("sheet-open-small-only")
                 var shown = parts()
                 main {
                     assertEquals(2f, shown.owner.resources.configuration.fontScale, 0.001f)
@@ -227,7 +237,7 @@ class AndroidSheetWindowMatrixTest {
     @Test fun rtlLargeLandscapeKeyboardKeepsTheNativeSheetEditorUsableThroughRecreation() = landscapeKeyboard(WindowMatrixActivity.Profile(2f, "ar"))
     private fun landscapeKeyboard(profile: WindowMatrixActivity.Profile) {
         configured(profile, true) { scenario ->
-            onView(NativeTestIds.withTestId("sheet-open-small-only")).perform(scrollTo(), click())
+            open("sheet-open-small-only")
             inside("sheet-draft").perform(scrollTo())
             var shown = parts()
             var x = 0; var y = 0
@@ -312,7 +322,7 @@ class AndroidSheetWindowMatrixTest {
                 it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             }
             waitFor("Task Activity did not rotate to landscape") { device.displayWidth > device.displayHeight }
-            onView(NativeTestIds.withTestId("sheet-open-small-only")).perform(scrollTo(), click())
+            open("sheet-open-small-only")
             val shown = parts()
             screenshot("small-landscape-before-editor-scroll")
             main {

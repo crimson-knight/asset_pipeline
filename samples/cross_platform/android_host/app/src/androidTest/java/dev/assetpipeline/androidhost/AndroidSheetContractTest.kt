@@ -49,7 +49,18 @@ class AndroidSheetContractTest {
             .putExtra(MainActivity.EXTRA_STUDY_APPEARANCE, appearance))
     private fun await(text: String) = assertTrue("Missing native text: $text", device.wait(Until.hasObject(By.text(text)), 10_000L))
     private fun gone() = assertTrue("Native sheet did not close", device.wait(Until.gone(By.text("Edit a native draft")), 5000L))
-    private fun appClick(id: String) = onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click())
+    private fun appClick(id: String) {
+        // Taps are dropped until the host session is foreground again after a recreation.
+        val deadline = SystemClock.uptimeMillis() + 10000L
+        var ready = false
+        while (!ready && SystemClock.uptimeMillis() < deadline) {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { ready = CrystalBridge.debugSessionState() == HostSession.State.FOREGROUND }
+            if (!ready) SystemClock.sleep(50L)
+        }
+        assertTrue("Host session did not return to the foreground", ready)
+        device.waitForIdle(1000)
+        onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click())
+    }
     /** Wait until the view's on-screen rectangle has not changed for 250 ms. */
     private fun awaitStable(id: String) {
         val deadline = SystemClock.uptimeMillis() + 5000L
