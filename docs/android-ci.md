@@ -197,6 +197,8 @@ instrumentation tests before the fixes above landed.
 | 5 | guarded retry, dialog-root wait, KVM retry | 46/50 | 17/50 (no window focus, 2-core emulator) | host spec crash (raw-thread mutex) |
 | 6 | 4-core emulators, keyguard, diagnostics, lock-free identity | **pass** | 48/50 (two wait budgets) | **pass** |
 | 7 | package history, ten-second sheet waits | 47/50 (taps dropped before the session was foreground) | 17/50 (launcher ANR dialog held focus) | **pass** |
+| 8 | error dialogs suppressed, basics promotion | 47/50 | 48/50 (landscape keyboard readiness) | **pass** |
+| 9 | foreground wait, stabilized taps, focus tap point | **pass** | 48/50 (landscape keyboard readiness) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -213,3 +215,10 @@ dialog before installing. Run 7's API 31 misses were taps issued after a
 recreation before the host session was foreground again, which the host drops
 by design; the sheet tests now wait for that state before tapping, and the
 focus test waits for its editor to finish scrolling into view before it taps.
+
+Run 9 is the first green API 31 job. The API 35 image's remaining pair is the
+landscape keyboard readiness wait: the keyboard was shown within a second of
+the tap, but the wait also required the dialog decor to equal the display
+size, which never holds on an image whose landscape navigation bar sits
+beside the window. The wait now requires a stable root size instead. From
+run 10 the suite is 54 tests, including the basics contract suite.
