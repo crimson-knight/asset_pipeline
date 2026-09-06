@@ -286,8 +286,10 @@ class AndroidSheetWindowMatrixTest {
             device.waitForIdle(1000)
             inside("sheet-draft").check { _, error -> if (error != null) throw error }
             // Keyboard restoration can complete a deferred full-tree refresh
-            // that replaces the editor; check the control the sheet holds now.
+            // that replaces the editor; check the control the sheet holds now,
+            // and only once the keyboard has settled on that editor.
             shown = parts()
+            awaitKeyboard(shown, "Landscape keyboard did not settle on the restored editor")
             main {
                 keyboardEditorVisible(shown)
                 assertEquals("Landscape 雪 😀 e\u0301", shown.editor.text.toString())
