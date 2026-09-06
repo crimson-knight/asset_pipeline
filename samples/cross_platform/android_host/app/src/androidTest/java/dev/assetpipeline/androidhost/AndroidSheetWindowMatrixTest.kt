@@ -197,7 +197,17 @@ class AndroidSheetWindowMatrixTest {
         assertTrue("Viewport must fit a complete control when the window allows it",
             shown.viewport.height >= minOf(minimumViewport, availableBody))
     }
+    private var lastKeyboardWait = ""
     private fun awaitKeyboard(shown: Parts, message: String) {
+        var stableSince = 0L
+        var lastRoot = 0 to 0
+        try { waitForKeyboard(shown, message) { stableSince = it.first; lastRoot = it.second } } catch (failure: AssertionError) {
+            // Failure-only diagnostics: which readiness clause never held.
+            instrumentation.sendStatus(0, Bundle().apply { putString("keyboard_wait", lastKeyboardWait) })
+            throw AssertionError("$message [$lastKeyboardWait]", failure)
+        }
+    }
+    private fun waitForKeyboard(shown: Parts, message: String, state: (Pair<Long, Pair<Int, Int>>) -> Unit) {
         var stableSince = 0L
         var lastRoot = 0 to 0
         waitFor(message) {
@@ -211,7 +221,10 @@ class AndroidSheetWindowMatrixTest {
                 !shown.viewport.isLayoutRequested && ViewCompat.getRootWindowInsets(shown.frame)?.isVisible(WindowInsetsCompat.Type.ime()) == true &&
                 (shown.editor.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).isActive(shown.editor)
             lastRoot = size
-            if (!ready) stableSince = 0L
+            if (!ready) {
+                stableSince = 0L
+                lastKeyboardWait = "attached=${shown.frame.isAttachedToWindow} windowFocus=${shown.editor.hasWindowFocus()} root=${size.first}x${size.second} layoutRequested=${shown.viewport.isLayoutRequested} imeVisible=${ViewCompat.getRootWindowInsets(shown.frame)?.isVisible(WindowInsetsCompat.Type.ime())} imeActive=${(shown.editor.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).isActive(shown.editor)} editorFocused=${shown.editor.isFocused}"
+            }
             else if (stableSince == 0L) stableSince = SystemClock.uptimeMillis()
             ready && SystemClock.uptimeMillis() - stableSince >= 250L
         }
