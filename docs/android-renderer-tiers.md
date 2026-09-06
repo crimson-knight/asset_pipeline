@@ -15,7 +15,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | --- | --- | --- | --- | --- |
 | `ActionSheet` | no | — | D unsupported | raises AndroidRendererNotImplemented |
 | `ActionSheetWithWebFallback` | yes | — | unverified | handler exists; no Android fixture or test |
-| `ActivityIndicator` | yes | — | unverified | handler exists; no Android fixture or test |
+| `ActivityIndicator` | yes | basics | A core | basics (indeterminate, paused visibility) |
 | `ActivityRing` | no | — | D unsupported | raises AndroidRendererNotImplemented |
 | `ActivityRings` | no | — | D unsupported | raises AndroidRendererNotImplemented |
 | `ActivityView` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
@@ -23,7 +23,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `Alert` | yes | dialog, sheet | A core | dialogs |
 | `AndroidSwipeActionRow` | yes | — | unverified | handler exists; no Android fixture or test |
 | `AsyncImage` | yes | — | unverified | handler exists; no Android fixture or test |
-| `Button` | yes | compound_focus, dialog, failure, focus, layout, layout_contract, material_bridge, navigation, semantics, sheet, view_state | A core | layout, semantics, focus, dialogs, sheets |
+| `Button` | yes | basics, compound_focus, dialog, failure, focus, layout, layout_contract, material_bridge, navigation, semantics, sheet, view_state | A core | layout, semantics, focus, dialogs, sheets |
 | `Canvas` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Capsule` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Card` | yes | layout, material_bridge | A core | layout |
@@ -41,19 +41,19 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `ContextMenuWithWebFallback` | yes | — | unverified | handler exists; no Android fixture or test |
 | `DatePicker` | yes | — | unverified | handler exists; no Android fixture or test |
 | `DisclosureGroup` | yes | — | unverified | handler exists; no Android fixture or test |
-| `Divider` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Divider` | yes | basics | A core | basics (geometry) |
 | `Form` | yes | — | unverified | handler exists; no Android fixture or test |
 | `FullScreenCover` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Gauge` | no | — | D unsupported | raises AndroidRendererNotImplemented |
 | `GlassBackground` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Grid` | yes | — | unverified | handler exists; no Android fixture or test |
 | `HStack` | yes | failure, focus, layout, layout_contract, material_bridge | A core | layout (equal width, RTL) |
-| `IconButton` | yes | — | unverified | handler exists; no Android fixture or test |
+| `IconButton` | yes | basics | A core | basics (drawable, label, callback) |
 | `Image` | yes | image | A core | images |
 | `ImageWell` | yes | — | unverified | handler exists; no Android fixture or test |
 | `InlineActionRow` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Inspector` | yes | — | unverified | handler exists; no Android fixture or test |
-| `Label` | yes | compound_focus, dialog, failure, focus, layout, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | layout, text, semantics |
+| `Label` | yes | basics, compound_focus, dialog, failure, focus, layout, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | layout, text, semantics |
 | `LinkButton` | yes | — | unverified | handler exists; no Android fixture or test |
 | `ListView` | yes | — | unverified | handler exists; no Android fixture or test |
 | `MapView` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
@@ -71,7 +71,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `Picker` | yes | material_bridge, semantics | A core | semantics, compound focus |
 | `Popover` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
 | `PopoverPresenter` | no | — | D unsupported | raises AndroidRendererNotImplemented |
-| `ProgressView` | yes | — | unverified | handler exists; no Android fixture or test |
+| `ProgressView` | yes | basics | A core | basics (Material indicators, real ratios) |
 | `RadioGroup` | yes | compound_focus, material_bridge, semantics | A core | semantics, focus |
 | `RatingIndicator` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Rectangle` | yes | — | unverified | handler exists; no Android fixture or test |
@@ -79,7 +79,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `RoundedRectangle` | yes | — | unverified | handler exists; no Android fixture or test |
 | `ScrollView` | yes | focus, layout_contract, view_state | A core | layout, view state |
 | `SearchField` | yes | material_bridge | A core | text |
-| `SecureField` | yes | — | unverified | handler exists; no Android fixture or test |
+| `SecureField` | yes | basics | A core | basics (masking, Crystal-owned restoration) |
 | `SegmentedControl` | yes | compound_focus | A core | focus |
 | `Sheet` | yes | material_bridge, sheet | A core | sheets, window matrix |
 | `SheetPresenter` | no | sheet | D unsupported | raises AndroidRendererNotImplemented |
@@ -92,7 +92,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `SwipeAction` | no | — | D unsupported | raises AndroidRendererNotImplemented |
 | `SwipeActionRow` | yes | — | unverified | handler exists; no Android fixture or test |
 | `TabView` | yes | — | unverified | handler exists; no Android fixture or test |
-| `TextArea` | yes | — | unverified | handler exists; no Android fixture or test |
+| `TextArea` | yes | basics | A core | basics (multi-line, callback) |
 | `TextEditor` | yes | text | A core | text, view state |
 | `TextField` | yes | failure, focus, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | text, view state, focus, sheets |
 | `TimePicker` | yes | — | unverified | handler exists; no Android fixture or test |
@@ -105,23 +105,22 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `ToolbarSpacer` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Tooltip` | yes | — | unverified | handler exists; no Android fixture or test |
 | `VideoPlayer` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
-| `VStack` | yes | compound_focus, dialog, failure, focus, image, layout, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | layout |
+| `VStack` | yes | basics, compound_focus, dialog, failure, focus, image, layout, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | layout |
 | `WebViewComponent` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
 | `ZStack` | yes | layout_contract | A core | layout |
 
 ## Totals
 
-- A core: 26
+- A core: 32
 - B preview: 8
 - D unsupported: 17
-- unverified: 44
+- unverified: 38
 
 ## Next promotions
 
 The unverified group is the largest. Promote in this order, each through its
-own fixture and contract suite: `SecureField`, `TextArea`, `ProgressView`,
-`ActivityIndicator`, `Divider`, `Form`, `ListView`, `TabView`, `IconButton`,
-`DatePicker`, `TimePicker`, `ToggleButton`, `MenuButton`, `LinkButton`; then the
+own fixture and contract suite: `Form`, `ListView`, `TabView`, `DatePicker`,
+`TimePicker`, `ToggleButton`, `MenuButton`, `LinkButton`; then the
 shapes and decorative surfaces. `Popover`, `Snackbar`, `MapView`, `ChartView`,
 `VideoPlayer`, `WebViewComponent`, `ColorPicker` and `ActivityView` stay preview
 until their platform dependencies are split from the core target (Phase 2).
