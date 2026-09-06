@@ -56,7 +56,26 @@ class AndroidSheetViewportTest {
         }
         return requireNotNull(result)
     }
-    private fun geometry(shown: Parts, size: String, keyboard: Boolean = false) = main {
+    private fun geometry(shown: Parts, size: String, keyboard: Boolean = false) {
+        // Measure only once the sheet frame has stopped moving: after a
+        // recreation the keyboard lift animates the frame, and a read taken
+        // mid-animation reports the pre-lift height.
+        val deadline = SystemClock.uptimeMillis() + 5000L
+        var last: Rect? = null
+        var stableSince = 0L
+        while (SystemClock.uptimeMillis() < deadline) {
+            var now: Rect? = null
+            main { now = Rect().also { shown.frame.getGlobalVisibleRect(it) } }
+            if (now != null && now == last) {
+                if (stableSince == 0L) stableSince = SystemClock.uptimeMillis()
+                if (SystemClock.uptimeMillis() - stableSince >= 250L) break
+            } else stableSince = 0L
+            last = now
+            SystemClock.sleep(50L)
+        }
+        geometryNow(shown, size, keyboard)
+    }
+    private fun geometryNow(shown: Parts, size: String, keyboard: Boolean) = main {
         val frame = Rect(); val viewport = Rect()
         assertTrue("$size sheet must be visible", shown.frame.getGlobalVisibleRect(frame))
         assertTrue("$size viewport must be visible", shown.viewport.getGlobalVisibleRect(viewport))
