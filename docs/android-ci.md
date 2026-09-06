@@ -185,3 +185,21 @@ loudly rather than skipping the device lane. Re-run the job on a fresh runner.
 Both packaged ABIs, the debug APK and the release bundle build on Linux, and the
 x86_64 libraries execute: API 31 and API 36 emulator jobs each completed all 50
 instrumentation tests before the fixes above landed.
+
+### Run results, September 6
+
+| Run | Change under test | API 31 | API 35 | API 36 |
+| --- | --- | --- | --- | --- |
+| 1 | initial push | NDK pin mismatch | NDK pin mismatch | NDK pin mismatch |
+| 2 | NDK resolver | 49/50 | no KVM on runner | 47/50 |
+| 3 | JDK path removed | 46/50 | no KVM on runner | 50 tests, 3 keyboard misses |
+| 4 | keyboard fix, test waits | 49/50 | KVM udev race | 49/50 |
+| 5 | guarded retry, dialog-root wait, KVM retry | 46/50 | 17/50 (no window focus, 2-core emulator) | host spec crash (raw-thread mutex) |
+| 6 | 4-core emulators, keyguard, diagnostics, lock-free identity | **pass** | 48/50 (two wait budgets) | **pass** |
+
+"pass" means the complete `make test-android` driver exited 0: both ABIs
+built from source, debug APK and release bundle packaged, 50 instrumentation
+tests, every isolated failure lane, and the tracked-source check. Run 6 is the
+first fully green remote execution and the first x86_64 pass at API 36. The two
+API 35 misses were a five-second keyboard wait and a dialog-root wait that let
+Espresso's focus timeout escape; both budgets are widened in the next run.
