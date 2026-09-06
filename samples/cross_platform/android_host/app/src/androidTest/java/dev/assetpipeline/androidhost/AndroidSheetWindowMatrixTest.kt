@@ -199,12 +199,18 @@ class AndroidSheetWindowMatrixTest {
     }
     private fun awaitKeyboard(shown: Parts, message: String) {
         var stableSince = 0L
+        var lastRoot = 0 to 0
         waitFor(message) {
             val root = shown.frame.rootView
+            // A stable root size, not equality with the display: an image whose
+            // landscape navigation bar sits beside the window makes the dialog
+            // decor narrower than the display, and the keyboard was shown anyway.
+            val size = root.width to root.height
             val ready = shown.frame.isAttachedToWindow && shown.editor.hasWindowFocus() &&
-                root.width == device.displayWidth && root.height == device.displayHeight &&
+                size.first > 0 && size.second > 0 && size == lastRoot &&
                 !shown.viewport.isLayoutRequested && ViewCompat.getRootWindowInsets(shown.frame)?.isVisible(WindowInsetsCompat.Type.ime()) == true &&
                 (shown.editor.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).isActive(shown.editor)
+            lastRoot = size
             if (!ready) stableSince = 0L
             else if (stableSince == 0L) stableSince = SystemClock.uptimeMillis()
             ready && SystemClock.uptimeMillis() - stableSince >= 250L
