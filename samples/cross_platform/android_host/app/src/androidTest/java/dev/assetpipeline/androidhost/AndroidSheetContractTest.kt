@@ -46,6 +46,23 @@ class AndroidSheetContractTest {
     private fun await(text: String) = assertTrue("Missing native text: $text", device.wait(Until.hasObject(By.text(text)), 10_000L))
     private fun gone() = assertTrue("Native sheet did not close", device.wait(Until.gone(By.text("Edit a native draft")), 5000L))
     private fun appClick(id: String) = onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click())
+    /** Wait until the view's on-screen rectangle has not changed for 250 ms. */
+    private fun awaitStable(id: String) {
+        val deadline = SystemClock.uptimeMillis() + 5000L
+        var last: android.graphics.Rect? = null
+        var stableSince = 0L
+        while (SystemClock.uptimeMillis() < deadline) {
+            var now: android.graphics.Rect? = null
+            inside(id).check { view, error -> if (error != null) throw error; now = android.graphics.Rect().also { view.getGlobalVisibleRect(it) } }
+            if (now != null && now == last) {
+                if (stableSince == 0L) stableSince = SystemClock.uptimeMillis()
+                if (SystemClock.uptimeMillis() - stableSince >= 250L) return
+            } else stableSince = 0L
+            last = now
+            SystemClock.sleep(50L)
+        }
+        throw AssertionError("View $id did not stop moving")
+    }
     private fun inside(id: String) = onView(NativeTestIds.withTestId(id)).inRoot(isDialog())
     private fun editor(block: (EditText) -> Unit) = inside("sheet-draft").check { view, error ->
         if (error != null) throw error
@@ -286,9 +303,14 @@ class AndroidSheetContractTest {
                 assertEquals("Current detent: large", (NativeSemantics.target(requireNotNull(NativeTestIds.find(it.window.decorView, "sheet-detent"))) as TextView).text.toString())
             }
             editor { it.setText("Saved from native sheet 雪 😀") }
+            // The settled detent is not the end of motion: the expanded sheet
+            // still lays out its content, and a slower emulator can move the
+            // button between Espresso's coordinate lookup and its tap.
+            awaitStable("sheet-save")
             inside("sheet-save").perform(scrollTo(), click())
             await("Saved: Saved from native sheet 雪 😀"); count(1)
             screenshot("sheet-saved-after-drag")
+            awaitStable("sheet-done")
             inside("sheet-done").perform(scrollTo(), click()); gone(); status(1, 1)
         } finally { close(scenario) }
     }

@@ -34,6 +34,9 @@ class NativeSheetAnchor(context: Context) : FrameLayout(context) {
     init { visibility = GONE; isSaveEnabled = false; isSaveFromParentEnabled = false }
 }
 
+private const val DEBUG_TAG = "AssetPipelineSheet"
+private const val RESTORE_CONFIRM_DELAY_MS = 700L
+
 object NativeSheets {
     @JvmStatic fun configure(anchor: View, packet: String) {
         check(Looper.myLooper() == Looper.getMainLooper())
@@ -113,6 +116,7 @@ class NativeSheetHost(private val activity: Activity, savedState: Bundle?) {
     private fun capture() {
         val shown = current ?: return
         if (!shown.restored) return
+        android.util.Log.d(DEBUG_TAG, "capture imeNow=${ViewCompat.getRootWindowInsets(shown.content)?.isVisible(WindowInsetsCompat.Type.ime())} focus=${shown.content.findFocus()?.javaClass?.simpleName}")
         snapshot = try { NativeViewState.capture(shown.content, shown.identity, shown.viewport) }
             catch (_: NativeViewState.BudgetExceeded) {
                 Log.w("APViewState", "Sheet metadata limit reached; state restoration skipped")
@@ -307,7 +311,16 @@ class NativeSheetHost(private val activity: Activity, savedState: Bundle?) {
                 WindowCompat.setDecorFitsSystemWindows(window, false)
                 // This window owns IME avoidance through insets. Do not also
                 // ask WindowManager to shrink its height by the same amount.
-                window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+                // A sheet that saved a visible keyboard declares it before the
+                // window attaches, so the system shows the keyboard as part of
+                // window focus instead of the client racing the input target;
+                // Android 16 no longer restores it on its own and rejects the
+                // early client request (see restoreKeyboard).
+                val restoringKeyboard = snapshot?.takeIf { it.route == identity }?.ime == true
+                val state = if (restoringKeyboard) WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
+                            else WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+                android.util.Log.d(DEBUG_TAG, "present restoringKeyboard=$restoringKeyboard")
+                window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or state)
             }
             current = shown
             NativeSemantics.metadata(anchor)?.let { NativeSemantics.decorate(shell, it) }
@@ -320,6 +333,13 @@ class NativeSheetHost(private val activity: Activity, savedState: Bundle?) {
                 insets
             }
             dialog.show()
+            // Report the keyboard as requested from the window's first insets
+            // report. Android 16 syncs IME visibility to the client's requested
+            // types, so a window that declared ALWAYS_VISIBLE but reported no
+            // IME request gets hidden again (IME_REQUESTED_CHANGED_LISTENER).
+            if (snapshot?.takeIf { it.route == identity }?.ime == true) {
+                dialog.window?.let { WindowCompat.getInsetsController(it, shell).show(WindowInsetsCompat.Type.ime()) }
+            }
             val sheet = requireNotNull(dialog.findViewById<FrameLayout>(com.google.android.material.R.id.design_bottom_sheet))
             shown.frame = sheet
             sheet.layoutParams = sheet.layoutParams.apply { height = ViewGroup.LayoutParams.MATCH_PARENT }
@@ -394,15 +414,42 @@ class NativeSheetHost(private val activity: Activity, savedState: Bundle?) {
         }
     }
     private fun restoreKeyboard(shown: Presented, editor: EditText, visible: Boolean) {
+        android.util.Log.d(DEBUG_TAG, "restoreKeyboard visible=$visible attached=${editor.isAttachedToWindow} windowFocus=${shown.content.hasWindowFocus()} imeNow=${ViewCompat.getRootWindowInsets(shown.content)?.isVisible(WindowInsetsCompat.Type.ime())}")
         // The initial hidden policy must not race a saved visible editor when
         // WindowManager finishes focusing a recreated/rotated window.
-        if (visible) shown.dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED)
+        // The window already declared ALWAYS_VISIBLE at presentation when the
+        // saved state had a keyboard; keep that declaration until focus lands.
         fun apply() {
             event(shown) {
+                android.util.Log.d(DEBUG_TAG, "restoreKeyboard.apply visible=$visible attached=${editor.isAttachedToWindow} focused=${editor.isFocused} windowFocus=${shown.content.hasWindowFocus()}")
                 if (!editor.isAttachedToWindow) return@event
                 val keyboard = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                if (visible) keyboard.showSoftInput(editor, InputMethodManager.SHOW_IMPLICIT)
-                else keyboard.hideSoftInputFromWindow(editor.windowToken, 0)
+                if (!visible) { keyboard.hideSoftInputFromWindow(editor.windowToken, 0); return@event }
+                // Android 15 re-showed a saved-visible keyboard for a recreated
+                // window itself (SHOW_RESTORE_IME_VISIBILITY). Android 16 does
+                // not, and a plain showSoftInput issued as the new dialog window
+                // gains focus fails server-side (PHASE_SERVER_UPDATE_CLIENT_VISIBILITY)
+                // because that window is not yet the input target. The insets
+                // controller retains the request until the window becomes the
+                // target, so ask through it, then confirm once and retry with the
+                // direct call if the first request was dropped.
+                // The window declared ALWAYS_VISIBLE and requested the IME at
+                // presentation, so the system shows it as focus lands. A client
+                // request here cancels that in-flight show on Android 16
+                // (PHASE_CLIENT_APPLY_ANIMATION), so only confirm afterwards.
+                editor.requestFocus()
+                editor.postDelayed({
+                    event(shown) {
+                        if (!editor.isAttachedToWindow || !editor.isFocused) return@event
+                        val shownNow = ViewCompat.getRootWindowInsets(editor)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+                        android.util.Log.d(DEBUG_TAG, "restoreKeyboard.confirm imeNow=$shownNow")
+                        if (!shownNow) {
+                            val window = shown.dialog.window
+                            if (window != null) WindowCompat.getInsetsController(window, editor).show(WindowInsetsCompat.Type.ime())
+                            else keyboard.showSoftInput(editor, 0)
+                        }
+                    }
+                }, RESTORE_CONFIRM_DELAY_MS)
             }
         }
         if (shown.content.hasWindowFocus()) { shown.content.post { apply() }; return }

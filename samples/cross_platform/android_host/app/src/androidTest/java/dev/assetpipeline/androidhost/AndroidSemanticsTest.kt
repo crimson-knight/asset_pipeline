@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.ViewCompat
+import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import android.view.accessibility.AccessibilityNodeInfo
@@ -184,8 +187,22 @@ class AndroidSemanticsTest {
             // Traversal belongs to ViewRootImpl, after Activity dispatch. Use
             // a real injected key so the platform gets that final fallback.
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressKeyCode(KeyEvent.KEYCODE_TAB))
+            // The injected key returns once delivered, but with an attached
+            // input method the platform finishes traversal on a later main-loop
+            // turn. Wait for the focus move instead of asserting immediately.
+            val deadline = SystemClock.uptimeMillis() + 3000L
+            var moved = false
+            while (!moved && SystemClock.uptimeMillis() < deadline) {
+                scenario.onActivity { activity -> moved = view(activity, "semantics-plain").isFocused }
+                if (!moved) SystemClock.sleep(50L)
+            }
             scenario.onActivity { activity ->
-                assertTrue("Actual native Tab must skip the explicitly non-focusable button", view(activity, "semantics-plain").isFocused)
+                val focused = activity.currentFocus
+                assertTrue("Actual native Tab must skip the explicitly non-focusable button; focus=" +
+                    (focused?.let { NativeSemantics.testId(it) ?: it.javaClass.simpleName } ?: "none") +
+                    " touchMode=" + activity.window.decorView.isInTouchMode +
+                    " imeVisible=" + (ViewCompat.getRootWindowInsets(activity.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime())),
+                    view(activity, "semantics-plain").isFocused)
                 val button = view(activity, "automation-雪-button")
                 assertTrue(NativeSemantics.requestFocus(button))
                 assertNotSame(view(activity, "semantics-skip"), button.focusSearch(View.FOCUS_FORWARD))
