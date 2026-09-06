@@ -54,7 +54,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `InlineActionRow` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Inspector` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Label` | yes | basics, compound_focus, dialog, failure, focus, layout, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | layout, text, semantics |
-| `LinkButton` | yes | — | unverified | handler exists; no Android fixture or test |
+| `LinkButton` | yes | basics | A core | basics (on_tap, browser fallback) |
 | `ListView` | yes | — | unverified | handler exists; no Android fixture or test |
 | `MapView` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
 | `MenuButton` | yes | — | unverified | handler exists; no Android fixture or test |
@@ -97,7 +97,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `TextField` | yes | failure, focus, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | text, view state, focus, sheets |
 | `TimePicker` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Toggle` | yes | material_bridge, semantics | A core | semantics, compound focus |
-| `ToggleButton` | yes | — | unverified | handler exists; no Android fixture or test |
+| `ToggleButton` | yes | basics | A core | basics (label in both states, on_toggle) |
 | `TokenField` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Token` | no | — | D unsupported | raises AndroidRendererNotImplemented |
 | `Toolbar` | yes | material_bridge | A core | navigation |
@@ -111,16 +111,16 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 
 ## Totals
 
-- A core: 32
+- A core: 34
 - B preview: 8
 - D unsupported: 17
-- unverified: 38
+- unverified: 36
 
 ## Next promotions
 
 The unverified group is the largest. Promote in this order, each through its
 own fixture and contract suite: `Form`, `ListView`, `TabView`, `DatePicker`,
-`TimePicker`, `ToggleButton`, `MenuButton`, `LinkButton`; then the
+`TimePicker`, `MenuButton`; then the
 shapes and decorative surfaces. `Popover`, `Snackbar`, `MapView`, `ChartView`,
 `VideoPlayer`, `WebViewComponent`, `ColorPicker` and `ActivityView` stay preview
 until their platform dependencies are split from the core target (Phase 2).
