@@ -29,18 +29,28 @@ android_resolve_sdk_root() {
 
 android_resolve_ndk_home() {
     android_resolve_sdk_root || return 1
-    local candidate="${ANDROID_NDK_HOME:-$ANDROID_RESOLVED_SDK_ROOT/ndk/$ANDROID_NDK_VERSION}"
-    if [[ ! -f "$candidate/source.properties" ]]; then
-        android_die "Android NDK $ANDROID_NDK_VERSION not found at $candidate. Set ANDROID_NDK_HOME to an installed NDK."
-        return 1
+    # Prefer the first candidate whose Pkg.Revision matches the pin. CI hosts
+    # export an ambient ANDROID_NDK_HOME for whatever NDK they preinstalled, so
+    # an env value that does not match must not shadow the pinned SDK install.
+    local candidate revision seen=""
+    for candidate in \
+        "${ANDROID_NDK_HOME:-}" \
+        "${ANDROID_NDK_ROOT:-}" \
+        "$ANDROID_RESOLVED_SDK_ROOT/ndk/$ANDROID_NDK_VERSION"; do
+        [[ -n "$candidate" && -f "$candidate/source.properties" ]] || continue
+        revision="$(awk -F '= *' '/^Pkg.Revision/ { print $2; exit }' "$candidate/source.properties")"
+        if [[ "$revision" == "$ANDROID_NDK_VERSION" ]]; then
+            ANDROID_RESOLVED_NDK_HOME="$candidate"
+            return 0
+        fi
+        seen="$seen $candidate=$revision"
+    done
+    if [[ -n "$seen" ]]; then
+        android_die "No NDK matching the pinned $ANDROID_NDK_VERSION; found:$seen. Install ndk;$ANDROID_NDK_VERSION or point ANDROID_NDK_HOME at it."
+    else
+        android_die "Android NDK $ANDROID_NDK_VERSION not found under $ANDROID_RESOLVED_SDK_ROOT/ndk. Install ndk;$ANDROID_NDK_VERSION or set ANDROID_NDK_HOME."
     fi
-    local revision
-    revision="$(awk -F '= *' '/^Pkg.Revision/ { print $2; exit }' "$candidate/source.properties")"
-    [[ "$revision" == "$ANDROID_NDK_VERSION" ]] || {
-        android_die "NDK revision $revision does not match the pinned $ANDROID_NDK_VERSION"
-        return 1
-    }
-    ANDROID_RESOLVED_NDK_HOME="$candidate"
+    return 1
 }
 
 android_resolve_ndk_host_tag() {
