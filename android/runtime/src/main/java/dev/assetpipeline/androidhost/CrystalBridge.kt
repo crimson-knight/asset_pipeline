@@ -122,6 +122,16 @@ object CrystalBridge {
         // later non-text action can request the sample's full-tree refresh.
     }
 
+    /**
+     * A discrete string-valued control (a date or time picker) reports a whole
+     * value, not a keystroke, so it refreshes the tree the way a checkbox does.
+     */
+    @JvmStatic
+    fun dispatchDiscreteStringCallback(callbackId: Long, value: String) {
+        checkedCallback("string") { dispatchStringCallbackNative(callbackId, value) }
+        notifyCallback()
+    }
+
     @JvmStatic
     fun dispatchBoolCallback(callbackId: Long, value: Boolean) {
         checkedCallback("bool") { dispatchBoolCallbackNative(callbackId, value) }

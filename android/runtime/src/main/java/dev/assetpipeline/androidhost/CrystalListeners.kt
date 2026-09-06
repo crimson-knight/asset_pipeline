@@ -11,6 +11,8 @@ import android.view.KeyEvent
 import android.widget.TextView
 import android.widget.AdapterView
 import android.widget.CompoundButton
+import android.widget.DatePicker
+import android.widget.TimePicker
 import android.widget.RadioGroup
 import android.widget.SearchView
 import android.widget.SeekBar
@@ -126,6 +128,20 @@ class CrystalItemSelectedListener(private val callbackId: Long) : AdapterView.On
 }
 
 /** A link button without a Crystal handler opens its URL in the platform browser. */
+/** Reports a chosen calendar date to Crystal as year-month-day; Crystal owns the value and re-renders. */
+class CrystalDateChangedListener(private val callbackId: Long) : DatePicker.OnDateChangedListener {
+    override fun onDateChanged(view: DatePicker, year: Int, monthOfYear: Int, dayOfMonth: Int) {
+        CrystalBridge.dispatchDiscreteStringCallback(callbackId, String.format(java.util.Locale.ROOT, "%04d-%02d-%02d", year, monthOfYear + 1, dayOfMonth))
+    }
+}
+
+/** Reports a chosen time of day to Crystal as 24-hour hours:minutes. */
+class CrystalTimeChangedListener(private val callbackId: Long) : TimePicker.OnTimeChangedListener {
+    override fun onTimeChanged(view: TimePicker, hourOfDay: Int, minute: Int) {
+        CrystalBridge.dispatchDiscreteStringCallback(callbackId, String.format(java.util.Locale.ROOT, "%02d:%02d", hourOfDay, minute))
+    }
+}
+
 class CrystalOpenUrlListener(private val url: String) : View.OnClickListener {
     override fun onClick(v: View?) {
         if (!NativeWindowScope.allows(v)) return

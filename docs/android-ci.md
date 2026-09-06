@@ -207,7 +207,8 @@ instrumentation tests before the fixes above landed.
 | 12 | staged keyboard retry, no extract UI, gesture retry | 55/56 (activity tap mid-layout) | 54/56 (opened sheet never gains window focus in landscape) | **pass** |
 | 13 | activity-tap stability, dialog-root diagnostics | 53/56 (two dropped taps, one dropped injected tap) | 54/56 (keyboard visible and active, sheet window without focus) | **pass** |
 | 14 | bounded tap retries | 53/56 (first tap after three fresh launches refused by the input dispatcher) | 54/56 (a focusable popup owned by the app process held window focus in landscape) | **pass** |
-| 15 | system-log diagnostics | 55/56 (untrusted-touch drop: the test package's EmptyActivity still covered the app) | 54/56 (the image's autofill sign-in dropdown held window focus over the sheet editor) | **pass** |
+| 15 | system-log diagnostics | 55/56 (untrusted-touch drop: the test package's EmptyActivity still covered the app) | 54/56 (a focusable app-owned popup attached to the sheet held window focus) | **pass** |
+| 16 | structure suite (59 tests), permissive untrusted touches, autofill off | **pass** | 57/59 (same popup with autofill off, so autofill was not its cause) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -290,14 +291,17 @@ row and no retry could help. That is a property of the harness, not of the
 app or a user: the driver now sets `block_untrusted_touches` to permissive
 (logged, not dropped) for the run and restores the previous value afterward.
 
-The API 35 x86_64 focused-window record identifies the popup: owned by the
-app's UID, `APPLICATION_ABOVE_SUB_PANEL`, attached to the `Native editor sheet`
-window, transparent, sized to the focused editor, and the system log shows
-`AutofillSession: createPendingIntent` at the same moments. That is the
-Google autofill service's sign-in dropdown ("Autofill with Google"), a
-focusable popup the image opens over a focused editor and that takes window
-focus from the sheet, so Espresso finds no focused dialog root. The same
-service is enabled on the local arm64 API 35 image and opens nothing there.
-The driver now sets `autofill_service` to `null` for the run and restores the
-previous value afterward, so the fixture is judged against its own windows.
-The two earlier "known limit" paragraphs above are superseded by this cause.
+The API 35 x86_64 focused-window record narrows the popup without naming it
+yet: owned by the app's UID, a `PopupDecorView` of type
+`APPLICATION_ABOVE_SUB_PANEL`, focusable, attached to the `Native editor sheet`
+window, transparent format, as wide as the focused editor and nearly the
+full window height, holding a `PopupBackgroundView`. Run 15's system log
+showed the autofill service creating a pending intent at the same moments,
+so run 16 ran with `autofill_service` set to `null`; the popup appeared
+anyway with no autofill session at all, so autofill is not its cause and
+that setting is not applied. The type, focusability and transparent
+background fit a framework text-editing popup rather than any app view; the
+dialog-root wait now also records the popup's content classes so the next
+failing run names it. The local arm64 API 35 image shows only the
+non-focusable cursor handle at the same step. Run 16 is the first green API
+31 job since run 9; the API 31 cause above is settled.

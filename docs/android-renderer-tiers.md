@@ -39,7 +39,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `ConfirmationDialog` | yes | dialog | A core | dialogs |
 | `ContextMenu` | no | — | D unsupported | raises AndroidRendererNotImplemented |
 | `ContextMenuWithWebFallback` | yes | — | unverified | handler exists; no Android fixture or test |
-| `DatePicker` | yes | — | unverified | handler exists; no Android fixture or test |
+| `DatePicker` | yes | pickers | A core | pickers (Crystal date shown, bounds honored, change reported and re-rendered, survives recreation) |
 | `DisclosureGroup` | yes | structure | A core | structure (header tap calls back to Crystal, expanded state survives recreation, accessibility text) |
 | `Divider` | yes | basics | A core | basics (geometry) |
 | `Form` | yes | structure | A core | structure (section header, labeled fields, footer, in order) |
@@ -95,7 +95,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `TextArea` | yes | basics | A core | basics (multi-line, callback) |
 | `TextEditor` | yes | text | A core | text, view state |
 | `TextField` | yes | failure, focus, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | text, view state, focus, sheets |
-| `TimePicker` | yes | — | unverified | handler exists; no Android fixture or test |
+| `TimePicker` | yes | pickers | A core | pickers (24-hour mode, Crystal time shown, changes reported and re-rendered, survives recreation) |
 | `Toggle` | yes | material_bridge, semantics | A core | semantics, compound focus |
 | `ToggleButton` | yes | basics | A core | basics (label in both states, on_toggle) |
 | `TokenField` | yes | — | unverified | handler exists; no Android fixture or test |
@@ -111,20 +111,23 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 
 ## Totals
 
-- A core: 41
+- A core: 43
 - B preview: 8
 - D unsupported: 17
-- unverified: 29
+- unverified: 27
 
 ## Next promotions
 
 The unverified group is the largest. Promote in this order, each through its
-own fixture and contract suite: `ListView`, `TabView`, `DatePicker`,
-`TimePicker`, `MenuButton`; then the remaining decorative surfaces. The
-structure suite (September 6) promoted the four shapes, `Grid`, `Form` and
-`DisclosureGroup`; the Android handlers now give shapes their intrinsic size,
-lay out a grid as real rows, and let a disclosure header call back to Crystal
-through the new optional `DisclosureGroup#on_toggle`. `Popover`, `Snackbar`, `MapView`, `ChartView`,
+own fixture and contract suite: `ListView`, `TabView`, `MenuButton`; then
+the remaining decorative surfaces. The structure suite (September 6) promoted
+the four shapes, `Grid`, `Form` and `DisclosureGroup`; the Android handlers
+now give shapes their intrinsic size, lay out a grid as real rows, and let a
+disclosure header call back to Crystal through the new optional
+`DisclosureGroup#on_toggle`. The pickers suite (same day) promoted
+`DatePicker` and `TimePicker`: the handlers now show the Crystal value, apply
+date bounds and the 24-hour mode, and report changes through a discrete
+string dispatch that refreshes the tree, unlike editor keystrokes. `Popover`, `Snackbar`, `MapView`, `ChartView`,
 `VideoPlayer`, `WebViewComponent`, `ColorPicker` and `ActivityView` stay preview
 until their platform dependencies are split from the core target (Phase 2).
 `ActionSheet`, `ActivityRing(s)`, `Gauge`, `Panel` and the complication views

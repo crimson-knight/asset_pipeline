@@ -36,6 +36,16 @@ object NativeWindowDiagnostics {
         return "$displays | focused window: $record"
     }
 
+    /** Class names of a view's children, nested to [depth], so a popup's real content is named. */
+    private fun describeChildren(view: View, depth: Int): List<String> {
+        if (depth == 0 || view !is ViewGroup) return emptyList()
+        return (0 until view.childCount).map { index ->
+            val child = view.getChildAt(index)
+            val inner = describeChildren(child, depth - 1)
+            if (inner.isEmpty()) child.javaClass.name else "${child.javaClass.name}$inner"
+        }
+    }
+
     /** Every attached view root of this process, read from the registry Espresso itself uses. */
     private fun processRoots(): String {
         var description = ""
@@ -47,9 +57,7 @@ object NativeWindowDiagnostics {
             description = views.indices.joinToString("; ") { index ->
                 val view = views[index] as View
                 val layout = params[index] as WindowManager.LayoutParams
-                val content = (view as? ViewGroup)?.let { group ->
-                    (0 until group.childCount).map { group.getChildAt(it).javaClass.simpleName }
-                } ?: emptyList()
+                val content = describeChildren(view, depth = 3)
                 val focusable = layout.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE == 0
                 "${view.javaClass.simpleName}[title=${layout.title} type=${layout.type} focusable=$focusable" +
                     " windowFocus=${view.hasWindowFocus()} visible=${view.visibility == View.VISIBLE}" +

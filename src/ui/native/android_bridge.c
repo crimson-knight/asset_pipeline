@@ -1683,6 +1683,68 @@ void android_seekbar_set_on_change_listener(void *env_ptr, void *sb, uint64_t ca
     (*env)->DeleteLocalRef(env, listener);
 }
 
+void android_datepicker_configure(void *env_ptr, void *dp, int32_t year, int32_t month, int32_t day,
+                                  int64_t min_epoch_ms, int64_t max_epoch_ms, uint64_t callback_id) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = ap_jni_GetObjectClass(env, (jobject)dp);
+    if (!cls) {
+        return;
+    }
+    if (min_epoch_ms != 0) {
+        jmethodID set_min = ap_try_get_method(env, cls, "setMinDate", "(J)V");
+        if (set_min) ap_jni_CallVoidMethod(env, (jobject)dp, set_min, (jlong)min_epoch_ms);
+    }
+    if (max_epoch_ms != 0) {
+        jmethodID set_max = ap_try_get_method(env, cls, "setMaxDate", "(J)V");
+        if (set_max) ap_jni_CallVoidMethod(env, (jobject)dp, set_max, (jlong)max_epoch_ms);
+    }
+    jmethodID update = ap_try_get_method(env, cls, "updateDate", "(III)V");
+    if (update) ap_jni_CallVoidMethod(env, (jobject)dp, update, (jint)year, (jint)month, (jint)day);
+    /* The listener is attached after the initial value so setup never reports a change. */
+    if (callback_id != 0) {
+        jobject listener = ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalDateChangedListener", callback_id);
+        if (listener) {
+            jmethodID set_listener = ap_try_get_method(env, cls, "setOnDateChangedListener", "(Landroid/widget/DatePicker$OnDateChangedListener;)V");
+            if (set_listener) ap_jni_CallVoidMethod(env, (jobject)dp, set_listener, listener);
+            (*env)->DeleteLocalRef(env, listener);
+        }
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+void android_timepicker_configure(void *env_ptr, void *tp, int32_t hour, int32_t minute, int32_t twenty_four_hour, uint64_t callback_id) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = ap_jni_GetObjectClass(env, (jobject)tp);
+    if (!cls) {
+        return;
+    }
+    jclass boolean_cls = ap_jni_FindClass(env, "java/lang/Boolean");
+    if (boolean_cls) {
+        jmethodID value_of = ap_get_static_method(env, boolean_cls, "valueOf", "(Z)Ljava/lang/Boolean;");
+        jobject boxed = value_of ? ap_jni_CallStaticObjectMethod(env, boolean_cls, value_of, twenty_four_hour ? JNI_TRUE : JNI_FALSE) : NULL;
+        if (boxed) {
+            jmethodID set_mode = ap_try_get_method(env, cls, "setIs24HourView", "(Ljava/lang/Boolean;)V");
+            if (set_mode) ap_jni_CallVoidMethod(env, (jobject)tp, set_mode, boxed);
+            (*env)->DeleteLocalRef(env, boxed);
+        }
+        (*env)->DeleteLocalRef(env, boolean_cls);
+    }
+    jmethodID set_hour = ap_try_get_method(env, cls, "setHour", "(I)V");
+    if (set_hour) ap_jni_CallVoidMethod(env, (jobject)tp, set_hour, (jint)hour);
+    jmethodID set_minute = ap_try_get_method(env, cls, "setMinute", "(I)V");
+    if (set_minute) ap_jni_CallVoidMethod(env, (jobject)tp, set_minute, (jint)minute);
+    /* The listener is attached after the initial value so setup never reports a change. */
+    if (callback_id != 0) {
+        jobject listener = ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalTimeChangedListener", callback_id);
+        if (listener) {
+            jmethodID set_listener = ap_try_get_method(env, cls, "setOnTimeChangedListener", "(Landroid/widget/TimePicker$OnTimeChangedListener;)V");
+            if (set_listener) ap_jni_CallVoidMethod(env, (jobject)tp, set_listener, listener);
+            (*env)->DeleteLocalRef(env, listener);
+        }
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
 static void ap_bind_callback_owner(JNIEnv *env, jobject listener, jobject view) {
     jclass cls = ap_jni_GetObjectClass(env, listener);
     jmethodID method = ap_jni_GetMethodID(env, cls, "bindOwner", "(Landroid/view/View;)V");

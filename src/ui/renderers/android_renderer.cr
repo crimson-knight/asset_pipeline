@@ -205,6 +205,8 @@
       fun android_togglebutton_set_text_on_off(env : Void*, v : Void*, text : UInt8*, byte_len : Int32)
       fun android_button_set_open_url_on_click(env : Void*, v : Void*, url : UInt8*, byte_len : Int32)
       fun android_progressbar_set_indeterminate(env : Void*, pb : Void*, indeterminate : Int32)
+      fun android_datepicker_configure(env : Void*, dp : Void*, year : Int32, month : Int32, day : Int32, min_epoch_ms : Int64, max_epoch_ms : Int64, callback_id : UInt64)
+      fun android_timepicker_configure(env : Void*, tp : Void*, hour : Int32, minute : Int32, twenty_four_hour : Int32, callback_id : UInt64)
       fun android_seekbar_set_progress(env : Void*, sb : Void*, progress : Int32)
       fun android_seekbar_set_progress_tint(env : Void*, sb : Void*, argb : Int32)
       fun android_seekbar_get_progress(env : Void*, sb : Void*) : Int32
@@ -1545,10 +1547,24 @@
       # -----------------------------------------------------------------
       def visit(view : UI::DatePicker)
         dp = LibAndroidBridge.android_view_new(@env, "android/widget/DatePicker", @context)
-
         apply_common_properties(dp, view)
-
-        emit(dp, "DatePicker")
+        global_dp = LibAndroidBridge.android_new_global_ref(@env, dp)
+        handle = JNI.wrap_global(global_dp, label: "DatePicker")
+        native = owned_native(handle)
+        callback_id = 0_u64
+        if handler = view.on_change
+          base = view.selected_date
+          callback_id = native.track_callback_id(UI::CallbackRegistry.register_string(->(value : String) {
+            if date = picker_date(value, base)
+              handler.call(date)
+            end
+            nil
+          }))
+        end
+        date = view.selected_date
+        LibAndroidBridge.android_datepicker_configure(@env, dp, date.year, date.month - 1, date.day,
+          picker_epoch_ms(view.minimum_date), picker_epoch_ms(view.maximum_date), callback_id)
+        push_native(native, dp)
       end
 
       # -----------------------------------------------------------------
@@ -1556,10 +1572,23 @@
       # -----------------------------------------------------------------
       def visit(view : UI::TimePicker)
         tp = LibAndroidBridge.android_view_new(@env, "android/widget/TimePicker", @context)
-
         apply_common_properties(tp, view)
-
-        emit(tp, "TimePicker")
+        global_tp = LibAndroidBridge.android_new_global_ref(@env, tp)
+        handle = JNI.wrap_global(global_tp, label: "TimePicker")
+        native = owned_native(handle)
+        callback_id = 0_u64
+        if handler = view.on_change
+          base = view.selected_time
+          callback_id = native.track_callback_id(UI::CallbackRegistry.register_string(->(value : String) {
+            if time = picker_time(value, base)
+              handler.call(time)
+            end
+            nil
+          }))
+        end
+        time = view.selected_time
+        LibAndroidBridge.android_timepicker_configure(@env, tp, time.hour, time.minute, view.shows_24_hour ? 1 : 0, callback_id)
+        push_native(native, tp)
       end
 
       # -----------------------------------------------------------------
@@ -3721,6 +3750,29 @@
         end
       end
 
+      # Native pickers report "YYYY-MM-DD" and "HH:MM"; the base value keeps the
+      # part the picker does not own. Malformed reports are ignored, not raised.
+      private def picker_epoch_ms(time : Time?) : Int64
+        time ? time.to_unix_ms : 0_i64
+      end
+      private def picker_date(value : String, base : Time) : Time?
+        parts = value.split('-')
+        return nil unless parts.size == 3
+        year, month, day = parts[0].to_i?, parts[1].to_i?, parts[2].to_i?
+        return nil unless year && month && day
+        Time.utc(year, month, day, base.hour, base.minute, base.second)
+      rescue ArgumentError
+        nil
+      end
+      private def picker_time(value : String, base : Time) : Time?
+        parts = value.split(':')
+        return nil unless parts.size == 2
+        hour, minute = parts[0].to_i?, parts[1].to_i?
+        return nil unless hour && minute
+        Time.utc(base.year, base.month, base.day, hour, minute, 0)
+      rescue ArgumentError
+        nil
+      end
       # Shapes carry their own size; explicit common constraints still win.
       private def apply_intrinsic_size(v : Void*, view : UI::View, width : Float64, height : Float64) : Nil
         LibAndroidBridge.android_layout_prepare(@env, v,
