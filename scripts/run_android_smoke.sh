@@ -24,12 +24,16 @@ APP_ID=dev.assetpipeline.androidhost
 TEST_CLASS="${ANDROID_SMOKE_TEST_CLASS:-dev.assetpipeline.androidhost.AndroidNativeSmokeTest,dev.assetpipeline.androidhost.AndroidTextContractTest,dev.assetpipeline.androidhost.AndroidNavigationContractTest,dev.assetpipeline.androidhost.AndroidLayoutContractTest,dev.assetpipeline.androidhost.AndroidViewStateTest,dev.assetpipeline.androidhost.AndroidSemanticsTest,dev.assetpipeline.androidhost.AndroidFocusVisibilityTest,dev.assetpipeline.androidhost.AndroidCompoundFocusTest,dev.assetpipeline.androidhost.AndroidDialogContractTest,dev.assetpipeline.androidhost.AndroidSheetContractTest,dev.assetpipeline.androidhost.AndroidSheetViewportTest,dev.assetpipeline.androidhost.AndroidSheetWindowMatrixTest,dev.assetpipeline.androidhost.AndroidBasicsContractTest},dev.assetpipeline.androidhost.StoragePlatformTest,dev.assetpipeline.androidhost.SecretsPlatformTest,dev.assetpipeline.androidhost.FilesPlatformTest"
 fail() { echo "ERROR: $* (evidence: $EVIDENCE_DIR)" >&2; exit 1; }
 LOG_CAPTURE_PID=""
+SYSTEM_LOG_CAPTURE_PID=""
 stop_log_capture() {
-    if [[ -n "$LOG_CAPTURE_PID" ]]; then
-        kill "$LOG_CAPTURE_PID" 2>/dev/null || true
-        wait "$LOG_CAPTURE_PID" 2>/dev/null || true
-        LOG_CAPTURE_PID=""
-    fi
+    local pid
+    for pid in "$LOG_CAPTURE_PID" "$SYSTEM_LOG_CAPTURE_PID"; do
+        [[ -n "$pid" ]] || continue
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+    done
+    LOG_CAPTURE_PID=""
+    SYSTEM_LOG_CAPTURE_PID=""
 }
 trap stop_log_capture EXIT
 snapshot_logs() {
@@ -138,6 +142,14 @@ if "$ADB" -s "$SERIAL" shell dumpsys window displays 2>/dev/null | grep -q 'Appl
     sleep 2
 fi
 "$ADB" -s "$SERIAL" shell dumpsys window displays 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' > "$EVIDENCE_DIR/window-focus-before.txt" || true
+# Record which autofill and spell-check services the image runs; both can open
+# focusable popups over an editor and they differ between images and hosts.
+{
+    printf 'autofill_service=%s\n' "$("$ADB" -s "$SERIAL" shell settings get secure autofill_service 2>/dev/null | tr -d '\r')"
+    printf 'spell_checker_enabled=%s\n' "$("$ADB" -s "$SERIAL" shell settings get secure spell_checker_enabled 2>/dev/null | tr -d '\r')"
+    printf 'selected_spell_checker=%s\n' "$("$ADB" -s "$SERIAL" shell settings get secure selected_spell_checker 2>/dev/null | tr -d '\r')"
+    printf 'screen_off_timeout=%s\n' "$("$ADB" -s "$SERIAL" shell settings get system screen_off_timeout 2>/dev/null | tr -d '\r')"
+} > "$EVIDENCE_DIR/device-services.txt" 2>/dev/null || true
 "$ADB" -s "$SERIAL" install -r "$APK" > "$EVIDENCE_DIR/install.txt"
 "$ADB" -s "$SERIAL" install -r "$TEST_APK" >> "$EVIDENCE_DIR/install.txt"
 if [[ "${ANDROID_SMOKE_RESET_NOTIFICATION_PERMISSION:-0}" == 1 ]]; then
@@ -157,6 +169,16 @@ APP_UID="$($ADB -s "$SERIAL" shell cmd package list packages -U "$APP_ID" | tr -
 "$ADB" -s "$SERIAL" logcat -v threadtime -T "$DEVICE_LOG_START" --uid="$APP_UID" \
     > "$EVIDENCE_DIR/logcat-live.txt" 2> "$EVIDENCE_DIR/logcat-capture-stderr.txt" &
 LOG_CAPTURE_PID=$!
+# System-side decisions (dropped or rejected input, window focus, IME and
+# power transitions) never appear in the app-scoped stream above. Capture the
+# relevant system tags separately for diagnosis. No gate reads this file, so
+# an unexpected system log line can neither pass nor fail the target.
+"$ADB" -s "$SERIAL" logcat -v threadtime -T "$DEVICE_LOG_START" -b main,system \
+    InputDispatcher:V InputManager:V InputManagerService:V InputReader:V WindowManager:V \
+    ActivityTaskManager:V ActivityManager:V PowerManagerService:V InputMethodManagerService:V \
+    ImeTracker:V ToastPresenter:V AutofillManagerService:V AutofillSession:V '*:S' \
+    > "$EVIDENCE_DIR/logcat-system.txt" 2> "$EVIDENCE_DIR/logcat-system-stderr.txt" &
+SYSTEM_LOG_CAPTURE_PID=$!
 echo "Testing Crystal runtime, input, callbacks, lifecycle and JNI cleanup on $SERIAL..."
 "$ADB" -s "$SERIAL" shell am instrument -w -r -e class "$TEST_CLASS" \
     "$APP_ID.test/androidx.test.runner.AndroidJUnitRunner" \
@@ -168,6 +190,13 @@ if ! grep -Eq '^OK \([1-9][0-9]* tests?\)' "$EVIDENCE_DIR/instrumentation.txt"; 
     "$ADB" -s "$SERIAL" shell dumpsys window displays 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp|mHoldScreen' > "$EVIDENCE_DIR/window-focus-after.txt" || true
     "$ADB" -s "$SERIAL" shell dumpsys activity top 2>/dev/null | head -40 > "$EVIDENCE_DIR/activity-top-after.txt" || true
     "$ADB" -s "$SERIAL" shell dumpsys window windows 2>/dev/null | grep -E 'Window #|mAttrs|isOnScreen|mHasSurface' | head -60 > "$EVIDENCE_DIR/windows-after.txt" || true
+    # Dispatcher and power state explain rejected input better than a screenshot.
+    "$ADB" -s "$SERIAL" shell dumpsys input 2>/dev/null | head -2000 > "$EVIDENCE_DIR/input-state-after.txt" || true
+    "$ADB" -s "$SERIAL" shell dumpsys power 2>/dev/null | grep -E 'mWakefulness|mInteractive|mDisplayReady|mHoldingDisplay|mStayOn|mUserActivityTimeout|Screen off timeout|mScreenOffTimeout' > "$EVIDENCE_DIR/power-state-after.txt" || true
+    # The tests write their own failure screenshots and Espresso's view-op
+    # captures into app-owned storage; keep them with the rest of the evidence.
+    "$ADB" -s "$SERIAL" pull "/storage/emulated/0/Android/data/$APP_ID/files/sheet-proof" "$EVIDENCE_DIR/sheet-proof" >/dev/null 2>&1 || true
+    "$ADB" -s "$SERIAL" pull "/storage/emulated/0/Android/media/$APP_ID/additionalTestOutputDir" "$EVIDENCE_DIR/espresso-output" >/dev/null 2>&1 || true
     fail "No successful nonempty instrumentation result"
 fi
 grep -q '^INSTRUMENTATION_CODE: -1' "$EVIDENCE_DIR/instrumentation.txt" \

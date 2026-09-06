@@ -113,12 +113,10 @@ class AndroidSheetContractTest {
                     pending.javaClass.simpleName == "RootViewWithoutFocusException"
                 if (!waitable) throw pending
                 if (SystemClock.uptimeMillis() >= deadline) {
-                    // Failure-only diagnostics: which window holds focus, and what is on screen.
+                    // Failure-only diagnostics: which window holds focus (and what it
+                    // is), every window this process owns, and what is on screen.
                     val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-                    val focus = try {
-                        device.executeShellCommand("dumpsys window displays").lineSequence()
-                            .filter { it.contains("mCurrentFocus") || it.contains("mFocusedApp") }.joinToString(" | ") { it.trim() }
-                    } catch (_: Throwable) { "unavailable" }
+                    val focus = NativeWindowDiagnostics.describe()
                     try {
                         val folder = requireNotNull(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("sheet-proof")).apply { mkdirs() }
                         device.takeScreenshot(java.io.File(folder, "dialog-root-timeout-${SystemClock.uptimeMillis()}.png"))

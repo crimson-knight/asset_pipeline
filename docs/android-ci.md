@@ -85,7 +85,10 @@ Crystal failure driver before separate Java and Sheet failure processes.
   clean lane. A fresh normal CheckJNI process must mount afterward.
 - Evidence includes source hashes (including relevant untracked source),
   package hashes, toolchain/device details, instrumentation, JVM reports, logs
-  and relaunch captures. Temporary local paths are not published artifacts.
+  and relaunch captures. A separate system-tag log, the image's autofill,
+  spell-check and screen-timeout settings and, on failure, dispatcher and
+  power state plus the tests' own screenshots are kept for diagnosis only;
+  no gate reads them. Temporary local paths are not published artifacts.
 
 Broader shared Crystal specs and entrypoint/configuration checks are separate
 host gates in CI. The cheap routing test deliberately substitutes a driver in
@@ -203,6 +206,7 @@ instrumentation tests before the fixes above landed.
 | 11 | keyboard settle, viewport taps, readiness diagnostics | 55/56 (dropped horizontal fling) | 54/56 (window focus lost while the keyboard was visible and active) | **pass** |
 | 12 | staged keyboard retry, no extract UI, gesture retry | 55/56 (activity tap mid-layout) | 54/56 (opened sheet never gains window focus in landscape) | **pass** |
 | 13 | activity-tap stability, dialog-root diagnostics | 53/56 (two dropped taps, one dropped injected tap) | 54/56 (keyboard visible and active, sheet window without focus) | **pass** |
+| 14 | bounded tap retries | 53/56 (first tap after three fresh launches refused by the input dispatcher) | 54/56 (a focusable popup owned by the app process held window focus in landscape) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -251,3 +255,22 @@ the lane's known limit: its two landscape sheet keyboard tests are expected to
 fail there until the image changes. Every other x86_64 miss since run 9 was a
 dropped input on the software emulator; taps and injected clicks now retry a
 bounded number of times without relaxing any assertion.
+
+Run 14 showed that bounded retries do not cover the API 31 x86_64 miss. Its
+three failures share one shape: the first tap after a fresh activity launch,
+one to four seconds after the activity resumed, and every one of the nine
+injection attempts was refused by the input dispatcher within about 130
+milliseconds, with no Espresso security retry and no timeout. That is a
+dispatcher-level drop, whose reason is only written to the system log. The
+API 35 x86_64 wait also produced a sharper clause: the opened sheet lost
+window focus to a `PopupWindow`, while the activity stayed the focused
+application. Neither the app-scoped log nor a screenshot can name that popup
+or the drop reason, so the driver now captures a system-tag log
+(`logcat-system.txt`: input dispatcher, input manager, window manager,
+activity manager, power, input method and autofill services) beside the
+app-scoped one, records the image's autofill, spell-check and screen-timeout
+settings (`device-services.txt`), and on failure keeps `dumpsys input`,
+the power state, the tests' own timeout screenshots (`sheet-proof/`) and
+Espresso's view-operation captures (`espresso-output/`). The dialog-root wait
+also names the focused window's owner, type and flags and lists every window
+root the app process holds. No gate reads any of these files.
