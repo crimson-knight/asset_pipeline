@@ -201,6 +201,7 @@ instrumentation tests before the fixes above landed.
 | 9 | foreground wait, stabilized taps, focus tap point | **pass** | 48/50 (landscape keyboard readiness) | **pass** |
 | 10 | 56 tests (basics suite), stable-root readiness | 55/56 (viewport tap mid-layout) | 54/56 (landscape keyboard) | **pass** |
 | 11 | keyboard settle, viewport taps, readiness diagnostics | 55/56 (dropped horizontal fling) | 54/56 (window focus lost while the keyboard was visible and active) | **pass** |
+| 12 | staged keyboard retry, no extract UI, gesture retry | 55/56 (activity tap mid-layout) | 54/56 (opened sheet never gains window focus in landscape) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -233,3 +234,10 @@ landscape. Sheet editors now also set `IME_FLAG_NO_EXTRACT_UI`. The local API
 the retry is now staged one action per interval. The remaining API 31 miss was
 a dropped horizontal fling on the software emulator; the gesture test repeats
 the real gesture up to three times before judging it.
+
+Run 12 narrowed the API 35 x86_64 case further: both landscape sheet tests
+now fail in the dialog-root wait itself, before any keyboard, because the
+freshly opened sheet never receives window focus on that image in landscape.
+The wait now records the focused window and a screenshot when it gives up.
+Until that is understood, API 35 x86_64 is the one lane that does not pass
+the complete driver; API 35 arm64 passes it locally, 56 of 56.

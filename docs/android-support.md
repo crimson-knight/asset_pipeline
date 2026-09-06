@@ -33,7 +33,7 @@ time; a bundle built under a different pin cannot be reused silently
 | L0 host | Crystal structure specs, Kotlin JVM contracts, script contracts | pass (1,461 shared UI examples, 93 JVM tests, 20 entrypoint contracts) |
 | L1 cross-compile and link | fresh Crystal object per ABI, verified dependency bundles, ELF inspection | pass on macOS arm64 and Linux x86_64 |
 | L2 package | debug APK, test APK, release bundle, symbol and permission checks | pass |
-| L3 emulator | 50 instrumentation tests, isolated Crystal, Java and Sheet failure lanes, CheckJNI, tracked-source check | pass on API 31, 35 and 36 (16 KB) arm64 locally; API 31 and 36 x86_64 on GitHub runners (run 6) |
+| L3 emulator | 56 instrumentation tests, isolated Crystal, Java and Sheet failure lanes, CheckJNI, tracked-source check | pass on API 31, 35 and 36 (16 KB) arm64 locally; API 31 and 36 x86_64 on GitHub runners; API 35 x86_64 at 54/56 (landscape sheet window focus on that image) |
 | L4 physical device | same driver against an authorized phone | **not run**: no phone has appeared in ADB |
 | L5 generated consumer | `amber new --type hybrid --targets web,android` from an empty directory, dependencies resolved from GitHub only | pass on API 35 and API 36 from commit pins; **not yet from tagged releases** |
 
@@ -41,16 +41,18 @@ time; a bundle built under a different pin cannot be reused silently
 
 See `docs/android-renderer-tiers.md` for the per-view table. In summary:
 
-- **Supported (A core, 26 views)**: text and editors, buttons, toggles,
-  checkboxes, radio groups, sliders, pickers, segmented controls, steppers,
-  combo boxes, stacks, scroll views, spacers, cards, images, navigation
-  stack and links, toolbar, alerts, confirmation dialogs, sheets. Each has a
-  native contract suite that runs on every API level in the ladder.
+- **Supported (A core, 34 views)**: text fields, secure fields, text areas
+  and editors, buttons, icon, toggle and link buttons, toggles, checkboxes,
+  radio groups, sliders, pickers, segmented controls, steppers, combo boxes,
+  progress views and activity indicators, dividers, stacks, scroll views,
+  spacers, cards, images, navigation stack and links, toolbar, alerts,
+  confirmation dialogs, sheets. Each has a native contract suite that runs on
+  every API level in the ladder.
 - **Preview (B, 8 views)**: activity view, chart, color picker, map, popover,
   snackbar, video player, web view. They render natively in the study fixtures
   and have no behavioral contract; their platform dependencies are not yet split
   from the core target.
-- **Unverified (44 views)**: a renderer handler exists but no Android fixture or
+- **Unverified (36 views)**: a renderer handler exists but no Android fixture or
   test exercises it. Not a support claim. Promote through a fixture and contract
   suite before naming any of them in release notes.
 - **Unsupported (D, 17 views)**: no handler; the renderer raises

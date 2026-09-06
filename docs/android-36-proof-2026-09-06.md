@@ -60,8 +60,8 @@ Sheet failure lanes, source ledger verification):
 
 | Target | Result | Evidence |
 | --- | --- | --- |
-| emulator-5560, API 36, 16 KB pages | exit 0, `OK (50 tests)` | `build/android-local-proof/api36-run3` |
-| emulator-5556, API 35 | exit 0, `OK (50 tests)` | `build/android-local-proof/api35-run2` |
+| emulator-5560, API 36, 16 KB pages | exit 0, `OK (50 tests)`; later exit 0, `OK (56 tests)` with the basics suite and the staged keyboard retry | `build/android-local-proof/api36-run3`, `api36-run6` |
+| emulator-5556, API 35 | exit 0, `OK (50 tests)`; later exit 0, `OK (56 tests)` | `build/android-local-proof/api35-run2`, `api35-run6` |
 
 Focused loops on the classes that changed, run sequentially with no competing
 load: window-matrix and sheet-contract classes three of three on API 35 and two
@@ -70,12 +70,12 @@ three of three on API 35.
 
 Remote (GitHub `ubuntu-24.04`, x86_64 emulators, `android-native.yml`): every
 API level builds both ABIs, the debug APK and the release bundle from source and
-executes the instrumentation suite. Run four reached 49 of 50 on API 31 and
-API 36; run five reached 46 of 50 on API 31 while API 35 ran for the first time
-and lost 33 tests to one environmental cause, an app window that never received
-focus on a two-core software-rendered emulator. Run six adds the runner's four
-cores, keyguard dismissal and on-failure screen and focus capture; its result
-is recorded in `docs/android-ci.md` when it settles.
+executes the instrumentation suite. API 36 has passed the complete driver on
+every run since run six (seven consecutive); API 31 passed in run nine and has
+since lost one different slow-emulator interaction per run, each fixed at its
+source; API 35 x86_64 is down to the two landscape sheet keyboard tests, where
+a freshly opened sheet never receives window focus on that image. The per-run
+table and the causes live in `docs/android-ci.md`.
 
 The 16 KB proof is the same complete driver on the `google_apis_ps16k` image
 (`getconf PAGESIZE` 16384), not the earlier frozen target-35 probe.
