@@ -2,6 +2,19 @@ require "spec"
 require "../../../../src/ui"
 
 describe UI::CallbackRegistry do
+  it "dispatches length-delimited UTF-8 without truncating embedded NUL" do
+    received = ""
+    token = UI::CallbackRegistry.register_string(->(value : String) { received = value; nil })
+    source = "before\0after 雪 😀 e\u0301"
+    crystal_ui_string_callback_dispatch_bytes(token, source.to_unsafe, source.bytesize)
+    received.should eq(source)
+    received.valid_encoding?.should be_true
+    crystal_ui_string_callback_dispatch_bytes(token, source.to_unsafe, -1)
+    received.should eq(source)
+    crystal_ui_string_callback_dispatch_bytes(token, source.to_unsafe, 0)
+    received.should eq("")
+  end
+
   # Clean up the registry between tests to prevent state leaking.
   after_each do
     UI::CallbackRegistry.clear
@@ -9,15 +22,15 @@ describe UI::CallbackRegistry do
 
   describe ".register" do
     it "returns a unique ID for each registration" do
-      id1 = UI::CallbackRegistry.register(->{ })
-      id2 = UI::CallbackRegistry.register(->{ })
+      id1 = UI::CallbackRegistry.register(-> { })
+      id2 = UI::CallbackRegistry.register(-> { })
       id1.should_not eq(id2)
     end
 
     it "returns monotonically increasing IDs" do
-      id1 = UI::CallbackRegistry.register(->{ })
-      id2 = UI::CallbackRegistry.register(->{ })
-      id3 = UI::CallbackRegistry.register(->{ })
+      id1 = UI::CallbackRegistry.register(-> { })
+      id2 = UI::CallbackRegistry.register(-> { })
+      id3 = UI::CallbackRegistry.register(-> { })
       (id2 > id1).should be_true
       (id3 > id2).should be_true
     end
@@ -39,9 +52,9 @@ describe UI::CallbackRegistry do
 
     it "increments size" do
       UI::CallbackRegistry.size.should eq(0)
-      UI::CallbackRegistry.register(->{ })
+      UI::CallbackRegistry.register(-> { })
       UI::CallbackRegistry.size.should eq(1)
-      UI::CallbackRegistry.register(->{ })
+      UI::CallbackRegistry.register(-> { })
       UI::CallbackRegistry.size.should eq(2)
     end
   end
@@ -69,7 +82,7 @@ describe UI::CallbackRegistry do
     end
 
     it "is a safe no-op for an unregistered ID" do
-      id = UI::CallbackRegistry.register(->{ })
+      id = UI::CallbackRegistry.register(-> { })
       UI::CallbackRegistry.unregister(id)
       # Should not raise or crash
       UI::CallbackRegistry.call(id)
@@ -87,7 +100,7 @@ describe UI::CallbackRegistry do
 
   describe ".unregister" do
     it "removes the callback" do
-      id = UI::CallbackRegistry.register(->{ })
+      id = UI::CallbackRegistry.register(-> { })
       UI::CallbackRegistry.size.should eq(1)
       UI::CallbackRegistry.unregister(id)
       UI::CallbackRegistry.size.should eq(0)
@@ -107,25 +120,25 @@ describe UI::CallbackRegistry do
     end
 
     it "is idempotent: double unregister is safe" do
-      id = UI::CallbackRegistry.register(->{ })
+      id = UI::CallbackRegistry.register(-> { })
       UI::CallbackRegistry.unregister(id)
-      UI::CallbackRegistry.unregister(id)  # should not raise
+      UI::CallbackRegistry.unregister(id) # should not raise
       UI::CallbackRegistry.size.should eq(0)
     end
   end
 
   describe ".unregister(ids)" do
     it "removes multiple callbacks at once" do
-      id1 = UI::CallbackRegistry.register(->{ })
-      id2 = UI::CallbackRegistry.register(->{ })
-      id3 = UI::CallbackRegistry.register(->{ })
+      id1 = UI::CallbackRegistry.register(-> { })
+      id2 = UI::CallbackRegistry.register(-> { })
+      id3 = UI::CallbackRegistry.register(-> { })
       UI::CallbackRegistry.size.should eq(3)
       UI::CallbackRegistry.unregister([id1, id3])
       UI::CallbackRegistry.size.should eq(1)
     end
 
     it "handles empty array" do
-      UI::CallbackRegistry.register(->{ })
+      UI::CallbackRegistry.register(-> { })
       UI::CallbackRegistry.unregister([] of UInt64)
       UI::CallbackRegistry.size.should eq(1)
     end
@@ -137,8 +150,8 @@ describe UI::CallbackRegistry do
     end
 
     it "reflects current count after registrations and unregistrations" do
-      id1 = UI::CallbackRegistry.register(->{ })
-      id2 = UI::CallbackRegistry.register(->{ })
+      id1 = UI::CallbackRegistry.register(-> { })
+      id2 = UI::CallbackRegistry.register(-> { })
       UI::CallbackRegistry.size.should eq(2)
       UI::CallbackRegistry.unregister(id1)
       UI::CallbackRegistry.size.should eq(1)
@@ -149,21 +162,21 @@ describe UI::CallbackRegistry do
 
   describe ".clear" do
     it "removes all callbacks" do
-      UI::CallbackRegistry.register(->{ })
-      UI::CallbackRegistry.register(->{ })
-      UI::CallbackRegistry.register(->{ })
+      UI::CallbackRegistry.register(-> { })
+      UI::CallbackRegistry.register(-> { })
+      UI::CallbackRegistry.register(-> { })
       UI::CallbackRegistry.size.should eq(3)
       UI::CallbackRegistry.clear
       UI::CallbackRegistry.size.should eq(0)
     end
 
-    it "resets the ID counter" do
-      id1 = UI::CallbackRegistry.register(->{ })
+    it "preserves process-unique IDs across clearing" do
+      id1 = UI::CallbackRegistry.register(-> { })
       UI::CallbackRegistry.clear
-      id2 = UI::CallbackRegistry.register(->{ })
-      # After clear, IDs restart from 1, so id2 should be small
-      # (not necessarily equal to id1, but the counter is reset)
-      (id2 <= id1).should be_true
+      id2 = UI::CallbackRegistry.register(-> { })
+      # A retired native owner may still hold id1 until its later finalizer.
+      # Clearing registrations must not make that token identify a new proc.
+      (id2 > id1).should be_true
     end
   end
 
@@ -197,7 +210,7 @@ describe UI::CallbackRegistry do
     end
 
     it "unregister removes from all typed hashes" do
-      id1 = UI::CallbackRegistry.register(->() { nil })
+      id1 = UI::CallbackRegistry.register(-> { nil })
       id2 = UI::CallbackRegistry.register_bool(->(val : Bool) { nil })
       UI::CallbackRegistry.size.should eq(2)
       UI::CallbackRegistry.unregister(id1)

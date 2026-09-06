@@ -1,0 +1,21 @@
+<resources>
+    <item name="ap_native_window_scope" type="id" />
+    <item name="ap_native_view_state" type="id" />
+    <item name="ap_native_semantics" type="id" />
+    <item name="ap_accessibility_action_0" type="id" />
+    <item name="ap_accessibility_action_1" type="id" />
+    <item name="ap_accessibility_action_2" type="id" />
+    <item name="ap_accessibility_action_3" type="id" />
+    <item name="ap_accessibility_action_4" type="id" />
+    <item name="ap_accessibility_action_5" type="id" />
+    <item name="ap_accessibility_action_6" type="id" />
+    <item name="ap_accessibility_action_7" type="id" />
+    <item name="ap_accessibility_action_8" type="id" />
+    <item name="ap_accessibility_action_9" type="id" />
+    <item name="ap_accessibility_action_10" type="id" />
+    <item name="ap_accessibility_action_11" type="id" />
+    <item name="ap_accessibility_action_12" type="id" />
+    <item name="ap_accessibility_action_13" type="id" />
+    <item name="ap_accessibility_action_14" type="id" />
+    <item name="ap_accessibility_action_15" type="id" />
+</resources>
