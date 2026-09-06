@@ -78,8 +78,12 @@ class AndroidSheetContractTest {
             try {
                 onView(isRoot()).inRoot(isDialog()).check(matches(isDisplayed()))
                 return
-            } catch (missing: androidx.test.espresso.NoMatchingRootException) {
-                if (SystemClock.uptimeMillis() >= deadline) throw missing
+            } catch (pending: RuntimeException) {
+                // No dialog root yet, or one that has not received window focus
+                // (Espresso's RootViewWithoutFocusException is private): keep waiting.
+                val waitable = pending is androidx.test.espresso.NoMatchingRootException ||
+                    pending.javaClass.simpleName == "RootViewWithoutFocusException"
+                if (!waitable || SystemClock.uptimeMillis() >= deadline) throw pending
                 SystemClock.sleep(50L)
             }
         }

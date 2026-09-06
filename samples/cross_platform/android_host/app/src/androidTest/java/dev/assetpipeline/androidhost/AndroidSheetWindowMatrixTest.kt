@@ -41,7 +41,9 @@ class AndroidSheetWindowMatrixTest {
     private val device get() = UiDevice.getInstance(instrumentation)
     private fun main(block: () -> Unit) = instrumentation.runOnMainSync(block)
     private fun waitFor(message: String, condition: () -> Boolean) {
-        val deadline = SystemClock.uptimeMillis() + 5000
+        // Ten seconds: a software-rendered CI emulator shows the keyboard in
+        // landscape well after five, and every condition here is real state.
+        val deadline = SystemClock.uptimeMillis() + 10000
         while (SystemClock.uptimeMillis() < deadline) {
             var result = false
             main { result = condition() }
@@ -61,8 +63,12 @@ class AndroidSheetWindowMatrixTest {
             try {
                 onView(isRoot()).inRoot(isDialog()).check(matches(isDisplayed()))
                 return
-            } catch (missing: androidx.test.espresso.NoMatchingRootException) {
-                if (SystemClock.uptimeMillis() >= deadline) throw missing
+            } catch (pending: RuntimeException) {
+                // No dialog root yet, or one that has not received window focus
+                // (Espresso's RootViewWithoutFocusException is private): keep waiting.
+                val waitable = pending is androidx.test.espresso.NoMatchingRootException ||
+                    pending.javaClass.simpleName == "RootViewWithoutFocusException"
+                if (!waitable || SystemClock.uptimeMillis() >= deadline) throw pending
                 SystemClock.sleep(50L)
             }
         }
