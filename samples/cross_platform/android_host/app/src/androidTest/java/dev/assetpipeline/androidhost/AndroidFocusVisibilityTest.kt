@@ -91,9 +91,22 @@ class AndroidFocusVisibilityTest {
                 // The input visibility test is independent of the first test's
                 // scroll assertion; exercise the real user tap/input method.
                 field.requestRectangleOnScreen(Rect(0, 0, field.width, field.height), true)
-                val position = IntArray(2); field.getLocationOnScreen(position)
-                x = position[0] + field.width / 2; y = position[1] + field.height / 2
             }
+            // The scroll into view is asynchronous; read the tap point only once
+            // the editor is entirely on screen, or a slow emulator injects the
+            // tap at a stale, off-screen coordinate and UiDevice.click fails.
+            val visibleDeadline = SystemClock.uptimeMillis() + 5000L
+            var visible = false
+            while (!visible && SystemClock.uptimeMillis() < visibleDeadline) {
+                scenario.onActivity { activity ->
+                    val field = editor(activity)
+                    val bounds = Rect()
+                    visible = field.getGlobalVisibleRect(bounds) && bounds.height() == field.height && bounds.width() == field.width
+                    if (visible) { x = bounds.centerX(); y = bounds.centerY() }
+                }
+                if (!visible) SystemClock.sleep(50L)
+            }
+            assertTrue("Editor did not scroll fully into view", visible)
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).click(x, y))
             awaitIme(scenario, true)
             scenario.recreate()
