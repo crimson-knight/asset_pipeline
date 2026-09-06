@@ -61,6 +61,8 @@ class AndroidSheetContractTest {
         device.waitForIdle(1000)
         onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click())
     }
+    /** Tap a sheet control only after it stops moving. */
+    private fun tap(id: String) { awaitStable(id); inside(id).perform(scrollTo(), click()) }
     /** Wait until the view's on-screen rectangle has not changed for 250 ms. */
     private fun awaitStable(id: String) {
         val deadline = SystemClock.uptimeMillis() + 5000L
@@ -191,12 +193,12 @@ class AndroidSheetContractTest {
                     oldButton = view
                 }
                 screenshot("sheet-$appearance")
-                inside("sheet-done").perform(scrollTo(), click()); gone(); status(1); count(0)
+                tap("sheet-done"); gone(); status(1); count(0)
                 InstrumentationRegistry.getInstrumentation().runOnMainSync { requireNotNull(oldButton).performClick() }
                 status(1); count(0)
 
                 appClick("sheet-open"); await("Edit a native draft")
-                inside("sheet-presenter-done").perform(scrollTo(), click()); gone(); status(2)
+                tap("sheet-presenter-done"); gone(); status(2)
                 appClick("sheet-open"); await("Edit a native draft"); ime(false)
                 assertTrue(device.pressBack()); gone(); status(3)
 
@@ -342,12 +344,10 @@ class AndroidSheetContractTest {
             // The settled detent is not the end of motion: the expanded sheet
             // still lays out its content, and a slower emulator can move the
             // button between Espresso's coordinate lookup and its tap.
-            awaitStable("sheet-save")
-            inside("sheet-save").perform(scrollTo(), click())
+            tap("sheet-save")
             await("Saved: Saved from native sheet 雪 😀"); count(1)
             screenshot("sheet-saved-after-drag")
-            awaitStable("sheet-done")
-            inside("sheet-done").perform(scrollTo(), click()); gone(); status(1, 1)
+            tap("sheet-done"); gone(); status(1, 1)
         } finally { close(scenario) }
     }
 
@@ -363,14 +363,14 @@ class AndroidSheetContractTest {
             }
             var retired: View? = null
             inside("sheet-remove").check { view, error -> if (error != null) throw error; retired = view }
-            inside("sheet-remove").perform(scrollTo(), click()); gone(); status(1); count(0)
+            tap("sheet-remove"); gone(); status(1); count(0)
             InstrumentationRegistry.getInstrumentation().runOnMainSync { retired!!.performClick() }
             status(1)
             appClick("sheet-open"); await("Edit a native draft")
             scenario.onActivity { requireNotNull(NativeTestIds.find(it.window.decorView, "sheet-rekey")).performClick() }
             gone(); status(2); count(0)
             appClick("sheet-open"); await("Edit a native draft")
-            inside("sheet-chain").perform(scrollTo(), click())
+            tap("sheet-chain")
             await("After the native sheet"); gone(); count(1)
             onView(NativeTestIds.withTestId("sheet-followup.action.0")).inRoot(isDialog()).perform(click())
             status(3); count(0)

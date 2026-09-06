@@ -61,6 +61,25 @@ class AndroidSheetWindowMatrixTest {
         waitFor("Host session did not return to the foreground") { CrystalBridge.debugSessionState() == HostSession.State.FOREGROUND }
         device.waitForIdle(1000)
     }
+    /** Wait until the view's on-screen rectangle has not changed for 250 ms. */
+    private fun awaitStable(id: String) {
+        val deadline = SystemClock.uptimeMillis() + 5000L
+        var last: android.graphics.Rect? = null
+        var stableSince = 0L
+        while (SystemClock.uptimeMillis() < deadline) {
+            var now: android.graphics.Rect? = null
+            inside(id).check { view, error -> if (error != null) throw error; now = android.graphics.Rect().also { view.getGlobalVisibleRect(it) } }
+            if (now != null && now == last) {
+                if (stableSince == 0L) stableSince = SystemClock.uptimeMillis()
+                if (SystemClock.uptimeMillis() - stableSince >= 250L) return
+            } else stableSince = 0L
+            last = now
+            SystemClock.sleep(50L)
+        }
+        throw AssertionError("View $id did not stop moving")
+    }
+    /** Tap a sheet control only after it stops moving. */
+    private fun tap(id: String) { awaitStable(id); inside(id).perform(scrollTo(), click()) }
     private fun open(id: String) { awaitInteractive(); onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click()) }
     /**
      * The sheet window is created from a Crystal callback after the opening
@@ -217,7 +236,7 @@ class AndroidSheetWindowMatrixTest {
                 main { fullyVisible(shown.editor); shown.editor.setText(draft) }
                 screenshot("large-$language-$landscape-editor")
                 val previous = shown.frame
-                inside("sheet-save").perform(scrollTo(), click())
+                tap("sheet-save")
                 waitFor("Save must refresh the native sheet") { !previous.isAttachedToWindow }
                 shown = parts()
                 inside("sheet-saved").perform(scrollTo()).check { view, error ->
@@ -227,7 +246,7 @@ class AndroidSheetWindowMatrixTest {
                 scenario.onActivity {
                     assertEquals("Current detent: small", (NativeSemantics.target(requireNotNull(NativeTestIds.find(it.window.decorView, "sheet-detent"))) as TextView).text.toString())
                 }
-                inside("sheet-chain").perform(scrollTo(), click())
+                tap("sheet-chain")
                 onView(NativeTestIds.withTestId("sheet-followup.action.0")).inRoot(isDialog()).perform(click())
             }
         }
@@ -245,6 +264,8 @@ class AndroidSheetWindowMatrixTest {
                 fullyVisible(shown.editor)
                 val bounds = Rect(); shown.editor.getGlobalVisibleRect(bounds); x = bounds.centerX(); y = bounds.centerY()
             }
+            awaitStable("sheet-draft")
+            main { val bounds = Rect(); shown.editor.getGlobalVisibleRect(bounds); x = bounds.centerX(); y = bounds.centerY() }
             assertTrue(device.click(x, y))
             awaitKeyboard(shown, "Landscape keyboard did not become visible")
             device.waitForIdle(1000)
@@ -305,7 +326,7 @@ class AndroidSheetWindowMatrixTest {
                 assertTrue(shown.viewport.height >= shown.owner.height)
             }
             screenshot("landscape-keyboard-closed-${profile.fontScale}-${profile.language}")
-            inside("sheet-chain").perform(scrollTo(), click())
+            tap("sheet-chain")
             onView(NativeTestIds.withTestId("sheet-followup.action.0")).inRoot(isDialog()).perform(click())
         }
     }
@@ -341,7 +362,7 @@ class AndroidSheetWindowMatrixTest {
                 val editor = Rect()
                 assertTrue(shown.editor.getGlobalVisibleRect(editor)); assertEquals(shown.editor.height, editor.height())
             }
-            inside("sheet-chain").perform(scrollTo(), click())
+            tap("sheet-chain")
             onView(NativeTestIds.withTestId("sheet-followup.action.0")).inRoot(isDialog()).perform(click())
         } finally {
             scenario.onActivity {
