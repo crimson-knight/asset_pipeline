@@ -56,7 +56,7 @@ class AndroidSheetWindowMatrixTest {
      * `isDialog()`, which a slower emulator can hit; wait for it explicitly.
      */
     private fun awaitDialogRoot() {
-        val deadline = SystemClock.uptimeMillis() + 5000L
+        val deadline = SystemClock.uptimeMillis() + 15000L
         while (true) {
             try {
                 onView(isRoot()).inRoot(isDialog()).check(matches(isDisplayed()))

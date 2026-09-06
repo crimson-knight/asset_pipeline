@@ -122,6 +122,11 @@ while IFS= read -r -d '' source_path; do
 done < <(git -C "$ANDROID_PROJECT_ROOT" ls-files --cached --others --exclude-standard -z -- \
     src scripts config android/runtime samples/cross_platform/android_host) > "$EVIDENCE_DIR/source-sha256.txt"
 
+# A freshly booted CI emulator can sit on the keyguard or an unfocused
+# launcher; Espresso then waits ten seconds per interaction for window focus.
+"$ADB" -s "$SERIAL" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+"$ADB" -s "$SERIAL" shell wm dismiss-keyguard >/dev/null 2>&1 || true
+"$ADB" -s "$SERIAL" shell dumpsys window displays 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' > "$EVIDENCE_DIR/window-focus-before.txt" || true
 "$ADB" -s "$SERIAL" install -r "$APK" > "$EVIDENCE_DIR/install.txt"
 "$ADB" -s "$SERIAL" install -r "$TEST_APK" >> "$EVIDENCE_DIR/install.txt"
 if [[ "${ANDROID_SMOKE_RESET_NOTIFICATION_PERMISSION:-0}" == 1 ]]; then
@@ -146,8 +151,14 @@ echo "Testing Crystal runtime, input, callbacks, lifecycle and JNI cleanup on $S
     "$APP_ID.test/androidx.test.runner.AndroidJUnitRunner" \
     > "$EVIDENCE_DIR/instrumentation.txt" 2>&1 || fail "Instrumentation command failed"
 snapshot_logs
-grep -Eq '^OK \([1-9][0-9]* tests?\)' "$EVIDENCE_DIR/instrumentation.txt" \
-    || fail "No successful nonempty instrumentation result"
+if ! grep -Eq '^OK \([1-9][0-9]* tests?\)' "$EVIDENCE_DIR/instrumentation.txt"; then
+    # Keep what was on screen and who held focus; a CI emulator cannot be inspected afterwards.
+    "$ADB" -s "$SERIAL" exec-out screencap -p > "$EVIDENCE_DIR/failure-screen.png" 2>/dev/null || true
+    "$ADB" -s "$SERIAL" shell dumpsys window displays 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp|mHoldScreen' > "$EVIDENCE_DIR/window-focus-after.txt" || true
+    "$ADB" -s "$SERIAL" shell dumpsys activity top 2>/dev/null | head -40 > "$EVIDENCE_DIR/activity-top-after.txt" || true
+    "$ADB" -s "$SERIAL" shell dumpsys window windows 2>/dev/null | grep -E 'Window #|mAttrs|isOnScreen|mHasSurface' | head -60 > "$EVIDENCE_DIR/windows-after.txt" || true
+    fail "No successful nonempty instrumentation result"
+fi
 grep -q '^INSTRUMENTATION_CODE: -1' "$EVIDENCE_DIR/instrumentation.txt" \
     || fail "Instrumentation did not complete normally"
 if grep -Eq 'Process crashed|FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[1234]' "$EVIDENCE_DIR/instrumentation.txt"; then

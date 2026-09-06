@@ -31,7 +31,23 @@ class AndroidDialogContractTest {
     private val device get() = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
     private fun awaitText(text: String) = assertTrue("Expected native dialog text: $text", device.wait(Until.hasObject(By.text(text)), 10_000L))
     private fun gone(text: String) = assertTrue("Native window did not close", device.wait(Until.gone(By.text(text)), 5000L))
-    private fun clickId(id: String) = onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click())
+    /** Tap only once the control has stopped moving; a slow emulator can relayout between lookup and tap. */
+    private fun clickId(id: String) {
+        val deadline = android.os.SystemClock.uptimeMillis() + 5000L
+        var last: android.graphics.Rect? = null
+        var stableSince = 0L
+        while (android.os.SystemClock.uptimeMillis() < deadline) {
+            var now: android.graphics.Rect? = null
+            onView(NativeTestIds.withTestId(id)).perform(scrollTo()).check { view, error -> if (error != null) throw error; now = android.graphics.Rect().also { view.getGlobalVisibleRect(it) } }
+            if (now != null && now == last) {
+                if (stableSince == 0L) stableSince = android.os.SystemClock.uptimeMillis()
+                if (android.os.SystemClock.uptimeMillis() - stableSince >= 250L) break
+            } else stableSince = 0L
+            last = now
+            android.os.SystemClock.sleep(50L)
+        }
+        onView(NativeTestIds.withTestId(id)).perform(click())
+    }
     private fun nativeButton(text: String) = onView(withText(text)).inRoot(isDialog())
     private fun status(actions: Int = 0, cancels: Int = 0, confirms: Int = 0, underlying: Int = 0) =
         awaitText("Actions: $actions; cancels: $cancels; confirms: $confirms; underlying: $underlying")
