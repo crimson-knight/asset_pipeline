@@ -126,6 +126,17 @@ done < <(git -C "$ANDROID_PROJECT_ROOT" ls-files --cached --others --exclude-sta
 # launcher; Espresso then waits ten seconds per interaction for window focus.
 "$ADB" -s "$SERIAL" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
 "$ADB" -s "$SERIAL" shell wm dismiss-keyguard >/dev/null 2>&1 || true
+# A slow CI emulator can boot into "Pixel Launcher isn't responding", a
+# SYSTEM_ALERT window that keeps focus and starves every Espresso root wait
+# (API 35 x86_64, runs 5 and 7). Suppress error dialogs for this session and
+# close any that already exist before the app is installed.
+"$ADB" -s "$SERIAL" shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 || true
+"$ADB" -s "$SERIAL" shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+if "$ADB" -s "$SERIAL" shell dumpsys window displays 2>/dev/null | grep -q 'Application Not Responding'; then
+    echo "Dismissing an application-not-responding dialog that held window focus" >&2
+    "$ADB" -s "$SERIAL" shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+    sleep 2
+fi
 "$ADB" -s "$SERIAL" shell dumpsys window displays 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' > "$EVIDENCE_DIR/window-focus-before.txt" || true
 "$ADB" -s "$SERIAL" install -r "$APK" > "$EVIDENCE_DIR/install.txt"
 "$ADB" -s "$SERIAL" install -r "$TEST_APK" >> "$EVIDENCE_DIR/install.txt"
