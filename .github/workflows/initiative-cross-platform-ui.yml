@@ -54,9 +54,11 @@ jobs:
   #     compatibility with BSD make + macOS toolchain.
   #   * `make test-macos` runs the macOS native spec lane under
   #     spec/native_macos/ (macos-14 only — needs ObjC bridge + AppKit).
-  #   * `make test-ios` and `make test-android` are placeholders today
+  #   * `make test-ios` remains a placeholder today
   #     (`continue-on-error: true`) — see
   #     docs/initiative-cross-platform-ui/native-compile-matrix.md.
+  #   * Android validation is owned by android-native.yml. It invokes the
+  #     real device/failure driver and never ignores a failed Android test.
   #   * `lint` runs Phase 10A.0a's convention rule runner
   #     (`scripts/lint_conventions.cr`). The runner ships with phase-10-a-0a
   #     which is merged onto phase-10-c-0 in iter 2.
@@ -181,17 +183,6 @@ jobs:
         uses: actions/checkout@v4
       - name: make test-ios (placeholder)
         run: make test-ios
-
-  test-android:
-    name: Spec lane (Android native)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    continue-on-error: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: make test-android (placeholder)
-        run: make test-android
 
   # ---------------------------------------------------------------------
   # Demo-build + visual-audit jobs (Phase 6.5+) — unchanged.
