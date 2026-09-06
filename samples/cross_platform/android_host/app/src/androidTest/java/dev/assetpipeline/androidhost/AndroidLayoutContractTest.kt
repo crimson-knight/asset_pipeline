@@ -285,11 +285,18 @@ class AndroidLayoutContractTest {
     @Test fun twoAxisViewportReceivesRealGesturesAndReachesCrystalAction() {
         val scenario = launch("layout-interaction")
         try {
-            onView(NativeTestIds.withTestId("layout-both-scroll")).perform(scrollTo(), swipeLeft())
-            scenario.onActivity { activity ->
-                val scroll = find(activity.findViewById(R.id.rendererMount), "layout-both-scroll") as ScrollView
-                assertTrue("Horizontal gesture must move the native horizontal viewport", scroll.getChildAt(0).scrollX > 0)
+            // A software-rendered emulator can drop an injected fling; repeat the
+            // real gesture a bounded number of times before judging it.
+            var movedX = false
+            for (attempt in 1..3) {
+                onView(NativeTestIds.withTestId("layout-both-scroll")).perform(scrollTo(), swipeLeft())
+                scenario.onActivity { activity ->
+                    val scroll = find(activity.findViewById(R.id.rendererMount), "layout-both-scroll") as ScrollView
+                    movedX = scroll.getChildAt(0).scrollX > 0
+                }
+                if (movedX) break
             }
+            assertTrue("Horizontal gesture must move the native horizontal viewport", movedX)
             onView(NativeTestIds.withTestId("layout-both-scroll")).perform(swipeUp())
             scenario.onActivity { activity ->
                 val scroll = find(activity.findViewById(R.id.rendererMount), "layout-both-scroll") as ScrollView

@@ -37,7 +37,7 @@ class NativeSheetAnchor(context: Context) : FrameLayout(context) {
 
 private const val DEBUG_TAG = "AssetPipelineSheet"
 private const val RESTORE_CONFIRM_DELAY_MS = 900L
-private const val RESTORE_CONFIRM_ATTEMPTS = 4
+private const val RESTORE_CONFIRM_ATTEMPTS = 5
 
 object NativeSheets {
     @JvmStatic fun configure(anchor: View, packet: String) {
@@ -298,7 +298,9 @@ class NativeSheetHost(private val activity: Activity, savedState: Bundle?) {
             // party IMEs. Preserve each editor's action and other option bits.
             contentNodes.forEach { child ->
                 (NativeCompoundFocus.target(child.view) as? EditText)?.let { editor ->
-                    editor.imeOptions = editor.imeOptions or EditorInfo.IME_FLAG_NO_FULLSCREEN
+                    // No fullscreen and no extract UI: a landscape keyboard that
+                    // takes over the screen also takes window focus from the sheet.
+                    editor.imeOptions = editor.imeOptions or EditorInfo.IME_FLAG_NO_FULLSCREEN or EditorInfo.IME_FLAG_NO_EXTRACT_UI
                 }
             }
             anchor.removeView(content)
@@ -461,17 +463,18 @@ class NativeSheetHost(private val activity: Activity, savedState: Bundle?) {
                             android.util.Log.d(DEBUG_TAG, "restoreKeyboard.confirm attempt=$attempt imeNow=$shownNow animating=${shown.imeAnimating}")
                             if (shownNow || attempt >= RESTORE_CONFIRM_ATTEMPTS) return@event
                             if (shown.imeAnimating) { confirm(attempt + 1); return@event }
-                            // The early request left the client's requested types
-                            // already including the IME, so a repeated show is
-                            // reported as a no-op (PHASE_CLIENT_REPORT_REQUESTED_VISIBLE_TYPES)
-                            // while the server never showed it. Clear that state
-                            // first, then request again.
+                            // Staged, one action per interval. The system's own show can
+                            // still be pending on the first check, and a hide issued
+                            // together with a show can land after it (observed on API 35:
+                            // HIDE_SOFT_INPUT_ON_ANIMATION_STATE_CHANGED after onShown).
+                            // 1: wait. 2: re-request. 3: clear the stuck requested state
+                            // with a hide. 4: request again. Then give up.
                             val window = shown.dialog.window
-                            if (window != null) {
-                                val controller = WindowCompat.getInsetsController(window, editor)
-                                controller.hide(WindowInsetsCompat.Type.ime())
-                                controller.show(WindowInsetsCompat.Type.ime())
-                            } else keyboard.showSoftInput(editor, 0)
+                            when (attempt) {
+                                1 -> Unit
+                                2, 4 -> if (window != null) WindowCompat.getInsetsController(window, editor).show(WindowInsetsCompat.Type.ime()) else keyboard.showSoftInput(editor, 0)
+                                3 -> if (window != null) WindowCompat.getInsetsController(window, editor).hide(WindowInsetsCompat.Type.ime())
+                            }
                             confirm(attempt + 1)
                         }
                     }, RESTORE_CONFIRM_DELAY_MS)
