@@ -8,11 +8,15 @@ describe AndroidViewStateFixture do
     value = first.native_state_identity
     first.native_state_identity.should eq(value)
     UI::TextField.new("two").native_state_identity.should be > value
-    values = [] of UInt64
-    mutex = Mutex.new
-    threads = Array.new(4) { Thread.new { 50.times { id = first.native_state_identity; mutex.synchronize { values << id } } } }
+    # Raw threads deliberately: Android callbacks arrive on JVM threads the
+    # Crystal scheduler does not own. Each thread owns its result slot so the
+    # check itself needs no fiber-aware lock.
+    results = Array(Array(UInt64)).new(4) { [] of UInt64 }
+    threads = Array.new(4) { |index| Thread.new { 50.times { results[index] << first.native_state_identity } } }
     threads.each(&.join)
-    values.uniq.should eq([value])
+    results.flatten.uniq.should eq([value])
+    Array.new(4) { |index| Thread.new { results[index] << UI::Label.new("t#{index}").native_state_identity } }.each(&.join)
+    results.flatten.uniq.size.should eq(5)
   end
   it "keeps state identity independent of testing and accessibility content" do
     field = UI::TextField.new("Name")
