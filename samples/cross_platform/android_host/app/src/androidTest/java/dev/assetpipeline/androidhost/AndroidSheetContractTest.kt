@@ -59,7 +59,22 @@ class AndroidSheetContractTest {
         }
         assertTrue("Host session did not return to the foreground", ready)
         device.waitForIdle(1000)
-        onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click())
+        // Activity controls move during a sheet's dismissal and the host's
+        // re-render; tap only once the control's rectangle has settled.
+        val stable = SystemClock.uptimeMillis() + 5000L
+        var last: android.graphics.Rect? = null
+        var since = 0L
+        while (SystemClock.uptimeMillis() < stable) {
+            var now: android.graphics.Rect? = null
+            onView(NativeTestIds.withTestId(id)).perform(scrollTo()).check { view, error -> if (error != null) throw error; now = android.graphics.Rect().also { view.getGlobalVisibleRect(it) } }
+            if (now != null && now == last) {
+                if (since == 0L) since = SystemClock.uptimeMillis()
+                if (SystemClock.uptimeMillis() - since >= 250L) break
+            } else since = 0L
+            last = now
+            SystemClock.sleep(50L)
+        }
+        onView(NativeTestIds.withTestId(id)).perform(click())
     }
     /** Tap a sheet control only after it stops moving. */
     private fun tap(id: String) { awaitStable(id); inside(id).perform(scrollTo(), click()) }
