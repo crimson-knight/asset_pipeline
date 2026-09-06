@@ -19,7 +19,7 @@ class CrystalClickListener(private val callbackId: Long) : View.OnClickListener 
 }
 
 class CrystalCheckedChangeListener(private val callbackId: Long) : CompoundButton.OnCheckedChangeListener {
-    override fun onCheckedChanged(buttonView: CompoundButton?, isChecked: Boolean) {
+    override fun onCheckedChanged(buttonView: CompoundButton, isChecked: Boolean) {
         if (!NativeWindowScope.allows(buttonView)) return
         CrystalBridge.dispatchBoolCallback(callbackId, isChecked)
     }
@@ -68,7 +68,7 @@ class CrystalEditorActionListener(private val callbackId: Long) : TextView.OnEdi
 }
 
 class CrystalRadioGroupCheckedChangeListener(private val callbackId: Long) : RadioGroup.OnCheckedChangeListener {
-    override fun onCheckedChanged(group: RadioGroup?, checkedId: Int) {
+    override fun onCheckedChanged(group: RadioGroup, checkedId: Int) {
         if (!NativeWindowScope.allows(group)) return
         CrystalBridge.dispatchIntCallback(callbackId, checkedId)
     }
