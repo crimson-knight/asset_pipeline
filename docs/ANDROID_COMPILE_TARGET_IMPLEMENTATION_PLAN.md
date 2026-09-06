@@ -259,6 +259,28 @@ readiness, those unresolved intermittent failures, independent CI, physical
 phone, remaining Tier A and release gates are not closed. The full goal remains
 active.
 
+The September 6 [API 36 checkpoint](android-36-proof-2026-09-06.md) completes
+the Android 16 migration: the migrated compile/target 36, AGP 8.13.2 build is
+green after the SDK 36 listener signature fix, the target-36 libraries and APK
+are 16 KB-aligned, and the complete driver passes exit 0 with all 50 tests and
+every failure lane on the 16 KB API 36 emulator and again on API 35. The
+[behavior audit](android-36-readiness.md) found one real delta, keyboard
+restoration after dialog-window recreation, now handled in the sheet runtime
+per [the sheet contract](android-sheets.md). The two previously unexplained
+intermittent failures were test races (an injected Tab whose traversal
+completes on a later main-loop turn; taps during sheet layout) and are fixed
+with explicit waits. Three fail-open or host-bound defects were removed: the
+raw-JNI gate passed without ripgrep, the NDK resolver took an ambient
+`ANDROID_NDK_HOME` over the pin, and `gradle.properties` carried a macOS JDK
+path. The declared workflow ran for real on GitHub's `ubuntu-24.04` runners:
+every API level cross-compiles both ABIs, packages the APK and bundle, and
+executes the suite on x86_64 emulators for the first time; see
+[the CI notes](android-ci.md) for the runner findings and the per-run results.
+The snapshot is also available as plan-package commits on
+`android-target-packages` in all four repositories. Physical phone, Tier A
+promotion, released-artifact consumer proof and the remaining Phase 7 gates are
+still open; the full goal remains active.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.
