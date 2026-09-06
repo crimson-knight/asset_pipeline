@@ -20,6 +20,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.NestedScrollView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -35,7 +36,8 @@ class NativeSheetAnchor(context: Context) : FrameLayout(context) {
 }
 
 private const val DEBUG_TAG = "AssetPipelineSheet"
-private const val RESTORE_CONFIRM_DELAY_MS = 700L
+private const val RESTORE_CONFIRM_DELAY_MS = 900L
+private const val RESTORE_CONFIRM_ATTEMPTS = 4
 
 object NativeSheets {
     @JvmStatic fun configure(anchor: View, packet: String) {
@@ -93,6 +95,7 @@ class NativeSheetHost(private val activity: Activity, savedState: Bundle?) {
         val content: View, val shell: LinearLayout, val viewport: NestedScrollView, val descriptor: SheetPolicy.Descriptor,
         val identity: String, val nodes: List<NativeViewState.Node>, val lease: DialogPolicy.Lease = DialogPolicy.Lease()) {
         var restored = false
+        var imeAnimating = false
         var pending: Runnable? = null
         var draw: ViewTreeObserver.OnPreDrawListener? = null
         var windowFocus: ViewTreeObserver.OnWindowFocusChangeListener? = null
@@ -333,6 +336,18 @@ class NativeSheetHost(private val activity: Activity, savedState: Bundle?) {
                 insets
             }
             dialog.show()
+            // Track IME animations so a keyboard-restore retry never hides a
+            // keyboard whose show is still in flight (that is what a blind
+            // hide-then-show did under load on Android 15).
+            ViewCompat.setWindowInsetsAnimationCallback(content, object : WindowInsetsAnimationCompat.Callback(WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+                override fun onPrepare(animation: WindowInsetsAnimationCompat) {
+                    if (animation.typeMask and WindowInsetsCompat.Type.ime() != 0) shown.imeAnimating = true
+                }
+                override fun onProgress(insets: WindowInsetsCompat, running: MutableList<WindowInsetsAnimationCompat>): WindowInsetsCompat = insets
+                override fun onEnd(animation: WindowInsetsAnimationCompat) {
+                    if (animation.typeMask and WindowInsetsCompat.Type.ime() != 0) shown.imeAnimating = false
+                }
+            })
             // Report the keyboard as requested from the window's first insets
             // report. Android 16 syncs IME visibility to the client's requested
             // types, so a window that declared ALWAYS_VISIBLE but reported no
@@ -438,18 +453,30 @@ class NativeSheetHost(private val activity: Activity, savedState: Bundle?) {
                 // request here cancels that in-flight show on Android 16
                 // (PHASE_CLIENT_APPLY_ANIMATION), so only confirm afterwards.
                 editor.requestFocus()
-                editor.postDelayed({
-                    event(shown) {
-                        if (!editor.isAttachedToWindow || !editor.isFocused) return@event
-                        val shownNow = ViewCompat.getRootWindowInsets(editor)?.isVisible(WindowInsetsCompat.Type.ime()) == true
-                        android.util.Log.d(DEBUG_TAG, "restoreKeyboard.confirm imeNow=$shownNow")
-                        if (!shownNow) {
+                fun confirm(attempt: Int) {
+                    editor.postDelayed({
+                        event(shown) {
+                            if (!editor.isAttachedToWindow || !editor.isFocused) return@event
+                            val shownNow = ViewCompat.getRootWindowInsets(editor)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+                            android.util.Log.d(DEBUG_TAG, "restoreKeyboard.confirm attempt=$attempt imeNow=$shownNow animating=${shown.imeAnimating}")
+                            if (shownNow || attempt >= RESTORE_CONFIRM_ATTEMPTS) return@event
+                            if (shown.imeAnimating) { confirm(attempt + 1); return@event }
+                            // The early request left the client's requested types
+                            // already including the IME, so a repeated show is
+                            // reported as a no-op (PHASE_CLIENT_REPORT_REQUESTED_VISIBLE_TYPES)
+                            // while the server never showed it. Clear that state
+                            // first, then request again.
                             val window = shown.dialog.window
-                            if (window != null) WindowCompat.getInsetsController(window, editor).show(WindowInsetsCompat.Type.ime())
-                            else keyboard.showSoftInput(editor, 0)
+                            if (window != null) {
+                                val controller = WindowCompat.getInsetsController(window, editor)
+                                controller.hide(WindowInsetsCompat.Type.ime())
+                                controller.show(WindowInsetsCompat.Type.ime())
+                            } else keyboard.showSoftInput(editor, 0)
+                            confirm(attempt + 1)
                         }
-                    }
-                }, RESTORE_CONFIRM_DELAY_MS)
+                    }, RESTORE_CONFIRM_DELAY_MS)
+                }
+                confirm(1)
             }
         }
         if (shown.content.hasWindowFocus()) { shown.content.post { apply() }; return }

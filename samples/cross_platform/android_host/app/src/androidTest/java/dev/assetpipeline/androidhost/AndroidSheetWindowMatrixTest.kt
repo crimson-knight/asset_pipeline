@@ -6,6 +6,10 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Rect
 import android.os.Bundle
+import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.isRoot
+import androidx.test.espresso.ViewInteraction
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
@@ -46,7 +50,24 @@ class AndroidSheetWindowMatrixTest {
         }
         fail(message)
     }
-    private fun inside(id: String) = onView(NativeTestIds.withTestId(id)).inRoot(isDialog())
+    /**
+     * The sheet window is created from a Crystal callback after the opening
+     * tap returns. Espresso's root picker gives up quickly when no root matches
+     * `isDialog()`, which a slower emulator can hit; wait for it explicitly.
+     */
+    private fun awaitDialogRoot() {
+        val deadline = SystemClock.uptimeMillis() + 5000L
+        while (true) {
+            try {
+                onView(isRoot()).inRoot(isDialog()).check(matches(isDisplayed()))
+                return
+            } catch (missing: androidx.test.espresso.NoMatchingRootException) {
+                if (SystemClock.uptimeMillis() >= deadline) throw missing
+                SystemClock.sleep(50L)
+            }
+        }
+    }
+    private fun inside(id: String): ViewInteraction { awaitDialogRoot(); return onView(NativeTestIds.withTestId(id)).inRoot(isDialog()) }
     private data class Parts(val owner: View, val editor: EditText, val viewport: NestedScrollView, val frame: FrameLayout)
     private fun parts(): Parts {
         var result: Parts? = null
@@ -221,6 +242,9 @@ class AndroidSheetWindowMatrixTest {
             awaitKeyboard(shown, "Landscape keyboard did not restore")
             device.waitForIdle(1000)
             inside("sheet-draft").check { _, error -> if (error != null) throw error }
+            // Keyboard restoration can complete a deferred full-tree refresh
+            // that replaces the editor; check the control the sheet holds now.
+            shown = parts()
             main {
                 keyboardEditorVisible(shown)
                 assertEquals("Landscape 雪 😀 e\u0301", shown.editor.text.toString())

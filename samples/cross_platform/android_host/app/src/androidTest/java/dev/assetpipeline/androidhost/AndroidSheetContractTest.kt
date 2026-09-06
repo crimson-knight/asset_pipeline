@@ -5,6 +5,10 @@ import android.content.Intent
 import android.graphics.Rect
 import android.os.SystemClock
 import android.os.Bundle
+import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.isRoot
+import androidx.test.espresso.ViewInteraction
 import android.os.Parcel
 import android.view.View
 import android.view.ViewGroup
@@ -63,7 +67,24 @@ class AndroidSheetContractTest {
         }
         throw AssertionError("View $id did not stop moving")
     }
-    private fun inside(id: String) = onView(NativeTestIds.withTestId(id)).inRoot(isDialog())
+    /**
+     * The sheet window is created from a Crystal callback after the opening
+     * tap returns. Espresso's root picker gives up quickly when no root matches
+     * `isDialog()`, which a slower emulator can hit; wait for it explicitly.
+     */
+    private fun awaitDialogRoot() {
+        val deadline = SystemClock.uptimeMillis() + 5000L
+        while (true) {
+            try {
+                onView(isRoot()).inRoot(isDialog()).check(matches(isDisplayed()))
+                return
+            } catch (missing: androidx.test.espresso.NoMatchingRootException) {
+                if (SystemClock.uptimeMillis() >= deadline) throw missing
+                SystemClock.sleep(50L)
+            }
+        }
+    }
+    private fun inside(id: String): ViewInteraction { awaitDialogRoot(); return onView(NativeTestIds.withTestId(id)).inRoot(isDialog()) }
     private fun editor(block: (EditText) -> Unit) = inside("sheet-draft").check { view, error ->
         if (error != null) throw error
         block(NativeSemantics.target(view) as EditText)
