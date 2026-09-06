@@ -62,6 +62,15 @@ describe UI::NativeView do
       parent = UI::NativeView.new(make_handle, [child1, child2])
       parent.children.size.should eq(2)
     end
+
+    it "normalizes equivalent AppKit and UIKit labels for reconciliation" do
+      make_view(label: "UIHostingController[Label]").view_kind.should eq("UI::Label")
+      make_view(label: "NSHostingView[Label]").view_kind.should eq("UI::Label")
+      make_view(label: "UIStackView[v]").view_kind.should eq("UI::VStack")
+      make_view(label: "NSStackView[v]").view_kind.should eq("UI::VStack")
+      make_view(label: "UIHostingController[TextField]").view_kind.should eq("UI::TextField")
+      make_view(label: "NSHostingView[TextField]").view_kind.should eq("UI::TextField")
+    end
   end
 
   describe "#add_child" do

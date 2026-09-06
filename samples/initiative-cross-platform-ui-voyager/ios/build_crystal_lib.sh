@@ -4,19 +4,20 @@
 # only differences are source path (Voyager bridge.cr) + output name
 # (libvoyager.a) + SwiftKit artifact name (swiftkit_*.a — same shape).
 #
-# Output: samples/initiative-cross-platform-ui-voyager/ios/build/libvoyager.a
+# Output: samples/initiative-cross-platform-ui-voyager/ios/build/libvoyager_{device,simulator}.a
 #
 # Usage: ./build_crystal_lib.sh [simulator|device]
 
 set -euo pipefail
 
 CRYSTAL=${CRYSTAL:-crystal-alpha}
+CRYSTAL_MCPU=${CRYSTAL_MCPU:-generic}
 BUILD_TARGET="${1:-simulator}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 BUILD_DIR="$SCRIPT_DIR/build"
-OUTPUT_LIB="$BUILD_DIR/libvoyager.a"
+OUTPUT_LIB="$BUILD_DIR/libvoyager_${BUILD_TARGET}.a"
 BRIDGE_SRC="$SCRIPT_DIR/bridge.cr"
 BRIDGE_BASE="$BUILD_DIR/bridge"
 
@@ -55,6 +56,7 @@ SDK_PATH="$(xcrun --sdk $SDK_NAME --show-sdk-path)"
 CLANG="$(xcrun --sdk $SDK_NAME --find clang)"
 
 info "Target         : $LLVM_TARGET"
+info "Crystal CPU    : $CRYSTAL_MCPU"
 info "SDK            : $SDK_PATH"
 info "Bridge source  : $BRIDGE_SRC"
 
@@ -101,7 +103,7 @@ fi
 # Xcode finds them via SWIFT_INCLUDE_PATHS pointing at
 # $(PROJECT_DIR)/build/Modules (configured in project.yml).
 SWIFTKIT_SRC_MODULE_DIR="$SWIFTKIT_PACKAGE_DIR/.build/$LLVM_TARGET/release/Modules"
-SWIFTKIT_DEST_MODULE_DIR="$BUILD_DIR/Modules"
+SWIFTKIT_DEST_MODULE_DIR="$BUILD_DIR/Modules/$BUILD_TARGET"
 if [[ -d "$SWIFTKIT_SRC_MODULE_DIR" ]]; then
     info "Staging AssetPipelineSwiftKit Swift module..."
     mkdir -p "$SWIFTKIT_DEST_MODULE_DIR"
@@ -113,7 +115,7 @@ fi
 # Step 3: cross-compile Crystal bridge.
 info "Cross-compiling Crystal bridge..."
 "$CRYSTAL" build "$BRIDGE_SRC" --cross-compile \
-    --target="$LLVM_TARGET" -Dios -o "$BRIDGE_BASE"
+    --target="$LLVM_TARGET" --mcpu="$CRYSTAL_MCPU" -Dios -o "$BRIDGE_BASE"
 ok "Crystal cross-compilation complete"
 
 # Step 4: hide _main to coexist with Swift @main.

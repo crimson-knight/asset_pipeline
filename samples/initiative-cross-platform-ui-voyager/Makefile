@@ -67,9 +67,23 @@ MACOS_FRAMEWORKS := -framework AppKit -framework Foundation \
 	-framework AVKit -framework AVFoundation \
 	-lobjc
 
+# Crystal links through clang rather than the Swift driver.  A force-loaded
+# Swift static archive therefore needs the Swift runtime *and* its SDK overlay
+# libraries explicitly; the framework flags above alone do not arrange that.
+# Keep the SDK path dynamic so the sample follows the selected Xcode instead of
+# baking in a developer-machine path.
+SWIFT_RUNTIME_DIR := $(shell xcrun --sdk macosx --show-sdk-path)/usr/lib/swift
+SWIFT_RUNTIME_LIBS := \
+	-lswiftCore -lswiftFoundation -lswiftDispatch -lswiftObjectiveC \
+	-lswiftCoreFoundation -lswiftCoreImage -lswiftIOKit -lswiftMetal \
+	-lswiftOSLog -lswiftQuartzCore -lswiftSpatial \
+	-lswiftUniformTypeIdentifiers -lswiftXPC \
+	-lswift_Builtin_float -lswiftsimd -lswiftos
+
 MACOS_LINK_FLAGS := $(AP_BRIDGE) $(SWIFTKIT_BRIDGE) $(WIN_HELPER) \
 	-Wl,-force_load,$(SWIFTKIT_LIB) \
 	$(MACOS_FRAMEWORKS) \
+	-L$(SWIFT_RUNTIME_DIR) $(SWIFT_RUNTIME_LIBS) \
 	-Wl,-rpath,/usr/lib/swift
 
 CODESIGN_IDENTITY ?= -
@@ -87,6 +101,7 @@ macos-build: $(MACOS_BIN)
 MACOS_CRYSTAL_SOURCES := $(shell find $(SHARD_ROOT)/src \
 	$(PROJECT_DIR)/screens $(PROJECT_DIR)/controllers $(PROJECT_DIR)/macos \
 	$(PROJECT_DIR)/app.cr $(PROJECT_DIR)/host_bootstrap.cr \
+	$(PROJECT_DIR)/native_reconcile_benchmark.cr $(PROJECT_DIR)/native_reconcile_collector.cr \
 	$(PROJECT_DIR)/capture_scenarios.cr -name '*.cr' 2>/dev/null)
 
 $(MACOS_BIN): $(MACOS_SRC) $(MACOS_CRYSTAL_SOURCES) $(AP_BRIDGE) $(SWIFTKIT_BRIDGE) $(SWIFTKIT_LIB) $(WIN_HELPER)

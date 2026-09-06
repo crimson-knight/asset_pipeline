@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <bool name="host_light_system_bars">false</bool>
+    <color name="host_primary">#D0BCFF</color>
+    <color name="host_on_primary">#381E72</color>
+    <color name="host_primary_container">#4F378B</color>
+    <color name="host_on_primary_container">#EADDFF</color>
+    <color name="host_surface">#141218</color>
+    <color name="host_surface_variant">#49454F</color>
+    <color name="host_on_surface">#E6E0E9</color>
+    <color name="host_on_surface_variant">#CAC4D0</color>
+    <color name="host_outline">#938F99</color>
+    <color name="host_outline_variant">#49454F</color>
+</resources>

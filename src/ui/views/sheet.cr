@@ -15,6 +15,24 @@ module UI
     property content : View? = nil
     # Whether the modal / overlay is currently presented.
     getter is_presented : Bool = false
+    @android_dismiss_request : Proc(Nil)? = nil
+
+    # Adapter-only hook. It schedules a native-window dismissal without
+    # re-entering Crystal from inside the current Crystal callback.
+    def __android_bind_dismiss(request : Proc(Nil)) : Nil
+      @android_dismiss_request = request
+    end
+
+    def __android_managed? : Bool
+      !@android_dismiss_request.nil?
+    end
+
+    # Called only after the native presentation has retired its event lease.
+    # Bypass the setter so a real dismissal cannot enqueue another dismissal.
+    def __android_did_dismiss : Nil
+      @is_presented = false
+      @on_dismiss.try(&.call)
+    end
 
     # Phase 3 Remediation 10 — reactive setter. Mirrors the
     # `UI::Toggle#is_on=` pattern: setting `is_presented` after the
@@ -26,12 +44,14 @@ module UI
     # rendered are simply stored on the property; the next render
     # seeds the reactive state from the new value.
     def is_presented=(new_value : Bool) : Bool
+      was_presented = @is_presented
       @is_presented = new_value
       {% if flag?(:macos) || flag?(:ios) %}
         if sh = @swiftkit_state_handle
           LibSwiftKitBridge.apsk_sheet_set_presented(sh, new_value ? 1 : 0)
         end
       {% end %}
+      @android_dismiss_request.try(&.call) if was_presented && !new_value
       new_value
     end
 
@@ -135,8 +155,12 @@ module UI
     # Dismisses the overlay / modal.
     def dismiss
       @is_presenting = false
-      @sheet.is_presented = false
-      @sheet.on_dismiss.try(&.call)
+      if @sheet.__android_managed?
+        @sheet.dismiss!
+      else
+        @sheet.is_presented = false
+        @sheet.on_dismiss.try(&.call)
+      end
     end
   end
 end

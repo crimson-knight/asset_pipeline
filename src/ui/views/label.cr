@@ -65,8 +65,9 @@ module UI
     # / tertiary / quaternary variants) at render time, tracking appearance
     # automatically. Default is `LabelRole::Primary` — the beauty-by-default
     # HIG render. A host that wants a brand color sets `text_color_role = nil`
-    # and sets `text_color` to the brand RGBA. Web / Android renderers ignore
-    # this field.
+    # and sets `text_color` to the brand RGBA. Android maps Primary to the
+    # active Material colorOnSurface and secondary roles to colorOnSurfaceVariant.
+    # The web renderer ignores this field.
     property text_color_role : LabelRole? = LabelRole::Primary
 
     # Text alignment within the label bounds

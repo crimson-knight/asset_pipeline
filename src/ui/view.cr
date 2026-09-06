@@ -1,6 +1,8 @@
 # Defines `UI::View`, the abstract base for every cross-platform view, plus the
 # `RenderContext` and `RenderError` types used by the platform-visitor renderers.
 
+require "./native/state_identity"
+
 module UI
   # Phase 6.11 iter-3 — Raised by a platform visitor when a child view
   # cannot be rendered to its native handle. The previous behavior emitted
@@ -183,11 +185,10 @@ module UI
   #              `data-ax-action-N-token="<n>"` attribute per action so
   #              a JS shim can dispatch keystroke-driven custom actions.
   #              The element is ensured focusable when actions exist.
-  #   - Android -> best-effort `AccessibilityNodeInfo.addAction` via the
-  #              accessibility delegate. JNI surface is documented as a
-  #              deferred limitation when the bridge entry point is not
-  #              wired (10B.2b iter 1 ships the Crystal-side data path
-  #              and a stub log call).
+  #   - Android -> bounded custom AccessibilityNodeInfo actions decorate
+  #              the existing native delegate. Checked callback tokens
+  #              belong to the rendered NativeView; detached, hidden,
+  #              disabled and background targets cannot dispatch them.
   class AccessibilityAction
     getter name : String
     getter callback : Proc(Nil)
@@ -227,8 +228,10 @@ module UI
   #   - AppKit -> on `NSButton`-like controls we set `keyEquivalent` +
   #              `keyEquivalentModifierMask` directly. Non-control views
   #              fall through.
-  #   - Android -> no first-class analog beyond `View.setOnKeyListener`;
-  #              documented as a deferred limitation.
+  #   - Android -> host Activity shortcut dispatch activates the native
+  #              clickable control once per initial key-down. Plain keys
+  #              only activate their focused non-editor owner; modified
+  #              shortcuts use exact modifier matching in tree order.
   struct KeyboardShortcut
     getter key : String
     getter modifiers : Array(Symbol)
@@ -303,9 +306,8 @@ module UI
     # open settings"). Web maps to `aria-describedby` (or `aria-description`
     # when the hint stands alone); UIKit maps to `accessibilityHint`;
     # AppKit maps to `setAccessibilityHelp:` (the closest AppKit equivalent
-    # — AppKit lacks a first-class hint slot). Android concatenates the
-    # hint onto `contentDescription` with a separator since Android's AX
-    # API surfaces a single string per view.
+    # — AppKit lacks a first-class hint slot). Android exposes separate
+    # node tooltip/help text, retaining native text and label semantics.
     property accessibility_hint : String? = nil
 
     # Phase 10B.2a — Explicit semantic role for assistive tech. When `nil`
@@ -346,7 +348,7 @@ module UI
     # toggle, segmented control). Examples: `"On"`, `"75%"`, `"3 of 7"`.
     # Web emits `aria-valuetext`; UIKit emits `accessibilityValue`;
     # AppKit emits `setAccessibilityValue:`; Android emits
-    # `setStateDescription` (API 30+; older versions silently no-op).
+    # `setStateDescription` (available throughout the API 31+ target).
     property accessibility_value : String? = nil
 
     # Phase 10B.2a — Stable identifier surfaced to platform AX trees for
@@ -359,6 +361,8 @@ module UI
     #   - Web emits both as `data-testid` (test_id) and
     #     `data-accessibility-id` (accessibility_identifier) so test
     #     drivers that already query the latter don't break.
+    #   - Android keeps both in namespaced node extras and per-view
+    #     metadata; neither becomes a spoken content description.
     property accessibility_identifier : String? = nil
 
     # Phase 10B.2b — Custom accessibility actions surfaced to assistive
@@ -366,7 +370,7 @@ module UI
     # See `UI::AccessibilityAction`. Renderers walk this array and
     # emit per-platform custom actions (UIKit `UIAccessibilityCustomAction`,
     # AppKit `NSAccessibilityCustomAction`, web data-attribute hooks,
-    # Android best-effort).
+    # Android native delegate actions, at most 16 per view).
     property accessibility_actions : Array(AccessibilityAction) = [] of AccessibilityAction
 
     # Phase 10B.2b — Requests that the view receive focus on render. When
@@ -375,6 +379,8 @@ module UI
     # `requestFocus()` on the resolved native view. Web emits an
     # `autofocus` attribute on form controls and a `data-focused="true"`
     # hook for non-form elements that a JS shim can act on.
+    # Android applies the first eligible request after mount/pre-draw,
+    # before saved focus restoration. Explicit focusable=false wins.
     property focused : Bool = false
 
     # Phase 10B.2b — Whether this view participates in keyboard focus
@@ -389,8 +395,8 @@ module UI
     # Phase 10B.2b — Explicit tab order index. Web emits `tabindex="<n>"`.
     # On native platforms `tab_index` is advisory because keyboard
     # traversal order is determined by the platform's focus engine; we
-    # surface the value in `accessibility_identifier` test attribute
-    # form so XCUITest / Espresso can introspect intent.
+    # surface the value in native testing metadata so drivers can
+    # introspect intent (Android node extra dev.assetpipeline.tab_index).
     property tab_index : Int32? = nil
 
     # Phase 10B.2b — Keyboard shortcut binding. See `UI::KeyboardShortcut`.
@@ -526,6 +532,25 @@ module UI
 
     # Test identifier for automated UI testing, maps to native test attributes
     property test_id : String? = nil
+
+    # Stable native view-state identity, separate from test/accessibility text.
+    # Keep this an application-defined identifier, not entered user content.
+    # Android scopes it to the visible navigation screen; duplicate keys within
+    # a scope are excluded from restoration. Nil uses conservative shape/path
+    # matching only when the entire semantic tree structure remains unchanged.
+    property state_key : String? = nil
+
+    @native_state_identity = Atomic(UInt64).new(0_u64)
+
+    # Opaque process-local scope, allocated once without retaining the View in
+    # a registry. Use state_key for identity that survives process replacement.
+    def native_state_identity : UInt64
+      current = @native_state_identity.get
+      return current unless current == 0
+      allocated = UI::NativeStateIdentity.allocate
+      previous, assigned = @native_state_identity.compare_and_set(0_u64, allocated)
+      assigned ? allocated : previous
+    end
 
     # Phase 6.10 Rem 4 (Item 2D) — root-fill flag.
     #

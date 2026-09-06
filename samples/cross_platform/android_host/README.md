@@ -25,6 +25,29 @@ is accepted; the host should not be treated as a shortcut around that review.
 
 ## Build
 
+The pinned versions are in `config/android_toolchain.env` at the repository
+root. The Gradle project consumes its SDK, NDK, JDK, AGP and Kotlin entries and
+checks the wrapper version. Crystal 1.21.0 is required for the current embedded
+startup contract. Both `arm64-v8a` and `x86_64` libraries build by default.
+
+From the repository root, first build the native dependencies:
+
+```bash
+./scripts/doctor_android.sh
+./scripts/cross_compile_deps.sh android
+```
+
+Set `CRYSTAL_CROSS_DEPS` when using a dependency directory other than
+`/tmp/crystal-cross-deps`. `ANDROID_ABIS=arm64-v8a` can select an ARM-only local
+build; release/matrix validation must build both architectures.
+
+Dependency caches now contain immutable ABI/API/toolchain-keyed bundles. The old
+`android-arm64`/`android-x86_64` flat directories are not accepted by the linker.
+Run the current dependency builder to produce verified entries; do not rename
+old archives or rewrite their manifests. The published bundle includes headers,
+all archive checksums, source provenance and license texts. Source/build work
+directories remain available for diagnostics.
+
 ```bash
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 export ANDROID_HOME="/opt/homebrew/share/android-commandlinetools"
@@ -33,6 +56,33 @@ cd samples/cross_platform/android_host
 ./gradlew :app:assembleDebug
 adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+
+## Runtime proof
+
+From the repository root, with an already booted emulator or authorized phone:
+
+```bash
+./scripts/run_android_smoke.sh emulator-5554
+```
+
+This rebuilds both native libraries, APK, test APK and release App Bundle,
+installs the app, enables CheckJNI, and runs real input/callback/lifecycle and
+theme/inset tests. It then starts a separate app process and captures its view
+tree, screenshot, logs and artifact checksums in a printed evidence directory.
+Missing devices, crashed instrumentation, absent tests and missing runtime
+probe output are failures. A compile or screenshot alone does not pass this
+command. Native debug symbols are retained in the release bundle metadata.
+
+The host executes Crystal's top-level initialization once on the Android main
+thread. Embedded entrypoints must declare/export application behavior and must
+not start an HTTP server or an endless top-level loop. Runtime state survives
+Activity recreation; process restart currently starts fresh application state.
+Text callbacks update Crystal state while retaining the focused native editor;
+other callbacks refresh the sample tree. General incremental reconciliation
+and persistent process-state restoration remain separate work.
+
+The September 4 proof covers the ARM64 emulator. x86_64 runtime, the physical
+phone and the full renderer support matrix remain unverified.
 
 The host accepts these activity extras:
 

@@ -34,7 +34,6 @@
 #   companion object {
 #     init {
 #       System.loadLibrary("myapp")
-#       crystalInit()
 #     }
 #   }
 #
@@ -81,8 +80,10 @@
 # ---------------------------------------------------------------------------
 # crystal_init
 # ---------------------------------------------------------------------------
-# Initialise the Crystal runtime. Must be called exactly once, before any
-# other Crystal function, from the application's main thread.
+# Initialise before other Crystal functions from the application's main thread.
+# Android's C wrapper makes subsequent calls idempotent; JNI_OnLoad must check
+# crystal_runtime_is_ready before exposing application entrypoints. Apple hosts
+# retain their existing single-call startup contract.
 #
 # Initialises:
 #   - BoehmGC (garbage collector)
@@ -94,35 +95,33 @@
 # Safe to call from Kotlin via JNI after declaring:
 #   external fun crystalInit()
 
-fun crystal_init : Nil
-  # Initialise BoehmGC. This is idempotent if called multiple times, but
-  # must be done before the first allocation. On iOS, GC_init() also sets
-  # the stack bottom, which is required for correct stack scanning.
-  GC.init
+{% if flag?(:android) %}
+  lib LibAndroidRuntimeLog
+    fun crystal_android_log_runtime_error(message : UInt8*)
+  end
 
-  # On platforms that support it, install a finalizer thread so that
-  # objects with Crystal finalize() methods are collected promptly.
-  # On iOS in the App Sandbox this is safe because we use --disable-threads
-  # in the libgc build (single-threaded GC). If you enable threaded GC,
-  # call GC.start_world here.
-  #
-  # Crystal's own prelude calls these during normal (non-shared) startup.
-  # We replicate the necessary subset here.
-  {% unless flag?(:without_gc) %}
-    # No-op if GC.init was already called (BoehmGC is idempotent).
-    # The important effect is registering the calling thread as the GC root.
+  # C owns the once gate: Crystal synchronization is not available before
+  # this function initializes the runtime. build_android.sh links the wrapper.
+  fun crystal_android_initialize_runtime(argc : Int32, argv : UInt8**) : Int32
     GC.init
-  {% end %}
-
-  # Set up Crystal's internal fiber scheduler state. When the host app is
-  # single-threaded, this is a no-op. When -Dpreview_mt is used, this
-  # initialises the worker thread pool.
-  #
-  # Note: Fiber.yield inside Crystal code will schedule across Crystal fibers
-  # only — it does NOT yield to the iOS/Android run loop. For run-loop
-  # integration, use callbacks and platform event sources.
-  nil
-end
+    Crystal.init_runtime
+    # __crystal_main initializes eager constants/class variables, the default
+    # execution context (kernel.cr), and application top-level declarations.
+    # Calling just init_runtime leaves those globals zeroed. Do not call
+    # Crystal.main/exit: the Android host owns process lifetime and cleanup.
+    Crystal.main_user_code(argc, argv)
+    0
+rescue ex
+  message = String.build { |io| ex.inspect_with_backtrace(io) }
+  LibAndroidRuntimeLog.crystal_android_log_runtime_error(message.to_unsafe)
+  -1
+  end
+{% else %}
+  fun crystal_init : Nil
+    GC.init
+    Crystal.init_runtime
+  end
+{% end %}
 
 # ---------------------------------------------------------------------------
 # crystal_cleanup
@@ -145,28 +144,8 @@ fun crystal_cleanup : Nil
   nil
 end
 
-# ---------------------------------------------------------------------------
-# crystal_gc_register_thread / crystal_gc_unregister_thread
-# ---------------------------------------------------------------------------
-# Register or unregister the calling native thread with BoehmGC.
-#
-# Any native thread (Swift DispatchQueue thread, Android WorkManager thread,
-# etc.) that allocates Crystal objects or calls Crystal functions that
-# allocate objects must be registered. Failure to do so will cause the GC
-# to miss live references on that thread's stack, leading to premature
-# collection.
-#
-# Call crystal_gc_register_thread() at the top of any such thread's entry
-# point, and crystal_gc_unregister_thread() before the thread exits.
-#
-# Safe to call from C as:
-#   void crystal_gc_register_thread(void);
-#   void crystal_gc_unregister_thread(void);
-
-fun crystal_gc_register_thread : Nil
-  nil
-end
-
-fun crystal_gc_unregister_thread : Nil
-  nil
-end
+# Native-thread registration cannot safely be implemented as a Crystal
+# function: entering that wrapper would already execute Crystal on an
+# unregistered stack. Android builds therefore link `crystal_gc_threads.c`.
+# JNI entrypoints call its C helpers before dispatching into Crystal and call
+# the matching unregister helper only when this bridge registered the thread.

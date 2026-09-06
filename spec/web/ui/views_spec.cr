@@ -464,6 +464,10 @@ describe UI do
       field.text.should eq("")
       field.secure_entry.should be_false
       field.keyboard_type.should eq(UI::KeyboardType::Default)
+      field.text_color_explicit?.should be_false
+      field.text_color = UI::Color.new(r: 0.0, g: 0.0, b: 0.0)
+      field.text_color_explicit?.should be_true
+      field.text_color.r.should eq 0.0
     end
 
     it "creates a ScrollView" do

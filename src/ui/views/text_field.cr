@@ -40,8 +40,16 @@ module UI
     # Font for the text field content
     property font : Font = Font.new
 
-    # Text color
-    property text_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
+    # Explicit text color. Android otherwise retains the active native theme's
+    # foreground; the legacy RGBA getter remains unchanged for other renderers.
+    @text_color : Color = Color.new(r: 0.0, g: 0.0, b: 0.0)
+    getter text_color
+    getter? text_color_explicit = false
+
+    def text_color=(color : Color) : Color
+      @text_color_explicit = true
+      @text_color = color
+    end
 
     # Placeholder tint. `nil` (the default) keeps the kit's contrast-safe
     # placeholder (`label @ 50% opacity`, ≥ 3:1 in light + dark). Set it to

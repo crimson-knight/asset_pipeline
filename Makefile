@@ -9,9 +9,9 @@
 #   test-ios       — placeholder; see docs/initiative-cross-platform-ui/native-compile-matrix.md
 #                    Currently `attempted-blocked` on cross-compiled libgc.
 #                    Implementation deferred to Phase 10D / native runner phase.
-#   test-android   — placeholder; see native-compile-matrix.md.
-#                    Currently `attempted-blocked` on Crystal stdlib host-only.
-#                    Implementation deferred to Phase 10D / native runner phase.
+#   test-android   — real native build, device tests and isolated failure checks.
+#                    Requires an explicit ANDROID_SERIAL; never auto-selects a device.
+#                    See docs/android-ci.md for toolchain and evidence requirements.
 #   test-all       — runs `test-web` + `test-macos`.
 #   lint           — runs Phase 10A.0a's convention-rule runner
 #                    (`scripts/lint_conventions.cr`).
@@ -25,6 +25,10 @@
 
 CRYSTAL       ?= crystal
 ACRYSTAL      ?= acrystal
+# These are data, not Make expressions or shell fragments.
+override ANDROID_SERIAL := $(value ANDROID_SERIAL)
+override ANDROID_TEST_EVIDENCE := $(value ANDROID_TEST_EVIDENCE)
+export ANDROID_SERIAL ANDROID_TEST_EVIDENCE
 
 AP_BRIDGE_OBJ := src/ui/native/objc_bridge.o
 AP_BRIDGE_SRC := src/ui/native/objc_bridge.m
@@ -70,15 +74,12 @@ test-ios:
 	@echo "[test-ios]   samples/initiative-cross-platform-ui-demo/ios/build_crystal_lib.sh"
 
 test-android:
-	@echo "[test-android] Android spec lane is attempted-blocked."
-	@echo "[test-android] See docs/initiative-cross-platform-ui/native-compile-matrix.md"
-	@echo "[test-android] First actionable error: Crystal stdlib host-only"
-	@echo "[test-android]   (require \"c/sys/epoll\" only ships on Linux Crystal builds)."
-	@echo "[test-android] Needs Linux-targeted Crystal compiler + Android NDK."
+	@bash scripts/test_android_target.sh
 
 test-all: test-web test-macos
 	@echo "[test-all] web + macOS lanes complete."
-	@echo "[test-all] iOS / Android lanes: see native-compile-matrix.md"
+	@echo "[test-all] Android is separate: make test-android ANDROID_SERIAL=<adb-serial>"
+	@echo "[test-all] iOS lane: see native-compile-matrix.md"
 
 lint:
 	$(CRYSTAL) run scripts/lint_conventions.cr
