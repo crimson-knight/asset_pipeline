@@ -172,3 +172,16 @@ size/device/API and keyboard matrices,
 TalkBack exploration and accessibility focus. General modal stacking, custom
 numeric detents and Apple surface effects are not claimed. Physical-device,
 full Tier A, CI and public released-consumer gates remain open in the full plan.
+
+## Keyboard restoration across window recreation (Android 16)
+
+A sheet whose saved state recorded a visible keyboard restores it through the
+window, not through a client request at focus time. Before the dialog window
+attaches it declares `SOFT_INPUT_STATE_ALWAYS_VISIBLE`, and immediately after
+`dialog.show()` it requests the IME through the insets controller so the client's
+requested types agree with the window state. At window focus the sheet confirms
+after a bounded delay; if the keyboard is absent and no IME animation is in
+flight, it clears the requested state with hide-then-show and re-requests, at
+most four times. Android 15 restored the keyboard on its own; Android 16 does
+not, and it rejects or cancels client requests made as the window gains focus.
+Restoration is never attempted for a sheet whose saved state had no keyboard.
