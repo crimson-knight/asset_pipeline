@@ -97,7 +97,21 @@ class AndroidSheetWindowMatrixTest {
                 // (Espresso's RootViewWithoutFocusException is private): keep waiting.
                 val waitable = pending is androidx.test.espresso.NoMatchingRootException ||
                     pending.javaClass.simpleName == "RootViewWithoutFocusException"
-                if (!waitable || SystemClock.uptimeMillis() >= deadline) throw pending
+                if (!waitable) throw pending
+                if (SystemClock.uptimeMillis() >= deadline) {
+                    // Failure-only diagnostics: which window holds focus, and what is on screen.
+                    val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                    val focus = try {
+                        device.executeShellCommand("dumpsys window displays").lineSequence()
+                            .filter { it.contains("mCurrentFocus") || it.contains("mFocusedApp") }.joinToString(" | ") { it.trim() }
+                    } catch (_: Throwable) { "unavailable" }
+                    try {
+                        val folder = requireNotNull(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir("sheet-proof")).apply { mkdirs() }
+                        device.takeScreenshot(java.io.File(folder, "dialog-root-timeout-${SystemClock.uptimeMillis()}.png"))
+                    } catch (_: Throwable) { }
+                    InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply { putString("dialog_root_wait", focus) })
+                    throw AssertionError("Dialog root did not become focused [$focus]", pending)
+                }
                 SystemClock.sleep(50L)
             }
         }
