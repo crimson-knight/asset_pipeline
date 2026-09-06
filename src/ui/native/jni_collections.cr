@@ -2,6 +2,7 @@
 # type-safe construction and access from Crystal code targeting Android.
 
 {% if flag?(:android) %}
+  require "../android/java_boundary"
   # Crystal wrappers for JNI collection bridge operations.
   #
   # These wrap the C functions defined in collection_bridge.c (Section 2:
@@ -42,7 +43,7 @@
     module JNI
       # Low-level lib bindings for the C JNI collection bridge functions.
       # These mirror the function signatures in collection_bridge.c exactly.
-      lib LibJNICollectionBridge
+      lib RawJNICollectionBridge
         # -- jstring --
         fun jni_string_create(env : JNIEnv, utf8_str : UInt8*) : Void*
         fun jni_string_create_with_bytes(env : JNIEnv, bytes : UInt8*, byte_len : Int32) : Void*
@@ -70,8 +71,11 @@
         fun jni_viewgroup_remove_all(env : JNIEnv, view_group : Void*)
 
         # -- Reference management --
+        fun jni_set_java_vm(vm : Void*)
+        fun jni_delete_global_ref_current_thread(global_ref : Void*) : Int32
         fun jni_new_global_ref(env : JNIEnv, local_ref : Void*) : Void*
         fun jni_delete_global_ref(env : JNIEnv, global_ref : Void*)
+        fun jni_live_global_ref_count : Int32
         fun jni_delete_local_ref(env : JNIEnv, local_ref : Void*)
         fun jni_push_local_frame(env : JNIEnv, capacity : Int32) : Int32
         fun jni_pop_local_frame(env : JNIEnv, result : Void*) : Void*
@@ -79,7 +83,31 @@
         # -- HashMap --
         fun jni_hashmap_create_string_string(env : JNIEnv, keys : UInt8**,
                                              values : UInt8**, count : Int32) : Void*
+        fun jni_hashmap_create_string_string_with_lengths(env : JNIEnv, keys : UInt8**, key_lengths : Int32*,
+                                                          values : UInt8**, value_lengths : Int32*, count : Int32) : Void*
       end
+
+      {% verbatim do %}
+      module LibJNICollectionBridge
+        {% for method in UI::JNI::RawJNICollectionBridge.methods %}
+          def self.{{method.name}}({{method.args.map(&.name).splat}})
+          {% if ["jni_delete_global_ref", "jni_delete_global_ref_current_thread", "jni_delete_local_ref", "jni_pop_local_frame", "jni_string_release_utf8", "jni_set_java_vm", "jni_live_global_ref_count"].includes?(method.name.stringify) %}
+            UI::JNI::RawJNICollectionBridge.{{method.name}}({{method.args.map(&.name).splat}})
+          {% else %}
+            UI::Android::JavaBoundary.check!({{method.args.first.name}})
+            {% if ["", "Void"].includes?(method.return_type.stringify) %}
+            UI::JNI::RawJNICollectionBridge.{{method.name}}({{method.args.map(&.name).splat}})
+            UI::Android::JavaBoundary.check!({{method.args.first.name}})
+            {% else %}
+            %result = UI::JNI::RawJNICollectionBridge.{{method.name}}({{method.args.map(&.name).splat}})
+            UI::Android::JavaBoundary.check!({{method.args.first.name}})
+            %result
+            {% end %}
+          {% end %}
+          end
+        {% end %}
+      end
+      {% end %}
 
       # ========================================================================
       # Local reference frame scoping.
@@ -309,14 +337,18 @@
       def self.hashmap_from_strings(env : JNIEnv, hash : Hash(String, String)) : Void*
         keys = Array(Pointer(UInt8)).new(hash.size)
         values = Array(Pointer(UInt8)).new(hash.size)
+        key_lengths = Array(Int32).new(hash.size)
+        value_lengths = Array(Int32).new(hash.size)
 
         hash.each do |k, v|
           keys << k.to_unsafe
           values << v.to_unsafe
+          key_lengths << k.bytesize
+          value_lengths << v.bytesize
         end
 
-        LibJNICollectionBridge.jni_hashmap_create_string_string(
-          env, keys.to_unsafe, values.to_unsafe, hash.size.to_i32)
+        LibJNICollectionBridge.jni_hashmap_create_string_string_with_lengths(
+          env, keys.to_unsafe, key_lengths.to_unsafe, values.to_unsafe, value_lengths.to_unsafe, hash.size.to_i32)
       end
     end
   end

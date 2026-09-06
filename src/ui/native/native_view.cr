@@ -85,21 +85,30 @@ module UI
     # Map a renderer debug label (passed to `ObjC.owned(ptr, label: ...)`)
     # to the originating UI::View class name. Only labels the reconciler
     # needs are mapped; anything else returns nil so the reconciler aborts
-    # to the safe destructive path. Keep in sync with the UIKit renderer's
-    # `ObjC.owned(..., label:)` strings.
+    # to the safe destructive path. Keep in sync with both Apple renderers'
+    # `ObjC.owned(..., label:)` strings. The same in-place walk is used by
+    # the macOS and iOS hosts, so an AppKit spelling must not make an
+    # otherwise identical tree appear structurally incompatible.
     def self.infer_view_kind(label : String?) : String?
       return nil if label.nil?
       case label
       when "UIHostingController[Label]"       then "UI::Label"
+      when "NSHostingView[Label]"             then "UI::Label"
       when "UIHostingController[Button]"      then "UI::Button"
+      when "NSHostingController[Button]"      then "UI::Button"
       when "UIStackView[v]"                   then "UI::VStack"
+      when "NSStackView[v]"                   then "UI::VStack"
       when "UIStackView[h]"                   then "UI::HStack"
+      when "NSStackView[h]"                   then "UI::HStack"
       when "UIView[zstack]"                   then "UI::ZStack"
+      when "NSView[zstack]"                   then "UI::ZStack"
       when "UIScrollView"                     then "UI::ScrollView"
+      when "NSScrollView"                     then "UI::ScrollView"
       when "UIView[spacer]"                   then "UI::Spacer"
       when "UIHostingController[Image]"       then "UI::Image"
       when "UIHostingController[Divider]"     then "UI::Divider"
       when "UIHostingController[TextField]"   then "UI::TextField"
+      when "NSHostingView[TextField]"         then "UI::TextField"
       when "UIHostingController[SecureField]" then "UI::SecureField"
       when "UIHostingController[SearchField]" then "UI::SearchField"
       when "UIHostingController[TextArea]"    then "UI::TextArea"
@@ -184,6 +193,16 @@ module UI
     # Register a callback block and track its ID for cleanup during `teardown!`.
     def register_callback(&block : -> Nil) : UInt64
       register_callback(block)
+    end
+
+    # Retire an independently presented subtree's event ownership while keeping
+    # its handles alive for metadata capture and the ordinary root teardown.
+    # No user callbacks run here. Repeated retirement/teardown is harmless.
+    def retire_callbacks! : Nil
+      return if @state.torn_down?
+      @children.each(&.retire_callbacks!)
+      CallbackRegistry.unregister(@callback_ids)
+      @callback_ids.clear
     end
 
     # Perform post-order recursive cleanup of this view and all descendants.

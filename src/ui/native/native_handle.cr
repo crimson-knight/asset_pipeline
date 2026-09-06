@@ -7,6 +7,12 @@ require "./lib_objc_runtime"
   require "./swiftkit_bridge"
 {% end %}
 
+{% if flag?(:android) %}
+  lib LibJNINativeHandle
+    fun jni_delete_global_ref_current_thread(global_ref : Void*) : Int32
+  end
+{% end %}
+
 module UI
   # Wraps a raw `Void*` pointer to a platform-native object with explicit
   # ownership semantics determined by a `ReleaseStrategy`.
@@ -28,10 +34,10 @@ module UI
   #
   # ```
   # handle = UI::NativeHandle.new(some_ptr, UI::ReleaseStrategy::ObjCRelease, label: "NSButton")
-  # handle.valid?  # => true
-  # handle.ptr!    # => some_ptr (raises if released or null)
+  # handle.valid? # => true
+  # handle.ptr!   # => some_ptr (raises if released or null)
   # handle.release!
-  # handle.valid?  # => false
+  # handle.valid?   # => false
   # handle.release! # safe: idempotent, no-op on second call
   # ```
   class NativeHandle
@@ -178,12 +184,9 @@ module UI
         {% end %}
       when .jni_global_ref?
         {% if flag?(:android) %}
-          # JNI global refs require a JNIEnv* to delete. The JNIEnv is
-          # stored on the NativeView that owns this handle. At finalize
-          # time we cannot safely obtain a JNIEnv, so JNI handles MUST
-          # be released explicitly via release! before GC collection.
-          # This is a known limitation -- the handle tracker will flag
-          # unreleased JNI handles as leaks.
+          # JNIEnv is thread-local, so the bridge obtains it from the JavaVM
+          # recorded at JNI_OnLoad and attaches the current thread when needed.
+          LibJNINativeHandle.jni_delete_global_ref_current_thread(@ptr)
         {% end %}
       when .obj_c_borrowed?, .unowned?
         # No-op: borrowed and unowned pointers are not our responsibility.
