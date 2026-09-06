@@ -196,10 +196,20 @@ instrumentation tests before the fixes above landed.
 | 4 | keyboard fix, test waits | 49/50 | KVM udev race | 49/50 |
 | 5 | guarded retry, dialog-root wait, KVM retry | 46/50 | 17/50 (no window focus, 2-core emulator) | host spec crash (raw-thread mutex) |
 | 6 | 4-core emulators, keyguard, diagnostics, lock-free identity | **pass** | 48/50 (two wait budgets) | **pass** |
+| 7 | package history, ten-second sheet waits | 47/50 (taps dropped before the session was foreground) | 17/50 (launcher ANR dialog held focus) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
 tests, every isolated failure lane, and the tracked-source check. Run 6 is the
 first fully green remote execution and the first x86_64 pass at API 36. The two
-API 35 misses were a five-second keyboard wait and a dialog-root wait that let
-Espresso's focus timeout escape; both budgets are widened in the next run.
+API 35 misses in run 6 were a five-second keyboard wait and a dialog-root wait
+that let Espresso's focus timeout escape; both budgets are widened.
+
+Run 7's diagnostics answered the API 35 question: the retained focus dump and
+screenshot show the emulator booting into "Pixel Launcher isn't responding", a
+SYSTEM_ALERT window that held focus before the app was installed. The driver
+now sets `hide_error_dialogs`, closes system dialogs and backs out of an ANR
+dialog before installing. Run 7's API 31 misses were taps issued after a
+recreation before the host session was foreground again, which the host drops
+by design; the sheet tests now wait for that state before tapping, and the
+focus test waits for its editor to finish scrolling into view before it taps.
