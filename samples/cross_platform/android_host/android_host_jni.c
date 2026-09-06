@@ -1,77 +1,78 @@
-#include <jni.h>
+/* Compatibility build path. Runtime ownership belongs to AssetPipeline core,
+ * not this showcase; generated applications compile the canonical source. */
+#include "../../../src/ui/native/android_host_jni.c"
 
-extern void crystal_init(void);
-extern void *crystal_android_host_render_slug(void *env, void *context, const char *slug);
-extern void crystal_ui_callback_dispatch(unsigned long long tag);
-extern void crystal_ui_string_callback_dispatch(unsigned long long tag, unsigned char *value);
-extern void crystal_ui_bool_callback_dispatch(unsigned long long tag, int value);
-extern void crystal_ui_float_callback_dispatch(unsigned long long tag, double value);
-extern void crystal_ui_int_callback_dispatch(unsigned long long tag, int value);
-
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
-    (void)vm;
-    (void)reserved;
-    crystal_init();
-    return JNI_VERSION_1_6;
-}
-
+/* Only the showcase entrypoint exports this Crystal test fixture. External
+ * Amber app fixtures still use the same host shim without requiring it. */
+extern void *crystal_android_text_fixture_collections(void *env) __attribute__((weak));
 JNIEXPORT jobject JNICALL
-Java_dev_assetpipeline_androidhost_CrystalBridge_renderStudy(JNIEnv *env, jobject thiz, jobject context, jstring slug) {
-    (void)thiz;
+Java_dev_assetpipeline_androidhost_AndroidTextContractTest_collectionsNative(JNIEnv *env, jobject test) {
+    (void)test;
+    if (!crystal_android_text_fixture_collections) return NULL;
+    int registration = ap_enter_crystal();
+    if (registration < 0) return NULL;
+    jobject result = (jobject)crystal_android_text_fixture_collections(env);
+    ap_leave_crystal(registration);
+    return result;
+}
 
-    if (!context || !slug) {
-        return NULL;
-    }
+extern uint64_t crystal_android_failure_fixture_register(int kind) __attribute__((weak));
+extern void crystal_android_failure_fixture_unregister(uint64_t id) __attribute__((weak));
+extern int crystal_android_failure_fixture_render_probe(void *env, void *context) __attribute__((weak));
+extern int crystal_android_java_failure_render_probe(void *env, void *context, int kind) __attribute__((weak));
+extern int crystal_android_semantics_render_probe(void *env, void *context) __attribute__((weak));
 
-    const char *slug_utf8 = (*env)->GetStringUTFChars(env, slug, NULL);
-    void *global_ref = crystal_android_host_render_slug(env, context, slug_utf8);
-    (*env)->ReleaseStringUTFChars(env, slug, slug_utf8);
+JNIEXPORT jint JNICALL
+Java_dev_assetpipeline_androidhost_AndroidSemanticsTest_renderProbeNative(JNIEnv *env, jobject test, jobject context) {
+    (void)test;
+    if (!crystal_android_semantics_render_probe) return -1;
+    int registration = ap_enter_crystal();
+    if (registration < 0) return -1;
+    int result = crystal_android_semantics_render_probe(env, context);
+    ap_leave_crystal(registration);
+    return result;
+}
 
-    if (!global_ref) {
-        return NULL;
-    }
+JNIEXPORT jint JNICALL
+Java_dev_assetpipeline_androidhost_AndroidJavaFailureBoundaryTest_renderProbeNative(JNIEnv *env, jobject test, jobject context, jint kind) {
+    (void)test;
+    if (!crystal_android_java_failure_render_probe) return -1;
+    int registration = ap_enter_crystal();
+    if (registration < 0) return -1;
+    int result = crystal_android_java_failure_render_probe(env, context, kind);
+    ap_leave_crystal(registration);
+    /* Keep the original Java Throwable pending for the JVM to deliver. */
+    return result;
+}
 
-    return (*env)->NewLocalRef(env, (jobject)global_ref);
+JNIEXPORT jlong JNICALL
+Java_dev_assetpipeline_androidhost_AndroidFailureBoundaryTest_registerFailureNative(JNIEnv *env, jobject test, jint kind) {
+    (void)env; (void)test;
+    if (!crystal_android_failure_fixture_register) return 0;
+    int registration = ap_enter_crystal();
+    if (registration < 0) return 0;
+    uint64_t result = crystal_android_failure_fixture_register(kind);
+    ap_leave_crystal(registration);
+    return (jlong)result;
 }
 
 JNIEXPORT void JNICALL
-Java_dev_assetpipeline_androidhost_CrystalBridge_dispatchVoidCallbackNative(JNIEnv *env, jclass clazz, jlong callback_id) {
-    (void)env;
-    (void)clazz;
-    crystal_ui_callback_dispatch((unsigned long long)callback_id);
+Java_dev_assetpipeline_androidhost_AndroidFailureBoundaryTest_unregisterFailureNative(JNIEnv *env, jobject test, jlong id) {
+    (void)env; (void)test;
+    if (!crystal_android_failure_fixture_unregister) return;
+    int registration = ap_enter_crystal();
+    if (registration < 0) return;
+    crystal_android_failure_fixture_unregister((uint64_t)id);
+    ap_leave_crystal(registration);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_assetpipeline_androidhost_CrystalBridge_dispatchStringCallbackNative(JNIEnv *env, jclass clazz, jlong callback_id, jstring value) {
-    (void)clazz;
-
-    if (!value) {
-        crystal_ui_string_callback_dispatch((unsigned long long)callback_id, (unsigned char *)"");
-        return;
-    }
-
-    const char *utf8 = (*env)->GetStringUTFChars(env, value, NULL);
-    crystal_ui_string_callback_dispatch((unsigned long long)callback_id, (unsigned char *)utf8);
-    (*env)->ReleaseStringUTFChars(env, value, utf8);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_assetpipeline_androidhost_CrystalBridge_dispatchBoolCallbackNative(JNIEnv *env, jclass clazz, jlong callback_id, jboolean value) {
-    (void)env;
-    (void)clazz;
-    crystal_ui_bool_callback_dispatch((unsigned long long)callback_id, value ? 1 : 0);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_assetpipeline_androidhost_CrystalBridge_dispatchFloatCallbackNative(JNIEnv *env, jclass clazz, jlong callback_id, jdouble value) {
-    (void)env;
-    (void)clazz;
-    crystal_ui_float_callback_dispatch((unsigned long long)callback_id, (double)value);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_assetpipeline_androidhost_CrystalBridge_dispatchIntCallbackNative(JNIEnv *env, jclass clazz, jlong callback_id, jint value) {
-    (void)env;
-    (void)clazz;
-    crystal_ui_int_callback_dispatch((unsigned long long)callback_id, (int)value);
+JNIEXPORT jint JNICALL
+Java_dev_assetpipeline_androidhost_AndroidFailureBoundaryTest_renderProbeNative(JNIEnv *env, jobject test, jobject context) {
+    (void)test;
+    if (!crystal_android_failure_fixture_render_probe) return -1;
+    int registration = ap_enter_crystal();
+    if (registration < 0) return -1;
+    int result = crystal_android_failure_fixture_render_probe(env, context);
+    ap_leave_crystal(registration);
+    return result;
 }

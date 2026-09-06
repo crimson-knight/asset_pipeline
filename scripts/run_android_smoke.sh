@@ -1,0 +1,211 @@
+#!/usr/bin/env bash
+# Fresh package + device runtime proof. ADB's instrumentation command can exit
+# zero on a crashed test process, so verify its result protocol as well.
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/android_env.sh"
+
+[[ $# -ge 1 && $# -le 2 ]] || {
+    echo "Usage: $0 <adb-serial> [evidence-directory]" >&2
+    exit 2
+}
+SERIAL="$1"
+EVIDENCE_DIR="${2:-$(mktemp -d /tmp/asset-pipeline-android-smoke.XXXXXX)}"
+mkdir -p "$EVIDENCE_DIR"
+EVIDENCE_DIR="$(cd "$EVIDENCE_DIR" && pwd)"
+android_resolve_sdk_root
+android_resolve_java_home
+export ANDROID_HOME="$ANDROID_RESOLVED_SDK_ROOT"
+export ANDROID_SDK_ROOT="$ANDROID_RESOLVED_SDK_ROOT"
+export JAVA_HOME="$ANDROID_RESOLVED_JAVA_HOME"
+ADB="$ANDROID_RESOLVED_SDK_ROOT/platform-tools/adb"
+HOST_DIR="$ANDROID_PROJECT_ROOT/samples/cross_platform/android_host"
+APP_ID=dev.assetpipeline.androidhost
+TEST_CLASS="${ANDROID_SMOKE_TEST_CLASS:-dev.assetpipeline.androidhost.AndroidNativeSmokeTest,dev.assetpipeline.androidhost.AndroidTextContractTest,dev.assetpipeline.androidhost.AndroidNavigationContractTest,dev.assetpipeline.androidhost.AndroidLayoutContractTest,dev.assetpipeline.androidhost.AndroidViewStateTest,dev.assetpipeline.androidhost.AndroidSemanticsTest,dev.assetpipeline.androidhost.AndroidFocusVisibilityTest,dev.assetpipeline.androidhost.AndroidCompoundFocusTest,dev.assetpipeline.androidhost.AndroidDialogContractTest,dev.assetpipeline.androidhost.AndroidSheetContractTest,dev.assetpipeline.androidhost.AndroidSheetViewportTest,dev.assetpipeline.androidhost.AndroidSheetWindowMatrixTest},dev.assetpipeline.androidhost.StoragePlatformTest,dev.assetpipeline.androidhost.SecretsPlatformTest,dev.assetpipeline.androidhost.FilesPlatformTest"
+fail() { echo "ERROR: $* (evidence: $EVIDENCE_DIR)" >&2; exit 1; }
+LOG_CAPTURE_PID=""
+stop_log_capture() {
+    if [[ -n "$LOG_CAPTURE_PID" ]]; then
+        kill "$LOG_CAPTURE_PID" 2>/dev/null || true
+        wait "$LOG_CAPTURE_PID" 2>/dev/null || true
+        LOG_CAPTURE_PID=""
+    fi
+}
+trap stop_log_capture EXIT
+snapshot_logs() {
+    kill -0 "$LOG_CAPTURE_PID" 2>/dev/null || fail "Continuous app log capture stopped unexpectedly"
+    # Drain the latest device-buffer tail too. The live stream preserves early
+    # evidence after ring-buffer wrap; the tail covers in-flight stream writes.
+    # Duplicate records are intentional; positive gates never count log lines.
+    "$ADB" -s "$SERIAL" logcat -d -v threadtime -T "$DEVICE_LOG_START" --uid="$APP_UID" > "$EVIDENCE_DIR/logcat-tail.txt"
+    awk '{ print }' "$EVIDENCE_DIR/logcat-live.txt" "$EVIDENCE_DIR/logcat-tail.txt" > "$EVIDENCE_DIR/logcat.txt"
+}
+
+[[ "$($ADB -s "$SERIAL" get-state)" == device ]] || fail "ADB target is not ready"
+[[ "$($ADB -s "$SERIAL" shell getprop sys.boot_completed | tr -d '\r')" == 1 ]] \
+    || fail "Android has not finished booting"
+"$SCRIPT_DIR/doctor_android.sh" --serial "$SERIAL" > "$EVIDENCE_DIR/doctor.txt"
+bash "$SCRIPT_DIR/tests/android_files_backend.sh" "$EVIDENCE_DIR/native-file-backend"
+bash "$SCRIPT_DIR/tests/android_unicode_codec.sh" "$EVIDENCE_DIR/unicode-codec"
+bash "$SCRIPT_DIR/tests/android_jni_guard.sh" "$EVIDENCE_DIR/jni-guard"
+(cd "$ANDROID_PROJECT_ROOT" && crystal spec spec/android_assets_spec.cr) > "$EVIDENCE_DIR/asset-compiler-spec.txt" 2>&1 || fail "Android image compiler specs failed"
+(cd "$ANDROID_PROJECT_ROOT" && crystal spec spec/web/ui/android_navigation_state_spec.cr spec/web/ui/navigation_coordinator_spec.cr) > "$EVIDENCE_DIR/navigation-state-spec.txt" 2>&1 || fail "Android navigation state specs failed"
+(cd "$ANDROID_PROJECT_ROOT" && crystal spec spec/web/ui/android_callback_boundary_spec.cr spec/web/ui/native/callback_registry_spec.cr) > "$EVIDENCE_DIR/callback-boundary-spec.txt" 2>&1 || fail "Android callback boundary specs failed"
+(cd "$ANDROID_PROJECT_ROOT" && crystal spec spec/web/ui/android_layout_fixture_spec.cr) > "$EVIDENCE_DIR/layout-fixture-spec.txt" 2>&1 || fail "Android layout structure specs failed"
+(cd "$ANDROID_PROJECT_ROOT" && crystal spec spec/web/ui/android_view_state_fixture_spec.cr) > "$EVIDENCE_DIR/view-state-fixture-spec.txt" 2>&1 || fail "Android view state structure specs failed"
+(cd "$ANDROID_PROJECT_ROOT" && crystal spec spec/web/ui/android_semantics_spec.cr) > "$EVIDENCE_DIR/semantics-spec.txt" 2>&1 || fail "Android semantics structure specs failed"
+(cd "$ANDROID_PROJECT_ROOT" && crystal spec spec/web/ui/android_focus_fixture_spec.cr) > "$EVIDENCE_DIR/focus-fixture-spec.txt" 2>&1 || fail "Android focus structure specs failed"
+(cd "$ANDROID_PROJECT_ROOT" && crystal spec spec/web/ui/android_dialog_spec.cr) > "$EVIDENCE_DIR/dialog-spec.txt" 2>&1 || fail "Android dialog structure specs failed"
+(cd "$ANDROID_PROJECT_ROOT" && crystal spec spec/web/ui/android_sheet_spec.cr) > "$EVIDENCE_DIR/sheet-spec.txt" 2>&1 || fail "Android sheet structure specs failed"
+
+echo "Building fresh native libraries, APK, tests, and release bundle..."
+GRADLE_ARGS=(--no-daemon -Dorg.gradle.vfs.watch=false :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:bundleRelease --console=plain)
+if [[ -n "${ANDROID_SMOKE_EXTRA_TEST_SOURCE:-}" ]]; then
+    [[ -d "$ANDROID_SMOKE_EXTRA_TEST_SOURCE" ]] || fail "External instrumentation sources do not exist"
+    GRADLE_ARGS+=("-PexternalAndroidTestSource=$ANDROID_SMOKE_EXTRA_TEST_SOURCE")
+fi
+if [[ -n "${ANDROID_SMOKE_NETWORK_TEST_RESOURCES:-}" ]]; then
+    GRADLE_ARGS+=("-PnetworkTestResources=$ANDROID_SMOKE_NETWORK_TEST_RESOURCES")
+fi
+if [[ -n "${ANDROID_SMOKE_NOTIFICATION_TEST_RESOURCES:-}" ]]; then
+    GRADLE_ARGS+=("-PnotificationTestResources=$ANDROID_SMOKE_NOTIFICATION_TEST_RESOURCES")
+fi
+(cd "$HOST_DIR" && ./gradlew "${GRADLE_ARGS[@]}") \
+    > "$EVIDENCE_DIR/build.log" 2>&1 || fail "Android build failed"
+HOST_TEST_REPORT="$HOST_DIR/app/build/test-results/testDebugUnitTest/TEST-dev.assetpipeline.androidhost.HostSessionTest.xml"
+[[ -s "$HOST_TEST_REPORT" ]] || fail "Canonical host-session unit tests did not produce a report"
+grep -Eq '<testsuite .*tests="[1-9][0-9]*".*failures="0".*errors="0"' "$HOST_TEST_REPORT" \
+    || fail "Host-session unit tests were empty or failed"
+cp "$HOST_TEST_REPORT" "$EVIDENCE_DIR/host-session-unit-tests.xml"
+SERVICE_TEST_REPORT="$HOST_DIR/app/build/test-results/testDebugUnitTest/TEST-dev.assetpipeline.androidhost.ServiceQueueTest.xml"
+[[ -s "$SERVICE_TEST_REPORT" ]] || fail "Canonical service-queue unit tests did not produce a report"
+grep -Eq '<testsuite .*tests="[1-9][0-9]*".*failures="0".*errors="0"' "$SERVICE_TEST_REPORT" || fail "Service-queue unit tests were empty or failed"
+cp "$SERVICE_TEST_REPORT" "$EVIDENCE_DIR/service-queue-unit-tests.xml"
+for suite in HttpWireTest PlatformHttpTest SecretVaultTest FilePolicyTest NotificationWireTest PermissionRequestsTest EditorActionsTest LayoutPolicyTest ViewStatePolicyTest SemanticsPolicyTest CompoundFocusPolicyTest DialogPolicyTest SheetPolicyTest; do
+    report="$HOST_DIR/app/build/test-results/testDebugUnitTest/TEST-dev.assetpipeline.androidhost.$suite.xml"
+    [[ -s "$report" ]] || fail "Missing service unit test report: $suite"
+    grep -Eq '<testsuite .*tests="[1-9][0-9]*".*failures="0".*errors="0"' "$report" || fail "Service tests were empty or failed: $suite"
+    cp "$report" "$EVIDENCE_DIR/$suite.xml"
+done
+APK="$HOST_DIR/app/build/outputs/apk/debug/app-debug.apk"
+TEST_APK="$HOST_DIR/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+BUNDLE="$HOST_DIR/app/build/outputs/bundle/release/app-release.aab"
+[[ -s "$APK" && -s "$TEST_APK" && -s "$BUNDLE" ]] || fail "Missing package output"
+AAPT2="$ANDROID_RESOLVED_SDK_ROOT/build-tools/$ANDROID_BUILD_TOOLS_VERSION/aapt2"
+"$AAPT2" dump permissions "$APK" > "$EVIDENCE_DIR/debug-permissions.txt"
+expected_internet=false
+[[ -z "${ANDROID_SMOKE_NETWORK_TEST_RESOURCES:-}" ]] || expected_internet=true
+actual_internet=false
+if grep -Eq "^uses-permission: name='android.permission.INTERNET'" "$EVIDENCE_DIR/debug-permissions.txt"; then actual_internet=true; fi
+[[ "$actual_internet" == "$expected_internet" ]] || fail "A library changed the explicit host internet permission"
+expected_notifications=false
+[[ -z "${ANDROID_SMOKE_NOTIFICATION_TEST_RESOURCES:-}" ]] || expected_notifications=true
+actual_notifications=false
+if grep -Eq "^uses-permission: name='android.permission.POST_NOTIFICATIONS'" "$EVIDENCE_DIR/debug-permissions.txt"; then actual_notifications=true; fi
+[[ "$actual_notifications" == "$expected_notifications" ]] || fail "A library changed the explicit notification permission"
+unzip -Z1 "$APK" > "$EVIDENCE_DIR/apk-entries.txt"
+unzip -Z1 "$BUNDLE" > "$EVIDENCE_DIR/bundle-entries.txt"
+while IFS= read -r abi; do
+    grep -Fxq "lib/$abi/libandroid_material_host.so" "$EVIDENCE_DIR/apk-entries.txt" \
+        || fail "APK is missing $abi"
+    grep -Fxq "base/lib/$abi/libandroid_material_host.so" "$EVIDENCE_DIR/bundle-entries.txt" \
+        || fail "App Bundle is missing $abi"
+    grep -Fxq "BUNDLE-METADATA/com.android.tools.build.debugsymbols/$abi/libandroid_material_host.so.dbg" "$EVIDENCE_DIR/bundle-entries.txt" \
+        || fail "App Bundle is missing $abi native debug symbols"
+done < <(android_each_abi)
+
+# Preserve hashes of the actual dirty source tree, including untracked runtime
+# files. A commit ID alone cannot identify a local development build.
+while IFS= read -r -d '' source_path; do
+    [[ -f "$ANDROID_PROJECT_ROOT/$source_path" ]] || continue
+    (cd "$ANDROID_PROJECT_ROOT" && shasum -a 256 "$source_path")
+done < <(git -C "$ANDROID_PROJECT_ROOT" ls-files --cached --others --exclude-standard -z -- \
+    src scripts config android/runtime samples/cross_platform/android_host) > "$EVIDENCE_DIR/source-sha256.txt"
+
+"$ADB" -s "$SERIAL" install -r "$APK" > "$EVIDENCE_DIR/install.txt"
+"$ADB" -s "$SERIAL" install -r "$TEST_APK" >> "$EVIDENCE_DIR/install.txt"
+if [[ "${ANDROID_SMOKE_RESET_NOTIFICATION_PERMISSION:-0}" == 1 ]]; then
+    [[ "$expected_notifications" == true ]] || fail "Permission reset requires the explicit notification fixture"
+    [[ "$($ADB -s "$SERIAL" shell getprop ro.build.version.sdk | tr -d '\r')" -ge 33 ]] || fail "Runtime permission dialog proof requires API 33+"
+    [[ "$($ADB -s "$SERIAL" shell getprop ro.kernel.qemu | tr -d '\r')" == 1 ]] || fail "Permission reset is limited to the test emulator app"
+    "$ADB" -s "$SERIAL" shell pm revoke "$APP_ID" android.permission.POST_NOTIFICATIONS
+    "$ADB" -s "$SERIAL" shell pm clear-permission-flags "$APP_ID" android.permission.POST_NOTIFICATIONS user-set
+    "$ADB" -s "$SERIAL" shell pm clear-permission-flags "$APP_ID" android.permission.POST_NOTIFICATIONS user-fixed
+fi
+"$ADB" -s "$SERIAL" shell setprop debug.checkjni 1
+[[ "$($ADB -s "$SERIAL" shell getprop debug.checkjni | tr -d '\r')" == 1 ]] \
+    || fail "CheckJNI could not be enabled"
+DEVICE_LOG_START="$($ADB -s "$SERIAL" shell "date '+%m-%d %H:%M:%S.000'" | tr -d '\r')"
+APP_UID="$($ADB -s "$SERIAL" shell cmd package list packages -U "$APP_ID" | tr -d '\r' | awk -v package="package:$APP_ID" '$1 == package { sub(/^uid:/, "", $2); print $2 }')"
+[[ "$APP_UID" =~ ^[0-9]+$ ]] || fail "Could not resolve the exact installed application's logging UID"
+"$ADB" -s "$SERIAL" logcat -v threadtime -T "$DEVICE_LOG_START" --uid="$APP_UID" \
+    > "$EVIDENCE_DIR/logcat-live.txt" 2> "$EVIDENCE_DIR/logcat-capture-stderr.txt" &
+LOG_CAPTURE_PID=$!
+echo "Testing Crystal runtime, input, callbacks, lifecycle and JNI cleanup on $SERIAL..."
+"$ADB" -s "$SERIAL" shell am instrument -w -r -e class "$TEST_CLASS" \
+    "$APP_ID.test/androidx.test.runner.AndroidJUnitRunner" \
+    > "$EVIDENCE_DIR/instrumentation.txt" 2>&1 || fail "Instrumentation command failed"
+snapshot_logs
+grep -Eq '^OK \([1-9][0-9]* tests?\)' "$EVIDENCE_DIR/instrumentation.txt" \
+    || fail "No successful nonempty instrumentation result"
+grep -q '^INSTRUMENTATION_CODE: -1' "$EVIDENCE_DIR/instrumentation.txt" \
+    || fail "Instrumentation did not complete normally"
+if grep -Eq 'Process crashed|FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[1234]' "$EVIDENCE_DIR/instrumentation.txt"; then
+    fail "Instrumentation reported a failure"
+fi
+grep -q 'Crystal runtime ready (probe=42)' "$EVIDENCE_DIR/logcat.txt" \
+    || fail "Embedded runtime probe was not observed"
+grep -q 'Late-enabling -Xcheck:jni' "$EVIDENCE_DIR/logcat.txt" \
+    || fail "Process did not confirm CheckJNI"
+
+# A separate process start catches initialization that only works inside the
+# instrumentation runner. Use the same freshly installed APK in dark mode.
+RELAUNCH_ARGS=(--es study_slug interaction-smoke --es study_appearance dark)
+if [[ -n "${ANDROID_SMOKE_APP_SLUG:-}" ]]; then
+    RELAUNCH_ARGS+=(--es app_slug "$ANDROID_SMOKE_APP_SLUG")
+fi
+"$ADB" -s "$SERIAL" shell am start -S -W -n "$APP_ID/.MainActivity" \
+    "${RELAUNCH_ARGS[@]}" > "$EVIDENCE_DIR/relaunch.txt"
+"$ADB" -s "$SERIAL" shell uiautomator dump /sdcard/asset-pipeline-smoke.xml > /dev/null
+"$ADB" -s "$SERIAL" pull /sdcard/asset-pipeline-smoke.xml "$EVIDENCE_DIR/relaunch-ui.xml" > /dev/null
+grep -q 'Renderer mount live' "$EVIDENCE_DIR/relaunch-ui.xml" || fail "Relaunch did not mount the native tree"
+if [[ -n "${ANDROID_SMOKE_EXPECTED_TEXT:-}" ]]; then
+    grep -Fq "$ANDROID_SMOKE_EXPECTED_TEXT" "$EVIDENCE_DIR/relaunch-ui.xml" || fail "Relaunch did not render the external application"
+fi
+APP_PID="$($ADB -s "$SERIAL" shell pidof "$APP_ID" | tr -d '\r')"
+[[ "$APP_PID" =~ ^[0-9]+$ ]] || fail "Relaunched app is not alive"
+if [[ "${ANDROID_SMOKE_REQUIRE_NEW_PROCESS:-0}" == 1 ]]; then
+    PREVIOUS_PID="$(sed -n 's/^INSTRUMENTATION_STATUS: persisted_process=//p' "$EVIDENCE_DIR/instrumentation.txt" | tr -d '\r')"
+    [[ "$PREVIOUS_PID" =~ ^[0-9]+$ && "$PREVIOUS_PID" != "$APP_PID" ]] || fail "Persistence proof did not start a new process"
+fi
+"$ADB" -s "$SERIAL" exec-out screencap -p > "$EVIDENCE_DIR/relaunch.png"
+snapshot_logs
+stop_log_capture
+
+# Scope Java/CheckJNI diagnostics to processes that loaded this library.
+awk '/AssetPipelineNative: JNI_OnLoad: starting/ { pids[$3] = 1 }
+     { lines[NR] = $0; owners[NR] = $3 }
+     END { for (i = 1; i <= NR; i++) if (owners[i] in pids) print lines[i] }' \
+    "$EVIDENCE_DIR/logcat.txt" > "$EVIDENCE_DIR/app-logcat.txt"
+if grep -Eq 'JNI DETECTED ERROR|FATAL EXCEPTION|Fatal signal|Crystal (bootstrap|render|application) error|Crystal .*callback failed|Cannot enter Crystal|AP_PRIVATE_VIEW_STATE_MALFORMED_SENTINEL' "$EVIDENCE_DIR/app-logcat.txt"; then
+    fail "App logs contain a runtime failure"
+fi
+
+{
+    echo "format=asset-pipeline-android-smoke-v1"
+    echo "source_commit=$(git -C "$ANDROID_PROJECT_ROOT" rev-parse HEAD)"
+    echo "serial=$SERIAL"
+    echo "device_model=$($ADB -s "$SERIAL" shell getprop ro.product.model | tr -d '\r')"
+    echo "device_api=$($ADB -s "$SERIAL" shell getprop ro.build.version.sdk | tr -d '\r')"
+    echo "device_abi=$($ADB -s "$SERIAL" shell getprop ro.product.cpu.abi | tr -d '\r')"
+    echo "emulator=$($ADB -s "$SERIAL" shell getprop ro.kernel.qemu | tr -d '\r')"
+    echo "checkjni=1"
+    echo "log_capture=continuous-app-uid-with-buffer-tail"
+    echo "app_uid=$APP_UID"
+    echo "relaunch_pid=$APP_PID"
+    shasum -a 256 "$APK" "$TEST_APK" "$BUNDLE" "$ANDROID_PROJECT_ROOT/config/android_toolchain.env" "$EVIDENCE_DIR/source-sha256.txt"
+} > "$EVIDENCE_DIR/proof.txt"
+git -C "$ANDROID_PROJECT_ROOT" status --short > "$EVIDENCE_DIR/source-status.txt"
+unzip -l "$APK" > "$EVIDENCE_DIR/apk-contents.txt"
+unzip -l "$BUNDLE" > "$EVIDENCE_DIR/bundle-contents.txt"
+echo "Android smoke passed. Evidence: $EVIDENCE_DIR"

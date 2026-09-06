@@ -13,6 +13,15 @@ data class StudySpec(
 object StudyCatalog {
     private val studies = listOf(
         StudySpec(
+            slug = "density-smoke",
+            title = "Native layout measurements",
+            renderer = "Shared layout and dimension fixture",
+            priority = "P0",
+            lane = "internal-smoke",
+            status = "internal_smoke",
+            summary = "Logical dimensions, stack spacing, and text scale."
+        ),
+        StudySpec(
             slug = "buttons",
             title = "Material Buttons",
             renderer = "UI::Button",
@@ -132,6 +141,6 @@ object StudyCatalog {
     )
 
     fun bySlug(slug: String?): StudySpec {
-        return studies.firstOrNull { it.slug == slug } ?: studies.first()
+        return studies.firstOrNull { it.slug == slug } ?: studies.first { it.slug == "buttons" }
     }
 }
