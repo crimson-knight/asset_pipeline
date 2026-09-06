@@ -23,6 +23,7 @@
 # manual verification.
 
 require "../app"
+require "../native_reconcile_benchmark"
 require "../../../src/ui/renderers/appkit_renderer"
 
 {% if flag?(:macos) %}
@@ -320,6 +321,23 @@ require "../../../src/ui/renderers/appkit_renderer"
       @@window_ptr = window
       @@set_content_sel = set_content
       @@is_capture_path = false
+
+      # Headless measurement lane. The window is intentionally created first:
+      # the production renderer's DeviceMetrics provider reads live AppKit
+      # geometry while building the same ReconcileProbe widget tree used on iOS.
+      # It never serializes a view tree through JSON.
+      if raw_frames = ENV["VOYAGER_NATIVE_RECONCILE_BENCH_FRAMES"]?
+        frames = raw_frames.to_i?
+        mode_value = ENV["VOYAGER_NATIVE_RECONCILE_COMMIT_MODE"]?
+        mode = Voyager::NativeReconcileBenchmark.mode_from(mode_value)
+        result = if mode
+                   Voyager::NativeReconcileBenchmark.run(frames || 0, mode)
+                 else
+                   Voyager::NativeReconcileBenchmark.failure_for_invalid_mode(frames || 0, mode_value)
+                 end
+        puts Voyager::NativeReconcileBenchmark.json(result)
+        exit(result.success ? 0 : 1)
+      end
 
       # Initial render of the bootstrap route.
       rebuild_for(coord.current)

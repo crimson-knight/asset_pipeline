@@ -25,9 +25,30 @@ struct VoyagerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(initialSlug: rootSlug)
-                .preferredColorScheme(preferredScheme)
+            if let launch = nativeReconcileBenchmarkLaunch {
+                NativeReconcileBenchmarkView(launch: launch)
+                    .preferredColorScheme(preferredScheme)
+            } else {
+                ContentView(initialSlug: rootSlug)
+                    .preferredColorScheme(preferredScheme)
+            }
         }
+    }
+
+    /// A strictly opt-in device-harness path. Keeping it at the scene boundary
+    /// means ordinary user launches preserve their normal navigation/UI state.
+    private var nativeReconcileBenchmarkLaunch: NativeReconcileBenchmarkLaunch? {
+        guard let raw = ProcessInfo.processInfo.environment["VOYAGER_NATIVE_RECONCILE_BENCH_FRAMES"],
+              let frames = Int(raw), frames > 0 else {
+            return nil
+        }
+        let environment = ProcessInfo.processInfo.environment
+        return NativeReconcileBenchmarkLaunch(
+            frames: frames,
+            commitMode: environment["VOYAGER_NATIVE_RECONCILE_COMMIT_MODE"] ?? "dirty-label-commit",
+            launchNonce: environment["VOYAGER_NATIVE_RECONCILE_LAUNCH_NONCE"],
+            runID: environment["VOYAGER_NATIVE_RECONCILE_RUN_ID"]
+        )
     }
 
     private var preferredScheme: ColorScheme? {

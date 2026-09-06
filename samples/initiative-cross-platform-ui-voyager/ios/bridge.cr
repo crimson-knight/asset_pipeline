@@ -39,6 +39,7 @@
 {% if flag?(:ios) %}
   require "../app"
   require "../host_bootstrap"
+  require "../native_reconcile_benchmark"
   require "../../../src/ui/renderers/uikit_renderer"
   require "../../../src/ui/probes"
 
@@ -67,7 +68,12 @@
     @@flash : UI::Flash::InProcess? = nil
     @@dispatcher : UI::ActionDispatcher? = nil
     @@last_native : UI::NativeView? = nil
+    # The native tree has no prior logical values. Keep the last successfully
+    # mounted view tree so same-route reconciliation can safely distinguish a
+    # changed label from a stable one.
+    @@reconcile_session : Voyager::NativeReconcileCollector::Session? = nil
     @@current_slug_buf : Bytes? = nil
+    @@benchmark_result_buf : Bytes? = nil
     # Carries (slug, change_kind) to Swift. kind: 0 = Navigation,
     # 1 = Rerender. Swift uses kind to choose host teardown (navigation)
     # vs in-place reconcile (rerender) — see the in-place reconciliation
@@ -140,6 +146,10 @@
       # the longest known Voyager slug (~"voyager-todo-editor" = 19) with
       # huge headroom for future routes.
       @@current_slug_buf = Bytes.new(64)
+      # The native benchmark returns a JSON report through a stable buffer so
+      # Swift copies it immediately just like voyager_current_slug.
+      @@benchmark_result_buf = Bytes.new(1024)
+      @@reconcile_session = Voyager::NativeReconcileCollector::Session.new
 
       # Phase 8D.2 — call the canonical host-bootstrap helper. This
       # internally:
@@ -232,6 +242,29 @@
       @@swift_route_changed_cb = cb
     end
 
+    def self.native_reconcile_benchmark_ptr(frames : Int32, mode_value : String?) : LibC::Char*
+      initialize_runtime
+      mode = Voyager::NativeReconcileBenchmark.mode_from(mode_value)
+      result = if mode
+                 Voyager::NativeReconcileBenchmark.run(frames, mode)
+               else
+                 Voyager::NativeReconcileBenchmark.failure_for_invalid_mode(frames, mode_value)
+               end
+      report = Voyager::NativeReconcileBenchmark.json(result)
+      buffer = @@benchmark_result_buf.not_nil!
+      bytes = report.to_slice
+      # Never silently truncate an evidence report. The fallback is itself
+      # deliberately tiny and lets the external harness reject the trial.
+      if bytes.size >= buffer.size
+        report = %({"success":false,"error":"native reconcile benchmark report exceeds bridge buffer"})
+        bytes = report.to_slice
+      end
+      n = Math.min(bytes.size, buffer.size - 1)
+      n.times { |i| buffer[i] = bytes[i] }
+      buffer[n] = 0_u8
+      buffer.to_unsafe.as(LibC::Char*)
+    end
+
     # In-place reconciliation for a same-route Rerender. Swift calls this
     # INSTEAD of tearing down the host. We rebuild the NEW UI::View tree,
     # walk it in parallel with the MOUNTED native tree (@@last_native),
@@ -284,44 +317,20 @@
       view.accessibility_label = "voyager-root-#{current_slug}" if view.accessibility_label.to_s.empty?
       view.test_id = "voyager-root-#{current_slug}" if view.test_id.to_s.empty?
 
+      session = @@reconcile_session
+      return false if session.nil?
       ops = [] of Tuple(Void*, String)
-      return false unless collect_reconcile_ops(view, mounted, ops)
+      return false if session.collect(view, mounted, ops, Voyager::NativeReconcileCollector::CommitMode::DirtyLabelCommit).nil?
 
       ops.each do |state, text|
         LibSwiftKitBridge.apsk_label_set_text(state, text.to_unsafe)
       end
+      # Advance the logical prior only after all staged native writes succeeded.
+      session.commit!(view)
       true
     rescue
       # Any unexpected error → fall back to the safe destructive path.
       false
-    end
-
-    # Walk (new UI::View node, mounted NativeView node) in parallel.
-    # Returns false on ANY structural/kind mismatch WITHOUT having
-    # mutated anything (ops are only appended, applied by the caller after
-    # a full successful walk). Records Label text updates as (state_ptr,
-    # text) ops against the MOUNTED label's reactive state handle.
-    private def self.collect_reconcile_ops(view : UI::View, native : UI::NativeView, ops : Array(Tuple(Void*, String))) : Bool
-      return false if native.state.torn_down? || native.handle.released?
-
-      native_kind = native.view_kind
-      return false if native_kind.nil?
-      return false unless native_kind == view.reconcile_kind
-
-      if view.is_a?(UI::Label)
-        state = native.handle.state_handle
-        return false if state.nil? || state.null?
-        ops << {state, view.text}
-      end
-      # Text inputs: intentionally NOT updated — preserve first responder
-      # + live buffer. Other leaves: no-op for Stage 1.
-
-      children = view.reconcile_children
-      return false unless children.size == native.children.size
-      children.each_with_index do |child, idx|
-        return false unless collect_reconcile_ops(child, native.children[idx], ops)
-      end
-      true
     end
 
     # Build + render the requested slug. The slug Swift passes is the
@@ -431,6 +440,7 @@
         placeholder.test_id = "voyager-root-unknown"
         native = renderer.render(placeholder.as(UI::View))
         @@last_native = native
+        @@reconcile_session.not_nil!.replace!(placeholder.as(UI::View))
         return native
       end
 
@@ -481,6 +491,7 @@
       UI::NativeView.dismiss_reactive_presentations!(@@last_native, fresh: native)
 
       @@last_native = native
+      @@reconcile_session.not_nil!.replace!(view)
       native
     end
   end
@@ -512,5 +523,11 @@
   # caller should fall back to the destructive render path.
   fun voyager_reconcile(slug_ptr : LibC::Char*) : Int32
     VoyagerBridge.reconcile_slug(String.new(slug_ptr)) ? 1 : 0
+  end
+
+  # Runs the real UIKit renderer + production reconciliation contract. The
+  # caller must copy the returned UTF-8 JSON before making another bridge call.
+  fun voyager_native_reconcile_benchmark(frames : Int32, mode_ptr : LibC::Char*) : LibC::Char*
+    VoyagerBridge.native_reconcile_benchmark_ptr(frames, mode_ptr.null? ? nil : String.new(mode_ptr))
   end
 {% end %}

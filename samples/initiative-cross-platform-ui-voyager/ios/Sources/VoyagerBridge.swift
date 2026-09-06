@@ -87,4 +87,17 @@ enum VoyagerBridge {
         guard let ptr = voyager_current_slug() else { return "voyager-sign-in" }
         return String(cString: ptr)
     }
+
+    /// Benchmarks the production UIKit renderer plus its in-place reconciler.
+    /// The returned JSON carries separate build, diff, and native-commit time
+    /// totals, a checksum, and operation counts. It measures native-property
+    /// commits but not window attachment, layout, or compositing. This contains
+    /// no JSON view transport and selects no collector; the app's normal runtime is used.
+    static func nativeReconcileBenchmark(frames: Int, commitMode: String) -> String {
+        initialize()
+        guard frames > 0, let ptr = commitMode.withCString({ voyager_native_reconcile_benchmark(Int32(frames), $0) }) else {
+            return #"{"success":false,"error":"invalid benchmark frame count"}"#
+        }
+        return String(cString: ptr)
+    }
 }

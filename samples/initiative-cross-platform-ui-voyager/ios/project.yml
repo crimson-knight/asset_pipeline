@@ -14,6 +14,22 @@ targets:
     settings:
       GENERATE_INFOPLIST_FILE: YES
       PRODUCT_BUNDLE_IDENTIFIER: com.assetpipeline.voyager.VoyagerDemo
+      # Match the already-provisioned physical-device benchmark host. Xcode
+      # still resolves the concrete development certificate/profile through
+      # automatic signing; no credential is stored in this project.
+      DEVELOPMENT_TEAM: PXDF92M2T4
+      CODE_SIGN_STYLE: Automatic
+      # Keep device and simulator bridge slices side by side. The physical
+      # phone build must never accidentally pick a simulator archive just
+      # because it happened to be built most recently.
+      CRYSTAL_DEPS_LIB_DIR[sdk=iphoneos*]: /tmp/crystal-cross-deps/ios-device/lib
+      CRYSTAL_DEPS_LIB_DIR[sdk=iphonesimulator*]: /tmp/crystal-cross-deps/ios-simulator/lib
+      VOYAGER_BRIDGE_ARCHIVE[sdk=iphoneos*]: libvoyager_device.a
+      VOYAGER_BRIDGE_ARCHIVE[sdk=iphonesimulator*]: libvoyager_simulator.a
+      SWIFTKIT_ARCHIVE[sdk=iphoneos*]: swiftkit_device.a
+      SWIFTKIT_ARCHIVE[sdk=iphonesimulator*]: swiftkit_simulator.a
+      SWIFTKIT_MODULE_DIR[sdk=iphoneos*]: $(PROJECT_DIR)/build/Modules/device
+      SWIFTKIT_MODULE_DIR[sdk=iphonesimulator*]: $(PROJECT_DIR)/build/Modules/simulator
       # Phase 6.10 Rem 4 (Item 2A) — INFOPLIST_KEY_UILaunchScreen_Generation
       # tells Xcode's auto-generated Info.plist to emit a
       # `UILaunchScreen` dictionary, which is the iOS 14+ recipe for
@@ -24,19 +40,19 @@ targets:
       INFOPLIST_KEY_UILaunchScreen_Generation: YES
       LIBRARY_SEARCH_PATHS:
         - $(PROJECT_DIR)/build
-        - /tmp/crystal-cross-deps/ios-simulator/lib
+        - $(CRYSTAL_DEPS_LIB_DIR)
       # Phase 12.C hand-test prep — Swift module search path for
       # `import AssetPipelineSwiftKit` in VoyagerApp.swift. The module
       # files are staged into $(PROJECT_DIR)/build/Modules by
       # build_crystal_lib.sh.
       SWIFT_INCLUDE_PATHS:
-        - $(PROJECT_DIR)/build/Modules
+        - $(SWIFTKIT_MODULE_DIR)
       SWIFT_OBJC_BRIDGING_HEADER: Sources/Voyager-Bridging-Header.h
       OTHER_LDFLAGS:
-        - -lvoyager
+        - $(PROJECT_DIR)/build/$(VOYAGER_BRIDGE_ARCHIVE)
         - -lgc
         - -liconv
-        - -Wl,-force_load,$(PROJECT_DIR)/build/swiftkit_simulator.a
+        - -Wl,-force_load,$(PROJECT_DIR)/build/$(SWIFTKIT_ARCHIVE)
         - -framework SwiftUI
         - -framework Combine
         - -framework UIKit
