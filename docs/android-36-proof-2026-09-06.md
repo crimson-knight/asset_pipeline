@@ -54,7 +54,31 @@ behavior audit, not the device, release or Tier A gates.
 
 ## Results
 
-RESULTS_PLACEHOLDER
+Local, complete `make test-android` driver (build both ABIs, debug and test
+APKs, release bundle, 50 instrumentation tests, all isolated Crystal, Java and
+Sheet failure lanes, source ledger verification):
+
+| Target | Result | Evidence |
+| --- | --- | --- |
+| emulator-5560, API 36, 16 KB pages | exit 0, `OK (50 tests)` | `build/android-local-proof/api36-run3` |
+| emulator-5556, API 35 | exit 0, `OK (50 tests)` | `build/android-local-proof/api35-run2` |
+
+Focused loops on the classes that changed, run sequentially with no competing
+load: window-matrix and sheet-contract classes three of three on API 35 and two
+of two on API 36; semantics class plus the drag test four of four on API 36 and
+three of three on API 35.
+
+Remote (GitHub `ubuntu-24.04`, x86_64 emulators, `android-native.yml`): every
+API level builds both ABIs, the debug APK and the release bundle from source and
+executes the instrumentation suite. Run four reached 49 of 50 on API 31 and
+API 36; run five reached 46 of 50 on API 31 while API 35 ran for the first time
+and lost 33 tests to one environmental cause, an app window that never received
+focus on a two-core software-rendered emulator. Run six adds the runner's four
+cores, keyguard dismissal and on-failure screen and focus capture; its result
+is recorded in `docs/android-ci.md` when it settles.
+
+The 16 KB proof is the same complete driver on the `google_apis_ps16k` image
+(`getconf PAGESIZE` 16384), not the earlier frozen target-35 probe.
 
 ## Explicit limits
 
