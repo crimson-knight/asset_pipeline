@@ -25,11 +25,11 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `AsyncImage` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Button` | yes | basics, compound_focus, dialog, failure, focus, layout, layout_contract, material_bridge, navigation, semantics, sheet, view_state | A core | layout, semantics, focus, dialogs, sheets |
 | `Canvas` | yes | — | unverified | handler exists; no Android fixture or test |
-| `Capsule` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Capsule` | yes | structure | A core | structure (intrinsic size, fill, outline clip) |
 | `Card` | yes | layout, material_bridge | A core | layout |
 | `ChartView` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
 | `Checkbox` | yes | material_bridge, semantics | A core | semantics, compound focus |
-| `Circle` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Circle` | yes | structure | A core | structure (intrinsic size, fill, outline clip) |
 | `ColorPicker` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
 | `ColumnView` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Item` | no | — | D unsupported | raises AndroidRendererNotImplemented |
@@ -40,13 +40,13 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `ContextMenu` | no | — | D unsupported | raises AndroidRendererNotImplemented |
 | `ContextMenuWithWebFallback` | yes | — | unverified | handler exists; no Android fixture or test |
 | `DatePicker` | yes | — | unverified | handler exists; no Android fixture or test |
-| `DisclosureGroup` | yes | — | unverified | handler exists; no Android fixture or test |
+| `DisclosureGroup` | yes | structure | A core | structure (header tap calls back to Crystal, expanded state survives recreation, accessibility text) |
 | `Divider` | yes | basics | A core | basics (geometry) |
-| `Form` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Form` | yes | structure | A core | structure (section header, labeled fields, footer, in order) |
 | `FullScreenCover` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Gauge` | no | — | D unsupported | raises AndroidRendererNotImplemented |
 | `GlassBackground` | yes | — | unverified | handler exists; no Android fixture or test |
-| `Grid` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Grid` | yes | structure | A core | structure (one native row per row, cells side by side) |
 | `HStack` | yes | failure, focus, layout, layout_contract, material_bridge | A core | layout (equal width, RTL) |
 | `IconButton` | yes | basics | A core | basics (drawable, label, callback) |
 | `Image` | yes | image | A core | images |
@@ -74,9 +74,9 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `ProgressView` | yes | basics | A core | basics (Material indicators, real ratios) |
 | `RadioGroup` | yes | compound_focus, material_bridge, semantics | A core | semantics, focus |
 | `RatingIndicator` | yes | — | unverified | handler exists; no Android fixture or test |
-| `Rectangle` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Rectangle` | yes | structure | A core | structure (intrinsic size, fill) |
 | `RichText` | yes | — | unverified | handler exists; no Android fixture or test |
-| `RoundedRectangle` | yes | — | unverified | handler exists; no Android fixture or test |
+| `RoundedRectangle` | yes | structure | A core | structure (intrinsic size, fill, outline clip) |
 | `ScrollView` | yes | focus, layout_contract, view_state | A core | layout, view state |
 | `SearchField` | yes | material_bridge | A core | text |
 | `SecureField` | yes | basics | A core | basics (masking, Crystal-owned restoration) |
@@ -111,17 +111,20 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 
 ## Totals
 
-- A core: 34
+- A core: 41
 - B preview: 8
 - D unsupported: 17
-- unverified: 36
+- unverified: 29
 
 ## Next promotions
 
 The unverified group is the largest. Promote in this order, each through its
-own fixture and contract suite: `Form`, `ListView`, `TabView`, `DatePicker`,
-`TimePicker`, `MenuButton`; then the
-shapes and decorative surfaces. `Popover`, `Snackbar`, `MapView`, `ChartView`,
+own fixture and contract suite: `ListView`, `TabView`, `DatePicker`,
+`TimePicker`, `MenuButton`; then the remaining decorative surfaces. The
+structure suite (September 6) promoted the four shapes, `Grid`, `Form` and
+`DisclosureGroup`; the Android handlers now give shapes their intrinsic size,
+lay out a grid as real rows, and let a disclosure header call back to Crystal
+through the new optional `DisclosureGroup#on_toggle`. `Popover`, `Snackbar`, `MapView`, `ChartView`,
 `VideoPlayer`, `WebViewComponent`, `ColorPicker` and `ActivityView` stay preview
 until their platform dependencies are split from the core target (Phase 2).
 `ActionSheet`, `ActivityRing(s)`, `Gauge`, `Panel` and the complication views

@@ -207,6 +207,7 @@ instrumentation tests before the fixes above landed.
 | 12 | staged keyboard retry, no extract UI, gesture retry | 55/56 (activity tap mid-layout) | 54/56 (opened sheet never gains window focus in landscape) | **pass** |
 | 13 | activity-tap stability, dialog-root diagnostics | 53/56 (two dropped taps, one dropped injected tap) | 54/56 (keyboard visible and active, sheet window without focus) | **pass** |
 | 14 | bounded tap retries | 53/56 (first tap after three fresh launches refused by the input dispatcher) | 54/56 (a focusable popup owned by the app process held window focus in landscape) | **pass** |
+| 15 | system-log diagnostics | 55/56 (untrusted-touch drop: the test package's EmptyActivity still covered the app) | 54/56 (the image's autofill sign-in dropdown held window focus over the sheet editor) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -274,3 +275,29 @@ the power state, the tests' own timeout screenshots (`sheet-proof/`) and
 Espresso's view-operation captures (`espresso-output/`). The dialog-root wait
 also names the focused window's owner, type and flags and lists every window
 root the app process holds. No gate reads any of these files.
+
+Run 15 named both. The API 31 x86_64 system log reads, for every refused
+injection: `Untrusted touch due to occlusion by dev.assetpipeline.androidhost.test
+(obscuring opacity = 1.00, maximum allowed = 0.80)`, then `Dropping untrusted
+touch event`. The obscuring window belongs to the **test package**, which has
+its own UID: `ActivityScenario` closes a scenario by starting androidx
+test-core's `EmptyActivity` over the app, and on a slow emulator with
+animations enabled that opaque window is still on screen when the next test
+has already launched and resumed its activity. Android 12's tapjacking
+protection then drops every touch to the app until the harness window is
+gone, which is why the first tap after a fresh launch failed nine times in a
+row and no retry could help. That is a property of the harness, not of the
+app or a user: the driver now sets `block_untrusted_touches` to permissive
+(logged, not dropped) for the run and restores the previous value afterward.
+
+The API 35 x86_64 focused-window record identifies the popup: owned by the
+app's UID, `APPLICATION_ABOVE_SUB_PANEL`, attached to the `Native editor sheet`
+window, transparent, sized to the focused editor, and the system log shows
+`AutofillSession: createPendingIntent` at the same moments. That is the
+Google autofill service's sign-in dropdown ("Autofill with Google"), a
+focusable popup the image opens over a focused editor and that takes window
+focus from the sheet, so Espresso finds no focused dialog root. The same
+service is enabled on the local arm64 API 35 image and opens nothing there.
+The driver now sets `autofill_service` to `null` for the run and restores the
+previous value afterward, so the fixture is judged against its own windows.
+The two earlier "known limit" paragraphs above are superseded by this cause.

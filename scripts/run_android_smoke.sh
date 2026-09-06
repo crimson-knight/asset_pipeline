@@ -21,7 +21,7 @@ export JAVA_HOME="$ANDROID_RESOLVED_JAVA_HOME"
 ADB="$ANDROID_RESOLVED_SDK_ROOT/platform-tools/adb"
 HOST_DIR="$ANDROID_PROJECT_ROOT/samples/cross_platform/android_host"
 APP_ID=dev.assetpipeline.androidhost
-TEST_CLASS="${ANDROID_SMOKE_TEST_CLASS:-dev.assetpipeline.androidhost.AndroidNativeSmokeTest,dev.assetpipeline.androidhost.AndroidTextContractTest,dev.assetpipeline.androidhost.AndroidNavigationContractTest,dev.assetpipeline.androidhost.AndroidLayoutContractTest,dev.assetpipeline.androidhost.AndroidViewStateTest,dev.assetpipeline.androidhost.AndroidSemanticsTest,dev.assetpipeline.androidhost.AndroidFocusVisibilityTest,dev.assetpipeline.androidhost.AndroidCompoundFocusTest,dev.assetpipeline.androidhost.AndroidDialogContractTest,dev.assetpipeline.androidhost.AndroidSheetContractTest,dev.assetpipeline.androidhost.AndroidSheetViewportTest,dev.assetpipeline.androidhost.AndroidSheetWindowMatrixTest,dev.assetpipeline.androidhost.AndroidBasicsContractTest},dev.assetpipeline.androidhost.StoragePlatformTest,dev.assetpipeline.androidhost.SecretsPlatformTest,dev.assetpipeline.androidhost.FilesPlatformTest"
+TEST_CLASS="${ANDROID_SMOKE_TEST_CLASS:-dev.assetpipeline.androidhost.AndroidNativeSmokeTest,dev.assetpipeline.androidhost.AndroidTextContractTest,dev.assetpipeline.androidhost.AndroidNavigationContractTest,dev.assetpipeline.androidhost.AndroidLayoutContractTest,dev.assetpipeline.androidhost.AndroidViewStateTest,dev.assetpipeline.androidhost.AndroidSemanticsTest,dev.assetpipeline.androidhost.AndroidFocusVisibilityTest,dev.assetpipeline.androidhost.AndroidCompoundFocusTest,dev.assetpipeline.androidhost.AndroidDialogContractTest,dev.assetpipeline.androidhost.AndroidSheetContractTest,dev.assetpipeline.androidhost.AndroidSheetViewportTest,dev.assetpipeline.androidhost.AndroidSheetWindowMatrixTest,dev.assetpipeline.androidhost.AndroidBasicsContractTest,dev.assetpipeline.androidhost.AndroidStructureContractTest},dev.assetpipeline.androidhost.StoragePlatformTest,dev.assetpipeline.androidhost.SecretsPlatformTest,dev.assetpipeline.androidhost.FilesPlatformTest"
 fail() { echo "ERROR: $* (evidence: $EVIDENCE_DIR)" >&2; exit 1; }
 LOG_CAPTURE_PID=""
 SYSTEM_LOG_CAPTURE_PID=""
@@ -35,7 +35,24 @@ stop_log_capture() {
     LOG_CAPTURE_PID=""
     SYSTEM_LOG_CAPTURE_PID=""
 }
-trap stop_log_capture EXIT
+PREVIOUS_UNTRUSTED_TOUCHES=""
+PREVIOUS_AUTOFILL_SERVICE=""
+restore_device_settings() {
+    if [[ -n "$PREVIOUS_UNTRUSTED_TOUCHES" ]]; then
+        if [[ "$PREVIOUS_UNTRUSTED_TOUCHES" == null ]]; then
+            "$ADB" -s "$SERIAL" shell settings delete global block_untrusted_touches >/dev/null 2>&1 || true
+        else
+            "$ADB" -s "$SERIAL" shell settings put global block_untrusted_touches "$PREVIOUS_UNTRUSTED_TOUCHES" >/dev/null 2>&1 || true
+        fi
+        PREVIOUS_UNTRUSTED_TOUCHES=""
+    fi
+    if [[ -n "$PREVIOUS_AUTOFILL_SERVICE" ]]; then
+        "$ADB" -s "$SERIAL" shell settings put secure autofill_service "$PREVIOUS_AUTOFILL_SERVICE" >/dev/null 2>&1 || true
+        PREVIOUS_AUTOFILL_SERVICE=""
+    fi
+}
+finish_run() { stop_log_capture; restore_device_settings; }
+trap finish_run EXIT
 snapshot_logs() {
     kill -0 "$LOG_CAPTURE_PID" 2>/dev/null || fail "Continuous app log capture stopped unexpectedly"
     # Drain the latest device-buffer tail too. The live stream preserves early
@@ -150,6 +167,19 @@ fi
     printf 'selected_spell_checker=%s\n' "$("$ADB" -s "$SERIAL" shell settings get secure selected_spell_checker 2>/dev/null | tr -d '\r')"
     printf 'screen_off_timeout=%s\n' "$("$ADB" -s "$SERIAL" shell settings get system screen_off_timeout 2>/dev/null | tr -d '\r')"
 } > "$EVIDENCE_DIR/device-services.txt" 2>/dev/null || true
+# Two image behaviors judged the fixture by windows that are not the app's
+# (CI run 15). Android 12+ drops touches to a window covered by another UID's
+# opaque window, and androidx test-core's EmptyActivity (the test package's
+# own UID) still covers the app after a scenario closes on a slow emulator;
+# permissive mode logs those touches instead of dropping them. The image's
+# autofill service can open a focusable sign-in dropdown over a focused editor
+# and take window focus from a sheet. Both settings are restored on exit.
+PREVIOUS_UNTRUSTED_TOUCHES="$("$ADB" -s "$SERIAL" shell settings get global block_untrusted_touches 2>/dev/null | tr -d '\r')"
+[[ -n "$PREVIOUS_UNTRUSTED_TOUCHES" ]] || PREVIOUS_UNTRUSTED_TOUCHES=null
+"$ADB" -s "$SERIAL" shell settings put global block_untrusted_touches 1 >/dev/null 2>&1 || true
+PREVIOUS_AUTOFILL_SERVICE="$("$ADB" -s "$SERIAL" shell settings get secure autofill_service 2>/dev/null | tr -d '\r')"
+[[ -n "$PREVIOUS_AUTOFILL_SERVICE" ]] || PREVIOUS_AUTOFILL_SERVICE=null
+"$ADB" -s "$SERIAL" shell settings put secure autofill_service null >/dev/null 2>&1 || true
 "$ADB" -s "$SERIAL" install -r "$APK" > "$EVIDENCE_DIR/install.txt"
 "$ADB" -s "$SERIAL" install -r "$TEST_APK" >> "$EVIDENCE_DIR/install.txt"
 if [[ "${ANDROID_SMOKE_RESET_NOTIFICATION_PERMISSION:-0}" == 1 ]]; then

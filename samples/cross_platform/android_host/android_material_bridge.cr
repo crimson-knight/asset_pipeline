@@ -17,6 +17,7 @@ require "./android_java_failure_fixture"
 require "./android_dialog_fixture"
 require "./android_sheet_fixture"
 require "./android_basics_fixture"
+require "./android_structure_fixture"
 
 module AndroidMaterialHost
   module Bridge
@@ -234,6 +235,7 @@ module AndroidMaterialHost
       when "dialogs-contract"   then AndroidDialogFixture.build
       when "sheets-contract"    then AndroidSheetFixture.build
       when "basics-contract"    then AndroidBasicsFixture.build
+      when "structure-contract" then AndroidStructureFixture.build
       when "layout-interaction" then AndroidLayoutContractFixture.interaction
       when "image-smoke"        then AndroidImageFixture.build
       when "text/雪😀\0end"       then AndroidTextFixture.build

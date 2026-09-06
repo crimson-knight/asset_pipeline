@@ -1790,25 +1790,31 @@
       # Visit: Grid -> android.widget.LinearLayout (grid rows)
       # -----------------------------------------------------------------
       def visit(view : UI::Grid)
-        ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-
+        ll = LibAndroidBridge.android_view_new(@env, "dev/assetpipeline/androidhost/CrystalLinearLayout", @context)
         # VERTICAL = 1
         LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 1)
-
         apply_common_properties(ll, view)
-
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[grid]")
         native = owned_native(handle)
-
+        LibAndroidBridge.android_linearlayout_set_spacing(@env, ll, view.row_spacing.to_f32) if view.row_spacing > 0.0
         push_stack(native, ll, is_linear: true)
         view.children.each do |row|
+          # HORIZONTAL = 0: every row is its own container so cells sit side by side.
+          row_ll = LibAndroidBridge.android_view_new(@env, "dev/assetpipeline/androidhost/CrystalLinearLayout", @context)
+          LibAndroidBridge.android_linearlayout_set_orientation(@env, row_ll, 0)
+          LibAndroidBridge.android_linearlayout_set_spacing(@env, row_ll, view.column_spacing.to_f32) if view.column_spacing > 0.0
+          row_global = LibAndroidBridge.android_new_global_ref(@env, row_ll)
+          row_handle = JNI.wrap_global(row_global, label: "LinearLayout[grid-row]")
+          row_native = owned_native(row_handle)
+          push_stack(row_native, row_ll, is_linear: true)
           row.each do |cell|
             cell.accept(self)
           end
+          pop_stack
+          LibAndroidBridge.android_viewgroup_add_view(@env, ll, row_ll)
         end
         pop_stack
-
         push_native(native, ll)
       end
 
@@ -2395,6 +2401,7 @@
         end
 
         apply_common_properties(v, view)
+        apply_intrinsic_size(v, view, view.size, view.size)
         emit(v, "View[circle]")
       end
 
@@ -2414,6 +2421,7 @@
         end
 
         apply_common_properties(v, view)
+        apply_intrinsic_size(v, view, view.width, view.height)
         emit(v, "View[rectangle]")
       end
 
@@ -2440,6 +2448,7 @@
         end
 
         apply_common_properties(v, view)
+        apply_intrinsic_size(v, view, view.width, view.height)
         emit(v, "View[rounded-rectangle]")
       end
 
@@ -2465,6 +2474,7 @@
         end
 
         apply_common_properties(v, view)
+        apply_intrinsic_size(v, view, view.width, view.height)
         emit(v, "View[capsule]")
       end
 
@@ -3095,7 +3105,9 @@
           @env, "android/widget/LinearLayout", @context)
         # VERTICAL orientation = 1
         LibAndroidBridge.android_linearlayout_set_orientation(@env, outer, 1)
-
+        global_ptr = LibAndroidBridge.android_new_global_ref(@env, outer)
+        handle = JNI.wrap_global(global_ptr, label: "LinearLayout[disclosure-group]")
+        native = owned_native(handle)
         # Header row LinearLayout (horizontal = 0)
         header_row = LibAndroidBridge.android_view_new(
           @env, "android/widget/LinearLayout", @context)
@@ -3120,29 +3132,31 @@
         LibAndroidBridge.android_viewgroup_add_view(@env, header_row, title_tv)
         LibAndroidBridge.android_viewgroup_add_view(@env, outer, header_row)
 
-        # Content block (visible when expanded)
+        # The header activates the owner's toggle with the opposite state; the
+        # owner rebuilds, so the chevron and content follow Crystal, not the tap.
+        if toggle = view.on_toggle
+          requested = !view.expanded
+          callback_id = native.register_callback(->{ toggle.call(requested); nil })
+          LibAndroidBridge.android_view_set_on_click_listener(@env, header_row, callback_id)
+        end
+        # Content block (visible when expanded), owned by this group.
         if view.expanded && !view.content.empty?
+          push_stack(native, outer, is_linear: true)
           content_ll = LibAndroidBridge.android_view_new(
             @env, "android/widget/LinearLayout", @context)
           LibAndroidBridge.android_linearlayout_set_orientation(@env, content_ll, 1)
-
           global_content = LibAndroidBridge.android_new_global_ref(@env, content_ll)
           content_handle = JNI.wrap_global(global_content, label: "LinearLayout[disclosure-content]")
           content_native = owned_native(content_handle)
-
           push_stack(content_native, content_ll, is_linear: true)
           view.content.each do |child|
             child.accept(self)
           end
           pop_stack
-
           LibAndroidBridge.android_viewgroup_add_view(@env, outer, content_ll)
+          pop_stack
         end
-
         apply_common_properties(outer, view)
-        global_ptr = LibAndroidBridge.android_new_global_ref(@env, outer)
-        handle = JNI.wrap_global(global_ptr, label: "LinearLayout[disclosure-group]")
-        native = owned_native(handle)
         push_native(native, outer)
       end
 
@@ -3707,6 +3721,13 @@
         end
       end
 
+      # Shapes carry their own size; explicit common constraints still win.
+      private def apply_intrinsic_size(v : Void*, view : UI::View, width : Float64, height : Float64) : Nil
+        LibAndroidBridge.android_layout_prepare(@env, v,
+          layout_dimension(view.minimum_width || width), layout_dimension(view.minimum_height || height),
+          layout_dimension(view.maximum_width || width), layout_dimension(view.maximum_height || height),
+          view.fill_horizontal ? 1 : 0, 0)
+      end
       private def layout_dimension(value : Float64?) : Float32
         return -1.0_f32 unless value
         raise ArgumentError.new("Android layout dimensions must be finite and between 0 and 1000000 dp") unless value.finite? && value >= 0 && value <= 1_000_000

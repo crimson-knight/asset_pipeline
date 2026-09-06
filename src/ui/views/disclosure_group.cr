@@ -42,7 +42,15 @@ module UI
     # Defaults to title + state if not set explicitly.
     property accessibility_label : String?
 
+    # Called with the requested state when the user activates the header.
+    # The owner decides whether to accept it and rebuilds with `expanded`.
+    property on_toggle : Proc(Bool, Nil)? = nil
+
     def initialize(@title : String, @expanded : Bool = false, @content : Array(View) = [] of View)
+    end
+
+    def initialize(@title : String, @expanded : Bool = false, @content : Array(View) = [] of View, &block : Bool -> Nil)
+      @on_toggle = block
     end
 
     def accept(visitor : PlatformVisitor)
