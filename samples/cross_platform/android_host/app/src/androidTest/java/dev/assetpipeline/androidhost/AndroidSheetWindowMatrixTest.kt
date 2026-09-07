@@ -352,11 +352,15 @@ class AndroidSheetWindowMatrixTest {
                 throw error
             }
             inside("sheet-draft").check { _, error -> if (error != null) throw error }
-            main {
+            // The handle returns in the sheet's own inset pass (the inset
+            // animation's end callback), which runs after the root insets
+            // already report the keyboard hidden; a slow emulator can be
+            // between the two here (CI run 20, API 36). Wait for the pass.
+            waitFor("Back must restore the drag handle and a viewport that fits the sheet") {
                 val shell = shown.viewport.parent as ViewGroup
-                assertTrue((0 until shell.childCount).map { shell.getChildAt(it) }
-                    .filterIsInstance<com.google.android.material.bottomsheet.BottomSheetDragHandleView>().single().isShown)
-                assertTrue(shown.viewport.height >= shown.owner.height)
+                (0 until shell.childCount).map { shell.getChildAt(it) }
+                    .filterIsInstance<com.google.android.material.bottomsheet.BottomSheetDragHandleView>().single().isShown &&
+                    shown.viewport.height >= shown.owner.height
             }
             screenshot("landscape-keyboard-closed-${profile.fontScale}-${profile.language}")
             tap("sheet-chain")

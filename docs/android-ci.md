@@ -215,6 +215,7 @@ instrumentation tests before the fixes above landed.
 | 17 | pickers suite (61 tests), autofill control withdrawn, popup content diagnostic | **pass** | 59/61 (the popup is Android's text-suggestions window, opened by the spell checker's flag on the previous test's draft) | **pass** |
 | 18 | list suite (62 tests), pushed before the spell-checker control | **pass** | 60/62 (same suggestions popup, same two landscape tests) | **pass** |
 | 19 | tabs suite (64 tests), spell checker disabled for the run | **pass** | **pass** (first green API 35 job; no focus diagnostics) | **pass** |
+| 20 | docs-only push after run 19 (same code) | **pass** | **pass** | 63/64: the landscape-keyboard test asserted the drag handle on the first keyboard-hidden frame (test timing; see below) |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -331,3 +332,13 @@ fixture token must not decide a run, so the driver now sets
 the untrusted-touch control; `device-services.txt` still records the image's
 spell checker as found. The runtime is unchanged: a user who taps a flagged
 word gets the same system popup, and the sheet regains focus when it closes.
+
+Run 20 was the docs-only push after run 19 and failed one test of 64, on
+API 36 only: the sheet matrix's landscape-keyboard test, at the assertion
+that the drag handle is shown again after Back hides the keyboard. The
+runtime restores the handle in the sheet's own inset pass (the inset
+animation's end callback), which runs after the root insets already report
+the keyboard hidden; the test waited for the second and asserted the first
+on the same frame, and the software-rendered API 36 emulator was between the
+two. The test now waits for the handle and the fitted viewport with the same
+ten-second bound as its other waits. The runtime is unchanged.
