@@ -1334,33 +1334,61 @@
       # -----------------------------------------------------------------
       def visit(view : UI::ListView)
         ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-
-        # VERTICAL = 1
         LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 1)
-
         apply_common_properties(ll, view)
-
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[list]")
         native = owned_native(handle)
-
         push_stack(native, ll, is_linear: true)
-
-        view.sections.each do |section|
+        row_tap = view.on_row_tap
+        item_tap = view.on_item_tap
+        flat_index = 0
+        view.sections.each_with_index do |section, section_index|
           if header = section.header
             header_tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
             LibAndroidBridge.android_textview_set_text(
               @env, header_tv, header.to_unsafe, header.bytesize)
             emit(header_tv, "TextView[list-header]")
           end
-
-          section.items.each do |item|
+          section.items.each_with_index do |item, item_index|
+            # Every row is its own container so a tap anywhere on it reaches
+            # Crystal with the row's indexes, whatever the row content is.
+            row_ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+            LibAndroidBridge.android_linearlayout_set_orientation(@env, row_ll, 1)
+            row_global = LibAndroidBridge.android_new_global_ref(@env, row_ll)
+            row_handle = JNI.wrap_global(row_global, label: "LinearLayout[list-row]")
+            row_native = owned_native(row_handle)
+            native.add_child(row_native)
+            push_stack(row_native, row_ll, is_linear: true)
             item.accept(self)
+            pop_stack
+            if row_tap || item_tap
+              absolute = flat_index
+              callback_id = row_native.register_callback(->{
+                row_tap.try &.call(absolute)
+                item_tap.try &.call(section_index, item_index)
+                nil
+              })
+              LibAndroidBridge.android_view_set_on_click_listener(@env, row_ll, callback_id)
+            end
+            LibAndroidBridge.android_viewgroup_add_view(@env, ll, row_ll)
+            if view.shows_separators && item_index < section.items.size - 1
+              sep = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+              LibAndroidBridge.android_view_set_background_color(@env, sep, 0x2E3C3C43)
+              sep_global = LibAndroidBridge.android_new_global_ref(@env, sep)
+              sep_native = owned_native(JNI.wrap_global(sep_global, label: "View[list-separator]"))
+              native.add_child(sep_native)
+              LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, sep, -1, 1)
+            end
+            flat_index += 1
+          end
+          if footer = section.footer
+            footer_tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
+            LibAndroidBridge.android_textview_set_text(@env, footer_tv, footer.to_unsafe, footer.bytesize)
+            emit(footer_tv, "TextView[list-footer]")
           end
         end
-
         pop_stack
-
         push_native(native, ll)
       end
 
@@ -1836,6 +1864,7 @@
           row_global = LibAndroidBridge.android_new_global_ref(@env, row_ll)
           row_handle = JNI.wrap_global(row_global, label: "LinearLayout[grid-row]")
           row_native = owned_native(row_handle)
+          native.add_child(row_native)
           push_stack(row_native, row_ll, is_linear: true)
           row.each do |cell|
             cell.accept(self)

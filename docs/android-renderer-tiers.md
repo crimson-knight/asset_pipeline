@@ -55,7 +55,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `Inspector` | yes | — | unverified | handler exists; no Android fixture or test |
 | `Label` | yes | basics, compound_focus, dialog, failure, focus, layout, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | layout, text, semantics |
 | `LinkButton` | yes | basics | A core | basics (on_tap, browser fallback) |
-| `ListView` | yes | — | unverified | handler exists; no Android fixture or test |
+| `ListView` | yes | structure | A core | structure (section headers, one container per row, separators, row and item taps reach Crystal, state survives recreation) |
 | `MapView` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
 | `MenuButton` | yes | — | unverified | handler exists; no Android fixture or test |
 | `NavigationLink` | yes | navigation, view_state | A core | navigation |
@@ -111,16 +111,17 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 
 ## Totals
 
-- A core: 43
+- A core: 44
 - B preview: 8
 - D unsupported: 17
-- unverified: 27
+- unverified: 26
 
 ## Next promotions
 
 The unverified group is the largest. Promote in this order, each through its
-own fixture and contract suite: `ListView`, `TabView`, `MenuButton`; then
-the remaining decorative surfaces. The structure suite (September 6) promoted
+own fixture and contract suite: `TabView`, `MenuButton`; then the
+remaining decorative surfaces. `ListView` joined the structure suite with
+tappable rows and separators. The structure suite (September 6) promoted
 the four shapes, `Grid`, `Form` and `DisclosureGroup`; the Android handlers
 now give shapes their intrinsic size, lay out a grid as real rows, and let a
 disclosure header call back to Crystal through the new optional

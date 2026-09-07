@@ -3,9 +3,12 @@
 module AndroidStructureFixture
   @@expanded = false
   @@toggles = 0
+  @@row = -1
+  @@section_item = "none"
+  @@row_taps = 0
 
   def self.reset
-    @@expanded = false; @@toggles = 0
+    @@expanded = false; @@toggles = 0; @@row = -1; @@section_item = "none"; @@row_taps = 0
   end
 
   def self.mark(view : UI::View, id : String) : UI::View
@@ -56,6 +59,14 @@ module AndroidStructureFixture
     end
     root << mark(disclosure, "structure-disclosure")
     root << mark(UI::Label.new("Expanded: #{@@expanded}; toggles: #{@@toggles}"), "structure-disclosure-echo")
+
+    list = UI::ListView.new
+    list.sections << UI::ListView::Section.new(header: "Fruits", items: [mark(UI::Label.new("Apple"), "structure-item-apple"), mark(UI::Label.new("Banana"), "structure-item-banana")] of UI::View)
+    list.sections << UI::ListView::Section.new(header: "Vegetables", items: [mark(UI::Label.new("Carrot"), "structure-item-carrot")] of UI::View)
+    list.on_row_tap = ->(index : Int32) { @@row = index; @@row_taps += 1; nil }
+    list.on_item_tap = ->(section : Int32, item : Int32) { @@section_item = "#{section},#{item}"; nil }
+    root << mark(list, "structure-list")
+    root << mark(UI::Label.new("Row: #{@@row}; section: #{@@section_item}; taps: #{@@row_taps}"), "structure-list-echo")
     root
   end
 end

@@ -126,4 +126,28 @@ class AndroidStructureContractTest {
             waitUntil(scenario, "Detail did not collapse") { find(it, "structure-detail") == null }
         } finally { scenario.close() }
     }
+
+    @Test fun listRowsAreSectionedSeparatedAndTappableWithCrystalIndexes() {
+        val scenario = launch()
+        try {
+            onView(NativeTestIds.withTestId("structure-list-echo")).perform(scrollTo())
+            awaitText("Row: -1; section: none; taps: 0")
+            scenario.onActivity { activity ->
+                val list = view(activity, "structure-list") as LinearLayout
+                assertEquals(listOf("Fruits", "Apple", "Banana", "Vegetables", "Carrot"), texts(list))
+                // header, row, separator, row, header, row
+                assertEquals(6, list.childCount)
+                val separator = list.getChildAt(2)
+                assertTrue("separator is a plain thin view", separator !is ViewGroup && separator !is TextView && separator.height in 1..4)
+                assertTrue("rows are clickable containers", list.getChildAt(1).isClickable && list.getChildAt(5).isClickable)
+            }
+            onView(withText("Banana")).perform(click())
+            awaitText("Row: 1; section: 0,1; taps: 1")
+            onView(withText("Carrot")).perform(click())
+            awaitText("Row: 2; section: 1,0; taps: 2")
+            scenario.recreate()
+            onView(NativeTestIds.withTestId("structure-list-echo")).perform(scrollTo())
+            awaitText("Row: 2; section: 1,0; taps: 2")
+        } finally { scenario.close() }
+    }
 }

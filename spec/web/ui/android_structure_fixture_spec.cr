@@ -22,6 +22,18 @@ describe AndroidStructureFixture do
     disclosure.expanded.should be_false
     disclosure.content.map(&.test_id).should eq(["structure-detail"])
     root.children.select(UI::Label).map(&.text).should contain("Expanded: false; toggles: 0")
+    list = root.children.select(UI::ListView).first
+    list.sections.map(&.header).should eq(["Fruits", "Vegetables"])
+    list.sections.map { |section| section.items.size }.should eq([2, 1])
+    root.children.select(UI::Label).map(&.text).should contain("Row: -1; section: none; taps: 0")
+  end
+
+  it "reports list row taps to Crystal with absolute and sectioned indexes" do
+    AndroidStructureFixture.reset
+    list = AndroidStructureFixture.build.as(UI::VStack).children.select(UI::ListView).first
+    list.on_row_tap.not_nil!.call(2)
+    list.on_item_tap.not_nil!.call(1, 0)
+    AndroidStructureFixture.build.as(UI::VStack).children.select(UI::Label).map(&.text).should contain("Row: 2; section: 1,0; taps: 1")
   end
 
   it "keeps the disclosure state in Crystal across rebuilds" do
