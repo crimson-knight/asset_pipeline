@@ -303,7 +303,13 @@ build` produces a signed release APK and App Bundle that the artifact
 inspector verifies with `apksigner` and `jarsigner`; unset keeps them unsigned
 and a partial set fails configuration. Both were proven with a throwaway key,
 on the template and on a fresh CLI-generated project whose emulator suite
-passed. CI run 19, the first push carrying the spell-checker control and the tabs suite, is the first run green on all three API levels at once: 64 tests on each x86_64 emulator. Physical phone, released tags and version pins, store upload
+passed. The template's dropped-shard defect is closed the same day: Grant
+moved to the fork head, whose transaction dispatch no longer needs every
+adapter constant (Grant commit 4ae3216), `pg` to 0.30 on crystal-db 0.14, the
+Postgres adapter is the only one required, and the unused i18n configuration
+is gone; the web target compiles from a clean lock and the isolated-database
+spec suite passed with 350 examples and 0 failures (the template's
+`docs/android-reference-migration.md`). CI run 19, the first push carrying the spell-checker control and the tabs suite, is the first run green on all three API levels at once: 64 tests on each x86_64 emulator. Physical phone, released tags and version pins, store upload
 and the remaining unverified controls stay open; the full goal remains active.
 
 ## Initial executive assessment — September 1 baseline
