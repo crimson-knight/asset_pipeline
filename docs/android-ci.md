@@ -213,6 +213,7 @@ instrumentation tests before the fixes above landed.
 | 15 | system-log diagnostics | 55/56 (untrusted-touch drop: the test package's EmptyActivity still covered the app) | 54/56 (a focusable app-owned popup attached to the sheet held window focus) | **pass** |
 | 16 | structure suite (59 tests), permissive untrusted touches, autofill off | **pass** | 57/59 (same popup with autofill off, so autofill was not its cause) | **pass** |
 | 17 | pickers suite (61 tests), autofill control withdrawn, popup content diagnostic | **pass** | 59/61 (the popup is Android's text-suggestions window, opened by the spell checker's flag on the previous test's draft) | **pass** |
+| 18 | list suite (62 tests), pushed before the spell-checker control | **pass** | 60/62 (same suggestions popup, same two landscape tests) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
