@@ -216,6 +216,7 @@ instrumentation tests before the fixes above landed.
 | 18 | list suite (62 tests), pushed before the spell-checker control | **pass** | 60/62 (same suggestions popup, same two landscape tests) | **pass** |
 | 19 | tabs suite (64 tests), spell checker disabled for the run | **pass** | **pass** (first green API 35 job; no focus diagnostics) | **pass** |
 | 20 | docs-only push after run 19 (same code) | **pass** | **pass** | 63/64: the landscape-keyboard test asserted the drag handle on the first keyboard-hidden frame (test timing; see below) |
+| 21 | sheet-matrix wait (same 64 tests) | 63/64: the Unicode composition test tapped the multiline editor before the deferred post-recreation refresh (test timing; see below) | **pass** | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -342,3 +343,14 @@ the keyboard hidden; the test waited for the second and asserted the first
 on the same frame, and the software-rendered API 36 emulator was between the
 two. The test now waits for the handle and the fitted viewport with the same
 ten-second bound as its other waits. The runtime is unchanged.
+
+Run 21 carried the sheet-matrix wait and failed one test of 64 on API 31
+only, a third timing case of the same shape: the text contract's Unicode
+composition test recreates the activity and then taps the multiline editor.
+The host defers a whole-tree refresh by 250 ms after recreation; on the
+software-rendered API 31 emulator the tap landed before that refresh, focused
+the editor the refresh then replaced, and the replacement had no focus. The
+test now waits until the tree has reported the same editor instance for
+longer than the deferral before tapping. The runtime is unchanged. All three
+runner findings are in the tests, not the renderer: a test that asserts a
+frame the runtime updates one pass later fails only on a slow emulator.

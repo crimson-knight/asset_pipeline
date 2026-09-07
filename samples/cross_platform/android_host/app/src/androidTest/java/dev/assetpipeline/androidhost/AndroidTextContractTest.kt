@@ -44,6 +44,26 @@ class AndroidTextContractTest {
     }
     private fun editor(activity: MainActivity, id: String) = requireNotNull(firstEditor(requireNotNull(described(activity.window.decorView, id))))
     private fun editorMatcher(id: String) = allOf(isAssignableFrom(EditText::class.java), isDescendantOfA(NativeTestIds.withTestId(id)))
+    // The host defers a whole-tree refresh by 250ms after recreation. A tap
+    // that lands before it focuses an editor the refresh then replaces, and
+    // the replacement has no focus (CI run 21, API 31). Wait until the tree
+    // has reported the same editor instance for longer than that deferral.
+    private fun awaitSettledEditor(scenario: ActivityScenario<MainActivity>, id: String) {
+        val deadline = android.os.SystemClock.uptimeMillis() + 5000L
+        var last: EditText? = null
+        var stableSince = 0L
+        while (android.os.SystemClock.uptimeMillis() < deadline) {
+            var now: EditText? = null
+            scenario.onActivity { activity -> now = editor(activity, id) }
+            if (now != null && now === last) {
+                if (stableSince == 0L) stableSince = android.os.SystemClock.uptimeMillis()
+                if (android.os.SystemClock.uptimeMillis() - stableSince >= 400L) return
+            } else stableSince = 0L
+            last = now
+            android.os.SystemClock.sleep(50L)
+        }
+        throw AssertionError("Editor $id did not settle after recreation")
+    }
 
     private fun publishExternalEdit(editor: EditText) {
         // The test's direct InputConnection is not the system IME's session.
@@ -158,6 +178,7 @@ class AndroidTextContractTest {
             }
             scenario.recreate()
             scenario.onActivity { activity -> assertEquals(finalText, editor(activity, "unicode-field").text.toString()) }
+            awaitSettledEditor(scenario, "unicode-multiline")
             onView(editorMatcher("unicode-multiline")).perform(scrollTo(), click())
             scenario.onActivity { activity ->
                 val multiline = editor(activity, "unicode-multiline")
