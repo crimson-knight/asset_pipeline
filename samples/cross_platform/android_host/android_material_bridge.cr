@@ -20,6 +20,7 @@ require "./android_basics_fixture"
 require "./android_structure_fixture"
 require "./android_pickers_fixture"
 require "./android_tabs_fixture"
+require "./android_tick_fixture"
 
 module AndroidMaterialHost
   module Bridge
@@ -221,6 +222,7 @@ module AndroidMaterialHost
     end
 
     def self.build_component(slug : String) : UI::View
+      @@tick_fixture_mounted = slug == "tick-contract"
       if builder = @@component_builders[slug]?
         return builder.call
       end
@@ -242,6 +244,7 @@ module AndroidMaterialHost
       when "tabs-contract"      then AndroidTabsFixture.build
       when "layout-interaction" then AndroidLayoutContractFixture.interaction
       when "layout-hugging"     then AndroidLayoutContractFixture.hugging
+      when "tick-contract"      then AndroidTickFixture.build
       when "image-smoke"        then AndroidImageFixture.build
       when "text/雪😀\0end"       then AndroidTextFixture.build
       when "navigation"         then AndroidNavigationFixture.build
@@ -720,7 +723,16 @@ module AndroidMaterialHost
       stack
     end
 
-    private def self.build_fallback(slug : String) : UI::View
+# The host tick contract: count every tick, re-render only while the tick
+# fixture is on screen so no other fixture's editor is replaced by a clock.
+@@tick_fixture_mounted = false
+
+def self.tick : Nil
+  AndroidTickFixture.tick!
+  UI::Android::Application.invalidate if @@tick_fixture_mounted
+end
+
+private def self.build_fallback(slug : String) : UI::View
       stack = root_stack
       stack << heading("Unknown study")
       stack << body_label("No Android Material study is registered for '#{slug}'.")
@@ -732,3 +744,5 @@ end
 UI::Android::Application.configure do |slug|
   AndroidMaterialHost::Bridge.build_component(slug)
 end
+
+UI::Android::Application.on_tick(1000) { AndroidMaterialHost::Bridge.tick }

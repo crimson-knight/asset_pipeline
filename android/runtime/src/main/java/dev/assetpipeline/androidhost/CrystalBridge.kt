@@ -1,7 +1,9 @@
 package dev.assetpipeline.androidhost
 
 import android.content.Context
+import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.View
 
 object CrystalBridge {
@@ -29,7 +31,45 @@ object CrystalBridge {
         } finally { refreshCause = previous }
     }
     private val session = HostSession { lifecycleNative(it) }
-    private var dialogs: NativeDialogHost? = null
+private var dialogs: NativeDialogHost? = null
+
+// Host tick. One main-looper runnable per foreground session: the first
+// tick runs right after the first render, later ticks follow TickPolicy,
+// ticks never overlap, and background, detach, close and any boundary
+// failure stop them. A tick only runs Crystal work; a re-render happens
+// when that work calls requestRender, never on the tick itself.
+private val tickHandler = Handler(Looper.getMainLooper())
+private var tickIntervalMs = 0L
+private var tickRunning = false
+private var tickCount = 0L
+private val tickRunnable = Runnable { runTick() }
+
+@JvmStatic private external fun tickIntervalNative(): Int
+@JvmStatic private external fun tickNative(): Boolean
+
+private fun startTicks() {
+    stopTicks()
+    tickIntervalMs = nativeCall { tickIntervalNative().toLong() }
+    if (TickPolicy.schedules(tickIntervalMs, session.state)) tickHandler.post(tickRunnable)
+}
+
+private fun stopTicks() { tickHandler.removeCallbacks(tickRunnable) }
+
+private fun runTick() {
+    if (tickRunning || !didLoad || session.state != HostSession.State.FOREGROUND) return
+    tickRunning = true
+    val started = SystemClock.uptimeMillis()
+    try {
+        checkedCallback("tick") { tickNative() }
+        tickCount++
+    } finally { tickRunning = false }
+    if (TickPolicy.schedules(tickIntervalMs, session.state)) {
+        tickHandler.postDelayed(tickRunnable, TickPolicy.nextDelay(tickIntervalMs, SystemClock.uptimeMillis() - started))
+    }
+}
+
+/** Ticks dispatched to Crystal since the library loaded. */
+fun debugTickCount(): Long { checkMainThread(); return tickCount }
 
     internal fun installDialogs(owner: Any, host: NativeDialogHost) {
         checkReady()
@@ -219,15 +259,17 @@ object CrystalBridge {
     }
 
     fun attachHost(owner: Any) { checkReady(); session.attach(owner); CrystalServices.attachHost(owner) }
-    fun foregroundHost(owner: Any) { checkReady(); session.foreground(owner) }
+    fun foregroundHost(owner: Any) { checkReady(); session.foreground(owner); startTicks() }
     fun backgroundHost(owner: Any) {
         checkReady()
+        stopTicks()
         if (session.owns(owner) && session.state == HostSession.State.FOREGROUND) dialogs?.beforeBackground()
         try { session.background(owner) } finally { if (session.owns(owner)) dialogs?.suspend() }
     }
 
     fun detachHost(owner: Any) {
         checkReady()
+        stopTicks()
         session.detach(owner) {
             dialogs?.close()
             dialogs = null
@@ -240,6 +282,7 @@ object CrystalBridge {
 
     fun closeSession() {
         checkReady()
+        stopTicks()
         try { session.close() } finally {
             if (session.state == HostSession.State.STOPPED || session.state == HostSession.State.FAILED) {
                 try { dialogs?.suspend() } finally { CrystalServices.close() }
@@ -258,6 +301,7 @@ object CrystalBridge {
 
     fun teardown() {
         checkMainThread()
+        stopTicks()
         dialogs?.suspend()
         if (didLoad) teardownNative()
     }

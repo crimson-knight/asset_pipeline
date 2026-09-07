@@ -26,6 +26,8 @@ module UI::Android::Application
   @@last_native : UI::NativeView? = nil
   @@navigation : UI::Android::NavigationState? = nil
   @@probe_base = 40
+  @@tick_handler : Proc(Nil)? = nil
+  @@tick_interval_ms = 0
 
   # Configure at application startup. Hosts mount, mutate and tear down views
   # on the Android main looper. One retained tree is supported per process.
@@ -39,9 +41,33 @@ module UI::Android::Application
     @@lifecycle_handler = handler
   end
 
-  def self.lifecycle(event : LifecycleEvent) : Nil
-    @@lifecycle_handler.try(&.call(event))
-  end
+def self.lifecycle(event : LifecycleEvent) : Nil
+  @@lifecycle_handler.try(&.call(event))
+end
+
+# A host-driven periodic callback on the Android main looper while the
+# surface is in the foreground. The host runs the first tick right after
+# the first render, then every `interval_ms`, never overlapping, and stops
+# on background, detach and failure. The handler does one bounded unit of
+# work and calls `invalidate` only when a re-render is owed; the host never
+# re-renders on a tick by itself, so a focused editor is not replaced by a
+# clock. Raising inside the handler is a contained boundary failure: the
+# session becomes terminal, the same as a failed callback.
+def self.on_tick(interval_ms : Int32, &handler : -> Nil) : Nil
+  raise ArgumentError.new("Android tick interval must be positive") unless interval_ms > 0
+  raise ArgumentError.new("Android tick handler is already configured") if @@tick_handler
+  @@tick_interval_ms = interval_ms
+  @@tick_handler = handler
+end
+
+# 0 means the application asked for no ticks and the host schedules none.
+def self.tick_interval_ms : Int32
+  @@tick_handler ? @@tick_interval_ms : 0
+end
+
+def self.tick : Nil
+  @@tick_handler.try(&.call)
+end
 
   # Request a deferred host refresh after an asynchronous state change. Ordinary
   # service completions do not inherently replace a focused native editor.
@@ -111,6 +137,23 @@ end
 # as a terminal session failure and refuses subsequent activation.
 fun crystal_android_host_lifecycle(event : Int32) : Int32
   UI::Android::Application.lifecycle(UI::Android::Application::LifecycleEvent.from_value(event))
+  1
+  rescue error
+    UI::Android::Application.log_exception(error)
+    0
+end
+
+fun crystal_android_host_tick_interval : Int32
+  UI::Android::Application.tick_interval_ms
+  rescue error
+    UI::Android::Application.log_exception(error)
+    0
+end
+
+# 1 means the tick ran; 0 is a contained Crystal failure the host treats
+# as terminal, the same as a failed callback.
+fun crystal_android_host_tick : Int32
+  UI::Android::Application.tick
   1
   rescue error
     UI::Android::Application.log_exception(error)

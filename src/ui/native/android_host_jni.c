@@ -30,6 +30,8 @@ extern void *crystal_android_host_render_slug_bytes(void *env, void *context, co
 extern void crystal_android_host_teardown(void);
 extern int crystal_android_host_callback_count(void);
 extern int crystal_android_host_lifecycle(int event);
+extern int crystal_android_host_tick_interval(void);
+extern int crystal_android_host_tick(void);
 extern int crystal_android_host_sheet_transition(int dismissed);
 extern int crystal_android_host_navigation_back(int commit);
 extern int crystal_android_service_complete(uint64_t id, int status, unsigned char *data, int size);
@@ -250,6 +252,28 @@ Java_dev_assetpipeline_androidhost_CrystalBridge_lifecycleNative(JNIEnv *env, jc
     int registration = ap_enter_crystal();
     if (registration < 0) return JNI_FALSE;
     int success = crystal_android_host_lifecycle((int)event);
+    ap_leave_crystal(registration);
+    return success ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_assetpipeline_androidhost_CrystalBridge_tickIntervalNative(JNIEnv *env, jclass clazz) {
+    (void)env;
+    (void)clazz;
+    int registration = ap_enter_crystal();
+    if (registration < 0) return 0;
+    int interval = crystal_android_host_tick_interval();
+    ap_leave_crystal(registration);
+    return interval < 0 ? 0 : (jint)interval;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_assetpipeline_androidhost_CrystalBridge_tickNative(JNIEnv *env, jclass clazz) {
+    (void)env;
+    (void)clazz;
+    int registration = ap_enter_crystal();
+    if (registration < 0) return JNI_FALSE;
+    int success = crystal_android_host_tick();
     ap_leave_crystal(registration);
     return success ? JNI_TRUE : JNI_FALSE;
 }

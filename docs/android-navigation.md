@@ -26,6 +26,8 @@ schedule the host's existing deferred refresh. When changing navigation outside
 a native callback, call `UI::Android::Application.invalidate` to synchronize Back
 availability and schedule rendering. In particular, do not create a new stack
 inside every factory invocation: that resets history on refresh.
+Work that must run without a touch (a boot fetch, a poll) belongs in the
+[host tick](android-host-tick.md), which calls `invalidate` the same way.
 
 The renderer produces a vertical native View container, a Material toolbar
 (unless `shows_navigation_bar = false`), and the current screen. Toolbar Up pops
