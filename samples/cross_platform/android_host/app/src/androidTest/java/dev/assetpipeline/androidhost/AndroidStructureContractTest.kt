@@ -27,6 +27,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import androidx.test.espresso.NoMatchingViewException
+import androidx.test.espresso.PerformException
+import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 
 /** Structure Tier A: shapes with intrinsic sizes, grid rows, form sections and a disclosure header that toggles Crystal state. */
 @RunWith(AndroidJUnit4::class)
@@ -35,8 +39,23 @@ class AndroidStructureContractTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         return ActivityScenario.launch(Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_APP_SLUG, "structure-contract"))
     }
-    private fun awaitText(text: String) = assertTrue("Native text did not update: $text",
-        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).wait(Until.hasObject(By.text(text)), 10000L))
+    // Scroll the text into view while waiting: UiAutomator only sees what is
+    // on screen, and on a phone whose shorter display leaves this fixture's
+    // echo labels below the fold the text exists without being visible.
+    private fun awaitText(text: String) {
+        val deadline = SystemClock.uptimeMillis() + 10000L
+        while (true) {
+            try {
+                onView(withText(text)).perform(scrollTo()).check(matches(isDisplayed()))
+                return
+            } catch (missing: NoMatchingViewException) {
+            } catch (undisplayed: PerformException) {
+            } catch (undisplayed: AssertionError) {
+            }
+            if (SystemClock.uptimeMillis() >= deadline) throw AssertionError("Native text did not update: $text")
+            SystemClock.sleep(50L)
+        }
+    }
     private fun view(activity: MainActivity, id: String): View = requireNotNull(NativeTestIds.find(activity.window.decorView, id)) { "missing $id" }
     private fun find(activity: MainActivity, id: String): View? = NativeTestIds.find(activity.window.decorView, id)
     private fun waitUntil(scenario: ActivityScenario<MainActivity>, message: String, condition: (MainActivity) -> Boolean) {

@@ -28,6 +28,9 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import android.view.ViewGroup
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 
 @RunWith(AndroidJUnit4::class)
 class AndroidSheetViewportTest {
@@ -35,7 +38,33 @@ class AndroidSheetViewportTest {
     private fun launch() = ActivityScenario.launch<MainActivity>(Intent(
         ApplicationProvider.getApplicationContext<Context>(), MainActivity::class.java)
         .putExtra(MainActivity.EXTRA_APP_SLUG, "sheets-contract"))
-    private fun appClick(id: String) = onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click())
+    private fun appClick(id: String) {
+        onView(NativeTestIds.withTestId(id)).perform(scrollTo(), click())
+        // The host applies a tap's Crystal state in a refresh it debounces by
+        // 250 ms, and the next tap must not race it: on a phone the open tap
+        // landed before the reset tap's refresh, one render carried both, and
+        // the sheet never presented (CI notes, physical device). Wait until
+        // the mounted root has been the same view for longer than that. Read
+        // the mount from the resumed activity, not through Espresso's root
+        // picking: a sheet this tap opens holds window focus from then on.
+        val deadline = SystemClock.uptimeMillis() + 5000L
+        var last: View? = null
+        var stableSince = 0L
+        while (SystemClock.uptimeMillis() < deadline) {
+            var now: View? = null
+            main {
+                now = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                    .firstOrNull()?.findViewById<ViewGroup>(R.id.rendererMount)?.getChildAt(0)
+            }
+            if (now != null && now === last) {
+                if (stableSince == 0L) stableSince = SystemClock.uptimeMillis()
+                if (SystemClock.uptimeMillis() - stableSince >= 350L) return
+            } else stableSince = 0L
+            last = now
+            SystemClock.sleep(50L)
+        }
+        throw AssertionError("Host refresh did not settle after tapping $id")
+    }
     private fun inside(id: String) = onView(NativeTestIds.withTestId(id)).inRoot(isDialog())
     /** Wait until the view's on-screen rectangle has not changed for 250 ms, then tap. */
     private fun tap(id: String) {
@@ -206,6 +235,15 @@ class AndroidSheetViewportTest {
             inside("sheet-draft").perform(scrollTo())
             var shown = parts()
             var x = 0; var y = 0
+            main {
+                // Espresso's scrollTo returns early once 90% is visible; a
+                // phone's shorter small detent left the editor 4 px clipped
+                // there. Ask for the whole editor before requiring all of it.
+                shown.editor.requestRectangleOnScreen(Rect(0, 0, shown.editor.width, shown.editor.height), true)
+            }
+            waitFor("Small sheet editor did not reveal completely") {
+                val rect = Rect(); shown.editor.getGlobalVisibleRect(rect) && rect.height() == shown.editor.height
+            }
             main {
                 val rect = Rect(); assertTrue(shown.editor.getGlobalVisibleRect(rect))
                 assertEquals(shown.editor.height, rect.height()); x = rect.centerX(); y = rect.centerY()

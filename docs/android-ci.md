@@ -149,6 +149,48 @@ The emulator runner's annotated v2 tag was resolved to its peeled commit before
 pinning. Local workflow syntax validation uses
 [actionlint 1.7.12](https://github.com/rhysd/actionlint/releases/tag/v1.7.12).
 
+
+## Physical device, September 7
+
+`make test-android` passed on a Samsung Galaxy A15 5G (SM-A156U, Android 16,
+One UI 8, arm64-v8a, 1080 by 2340 at 450 dpi, three-button navigation,
+Samsung Keyboard with Samsung's spell checker, no SIM and no Wi-Fi): 64 device
+tests OK and both isolated failure lanes PASS, driver exit 0, on the sixth
+run of the day. The first run passed 59 of 64 and named six differences from
+the x86_64 and arm64 emulators; five were test assumptions and one was a
+renderer defect.
+
+| Difference the phone exposed | Where | Resolution |
+| --- | --- | --- |
+| The host page's own header leaves a fixture's echo labels below the fold on the shorter display; UiAutomator text waits only see what is on screen | structure, navigation tests | the waits scroll the text into view (Espresso `scrollTo`) while waiting |
+| The host's deferred post-recreation refresh lands after a faster phone hands Espresso the view it then replaces | smoke test | bounded retry around the post-recreation scroll and display check |
+| Espresso's `scrollTo` returns early once 90% of a view is visible, and the phone's shorter small detent left the editor 4 px clipped there | sheet viewport test | request the whole editor rectangle before requiring all of it |
+| One UI hands a nested vertical viewport's drag to the parent scroller; stock Android gives it to the child. A real swipe inside the two-axis viewport scrolled the host page on the phone and the inner content on the emulator | renderer | vertical viewports are the runtime's `CrystalScrollView`, which keeps the vertical drags it can consume and yields at an edge (`ScrollGesturePolicy`, JVM-tested) |
+| A fast swipe's fling is still animating when the next tap arrives, and a ScrollView intercepts that touch-down to stop the fling, swallowing the tap | layout test | wait for both viewports to come to rest before positioning and tapping |
+| Two page taps inside the host's 250 ms refresh debounce: an open tap landed before a reset tap's refresh, one render carried both, and the sheet never presented; the follow-up render the host should have produced did not come | sheet viewport test; runtime | the test settles after each page tap; the runtime race stays open (see below) |
+
+The driver's device controls behave the same on the phone: it set
+`block_untrusted_touches` permissive and `spell_checker_enabled` to `0` for
+the run and restored both to their prior values (`null`). Runs two through
+five each removed findings and added one of their own (a hand-closed app
+during a run, and a settle wait that read the mount through Espresso's root
+picking while a sheet window held focus). Evidence for the passing run and
+the first-contact run lives outside the repository with the other proof
+directories.
+
+**Open runtime finding.** The lost sheet presentation is a race between two
+quick taps and the host's debounced refresh, reproduced three times on the
+phone and never on an emulator: after the coalesced render, the host should
+render again and present, and no second render was logged within five
+seconds. The mechanism of the missing render is not yet instrumented; it is
+not the scroll-view change (the same test passed and failed with and without
+it, on the same side of the same timing). Treat a fast reset-then-open pair as
+unsupported until it is named.
+
+The phone's clock was stale (no network time), which does not affect these
+tests but fails any TLS proof against a certificate issued this week; the
+template lane reissues its task-only certificate with a validity window that
+covers the device's date.
 ## Proof boundaries and remaining work
 
 Configuration specs and workflow lint establish local declaration consistency;

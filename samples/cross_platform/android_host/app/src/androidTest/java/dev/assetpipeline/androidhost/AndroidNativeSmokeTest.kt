@@ -49,6 +49,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import androidx.test.espresso.PerformException
 
 @RunWith(AndroidJUnit4::class)
 class AndroidNativeSmokeTest {
@@ -349,9 +350,28 @@ class AndroidNativeSmokeTest {
                 scenario.moveToState(Lifecycle.State.CREATED)
                 scenario.moveToState(Lifecycle.State.RESUMED)
                 scenario.recreate()
-                onView(withText(containsString("Renderer mount live")))
-                    .perform(scrollTo())
-                    .check(matches(isDisplayed()))
+                // The host defers a whole-tree refresh after recreation; a fast
+                // phone can hand Espresso the view that refresh then replaces
+                // (not displayed). Retry within a bound, as NativeTaps does.
+                var mounted = false
+                for (attempt in 1..3) {
+                    try {
+                        onView(withText(containsString("Renderer mount live")))
+                            .perform(scrollTo())
+                            .check(matches(isDisplayed()))
+                        mounted = true
+                        break
+                    } catch (replaced: PerformException) {
+                        if (attempt == 3) throw replaced
+                        SystemClock.sleep(400L)
+                    } catch (replaced: AssertionError) {
+                        // The display check on the replaced view fails the
+                        // same way one tick later; same bounded retry.
+                        if (attempt == 3) throw replaced
+                        SystemClock.sleep(400L)
+                    }
+                }
+                assertTrue("Renderer mount label must be displayed after recreation", mounted)
                 onView(isAssignableFrom(EditText::class.java)).check { view, error ->
                     if (error != null) throw error
                     assertEquals("Crystal state must survive Activity recreation", "Draft notegoal", (view as EditText).text.toString())

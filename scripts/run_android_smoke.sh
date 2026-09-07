@@ -106,7 +106,7 @@ SERVICE_TEST_REPORT="$HOST_DIR/app/build/test-results/testDebugUnitTest/TEST-dev
 [[ -s "$SERVICE_TEST_REPORT" ]] || fail "Canonical service-queue unit tests did not produce a report"
 grep -Eq '<testsuite .*tests="[1-9][0-9]*".*failures="0".*errors="0"' "$SERVICE_TEST_REPORT" || fail "Service-queue unit tests were empty or failed"
 cp "$SERVICE_TEST_REPORT" "$EVIDENCE_DIR/service-queue-unit-tests.xml"
-for suite in HttpWireTest PlatformHttpTest SecretVaultTest FilePolicyTest NotificationWireTest PermissionRequestsTest EditorActionsTest LayoutPolicyTest ViewStatePolicyTest SemanticsPolicyTest CompoundFocusPolicyTest DialogPolicyTest SheetPolicyTest; do
+for suite in HttpWireTest PlatformHttpTest SecretVaultTest FilePolicyTest NotificationWireTest PermissionRequestsTest EditorActionsTest LayoutPolicyTest ScrollGesturePolicyTest ViewStatePolicyTest SemanticsPolicyTest CompoundFocusPolicyTest DialogPolicyTest SheetPolicyTest; do
     report="$HOST_DIR/app/build/test-results/testDebugUnitTest/TEST-dev.assetpipeline.androidhost.$suite.xml"
     [[ -s "$report" ]] || fail "Missing service unit test report: $suite"
     grep -Eq '<testsuite .*tests="[1-9][0-9]*".*failures="0".*errors="0"' "$report" || fail "Service tests were empty or failed: $suite"

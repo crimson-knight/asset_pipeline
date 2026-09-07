@@ -23,6 +23,10 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.math.roundToInt
+import androidx.test.espresso.action.GeneralLocation
+import androidx.test.espresso.action.GeneralSwipeAction
+import androidx.test.espresso.action.Press
+import androidx.test.espresso.action.Swipe
 
 @RunWith(AndroidJUnit4::class)
 class AndroidLayoutContractTest {
@@ -282,6 +286,26 @@ class AndroidLayoutContractTest {
         }
     }
 
+    /** Waits until the two-axis viewport reports the same scroll offsets for 150 ms (no fling in flight). */
+    private fun awaitStill(scenario: ActivityScenario<MainActivity>) {
+        val deadline = android.os.SystemClock.uptimeMillis() + 5000L
+        var last: Pair<Int, Int>? = null
+        var stableSince = 0L
+        while (android.os.SystemClock.uptimeMillis() < deadline) {
+            var now: Pair<Int, Int>? = null
+            scenario.onActivity { activity ->
+                val scroll = find(activity.findViewById(R.id.rendererMount), "layout-both-scroll") as ScrollView
+                now = scroll.scrollY to scroll.getChildAt(0).scrollX
+            }
+            if (now != null && now == last) {
+                if (stableSince == 0L) stableSince = android.os.SystemClock.uptimeMillis()
+                if (android.os.SystemClock.uptimeMillis() - stableSince >= 150L) return
+            } else stableSince = 0L
+            last = now
+            android.os.SystemClock.sleep(25L)
+        }
+        throw AssertionError("Two-axis viewport did not come to rest")
+    }
     @Test fun twoAxisViewportReceivesRealGesturesAndReachesCrystalAction() {
         val scenario = launch("layout-interaction")
         try {
@@ -297,15 +321,34 @@ class AndroidLayoutContractTest {
                 if (movedX) break
             }
             assertTrue("Horizontal gesture must move the native horizontal viewport", movedX)
-            onView(NativeTestIds.withTestId("layout-both-scroll")).perform(swipeUp())
+            // The same bounded repeat for the vertical fling. Start it from the
+            // viewport's center, not its bottom edge: after a 90% scroll-to on a
+            // phone's shorter screen that edge sat under the navigation bar, so
+            // Espresso's swipeUp() began outside the window and never scrolled.
+            var movedY = false
+            for (attempt in 1..3) {
+                onView(NativeTestIds.withTestId("layout-both-scroll")).perform(
+                    GeneralSwipeAction(Swipe.FAST, GeneralLocation.CENTER, GeneralLocation.TOP_CENTER, Press.FINGER))
+                scenario.onActivity { activity ->
+                    val scroll = find(activity.findViewById(R.id.rendererMount), "layout-both-scroll") as ScrollView
+                    movedY = scroll.scrollY > 0
+                }
+                if (movedY) break
+            }
+            assertTrue("Vertical gesture must move the native vertical viewport", movedY)
+            // A fling is still animating after a fast swipe on a phone, and a
+            // ScrollView intercepts the next touch-down to stop it, which would
+            // swallow the tap below. Let both viewports come to rest first,
+            // then position them and let them rest again.
+            awaitStill(scenario)
             scenario.onActivity { activity ->
                 val scroll = find(activity.findViewById(R.id.rendererMount), "layout-both-scroll") as ScrollView
-                assertTrue("Vertical gesture must move the native vertical viewport", scroll.scrollY > 0)
                 val horizontal = scroll.getChildAt(0) as HorizontalScrollView
                 // Deterministic final position after proving both real gestures.
                 horizontal.scrollTo(horizontal.getChildAt(0).width, 0)
                 scroll.scrollTo(0, horizontal.height)
             }
+            awaitStill(scenario)
             onView(withText("Far corner action")).perform(click())
             onView(withText("Scroll callbacks: 1")).check(matches(isDisplayed()))
             scenario.recreate()

@@ -21,12 +21,32 @@ import androidx.test.uiautomator.Until
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import android.os.SystemClock
+import androidx.test.espresso.NoMatchingViewException
+import androidx.test.espresso.PerformException
+import androidx.test.espresso.action.ViewActions.scrollTo
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.withText
 
 @RunWith(AndroidJUnit4::class)
 class AndroidNavigationContractTest {
     private val device get() = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+    // Scroll the text into view while waiting: UiAutomator only sees what is
+    // on screen, and a shorter phone display can leave a freshly rendered
+    // screen's label above or below the host page's scroll position.
     private fun awaitText(text: String) {
-        assertTrue("Missing navigation screen: $text", device.wait(Until.hasObject(By.text(text)), 5000L))
+        val deadline = SystemClock.uptimeMillis() + 5000L
+        while (true) {
+            try {
+                onView(withText(text)).perform(scrollTo()).check(matches(isDisplayed()))
+                return
+            } catch (missing: NoMatchingViewException) {
+            } catch (undisplayed: PerformException) {
+            } catch (undisplayed: AssertionError) {
+            }
+            if (SystemClock.uptimeMillis() >= deadline) throw AssertionError("Missing navigation screen: $text")
+            SystemClock.sleep(50L)
+        }
     }
     private fun clickText(text: String) { onView(withText(text)).perform(scrollTo(), click()) }
     private fun assertBack(scenario: ActivityScenario<MainActivity>, expected: Boolean) {

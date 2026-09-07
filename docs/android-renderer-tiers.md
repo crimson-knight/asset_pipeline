@@ -77,7 +77,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `Rectangle` | yes | structure | A core | structure (intrinsic size, fill) |
 | `RichText` | yes | — | unverified | handler exists; no Android fixture or test |
 | `RoundedRectangle` | yes | structure | A core | structure (intrinsic size, fill, outline clip) |
-| `ScrollView` | yes | focus, layout_contract, view_state | A core | layout, view state |
+| `ScrollView` | yes | focus, layout_contract, view_state | A core | layout, view state; vertical viewports are the runtime's `CrystalScrollView`, which keeps the vertical drags it can consume on every skin (September 7, physical device) |
 | `SearchField` | yes | material_bridge | A core | text |
 | `SecureField` | yes | basics | A core | basics (masking, Crystal-owned restoration) |
 | `SegmentedControl` | yes | compound_focus | A core | focus |

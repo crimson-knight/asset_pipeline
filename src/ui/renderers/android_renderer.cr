@@ -749,13 +749,16 @@
       # nesting them (ScrollView containing HorizontalScrollView).
       # -----------------------------------------------------------------
       def visit(view : UI::ScrollView)
-        # Choose container class based on scroll axes
+        # Choose container class based on scroll axes. Vertical viewports are
+        # the runtime's own ScrollView, which keeps the vertical drags it can
+        # consume: stock Android already gives a nested child the drag first,
+        # Samsung's One UI gives it to the parent (ScrollGesturePolicy).
         class_name = if view.scroll_vertical && !view.scroll_horizontal
-                       "android/widget/ScrollView"
+                       "dev/assetpipeline/androidhost/CrystalScrollView"
                      elsif view.scroll_horizontal && !view.scroll_vertical
                        "android/widget/HorizontalScrollView"
                      elsif view.scroll_vertical
-                       "android/widget/ScrollView"
+                       "dev/assetpipeline/androidhost/CrystalScrollView"
                      else
                        "android/widget/FrameLayout"
                      end
