@@ -217,6 +217,7 @@ instrumentation tests before the fixes above landed.
 | 19 | tabs suite (64 tests), spell checker disabled for the run | **pass** | **pass** (first green API 35 job; no focus diagnostics) | **pass** |
 | 20 | docs-only push after run 19 (same code) | **pass** | **pass** | 63/64: the landscape-keyboard test asserted the drag handle on the first keyboard-hidden frame (test timing; see below) |
 | 21 | sheet-matrix wait (same 64 tests) | 63/64: the Unicode composition test tapped the multiline editor before the deferred post-recreation refresh (test timing; see below) | **pass** | **pass** |
+| 22 | text-contract settle wait (same 64 tests) | **pass** | **pass** | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation

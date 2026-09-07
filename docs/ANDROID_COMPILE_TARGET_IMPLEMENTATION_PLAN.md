@@ -309,7 +309,7 @@ adapter constant (Grant commit 4ae3216), `pg` to 0.30 on crystal-db 0.14, the
 Postgres adapter is the only one required, and the unused i18n configuration
 is gone; the web target compiles from a clean lock and the isolated-database
 spec suite passed with 350 examples and 0 failures (the template's
-`docs/android-reference-migration.md`). CI run 19, the first push carrying the spell-checker control and the tabs suite, is the first run green on all three API levels at once: 64 tests on each x86_64 emulator. Physical phone, released tags and version pins, store upload
+`docs/android-reference-migration.md`). CI run 19, the first push carrying the spell-checker control and the tabs suite, is the first run green on all three API levels at once: 64 tests on each x86_64 emulator. Runs 20 and 21 then each failed one test on one API level, both tests asserting a frame the runtime updates one pass later (the sheet's drag handle after Back, the multiline editor after recreation); both waits now live in the tests, the runtime is unchanged, and run 22 is green on all three levels again ([the CI notes](android-ci.md)). Physical phone, released tags and version pins, store upload
 and the remaining unverified controls stay open; the full goal remains active.
 
 ## Initial executive assessment — September 1 baseline
