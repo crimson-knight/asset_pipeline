@@ -61,7 +61,10 @@ normal sample process running. Do not use a personal device or an emulator with
 important sample-app data without accepting that test activity. It does not
 reset the entire device, select another connected device, or declare success
 because no device is available. Do not run UI automation or a second
-instrumentation session on the same device during this target.
+instrumentation session on the same device during this target. The driver
+also sets two device settings for the duration of the run and restores them
+on exit: `block_untrusted_touches` to permissive and `spell_checker_enabled`
+to `0`; the run notes below record why each exists.
 
 ## What the target proves
 
@@ -209,6 +212,7 @@ instrumentation tests before the fixes above landed.
 | 14 | bounded tap retries | 53/56 (first tap after three fresh launches refused by the input dispatcher) | 54/56 (a focusable popup owned by the app process held window focus in landscape) | **pass** |
 | 15 | system-log diagnostics | 55/56 (untrusted-touch drop: the test package's EmptyActivity still covered the app) | 54/56 (a focusable app-owned popup attached to the sheet held window focus) | **pass** |
 | 16 | structure suite (59 tests), permissive untrusted touches, autofill off | **pass** | 57/59 (same popup with autofill off, so autofill was not its cause) | **pass** |
+| 17 | pickers suite (61 tests), autofill control withdrawn, popup content diagnostic | **pass** | 59/61 (the popup is Android's text-suggestions window, opened by the spell checker's flag on the previous test's draft) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -291,17 +295,37 @@ row and no retry could help. That is a property of the harness, not of the
 app or a user: the driver now sets `block_untrusted_touches` to permissive
 (logged, not dropped) for the run and restores the previous value afterward.
 
-The API 35 x86_64 focused-window record narrows the popup without naming it
-yet: owned by the app's UID, a `PopupDecorView` of type
+The API 35 x86_64 focused-window record from run 15 narrowed the popup:
+owned by the app's UID, a `PopupDecorView` of type
 `APPLICATION_ABOVE_SUB_PANEL`, focusable, attached to the `Native editor sheet`
-window, transparent format, as wide as the focused editor and nearly the
-full window height, holding a `PopupBackgroundView`. Run 15's system log
-showed the autofill service creating a pending intent at the same moments,
-so run 16 ran with `autofill_service` set to `null`; the popup appeared
-anyway with no autofill session at all, so autofill is not its cause and
-that setting is not applied. The type, focusability and transparent
-background fit a framework text-editing popup rather than any app view; the
-dialog-root wait now also records the popup's content classes so the next
-failing run names it. The local arm64 API 35 image shows only the
-non-focusable cursor handle at the same step. Run 16 is the first green API
-31 job since run 9; the API 31 cause above is settled.
+window, transparent format, as wide as the focused editor, holding a
+`PopupBackgroundView`. Run 15's system log showed the autofill service
+creating a pending intent at the same moments, so run 16 ran with
+`autofill_service` set to `null`; the popup appeared anyway with no autofill
+session at all, so autofill is not its cause and that setting is not applied.
+Run 16 is the first green API 31 job since run 9; the API 31 cause above is
+settled.
+
+Run 17 named the popup. The dialog-root wait's content classes read
+`PopupBackgroundView[RelativeLayout[LinearLayout]]`, which is the framework's
+`text_edit_suggestion_container_material` layout (a `RelativeLayout` holding
+the `suggestionWindowContainer`), and the tests' own timeout screenshots show
+it: Android's text-editor suggestions window (`Editor.SuggestionsPopupWindow`)
+open over the sheet editor, the draft's last token highlighted, and Gboard's
+suggestions listed. The chain: the sheet fixture keeps its draft in a module
+variable, so a landscape test opens the sheet with the previous test's draft,
+which ends in `e` plus a combining acute accent. The image's spell checker
+(Gboard's `AndroidSpellCheckerService`, the same package on all three images)
+flags that token with an easy-correction `SuggestionSpan`. The test's
+centering tap on the wide landscape editor lands past the end of the short
+text, so the cursor goes to the text end, on that span's boundary. Android
+15's `Editor.onTouchUpEvent` then posts `replace()` after the double-tap
+timeout, which opens the focusable suggestions popup and takes window focus
+from the sheet. Whether the spell-check result lands before or after that
+tap is timing, which is why only the x86_64 API 35 runner showed it and the
+local arm64 API 35 image never did. A third-party dictionary's verdict on a
+fixture token must not decide a run, so the driver now sets
+`spell_checker_enabled` to `0` for the run and restores it on exit, beside
+the untrusted-touch control; `device-services.txt` still records the image's
+spell checker as found. The runtime is unchanged: a user who taps a flagged
+word gets the same system popup, and the sheet regains focus when it closes.

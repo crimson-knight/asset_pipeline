@@ -36,6 +36,7 @@ stop_log_capture() {
     SYSTEM_LOG_CAPTURE_PID=""
 }
 PREVIOUS_UNTRUSTED_TOUCHES=""
+PREVIOUS_SPELL_CHECKER=""
 restore_device_settings() {
     if [[ -n "$PREVIOUS_UNTRUSTED_TOUCHES" ]]; then
         if [[ "$PREVIOUS_UNTRUSTED_TOUCHES" == null ]]; then
@@ -44,6 +45,14 @@ restore_device_settings() {
             "$ADB" -s "$SERIAL" shell settings put global block_untrusted_touches "$PREVIOUS_UNTRUSTED_TOUCHES" >/dev/null 2>&1 || true
         fi
         PREVIOUS_UNTRUSTED_TOUCHES=""
+    fi
+    if [[ -n "$PREVIOUS_SPELL_CHECKER" ]]; then
+        if [[ "$PREVIOUS_SPELL_CHECKER" == null ]]; then
+            "$ADB" -s "$SERIAL" shell settings delete secure spell_checker_enabled >/dev/null 2>&1 || true
+        else
+            "$ADB" -s "$SERIAL" shell settings put secure spell_checker_enabled "$PREVIOUS_SPELL_CHECKER" >/dev/null 2>&1 || true
+        fi
+        PREVIOUS_SPELL_CHECKER=""
     fi
 }
 finish_run() { stop_log_capture; restore_device_settings; }
@@ -154,8 +163,9 @@ if "$ADB" -s "$SERIAL" shell dumpsys window displays 2>/dev/null | grep -q 'Appl
     sleep 2
 fi
 "$ADB" -s "$SERIAL" shell dumpsys window displays 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' > "$EVIDENCE_DIR/window-focus-before.txt" || true
-# Record which autofill and spell-check services the image runs; both can open
-# focusable popups over an editor and they differ between images and hosts.
+# Record which autofill and spell-check services the image runs, as found;
+# both can open focusable popups over an editor and they differ between
+# images and hosts. The spell checker is then disabled for the run (below).
 {
     printf 'autofill_service=%s\n' "$("$ADB" -s "$SERIAL" shell settings get secure autofill_service 2>/dev/null | tr -d '\r')"
     printf 'spell_checker_enabled=%s\n' "$("$ADB" -s "$SERIAL" shell settings get secure spell_checker_enabled 2>/dev/null | tr -d '\r')"
@@ -169,6 +179,16 @@ fi
 PREVIOUS_UNTRUSTED_TOUCHES="$("$ADB" -s "$SERIAL" shell settings get global block_untrusted_touches 2>/dev/null | tr -d '\r')"
 [[ -n "$PREVIOUS_UNTRUSTED_TOUCHES" ]] || PREVIOUS_UNTRUSTED_TOUCHES=null
 "$ADB" -s "$SERIAL" shell settings put global block_untrusted_touches 1 >/dev/null 2>&1 || true
+# The image's spell checker (Gboard's on Google APIs images) marks tokens its
+# dictionary does not know with easy-correction spans, and a tap that leaves
+# the cursor on such a span makes Android's Editor open its focusable
+# text-suggestions popup over the editor, which takes window focus from the
+# sheet (CI run 17, API 35 x86_64: the previous test's draft ended in an
+# accented letter). Which tokens a third-party dictionary flags, and whether
+# its result lands before the tap, must not decide a run. Restored on exit.
+PREVIOUS_SPELL_CHECKER="$("$ADB" -s "$SERIAL" shell settings get secure spell_checker_enabled 2>/dev/null | tr -d '\r')"
+[[ -n "$PREVIOUS_SPELL_CHECKER" ]] || PREVIOUS_SPELL_CHECKER=null
+"$ADB" -s "$SERIAL" shell settings put secure spell_checker_enabled 0 >/dev/null 2>&1 || true
 "$ADB" -s "$SERIAL" install -r "$APK" > "$EVIDENCE_DIR/install.txt"
 "$ADB" -s "$SERIAL" install -r "$TEST_APK" >> "$EVIDENCE_DIR/install.txt"
 if [[ "${ANDROID_SMOKE_RESET_NOTIFICATION_PERMISSION:-0}" == 1 ]]; then
