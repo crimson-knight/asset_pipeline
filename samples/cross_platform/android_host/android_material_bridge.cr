@@ -241,6 +241,7 @@ module AndroidMaterialHost
       when "pickers-contract"   then AndroidPickersFixture.build
       when "tabs-contract"      then AndroidTabsFixture.build
       when "layout-interaction" then AndroidLayoutContractFixture.interaction
+      when "layout-hugging"     then AndroidLayoutContractFixture.hugging
       when "image-smoke"        then AndroidImageFixture.build
       when "text/雪😀\0end"       then AndroidTextFixture.build
       when "navigation"         then AndroidNavigationFixture.build

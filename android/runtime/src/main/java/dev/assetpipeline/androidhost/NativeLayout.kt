@@ -32,6 +32,30 @@ class CrystalLinearLayout(context: Context) : LinearLayout(context) {
                 if (child.visibility != GONE) preceding = true
             }
         }
+        // A fill child of a stack that hugs its content: Android's LinearLayout
+        // gives MATCH_PARENT children no say in a WRAP_CONTENT parent's cross
+        // size, so a section made of a small accent bar and a fill heading
+        // measured 38 dp wide and wrapped its heading into that column on a
+        // phone (QuiltPerfect first contact, 2026-09-07). UIKit hugs the widest
+        // natural child and stretches the fill children to it. Measure the
+        // natural cross size with fill children as WRAP_CONTENT first, then
+        // measure exactly that size so they stretch to it.
+        val vertical = orientation == VERTICAL
+        val crossSpec = if (vertical) widthMeasureSpec else heightMeasureSpec
+        val fills = if (View.MeasureSpec.getMode(crossSpec) == View.MeasureSpec.EXACTLY) emptyList()
+            else (0 until childCount).map { getChildAt(it) }.filter { child ->
+                child.visibility != GONE && (child.layoutParams as LayoutParams).let {
+                    if (vertical) it.width == LayoutParams.MATCH_PARENT else it.height == LayoutParams.MATCH_PARENT } }
+        if (fills.isEmpty()) { measureCore(widthMeasureSpec, heightMeasureSpec); return }
+        fills.forEach { (it.layoutParams as LayoutParams).apply { if (vertical) width = LayoutParams.WRAP_CONTENT else height = LayoutParams.WRAP_CONTENT } }
+        measureCore(widthMeasureSpec, heightMeasureSpec)
+        val natural = if (vertical) measuredWidth else measuredHeight
+        fills.forEach { (it.layoutParams as LayoutParams).apply { if (vertical) width = LayoutParams.MATCH_PARENT else height = LayoutParams.MATCH_PARENT } }
+        val exact = View.MeasureSpec.makeMeasureSpec(natural, View.MeasureSpec.EXACTLY)
+        if (vertical) measureCore(exact, heightMeasureSpec) else measureCore(widthMeasureSpec, exact)
+    }
+
+    private fun measureCore(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         if (!crystalFillEqually || orientation != HORIZONTAL ||
             View.MeasureSpec.getMode(widthMeasureSpec) == View.MeasureSpec.EXACTLY) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec)

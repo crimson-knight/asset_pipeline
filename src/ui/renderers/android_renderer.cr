@@ -3786,8 +3786,13 @@
           fill_vertical = view.fill_vertical
           min_height = max_height = view.frame_height if view.frame_height != 0 && !fill_vertical
         end
+        # `root_fill` (`fill_screen!`) is the screen's outer root filling its
+        # host, which UIKit pins and web sizes to the viewport; on Android it
+        # fills both axes of the parent it is mounted in.
+        fill_horizontal = view.fill_horizontal || view.root_fill
+        fill_vertical ||= view.root_fill
         LibAndroidBridge.android_layout_prepare(@env, v, layout_dimension(min_width), layout_dimension(min_height),
-          layout_dimension(max_width), layout_dimension(max_height), view.fill_horizontal ? 1 : 0, fill_vertical ? 1 : 0)
+          layout_dimension(max_width), layout_dimension(max_height), fill_horizontal ? 1 : 0, fill_vertical ? 1 : 0)
 
         # Keep pending tokens accounted for even if metadata setup fails before
         # this local View is promoted/adopted by a NativeView owner.

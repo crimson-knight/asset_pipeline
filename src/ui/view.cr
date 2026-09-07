@@ -573,6 +573,9 @@ module UI
     #     for `root_fill` to fill; otherwise the view hugs its content.
     #   - Web: emits `min-height: 100dvh` + `width: 100%` (CSS dvh
     #     respects mobile address-bar resizing).
+    #   - Android: fills both axes of the parent the view is mounted in
+    #     (MATCH_PARENT width; height by weight inside a vertical stack,
+    #     the scroll viewport inside a ScrollView).
     #
     # Set via `view.root_fill = true` or the chainable shortcut
     # `view.fill_screen!` (returns self for chaining).

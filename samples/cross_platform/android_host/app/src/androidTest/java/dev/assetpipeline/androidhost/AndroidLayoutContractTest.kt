@@ -286,6 +286,30 @@ class AndroidLayoutContractTest {
         }
     }
 
+    @Test fun huggingStacksKeepFillChildrenAtNaturalWidthAndRootFillFillsTheParent() {
+        val scenario = launch("layout-hugging")
+        try {
+            onView(NativeTestIds.withTestId("hug-heading")).perform(scrollTo())
+            scenario.onActivity { activity ->
+                val mount = activity.findViewById<View>(R.id.rendererMount)
+                val bar = find(mount, "hug-bar")
+                val heading = find(mount, "hug-heading") as TextView
+                val section = find(mount, "hug-section")
+                val page = find(mount, "hug-page")
+                // A phone measured this section to its 38 dp accent bar and wrapped
+                // the heading into that column (QuiltPerfect first contact).
+                // The heading is short enough for one line in the host's 287 dp
+                // mount; the collapsed layout wrapped it into the bar's column.
+                assertEquals("Fill heading keeps one natural line", 1, heading.lineCount)
+                assertTrue("Section is far wider than its accent bar", section.width > bar.width * 3)
+                assertEquals("Fill heading spans the section", section.width - section.paddingLeft - section.paddingRight, heading.width)
+                assertEquals("Page hugs the section", section.width + page.paddingLeft + page.paddingRight, page.width)
+                val root = find(mount, "hug-root")
+                val content = find(mount, "hug-content")
+                assertEquals("root_fill fills the parent's width", content.width - content.paddingLeft - content.paddingRight, root.width)
+            }
+        } finally { scenario.close() }
+    }
     /** Waits until the two-axis viewport reports the same scroll offsets for 150 ms (no fling in flight). */
     private fun awaitStill(scenario: ActivityScenario<MainActivity>) {
         val deadline = android.os.SystemClock.uptimeMillis() + 5000L

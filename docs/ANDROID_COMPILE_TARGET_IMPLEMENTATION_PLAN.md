@@ -322,6 +322,24 @@ the CI notes' physical-device section. Released tags and version pins, store
 upload and the remaining unverified controls stay open; the full goal remains
 active.
 
+The afternoon opened the next frontier: a customer app authored for the iOS
+shell, rendered by the Android renderer from the same Crystal views. The
+generated [view parity matrix](view-parity-matrix.md) says 78 of the 87 view
+types render on both phones; the AgentC shell's QuiltPerfect branch uses only
+Tier A types, and its first Android build compiled unchanged, yet its first
+render was a blank page background. Bisecting the decoded page on the phone
+found two renderer defects, both fixed here with the `layout-hugging` fixture:
+Android's `LinearLayout` gave a fill child no say in a wrap-content stack's
+cross size, so a section of a 38 dp accent bar and a fill heading measured
+38 dp wide, and `root_fill` (`fill_screen!`), which UIKit pins and web sizes
+to the viewport, was never read on Android. With both, the shell's sample
+lead app draws at full width on the Galaxy A15 5G. The host contract that the
+iOS shell provides and Android does not yet (a periodic tick, viewport and
+insets, bundled assets and fonts, cache paths, TLS transport under
+`-Dwithout_openssl`, the photo picker) and the attribute reads the matrix
+names for that app are the next waypoints; they are planned outside this
+repository with the customer work.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.

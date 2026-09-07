@@ -156,6 +156,42 @@ module AndroidLayoutContractFixture
     root
   end
 
+  # Hugging: a stack that wraps its content holds a small accent bar and a
+  # fill heading. Android's LinearLayout gave the fill heading no say in the
+  # section's width, so the section measured to the bar on a phone and
+  # wrapped the heading into that column; UIKit hugs the widest natural
+  # child and stretches fill children to it. The second stack is the demo
+  # shell's page root: `fill_screen!` inside a scroll viewport's content.
+  def self.hugging : UI::View
+    page = UI::VStack.new(0.0, UI::Alignment::Leading)
+    page.test_id = "hug-page"
+    page.padding = UI::EdgeInsets.new(top: 4.0, trailing: 18.0, bottom: 4.0, leading: 18.0)
+    section = UI::VStack.new(6.0, UI::Alignment::Leading)
+    section.test_id = "hug-section"
+    section.fill_horizontal = true
+    bar = UI::Rectangle.new(38.0, 4.0)
+    bar.test_id = "hug-bar"
+    section << bar
+    heading = UI::Label.new("Heading wider than the bar")
+    heading.test_id = "hug-heading"
+    heading.fill_horizontal = true
+    section << heading
+    page << section
+    filled = UI::VStack.new(0.0, UI::Alignment::Leading)
+    filled.test_id = "hug-root"
+    filled.fill_screen!
+    filled << label("hug-root-label")
+    content = UI::VStack.new(8.0, UI::Alignment::Leading)
+    content.test_id = "hug-content"
+    content.fill_horizontal = true
+    content << page
+    content << filled
+    scroll = UI::ScrollView.new(content)
+    scroll.scroll_vertical = true
+    scroll.test_id = "hug-scroll"
+    scroll
+  end
+
   def self.interaction : UI::View
     content = UI::VStack.new(0.0, UI::Alignment::Leading)
     pin(content, "scroll-grid", 600.0, 400.0)

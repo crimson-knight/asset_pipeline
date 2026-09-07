@@ -65,4 +65,15 @@ describe AndroidLayoutContractFixture do
     after = layout_fixture_views(AndroidLayoutContractFixture.interaction).select(UI::Label).map(&.text)
     before.should_not eq(after)
   end
+  it "provides a hugging section beside a root-fill page root under one scroll viewport" do
+    views = layout_fixture_views(AndroidLayoutContractFixture.hugging)
+    ids = views.compact_map(&.test_id)
+    %w[hug-page hug-section hug-bar hug-heading hug-root hug-root-label hug-content hug-scroll].each { |id| ids.should contain(id) }
+    ids.size.should eq(ids.uniq.size)
+    section = views.select(UI::VStack).find { |view| view.test_id == "hug-section" }.not_nil!
+    section.fill_horizontal.should be_true
+    views.select(UI::VStack).find { |view| view.test_id == "hug-root" }.not_nil!.root_fill.should be_true
+    views.select(UI::Label).find { |view| view.test_id == "hug-heading" }.not_nil!.fill_horizontal.should be_true
+  end
+
 end
