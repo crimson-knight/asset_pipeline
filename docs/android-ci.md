@@ -269,6 +269,7 @@ instrumentation tests before the fixes above landed.
 | 21 | sheet-matrix wait (same 64 tests) | 63/64: the Unicode composition test tapped the multiline editor before the deferred post-recreation refresh (test timing; see below) | **pass** | **pass** |
 | 22 | text-contract settle wait (same 64 tests) | **pass** | **pass** | **pass** |
 | 23 | physical-device fixes and `CrystalScrollView` (same 64 tests) | **pass** | **pass** | **pass** |
+| 24 | hugging-stack measure pass and `root_fill` on Android, `layout-hugging` fixture (65 tests) | **pass** | **pass** | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
