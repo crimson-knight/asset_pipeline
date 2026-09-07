@@ -191,6 +191,14 @@ The phone's clock was stale (no network time), which does not affect these
 tests but fails any TLS proof against a certificate issued this week; the
 template lane reissues its task-only certificate with a validity window that
 covers the device's date.
+
+Before these changes went to CI, the six test classes they touch ran together
+on the local API 35 emulator: 29 tests, one failure, the text contract's
+post-close check that every JNI global reference is released (44 remained,
+166 ms after the activity was destroyed). The class alone then passed all 13
+tests on the same emulator, as it had on the phone, on the API 31 emulator and
+on CI run 22, so this is the teardown-sequencing family from the September 6
+notes and not a change in the runtime; the CI matrix is the arbiter.
 ## Proof boundaries and remaining work
 
 Configuration specs and workflow lint establish local declaration consistency;
