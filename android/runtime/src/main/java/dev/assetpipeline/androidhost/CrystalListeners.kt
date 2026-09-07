@@ -16,6 +16,12 @@ import android.widget.TimePicker
 import android.widget.RadioGroup
 import android.widget.SearchView
 import android.widget.SeekBar
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.view.Menu
+import android.widget.PopupMenu
+import com.google.android.material.tabs.TabLayout
 
 class CrystalClickListener(private val callbackId: Long) : View.OnClickListener {
     override fun onClick(v: View?) {
@@ -150,5 +156,34 @@ class CrystalOpenUrlListener(private val url: String) : View.OnClickListener {
         try { context.startActivity(intent) } catch (missing: ActivityNotFoundException) {
             Log.w("AssetPipelineLink", "No activity handles $url")
         }
+    }
+}
+
+/** Reports the tapped tab's position to Crystal; Crystal owns the selection and renders that tab's content. */
+class CrystalTabSelectedListener(private val callbackId: Long) : TabLayout.OnTabSelectedListener {
+    override fun onTabSelected(tab: TabLayout.Tab) {
+        if (!NativeWindowScope.allows(tab.view)) return
+        CrystalBridge.dispatchIntCallback(callbackId, tab.position)
+    }
+    override fun onTabUnselected(tab: TabLayout.Tab) {}
+    override fun onTabReselected(tab: TabLayout.Tab) {}
+}
+
+/** Opens a platform popup menu of the Crystal items under the tapped button and reports the chosen index. */
+class CrystalMenuClickListener(private val callbackId: Long) : View.OnClickListener {
+    private val items = ArrayList<CharSequence>()
+
+    fun addItem(label: String, destructive: Boolean) {
+        items.add(if (destructive) SpannableString(label).apply {
+            setSpan(ForegroundColorSpan(0xFFFF3B30.toInt()), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        } else label)
+    }
+
+    override fun onClick(v: View?) {
+        if (v == null || !NativeWindowScope.allows(v)) return
+        val popup = PopupMenu(v.context, v)
+        items.forEachIndexed { index, label -> popup.menu.add(Menu.NONE, index, index, label) }
+        popup.setOnMenuItemClickListener { item -> CrystalBridge.dispatchIntCallback(callbackId, item.itemId); true }
+        popup.show()
     }
 }

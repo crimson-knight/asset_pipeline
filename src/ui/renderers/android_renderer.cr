@@ -207,6 +207,11 @@
       fun android_progressbar_set_indeterminate(env : Void*, pb : Void*, indeterminate : Int32)
       fun android_datepicker_configure(env : Void*, dp : Void*, year : Int32, month : Int32, day : Int32, min_epoch_ms : Int64, max_epoch_ms : Int64, callback_id : UInt64)
       fun android_timepicker_configure(env : Void*, tp : Void*, hour : Int32, minute : Int32, twenty_four_hour : Int32, callback_id : UInt64)
+      fun android_tablayout_add_tab(env : Void*, tl : Void*, text : UInt8*, byte_len : Int32)
+      fun android_tablayout_configure(env : Void*, tl : Void*, selected : Int32, has_tint : Int32, tint_argb : Int32, callback_id : UInt64)
+      fun android_menu_listener_new(env : Void*, callback_id : UInt64) : Void*
+      fun android_menu_listener_add_item(env : Void*, listener : Void*, text : UInt8*, byte_len : Int32, destructive : Int32)
+      fun android_view_set_on_click_listener_object(env : Void*, v : Void*, listener : Void*)
       fun android_seekbar_set_progress(env : Void*, sb : Void*, progress : Int32)
       fun android_seekbar_set_progress_tint(env : Void*, sb : Void*, argb : Int32)
       fun android_seekbar_get_progress(env : Void*, sb : Void*) : Int32
@@ -1091,22 +1096,45 @@
       # -----------------------------------------------------------------
       # Visit: TabView -> android.widget.FrameLayout (tab container)
       # -----------------------------------------------------------------
+      # Tier A (tabs suite): a Material tab bar at the declared position over
+      # the selected tab's content. The selection lives in Crystal: a tap
+      # reports the position through the int channel, Crystal updates
+      # `selected_index` and the re-render shows that tab's content.
       def visit(view : UI::TabView)
-        fl = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+        outer = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, outer, 1)
+        apply_common_properties(outer, view)
+        global_outer = LibAndroidBridge.android_new_global_ref(@env, outer)
+        native = owned_native(JNI.wrap_global(global_outer, label: "LinearLayout[tab-view]"))
 
-        apply_common_properties(fl, view)
+        bar = LibAndroidBridge.android_view_new(@env, "com/google/android/material/tabs/TabLayout", @context)
+        view.tabs.each do |tab|
+          LibAndroidBridge.android_tablayout_add_tab(@env, bar, tab.label.to_unsafe, tab.label.bytesize)
+        end
+        callback_id = 0_u64
+        if change_handler = view.on_change
+          callback_id = native.track_callback_id(
+            UI::CallbackRegistry.register_int(->(index : Int32) { change_handler.call(index) })
+          )
+        end
+        tint = view.selected_tint_color
+        LibAndroidBridge.android_tablayout_configure(
+          @env, bar, view.selected_index, tint ? 1 : 0, tint ? color_to_argb(tint) : 0, callback_id)
 
-        global_fl = LibAndroidBridge.android_new_global_ref(@env, fl)
-        handle = JNI.wrap_global(global_fl, label: "FrameLayout[tab-view]")
-        native = owned_native(handle)
-
-        if content = view.current_content
-          push_stack(native, fl, is_linear: false)
-          content.accept(self)
+        content = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+        if current = view.current_content
+          push_stack(native, content, is_linear: false)
+          current.accept(self)
           pop_stack
         end
-
-        push_native(native, fl)
+        if view.bar_position == :top
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, bar, -1, -2)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, content, -1, -2)
+        else
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, content, -1, -2)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, bar, -1, -2)
+        end
+        push_native(native, outer)
       end
 
       # -----------------------------------------------------------------
@@ -2357,12 +2385,37 @@
         push_native(native, btn)
       end
 
+      # Tier A (tabs suite): a button that opens a platform popup menu of the
+      # Crystal items. A pop-up button's face shows the selected item; a
+      # pull-down button's face shows its own label. A pick runs that item's
+      # Crystal action by index, so any selection state stays in Crystal.
       def visit(view : UI::MenuButton)
         btn = LibAndroidBridge.android_view_new(@env, "android/widget/Button", @context)
-        LibAndroidBridge.android_textview_set_text(
-          @env, btn, view.label.to_unsafe, view.label.bytesize)
+        face = view.label
+        if !view.is_pull_down && (selected = view.items[view.selected_index]?)
+          face = selected.label
+        end
+        LibAndroidBridge.android_textview_set_text(@env, btn, face.to_unsafe, face.bytesize)
         apply_common_properties(btn, view)
-        emit(btn, "Button[menu]")
+        global_btn = LibAndroidBridge.android_new_global_ref(@env, btn)
+        native = owned_native(JNI.wrap_global(global_btn, label: "Button[menu]"))
+        unless view.items.empty?
+          items = view.items
+          callback_id = native.track_callback_id(
+            UI::CallbackRegistry.register_int(->(index : Int32) do
+              if item = items[index]?
+                item.action.try &.call
+              end
+            end)
+          )
+          listener = LibAndroidBridge.android_menu_listener_new(@env, callback_id)
+          items.each do |item|
+            LibAndroidBridge.android_menu_listener_add_item(
+              @env, listener, item.label.to_unsafe, item.label.bytesize, item.is_destructive ? 1 : 0)
+          end
+          LibAndroidBridge.android_view_set_on_click_listener_object(@env, btn, listener)
+        end
+        push_native(native, btn)
       end
 
       # Phase 4 — Tier 3. UI::ContextMenu is Apple-family only (flag?(:macos)

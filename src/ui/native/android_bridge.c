@@ -1745,6 +1745,104 @@ void android_timepicker_configure(void *env_ptr, void *tp, int32_t hour, int32_t
     (*env)->DeleteLocalRef(env, cls);
 }
 
+/* Material TabLayout: one tab per Crystal label, added in order. */
+void android_tablayout_add_tab(void *env_ptr, void *tl, uint8_t *text, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = ap_jni_GetObjectClass(env, (jobject)tl);
+    if (!cls) {
+        return;
+    }
+    jmethodID new_tab = ap_try_get_method(env, cls, "newTab", "()Lcom/google/android/material/tabs/TabLayout$Tab;");
+    jobject tab = new_tab ? ap_jni_CallObjectMethod(env, (jobject)tl, new_tab) : NULL;
+    if (tab) {
+        jclass tab_cls = ap_jni_GetObjectClass(env, tab);
+        jstring label = ap_new_string(env, text, byte_len);
+        if (tab_cls && label) {
+            jmethodID set_text = ap_try_get_method(env, tab_cls, "setText", "(Ljava/lang/CharSequence;)Lcom/google/android/material/tabs/TabLayout$Tab;");
+            if (set_text) {
+                jobject same = ap_jni_CallObjectMethod(env, tab, set_text, label);
+                if (same) (*env)->DeleteLocalRef(env, same);
+            }
+        }
+        jmethodID add_tab = ap_try_get_method(env, cls, "addTab", "(Lcom/google/android/material/tabs/TabLayout$Tab;)V");
+        if (add_tab) ap_jni_CallVoidMethod(env, (jobject)tl, add_tab, tab);
+        if (label) (*env)->DeleteLocalRef(env, label);
+        if (tab_cls) (*env)->DeleteLocalRef(env, tab_cls);
+        (*env)->DeleteLocalRef(env, tab);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+/* The Crystal selection and tint are applied first and the listener attached last, so setup never reports a change. */
+void android_tablayout_configure(void *env_ptr, void *tl, int32_t selected, int32_t has_tint, int32_t tint_argb, uint64_t callback_id) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = ap_jni_GetObjectClass(env, (jobject)tl);
+    if (!cls) {
+        return;
+    }
+    if (has_tint) {
+        jmethodID indicator = ap_try_get_method(env, cls, "setSelectedTabIndicatorColor", "(I)V");
+        if (indicator) ap_jni_CallVoidMethod(env, (jobject)tl, indicator, (jint)tint_argb);
+        jmethodID colors = ap_try_get_method(env, cls, "setTabTextColors", "(II)V");
+        if (colors) ap_jni_CallVoidMethod(env, (jobject)tl, colors, (jint)0xFF6E6E73u, (jint)tint_argb);
+    }
+    jmethodID tab_at = ap_try_get_method(env, cls, "getTabAt", "(I)Lcom/google/android/material/tabs/TabLayout$Tab;");
+    jobject tab = tab_at ? ap_jni_CallObjectMethod(env, (jobject)tl, tab_at, (jint)selected) : NULL;
+    if (tab) {
+        jclass tab_cls = ap_jni_GetObjectClass(env, tab);
+        jmethodID select = tab_cls ? ap_try_get_method(env, tab_cls, "select", "()V") : NULL;
+        if (select) ap_jni_CallVoidMethod(env, tab, select);
+        if (tab_cls) (*env)->DeleteLocalRef(env, tab_cls);
+        (*env)->DeleteLocalRef(env, tab);
+    }
+    if (callback_id != 0) {
+        jobject listener = ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalTabSelectedListener", callback_id);
+        if (listener) {
+            jmethodID add = ap_try_get_method(env, cls, "addOnTabSelectedListener", "(Lcom/google/android/material/tabs/TabLayout$OnTabSelectedListener;)V");
+            if (add) ap_jni_CallVoidMethod(env, (jobject)tl, add, listener);
+            (*env)->DeleteLocalRef(env, listener);
+        }
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+/* A popup menu of Crystal items opened by a button tap; the chosen index reaches Crystal through the int channel. */
+void *android_menu_listener_new(void *env_ptr, uint64_t callback_id) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    return ap_new_callback_helper(env, "dev/assetpipeline/androidhost/CrystalMenuClickListener", callback_id);
+}
+
+void android_menu_listener_add_item(void *env_ptr, void *listener, uint8_t *text, int32_t byte_len, int32_t destructive) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    if (!listener) {
+        return;
+    }
+    jclass cls = ap_jni_GetObjectClass(env, (jobject)listener);
+    if (!cls) {
+        return;
+    }
+    jstring label = ap_new_string(env, text, byte_len);
+    jmethodID add = ap_try_get_method(env, cls, "addItem", "(Ljava/lang/String;Z)V");
+    if (add && label) ap_jni_CallVoidMethod(env, (jobject)listener, add, label, destructive ? JNI_TRUE : JNI_FALSE);
+    if (label) (*env)->DeleteLocalRef(env, label);
+    (*env)->DeleteLocalRef(env, cls);
+}
+
+/* Installs a listener object built above; the local reference is released here. */
+void android_view_set_on_click_listener_object(void *env_ptr, void *v, void *listener) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    if (!listener) {
+        return;
+    }
+    jclass cls = ap_jni_GetObjectClass(env, (jobject)v);
+    if (cls) {
+        jmethodID method = ap_try_get_method(env, cls, "setOnClickListener", "(Landroid/view/View$OnClickListener;)V");
+        if (method) ap_jni_CallVoidMethod(env, (jobject)v, method, (jobject)listener);
+        (*env)->DeleteLocalRef(env, cls);
+    }
+    (*env)->DeleteLocalRef(env, (jobject)listener);
+}
+
 static void ap_bind_callback_owner(JNIEnv *env, jobject listener, jobject view) {
     jclass cls = ap_jni_GetObjectClass(env, listener);
     jmethodID method = ap_jni_GetMethodID(env, cls, "bindOwner", "(Landroid/view/View;)V");

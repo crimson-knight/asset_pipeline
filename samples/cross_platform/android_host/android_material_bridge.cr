@@ -19,6 +19,7 @@ require "./android_sheet_fixture"
 require "./android_basics_fixture"
 require "./android_structure_fixture"
 require "./android_pickers_fixture"
+require "./android_tabs_fixture"
 
 module AndroidMaterialHost
   module Bridge
@@ -238,6 +239,7 @@ module AndroidMaterialHost
       when "basics-contract"    then AndroidBasicsFixture.build
       when "structure-contract" then AndroidStructureFixture.build
       when "pickers-contract"   then AndroidPickersFixture.build
+      when "tabs-contract"      then AndroidTabsFixture.build
       when "layout-interaction" then AndroidLayoutContractFixture.interaction
       when "image-smoke"        then AndroidImageFixture.build
       when "text/雪😀\0end"       then AndroidTextFixture.build

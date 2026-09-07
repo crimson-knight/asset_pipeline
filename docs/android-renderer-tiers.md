@@ -57,7 +57,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `LinkButton` | yes | basics | A core | basics (on_tap, browser fallback) |
 | `ListView` | yes | structure | A core | structure (section headers, one container per row, separators, row and item taps reach Crystal, state survives recreation) |
 | `MapView` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
-| `MenuButton` | yes | — | unverified | handler exists; no Android fixture or test |
+| `MenuButton` | yes | tabs | A core | tabs (pull-down face shows the label, pop-up face shows the selected item, a tap opens a platform popup menu of the Crystal items with destructive tint, picks reach Crystal by index, state survives recreation) |
 | `NavigationLink` | yes | navigation, view_state | A core | navigation |
 | `NavigationSplitView` | yes | — | unverified | handler exists; no Android fixture or test |
 | `NavigationStack` | yes | failure, navigation, view_state | A core | navigation |
@@ -91,7 +91,7 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 | `Surface` | yes | — | unverified | handler exists; no Android fixture or test |
 | `SwipeAction` | no | — | D unsupported | raises AndroidRendererNotImplemented |
 | `SwipeActionRow` | yes | — | unverified | handler exists; no Android fixture or test |
-| `TabView` | yes | — | unverified | handler exists; no Android fixture or test |
+| `TabView` | yes | tabs | A core | tabs (Material tab bar at the declared position with the Crystal labels, selected index applied before the listener, a tap reaches Crystal which renders that tab's content, state survives recreation) |
 | `TextArea` | yes | basics | A core | basics (multi-line, callback) |
 | `TextEditor` | yes | text | A core | text, view state |
 | `TextField` | yes | failure, focus, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | text, view state, focus, sheets |
@@ -111,16 +111,19 @@ lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
 
 ## Totals
 
-- A core: 44
+- A core: 46
 - B preview: 8
 - D unsupported: 17
-- unverified: 26
+- unverified: 24
 
 ## Next promotions
 
-The unverified group is the largest. Promote in this order, each through its
-own fixture and contract suite: `TabView`, `MenuButton`; then the
-remaining decorative surfaces. `ListView` joined the structure suite with
+The unverified group is the largest. `TabView` and `MenuButton` joined a
+tabs suite (September 7): the tab bar is a Material `TabLayout` whose taps
+reach Crystal through the int channel, and a menu button opens a platform
+`PopupMenu` whose picks run the item's Crystal action by index. Promote
+next, each through its own fixture and contract suite: the image and drawing
+surfaces (`AsyncImage`, `Canvas`), then the wrappers and fallbacks. `ListView` joined the structure suite with
 tappable rows and separators. The structure suite (September 6) promoted
 the four shapes, `Grid`, `Form` and `DisclosureGroup`; the Android handlers
 now give shapes their intrinsic size, lay out a grid as real rows, and let a
