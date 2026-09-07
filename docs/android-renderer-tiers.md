@@ -1,5 +1,7 @@
 # Android renderer tiers — September 6, 2026
 
+The cross-platform attribute view, every view type against every renderer with the attributes each visit reads, is generated into [the view parity matrix](view-parity-matrix.md) by `scripts/view_parity_matrix.rb`.
+
 Classification of every `UI::View` type against the Android Views renderer,
 per the plan's Phase 2 tiers. "A core" means a native instrumentation suite
 asserts the control's behavior on API 31, 35 and 36 (the named contract
