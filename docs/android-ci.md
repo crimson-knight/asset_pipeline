@@ -198,7 +198,7 @@ post-close check that every JNI global reference is released (44 remained,
 166 ms after the activity was destroyed). The class alone then passed all 13
 tests on the same emulator, as it had on the phone, on the API 31 emulator and
 on CI run 22, so this is the teardown-sequencing family from the September 6
-notes and not a change in the runtime; the CI matrix is the arbiter.
+notes and not a change in the runtime; the CI matrix is the arbiter. CI run 23 (34142227181), the first run carrying these changes, passed 64 tests on each of API 31, 35 and 36.
 ## Proof boundaries and remaining work
 
 Configuration specs and workflow lint establish local declaration consistency;
@@ -268,6 +268,7 @@ instrumentation tests before the fixes above landed.
 | 20 | docs-only push after run 19 (same code) | **pass** | **pass** | 63/64: the landscape-keyboard test asserted the drag handle on the first keyboard-hidden frame (test timing; see below) |
 | 21 | sheet-matrix wait (same 64 tests) | 63/64: the Unicode composition test tapped the multiline editor before the deferred post-recreation refresh (test timing; see below) | **pass** | **pass** |
 | 22 | text-contract settle wait (same 64 tests) | **pass** | **pass** | **pass** |
+| 23 | physical-device fixes and `CrystalScrollView` (same 64 tests) | **pass** | **pass** | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
