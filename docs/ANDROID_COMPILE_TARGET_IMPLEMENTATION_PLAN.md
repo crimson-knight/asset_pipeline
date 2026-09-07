@@ -281,6 +281,31 @@ The snapshot is also available as plan-package commits on
 promotion, released-artifact consumer proof and the remaining Phase 7 gates are
 still open; the full goal remains active.
 
+The September 7 checkpoint adds four things. The x86_64 runner findings are
+named and controlled: API 31's dropped first taps were Android 12
+untrusted-touch blocking by androidx test-core's `EmptyActivity` (CI runs 15
+and 16), and API 35's focus-stealing popup is Android's own text-suggestions
+window, opened because the sheet fixture's persisted draft ends in a combining
+accent that the image's Gboard spell checker flags and the landscape centering
+tap lands on that span (run 17; screenshots and content classes in
+[the CI notes](android-ci.md)). The driver sets `block_untrusted_touches`
+permissive and `spell_checker_enabled` to `0` for the run and restores both;
+the runtime is unchanged. Tier A grew from 26 to 46 core controls through the
+basics, structure, pickers, list and tabs suites, each with a fixture, host
+spec and device suite green on the local API 31, 35 and 36 emulators
+([the tier matrix](android-renderer-tiers.md)). The AgentC three-screen flow
+ran end to end against a live TLS account server on the API 35 emulator (the
+template's `docs/android-reference-migration.md`). Release signing now comes
+from the environment in both the AgentC template and the CLI's generated
+project: with `AMBER_ANDROID_KEYSTORE`, `AMBER_ANDROID_KEYSTORE_PASSWORD`,
+`AMBER_ANDROID_KEY_ALIAS` and `AMBER_ANDROID_KEY_PASSWORD` set, `android.sh
+build` produces a signed release APK and App Bundle that the artifact
+inspector verifies with `apksigner` and `jarsigner`; unset keeps them unsigned
+and a partial set fails configuration. Both were proven with a throwaway key,
+on the template and on a fresh CLI-generated project whose emulator suite
+passed. CI run 19, the first push carrying the spell-checker control and the tabs suite, is the first run green on all three API levels at once: 64 tests on each x86_64 emulator. Physical phone, released tags and version pins, store upload
+and the remaining unverified controls stay open; the full goal remains active.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.
