@@ -340,6 +340,18 @@ insets, bundled assets and fonts, cache paths, TLS transport under
 names for that app are the next waypoints; they are planned outside this
 repository with the customer work.
 
+The host tick is the first of those waypoints and landed as d24983c8 with
+the [host tick contract](android-host-tick.md): `UI::Android::Application.on_tick`,
+a `TickPolicy` the JVM suite pins, a ticker in the bridge that posts the
+first tick behind the first render and stops on background, detach, close
+and failure, and the `tick-contract` fixture whose device test proves that
+ticks advance without a touch, land one render each, and stop in the
+background. CI run 25 passed API 31 and 36 and, after one rerun, API 35 (67
+tests each); the one miss was a tap delivered one row above its target,
+recorded in the CI notes. On the phone the AgentC shell now leaves its
+Waiting screen by itself: the tick runs the parked boot fetch and the
+result re-roots the tree.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.

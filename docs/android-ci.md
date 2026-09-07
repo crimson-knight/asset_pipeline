@@ -270,6 +270,7 @@ instrumentation tests before the fixes above landed.
 | 22 | text-contract settle wait (same 64 tests) | **pass** | **pass** | **pass** |
 | 23 | physical-device fixes and `CrystalScrollView` (same 64 tests) | **pass** | **pass** | **pass** |
 | 24 | hugging-stack measure pass and `root_fill` on Android, `layout-hugging` fixture (65 tests) | **pass** | **pass** | **pass** |
+| 25 | host tick (`on_tick`, `TickPolicy`, `tick-contract` fixture; 67 tests) | **pass** | 66/67, then **pass** on rerun: the list-rows tap was delivered one row above its target (see below) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -407,3 +408,18 @@ test now waits until the tree has reported the same editor instance for
 longer than the deferral before tapping. The runtime is unchanged. All three
 runner findings are in the tests, not the renderer: a test that asserts a
 frame the runtime updates one pass later fails only on a slow emulator.
+
+Run 25 carried the [host tick](android-host-tick.md), a one-second
+main-looper callback that now fires in every fixture, and failed one test of
+67 on API 35 only: the structure contract's list-rows test tapped "Banana"
+and the echo label reported the row above it ("Row: 0; section: 0,0; taps:
+1"), so the tap was delivered one row above the coordinates Espresso
+computed. The callback and the refresh render both happened on time. The
+tick did not run between the coordinate computation and the injection (its
+first tick posts behind the first render and later ticks are a second
+apart), and no tick-driven render appears in the window. Run 24 shows the
+identical sequence for this test, including the same compositor stall before
+the tap, and passed. The rerun of the API 35 job passed, and four scoped
+passes of the structure suite on the local API 35 emulator with the tick
+active passed. The cause is not named; it is recorded as an input-timing
+observation on the x86_64 runner, and the runtime is unchanged.
