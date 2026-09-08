@@ -400,6 +400,19 @@ its cookie jar under the files directory (the split iOS makes between
 Caches and Application Support), and with a cached payload draws the lead
 app on its first frame with no network, the build 19 contract.
 
+Transport is the fifth, in two slices. The first landed on the shell's
+side: one HTTP seam (a request and a completion block) that runs on the
+stdlib client on a Mac or an iPhone and on Amber's native Android client
+(`amber/native/android_http` over this runtime's HTTP service) on Android,
+with the bridge document fetch and the photo prefetch on it and the boot
+machine finishing its work inside the completion blocks. The CLI's
+generated project gained a debug-only trust block (a public task CA for
+an explicit `https://localhost:<port>` origin, the AgentC template's
+recipe), and on the phone the demo fetched its document from a local TLS
+stand-in over `adb reverse` with no cache: the lead app on the first
+frame, the request in the stand-in's log, the cache written. The identify
+and shop clients are the second slice.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.

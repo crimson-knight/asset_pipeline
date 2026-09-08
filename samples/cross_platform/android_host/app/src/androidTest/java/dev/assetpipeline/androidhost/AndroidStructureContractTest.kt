@@ -88,22 +88,31 @@ class AndroidStructureContractTest {
         scenario.onActivity { value = it.debugPresentedRenders() }
         return value
     }
-    private fun awaitSettledRow(scenario: ActivityScenario<MainActivity>, text: String, presentedAtLeast: Int) {
+    private fun awaitSettled(scenario: ActivityScenario<MainActivity>, text: String, presentedAtLeast: Int) {
         awaitPresented(scenario, presentedAtLeast)
         var last: Triple<Int, Int, Int>? = null
         var stableSince = 0L
-        waitUntil(scenario, "Row did not settle before its tap: $text") { activity ->
-            val list = view(activity, "structure-list") as LinearLayout
-            val row = (0 until list.childCount).map { list.getChildAt(it) }.firstOrNull { texts(it) == listOf(text) }
-                ?: return@waitUntil false
-            val location = IntArray(2).also { row.getLocationOnScreen(it) }
+        waitUntil(scenario, "Text did not settle before its tap: $text") { activity ->
+            val decor = activity.window.decorView
+            val target = textViews(decor).firstOrNull { it.text.toString() == text } ?: return@waitUntil false
+            val location = IntArray(2).also { target.getLocationOnScreen(it) }
             val container = activity.findViewById<View>(R.id.hostViewport)
             val state = Triple(location[0], location[1], container.scrollY)
-            val quiet = !row.isDirty && !list.isLayoutRequested && !activity.window.decorView.isLayoutRequested
+            val quiet = !target.isDirty && !container.isLayoutRequested && !decor.isLayoutRequested
             val now = SystemClock.uptimeMillis()
             if (!quiet || state != last) { last = state; stableSince = now; return@waitUntil false }
             now - stableSince >= 400L
         }
+    }
+    private fun textViews(view: View, into: MutableList<TextView> = ArrayList()): List<TextView> {
+        if (view is TextView) into.add(view)
+        if (view is ViewGroup) for (index in 0 until view.childCount) textViews(view.getChildAt(index), into)
+        return into
+    }
+    /** A tap after a scroll-into-view, delivered only once the text has settled. */
+    private fun settledClick(scenario: ActivityScenario<MainActivity>, text: String, presentedAtLeast: Int) {
+        awaitSettled(scenario, text, presentedAtLeast)
+        onView(withText(text)).perform(click())
     }
     private fun texts(view: View, into: MutableList<String> = ArrayList()): List<String> {
         if (view is TextView) into.add(view.text.toString())
@@ -168,7 +177,7 @@ class AndroidStructureContractTest {
                 assertNull("collapsed content is not rendered", find(activity, "structure-detail"))
                 assertEquals("Details, collapsed", headerDescription(activity))
             }
-            onView(withText("Details")).perform(click())
+            settledClick(scenario, "Details", 1)
             awaitText("Expanded: true; toggles: 1")
             waitUntil(scenario, "Detail did not appear") { find(it, "structure-detail") != null }
             scenario.onActivity { assertEquals("Details, expanded", headerDescription(it)) }
@@ -177,7 +186,7 @@ class AndroidStructureContractTest {
             waitUntil(scenario, "Detail did not survive recreation") { find(it, "structure-detail") != null }
             waitUntil(scenario, "Session did not return to the foreground") { CrystalBridge.debugSessionState() == HostSession.State.FOREGROUND }
             onView(NativeTestIds.withTestId("structure-disclosure")).perform(scrollTo())
-            onView(withText("Details")).perform(click())
+            settledClick(scenario, "Details", 1)
             awaitText("Expanded: false; toggles: 2")
             waitUntil(scenario, "Detail did not collapse") { find(it, "structure-detail") == null }
         } finally { scenario.close() }
@@ -199,12 +208,10 @@ class AndroidStructureContractTest {
                 assertTrue("rows are clickable containers", list.getChildAt(1).isClickable && list.getChildAt(5).isClickable)
             }
             val presentedBeforeBanana = presented(scenario)
-            awaitSettledRow(scenario, "Banana", presentedBeforeBanana)
-            onView(withText("Banana")).perform(click())
+            settledClick(scenario, "Banana", presentedBeforeBanana)
             awaitText("Row: 1; section: 0,1; taps: 1")
             // The tap's refresh replaced the tree; wait for that render's own pass.
-            awaitSettledRow(scenario, "Carrot", presentedBeforeBanana + 1)
-            onView(withText("Carrot")).perform(click())
+            settledClick(scenario, "Carrot", presentedBeforeBanana + 1)
             awaitText("Row: 2; section: 1,0; taps: 2")
             scenario.recreate()
             onView(NativeTestIds.withTestId("structure-list-echo")).perform(scrollTo())

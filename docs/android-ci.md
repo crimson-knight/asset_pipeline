@@ -276,6 +276,7 @@ instrumentation tests before the fixes above landed.
 | 27 | host viewport (`on_viewport`, `ViewportPolicy`, `viewport-contract` fixture; 69 tests) | canceled by the push of run 28 before any job finished | canceled | canceled |
 | 28 | viewport plus the structure test's settle wait (same 69 tests) | **pass** | **pass** | **pass** |
 | 29 | bundled assets and fonts (`BundledAssets`, `FontAssets`, `assets-contract` fixture; 70 tests) | **pass** | 69/70: the list-rows tap a third time, with the settle wait in place and no compositor stall (see below) | **pass** |
+| 30 | private directories (`AppDirectories`, `directories-contract` fixture) and the presented-render guard on the list-rows taps (71 tests) | **pass** | 70/71: the disclosure header's tap, the same scroll-then-tap shape, missed once (see below) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -467,6 +468,16 @@ pass completed) and the test waits for the current render's presentation,
 then for the row's position and the container's scroll offset to hold for
 longer than the scroll animation, before each tap. The runtime's behavior
 is unchanged; the counter is a debug read.
+
+Run 30 (34221392191), the private-directories push carrying that guard on
+the list-rows taps, passed API 31 and 36 (71 tests) and missed a different
+tap on API 35: the disclosure header's, which follows the same
+scroll-into-view. The guard is now the suite's one way to tap after a
+scroll (`settledClick`: the current render presented, then the text's
+screen position and the container's scroll offset held for longer than
+the scroll animation), used at every such site, including both taps of
+the disclosure test and the two list-row taps. The suite passed scoped
+on the local API 35 emulator with it. Runtime unchanged.
 
 The `directories-contract` test, added with the private-directories export,
 crashed the sample process once on the local API 35 emulator in its first
