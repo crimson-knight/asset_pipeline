@@ -50,6 +50,7 @@ object CrystalServices {
         if (secrets == null) secrets = PrivateSecrets(context.applicationContext)
         if (files == null) files = PrivateFiles(context.applicationContext)
         AppDirectories.initialize(context.applicationContext)
+        HostAppearance.initialize(context.applicationContext)
         BundledAssets.initialize(context.applicationContext)
         if (notifications == null) notifications = PlatformNotifications(context.applicationContext)
         networkPermission = context.checkSelfPermission(android.Manifest.permission.INTERNET) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -95,8 +96,8 @@ object CrystalServices {
         if (request.operation == 1) return permissionRequests.submit(id)
         return notificationsQueue.submit(id) { service.execute(request) }
     }
-    fun attachHost(owner: Any) { checkMain(); if (owner is ComponentActivity) { notifications?.attach(owner, permissionRequests); PhotoPicker.attach(owner) } }
-    fun detachHost(owner: Any) { checkMain(); if (owner is ComponentActivity) { notifications?.detach(owner, permissionRequests); PhotoPicker.detach(owner) } }
+    fun attachHost(owner: Any) { checkMain(); HostAppearance.attach(owner); if (owner is ComponentActivity) { notifications?.attach(owner, permissionRequests); PhotoPicker.attach(owner) } }
+    fun detachHost(owner: Any) { checkMain(); HostAppearance.detach(owner); if (owner is ComponentActivity) { notifications?.detach(owner, permissionRequests); PhotoPicker.detach(owner) } }
     @JvmStatic fun cancel(id: Long) { queue.cancel(id); networkQueue.cancel(id); secretsQueue.cancel(id); filesQueue.cancel(id); notificationsQueue.cancel(id); permissionRequests.cancel(id) }
     fun pendingCount(): Int = queue.pendingCount + networkQueue.pendingCount + secretsQueue.pendingCount + filesQueue.pendingCount + notificationsQueue.pendingCount + permissionRequests.pendingCount
     fun close() {

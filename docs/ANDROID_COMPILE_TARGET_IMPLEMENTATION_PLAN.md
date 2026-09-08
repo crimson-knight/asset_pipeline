@@ -495,6 +495,16 @@ Fixtures: `layout-fill-screen`, the async image contract's large and
 undecodable photos. Docs: `android-layout.md`, `android-images.md`,
 `android-jni-errors.md`.
 
+The brand walk on the phone then showed every dark frame wearing the light
+identity: an iOS host tells Crystal about dark appearance through its trait
+collection and nothing on Android did. `HostAppearance` answers with the
+attached host's night mode (`UI::Android::Application.dark_appearance?`),
+read before a render, since a night-mode change recreates the activity;
+`TextField#style` and `placeholder_color` are read as the facade reads them
+(the customer's form fields are `Plain`, painted from their own container);
+and the Android CI workflow checks the generated parity matrix. Contracts:
+`docs/android-appearance.md`, `docs/android-text.md`.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.

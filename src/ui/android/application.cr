@@ -17,6 +17,7 @@ lib LibAndroidApplicationLog
   fun android_host_bundled_assets_dir(buffer : UInt8*, capacity : Int32) : Int32
   fun android_host_app_directory(kind : Int32, buffer : UInt8*, capacity : Int32) : Int32
   fun android_host_setting(key : UInt8*, key_size : Int32, buffer : UInt8*, capacity : Int32) : Int32
+  fun android_host_dark_appearance : Int32
 end
 
 module UI::Android::Application
@@ -156,6 +157,14 @@ module UI::Android::Application
     length = LibAndroidApplicationLog.android_host_setting(key.to_unsafe, key.bytesize, buffer.to_unsafe, buffer.size)
     raise "Android host setting unavailable" if length < 0
     length == 0 ? nil : String.new(buffer[0, length])
+  end
+
+  # Whether the host is drawing in the dark (its configuration's night mode),
+  # the way an iOS host's trait collection says so; false before the services
+  # initialize. A brand theme reads this before a render; a night-mode change
+  # recreates the activity, which renders again. Contract: `docs/android-appearance.md`.
+  def self.dark_appearance? : Bool
+    LibAndroidApplicationLog.android_host_dark_appearance == 1
   end
 
   # Request a deferred host refresh after an asynchronous state change. Ordinary

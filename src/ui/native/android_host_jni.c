@@ -289,6 +289,22 @@ done:
     return length;
 }
 
+/* The host's appearance (HostAppearance): 1 dark, 0 light, -1 unknown or unavailable. */
+int android_host_dark_appearance(void) {
+    JNIEnv *env = ap_host_env();
+    if (!env || (*env)->PushLocalFrame(env, 2) != JNI_OK) return -1;
+    int answer = -1;
+    jclass cls = (*env)->FindClass(env, "dev/assetpipeline/androidhost/HostAppearance");
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = (*env)->GetStaticMethodID(env, cls, "dark", "()I");
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    answer = (int)(*env)->CallStaticIntMethod(env, cls, method);
+done:
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); answer = -1; }
+    (*env)->PopLocalFrame(env, NULL);
+    return answer;
+}
+
 /* Photo picker pulls: PhotoPicker's static methods, on the main looper. */
 static jclass ap_photo_class(JNIEnv *env) { return (*env)->FindClass(env, "dev/assetpipeline/androidhost/PhotoPicker"); }
 
