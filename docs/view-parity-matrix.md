@@ -52,7 +52,7 @@ neither phone: ActivityRing, Complication, ComplicationWithWebFallback, Gauge, P
 | `ImageWell` | 0/11 | 0/11 | 0/11 | 0/11 | — |  |  |
 | `InlineActionRow` | 3/3 | 3/3 | 3/3 | 3/3 | — |  |  |
 | `Inspector` | 4/5 | 3/5 | 3/5 | 4/5 | — | preferred_width |  |
-| `Label` | 8/8 | 6/8 | 8/8 | 7/8 | 8/8 | preferred_max_layout_width, strikethrough |  |
+| `Label` | 8/8 | 7/8 | 8/8 | 7/8 | 8/8 | strikethrough |  |
 | `LinkButton` | 3/4 | 4/4 | 3/4 | 2/4 | — |  | opens_in_browser |
 | `ListView` | 10/14 | 4/14 | 6/14 | 1/14 | — | content_inset_horizontal, leading_swipe_actions, on_move, row_removal_duration_seconds, shows_drag_handle, style, trailing_swipe_actions | on_item_tap |
 | `MapView` | 6/6 | 3/6 | 6/6 | 6/6 | — | latitude, longitude, zoom_level |  |

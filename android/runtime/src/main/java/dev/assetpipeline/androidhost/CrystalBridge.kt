@@ -31,45 +31,63 @@ object CrystalBridge {
         } finally { refreshCause = previous }
     }
     private val session = HostSession { lifecycleNative(it) }
-private var dialogs: NativeDialogHost? = null
+    private var dialogs: NativeDialogHost? = null
 
-// Host tick. One main-looper runnable per foreground session: the first
-// tick runs right after the first render, later ticks follow TickPolicy,
-// ticks never overlap, and background, detach, close and any boundary
-// failure stop them. A tick only runs Crystal work; a re-render happens
-// when that work calls requestRender, never on the tick itself.
-private val tickHandler = Handler(Looper.getMainLooper())
-private var tickIntervalMs = 0L
-private var tickRunning = false
-private var tickCount = 0L
-private val tickRunnable = Runnable { runTick() }
+    // Host tick. One main-looper runnable per foreground session: the first
+    // tick runs right after the first render, later ticks follow TickPolicy,
+    // ticks never overlap, and background, detach, close and any boundary
+    // failure stop them. A tick only runs Crystal work; a re-render happens
+    // when that work calls requestRender, never on the tick itself.
+    private val tickHandler = Handler(Looper.getMainLooper())
+    private var tickIntervalMs = 0L
+    private var tickRunning = false
+    private var tickCount = 0L
+    private val tickRunnable = Runnable { runTick() }
 
-@JvmStatic private external fun tickIntervalNative(): Int
-@JvmStatic private external fun tickNative(): Boolean
+    @JvmStatic private external fun tickIntervalNative(): Int
+    @JvmStatic private external fun tickNative(): Boolean
 
-private fun startTicks() {
-    stopTicks()
-    tickIntervalMs = nativeCall { tickIntervalNative().toLong() }
-    if (TickPolicy.schedules(tickIntervalMs, session.state)) tickHandler.post(tickRunnable)
-}
-
-private fun stopTicks() { tickHandler.removeCallbacks(tickRunnable) }
-
-private fun runTick() {
-    if (tickRunning || !didLoad || session.state != HostSession.State.FOREGROUND) return
-    tickRunning = true
-    val started = SystemClock.uptimeMillis()
-    try {
-        checkedCallback("tick") { tickNative() }
-        tickCount++
-    } finally { tickRunning = false }
-    if (TickPolicy.schedules(tickIntervalMs, session.state)) {
-        tickHandler.postDelayed(tickRunnable, TickPolicy.nextDelay(tickIntervalMs, SystemClock.uptimeMillis() - started))
+    private fun startTicks() {
+        stopTicks()
+        tickIntervalMs = nativeCall { tickIntervalNative().toLong() }
+        if (TickPolicy.schedules(tickIntervalMs, session.state)) tickHandler.post(tickRunnable)
     }
-}
 
-/** Ticks dispatched to Crystal since the library loaded. */
-fun debugTickCount(): Long { checkMainThread(); return tickCount }
+    private fun stopTicks() { tickHandler.removeCallbacks(tickRunnable) }
+
+    private fun runTick() {
+        if (tickRunning || !didLoad || session.state != HostSession.State.FOREGROUND) return
+        tickRunning = true
+        val started = SystemClock.uptimeMillis()
+        try {
+            checkedCallback("tick") { tickNative() }
+            tickCount++
+        } finally { tickRunning = false }
+        if (TickPolicy.schedules(tickIntervalMs, session.state)) {
+            tickHandler.postDelayed(tickRunnable, TickPolicy.nextDelay(tickIntervalMs, SystemClock.uptimeMillis() - started))
+        }
+    }
+
+    /** Ticks dispatched to Crystal since the library loaded. */
+    fun debugTickCount(): Long { checkMainThread(); return tickCount }
+
+    // Host viewport. NativeScreenHost measures the rectangle the tree is laid
+    // out in and hands it to Crystal before every render and on every change;
+    // Crystal decides whether anything changed and whether to re-lay out.
+    @JvmStatic private external fun viewportNative(width: Double, height: Double, top: Double, bottom: Double,
+        left: Double, right: Double, density: Double): Int
+
+    /** Delivers the host's viewport to Crystal. False means the surface is not
+     * in the foreground and the report waits for the next render. */
+    internal fun reportViewport(report: ViewportPolicy.Report): Boolean {
+        checkReady()
+        if (session.state != HostSession.State.FOREGROUND) return false
+        nativeCall {
+            check(viewportNative(report.widthDp, report.heightDp, report.topDp, report.bottomDp,
+                report.leftDp, report.rightDp, report.density) >= 0) { "Crystal viewport report failed; inspect AssetPipelineNative diagnostics" }
+        }
+        return true
+    }
 
     internal fun installDialogs(owner: Any, host: NativeDialogHost) {
         checkReady()

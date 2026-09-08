@@ -32,6 +32,7 @@ extern int crystal_android_host_callback_count(void);
 extern int crystal_android_host_lifecycle(int event);
 extern int crystal_android_host_tick_interval(void);
 extern int crystal_android_host_tick(void);
+extern int crystal_android_host_viewport(double width, double height, double top, double bottom, double left, double right, double density);
 extern int crystal_android_host_sheet_transition(int dismissed);
 extern int crystal_android_host_navigation_back(int commit);
 extern int crystal_android_service_complete(uint64_t id, int status, unsigned char *data, int size);
@@ -276,6 +277,19 @@ Java_dev_assetpipeline_androidhost_CrystalBridge_tickNative(JNIEnv *env, jclass 
     int success = crystal_android_host_tick();
     ap_leave_crystal(registration);
     return success ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_assetpipeline_androidhost_CrystalBridge_viewportNative(JNIEnv *env, jclass clazz, jdouble width, jdouble height,
+                                                                jdouble top, jdouble bottom, jdouble left, jdouble right, jdouble density) {
+    (void)env;
+    (void)clazz;
+    int registration = ap_enter_crystal();
+    if (registration < 0) return -1;
+    int result = crystal_android_host_viewport((double)width, (double)height, (double)top, (double)bottom,
+                                               (double)left, (double)right, (double)density);
+    ap_leave_crystal(registration);
+    return (jint)result;
 }
 
 JNIEXPORT jint JNICALL

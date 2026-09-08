@@ -3780,6 +3780,12 @@
 
         min_width, min_height = view.minimum_width, view.minimum_height
         max_width, max_height = view.maximum_width, view.maximum_height
+        # A label's preferred wrap width is its maximum width here: the TextView
+        # measures up to it and wraps there, which is what UIKit does with
+        # preferredMaxLayoutWidth for a multi-line label. An explicit maximum wins.
+        if view.is_a?(UI::Label) && (preferred = view.preferred_max_layout_width) && preferred > 0.0
+          max_width ||= preferred
+        end
         fill_vertical = false
         if view.is_a?(UI::ScrollView)
           min_width = max_width = view.frame_width if view.frame_width != 0

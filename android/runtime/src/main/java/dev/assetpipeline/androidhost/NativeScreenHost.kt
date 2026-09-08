@@ -10,9 +10,12 @@ import android.view.inputmethod.BaseInputConnection
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.view.WindowInsets
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 /** One Activity-owned mount. Never retains an Activity or View in saved state. */
 class NativeScreenHost(private val activity: Activity, private val mount: ViewGroup,
@@ -33,6 +36,25 @@ class NativeScreenHost(private val activity: Activity, private val mount: ViewGr
         private set
     var skippedSnapshots = 0
         private set
+    // Viewport. The rectangle the tree is laid out in and the bars the host has
+    // not kept clear itself, reported to Crystal before every render and when
+    // the container or the mount is laid out to a different size. Before the
+    // first layout the window stands in, with the bars kept clear the way the
+    // reference hosts do; a host that lays the mount out narrower sees one
+    // corrective report after its first layout. The keyboard changes nothing.
+    private var reportedViewport: ViewportPolicy.Report? = null
+    private var viewportCheckPending = false
+    // A view's laid-out flag and its parents' frames settle only after the
+    // layout-change listeners have run, so the measurement waits for the end
+    // of the pass; several listeners in one pass produce one measurement.
+    private val viewportListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+        if (!viewportCheckPending) {
+            viewportCheckPending = true
+            mount.post { viewportCheckPending = false; reportViewportIfChanged() }
+        }
+    }
+    /** The last report handed to Crystal, for tests. */
+    val lastViewport: ViewportPolicy.Report? get() = reportedViewport
 
     init {
         mount.isFocusableInTouchMode = true
@@ -47,6 +69,8 @@ class NativeScreenHost(private val activity: Activity, private val mount: ViewGr
                 history.remember(saved)
             }
         }
+        mount.addOnLayoutChangeListener(viewportListener)
+        viewport?.addOnLayoutChangeListener(viewportListener)
     }
 
     private fun main() = check(Looper.myLooper() == Looper.getMainLooper()) { "Native screen host requires the main looper" }
@@ -93,6 +117,8 @@ class NativeScreenHost(private val activity: Activity, private val mount: ViewGr
         dialogs.beforeRender()
         mount.removeAllViews()
         mount.requestFocus()
+        // The viewport the tree is about to be laid out in, before Crystal builds it.
+        measuredViewport()?.let { reportViewport(it) }
         val root = try { requireNotNull(CrystalBridge.renderStudy(activity, nextRoute)) }
             catch (error: Throwable) { pendingSaved = null; pendingRestore = null; throw error }
         // Crystal owns field values. Suppress the framework's independent
@@ -139,6 +165,40 @@ class NativeScreenHost(private val activity: Activity, private val mount: ViewGr
         }
         return true
     }
+    /** The viewport as the host lays it out now, or the window's before any layout. */
+    private fun measuredViewport(): ViewportPolicy.Report? {
+        val density = activity.resources.displayMetrics.density
+        val container = viewport ?: mount
+        if (container.isAttachedToWindow && container.width > 0 && container.height > 0) {
+            val decor = activity.window.decorView
+            val origin = IntArray(2).also { container.getLocationInWindow(it) }
+            val frame = ViewportPolicy.Frame(origin[0], origin[1], origin[0] + container.width, origin[1] + container.height)
+            val bars = ViewCompat.getRootWindowInsets(container)
+                ?.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+                ?.let { ViewportPolicy.Edges(it.left, it.top, it.right, it.bottom) } ?: ViewportPolicy.Edges.NONE
+            val padding = ViewportPolicy.Edges(container.paddingLeft, container.paddingTop, container.paddingRight, container.paddingBottom)
+            val mountWidth = mount.width
+            return ViewportPolicy.report(frame, maxOf(decor.width, frame.right), maxOf(decor.height, frame.bottom),
+                bars, padding, mountWidth, density)
+        }
+        val metrics = activity.windowManager.currentWindowMetrics
+        val bounds = metrics.bounds
+        if (bounds.width() <= 0 || bounds.height() <= 0) return null
+        val insets = metrics.windowInsets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+        val bars = ViewportPolicy.Edges(insets.left, insets.top, insets.right, insets.bottom)
+        return ViewportPolicy.report(ViewportPolicy.Frame(0, 0, bounds.width(), bounds.height()), bounds.width(), bounds.height(),
+            bars, bars, 0, density)
+    }
+    private fun reportViewport(report: ViewportPolicy.Report) {
+        if (CrystalBridge.reportViewport(report)) reportedViewport = report
+    }
+    private fun reportViewportIfChanged() {
+        if (closed) return
+        // Transient geometry inside a layout pass is not a host defect; the
+        // next render measures again and fails loudly if it is still wrong.
+        val report = try { measuredViewport() } catch (_: IllegalArgumentException) { null } ?: return
+        if (report != reportedViewport) reportViewport(report)
+    }
     fun saveState(outState: Bundle) {
         main(); check(!closed)
         dialogs.saveState(outState)
@@ -167,6 +227,8 @@ class NativeScreenHost(private val activity: Activity, private val mount: ViewGr
     fun close() {
         main()
         cancelRestore(); pendingSaved = null; pendingRestore = null
+        mount.removeOnLayoutChangeListener(viewportListener)
+        viewport?.removeOnLayoutChangeListener(viewportListener)
         history.clear()
         dialogs.close()
         CrystalBridge.removeDialogs(dialogs)

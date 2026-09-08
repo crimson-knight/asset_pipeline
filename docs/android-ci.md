@@ -79,8 +79,8 @@ Crystal failure driver before separate Java and Sheet failure processes.
   the smoke checks packaged ABI entries, debug symbols, permission policy and
   nonempty JVM reports.
 - The mandatory native class list tests real controls, callbacks, navigation,
-  layout, editor/view state, semantics/focus, dialogs/sheets, the host tick and
-  platform storage, secrets and files. It verifies completed nonempty instrumentation plus clean
+  layout, editor/view state, semantics/focus, dialogs/sheets, the host tick, the
+  host viewport and platform storage, secrets and files. It verifies completed nonempty instrumentation plus clean
   app-scoped diagnostics, not just ADB's process exit code.
 - Separate processes exercise intentional Crystal callback/render failures,
   Java partial-render failures, original Throwable preservation, Sheet window
@@ -271,6 +271,7 @@ instrumentation tests before the fixes above landed.
 | 23 | physical-device fixes and `CrystalScrollView` (same 64 tests) | **pass** | **pass** | **pass** |
 | 24 | hugging-stack measure pass and `root_fill` on Android, `layout-hugging` fixture (65 tests) | **pass** | **pass** | **pass** |
 | 25 | host tick (`on_tick`, `TickPolicy`, `tick-contract` fixture; 67 tests) | **pass** | 66/67, then **pass** on rerun: the list-rows tap was delivered one row above its target (see below) | **pass** |
+| 26 | docs-only push after run 25 (same code) | **pass** | 66/67: the same list-rows tap; the echo label did not show the row within the wait (see below) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -423,3 +424,16 @@ the tap, and passed. The rerun of the API 35 job passed, and four scoped
 passes of the structure suite on the local API 35 emulator with the tick
 active passed. The cause is not named; it is recorded as an input-timing
 observation on the x86_64 runner, and the runtime is unchanged.
+
+Run 26 (34162524157), the docs-only push after run 25, failed the same test
+on API 35 again, 66 of 67: after the tap on "Banana" the echo label did not
+show "Row: 1; section: 0,1; taps: 1" within the wait. That is two consecutive
+API 35 runs on the list-rows tap since the tick landed, after run 24 passed
+the identical sequence, so it is now a pattern to watch rather than noise.
+The bridge's checked callback only calls into Crystal and checks the result;
+it never notifies the refresh observer, so a tick schedules no refresh, and
+no tick-driven render appears in either run's log. The test that runs
+immediately before it is the sheet window matrix, which rotates the display
+to landscape and restores it; whether the display was still settling when
+the structure host laid out is the next thing to check if a third run shows
+the shape. The runtime is unchanged.

@@ -99,3 +99,6 @@ Context-based wide measurements are not a physical tablet/emulator screenshot
 matrix, TalkBack proof, or API/ABI runtime compatibility proof. Full focus,
 selection, screen-state restoration, accessibility and remaining Tier A views
 remain governed by the [implementation plan](ANDROID_COMPILE_TARGET_IMPLEMENTATION_PLAN.md).
+
+The rectangle a screen is laid out in, and the system-bar insets it must keep
+clear of, reach the application through the [host viewport](android-viewport.md).

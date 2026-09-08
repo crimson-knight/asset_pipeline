@@ -6,6 +6,7 @@ require "../../../scripts/crystal_init"
 require "../../ui"
 require "./services"
 require "./navigation_state"
+require "./viewport"
 
 lib LibAndroidApplicationLog
   fun android_host_log_crystal_error(message : UInt8*)
@@ -28,6 +29,8 @@ module UI::Android::Application
   @@probe_base = 40
   @@tick_handler : Proc(Nil)? = nil
   @@tick_interval_ms = 0
+  @@viewport : Viewport? = nil
+  @@viewport_handler : Proc(Viewport, Nil)? = nil
 
   # Configure at application startup. Hosts mount, mutate and tear down views
   # on the Android main looper. One retained tree is supported per process.
@@ -41,33 +44,63 @@ module UI::Android::Application
     @@lifecycle_handler = handler
   end
 
-def self.lifecycle(event : LifecycleEvent) : Nil
-  @@lifecycle_handler.try(&.call(event))
-end
+  def self.lifecycle(event : LifecycleEvent) : Nil
+    @@lifecycle_handler.try(&.call(event))
+  end
 
-# A host-driven periodic callback on the Android main looper while the
-# surface is in the foreground. The host runs the first tick right after
-# the first render, then every `interval_ms`, never overlapping, and stops
-# on background, detach and failure. The handler does one bounded unit of
-# work and calls `invalidate` only when a re-render is owed; the host never
-# re-renders on a tick by itself, so a focused editor is not replaced by a
-# clock. Raising inside the handler is a contained boundary failure: the
-# session becomes terminal, the same as a failed callback.
-def self.on_tick(interval_ms : Int32, &handler : -> Nil) : Nil
-  raise ArgumentError.new("Android tick interval must be positive") unless interval_ms > 0
-  raise ArgumentError.new("Android tick handler is already configured") if @@tick_handler
-  @@tick_interval_ms = interval_ms
-  @@tick_handler = handler
-end
+  # A host-driven periodic callback on the Android main looper while the
+  # surface is in the foreground. The host runs the first tick right after
+  # the first render, then every `interval_ms`, never overlapping, and stops
+  # on background, detach and failure. The handler does one bounded unit of
+  # work and calls `invalidate` only when a re-render is owed; the host never
+  # re-renders on a tick by itself, so a focused editor is not replaced by a
+  # clock. Raising inside the handler is a contained boundary failure: the
+  # session becomes terminal, the same as a failed callback.
+  def self.on_tick(interval_ms : Int32, &handler : -> Nil) : Nil
+    raise ArgumentError.new("Android tick interval must be positive") unless interval_ms > 0
+    raise ArgumentError.new("Android tick handler is already configured") if @@tick_handler
+    @@tick_interval_ms = interval_ms
+    @@tick_handler = handler
+  end
 
-# 0 means the application asked for no ticks and the host schedules none.
-def self.tick_interval_ms : Int32
-  @@tick_handler ? @@tick_interval_ms : 0
-end
+  # 0 means the application asked for no ticks and the host schedules none.
+  def self.tick_interval_ms : Int32
+    @@tick_handler ? @@tick_interval_ms : 0
+  end
 
-def self.tick : Nil
-  @@tick_handler.try(&.call)
-end
+  def self.tick : Nil
+    @@tick_handler.try(&.call)
+  end
+
+  # The host's viewport: the rectangle the tree is laid out in and the
+  # system-bar insets left for the application, in dp. Reported before every
+  # render and on every change; nil until the first report.
+  def self.viewport : Viewport?
+    @@viewport
+  end
+
+  # Sees every viewport change, on the main looper, before the render that
+  # follows it. The host never re-renders for a viewport change by itself: a
+  # handler that re-lays out calls `invalidate` when a tree is already
+  # mounted (`mounted?`); before the first render the values are simply in
+  # place for it.
+  def self.on_viewport(&handler : Viewport -> Nil) : Nil
+    raise ArgumentError.new("Android viewport handler is already configured") if @@viewport_handler
+    @@viewport_handler = handler
+  end
+
+  # True when the report differs from the last one and the handler ran.
+  def self.report_viewport(viewport : Viewport) : Bool
+    return false if @@viewport == viewport
+    @@viewport = viewport
+    @@viewport_handler.try(&.call(viewport))
+    true
+  end
+
+  # A native tree is mounted for this process.
+  def self.mounted? : Bool
+    !@@last_native.nil?
+  end
 
   # Request a deferred host refresh after an asynchronous state change. Ordinary
   # service completions do not inherently replace a focused native editor.
@@ -158,6 +191,17 @@ fun crystal_android_host_tick : Int32
   rescue error
     UI::Android::Application.log_exception(error)
     0
+end
+
+# 1 means the viewport changed, 0 means it matched the last report, -1 is a
+# contained Crystal failure the host treats as terminal.
+fun crystal_android_host_viewport(width : Float64, height : Float64, top : Float64, bottom : Float64,
+                                  left : Float64, right : Float64, density : Float64) : Int32
+  viewport = UI::Android::Viewport.new(width, height, top, bottom, left, right, density)
+  UI::Android::Application.report_viewport(viewport) ? 1 : 0
+  rescue error
+    UI::Android::Application.log_exception(error)
+    -1
 end
 
 # -1 contains application failure; 1 means a structural dismissal completed.

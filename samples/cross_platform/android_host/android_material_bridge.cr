@@ -21,6 +21,7 @@ require "./android_structure_fixture"
 require "./android_pickers_fixture"
 require "./android_tabs_fixture"
 require "./android_tick_fixture"
+require "./android_viewport_fixture"
 
 module AndroidMaterialHost
   module Bridge
@@ -223,6 +224,7 @@ module AndroidMaterialHost
 
     def self.build_component(slug : String) : UI::View
       @@tick_fixture_mounted = slug == "tick-contract"
+      @@viewport_fixture_mounted = slug == "viewport-contract"
       if builder = @@component_builders[slug]?
         return builder.call
       end
@@ -245,6 +247,7 @@ module AndroidMaterialHost
       when "layout-interaction" then AndroidLayoutContractFixture.interaction
       when "layout-hugging"     then AndroidLayoutContractFixture.hugging
       when "tick-contract"      then AndroidTickFixture.build
+      when "viewport-contract"  then AndroidViewportFixture.build(UI::Android::Application.viewport)
       when "image-smoke"        then AndroidImageFixture.build
       when "text/雪😀\0end"       then AndroidTextFixture.build
       when "navigation"         then AndroidNavigationFixture.build
@@ -723,16 +726,25 @@ module AndroidMaterialHost
       stack
     end
 
-# The host tick contract: count every tick, re-render only while the tick
-# fixture is on screen so no other fixture's editor is replaced by a clock.
-@@tick_fixture_mounted = false
+    # The host tick contract: count every tick, re-render only while the tick
+    # fixture is on screen so no other fixture's editor is replaced by a clock.
+    @@tick_fixture_mounted = false
 
-def self.tick : Nil
-  AndroidTickFixture.tick!
-  UI::Android::Application.invalidate if @@tick_fixture_mounted
-end
+    def self.tick : Nil
+      AndroidTickFixture.tick!
+      UI::Android::Application.invalidate if @@tick_fixture_mounted
+    end
 
-private def self.build_fallback(slug : String) : UI::View
+    # The host viewport contract: re-render on a change only while the
+    # viewport fixture is on screen and a tree is already mounted, so the
+    # other fixtures keep their first frame and their focused editors.
+    @@viewport_fixture_mounted = false
+
+    def self.viewport_changed : Nil
+      UI::Android::Application.invalidate if @@viewport_fixture_mounted && UI::Android::Application.mounted?
+    end
+
+    private def self.build_fallback(slug : String) : UI::View
       stack = root_stack
       stack << heading("Unknown study")
       stack << body_label("No Android Material study is registered for '#{slug}'.")
@@ -746,3 +758,4 @@ UI::Android::Application.configure do |slug|
 end
 
 UI::Android::Application.on_tick(1000) { AndroidMaterialHost::Bridge.tick }
+UI::Android::Application.on_viewport { |_viewport| AndroidMaterialHost::Bridge.viewport_changed }
