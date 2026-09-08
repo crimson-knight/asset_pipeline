@@ -505,7 +505,19 @@ read before a render, since a night-mode change recreates the activity;
 and the Android CI workflow checks the generated parity matrix. Contracts:
 `docs/android-appearance.md`, `docs/android-text.md`.
 
-## Initial executive assessment — September 1 baseline
+With the phone on its own Wi-Fi the customer build then ran against the
+live services with no reverse tunnel: the live bridge row, the customer's
+image host, the shop and identify APIs, through to a machine identified from
+the system photo picker and the accessories that fit it. Nothing in the
+runtime changed for that; the one defect was the shell's document decoder
+rejecting a page accent the live row still carries from an older document,
+which the shell now drops under a customer palette. The runtime's part of
+the proof is that every host contract above held on a real network: the
+async HTTP service, the photo picker and capture provider, the image
+decode budget, the host fit, the appearance signal.
+
+## Initial executive assessment
+ — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.
 
