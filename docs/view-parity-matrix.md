@@ -88,7 +88,7 @@ neither phone: ActivityRing, Complication, ComplicationWithWebFallback, Gauge, P
 | `TabView` | 7/7 | 5/7 | 7/7 | 2/7 | — | glass_bar, material_semantic |  |
 | `TextArea` | 7/8 | 6/8 | 7/8 | 6/8 | — | is_scrollable, line_limit | text_color |
 | `TextEditor` | 5/8 | 6/8 | 5/8 | 6/8 | — | syntax_highlighting | font, text_color |
-| `TextField` | 7/12 | 9/12 | 8/12 | 7/12 | 7/12 | placeholder_color, style | on_change, on_submit, text_color, text_color_explicit |
+| `TextField` | 7/12 | 11/12 | 8/12 | 7/12 | 7/12 |  | on_change, on_submit, text_color, text_color_explicit |
 | `TimePicker` | 5/5 | 3/5 | 5/5 | 2/5 | — | label, minute_interval |  |
 | `Toggle` | 6/6 | 4/6 | 6/6 | 4/6 | 6/6 | disabled, style |  |
 | `ToggleButton` | 4/4 | 3/4 | 4/4 | 2/4 | — | icon |  |

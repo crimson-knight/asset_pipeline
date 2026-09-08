@@ -88,3 +88,16 @@ they do not claim full editor-state or arbitrary process-state restoration.
 General callback-exception and JNI-allocation-failure handling still need a
 broader boundary audit. No clipboard-content or external-intent runtime proof is
 claimed merely because their shared string conversion is corrected.
+
+## Field styles and the placeholder color
+
+`UI::TextField#style` and `placeholder_color` are read on Android as the
+SwiftUI facade reads them. `RoundedBorder` (the default) keeps the Material
+filled box; `Plain` and `Underline` both drop the box (`BOX_BACKGROUND_NONE`)
+so a brand paints the field from its own container (a filled box layers its
+color over the surface, so a transparent filled box is the surface, and an
+underline-only field would need a drawable the bridge does not have), which is how the AgentC shell's form fields are drawn after
+an earlier build's unreadable system fields. An explicit `placeholder_color`
+replaces the Material hint color. Fixture `text-field-styles`
+(`AndroidTextFieldStyleFixture`), host spec, and `AndroidTextFieldStyleContractTest`
+read each layout's box mode, box color and hint color.

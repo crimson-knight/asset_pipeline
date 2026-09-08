@@ -81,7 +81,7 @@ Crystal failure driver before separate Java and Sheet failure processes.
 - The mandatory native class list tests real controls, callbacks, navigation,
   layout, editor/view state, semantics/focus, dialogs/sheets, the host tick, the
   host viewport, bundled assets, fonts, private directories, the photo
-  picker, async images, button reads, host settings, and platform storage, secrets and files. It verifies completed nonempty instrumentation plus clean
+  picker, async images, button reads, host settings, text field styles, and platform storage, secrets and files. It verifies completed nonempty instrumentation plus clean
   app-scoped diagnostics, not just ADB's process exit code.
 - Separate processes exercise intentional Crystal callback/render failures,
   Java partial-render failures, original Throwable preservation, Sheet window
@@ -491,3 +491,8 @@ diagnostic was captured. The same test then passed through the
 instrumentation runner by hand and in a second scoped run on another fresh
 install, and the full local target passed with it. The cause is not named;
 it is recorded so a recurrence on a runner can be matched to it.
+
+The host-contract step also runs `ruby scripts/view_parity_matrix.rb --check`, so
+`docs/view-parity-matrix.md` cannot drift from the renderers it is generated
+from: a renderer change that adds or drops an attribute read fails the run
+until the matrix is regenerated and committed with it.

@@ -107,6 +107,8 @@ jobs:
           mkdir -p build/android-ci
           bash scripts/tests/android_target_entrypoint.sh build/android-ci/entrypoint
           crystal spec spec/android_ci_spec.cr spec/web/ui --error-trace > build/android-ci/shared-specs.txt 2>&1
+          # The generated renderer parity matrix must match the renderers it was generated from.
+          ruby scripts/view_parity_matrix.rb --check
       - name: Build both verified native dependency bundles
         shell: bash
         run: |

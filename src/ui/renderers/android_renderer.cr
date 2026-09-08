@@ -726,6 +726,23 @@
         LibAndroidBridge.android_textinputlayout_set_box_background_color(@env, til, material_color(:surface_variant))
         LibAndroidBridge.android_textinputlayout_set_box_stroke_color(@env, til, material_color(:outline))
         LibAndroidBridge.android_textinputlayout_set_hint_text_color(@env, til, material_color(:on_surface_variant))
+        # The field's style and placeholder color, as the SwiftUI facade reads
+        # them: RoundedBorder keeps the Material filled box, and Plain and
+        # Underline both drop it, so a brand paints the field from its own
+        # container (the AgentC shell's field_shell, after build 19's unreadable
+        # system fields). A filled box layers its color over the surface, so a
+        # transparent filled box is the surface, and an underline-only field
+        # would need a drawable the bridge does not have; the filled box is the
+        # rounded style's twin. An explicit placeholder color replaces the
+        # Material hint color. The box mode is set here, before the edit text
+        # is added, as the layout requires.
+        case view.style
+        when UI::TextFieldStyle::Plain, UI::TextFieldStyle::Underline
+          LibAndroidBridge.android_textinputlayout_set_box_background_mode(@env, til, 0)
+        end
+        if hint_color = view.placeholder_color
+          LibAndroidBridge.android_textinputlayout_set_hint_text_color(@env, til, color_to_argb(hint_color))
+        end
 
         unless view.placeholder.empty?
           LibAndroidBridge.android_textinputlayout_set_hint(@env, til, view.placeholder.to_unsafe, view.placeholder.bytesize)

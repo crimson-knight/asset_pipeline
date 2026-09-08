@@ -28,6 +28,7 @@ require "./android_photo_fixture"
 require "./android_async_image_fixture"
 require "./android_button_fixture"
 require "./android_settings_fixture"
+require "./android_text_field_style_fixture"
 
 module AndroidMaterialHost
   module Bridge
@@ -260,6 +261,7 @@ module AndroidMaterialHost
       when "directories-contract" then AndroidDirectoriesFixture.build(UI::Android::Application.files_dir, UI::Android::Application.cache_dir)
       when "async-image-contract" then AndroidAsyncImageFixture.build(bundle_mark_bytes, bundle_photo_bytes)
       when "button-contract"      then AndroidButtonFixture.build
+      when "text-field-styles"    then AndroidTextFieldStyleFixture.build
       when "settings-contract"    then AndroidSettingsFixture.build(UI::Android::Application.setting("SAMPLE_DISPLAY_NAME"), UI::Android::Application.setting("SAMPLE_DEMO_ID"), UI::Android::Application.setting("SAMPLE_NOT_SET"))
       when "photo-contract"       then AndroidPhotoFixture.build(photo_snapshot, -> { photo_begin(UI::Android::Photos::Source::Library) }, -> { photo_begin(UI::Android::Photos::Source::Camera) }, -> { photo_reset })
       when "image-smoke"          then AndroidImageFixture.build
