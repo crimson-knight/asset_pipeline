@@ -19,6 +19,18 @@ void android_host_log_crystal_error(const unsigned char *message) {
     );
 }
 
+/* The details behind a failure on a debuggable host, under a prefix of their
+ * own: the failure lanes count exactly one "Crystal application error:" line
+ * per contained failure, and that line names the type only. */
+void android_host_log_crystal_diagnostics(const unsigned char *message) {
+    __android_log_print(
+        ANDROID_LOG_ERROR,
+        AP_ANDROID_LOG_TAG,
+        "Crystal application diagnostics: %s",
+        message ? (const char *)message : "unavailable"
+    );
+}
+
 extern void crystal_init(void);
 extern int crystal_runtime_initialization_count(void);
 extern int crystal_runtime_is_ready(void);

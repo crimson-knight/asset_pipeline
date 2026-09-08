@@ -63,11 +63,14 @@ The type-only rule above is the release contract. A debuggable host (the
 manifest's `android:debuggable`, which every debug build sets) opts into the
 full diagnostics: `CrystalBridge.initialize` passes the flag to the native
 side (`debuggableNative`, a plain global so it reads on any thread), and
-`UI::Android::Application.log_exception` then logs
-`inspect_with_backtrace` (capped at 8000 bytes) under the same
-`AssetPipelineNative` tag. Standard error goes nowhere on a phone, so this is
-how a developer sees why a screen failed: `adb logcat -d | grep -A40 "Crystal
-application error"`. A release build keeps the type only.
+`UI::Android::Application.log_exception` then logs a second line,
+`Crystal application diagnostics: ...`, holding `inspect_with_backtrace`
+(capped at 8000 bytes) under the same `AssetPipelineNative` tag; the
+`Crystal application error: <type>` line stays exactly as it is, since the
+failure lanes count one such line per contained failure. Standard error goes
+nowhere on a phone, so this is how a developer sees why a screen failed:
+`adb logcat -d | grep -A40 "Crystal application"`. A release build keeps the
+type only.
 
 ## Repeatable validation
 

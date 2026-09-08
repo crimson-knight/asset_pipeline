@@ -12,6 +12,7 @@ require "./photos"
 
 lib LibAndroidApplicationLog
   fun android_host_log_crystal_error(message : UInt8*)
+  fun android_host_log_crystal_diagnostics(message : UInt8*)
   fun android_host_request_render : Int32
   fun android_host_debuggable : Int32
   fun android_host_bundled_assets_dir(buffer : UInt8*, capacity : Int32) : Int32
@@ -218,16 +219,17 @@ module UI::Android::Application
     # Exceptions may contain user text, URLs, secrets or filesystem paths.
     # Runtime diagnostics report the type only; do not format an application
     # message/backtrace while already handling a native boundary failure.
-    # A debuggable host (a debug build) is the exception: there the whole
-    # message and backtrace are what a developer needs from a phone, where
-    # standard error goes nowhere.
-    message = if LibAndroidApplicationLog.android_host_debuggable == 1
-                text = error.inspect_with_backtrace
-                text.bytesize > DEBUG_DIAGNOSTICS_BYTES ? text.byte_slice(0, DEBUG_DIAGNOSTICS_BYTES) : text
-              else
-                error.class.to_s
-              end
+    # The type line is the contract the failure lanes count and match. A
+    # debuggable host (a debug build) adds the whole message and backtrace
+    # on a second line under its own prefix: what a developer needs from a
+    # phone, where standard error goes nowhere.
+    message = error.class.to_s
     LibAndroidApplicationLog.android_host_log_crystal_error(message.to_unsafe)
+    if LibAndroidApplicationLog.android_host_debuggable == 1
+      text = error.inspect_with_backtrace
+      text = text.byte_slice(0, DEBUG_DIAGNOSTICS_BYTES) if text.bytesize > DEBUG_DIAGNOSTICS_BYTES
+      LibAndroidApplicationLog.android_host_log_crystal_diagnostics(text.to_unsafe)
+    end
   rescue
     LibAndroidApplicationLog.android_host_log_crystal_error("Exception diagnostics unavailable")
   end

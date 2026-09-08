@@ -280,6 +280,7 @@ instrumentation tests before the fixes above landed.
 | 31 | the settled-tap guard at every scroll-then-tap in the structure suite (73 tests) | **pass** | **pass** | cancelled by the next push while running |
 | 32 | photo picker (`PhotoPicker`, `photo-contract` fixture; 73 tests) | **pass** | **pass** | **pass** |
 | 33 | AsyncImage reads, Button reads with the ellipsis cap, host settings (`HostSettings`, `settings-contract` fixture; 76 tests) | **pass** | **pass** | **pass** |
+| 34 | the customer-screen batch (root fit, divider thickness, photo downsampling) and the debuggable diagnostics | fail | fail | fail |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -496,3 +497,12 @@ The host-contract step also runs `ruby scripts/view_parity_matrix.rb --check`, s
 `docs/view-parity-matrix.md` cannot drift from the renderers it is generated
 from: a renderer change that adds or drops an attribute read fails the run
 until the matrix is regenerated and committed with it.
+
+Run 34 failed on every API level at the Java failure lane with "Missing
+contained public-render diagnostic": the debuggable diagnostics commit had
+replaced the `Crystal application error: <type>` line's text with the whole
+exception, and `scripts/test_android_java_failures.sh` matches that line by the
+type and counts exactly one of them. The suites had passed because no scoped
+run exercises the failure lanes; only the full target does. The type line is
+now kept as it was and a debuggable host logs the details on a second line,
+`Crystal application diagnostics: ...`.
