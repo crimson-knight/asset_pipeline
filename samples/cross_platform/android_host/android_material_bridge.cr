@@ -25,6 +25,7 @@ require "./android_viewport_fixture"
 require "./android_assets_fixture"
 require "./android_directories_fixture"
 require "./android_photo_fixture"
+require "./android_async_image_fixture"
 
 module AndroidMaterialHost
   module Bridge
@@ -254,6 +255,7 @@ module AndroidMaterialHost
       when "viewport-contract"    then AndroidViewportFixture.build(UI::Android::Application.viewport)
       when "assets-contract"      then AndroidAssetsFixture.build(UI::Android::Application.bundled_assets_dir, register_bundle_fonts)
       when "directories-contract" then AndroidDirectoriesFixture.build(UI::Android::Application.files_dir, UI::Android::Application.cache_dir)
+      when "async-image-contract" then AndroidAsyncImageFixture.build(bundle_mark_bytes)
       when "photo-contract"       then AndroidPhotoFixture.build(photo_snapshot, -> { photo_begin(UI::Android::Photos::Source::Library) }, -> { photo_begin(UI::Android::Photos::Source::Camera) }, -> { photo_reset })
       when "image-smoke"          then AndroidImageFixture.build
       when "text/雪😀\0end"         then AndroidTextFixture.build
@@ -794,6 +796,17 @@ module AndroidMaterialHost
       return if state == @@photo_state_seen
       @@photo_state_seen = state
       UI::Android::Application.invalidate
+    end
+
+    # The async image contract's bytes: the bundle's mark, read the way an
+    # application reads a photo it prefetched.
+    def self.bundle_mark_bytes : Bytes?
+      dir = UI::Android::Application.bundled_assets_dir
+      return nil unless dir
+      path = File.join(dir, AndroidAssetsFixture::MARK)
+      File.file?(path) ? File.read(path).to_slice : nil
+    rescue
+      nil
     end
 
     private def self.build_fallback(slug : String) : UI::View

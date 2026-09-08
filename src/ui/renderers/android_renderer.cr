@@ -79,6 +79,8 @@
       fun android_imageview_set_image_named(env : Void*, iv : Void*, name : UInt8*, byte_len : Int32) : Int32
       # Load from an absolute path inside the application's private storage
       fun android_imageview_set_image_file(env : Void*, iv : Void*, path : UInt8*, byte_len : Int32) : Int32
+      # Decode an encoded image from memory (a prefetched photo)
+      fun android_imageview_set_image_bytes(env : Void*, iv : Void*, data : UInt8*, byte_len : Int32) : Int32
       fun android_imageview_set_tint(env : Void*, iv : Void*, argb : Int32) : Int32
 
       # --- EditText ---
@@ -2360,10 +2362,40 @@
       # P2 Wave 3 Visit methods
       # -----------------------------------------------------------------
 
+      # There is no network loader here: an application that shows photos it
+      # fetched itself hands the bytes over as preloaded_data, drawn at the
+      # view's content mode with the catalog's decode limits. With no bytes and
+      # a placeholder, the placeholder renders in the image's frame instead of
+      # an empty view; url, is_loading, error_message, on_load and on_error are
+      # the loader's attributes and are not read.
       def visit(view : UI::AsyncImage)
-        iv = LibAndroidBridge.android_view_new(@env, "android/widget/ImageView", @context)
-        apply_common_properties(iv, view)
-        emit(iv, "ImageView[async]")
+        if (data = view.preloaded_data) && !data.empty?
+          iv = LibAndroidBridge.android_view_new(@env, "android/widget/ImageView", @context)
+          unless LibAndroidBridge.android_imageview_set_image_bytes(@env, iv, data.to_unsafe, data.size) == 1
+            raise ArgumentError.new("Android async image could not decode its preloaded bytes")
+          end
+          scale_type = case view.content_mode
+                       when ContentMode::Fit     then 0 # FIT_CENTER
+                       when ContentMode::Fill    then 1 # CENTER_CROP
+                       when ContentMode::Stretch then 2 # FIT_XY
+                       else                           0
+                       end
+          LibAndroidBridge.android_imageview_set_scale_type(@env, iv, scale_type)
+          apply_common_properties(iv, view)
+          emit(iv, "ImageView[async]")
+        elsif placeholder = view.placeholder
+          frame = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+          apply_common_properties(frame, view)
+          native = owned_native(JNI.wrap_global(LibAndroidBridge.android_new_global_ref(@env, frame), label: "FrameLayout[async placeholder]"))
+          push_stack(native, frame, is_linear: false)
+          placeholder.accept(self)
+          pop_stack
+          push_native(native, frame)
+        else
+          iv = LibAndroidBridge.android_view_new(@env, "android/widget/ImageView", @context)
+          apply_common_properties(iv, view)
+          emit(iv, "ImageView[async]")
+        end
       end
 
       def visit(view : UI::RichText)

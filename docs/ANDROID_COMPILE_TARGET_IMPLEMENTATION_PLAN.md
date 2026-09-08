@@ -432,6 +432,18 @@ host declares it, the CLI's generator will when the camera capability is
 on, and the identify flow's live submit on the phone waits for the
 customer document and its API.
 
+The attribute parity phase opens with `AsyncImage`, the customer set's
+product photos, which Android read none of: the renderer now decodes
+`preloaded_data` (the bytes an application prefetched, at their own
+pixels within the catalog's limits) at the view's `content_mode`, and
+renders the `placeholder` in the image's frame when there are no bytes;
+the loader's own attributes (`url`, `is_loading`, `error_message`,
+`on_load`, `on_error`) stay unread because the renderer has no network
+loader. The `async-image-contract` fixture's device test checks the
+decoded pixels, the three scale types and the placeholder, and the
+generated matrix moves `AsyncImage` on Android to three of eight with the
+customer's cross for it empty.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.

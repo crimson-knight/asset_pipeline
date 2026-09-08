@@ -457,6 +457,25 @@ done:
     return success;
 }
 
+int32_t android_imageview_set_image_bytes(void *env_ptr, void *iv, uint8_t *data, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    if (!data || byte_len <= 0 || byte_len > 16777216 || ap_jni_PushLocalFrame(env, 4) != JNI_OK) return 0;
+    int32_t success = 0;
+    jclass cls = ap_jni_FindClass(env, "dev/assetpipeline/androidhost/ImageAssets");
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = ap_jni_GetStaticMethodID(env, cls, "setBytes", "(Landroid/widget/ImageView;[B)Z");
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    jbyteArray bytes = ap_jni_NewByteArray(env, byte_len);
+    if (!bytes || (*env)->ExceptionCheck(env)) goto done;
+    ap_jni_SetByteArrayRegion(env, bytes, 0, byte_len, (const jbyte *)data);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    success = ap_jni_CallStaticBooleanMethod(env, cls, method, (jobject)iv, bytes) == JNI_TRUE;
+done:
+    if ((*env)->ExceptionCheck(env)) success = 0;
+    (*env)->PopLocalFrame(env, NULL);
+    return success;
+}
+
 int32_t android_imageview_set_tint(void *env_ptr, void *iv, int32_t argb) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     int32_t success = 0;

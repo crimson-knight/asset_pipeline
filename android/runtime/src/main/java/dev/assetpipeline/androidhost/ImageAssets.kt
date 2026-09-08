@@ -79,6 +79,24 @@ object ImageAssets {
         }
     }
 
+    /** An encoded image from memory, a photo the application fetched itself,
+     * at its own pixels (one per pixel) within the catalog's decode limits. */
+    @JvmStatic fun setBytes(view: ImageView, bytes: ByteArray): Boolean {
+        check(Looper.myLooper() == Looper.getMainLooper()) { "Image binding requires the main looper" }
+        return try {
+            require(bytes.size in 1..16_777_216)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true; inScaled = false }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            require(bounds.outWidth in 1..4096 && bounds.outHeight in 1..4096 && bounds.outWidth.toLong() * bounds.outHeight <= MAX_PIXELS)
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inScaled = false }) ?: return false
+            bitmap.density = view.resources.displayMetrics.densityDpi
+            view.setImageBitmap(bitmap)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun readCatalog(resources: Resources, packageName: String): Map<String, Int> {
         val resource = resources.getIdentifier("ap_image_catalog", "xml", packageName)
         if (resource == 0) return emptyMap()

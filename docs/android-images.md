@@ -95,3 +95,19 @@ drawable during its mandatory application test. This remains development support
 WebP-specific decoding, malformed/animated bitmap policy, full accessibility,
 physical-device/runtime-matrix tests, fonts and general media packaging still
 need their respective proof before a complete Tier A asset surface is claimed.
+
+## AsyncImage
+
+The Android renderer has no network loader. An application that shows
+photos it fetched itself (the AgentC shell prefetches a customer document's
+product photos and hands the bytes over) sets `UI::AsyncImage#preloaded_data`,
+and the renderer decodes those bytes into the `ImageView` at the view's
+`content_mode` (Fit, Fill, Stretch as `FIT_CENTER`, `CENTER_CROP`, `FIT_XY`)
+with the catalog's decode limits (4096 px an edge, one megapixel); the
+photo keeps its own pixels, one per pixel. An `AsyncImage` with no bytes
+and a `placeholder` renders as a container of that placeholder view at the
+image's frame, so a card shows "Loading" where the photo will be instead
+of an empty box. `url`, `is_loading`, `error_message`, `on_load` and
+`on_error` are the loader's attributes and are not read on Android. The
+`async-image-contract` fixture and `AndroidAsyncImageContractTest` pin
+this.

@@ -22,7 +22,7 @@ neither phone: ActivityRing, Complication, ComplicationWithWebFallback, Gauge, P
 | `ActivityView` | 9/16 | 10/16 | 8/16 | 4/16 | — |  | on_cancel |
 | `Alert` | 5/5 | 4/5 | 5/5 | 2/5 | — | material_semantic |  |
 | `AndroidSwipeActionRow` | 3/3 | 3/3 | 3/3 | 3/3 | — |  |  |
-| `AsyncImage` | 2/8 | 0/8 | 0/8 | 3/8 | — | content_mode, preloaded_data |  |
+| `AsyncImage` | 2/8 | 3/8 | 0/8 | 3/8 | — |  | placeholder |
 | `Button` | 11/13 | 7/13 | 11/13 | 11/13 | 11/13 | background, foreground_color, number_of_lines, symbol |  |
 | `Canvas` | 3/3 | 1/3 | 3/3 | 3/3 | — | height, width |  |
 | `Capsule` | 4/5 | 5/5 | 4/5 | 5/5 | — |  | width |
