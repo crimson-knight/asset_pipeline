@@ -273,6 +273,8 @@ instrumentation tests before the fixes above landed.
 | 24 | hugging-stack measure pass and `root_fill` on Android, `layout-hugging` fixture (65 tests) | **pass** | **pass** | **pass** |
 | 25 | host tick (`on_tick`, `TickPolicy`, `tick-contract` fixture; 67 tests) | **pass** | 66/67, then **pass** on rerun: the list-rows tap was delivered one row above its target (see below) | **pass** |
 | 26 | docs-only push after run 25 (same code) | **pass** | 66/67: the same list-rows tap; the echo label did not show the row within the wait (see below) | **pass** |
+| 27 | host viewport (`on_viewport`, `ViewportPolicy`, `viewport-contract` fixture; 69 tests) | canceled by the push of run 28 before any job finished | canceled | canceled |
+| 28 | viewport plus the structure test's settle wait (same 69 tests) | **pass** | **pass** | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -445,4 +447,5 @@ waits, before each row tap, until the row has been drawn, no layout is
 pending and its screen position has held across several polls; the suite
 passed scoped on the local API 35 emulator with the guard. The runtime is
 unchanged. Run 27 (34214628703) started on the viewport push before the
-guard; the push carrying the guard supersedes it.
+guard and was canceled by the push carrying it; run 28 (34215067565) passed
+all three API levels, 69 tests each, with the guard in place.
