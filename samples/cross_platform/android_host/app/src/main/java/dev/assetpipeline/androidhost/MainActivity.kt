@@ -76,6 +76,9 @@ open class MainActivity : AppCompatActivity() {
         addChip("Appearance $appearance")
         addChip("Status ${study.status}")
 
+        // The sample's baked host settings, the way a generated application
+        // registers its host_settings resource before Crystal starts.
+        HostSettings.registerSerialized("# sample host settings\nSAMPLE_DISPLAY_NAME = Native Host\nSAMPLE_DEMO_ID=SAMPLE01\n")
         CrystalBridge.initialize(context = applicationContext)
         CrystalBridge.attachHost(this)
         navigation = NativeNavigation(this)

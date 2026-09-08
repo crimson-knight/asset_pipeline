@@ -459,6 +459,20 @@ tint, text color, stroke, line cap and gravity, and the matrix moves
 unread because Android has no SF Symbol catalog (an `IconButton` carries
 a drawable). Contract: `docs/android-buttons.md`.
 
+The customer identity comes next, and it starts in the runtime. An iOS
+archive bakes the demo id, the display name, the theme, the palette and
+the API base into Info.plist and the Swift host reads them into Crystal
+setters; Android had no such channel. `HostSettings` (Kotlin) holds the
+key-value settings a host application registers before the first render,
+parsed from `KEY=value` lines with a JVM suite over the rules, and
+`UI::Android::Application.setting` reads one through a host pull; the
+CLI's generated project carries an empty `host_settings.xml` string
+resource that its activity registers before Crystal starts, so a release
+step writes the customer's values into the APK the way the iOS archive
+writes Info.plist. The `settings-contract` fixture prints two registered
+values and an absent key; its device test reads them back. Contract:
+`docs/android-settings.md`.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.

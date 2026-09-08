@@ -81,7 +81,7 @@ Crystal failure driver before separate Java and Sheet failure processes.
 - The mandatory native class list tests real controls, callbacks, navigation,
   layout, editor/view state, semantics/focus, dialogs/sheets, the host tick, the
   host viewport, bundled assets, fonts, private directories, the photo
-  picker, async images, button reads, and platform storage, secrets and files. It verifies completed nonempty instrumentation plus clean
+  picker, async images, button reads, host settings, and platform storage, secrets and files. It verifies completed nonempty instrumentation plus clean
   app-scoped diagnostics, not just ADB's process exit code.
 - Separate processes exercise intentional Crystal callback/render failures,
   Java partial-render failures, original Throwable preservation, Sheet window
@@ -277,6 +277,8 @@ instrumentation tests before the fixes above landed.
 | 28 | viewport plus the structure test's settle wait (same 69 tests) | **pass** | **pass** | **pass** |
 | 29 | bundled assets and fonts (`BundledAssets`, `FontAssets`, `assets-contract` fixture; 70 tests) | **pass** | 69/70: the list-rows tap a third time, with the settle wait in place and no compositor stall (see below) | **pass** |
 | 30 | private directories (`AppDirectories`, `directories-contract` fixture) and the presented-render guard on the list-rows taps (71 tests) | **pass** | 70/71: the disclosure header's tap, the same scroll-then-tap shape, missed once (see below) | **pass** |
+| 31 | the settled-tap guard at every scroll-then-tap in the structure suite (73 tests) | **pass** | **pass** | cancelled by the next push while running |
+| 32 | photo picker (`PhotoPicker`, `photo-contract` fixture; 73 tests) | **pass** | **pass** | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation

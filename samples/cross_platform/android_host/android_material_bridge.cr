@@ -27,6 +27,7 @@ require "./android_directories_fixture"
 require "./android_photo_fixture"
 require "./android_async_image_fixture"
 require "./android_button_fixture"
+require "./android_settings_fixture"
 
 module AndroidMaterialHost
   module Bridge
@@ -258,6 +259,7 @@ module AndroidMaterialHost
       when "directories-contract" then AndroidDirectoriesFixture.build(UI::Android::Application.files_dir, UI::Android::Application.cache_dir)
       when "async-image-contract" then AndroidAsyncImageFixture.build(bundle_mark_bytes)
       when "button-contract"      then AndroidButtonFixture.build
+      when "settings-contract"    then AndroidSettingsFixture.build(UI::Android::Application.setting("SAMPLE_DISPLAY_NAME"), UI::Android::Application.setting("SAMPLE_DEMO_ID"), UI::Android::Application.setting("SAMPLE_NOT_SET"))
       when "photo-contract"       then AndroidPhotoFixture.build(photo_snapshot, -> { photo_begin(UI::Android::Photos::Source::Library) }, -> { photo_begin(UI::Android::Photos::Source::Camera) }, -> { photo_reset })
       when "image-smoke"          then AndroidImageFixture.build
       when "text/雪😀\0end"         then AndroidTextFixture.build

@@ -15,6 +15,7 @@ lib LibAndroidApplicationLog
   fun android_host_request_render : Int32
   fun android_host_bundled_assets_dir(buffer : UInt8*, capacity : Int32) : Int32
   fun android_host_app_directory(kind : Int32, buffer : UInt8*, capacity : Int32) : Int32
+  fun android_host_setting(key : UInt8*, key_size : Int32, buffer : UInt8*, capacity : Int32) : Int32
 end
 
 module UI::Android::Application
@@ -139,6 +140,21 @@ module UI::Android::Application
     length = LibAndroidApplicationLog.android_host_app_directory(kind, buffer.to_unsafe, buffer.size)
     raise "Android private directory unavailable" if length <= 0
     String.new(buffer[0, length])
+  end
+
+  # A setting the host application baked into its build and registered with
+  # the runtime before the first render (`HostSettings`), or nil when the
+  # build carries none under that key: the Android side of the keys an iOS
+  # host reads from Info.plist. Keys are 1..64 bytes of `[A-Za-z0-9_.]`,
+  # values up to 4096 UTF-8 bytes. Contract: `docs/android-settings.md`.
+  def self.setting(key : String) : String?
+    unless (1..64).includes?(key.bytesize) && key.each_char.all? { |c| c.ascii_alphanumeric? || c == '_' || c == '.' }
+      raise ArgumentError.new("Android host setting keys are 1..64 characters of letters, digits, _ and .")
+    end
+    buffer = Bytes.new(4096)
+    length = LibAndroidApplicationLog.android_host_setting(key.to_unsafe, key.bytesize, buffer.to_unsafe, buffer.size)
+    raise "Android host setting unavailable" if length < 0
+    length == 0 ? nil : String.new(buffer[0, length])
   end
 
   # Request a deferred host refresh after an asynchronous state change. Ordinary

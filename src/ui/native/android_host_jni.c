@@ -243,6 +243,36 @@ done:
     return length;
 }
 
+/* A host setting the application registered before the first render
+ * (HostSettings): the value's UTF-8 bytes into the buffer, its length
+ * returned; 0 when no value is registered under the key; -1 when the host
+ * is unavailable, the key is out of contract or the value does not fit. */
+int android_host_setting(const unsigned char *key, int key_size, unsigned char *buffer, int capacity) {
+    JNIEnv *env = ap_host_env();
+    if (!env || !key || key_size <= 0 || key_size > 64 || !buffer || capacity <= 0 || (*env)->PushLocalFrame(env, 4) != JNI_OK) return -1;
+    int length = -1;
+    jclass cls = (*env)->FindClass(env, "dev/assetpipeline/androidhost/HostSettings");
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = (*env)->GetStaticMethodID(env, cls, "valueBytes", "([B)[B");
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    jbyteArray key_bytes = (*env)->NewByteArray(env, key_size);
+    if (!key_bytes || (*env)->ExceptionCheck(env)) goto done;
+    (*env)->SetByteArrayRegion(env, key_bytes, 0, key_size, (const jbyte *)key);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    jbyteArray bytes = (jbyteArray)(*env)->CallStaticObjectMethod(env, cls, method, key_bytes);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    if (!bytes) { length = 0; goto done; }
+    jsize size = (*env)->GetArrayLength(env, bytes);
+    if (size > capacity) goto done;
+    (*env)->GetByteArrayRegion(env, bytes, 0, size, (jbyte *)buffer);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    length = (int)size;
+done:
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); length = -1; }
+    (*env)->PopLocalFrame(env, NULL);
+    return length;
+}
+
 /* Photo picker pulls: PhotoPicker's static methods, on the main looper. */
 static jclass ap_photo_class(JNIEnv *env) { return (*env)->FindClass(env, "dev/assetpipeline/androidhost/PhotoPicker"); }
 
