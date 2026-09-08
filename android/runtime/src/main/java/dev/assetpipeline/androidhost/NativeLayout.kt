@@ -93,6 +93,9 @@ object NativeLayout {
         }
     }
 
+    /** Whether a prepared view asked to fill its parent vertically (a `fill_screen!` root, a flexible scroll view). */
+    @JvmStatic fun fillsVertically(view: View): Boolean = (view.layoutParams as? PreparedParams)?.bounds?.fillVertical == true
+
     /** Null means no new wrapper, not an error. Widget identity stays intact. */
     @JvmStatic fun wrapPrepared(view: View): View? {
         main()

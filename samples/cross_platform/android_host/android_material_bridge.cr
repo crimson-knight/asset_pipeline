@@ -253,11 +253,12 @@ module AndroidMaterialHost
       when "tabs-contract"        then AndroidTabsFixture.build
       when "layout-interaction"   then AndroidLayoutContractFixture.interaction
       when "layout-hugging"       then AndroidLayoutContractFixture.hugging
+      when "layout-fill-screen"   then AndroidLayoutContractFixture.fill_screen
       when "tick-contract"        then AndroidTickFixture.build
       when "viewport-contract"    then AndroidViewportFixture.build(UI::Android::Application.viewport)
       when "assets-contract"      then AndroidAssetsFixture.build(UI::Android::Application.bundled_assets_dir, register_bundle_fonts)
       when "directories-contract" then AndroidDirectoriesFixture.build(UI::Android::Application.files_dir, UI::Android::Application.cache_dir)
-      when "async-image-contract" then AndroidAsyncImageFixture.build(bundle_mark_bytes)
+      when "async-image-contract" then AndroidAsyncImageFixture.build(bundle_mark_bytes, bundle_photo_bytes)
       when "button-contract"      then AndroidButtonFixture.build
       when "settings-contract"    then AndroidSettingsFixture.build(UI::Android::Application.setting("SAMPLE_DISPLAY_NAME"), UI::Android::Application.setting("SAMPLE_DEMO_ID"), UI::Android::Application.setting("SAMPLE_NOT_SET"))
       when "photo-contract"       then AndroidPhotoFixture.build(photo_snapshot, -> { photo_begin(UI::Android::Photos::Source::Library) }, -> { photo_begin(UI::Android::Photos::Source::Camera) }, -> { photo_reset })
@@ -804,6 +805,19 @@ module AndroidMaterialHost
 
     # The async image contract's bytes: the bundle's mark, read the way an
     # application reads a photo it prefetched.
+    def self.bundle_photo_bytes : Bytes?
+      bundle_file_bytes("art/photo-1200x900.jpg")
+    end
+
+    private def self.bundle_file_bytes(name : String) : Bytes?
+      dir = UI::Android::Application.bundled_assets_dir
+      return nil unless dir
+      path = File.join(dir, name)
+      File.file?(path) ? File.read(path).to_slice : nil
+    rescue
+      nil
+    end
+
     def self.bundle_mark_bytes : Bytes?
       dir = UI::Android::Application.bundled_assets_dir
       return nil unless dir

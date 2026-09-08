@@ -40,7 +40,7 @@ neither phone: ActivityRing, Complication, ComplicationWithWebFallback, Gauge, P
 | `ContextMenuWithWebFallback` | 0/2 | 1/2 | 0/2 | 2/2 | — |  | items |
 | `DatePicker` | 5/7 | 4/7 | 5/7 | 2/7 | — | label, mode, style | maximum_date, minimum_date |
 | `DisclosureGroup` | 4/5 | 5/5 | 4/5 | 4/5 | — |  | on_toggle |
-| `Divider` | 3/3 | 1/3 | 3/3 | 3/3 | 3/3 | orientation, thickness |  |
+| `Divider` | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 |  |  |
 | `Form` | 1/5 | 1/5 | 1/5 | 5/5 | — |  |  |
 | `FullScreenCover` | 2/3 | 2/3 | 2/3 | 2/3 | — |  |  |
 | `Gauge` | — | — | — | — | — |  |  |

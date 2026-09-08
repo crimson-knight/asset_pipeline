@@ -192,6 +192,40 @@ module AndroidLayoutContractFixture
     scroll
   end
 
+  # The demo shell's whole screen: a root that fills the screen holding a
+  # header row, a page that scrolls in the flexible middle and a tab bar
+  # pinned under it. UIKit stretches the scroll view to the leftover height
+  # because it has no intrinsic size; a LinearLayout gives the leftover only
+  # to a weighted child, and only when its own height is exact, which a host
+  # container that measures its content without a bound never gives, so the
+  # page took its content height and pushed the bar off the bottom of every
+  # screen (the QuiltPerfect document on the Galaxy, 2026-09-08).
+  def self.fill_screen : UI::View
+    root = UI::VStack.new(0.0, UI::Alignment::Leading)
+    root.test_id = "fill-root"
+    root.fill_screen!
+    header = label("fill-header")
+    header.fill_horizontal = true
+    root << header
+    content = UI::VStack.new(4.0, UI::Alignment::Leading)
+    content.fill_horizontal = true
+    40.times { |i| content << label("Page line #{i + 1}") }
+    page = UI::ScrollView.new(content)
+    page.scroll_vertical = true
+    page.fill_horizontal = true
+    page.fill_vertical = true
+    page.test_id = "fill-page"
+    root << page
+    bar = UI::HStack.new(0.0, UI::Alignment::Center)
+    bar.test_id = "fill-bar"
+    bar.fill_horizontal = true
+    bar.fill_equally = true
+    bar.minimum_height = 56.0
+    %w[Home Identify Fits].each { |name| bar << label(name) }
+    root << bar
+    root
+  end
+
   def self.interaction : UI::View
     content = UI::VStack.new(0.0, UI::Alignment::Leading)
     pin(content, "scroll-grid", 600.0, 400.0)

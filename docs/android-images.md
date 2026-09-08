@@ -111,3 +111,13 @@ of an empty box. `url`, `is_loading`, `error_message`, `on_load` and
 `on_error` are the loader's attributes and are not read on Android. The
 `async-image-contract` fixture and `AndroidAsyncImageContractTest` pin
 this.
+
+A preloaded photo larger than the catalog's one-megapixel bitmap budget
+(a 1200 by 900 product photo already is) decodes at the power-of-two sample
+size that fits the budget and the 4096 px edge (`ImageDecodePolicy`, with a
+JVM test); only a declared size beyond 16,384 px on an edge, or bytes the
+decoder cannot read, are refused. A refused photo is logged under `APImages`
+and the view falls back to its `placeholder` (or an empty ImageView), the
+way a nil UIImage does on iOS; it never raises. The `async-image-contract`
+fixture covers both: the bundle's `art/photo-1200x900.jpg` decodes at 600 by
+450, and 300 bytes of noise show "Photo unavailable".

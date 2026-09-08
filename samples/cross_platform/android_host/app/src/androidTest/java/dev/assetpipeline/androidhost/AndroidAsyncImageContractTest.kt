@@ -50,6 +50,18 @@ class AndroidAsyncImageContractTest {
                 val placeholder = requireNotNull(NativeTestIds.find(decor, "async-placeholder")) { "the placeholder was not rendered" } as TextView
                 assertEquals("Loading photo", placeholder.text.toString())
                 assertTrue("The placeholder is on screen", placeholder.isShown)
+                // A 1200 by 900 product photo is over the one-megapixel bitmap budget: it decodes at half size, never refused.
+                val photoBytes = (requireNotNull(NativeTestIds.find(decor, "async-photo-bytes")) as TextView).text.toString().substringAfterLast(' ').toInt()
+                assertTrue("The bundle's photo was handed over as bytes: $photoBytes", photoBytes > 1000)
+                val photo = requireNotNull(NativeTestIds.find(decor, "async-photo")) { "missing async-photo" } as ImageView
+                val photoDrawable = requireNotNull(photo.drawable) { "the large photo did not decode" }
+                assertEquals("the photo decoded downsampled by two", 600, photoDrawable.intrinsicWidth)
+                assertEquals("the photo decoded downsampled by two", 450, photoDrawable.intrinsicHeight)
+                assertEquals(ImageView.ScaleType.CENTER_CROP, photo.scaleType)
+                // Bytes that are not an image leave the view on its placeholder; the screen rendered.
+                val broken = requireNotNull(NativeTestIds.find(decor, "async-broken")) { "missing async-broken" }
+                assertTrue("Undecodable bytes leave the container of the placeholder", broken is ViewGroup && broken !is ImageView)
+                assertEquals("Photo unavailable", (requireNotNull(NativeTestIds.find(decor, "async-broken-placeholder")) as TextView).text.toString())
             }
         } finally { scenario.close() }
     }

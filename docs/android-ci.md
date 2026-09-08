@@ -279,6 +279,7 @@ instrumentation tests before the fixes above landed.
 | 30 | private directories (`AppDirectories`, `directories-contract` fixture) and the presented-render guard on the list-rows taps (71 tests) | **pass** | 70/71: the disclosure header's tap, the same scroll-then-tap shape, missed once (see below) | **pass** |
 | 31 | the settled-tap guard at every scroll-then-tap in the structure suite (73 tests) | **pass** | **pass** | cancelled by the next push while running |
 | 32 | photo picker (`PhotoPicker`, `photo-contract` fixture; 73 tests) | **pass** | **pass** | **pass** |
+| 33 | AsyncImage reads, Button reads with the ellipsis cap, host settings (`HostSettings`, `settings-contract` fixture; 76 tests) | **pass** | **pass** | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation

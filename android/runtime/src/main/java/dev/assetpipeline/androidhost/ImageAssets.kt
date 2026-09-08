@@ -2,6 +2,7 @@ package dev.assetpipeline.androidhost
 
 import android.content.res.Resources
 import android.graphics.BitmapFactory
+import android.util.Log
 import android.os.Looper
 import android.util.TypedValue
 import android.widget.ImageView
@@ -18,6 +19,7 @@ import org.xmlpull.v1.XmlPullParser
 object ImageAssets {
     private val catalogs = WeakHashMap<Resources, Map<String, Int>>()
     private const val MAX_PIXELS = 1_048_576L
+    private const val TAG = "APImages"
     @JvmStatic fun setSource(view: ImageView, bytes: ByteArray): Boolean {
         check(Looper.myLooper() == Looper.getMainLooper()) { "Image binding requires the main looper" }
         return try {
@@ -84,15 +86,20 @@ object ImageAssets {
     @JvmStatic fun setBytes(view: ImageView, bytes: ByteArray): Boolean {
         check(Looper.myLooper() == Looper.getMainLooper()) { "Image binding requires the main looper" }
         return try {
-            require(bytes.size in 1..16_777_216)
+            require(bytes.size in 1..16_777_216) { "${bytes.size} bytes" }
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true; inScaled = false }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            require(bounds.outWidth in 1..4096 && bounds.outHeight in 1..4096 && bounds.outWidth.toLong() * bounds.outHeight <= MAX_PIXELS)
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inScaled = false }) ?: return false
+            // A photo larger than the bitmap budget decodes downsampled
+            // (ImageDecodePolicy); the catalog's resource images keep their own rule.
+            require(ImageDecodePolicy.accepts(bounds.outWidth, bounds.outHeight)) { "${bounds.outWidth} x ${bounds.outHeight}" }
+            val sample = ImageDecodePolicy.sampleSize(bounds.outWidth, bounds.outHeight)
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inScaled = false; inSampleSize = sample })
+                ?: run { Log.w(TAG, "preloaded image bytes did not decode"); return false }
             bitmap.density = view.resources.displayMetrics.densityDpi
             view.setImageBitmap(bitmap)
             true
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            Log.w(TAG, "preloaded image bytes rejected: ${error.message}")
             false
         }
     }

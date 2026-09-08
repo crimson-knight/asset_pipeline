@@ -7,7 +7,7 @@
 # one with no bytes and a placeholder label; a device test checks the
 # drawables' pixel sizes, the scale types and the placeholder.
 module AndroidAsyncImageFixture
-  def self.build(bytes : Bytes?) : UI::View
+  def self.build(bytes : Bytes?, photo : Bytes? = nil) : UI::View
     root = UI::VStack.new(8.0, UI::Alignment::Leading)
     root.test_id = "async-page"
     root.padding = UI::EdgeInsets.new(top: 12.0, trailing: 18.0, bottom: 12.0, leading: 18.0)
@@ -27,6 +27,16 @@ module AndroidAsyncImageFixture
     waiting.minimum_width = waiting.maximum_width = 96.0
     waiting.minimum_height = waiting.maximum_height = 64.0
     root << waiting
+    # A product photo larger than the bitmap budget (1200 by 900): decodes
+    # downsampled, never refused.
+    root << label("async-photo-bytes", "Photo #{photo.try(&.size) || 0}")
+    root << image("async-photo", photo, UI::ContentMode::Fill)
+    # Bytes that are not an image at all: the placeholder shows, the screen stands.
+    broken = image("async-broken", Bytes.new(300) { |i| (i * 7 % 251).to_u8 }, UI::ContentMode::Fit)
+    unavailable = UI::Label.new("Photo unavailable")
+    unavailable.test_id = "async-broken-placeholder"
+    broken.placeholder = unavailable
+    root << broken
     root
   end
 

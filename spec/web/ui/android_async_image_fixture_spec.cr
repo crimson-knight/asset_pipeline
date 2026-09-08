@@ -30,6 +30,17 @@ describe AndroidAsyncImageFixture do
     waiting.placeholder.as(UI::Label).text.should eq("Loading photo")
   end
 
+  it "carries a large photo and an undecodable image with its own placeholder" do
+    photo = Bytes.new(15_000) { |i| (i % 253).to_u8 }
+    views = views_by_id(AndroidAsyncImageFixture.build(nil, photo))
+    views["async-photo-bytes"].as(UI::Label).text.should eq("Photo 15000")
+    views["async-photo"].as(UI::AsyncImage).preloaded_data.should eq(photo)
+    views["async-photo"].as(UI::AsyncImage).content_mode.should eq(UI::ContentMode::Fill)
+    broken = views["async-broken"].as(UI::AsyncImage)
+    broken.preloaded_data.not_nil!.size.should eq(300)
+    broken.placeholder.as(UI::Label).text.should eq("Photo unavailable")
+  end
+
   it "shows zero bytes when nothing was prefetched" do
     views_by_id(AndroidAsyncImageFixture.build(nil))["async-bytes"].as(UI::Label).text.should eq("Bytes 0")
   end

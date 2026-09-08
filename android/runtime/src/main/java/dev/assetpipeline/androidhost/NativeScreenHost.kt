@@ -59,6 +59,11 @@ class NativeScreenHost(private val activity: Activity, private val mount: ViewGr
     }
     /** The last report handed to Crystal, for tests. */
     val lastViewport: ViewportPolicy.Report? get() = reportedViewport
+    // Whether the mounted root fills the screen (MountPolicy): read from its
+    // prepared bounds before the mount's own params replace them.
+    private var rootFillsVertically = false
+    /** Whether the current tree's root fills the screen, for tests. */
+    val rootFills: Boolean get() = rootFillsVertically
 
     init {
         mount.isFocusableInTouchMode = true
@@ -130,7 +135,9 @@ class NativeScreenHost(private val activity: Activity, private val mount: ViewGr
         // in favor of our bounded, metadata-only restoration contract.
         root.isSaveFromParentEnabled = false
         root.isSaveEnabled = false
-        mount.addView(root, FrameLayout.LayoutParams(-1, -2))
+        rootFillsVertically = NativeLayout.fillsVertically(root)
+        mount.addView(root, FrameLayout.LayoutParams(-1, if (rootFillsVertically) -1 else -2))
+        fitMount()
         run {
             val listener = object : ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
@@ -197,8 +204,23 @@ class NativeScreenHost(private val activity: Activity, private val mount: ViewGr
     private fun reportViewport(report: ViewportPolicy.Report) {
         if (CrystalBridge.reportViewport(report)) reportedViewport = report
     }
+    /** The mounted root's height (MountPolicy): a filling root gets the
+     * container's bar-free height as an explicit pixel height, the one spec
+     * a scrolling container's unbounded measure keeps exact, so its flexible
+     * rows lay out and the container has nothing to scroll; any other root
+     * wraps. Re-fitted after every layout pass, since the container's height
+     * settles with the bars and the keyboard. */
+    private fun fitMount() {
+        val root = if (mount.childCount > 0) mount.getChildAt(0) else return
+        val container = viewport
+        val inner = if (container == null) 0 else container.height - container.paddingTop - container.paddingBottom
+        val target = MountPolicy.rootHeight(rootFillsVertically, container != null, inner)
+        val params = root.layoutParams ?: return
+        if (params.height != target) { params.height = target; root.layoutParams = params }
+    }
     private fun reportViewportIfChanged() {
         if (closed) return
+        fitMount()
         // Transient geometry inside a layout pass is not a host defect; the
         // next render measures again and fails loudly if it is still wrong.
         val report = try { measuredViewport() } catch (_: IllegalArgumentException) { null } ?: return

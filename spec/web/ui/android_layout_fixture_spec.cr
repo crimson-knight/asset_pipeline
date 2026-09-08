@@ -75,5 +75,22 @@ describe AndroidLayoutContractFixture do
     views.select(UI::VStack).find { |view| view.test_id == "hug-root" }.not_nil!.root_fill.should be_true
     views.select(UI::Label).find { |view| view.test_id == "hug-heading" }.not_nil!.fill_horizontal.should be_true
   end
+  it "provides a screen-filling root with a header, a vertically filling page and a pinned bar" do
+    views = layout_fixture_views(AndroidLayoutContractFixture.fill_screen)
+    ids = views.compact_map(&.test_id)
+    %w[fill-root fill-header fill-page fill-bar].each { |id| ids.should contain(id) }
+    ids.size.should eq(ids.uniq.size)
+    root = views.select(UI::VStack).find { |view| view.test_id == "fill-root" }.not_nil!
+    root.root_fill.should be_true
+    root.children.map(&.test_id).should eq(["fill-header", "fill-page", "fill-bar"])
+    page = views.select(UI::ScrollView).find { |view| view.test_id == "fill-page" }.not_nil!
+    page.fill_vertical.should be_true
+    page.scroll_vertical.should be_true
+    page.content.not_nil!.as(UI::VStack).children.size.should eq(40)
+    bar = views.select(UI::HStack).find { |view| view.test_id == "fill-bar" }.not_nil!
+    bar.fill_equally.should be_true
+    bar.minimum_height.should eq(56.0)
+    bar.children.map { |child| child.as(UI::Label).text }.should eq(["Home", "Identify", "Fits"])
+  end
 
 end

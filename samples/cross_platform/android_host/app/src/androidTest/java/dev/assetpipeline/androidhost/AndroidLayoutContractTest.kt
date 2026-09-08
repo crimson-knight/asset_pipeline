@@ -310,6 +310,31 @@ class AndroidLayoutContractTest {
             }
         } finally { scenario.close() }
     }
+    @Test fun aRootThatFillsTheScreenPinsItsBarUnderAScrollingPage() {
+        val scenario = launch("layout-fill-screen")
+        try {
+            onView(NativeTestIds.withTestId("fill-header")).perform(scrollTo())
+            scenario.onActivity { activity ->
+                val mount = activity.findViewById<View>(R.id.rendererMount)
+                val reported = requireNotNull(activity.debugViewport()) { "the host reported no viewport" }
+                val expected = (reported.heightDp * activity.resources.displayMetrics.density).roundToInt()
+                val root = find(mount, "fill-root")
+                val page = find(mount, "fill-page")
+                val bar = find(mount, "fill-bar")
+                val header = find(mount, "fill-header")
+                assertTrue("The host reported a height", expected > 0)
+                // The sample host keeps other rows above the mount inside its scrolling column, so
+                // the mount is the reported viewport (the container's bar-free height), not its parent.
+                assertTrue("The mount takes the reported viewport height: ${mount.height} vs $expected", kotlin.math.abs(mount.height - expected) <= 1)
+                assertEquals("The root fills the mount", mount.height, root.height)
+                assertEquals("The bar sits at the bottom of the root", root.height, bar.bottom)
+                assertTrue("The bar is on screen", bar.isShown && bar.height >= (56 * activity.resources.displayMetrics.density).toInt() - 1)
+                assertTrue("The page is the flexible middle: ${page.height} of ${root.height}", page.height > 0 && page.height == root.height - header.height - bar.height)
+                val content = (page as ViewGroup).getChildAt(0)
+                assertTrue("The page scrolls its taller content: ${content.height} in ${page.height}", content.height > page.height)
+            }
+        } finally { scenario.close() }
+    }
     /** Waits until the two-axis viewport reports the same scroll offsets for 150 ms (no fling in flight). */
     private fun awaitStill(scenario: ActivityScenario<MainActivity>) {
         val deadline = android.os.SystemClock.uptimeMillis() + 5000L

@@ -473,6 +473,28 @@ writes Info.plist. The `settings-contract` fixture prints two registered
 values and an absent key; its device test reads them back. Contract:
 `docs/android-settings.md`.
 
+The customer document then went on the Galaxy, served over `adb reverse`
+from a local stand-in with the repo's payload.v3 and its photos, and the
+first real screens named three things no fixture tree had. A shell whose
+root fills the screen around a scrolling page and a pinned tab bar got no
+height from the host's scrolling container, so the page took its content
+height and pushed the bar off screen: `NativeScreenHost` now reads the
+root's prepared fill and, after every layout pass, gives a filling root
+the container's bar-free height as an explicit pixel height
+(`MountPolicy`, the one measure spec a scrolling container keeps exact).
+The hairline above the bar, a `Divider`, had no height of its own and took
+every leftover pixel once the column was exact; it now pins its thickness.
+And a 1200 by 900 product photo was over `ImageAssets`' one-megapixel
+budget, so the AsyncImage visit raised and the Machines tab died; photos
+now decode downsampled (`ImageDecodePolicy`) and a refused photo falls
+back to the placeholder. A debuggable host logs the whole Crystal
+exception, which is what named that crash. With those, every tab of the
+QuiltPerfect document renders on the phone: home, identify, machines with
+both photos, and the fits and classes tabs in their offline state.
+Fixtures: `layout-fill-screen`, the async image contract's large and
+undecodable photos. Docs: `android-layout.md`, `android-images.md`,
+`android-jni-errors.md`.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.

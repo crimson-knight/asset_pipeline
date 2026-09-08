@@ -2350,6 +2350,21 @@
 
         apply_common_properties(v, view)
 
+        # A rule is its thickness across the axis it separates and spans the
+        # other, as the SwiftUI Divider does. A plain View measured as
+        # wrap-content takes whatever its parent offers: nothing in an
+        # unbounded column, so no rule ever drew here, and every leftover
+        # pixel in an exact one, where it starved the page beside a pinned
+        # tab bar (the QuiltPerfect shell on the Galaxy, 2026-09-08).
+        thickness = view.thickness > 0.0 ? view.thickness : 1.0
+        horizontal = view.orientation != :vertical
+        LibAndroidBridge.android_layout_prepare(@env, v,
+          layout_dimension(view.minimum_width || (horizontal ? nil : thickness)),
+          layout_dimension(view.minimum_height || (horizontal ? thickness : nil)),
+          layout_dimension(view.maximum_width || (horizontal ? nil : thickness)),
+          layout_dimension(view.maximum_height || (horizontal ? thickness : nil)),
+          (horizontal || view.fill_horizontal) ? 1 : 0, horizontal ? 0 : 1)
+
         emit(v, "View[divider]")
       end
 
@@ -2417,21 +2432,28 @@
       # an empty view; url, is_loading, error_message, on_load and on_error are
       # the loader's attributes and are not read.
       def visit(view : UI::AsyncImage)
+        # Preloaded bytes that decode are the photo; bytes that do not (the
+        # host logs why under APImages) leave the view where no bytes would,
+        # on its placeholder, the way a nil UIImage does on iOS. A photo never
+        # takes a screen down.
+        decoded = false
         if (data = view.preloaded_data) && !data.empty?
           iv = LibAndroidBridge.android_view_new(@env, "android/widget/ImageView", @context)
-          unless LibAndroidBridge.android_imageview_set_image_bytes(@env, iv, data.to_unsafe, data.size) == 1
-            raise ArgumentError.new("Android async image could not decode its preloaded bytes")
+          if LibAndroidBridge.android_imageview_set_image_bytes(@env, iv, data.to_unsafe, data.size) == 1
+            scale_type = case view.content_mode
+                         when ContentMode::Fit     then 0 # FIT_CENTER
+                         when ContentMode::Fill    then 1 # CENTER_CROP
+                         when ContentMode::Stretch then 2 # FIT_XY
+                         else                           0
+                         end
+            LibAndroidBridge.android_imageview_set_scale_type(@env, iv, scale_type)
+            apply_common_properties(iv, view)
+            emit(iv, "ImageView[async]")
+            decoded = true
           end
-          scale_type = case view.content_mode
-                       when ContentMode::Fit     then 0 # FIT_CENTER
-                       when ContentMode::Fill    then 1 # CENTER_CROP
-                       when ContentMode::Stretch then 2 # FIT_XY
-                       else                           0
-                       end
-          LibAndroidBridge.android_imageview_set_scale_type(@env, iv, scale_type)
-          apply_common_properties(iv, view)
-          emit(iv, "ImageView[async]")
-        elsif placeholder = view.placeholder
+        end
+        return if decoded
+        if placeholder = view.placeholder
           frame = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
           apply_common_properties(frame, view)
           native = owned_native(JNI.wrap_global(LibAndroidBridge.android_new_global_ref(@env, frame), label: "FrameLayout[async placeholder]"))

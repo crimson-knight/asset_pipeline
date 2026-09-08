@@ -8,3 +8,7 @@ fixture loads the mark by file path, registers the TTF under the family name
 
 `fonts/Inter_semibold.ttf` is Inter by Rasmus Andersson, under the SIL Open
 Font License 1.1 (https://github.com/rsms/inter); it is here as a fixture.
+
+`ap_bundle/art/photo-1200x900.jpg` is the mark stretched to a 1200 by 900 JPEG
+(ImageMagick), a stand-in for a product photo over the one-megapixel bitmap
+budget; the `async-image-contract` fixture hands its bytes over as a photo.

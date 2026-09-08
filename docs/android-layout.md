@@ -102,3 +102,30 @@ remain governed by the [implementation plan](ANDROID_COMPILE_TARGET_IMPLEMENTATI
 
 The rectangle a screen is laid out in, and the system-bar insets it must keep
 clear of, reach the application through the [host viewport](android-viewport.md).
+
+## A root that fills the screen
+
+A tree whose root has `fill_screen!` (`root_fill`) lays its own flexible rows
+out against the height it is given: the demo shell is a header row, a page
+that scrolls in the middle and a tab bar pinned under it. UIKit pins such a
+root to the screen and stretches the scroll view because it has no intrinsic
+size. A LinearLayout gives the leftover height only to a weighted child, and
+only when its own height is exact, which the host's scrolling container never
+gives (it measures its content without a bound), so the page took its content
+height and pushed the bar off the bottom of every screen. `NativeScreenHost`
+now reads the root's prepared fill before mounting it (`NativeLayout.fillsVertically`)
+and, after every layout pass, gives a filling root the container's bar-free
+height as an explicit pixel height (`MountPolicy.rootHeight`, with a JVM
+test): a scrolling container measures its child with no height bound whatever
+the child's params say, and an explicit pixel height on the child is the one
+spec that stays exact under it. Any other root keeps its content height and
+the container scrolls it. The page's
+`UI::ScrollView` must ask to fill vertically (`fill_vertical`), which the
+UIKit and web renderers ignore. Fixture `layout-fill-screen`; the layout
+contract test checks the mount, the root, the pinned bar and the scrolling page.
+
+A `UI::Divider` is its `thickness` across the axis it separates and spans the
+other (`orientation`), as the SwiftUI Divider does. A plain View measured as
+wrap-content takes whatever its parent offers, so before this the rule drew
+nothing in an unbounded column and, in an exact one, took every leftover pixel
+and starved the page beside a pinned tab bar.
