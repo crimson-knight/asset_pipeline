@@ -444,6 +444,21 @@ decoded pixels, the three scale types and the placeholder, and the
 generated matrix moves `AsyncImage` on Android to three of eight with the
 customer's cross for it empty.
 
+`Button` follows. The brand kit's call to action sets `background` and
+`foreground_color`, its secondary buttons a `border_width` and
+`border_color`, and content buttons a `number_of_lines`; the renderer now
+applies an explicit background or foreground over the style's Material
+role (the declared foreground default, the iOS system blue, means unset on
+both platforms), turns a border into the MaterialButton stroke, reads the
+line cap and truncates it with an ellipsis the way UILabel does (Android
+kept the whole layout and clipped it by height; `UI::Label` caps gained
+the same ellipsis), and reads `text_alignment`, which iOS ignores on
+buttons. The `button-contract` fixture's device test reads the
+tint, text color, stroke, line cap and gravity, and the matrix moves
+`Button` on Android from seven to eleven of thirteen; `symbol` stays
+unread because Android has no SF Symbol catalog (an `IconButton` carries
+a drawable). Contract: `docs/android-buttons.md`.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.

@@ -340,6 +340,31 @@ void android_textview_set_max_lines(void *env_ptr, void *tv, int32_t max) {
     (*env)->DeleteLocalRef(env, cls);
 }
 
+/* Truncate a capped label with a trailing ellipsis, the way UILabel and the
+ * SwiftUI facade truncate at numberOfLines; off restores wrapping without one. */
+void android_textview_set_ellipsize_end(void *env_ptr, void *tv, int32_t on) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = ap_jni_GetObjectClass(env, (jobject)tv);
+    jmethodID method = ap_get_method(env, cls, "setEllipsize", "(Landroid/text/TextUtils$TruncateAt;)V");
+    jobject value = NULL;
+    jclass truncate_cls = NULL;
+    if (on) {
+        truncate_cls = ap_jni_FindClass(env, "android/text/TextUtils$TruncateAt");
+        jfieldID field = truncate_cls ? ap_jni_GetStaticFieldID(env, truncate_cls, "END", "Landroid/text/TextUtils$TruncateAt;") : NULL;
+        value = field ? ap_jni_GetStaticObjectField(env, truncate_cls, field) : NULL;
+    }
+    if (method && (!on || value)) {
+        ap_jni_CallVoidMethod(env, (jobject)tv, method, value);
+    }
+    if (value) {
+        (*env)->DeleteLocalRef(env, value);
+    }
+    if (truncate_cls) {
+        (*env)->DeleteLocalRef(env, truncate_cls);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
 void android_textview_set_single_line(void *env_ptr, void *tv, int32_t single) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jclass cls = ap_jni_GetObjectClass(env, (jobject)tv);

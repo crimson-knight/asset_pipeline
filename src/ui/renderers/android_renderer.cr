@@ -69,6 +69,7 @@
       fun android_textview_set_gravity(env : Void*, tv : Void*, gravity : Int32)
       fun android_textview_set_max_lines(env : Void*, tv : Void*, max : Int32)
       fun android_textview_set_single_line(env : Void*, tv : Void*, single : Int32)
+      fun android_textview_set_ellipsize_end(env : Void*, tv : Void*, on : Int32)
       fun android_textview_set_typeface(env : Void*, tv : Void*, style : Int32)
       fun android_textview_set_typeface_family(env : Void*, tv : Void*, family : UInt8*, byte_len : Int32, style : Int32) : Int32
 
@@ -407,8 +408,12 @@
         LibAndroidBridge.android_textview_set_gravity(@env, tv, gravity_val)
 
         # setMaxLines (0 = unlimited in UI::Label, but Android uses Int.MAX_VALUE)
+        # A capped label truncates its tail with an ellipsis, as UILabel does
+        # at numberOfLines; Android otherwise keeps the whole layout and clips
+        # it by height.
         if view.number_of_lines > 0
           LibAndroidBridge.android_textview_set_max_lines(@env, tv, view.number_of_lines)
+          LibAndroidBridge.android_textview_set_ellipsize_end(@env, tv, 1)
         else
           LibAndroidBridge.android_textview_set_max_lines(@env, tv, Int32::MAX)
         end
@@ -477,6 +482,25 @@
           stroke_color = material_color(:outline_variant)
         end
 
+        # An explicit background or foreground color wins over the style's
+        # Material role, the way the SwiftUI facade applies them on iOS. The
+        # declared foreground default (the iOS system blue) means "unset" there
+        # and here, so a button that never set a color keeps its role colors.
+        if explicit_background = view.background
+          background_color = color_to_argb(explicit_background)
+        end
+        explicit_foreground = view.foreground_color
+        unless explicit_foreground.r == 0.0 && explicit_foreground.g == 0.478 && explicit_foreground.b == 1.0
+          foreground_color = color_to_argb(explicit_foreground)
+        end
+        # A border on a button is its MaterialButton stroke; the style's own
+        # hairline stays when the view declares none.
+        stroke_width_dp = 1
+        if view.border_width > 0.0
+          stroke_width_dp = view.border_width.round.to_i.clamp(1, 64)
+          stroke_color = color_to_argb(view.border_color || explicit_foreground)
+        end
+
         LibAndroidBridge.android_textview_set_text_color(@env, btn, foreground_color)
         LibAndroidBridge.android_material_button_set_background_tint(@env, btn, background_color)
 
@@ -485,7 +509,7 @@
 
         if stroke = stroke_color
           LibAndroidBridge.android_material_button_set_stroke_color(@env, btn, stroke)
-          LibAndroidBridge.android_material_button_set_stroke_width(@env, btn, 1)
+          LibAndroidBridge.android_material_button_set_stroke_width(@env, btn, stroke_width_dp)
         else
           LibAndroidBridge.android_material_button_set_stroke_width(@env, btn, 0)
         end
@@ -497,6 +521,30 @@
             LibAndroidBridge.android_view_set_padding(@env, btn, 24, 14, 24, 14)
           end
         end
+
+        # Label lines and alignment, as on UI::Label: 1 keeps the single-line
+        # call to action, 0 wraps without a cap, n caps the wrap. iOS ignores
+        # text_alignment on buttons; here the label sits where it says, and
+        # stays vertically centered in the button.
+        label_lines = view.number_of_lines
+        if label_lines == 1
+          LibAndroidBridge.android_textview_set_single_line(@env, btn, 1)
+          LibAndroidBridge.android_textview_set_ellipsize_end(@env, btn, 1)
+        elsif label_lines > 1
+          LibAndroidBridge.android_textview_set_single_line(@env, btn, 0)
+          LibAndroidBridge.android_textview_set_max_lines(@env, btn, label_lines)
+          LibAndroidBridge.android_textview_set_ellipsize_end(@env, btn, 1)
+        else
+          LibAndroidBridge.android_textview_set_single_line(@env, btn, 0)
+          LibAndroidBridge.android_textview_set_max_lines(@env, btn, Int32::MAX)
+          LibAndroidBridge.android_textview_set_ellipsize_end(@env, btn, 0)
+        end
+        label_gravity = case view.text_alignment
+                        when Alignment::Leading  then 8388627 # Gravity.START | Gravity.CENTER_VERTICAL
+                        when Alignment::Trailing then 8388629 # Gravity.END | Gravity.CENTER_VERTICAL
+                        else                          17      # Gravity.CENTER
+                        end
+        LibAndroidBridge.android_textview_set_gravity(@env, btn, label_gravity)
 
         LibAndroidBridge.android_view_set_enabled(@env, btn, view.disabled ? 0 : 1)
         if view.disabled

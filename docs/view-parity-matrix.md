@@ -23,7 +23,7 @@ neither phone: ActivityRing, Complication, ComplicationWithWebFallback, Gauge, P
 | `Alert` | 5/5 | 4/5 | 5/5 | 2/5 | — | material_semantic |  |
 | `AndroidSwipeActionRow` | 3/3 | 3/3 | 3/3 | 3/3 | — |  |  |
 | `AsyncImage` | 2/8 | 3/8 | 0/8 | 3/8 | — |  | placeholder |
-| `Button` | 11/13 | 7/13 | 11/13 | 11/13 | 11/13 | background, foreground_color, number_of_lines, symbol |  |
+| `Button` | 11/13 | 11/13 | 11/13 | 11/13 | 11/13 | symbol | text_alignment |
 | `Canvas` | 3/3 | 1/3 | 3/3 | 3/3 | — | height, width |  |
 | `Capsule` | 4/5 | 5/5 | 4/5 | 5/5 | — |  | width |
 | `Card` | 4/6 | 6/6 | 5/6 | 3/6 | 5/6 |  | elevation, is_outlined |
