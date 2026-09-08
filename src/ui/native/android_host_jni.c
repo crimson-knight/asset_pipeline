@@ -181,6 +181,22 @@ done:
     return success;
 }
 
+/* A debuggable host (the manifest's android:debuggable, set by a debug build)
+ * opts into full exception diagnostics; a release build keeps the type-only
+ * rule. Held in a plain global so it reads on any thread, attached or not. */
+static int ap_host_debuggable = 0;
+
+JNIEXPORT void JNICALL
+Java_dev_assetpipeline_androidhost_CrystalBridge_debuggableNative(JNIEnv *env, jclass clazz, jboolean on) {
+    (void)env;
+    (void)clazz;
+    ap_host_debuggable = on ? 1 : 0;
+}
+
+int android_host_debuggable(void) {
+    return ap_host_debuggable;
+}
+
 int android_host_request_render(void) {
     JNIEnv *env = ap_host_env();
     if (!env || (*env)->PushLocalFrame(env, 2) != JNI_OK) return 0;

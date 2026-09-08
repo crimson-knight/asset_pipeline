@@ -44,6 +44,7 @@ object CrystalBridge {
     private var tickCount = 0L
     private val tickRunnable = Runnable { runTick() }
 
+    @JvmStatic private external fun debuggableNative(on: Boolean)
     @JvmStatic private external fun tickIntervalNative(): Int
     @JvmStatic private external fun tickNative(): Boolean
 
@@ -162,6 +163,9 @@ object CrystalBridge {
         System.loadLibrary(libraryName)
         loadedLibrary = libraryName
         didLoad = true
+        // A debuggable build (android:debuggable) logs whole Crystal exceptions;
+        // a release build logs the type only (docs/android-jni-errors.md).
+        if (context != null) debuggableNative((context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
         if (context != null) CrystalServices.initialize(context)
     }
 

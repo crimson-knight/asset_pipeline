@@ -57,6 +57,18 @@ diagnostics retain their existing type-only policy. Toolchain, bootstrap and
 Android's own platform logs are separate diagnostic paths, not covered by a
 blanket privacy guarantee.
 
+### Debuggable builds log the whole exception
+
+The type-only rule above is the release contract. A debuggable host (the
+manifest's `android:debuggable`, which every debug build sets) opts into the
+full diagnostics: `CrystalBridge.initialize` passes the flag to the native
+side (`debuggableNative`, a plain global so it reads on any thread), and
+`UI::Android::Application.log_exception` then logs
+`inspect_with_backtrace` (capped at 8000 bytes) under the same
+`AssetPipelineNative` tag. Standard error goes nowhere on a phone, so this is
+how a developer sees why a screen failed: `adb logcat -d | grep -A40 "Crystal
+application error"`. A release build keeps the type only.
+
 ## Repeatable validation
 
 ```sh

@@ -13,6 +13,7 @@ require "./photos"
 lib LibAndroidApplicationLog
   fun android_host_log_crystal_error(message : UInt8*)
   fun android_host_request_render : Int32
+  fun android_host_debuggable : Int32
   fun android_host_bundled_assets_dir(buffer : UInt8*, capacity : Int32) : Int32
   fun android_host_app_directory(kind : Int32, buffer : UInt8*, capacity : Int32) : Int32
   fun android_host_setting(key : UInt8*, key_size : Int32, buffer : UInt8*, capacity : Int32) : Int32
@@ -202,11 +203,21 @@ module UI::Android::Application
     channel.receive
   end
 
+  DEBUG_DIAGNOSTICS_BYTES = 8000
+
   def self.log_exception(error : Exception) : Nil
     # Exceptions may contain user text, URLs, secrets or filesystem paths.
     # Runtime diagnostics report the type only; do not format an application
     # message/backtrace while already handling a native boundary failure.
-    message = error.class.to_s
+    # A debuggable host (a debug build) is the exception: there the whole
+    # message and backtrace are what a developer needs from a phone, where
+    # standard error goes nowhere.
+    message = if LibAndroidApplicationLog.android_host_debuggable == 1
+                text = error.inspect_with_backtrace
+                text.bytesize > DEBUG_DIAGNOSTICS_BYTES ? text.byte_slice(0, DEBUG_DIAGNOSTICS_BYTES) : text
+              else
+                error.class.to_s
+              end
     LibAndroidApplicationLog.android_host_log_crystal_error(message.to_unsafe)
   rescue
     LibAndroidApplicationLog.android_host_log_crystal_error("Exception diagnostics unavailable")
