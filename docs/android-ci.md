@@ -432,8 +432,16 @@ API 35 runs on the list-rows tap since the tick landed, after run 24 passed
 the identical sequence, so it is now a pattern to watch rather than noise.
 The bridge's checked callback only calls into Crystal and checks the result;
 it never notifies the refresh observer, so a tick schedules no refresh, and
-no tick-driven render appears in either run's log. The test that runs
-immediately before it is the sheet window matrix, which rotates the display
-to landscape and restores it; whether the display was still settling when
-the structure host laid out is the next thing to check if a third run shows
-the shape. The runtime is unchanged.
+no tick-driven render appears in either run's log. The log names the
+shape instead: the test scrolls the echo label into view, the test thread
+then logs a compositor sync timeout (the scrolled frame had not committed),
+the tap follows at once, and the refresh render fires on time. The host's
+first pre-draw pass scrolls the container to the top when no saved state
+matches the screen; on a runner whose first draw stalls for a second, that
+reset can land after the test has scrolled and computed its tap, which
+moves the rows down under it by about one row. The structure test now
+waits, before each row tap, until the row has been drawn, no layout is
+pending and its screen position has held across several polls; the suite
+passed scoped on the local API 35 emulator with the guard. The runtime is
+unchanged. Run 27 (34214628703) started on the viewport push before the
+guard; the push carrying the guard supersedes it.
