@@ -8,6 +8,7 @@ require "./services"
 require "./navigation_state"
 require "./viewport"
 require "./fonts"
+require "./photos"
 
 lib LibAndroidApplicationLog
   fun android_host_log_crystal_error(message : UInt8*)

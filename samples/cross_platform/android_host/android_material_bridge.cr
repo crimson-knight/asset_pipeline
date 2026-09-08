@@ -24,6 +24,7 @@ require "./android_tick_fixture"
 require "./android_viewport_fixture"
 require "./android_assets_fixture"
 require "./android_directories_fixture"
+require "./android_photo_fixture"
 
 module AndroidMaterialHost
   module Bridge
@@ -227,6 +228,7 @@ module AndroidMaterialHost
     def self.build_component(slug : String) : UI::View
       @@tick_fixture_mounted = slug == "tick-contract"
       @@viewport_fixture_mounted = slug == "viewport-contract"
+      @@photo_fixture_mounted = slug == "photo-contract"
       if builder = @@component_builders[slug]?
         return builder.call
       end
@@ -252,6 +254,7 @@ module AndroidMaterialHost
       when "viewport-contract"    then AndroidViewportFixture.build(UI::Android::Application.viewport)
       when "assets-contract"      then AndroidAssetsFixture.build(UI::Android::Application.bundled_assets_dir, register_bundle_fonts)
       when "directories-contract" then AndroidDirectoriesFixture.build(UI::Android::Application.files_dir, UI::Android::Application.cache_dir)
+      when "photo-contract"       then AndroidPhotoFixture.build(photo_snapshot, -> { photo_begin(UI::Android::Photos::Source::Library) }, -> { photo_begin(UI::Android::Photos::Source::Camera) }, -> { photo_reset })
       when "image-smoke"          then AndroidImageFixture.build
       when "text/雪😀\0end"         then AndroidTextFixture.build
       when "navigation"           then AndroidNavigationFixture.build
@@ -737,6 +740,7 @@ module AndroidMaterialHost
     def self.tick : Nil
       AndroidTickFixture.tick!
       UI::Android::Application.invalidate if @@tick_fixture_mounted
+      photo_tick
     end
 
     # The host viewport contract: re-render on a change only while the
@@ -757,6 +761,39 @@ module AndroidMaterialHost
         dir = UI::Android::Application.bundled_assets_dir
         dir && UI::Android::Fonts.register("Inter-SemiBold", File.join(dir, "fonts/Inter_semibold.ttf")) ? 1 : 0
       end
+    end
+
+    # The photo contract: the picker is polled on the tick while the fixture
+    # is on screen, and a state change re-renders it.
+    @@photo_fixture_mounted = false
+    @@photo_state_seen = UI::Android::Photos::State::Idle
+
+    def self.photo_snapshot : AndroidPhotoFixture::Snapshot
+      state = UI::Android::Photos.state
+      @@photo_state_seen = state
+      bytes = state.ready? ? (UI::Android::Photos.take.try(&.size) || 0) : 0
+      AndroidPhotoFixture::Snapshot.new(state.to_s, bytes, UI::Android::Photos.width, UI::Android::Photos.height,
+        UI::Android::Photos.available?(UI::Android::Photos::Source::Library),
+        UI::Android::Photos.available?(UI::Android::Photos::Source::Camera),
+        state.error? ? UI::Android::Photos.error_message : "none")
+    end
+
+    def self.photo_begin(source : UI::Android::Photos::Source) : Nil
+      UI::Android::Photos.begin(source)
+      UI::Android::Application.invalidate
+    end
+
+    def self.photo_reset : Nil
+      UI::Android::Photos.reset
+      UI::Android::Application.invalidate
+    end
+
+    def self.photo_tick : Nil
+      return unless @@photo_fixture_mounted
+      state = UI::Android::Photos.state
+      return if state == @@photo_state_seen
+      @@photo_state_seen = state
+      UI::Android::Application.invalidate
     end
 
     private def self.build_fallback(slug : String) : UI::View

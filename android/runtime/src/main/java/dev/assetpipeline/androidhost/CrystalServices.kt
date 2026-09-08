@@ -95,8 +95,8 @@ object CrystalServices {
         if (request.operation == 1) return permissionRequests.submit(id)
         return notificationsQueue.submit(id) { service.execute(request) }
     }
-    fun attachHost(owner: Any) { checkMain(); if (owner is ComponentActivity) notifications?.attach(owner, permissionRequests) }
-    fun detachHost(owner: Any) { checkMain(); if (owner is ComponentActivity) notifications?.detach(owner, permissionRequests) }
+    fun attachHost(owner: Any) { checkMain(); if (owner is ComponentActivity) { notifications?.attach(owner, permissionRequests); PhotoPicker.attach(owner) } }
+    fun detachHost(owner: Any) { checkMain(); if (owner is ComponentActivity) { notifications?.detach(owner, permissionRequests); PhotoPicker.detach(owner) } }
     @JvmStatic fun cancel(id: Long) { queue.cancel(id); networkQueue.cancel(id); secretsQueue.cancel(id); filesQueue.cancel(id); notificationsQueue.cancel(id); permissionRequests.cancel(id) }
     fun pendingCount(): Int = queue.pendingCount + networkQueue.pendingCount + secretsQueue.pendingCount + filesQueue.pendingCount + notificationsQueue.pendingCount + permissionRequests.pendingCount
     fun close() {

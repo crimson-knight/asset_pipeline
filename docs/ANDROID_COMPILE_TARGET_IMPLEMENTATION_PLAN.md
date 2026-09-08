@@ -411,7 +411,26 @@ an explicit `https://localhost:<port>` origin, the AgentC template's
 recipe), and on the phone the demo fetched its document from a local TLS
 stand-in over `adb reverse` with no cache: the lead app on the first
 frame, the request in the stand-in's log, the cache written. The identify
-and shop clients are the second slice.
+and shop clients are the second slice, and they landed the same morning:
+every client call has a completion form on the seam, the identify and shop
+flows finish each job inside its completion with an in-flight guard, and
+the shell's spec target stays green.
+
+The photo picker is the sixth, with the
+[photo picker contract](android-photos.md): `PhotoPicker` registers the
+system photo picker and `TakePicture` with the Activity's result registry
+when the host attaches, decodes a result off the main looper (EXIF
+orientation honored, longest edge fitted, JPEG at the requested quality)
+and parks it for Crystal to poll through `UI::Android::Photos` (`begin`,
+`state`, `take`, `width`, `height`, `error_message`, `reset`), the shape
+of the shell's iOS bridge, so the shell's picker gained a matching branch.
+The `photo-contract` fixture's device test feeds a media-store photo
+through the delivery path and asserts the fitted result, then launches the
+real library picker and cancels it with Back. The camera needs the
+application's manifest to declare the capture `FileProvider`; the sample
+host declares it, the CLI's generator will when the camera capability is
+on, and the identify flow's live submit on the phone waits for the
+customer document and its API.
 
 ## Initial executive assessment — September 1 baseline
 

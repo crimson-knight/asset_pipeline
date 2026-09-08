@@ -243,6 +243,102 @@ done:
     return length;
 }
 
+/* Photo picker pulls: PhotoPicker's static methods, on the main looper. */
+static jclass ap_photo_class(JNIEnv *env) { return (*env)->FindClass(env, "dev/assetpipeline/androidhost/PhotoPicker"); }
+
+static int ap_photo_call_int(const char *name, const char *signature, int a, int b, int c, int argc) {
+    JNIEnv *env = ap_host_env();
+    if (!env || (*env)->PushLocalFrame(env, 2) != JNI_OK) return -1;
+    int result = -1;
+    jclass cls = ap_photo_class(env);
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = (*env)->GetStaticMethodID(env, cls, name, signature);
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    if (argc == 0) result = (int)(*env)->CallStaticIntMethod(env, cls, method);
+    else if (argc == 1) result = (int)(*env)->CallStaticIntMethod(env, cls, method, (jint)a);
+    else result = (int)(*env)->CallStaticIntMethod(env, cls, method, (jint)a, (jint)b, (jint)c);
+    if ((*env)->ExceptionCheck(env)) result = -1;
+done:
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    (*env)->PopLocalFrame(env, NULL);
+    return result;
+}
+
+static int ap_photo_call_bool(const char *name, const char *signature, int a, int b, int c, int argc) {
+    JNIEnv *env = ap_host_env();
+    if (!env || (*env)->PushLocalFrame(env, 2) != JNI_OK) return 0;
+    int result = 0;
+    jclass cls = ap_photo_class(env);
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = (*env)->GetStaticMethodID(env, cls, name, signature);
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    jboolean value = argc == 1 ? (*env)->CallStaticBooleanMethod(env, cls, method, (jint)a)
+                               : (*env)->CallStaticBooleanMethod(env, cls, method, (jint)a, (jint)b, (jint)c);
+    result = (!(*env)->ExceptionCheck(env) && value == JNI_TRUE) ? 1 : 0;
+done:
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    (*env)->PopLocalFrame(env, NULL);
+    return result;
+}
+
+/* A byte array from a static method into buffer: its length, 0 for null, -1 on failure or a small buffer. */
+static int ap_photo_call_bytes(const char *name, unsigned char *buffer, int capacity) {
+    JNIEnv *env = ap_host_env();
+    if (!env || !buffer || capacity <= 0 || (*env)->PushLocalFrame(env, 3) != JNI_OK) return -1;
+    int length = -1;
+    jclass cls = ap_photo_class(env);
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = (*env)->GetStaticMethodID(env, cls, name, "()[B");
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    jbyteArray bytes = (jbyteArray)(*env)->CallStaticObjectMethod(env, cls, method);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    if (!bytes) { length = 0; goto done; }
+    jsize size = (*env)->GetArrayLength(env, bytes);
+    if (size > capacity) goto done;
+    (*env)->GetByteArrayRegion(env, bytes, 0, size, (jbyte *)buffer);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    length = (int)size;
+done:
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); length = -1; }
+    (*env)->PopLocalFrame(env, NULL);
+    return length;
+}
+
+int android_host_photo_available(int source) { return ap_photo_call_bool("available", "(I)Z", source, 0, 0, 1); }
+int android_host_photo_begin(int source, int max_dimension, int quality) { return ap_photo_call_bool("begin", "(III)Z", source, max_dimension, quality, 3); }
+int android_host_photo_state(void) { return ap_photo_call_int("state", "()I", 0, 0, 0, 0); }
+int android_host_photo_dimension(int which) { return ap_photo_call_int(which == 0 ? "width" : "height", "()I", 0, 0, 0, 0); }
+void android_host_photo_reset(void) {
+    JNIEnv *env = ap_host_env();
+    if (!env || (*env)->PushLocalFrame(env, 2) != JNI_OK) return;
+    jclass cls = ap_photo_class(env);
+    if (cls && !(*env)->ExceptionCheck(env)) {
+        jmethodID method = (*env)->GetStaticMethodID(env, cls, "reset", "()V");
+        if (method && !(*env)->ExceptionCheck(env)) (*env)->CallStaticVoidMethod(env, cls, method);
+    }
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+    (*env)->PopLocalFrame(env, NULL);
+}
+/* The encoded photo's size while ready: its length, 0 when none, -1 on failure. */
+int android_host_photo_byte_count(void) {
+    JNIEnv *env = ap_host_env();
+    if (!env || (*env)->PushLocalFrame(env, 3) != JNI_OK) return -1;
+    int length = -1;
+    jclass cls = ap_photo_class(env);
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = (*env)->GetStaticMethodID(env, cls, "bytes", "()[B");
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    jbyteArray bytes = (jbyteArray)(*env)->CallStaticObjectMethod(env, cls, method);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    length = bytes ? (int)(*env)->GetArrayLength(env, bytes) : 0;
+done:
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); length = -1; }
+    (*env)->PopLocalFrame(env, NULL);
+    return length;
+}
+int android_host_photo_copy_bytes(unsigned char *buffer, int capacity) { return ap_photo_call_bytes("bytes", buffer, capacity); }
+int android_host_photo_error(unsigned char *buffer, int capacity) { return ap_photo_call_bytes("errorBytes", buffer, capacity); }
+
 /* Registers a font file under a family name through FontAssets; 1 on success. */
 int android_host_font_register(const unsigned char *family, int family_size, const unsigned char *path, int path_size) {
     JNIEnv *env = ap_host_env();
