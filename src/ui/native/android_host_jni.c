@@ -197,6 +197,52 @@ done:
     return success;
 }
 
+/* The extracted bundle's path into buffer: its length, 0 for no bundle, -1 on failure or a small buffer. */
+int android_host_bundled_assets_dir(unsigned char *buffer, int capacity) {
+    JNIEnv *env = ap_host_env();
+    if (!env || !buffer || capacity <= 0 || (*env)->PushLocalFrame(env, 3) != JNI_OK) return -1;
+    int length = -1;
+    jclass cls = (*env)->FindClass(env, "dev/assetpipeline/androidhost/BundledAssets");
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = (*env)->GetStaticMethodID(env, cls, "directoryBytes", "()[B");
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    jbyteArray bytes = (jbyteArray)(*env)->CallStaticObjectMethod(env, cls, method);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    if (!bytes) { length = 0; goto done; }
+    jsize size = (*env)->GetArrayLength(env, bytes);
+    if (size > capacity) goto done;
+    (*env)->GetByteArrayRegion(env, bytes, 0, size, (jbyte *)buffer);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    length = (int)size;
+done:
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); length = -1; }
+    (*env)->PopLocalFrame(env, NULL);
+    return length;
+}
+
+/* Registers a font file under a family name through FontAssets; 1 on success. */
+int android_host_font_register(const unsigned char *family, int family_size, const unsigned char *path, int path_size) {
+    JNIEnv *env = ap_host_env();
+    if (!env || !family || family_size <= 0 || !path || path_size <= 0 || (*env)->PushLocalFrame(env, 4) != JNI_OK) return 0;
+    int success = 0;
+    jclass cls = (*env)->FindClass(env, "dev/assetpipeline/androidhost/FontAssets");
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = (*env)->GetStaticMethodID(env, cls, "register", "([B[B)Z");
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    jbyteArray family_bytes = (*env)->NewByteArray(env, family_size);
+    if (!family_bytes || (*env)->ExceptionCheck(env)) goto done;
+    (*env)->SetByteArrayRegion(env, family_bytes, 0, family_size, (const jbyte *)family);
+    jbyteArray path_bytes = (*env)->NewByteArray(env, path_size);
+    if (!path_bytes || (*env)->ExceptionCheck(env)) goto done;
+    (*env)->SetByteArrayRegion(env, path_bytes, 0, path_size, (const jbyte *)path);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    success = (*env)->CallStaticBooleanMethod(env, cls, method, family_bytes, path_bytes) == JNI_TRUE;
+done:
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); success = 0; }
+    (*env)->PopLocalFrame(env, NULL);
+    return success;
+}
+
 JNIEXPORT jboolean JNICALL
 Java_dev_assetpipeline_androidhost_CrystalServices_completeNative(JNIEnv *env, jclass clazz,
                                                                   jlong id, jint status, jbyteArray data) {

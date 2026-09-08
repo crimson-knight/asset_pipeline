@@ -7,10 +7,12 @@ require "../../ui"
 require "./services"
 require "./navigation_state"
 require "./viewport"
+require "./fonts"
 
 lib LibAndroidApplicationLog
   fun android_host_log_crystal_error(message : UInt8*)
   fun android_host_request_render : Int32
+  fun android_host_bundled_assets_dir(buffer : UInt8*, capacity : Int32) : Int32
 end
 
 module UI::Android::Application
@@ -31,6 +33,8 @@ module UI::Android::Application
   @@tick_interval_ms = 0
   @@viewport : Viewport? = nil
   @@viewport_handler : Proc(Viewport, Nil)? = nil
+  @@bundled_assets_dir : String? = nil
+  @@bundled_assets_read = false
 
   # Configure at application startup. Hosts mount, mutate and tear down views
   # on the Android main looper. One retained tree is supported per process.
@@ -100,6 +104,18 @@ module UI::Android::Application
   # A native tree is mounted for this process.
   def self.mounted? : Bool
     !@@last_native.nil?
+  end
+
+  # The directory the host extracted the APK's bundle into (art, fonts and
+  # documents as real files), or nil when the APK carries none. Fixed for
+  # the life of the process, so it is read from the host once.
+  def self.bundled_assets_dir : String?
+    return @@bundled_assets_dir if @@bundled_assets_read
+    buffer = Bytes.new(4096)
+    length = LibAndroidApplicationLog.android_host_bundled_assets_dir(buffer.to_unsafe, buffer.size)
+    raise "Android bundled assets directory unavailable" if length < 0
+    @@bundled_assets_read = true
+    @@bundled_assets_dir = length == 0 ? nil : String.new(buffer[0, length])
   end
 
   # Request a deferred host refresh after an asynchronous state change. Ordinary

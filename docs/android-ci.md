@@ -80,7 +80,8 @@ Crystal failure driver before separate Java and Sheet failure processes.
   nonempty JVM reports.
 - The mandatory native class list tests real controls, callbacks, navigation,
   layout, editor/view state, semantics/focus, dialogs/sheets, the host tick, the
-  host viewport and platform storage, secrets and files. It verifies completed nonempty instrumentation plus clean
+  host viewport, bundled assets and fonts, and platform storage, secrets and
+  files. It verifies completed nonempty instrumentation plus clean
   app-scoped diagnostics, not just ADB's process exit code.
 - Separate processes exercise intentional Crystal callback/render failures,
   Java partial-render failures, original Throwable preservation, Sheet window

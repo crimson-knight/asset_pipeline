@@ -367,6 +367,25 @@ void android_textview_set_typeface(void *env_ptr, void *tv, int32_t style) {
     (*env)->DeleteLocalRef(env, text_cls);
 }
 
+int32_t android_textview_set_typeface_family(void *env_ptr, void *tv, uint8_t *family, int32_t byte_len, int32_t style) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    if (!family || byte_len <= 0 || byte_len > 512 || ap_jni_PushLocalFrame(env, 4) != JNI_OK) return 0;
+    int32_t success = 0;
+    jclass cls = ap_jni_FindClass(env, "dev/assetpipeline/androidhost/FontAssets");
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = ap_jni_GetStaticMethodID(env, cls, "apply", "(Landroid/widget/TextView;[BI)Z");
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    jbyteArray bytes = ap_jni_NewByteArray(env, byte_len);
+    if (!bytes || (*env)->ExceptionCheck(env)) goto done;
+    ap_jni_SetByteArrayRegion(env, bytes, 0, byte_len, (const jbyte *)family);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    success = ap_jni_CallStaticBooleanMethod(env, cls, method, (jobject)tv, bytes, (jint)style) == JNI_TRUE;
+done:
+    if ((*env)->ExceptionCheck(env)) success = 0;
+    (*env)->PopLocalFrame(env, NULL);
+    return success;
+}
+
 void android_imageview_set_scale_type(void *env_ptr, void *iv, int32_t scale_type) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jclass image_cls = ap_jni_GetObjectClass(env, (jobject)iv);
@@ -411,6 +430,25 @@ int32_t android_imageview_set_image_named(void *env_ptr, void *iv, uint8_t *name
     jbyteArray bytes = ap_jni_NewByteArray(env, byte_len);
     if (!bytes || (*env)->ExceptionCheck(env)) goto done;
     ap_jni_SetByteArrayRegion(env, bytes, 0, byte_len, (const jbyte *)name);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    success = ap_jni_CallStaticBooleanMethod(env, cls, method, (jobject)iv, bytes) == JNI_TRUE;
+done:
+    if ((*env)->ExceptionCheck(env)) success = 0;
+    (*env)->PopLocalFrame(env, NULL);
+    return success;
+}
+
+int32_t android_imageview_set_image_file(void *env_ptr, void *iv, uint8_t *path, int32_t byte_len) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    if (!path || byte_len <= 0 || byte_len > 4096 || ap_jni_PushLocalFrame(env, 4) != JNI_OK) return 0;
+    int32_t success = 0;
+    jclass cls = ap_jni_FindClass(env, "dev/assetpipeline/androidhost/ImageAssets");
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = ap_jni_GetStaticMethodID(env, cls, "setFile", "(Landroid/widget/ImageView;[B)Z");
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    jbyteArray bytes = ap_jni_NewByteArray(env, byte_len);
+    if (!bytes || (*env)->ExceptionCheck(env)) goto done;
+    ap_jni_SetByteArrayRegion(env, bytes, 0, byte_len, (const jbyte *)path);
     if ((*env)->ExceptionCheck(env)) goto done;
     success = ap_jni_CallStaticBooleanMethod(env, cls, method, (jobject)iv, bytes) == JNI_TRUE;
 done:

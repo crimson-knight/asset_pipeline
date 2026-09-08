@@ -70,12 +70,15 @@
       fun android_textview_set_max_lines(env : Void*, tv : Void*, max : Int32)
       fun android_textview_set_single_line(env : Void*, tv : Void*, single : Int32)
       fun android_textview_set_typeface(env : Void*, tv : Void*, style : Int32)
+      fun android_textview_set_typeface_family(env : Void*, tv : Void*, family : UInt8*, byte_len : Int32, style : Int32) : Int32
 
       # --- ImageView ---
       fun android_imageview_set_scale_type(env : Void*, iv : Void*, scale_type : Int32)
       fun android_imageview_set_image_resource(env : Void*, iv : Void*, res_id : Int32)
       # Load from asset name (resolved via Resources)
       fun android_imageview_set_image_named(env : Void*, iv : Void*, name : UInt8*, byte_len : Int32) : Int32
+      # Load from an absolute path inside the application's private storage
+      fun android_imageview_set_image_file(env : Void*, iv : Void*, path : UInt8*, byte_len : Int32) : Int32
       fun android_imageview_set_tint(env : Void*, iv : Void*, argb : Int32) : Int32
 
       # --- EditText ---
@@ -381,9 +384,7 @@
         # setTextSize (SP units -- Android's scale-independent pixels)
         LibAndroidBridge.android_textview_set_text_size(@env, tv, view.font.size.to_f32)
 
-        # setTypeface style: 0=NORMAL, 1=BOLD, 2=ITALIC, 3=BOLD_ITALIC
-        typeface_style = typeface_style_for(view.font)
-        LibAndroidBridge.android_textview_set_typeface(@env, tv, typeface_style)
+        apply_typeface(tv, view.font)
 
         # setTextColor (ARGB packed int)
         text_argb = if role = view.text_color_role
@@ -430,8 +431,7 @@
         button_size = view.font.size > 0 ? view.font.size.to_f32 : @material_theme.font_size_body.to_f32
         LibAndroidBridge.android_textview_set_text_size(@env, btn, button_size)
 
-        # Typeface
-        LibAndroidBridge.android_textview_set_typeface(@env, btn, typeface_style_for(view.font))
+        apply_typeface(btn, view.font)
 
         background_color = material_color(:primary_container)
         foreground_color = material_color(:on_primary_container)
@@ -632,9 +632,15 @@
       def visit(view : UI::Image)
         iv = LibAndroidBridge.android_view_new(@env, "android/widget/ImageView", @context)
 
-        unless LibAndroidBridge.android_imageview_set_image_named(@env, iv, view.source.to_unsafe, view.source.bytesize) == 1
-          raise ArgumentError.new("Android image could not load bundled source: #{view.source}")
-        end
+        # A catalog name, or an absolute path inside the application's private
+        # storage (the extracted bundle, the files directory, the cache) at the
+        # density the file name declares, which is how iOS loads the same art.
+        loaded = if view.source.starts_with?('/')
+                   LibAndroidBridge.android_imageview_set_image_file(@env, iv, view.source.to_unsafe, view.source.bytesize) == 1
+                 else
+                   LibAndroidBridge.android_imageview_set_image_named(@env, iv, view.source.to_unsafe, view.source.bytesize) == 1
+                 end
+        raise ArgumentError.new("Android image could not load bundled source: #{view.source}") unless loaded
 
         # Scale type -> ImageView.ScaleType
         # Explicit bridge contract, not Android enum ordinals: 0/1/2.
@@ -708,7 +714,7 @@
 
         # Font size and typeface
         LibAndroidBridge.android_textview_set_text_size(@env, et, view.font.size.to_f32)
-        LibAndroidBridge.android_textview_set_typeface(@env, et, typeface_style_for(view.font))
+        apply_typeface(et, view.font)
 
         # Native default tracks Material appearance. An explicit RGBA override
         # (including explicit black) must still be honored without guessing.
@@ -1856,7 +1862,7 @@
         LibAndroidBridge.android_edittext_set_read_only(@env, et) unless view.is_editable
 
         LibAndroidBridge.android_textview_set_text_size(@env, et, view.font.size.to_f32)
-        LibAndroidBridge.android_textview_set_typeface(@env, et, typeface_style_for(view.font))
+        apply_typeface(et, view.font)
         LibAndroidBridge.android_textview_set_text_color(@env, et, color_to_argb(view.text_color))
         LibAndroidBridge.android_viewgroup_add_view_wh(@env, til, et, -1, -2)
 
@@ -3717,6 +3723,19 @@
           @context,
           style_field_name.to_unsafe
         )
+      end
+
+      # A font's family resolves through the host's registry (a bundled face the
+      # application registered under that name), then Android's generic families,
+      # then the platform default; "system" is the default at the font's style.
+      private def apply_typeface(v : Void*, font : UI::Font) : Nil
+        style = typeface_style_for(font)
+        family = font.family
+        if family.empty? || family == "system"
+          LibAndroidBridge.android_textview_set_typeface(@env, v, style)
+        elsif LibAndroidBridge.android_textview_set_typeface_family(@env, v, family.to_unsafe, family.bytesize, style) != 1
+          LibAndroidBridge.android_textview_set_typeface(@env, v, style)
+        end
       end
 
       # Map a UI::Font to an Android Typeface style integer.

@@ -22,6 +22,7 @@ require "./android_pickers_fixture"
 require "./android_tabs_fixture"
 require "./android_tick_fixture"
 require "./android_viewport_fixture"
+require "./android_assets_fixture"
 
 module AndroidMaterialHost
   module Bridge
@@ -248,6 +249,7 @@ module AndroidMaterialHost
       when "layout-hugging"     then AndroidLayoutContractFixture.hugging
       when "tick-contract"      then AndroidTickFixture.build
       when "viewport-contract"  then AndroidViewportFixture.build(UI::Android::Application.viewport)
+      when "assets-contract"    then AndroidAssetsFixture.build(UI::Android::Application.bundled_assets_dir, register_bundle_fonts)
       when "image-smoke"        then AndroidImageFixture.build
       when "text/雪😀\0end"       then AndroidTextFixture.build
       when "navigation"         then AndroidNavigationFixture.build
@@ -742,6 +744,17 @@ module AndroidMaterialHost
 
     def self.viewport_changed : Nil
       UI::Android::Application.invalidate if @@viewport_fixture_mounted && UI::Android::Application.mounted?
+    end
+
+    # The assets contract: register the bundle's face once, under the name the
+    # fixture's label uses, and report how many faces the bridge registered.
+    @@bundle_fonts : Int32? = nil
+
+    def self.register_bundle_fonts : Int32
+      @@bundle_fonts ||= begin
+        dir = UI::Android::Application.bundled_assets_dir
+        dir && UI::Android::Fonts.register("Inter-SemiBold", File.join(dir, "fonts/Inter_semibold.ttf")) ? 1 : 0
+      end
     end
 
     private def self.build_fallback(slug : String) : UI::View

@@ -372,6 +372,23 @@ copies the report into `HappyCoach::Viewport` the way the iOS setters do,
 so its views size against the real screen instead of the 480 by 760
 defaults.
 
+Bundled assets and fonts are the third, with the
+[bundled assets and fonts contract](android-assets.md): the APK's
+`assets/ap_bundle/` tree is extracted once per install into private
+storage by `BundledAssets` when the runtime initializes, and
+`UI::Android::Application.bundled_assets_dir` names it; `UI::Image#source`
+accepts an absolute path inside private storage at the density the file
+name declares the iOS way; `UI::Android::Fonts.register` loads a bundled
+TTF under a family name and `UI::Font#family` resolves to it, then to
+Android's generic families, then the default. `BundlePolicy` and
+`FontPolicy` are pinned by JVM suites, and the `assets-contract` fixture's
+device test proves extraction, the path-loaded mark at 32 dp, the
+registered and generic faces, and that a recreated host does not extract
+again. The CLI's generator stages `android.bundled_assets` from
+`config/native.yml` into the APK (amber_cli 13f9e74), so the AgentC shell
+packages the same tree its iOS target carries as a folder reference and
+registers its eight faces at boot.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.

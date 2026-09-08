@@ -92,6 +92,8 @@ android {
     sourceSets.getByName("main").java.srcDir(rootProject.file("../../../android/runtime/src/main/java"))
     sourceSets.getByName("main").res.srcDir(rootProject.file("../../../android/runtime/src/main/res"))
     sourceSets.getByName("main").res.srcDir(generatedImages.map { it.dir("res") })
+    // The bundle the assets fixture extracts and loads by path (docs/android-assets.md).
+    sourceSets.getByName("main").assets.srcDir(rootProject.file("bundle"))
     sourceSets.getByName("test").java.srcDir(rootProject.file("../../../android/runtime/src/test/java"))
     sourceSets.getByName("androidTest").java.srcDir(rootProject.file("../../../android/runtime/src/androidTest/java"))
 

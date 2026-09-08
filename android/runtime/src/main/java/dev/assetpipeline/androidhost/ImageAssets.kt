@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.os.Looper
 import android.util.TypedValue
 import android.widget.ImageView
+import java.io.File
 import androidx.core.content.res.ResourcesCompat
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
@@ -46,6 +47,32 @@ object ImageAssets {
             }
             val drawable = ResourcesCompat.getDrawable(resources, id, view.context.theme) ?: return false
             view.setImageDrawable(drawable.mutate())
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** A file inside the application's private storage (the extracted bundle,
+     * the files directory, the cache), at the density its name declares the
+     * iOS way. Anything outside private storage, or beyond the catalog's
+     * decode limits, is refused. */
+    @JvmStatic fun setFile(view: ImageView, bytes: ByteArray): Boolean {
+        check(Looper.myLooper() == Looper.getMainLooper()) { "Image binding requires the main looper" }
+        return try {
+            require(bytes.size in 1..4096)
+            val path = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
+            val root = BundledAssets.storageRoot() ?: return false
+            val file = File(path)
+            val canonical = file.canonicalPath
+            if (!file.isFile || !BundlePolicy.insideStorage(canonical, root)) return false
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true; inScaled = false }
+            BitmapFactory.decodeFile(canonical, bounds)
+            require(bounds.outWidth in 1..4096 && bounds.outHeight in 1..4096 && bounds.outWidth.toLong() * bounds.outHeight <= MAX_PIXELS)
+            val bitmap = BitmapFactory.decodeFile(canonical, BitmapFactory.Options().apply { inScaled = false }) ?: return false
+            bitmap.density = BundlePolicy.densityFor(file.name)
+            view.setImageBitmap(bitmap)
             true
         } catch (_: Exception) {
             false

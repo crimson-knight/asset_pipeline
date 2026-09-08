@@ -33,7 +33,9 @@ may contain Unicode, spaces and slashes, but not ASCII control characters or a
 leading `@`/`?`; the UTF-8 name limit is 1,024 bytes. Runtime JNI uses explicit
 UTF-8 bytes, not JNI's modified-UTF-8 string constructor. The compiler hashes
 logical names into stable Android resource identifiers, preserving the original
-name in a packaged lookup catalog. Names remain app-defined, not filesystem paths.
+name in a packaged lookup catalog. Names remain app-defined; the one other
+accepted source is an absolute path inside the application's private storage,
+see [bundled assets and fonts](android-assets.md).
 
 Sources must be explicit project-relative regular files without symlinks,
 absolute paths, `.`/`..` or empty path components. Supported source containers
