@@ -23,6 +23,7 @@ require "./android_tabs_fixture"
 require "./android_tick_fixture"
 require "./android_viewport_fixture"
 require "./android_assets_fixture"
+require "./android_directories_fixture"
 
 module AndroidMaterialHost
   module Bridge
@@ -230,43 +231,44 @@ module AndroidMaterialHost
         return builder.call
       end
       case slug
-      when "density-smoke"      then AndroidLayoutFixture.build
-      when "layout-contract"    then AndroidLayoutContractFixture.matrix
-      when "layout-equal-width" then AndroidLayoutContractFixture.equal_width
-      when "view-state"         then AndroidViewStateFixture.navigation
-      when "semantics"          then AndroidSemanticsFixture.build
-      when "semantics-focus"    then AndroidSemanticsFixture.build(true)
-      when "semantics-invalid"  then AndroidSemanticsFixture.invalid
-      when "focus-visibility"   then AndroidFocusFixture.build
-      when "compound-focus"     then AndroidCompoundFocusFixture.build
-      when "dialogs-contract"   then AndroidDialogFixture.build
-      when "sheets-contract"    then AndroidSheetFixture.build
-      when "basics-contract"    then AndroidBasicsFixture.build
-      when "structure-contract" then AndroidStructureFixture.build
-      when "pickers-contract"   then AndroidPickersFixture.build
-      when "tabs-contract"      then AndroidTabsFixture.build
-      when "layout-interaction" then AndroidLayoutContractFixture.interaction
-      when "layout-hugging"     then AndroidLayoutContractFixture.hugging
-      when "tick-contract"      then AndroidTickFixture.build
-      when "viewport-contract"  then AndroidViewportFixture.build(UI::Android::Application.viewport)
-      when "assets-contract"    then AndroidAssetsFixture.build(UI::Android::Application.bundled_assets_dir, register_bundle_fonts)
-      when "image-smoke"        then AndroidImageFixture.build
-      when "text/雪😀\0end"       then AndroidTextFixture.build
-      when "navigation"         then AndroidNavigationFixture.build
-      when "failure-render"     then AndroidFailureFixture.partial_tree
-      when "buttons"            then build_buttons
-      when "text-fields"        then build_text_fields
-      when "cards"              then build_cards
-      when "dialogs"            then build_dialogs
-      when "app-bars"           then build_app_bars
-      when "interaction-smoke"  then build_interaction_smoke
-      when "selection-controls" then build_selection_controls
-      when "transient-surfaces" then build_transient_surfaces
-      when "share-color"        then build_share_color
-      when "webview"            then build_webview
-      when "map-view"           then build_map_view
-      when "video-player"       then build_video_player
-      when "chart-view"         then build_chart_view
+      when "density-smoke"        then AndroidLayoutFixture.build
+      when "layout-contract"      then AndroidLayoutContractFixture.matrix
+      when "layout-equal-width"   then AndroidLayoutContractFixture.equal_width
+      when "view-state"           then AndroidViewStateFixture.navigation
+      when "semantics"            then AndroidSemanticsFixture.build
+      when "semantics-focus"      then AndroidSemanticsFixture.build(true)
+      when "semantics-invalid"    then AndroidSemanticsFixture.invalid
+      when "focus-visibility"     then AndroidFocusFixture.build
+      when "compound-focus"       then AndroidCompoundFocusFixture.build
+      when "dialogs-contract"     then AndroidDialogFixture.build
+      when "sheets-contract"      then AndroidSheetFixture.build
+      when "basics-contract"      then AndroidBasicsFixture.build
+      when "structure-contract"   then AndroidStructureFixture.build
+      when "pickers-contract"     then AndroidPickersFixture.build
+      when "tabs-contract"        then AndroidTabsFixture.build
+      when "layout-interaction"   then AndroidLayoutContractFixture.interaction
+      when "layout-hugging"       then AndroidLayoutContractFixture.hugging
+      when "tick-contract"        then AndroidTickFixture.build
+      when "viewport-contract"    then AndroidViewportFixture.build(UI::Android::Application.viewport)
+      when "assets-contract"      then AndroidAssetsFixture.build(UI::Android::Application.bundled_assets_dir, register_bundle_fonts)
+      when "directories-contract" then AndroidDirectoriesFixture.build(UI::Android::Application.files_dir, UI::Android::Application.cache_dir)
+      when "image-smoke"          then AndroidImageFixture.build
+      when "text/雪😀\0end"         then AndroidTextFixture.build
+      when "navigation"           then AndroidNavigationFixture.build
+      when "failure-render"       then AndroidFailureFixture.partial_tree
+      when "buttons"              then build_buttons
+      when "text-fields"          then build_text_fields
+      when "cards"                then build_cards
+      when "dialogs"              then build_dialogs
+      when "app-bars"             then build_app_bars
+      when "interaction-smoke"    then build_interaction_smoke
+      when "selection-controls"   then build_selection_controls
+      when "transient-surfaces"   then build_transient_surfaces
+      when "share-color"          then build_share_color
+      when "webview"              then build_webview
+      when "map-view"             then build_map_view
+      when "video-player"         then build_video_player
+      when "chart-view"           then build_chart_view
       else
         build_fallback(slug)
       end

@@ -389,6 +389,17 @@ again. The CLI's generator stages `android.bundled_assets` from
 packages the same tree its iOS target carries as a folder reference and
 registers its eight faces at boot.
 
+Private directories are the fourth: `UI::Android::Application.files_dir`
+and `cache_dir` hand Crystal the host's canonical files and cache
+directories (`AppDirectories`, initialized with the other services), and
+the `directories-contract` fixture's device test compares them with the
+activity's own and writes a marker under each. The AgentC shell's Android
+entry now takes its directories from the host instead of a guessed
+`/data/data` path, keeps its payload cache under the cache directory and
+its cookie jar under the files directory (the split iOS makes between
+Caches and Application Support), and with a cached payload draws the lead
+app on its first frame with no network, the build 19 contract.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.

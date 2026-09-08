@@ -220,6 +220,29 @@ done:
     return length;
 }
 
+/* A private directory (1 files, 2 cache) into buffer: its length, 0 when unknown, -1 on failure or a small buffer. */
+int android_host_app_directory(int kind, unsigned char *buffer, int capacity) {
+    JNIEnv *env = ap_host_env();
+    if (!env || !buffer || capacity <= 0 || (*env)->PushLocalFrame(env, 3) != JNI_OK) return -1;
+    int length = -1;
+    jclass cls = (*env)->FindClass(env, "dev/assetpipeline/androidhost/AppDirectories");
+    if (!cls || (*env)->ExceptionCheck(env)) goto done;
+    jmethodID method = (*env)->GetStaticMethodID(env, cls, "pathBytes", "(I)[B");
+    if (!method || (*env)->ExceptionCheck(env)) goto done;
+    jbyteArray bytes = (jbyteArray)(*env)->CallStaticObjectMethod(env, cls, method, (jint)kind);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    if (!bytes) { length = 0; goto done; }
+    jsize size = (*env)->GetArrayLength(env, bytes);
+    if (size > capacity) goto done;
+    (*env)->GetByteArrayRegion(env, bytes, 0, size, (jbyte *)buffer);
+    if ((*env)->ExceptionCheck(env)) goto done;
+    length = (int)size;
+done:
+    if ((*env)->ExceptionCheck(env)) { (*env)->ExceptionClear(env); length = -1; }
+    (*env)->PopLocalFrame(env, NULL);
+    return length;
+}
+
 /* Registers a font file under a family name through FontAssets; 1 on success. */
 int android_host_font_register(const unsigned char *family, int family_size, const unsigned char *path, int path_size) {
     JNIEnv *env = ap_host_env();

@@ -68,29 +68,43 @@ class AndroidStructureContractTest {
         }
         fail(message)
     }
-// A tap is computed from a row's screen position and delivered a moment
-// later. The host's first pre-draw pass scrolls the container to the top
-// when no saved state matches the screen, and on a software-rendered
-// runner whose first draw stalls (CI runs 25 and 26 logged a compositor
-// sync timeout right before the tap) that reset can land after this test
-// has scrolled the echo label into view and computed its tap, so the tap
-// reaches the row above. Wait until the row has been drawn, nothing is
-// waiting for layout, and its position has held across several polls.
-private fun awaitSettledRow(scenario: ActivityScenario<MainActivity>, text: String) {
-    var last: Pair<Int, Int>? = null
-    var held = 0
-    waitUntil(scenario, "Row did not settle before its tap: $text") { activity ->
-        val list = view(activity, "structure-list") as LinearLayout
-        val row = (0 until list.childCount).map { list.getChildAt(it) }.firstOrNull { texts(it) == listOf(text) }
-            ?: return@waitUntil false
-        val location = IntArray(2).also { row.getLocationOnScreen(it) }
-        val position = location[0] to location[1]
-        val quiet = !row.isDirty && !list.isLayoutRequested && !activity.window.decorView.isLayoutRequested
-        held = if (quiet && position == last) held + 1 else 0
-        last = position
-        held >= 3
+    // A tap is computed from a row's screen position and delivered a moment
+    // later. Two things move the rows after Espresso's scroll-into-view
+    // returns: the sample host's plain ScrollView scrolls smoothly for about a
+    // quarter second, and the host's first pre-draw pass after a render scrolls
+    // the container to the top when no saved state matches the screen. On a
+    // software-rendered runner a few polls can read the same position between
+    // two slow frames while either is still in flight, which is how CI runs 25,
+    // 26 and 29 delivered this test's tap one row off. Wait until the current
+    // render has been presented (its pre-draw pass completed), then until the
+    // row is drawn, nothing is waiting for layout, and the row's position and
+    // the container's scroll offset have held for longer than the scroll
+    // animation.
+    private fun awaitPresented(scenario: ActivityScenario<MainActivity>, atLeast: Int) {
+        waitUntil(scenario, "The render was not presented") { it.debugPresentedRenders() >= atLeast }
     }
-}
+    private fun presented(scenario: ActivityScenario<MainActivity>): Int {
+        var value = 0
+        scenario.onActivity { value = it.debugPresentedRenders() }
+        return value
+    }
+    private fun awaitSettledRow(scenario: ActivityScenario<MainActivity>, text: String, presentedAtLeast: Int) {
+        awaitPresented(scenario, presentedAtLeast)
+        var last: Triple<Int, Int, Int>? = null
+        var stableSince = 0L
+        waitUntil(scenario, "Row did not settle before its tap: $text") { activity ->
+            val list = view(activity, "structure-list") as LinearLayout
+            val row = (0 until list.childCount).map { list.getChildAt(it) }.firstOrNull { texts(it) == listOf(text) }
+                ?: return@waitUntil false
+            val location = IntArray(2).also { row.getLocationOnScreen(it) }
+            val container = activity.findViewById<View>(R.id.hostViewport)
+            val state = Triple(location[0], location[1], container.scrollY)
+            val quiet = !row.isDirty && !list.isLayoutRequested && !activity.window.decorView.isLayoutRequested
+            val now = SystemClock.uptimeMillis()
+            if (!quiet || state != last) { last = state; stableSince = now; return@waitUntil false }
+            now - stableSince >= 400L
+        }
+    }
     private fun texts(view: View, into: MutableList<String> = ArrayList()): List<String> {
         if (view is TextView) into.add(view.text.toString())
         if (view is ViewGroup) for (index in 0 until view.childCount) texts(view.getChildAt(index), into)
@@ -172,6 +186,7 @@ private fun awaitSettledRow(scenario: ActivityScenario<MainActivity>, text: Stri
     @Test fun listRowsAreSectionedSeparatedAndTappableWithCrystalIndexes() {
         val scenario = launch()
         try {
+            awaitPresented(scenario, 1)
             onView(NativeTestIds.withTestId("structure-list-echo")).perform(scrollTo())
             awaitText("Row: -1; section: none; taps: 0")
             scenario.onActivity { activity ->
@@ -183,10 +198,12 @@ private fun awaitSettledRow(scenario: ActivityScenario<MainActivity>, text: Stri
                 assertTrue("separator is a plain thin view", separator !is ViewGroup && separator !is TextView && separator.height in 1..4)
                 assertTrue("rows are clickable containers", list.getChildAt(1).isClickable && list.getChildAt(5).isClickable)
             }
-            awaitSettledRow(scenario, "Banana")
+            val presentedBeforeBanana = presented(scenario)
+            awaitSettledRow(scenario, "Banana", presentedBeforeBanana)
             onView(withText("Banana")).perform(click())
             awaitText("Row: 1; section: 0,1; taps: 1")
-            awaitSettledRow(scenario, "Carrot")
+            // The tap's refresh replaced the tree; wait for that render's own pass.
+            awaitSettledRow(scenario, "Carrot", presentedBeforeBanana + 1)
             onView(withText("Carrot")).perform(click())
             awaitText("Row: 2; section: 1,0; taps: 2")
             scenario.recreate()

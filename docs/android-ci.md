@@ -80,8 +80,8 @@ Crystal failure driver before separate Java and Sheet failure processes.
   nonempty JVM reports.
 - The mandatory native class list tests real controls, callbacks, navigation,
   layout, editor/view state, semantics/focus, dialogs/sheets, the host tick, the
-  host viewport, bundled assets and fonts, and platform storage, secrets and
-  files. It verifies completed nonempty instrumentation plus clean
+  host viewport, bundled assets, fonts, private directories, and platform
+  storage, secrets and files. It verifies completed nonempty instrumentation plus clean
   app-scoped diagnostics, not just ADB's process exit code.
 - Separate processes exercise intentional Crystal callback/render failures,
   Java partial-render failures, original Throwable preservation, Sheet window
@@ -275,6 +275,7 @@ instrumentation tests before the fixes above landed.
 | 26 | docs-only push after run 25 (same code) | **pass** | 66/67: the same list-rows tap; the echo label did not show the row within the wait (see below) | **pass** |
 | 27 | host viewport (`on_viewport`, `ViewportPolicy`, `viewport-contract` fixture; 69 tests) | canceled by the push of run 28 before any job finished | canceled | canceled |
 | 28 | viewport plus the structure test's settle wait (same 69 tests) | **pass** | **pass** | **pass** |
+| 29 | bundled assets and fonts (`BundledAssets`, `FontAssets`, `assets-contract` fixture; 70 tests) | **pass** | 69/70: the list-rows tap a third time, with the settle wait in place and no compositor stall (see below) | **pass** |
 
 "pass" means the complete `make test-android` driver exited 0: both ABIs
 built from source, debug APK and release bundle packaged, 50 instrumentation
@@ -449,3 +450,30 @@ passed scoped on the local API 35 emulator with the guard. The runtime is
 unchanged. Run 27 (34214628703) started on the viewport push before the
 guard and was canceled by the push carrying it; run 28 (34215067565) passed
 all three API levels, 69 tests each, with the guard in place.
+
+Run 29 (34217887908), the bundled assets and fonts push, missed the same
+tap on API 35 a third time (69 of 70), with the settle wait in place and
+no compositor stall in the log: the render landed, the test scrolled,
+waited, tapped, the refresh render fired on time, and the row was wrong.
+So position stability over a few polls was not the guard the runner
+needs. Two things move the rows after Espresso's scroll-into-view returns:
+the sample host's plain `ScrollView` scrolls smoothly for about a quarter
+second (its scroller ignores the animator scale), and the host's first
+pre-draw pass after a render scrolls the container to the top when no
+saved state matches the screen. On a software-rendered runner a few polls
+can read the same position between two slow frames while either is still
+in flight. `NativeScreenHost` now counts presented renders (the pre-draw
+pass completed) and the test waits for the current render's presentation,
+then for the row's position and the container's scroll offset to hold for
+longer than the scroll animation, before each tap. The runtime's behavior
+is unchanged; the counter is a debug read.
+
+The `directories-contract` test, added with the private-directories export,
+crashed the sample process once on the local API 35 emulator in its first
+scoped run: the app log ends at "renderStudy: entered JNI bridge" for the
+first test of a fresh install, the system log records "Crash of app ...
+running instrumentation", and no Java exception, native signal or CheckJNI
+diagnostic was captured. The same test then passed through the
+instrumentation runner by hand and in a second scoped run on another fresh
+install, and the full local target passed with it. The cause is not named;
+it is recorded so a recurrence on a runner can be matched to it.

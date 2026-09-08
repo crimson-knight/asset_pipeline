@@ -42,6 +42,17 @@ end
   an unknown name gets on iOS too. `"system"` is the default at the requested
   weight and slant.
 
+## Private directories
+
+`UI::Android::Application.files_dir` and `cache_dir` are the application's
+private files directory (durable) and cache directory (purgeable by the
+system), canonical, as the host hands them over when the runtime
+initializes. An application puts its payload caches, cookie jars and
+documents under them instead of guessing a home directory, which Android
+does not set. The `directories-contract` fixture prints both and writes a
+marker under each; its device test compares them with the activity's own
+and finds the markers.
+
 ## Packaging
 
 The CLI's generated project stages the directory named by

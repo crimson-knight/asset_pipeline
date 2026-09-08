@@ -49,6 +49,7 @@ object CrystalServices {
         if (storage == null) storage = PrivateStorage(context.applicationContext)
         if (secrets == null) secrets = PrivateSecrets(context.applicationContext)
         if (files == null) files = PrivateFiles(context.applicationContext)
+        AppDirectories.initialize(context.applicationContext)
         BundledAssets.initialize(context.applicationContext)
         if (notifications == null) notifications = PlatformNotifications(context.applicationContext)
         networkPermission = context.checkSelfPermission(android.Manifest.permission.INTERNET) == android.content.pm.PackageManager.PERMISSION_GRANTED

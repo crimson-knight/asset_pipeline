@@ -36,6 +36,10 @@ class NativeScreenHost(private val activity: Activity, private val mount: ViewGr
         private set
     var skippedSnapshots = 0
         private set
+    /** Renders whose first pre-draw pass (state restoration, the scroll reset
+     * for a screen with no saved state) has completed; tests wait on it. */
+    var presentedRenders = 0
+        private set
     // Viewport. The rectangle the tree is laid out in and the bars the host has
     // not kept clear itself, reported to Crystal before every render and when
     // the container or the mount is laid out to a different size. Before the
@@ -157,6 +161,7 @@ class NativeScreenHost(private val activity: Activity, private val mount: ViewGr
                         else keyboard.hideSoftInputFromWindow(editor.windowToken, 0)
                     }
                     CrystalBridge.synchronizeDialogs(dialogs, root, nextRoute)
+                    presentedRenders++
                     return true
                 }
             }

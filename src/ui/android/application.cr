@@ -13,6 +13,7 @@ lib LibAndroidApplicationLog
   fun android_host_log_crystal_error(message : UInt8*)
   fun android_host_request_render : Int32
   fun android_host_bundled_assets_dir(buffer : UInt8*, capacity : Int32) : Int32
+  fun android_host_app_directory(kind : Int32, buffer : UInt8*, capacity : Int32) : Int32
 end
 
 module UI::Android::Application
@@ -35,6 +36,8 @@ module UI::Android::Application
   @@viewport_handler : Proc(Viewport, Nil)? = nil
   @@bundled_assets_dir : String? = nil
   @@bundled_assets_read = false
+  @@files_dir : String? = nil
+  @@cache_dir : String? = nil
 
   # Configure at application startup. Hosts mount, mutate and tear down views
   # on the Android main looper. One retained tree is supported per process.
@@ -116,6 +119,25 @@ module UI::Android::Application
     raise "Android bundled assets directory unavailable" if length < 0
     @@bundled_assets_read = true
     @@bundled_assets_dir = length == 0 ? nil : String.new(buffer[0, length])
+  end
+
+  # The application's private files directory (durable) and cache directory
+  # (purgeable by the system), canonical, as the host hands them over. An
+  # application puts its caches, cookie jars and documents under them instead
+  # of guessing a home directory, which Android does not set.
+  def self.files_dir : String
+    @@files_dir ||= host_directory(1)
+  end
+
+  def self.cache_dir : String
+    @@cache_dir ||= host_directory(2)
+  end
+
+  private def self.host_directory(kind : Int32) : String
+    buffer = Bytes.new(4096)
+    length = LibAndroidApplicationLog.android_host_app_directory(kind, buffer.to_unsafe, buffer.size)
+    raise "Android private directory unavailable" if length <= 0
+    String.new(buffer[0, length])
   end
 
   # Request a deferred host refresh after an asynchronous state change. Ordinary

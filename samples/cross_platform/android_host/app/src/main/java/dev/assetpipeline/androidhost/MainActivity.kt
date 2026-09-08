@@ -138,6 +138,7 @@ open class MainActivity : AppCompatActivity() {
     fun debugViewStateCounts() = screenHost.deferredRefreshes to screenHost.restoredEntries
     fun debugSkippedViewState() = screenHost.skippedSnapshots
     fun debugViewport() = screenHost.lastViewport
+    fun debugPresentedRenders() = screenHost.presentedRenders
 
     private fun configureRendererCard(userAction: Boolean = false): Boolean {
         binding.rendererCard.apply {
