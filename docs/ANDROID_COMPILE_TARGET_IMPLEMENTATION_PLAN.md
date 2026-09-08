@@ -352,6 +352,26 @@ recorded in the CI notes. On the phone the AgentC shell now leaves its
 Waiting screen by itself: the tick runs the parked boot fetch and the
 result re-roots the tree.
 
+The viewport is the second and landed as 11ab92f3 with the
+[host viewport contract](android-viewport.md): `UI::Android::Viewport`,
+`UI::Android::Application.on_viewport`, `viewport` and `mounted?`, a
+`ViewportPolicy` the JVM suite pins (a padded host reports zero insets and
+the bar-free height, an edge-to-edge host reports the bars, the keyboard
+changes nothing), `NativeScreenHost` measuring before every render and,
+coalesced after each layout pass, on every change, and the
+`viewport-contract` fixture whose device test measures the sample host's
+mount and container itself, bounds the pre-layout correction to one
+refresh, checks a bar and a wrapped label against the column, and rotates
+the host. `UI::Label#preferred_max_layout_width` is read on Android as the
+label's maximum width, which moves Label to 7 of 8 in the parity matrix.
+The scoped device run passed on the local API 35 emulator (14 tests) after
+one defect in the first cut: Android sets a view's laid-out flag only after
+its layout-change listeners have run, so the measurement now waits for the
+end of the pass. Run 27 is the CI check. On the phone the AgentC shell
+copies the report into `HappyCoach::Viewport` the way the iOS setters do,
+so its views size against the real screen instead of the 480 by 760
+defaults.
+
 ## Initial executive assessment — September 1 baseline
 
 The target is feasible, and the repository is not starting from zero.
