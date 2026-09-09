@@ -531,9 +531,10 @@
         end
 
         # Label lines and alignment, as on UI::Label: 1 keeps the single-line
-        # call to action, 0 wraps without a cap, n caps the wrap. iOS ignores
-        # text_alignment on buttons; here the label sits where it says, and
-        # stays vertically centered in the button.
+        # call to action, 0 wraps without a cap, n caps the wrap. The alignment
+        # is an override: nil lets the renderer decide, and here nil centers (the
+        # SwiftUI facade also centers unless the button fills its row); a set
+        # value sits the label where it says, vertically centered in the button.
         label_lines = view.number_of_lines
         if label_lines == 1
           LibAndroidBridge.android_textview_set_single_line(@env, btn, 1)

@@ -23,7 +23,7 @@ neither phone: ActivityRing, Complication, ComplicationWithWebFallback, Gauge, P
 | `Alert` | 5/5 | 4/5 | 5/5 | 2/5 | — | material_semantic |  |
 | `AndroidSwipeActionRow` | 3/3 | 3/3 | 3/3 | 3/3 | — |  |  |
 | `AsyncImage` | 2/8 | 3/8 | 0/8 | 3/8 | — |  | placeholder |
-| `Button` | 11/13 | 11/13 | 11/13 | 11/13 | 11/13 | symbol | text_alignment |
+| `Button` | 12/13 | 11/13 | 12/13 | 11/13 | 12/13 | symbol |  |
 | `Canvas` | 3/3 | 1/3 | 3/3 | 3/3 | — | height, width |  |
 | `Capsule` | 4/5 | 5/5 | 4/5 | 5/5 | — |  | width |
 | `Card` | 4/6 | 6/6 | 5/6 | 3/6 | 5/6 |  | elevation, is_outlined |
@@ -52,7 +52,7 @@ neither phone: ActivityRing, Complication, ComplicationWithWebFallback, Gauge, P
 | `ImageWell` | 0/11 | 0/11 | 0/11 | 0/11 | — |  |  |
 | `InlineActionRow` | 3/3 | 3/3 | 3/3 | 3/3 | — |  |  |
 | `Inspector` | 4/5 | 3/5 | 3/5 | 4/5 | — | preferred_width |  |
-| `Label` | 8/8 | 7/8 | 8/8 | 7/8 | 8/8 | strikethrough |  |
+| `Label` | 9/9 | 7/9 | 9/9 | 7/9 | 9/9 | line_spacing, strikethrough |  |
 | `LinkButton` | 3/4 | 4/4 | 3/4 | 2/4 | — |  | opens_in_browser |
 | `ListView` | 10/14 | 4/14 | 6/14 | 1/14 | — | content_inset_horizontal, leading_swipe_actions, on_move, row_removal_duration_seconds, shows_drag_handle, style, trailing_swipe_actions | on_item_tap |
 | `MapView` | 6/6 | 3/6 | 6/6 | 6/6 | — | latitude, longitude, zoom_level |  |

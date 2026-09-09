@@ -36,7 +36,10 @@ describe AndroidButtonFixture do
     buttons["button-capped"].number_of_lines.should eq(2)
     buttons["button-leading"].text_alignment.should eq(UI::Alignment::Leading)
     buttons["button-trailing"].text_alignment.should eq(UI::Alignment::Trailing)
-    buttons["button-default"].text_alignment.should eq(UI::Alignment::Center)
+    # The base merge (6c4564db) made a button's alignment an override: nil means the
+    # renderer decides, and the Android renderer centers a nil (Gravity.CENTER), the
+    # gravity the device test asserts on this button.
+    buttons["button-default"].text_alignment.should be_nil
     buttons["button-default"].number_of_lines.should eq(1)
   end
 
