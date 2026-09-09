@@ -319,12 +319,28 @@ module UI
         if font.family != "system" && !font.family.empty?
           sender.set_string(target, :setFontFamily, font.family)
         end
+        if font.tracking != 0.0
+          sender.set_number(target, :setTracking, font.tracking)
+        end
 
         # fill_horizontal: the renderer pins the button wide, but a plain text
         # button centers its label. Tell the facade to fill + leading-align the
         # label so a row/card-filling button reads left, not centered.
         if view.fill_horizontal
           sender.set_bool(target, :setFillHorizontal, true)
+        end
+
+        # A DECLARED LABEL ALIGNMENT, WHICH THE FACADE PREFERS TO THE
+        # `fill_horizontal → leading` DEFAULT ABOVE.
+        #
+        # `text_alignment` is nil until a call site sets it, and only a non-nil
+        # value crosses the bridge — so every button that says nothing keeps the
+        # exact behaviour it had, and a full-width call to action can finally
+        # say `Alignment::Center` and be obeyed on iOS. Before this, the Crystal
+        # property was documented and unread on native, and every CTA in the
+        # demo shell rendered left-jammed inside a full-width capsule.
+        if declared = view.text_alignment
+          sender.set_string(target, :setLabelAlignment, swiftui_label_alignment(declared))
         end
 
         # Foreground (label) color — SEEDED at construction so the initial render
@@ -408,6 +424,16 @@ module UI
         # reserves the correct multi-line height (fixes the wrapping-label
         # height under-reservation / overlap). set_number no-ops on nil.
         sender.set_number(target, :setPreferredMaxLayoutWidth, view.preferred_max_layout_width)
+
+        # LEADING AND TRACKING. Both are nil/0.0 by default and only a set value
+        # crosses the bridge, so every label that says nothing keeps exactly the
+        # behaviour it had. See `UI::Label#line_spacing` and `UI::Font#tracking`
+        # for why a stack with neither cannot lead a heading differently from a
+        # paragraph, and draws a display face at the wrong letter-spacing.
+        sender.set_number(target, :setLineSpacing, view.line_spacing)
+        if font.tracking != 0.0
+          sender.set_number(target, :setTracking, font.tracking)
+        end
       end
 
       # Map a Crystal `UI::Font.weight` Symbol to the SwiftUI
@@ -415,6 +441,18 @@ module UI
       # mapping mirrors ButtonFacade.swift's private `Font.Weight`
       # extension. ultraLight = -3, thin = -2, light = -1, regular = 0,
       # medium = 1, semibold = 2, bold = 3, heavy = 4, black = 5.
+      # The token `APSKButtonOverrides.labelAlignment` switches on. Only the
+      # three horizontal cases mean anything to a label inside a button frame;
+      # the stack-only members of `UI::Alignment` (Top/Bottom/Fill) fall back to
+      # the reading direction rather than inventing a vertical answer.
+      def self.swiftui_label_alignment(alignment : UI::Alignment) : String
+        case alignment
+        when UI::Alignment::Center   then "center"
+        when UI::Alignment::Trailing then "trailing"
+        else                              "leading"
+        end
+      end
+
       def self.swiftui_font_weight_rawvalue(weight : Symbol) : Int32
         case weight
         when :ultra_light, :ultralight then -3

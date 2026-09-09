@@ -128,8 +128,35 @@ private struct APSKButtonHost: View {
         // leading-aligns its label; prominent centers.
         let fillH = overrides.fillHorizontal?.boolValue == true
         if wantsStretchedProminent || fillH {
+            // A DECLARED ALIGNMENT BEATS THE CONTEXTUAL ONE. `fillHorizontal`
+            // implying `.leading` is right for a wrapping content button and
+            // wrong for a full-width CTA — it is what left "Call (603)
+            // 555-0188" jammed against the leading edge of a 349pt gold capsule
+            // on five screens. `labelAlignment` is how a call site says which
+            // it is; nil keeps the old contextual default so no existing caller
+            // moves. See ButtonOverrides.labelAlignment.
+            // One token drives BOTH modifiers. The frame decides where the text
+            // block sits; `multilineTextAlignment` decides how a wrapped
+            // label's lines sit inside that block. Setting only the first
+            // centres a two-line CTA as a left-ragged slab.
+            let token = overrides.labelAlignment ?? (fillH ? "leading" : "center")
+            let frameAlignment: Alignment
+            let lineAlignment: TextAlignment
+            switch token {
+            case "center":
+                frameAlignment = .center
+                lineAlignment = .center
+            case "trailing":
+                frameAlignment = .trailing
+                lineAlignment = .trailing
+            default:
+                frameAlignment = .leading
+                lineAlignment = .leading
+            }
             labelContent = AnyView(
-                labelContent.frame(maxWidth: .infinity, alignment: fillH ? .leading : .center)
+                labelContent
+                    .multilineTextAlignment(lineAlignment)
+                    .frame(maxWidth: .infinity, alignment: frameAlignment)
             )
         }
 

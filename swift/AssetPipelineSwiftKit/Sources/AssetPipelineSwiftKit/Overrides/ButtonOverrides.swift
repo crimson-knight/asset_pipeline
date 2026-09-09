@@ -40,6 +40,33 @@ public class ButtonOverrides: ViewOverrides {
     // `true` makes the facade fill the width and LEADING-align the label (mirrors
     // LabelOverrides.fillHorizontal). nil = default (intrinsic, centered) sizing.
     @objc public var fillHorizontal: NSNumber? = nil
+    // Horizontal alignment of the LABEL inside the button's own frame:
+    // "leading" | "center" | "trailing". nil = the contextual default above
+    // (leading when `fillHorizontal` is set, centered otherwise).
+    //
+    // WHY THIS FIELD EXISTS. `UI::Button#text_alignment` was a documented
+    // Crystal property with no native path — `button.cr` said in as many words
+    // "native button renderers currently treat the label as centered" — so on
+    // iOS the only thing deciding a label's alignment was `fillHorizontal`,
+    // which every full-width call to action sets. Measured on the round-4
+    // frames (`00-error-dark`): the capsule spanned x=66..1112 (1046px /
+    // 349pt) and the label ink "Try again" ended near x=420, leaving roughly
+    // 690px (230pt) of empty fill to its right — on every CTA, every screen,
+    // both customers, both appearances.
+    //
+    // "Leading is deliberate, both are measured" is settled AGAINST by the
+    // sibling website the same prospect is looking at:
+    //   demo_build/sites/<slug>/public/css/design-system.css:190
+    //     .btn{display:inline-flex;align-items:center;justify-content:center}
+    //   demo_build/sites/<slug>/public/css/primitives.css .p-btn (same rule)
+    // When the app and the site disagree, the site wins, because the prospect
+    // sees both and the app is the one that looks broken.
+    //
+    // nil KEEPS THE OLD BEHAVIOUR ON PURPOSE. A wrapping content button (a
+    // tappable thought card whose label is the user's own text) still reads
+    // leading without saying anything; only a caller that DECLARES an
+    // alignment overrides the contextual default.
+    @objc public var labelAlignment: String? = nil
 
     @objc public override init() { super.init() }
 }
