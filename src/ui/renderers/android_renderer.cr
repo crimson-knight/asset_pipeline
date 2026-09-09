@@ -479,7 +479,15 @@
             background_color = material_color(:secondary_container)
             foreground_color = material_color(:on_secondary_container)
           end
-          stroke_color = material_color(:outline_variant)
+          # NO HAIRLINE ON THE DEFAULT STYLE. The SwiftUI facade leaves a
+          # default-style button with no chrome at all, so a filled call to
+          # action there is its fill and nothing else, and a transparent
+          # button laid over a tab draws nothing. The `outline_variant` stroke
+          # that used to sit here put a gray ring around every call to action
+          # and a capsule around every tab on the first customer app measured
+          # against its iPhone twin (QuiltPerfect, 2026-09-09). A stroke on
+          # Android now means what it means on iOS: a declared border, or the
+          # Bordered style.
         end
 
         # An explicit background or foreground color wins over the style's
@@ -493,8 +501,8 @@
         unless explicit_foreground.r == 0.0 && explicit_foreground.g == 0.478 && explicit_foreground.b == 1.0
           foreground_color = color_to_argb(explicit_foreground)
         end
-        # A border on a button is its MaterialButton stroke; the style's own
-        # hairline stays when the view declares none.
+        # A border on a button is its MaterialButton stroke; without a declared
+        # border only the Bordered style draws one.
         stroke_width_dp = 1
         if view.border_width > 0.0
           stroke_width_dp = view.border_width.round.to_i.clamp(1, 64)
