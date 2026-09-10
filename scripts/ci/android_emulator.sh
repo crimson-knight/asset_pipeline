@@ -73,8 +73,14 @@ up() {
   say "creating AVD $name from $image ($profile)"
   echo no | "$avdmanager" create avd --force -n "$name" --package "$image" --device "$profile" > "$log_dir/avdmanager.log" 2>&1 \
     || { cat "$log_dir/avdmanager.log" >&2; echo "android_emulator: avdmanager failed" >&2; return 1; }
-  config="$avd_home/$name.avd/config.ini"
-  [ -f "$config" ] || { echo "android_emulator: $config missing after create" >&2; return 1; }
+  # Ask avdmanager where it put the AVD: the AVD home differs between machines
+  # (ANDROID_AVD_HOME, ANDROID_USER_HOME, the runner image) and the emulator
+  # resolves it the same way avdmanager does.
+  "$avdmanager" list avd > "$log_dir/avdmanager-list.log" 2>&1 || true
+  config="$(awk -v n="$name" '$1 == "Name:" { found = ($2 == n) } found && $1 == "Path:" { print $2; exit }' "$log_dir/avdmanager-list.log")/config.ini"
+  [ -f "$config" ] || config="$avd_home/$name.avd/config.ini"
+  [ -f "$config" ] || { cat "$log_dir/avdmanager-list.log" >&2; echo "android_emulator: no config.ini for $name after create" >&2; return 1; }
+  say "AVD config: $config"
   {
     printf 'hw.cpu.ncore=%s\n' "$cores"
     printf 'hw.ramSize=%s\n' "$ram_mb"
