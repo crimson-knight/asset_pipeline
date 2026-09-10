@@ -1,0 +1,1 @@
+The bundle is real files: this note is read back by the assets fixture.

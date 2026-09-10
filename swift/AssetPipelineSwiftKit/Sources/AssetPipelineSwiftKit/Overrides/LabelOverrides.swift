@@ -54,6 +54,16 @@ public class LabelOverrides: ViewOverrides {
     // screens whose labels wrap dynamic content. Takes precedence over
     // fillHorizontal. nil = SwiftUI default sizing.
     @objc public var preferredMaxLayoutWidth: NSNumber? = nil
+    // Extra points inserted between wrapped lines (`SwiftUI .lineSpacing`).
+    // nil = the face's own default advance, which is what every label rendered
+    // before this field existed. It is what lets a 36pt display headline be led
+    // at ~1.06 while a 15pt paragraph is led at ~1.55 — the two values a design
+    // system's own stylesheet publishes and this stack could previously express
+    // neither of.
+    @objc public var lineSpacing: NSNumber? = nil
+    // Letter spacing in points (`SwiftUI .tracking`). nil / 0 = the face's own
+    // default. Carried from `UI::Font#tracking`.
+    @objc public var tracking: NSNumber? = nil
 
     @objc public override init() { super.init() }
 }

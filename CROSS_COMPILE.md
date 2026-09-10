@@ -12,7 +12,7 @@ into Swift/Kotlin host applications via the C-level FFI.
 
 | Tool | Version | Install |
 |------|---------|---------|
-| Crystal compiler | 1.15+ (incremental-compilation branch) | Build from source or download nightly |
+| Crystal compiler | Android: pinned 1.21.0; iOS: use its separately tested toolchain | Android requires the reviewed embedded startup contract |
 | git | Any | `brew install git` |
 | cmake | 3.20+ | `brew install cmake` |
 | make | Any | Included with Xcode CLT |
@@ -36,7 +36,13 @@ xcrun --sdk iphonesimulator --show-sdk-path
 
 | Tool | Required for | Install |
 |------|-------------|---------|
-| Android NDK r25+ | All Android builds | Android Studio SDK Manager or `brew install android-commandlinetools` then `sdkmanager "ndk;28.2.13676358"` |
+| Android NDK 28.2.13676358 | All Android builds | Android Studio SDK Manager or `sdkmanager "ndk;28.2.13676358"` |
+
+`config/android_toolchain.env` is the canonical Android version contract.
+Run `./scripts/doctor_android.sh` to validate SDK, NDK, Java, Crystal and ADB.
+The installed macOS Crystal compiler can emit Android objects when given the
+actual `--target` triple; a Linux compiler host is not required. `-Dandroid`
+alone does not change the object architecture or libc bindings.
 
 Set the `ANDROID_NDK_HOME` environment variable:
 
@@ -84,10 +90,43 @@ BUILD_DIR/
   ios-simulator/lib/
     libgc.a
     libpcre2-8.a
-  android-arm64/lib/
-    libgc.a
-    libpcre2-8.a
+  android/<arm64-v8a|x86_64>/api-<minimum-api>/<contract-sha256>/
+    android-deps.manifest
+    files.sha256
+    include/
+    licenses/
+    lib/
+      libgc.a
+      libcord.a
+      libpcre2-8.a
+      libpcre2-posix.a
 ```
+
+Android bundles are keyed by ABI, native API, pinned source commits/checksums,
+NDK tool hashes, build-tool versions and recipe identity. Both the dependency
+builder and native linker validate the contract and complete library/header
+payload. The old flat Android cache is retained but no longer accepted; rebuild
+with the current script instead of moving old archives into the new layout.
+The iOS layout and iOS builder are unchanged by this Android migration.
+
+Android builds also require Autoconf, Automake and GNU libtoolize (named
+`glibtoolize` on Homebrew). `doctor_android.sh` checks these prerequisites.
+GC is explicitly configured for POSIX threads and Clang's built-in atomics;
+it does not discover a host libatomic_ops installation. The atomic_ops source
+revision/checksum is retained as provenance, but no separate atomic_ops object
+is linked in this recipe.
+
+For independent-build and negative-cache regression proof:
+
+```bash
+JOBS=4 bash scripts/tests/android_dependency_reproducibility.sh
+```
+
+This creates two empty cache roots, fetches pinned sources independently,
+compares all published files and manifests, and checks wrong API/ABI/toolchain,
+modified headers, invalid archives and corrupt source-download rejection.
+It tests repeatability on the selected host/toolchain, not byte identity across
+different operating systems or compiler versions.
 
 ### Building individual targets
 
@@ -208,7 +247,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 ```
 Crystal source (.cr)
     |
-    | crystal build --cross-compile --target aarch64-linux-android31 --shared
+    | crystal build --cross-compile --target aarch64-linux-android31
     v
 Object file (.o)
     |
@@ -223,12 +262,20 @@ Shared library (.so)
 | File | Description |
 |------|-------------|
 | `build/android-arm64/lib<name>.so` | Shared library for arm64-v8a devices |
+| `build/android-x86_64/lib<name>.so` | Shared library for x86_64 emulators/devices |
+
+Select the second architecture with `ANDROID_ABI=x86_64`. The canonical sample
+builds both. Crystal 1.21.0 does not bundle x86_64 Android libc bindings; the
+build creates a local overlay from the bundled ARM64 bionic bindings, replaces
+the architecture-specific `stat`, `va_list` and syscall definitions, and
+checks their layouts against NDK headers. It does not modify the installed
+Crystal standard library. Cross-link success is not x86_64 runtime proof.
 
 ### Recommended `-D` flags for Android
 
 | Flag | Effect |
 |------|--------|
-| `-Dwithout_openssl` | Disable OpenSSL (use Android's system TLS via NDK) |
+| `-Dwithout_openssl` | Disable Crystal OpenSSL imports; TLS requires a separate platform adapter or bundled library |
 | `-Dwithout_xml` | Disable LibXML2 |
 
 ### Android Studio integration
@@ -252,16 +299,14 @@ android {
 companion object {
     init {
         System.loadLibrary("myapp")  // loads libmyapp.so
-        crystalInit()
     }
 }
 
-external fun crystalInit()
 external fun crystalCleanup()
 external fun crystalAdd(a: Int, b: Int): Int
 ```
 
-4. Implement the JNI bridge (see `samples/cross_platform/android/jni_bridge.c`):
+4. Implement the JNI bridge (see `samples/cross_platform/android_host/android_host_jni.c`):
 
 ```c
 #include <jni.h>
@@ -294,27 +339,27 @@ When Crystal runs as a shared library, there is no automatic runtime
 initialisation. The host application must call `crystal_init()` before any
 Crystal function is used.
 
-The `scripts/crystal_init.cr` file exports these functions:
+Android builds link `scripts/crystal_init.cr` and the C runtime wrapper
+`scripts/crystal_gc_threads.c`. The C `pthread_once` gate performs GC setup,
+Crystal runtime setup, and `Crystal.main_user_code` exactly once. The last step
+initializes eager globals and the scheduler, including the application source's
+top-level statements. Do not put a web-server boot loop in an embedded entrypoint.
+Android owns process lifetime; the bridge does not call `Crystal.exit`.
+
+The Android embedding exports these functions:
 
 | Function | Signature | Purpose |
 |----------|-----------|---------|
 | `crystal_init` | `() -> void` | Initialise BoehmGC and Crystal runtime |
 | `crystal_cleanup` | `() -> void` | Final GC collection and cleanup |
-| `crystal_gc_register_thread` | `() -> void` | Register a new native thread with the GC |
-| `crystal_gc_unregister_thread` | `() -> void` | Unregister a native thread before it exits |
+| `crystal_runtime_is_ready` | `() -> int32` | Verify initialization succeeded before entry |
+| `crystal_gc_register_thread` | `() -> int32` | 1: registered here; 0: already registered; negative: failure |
+| `crystal_gc_unregister_thread` | `() -> int32` | Release a registration owned by this C bridge |
 
-Include `scripts/crystal_init.cr` in your build:
-
-```bash
-# Compile crystal_init.cr alongside your application
-crystal build src/my_app.cr scripts/crystal_init.cr \
-    --cross-compile --target aarch64-apple-ios17.0 ...
-```
-
-Or require it at the top of your source file:
+Require the initialization support at the top of your source file:
 
 ```crystal
-require_relative "../scripts/crystal_init"
+require "../scripts/crystal_init"
 
 fun my_feature_function : Int32
   42
@@ -323,28 +368,14 @@ end
 
 ### Multi-threaded use
 
-If your host application calls Crystal functions from multiple threads
-(e.g. Android WorkManager threads, iOS DispatchQueue background queues),
-each thread must register itself with BoehmGC:
-
-```swift
-// Swift, on a background thread:
-crystal_gc_register_thread()
-defer { crystal_gc_unregister_thread() }
-// ... call Crystal functions ...
-```
-
-```kotlin
-// Kotlin, on a background thread:
-Thread {
-    crystalGcRegisterThread()
-    try {
-        // ... call Crystal functions ...
-    } finally {
-        crystalGcUnregisterThread()
-    }
-}.start()
-```
+The canonical Android host renders and dispatches UI callbacks on the main
+looper. Its C entrypoints register a foreign JVM stack with Boehm before
+entering Crystal, check failure, and unregister only when that invocation owns
+the registration. GC registration alone does not make application state or
+Android Views safe to use from arbitrary worker threads. Native-created threads
+also need JVM attachment before JNI calls; reference deletion uses the stored
+JavaVM to obtain a valid thread-local JNIEnv. Do not retain a JNIEnv across
+threads. See the canonical host's `android_host_jni.c` for the complete contract.
 
 ---
 
@@ -466,6 +497,7 @@ Environment:
   CRYSTAL              Crystal binary          (default: crystal)
   CRYSTAL_CROSS_DEPS   Deps root directory     (default: /tmp/crystal-cross-deps)
   ANDROID_API          Min API level           (default: 31)
+  ANDROID_ABI          Target ABI              (default: arm64-v8a; also x86_64)
   ANDROID_NDK_HOME     NDK path
   CRYSTAL_FLAGS        Extra -D flags          (default: -Dwithout_openssl -Dwithout_xml)
   EXTRA_C_SOURCES      Extra C bridge sources  (default: none)

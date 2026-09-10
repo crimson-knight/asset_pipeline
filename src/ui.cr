@@ -3,6 +3,10 @@ require "./ui/fluid"
 # `UI::RenderContext` (in `view.cr`), so it must load BEFORE `view.cr`.
 require "./ui/environment"
 require "./ui/view"
+# Font availability, so a build can be asked what face it actually resolved
+# rather than what it asked for. Load right after `view.cr` (which defines
+# `UI::Font`) and before anything that renders type.
+require "./ui/font_registry"
 require "./ui/form_state"
 require "./ui/navigation_coordinator"
 require "./ui/app_shortcuts"

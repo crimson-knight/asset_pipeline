@@ -7,6 +7,11 @@
   require "../native/native_view"
   require "../native/callback_registry"
   require "../design_tokens"
+  require "../android/navigation_state"
+  require "../android/java_boundary"
+  require "../android/semantics"
+  require "../android/dialogs"
+  require "../android/sheets"
 
   module UI::Android
     # Low-level JNI function bindings for Android view construction.
@@ -46,7 +51,7 @@
     # MATCH_PARENT = -1, WRAP_CONTENT = -2.
     # LinearLayout children need LinearLayout.LayoutParams.
     # FrameLayout children need FrameLayout.LayoutParams.
-    lib LibAndroidBridge
+    lib RawAndroidBridge
       # --- View creation ---
       # Creates a new Android View instance of the specified class.
       # class_name: JNI class descriptor (e.g., "android/widget/TextView")
@@ -54,6 +59,8 @@
       # Returns: local jobject ref to the new view
       fun android_view_new(env : Void*, class_name : UInt8*, context : Void*) : Void*
       fun android_view_new_themed(env : Void*, class_name : UInt8*, context : Void*, style_field_name : UInt8*) : Void*
+      fun android_context_resolve_material_color(env : Void*, context : Void*,
+                                                 attribute_name : UInt8*, fallback_argb : Int32) : Int32
 
       # --- TextView / Button / Label ---
       fun android_textview_set_text(env : Void*, tv : Void*, text : UInt8*, byte_len : Int32)
@@ -62,13 +69,20 @@
       fun android_textview_set_gravity(env : Void*, tv : Void*, gravity : Int32)
       fun android_textview_set_max_lines(env : Void*, tv : Void*, max : Int32)
       fun android_textview_set_single_line(env : Void*, tv : Void*, single : Int32)
+      fun android_textview_set_ellipsize_end(env : Void*, tv : Void*, on : Int32)
       fun android_textview_set_typeface(env : Void*, tv : Void*, style : Int32)
+      fun android_textview_set_typeface_family(env : Void*, tv : Void*, family : UInt8*, byte_len : Int32, style : Int32) : Int32
 
       # --- ImageView ---
       fun android_imageview_set_scale_type(env : Void*, iv : Void*, scale_type : Int32)
       fun android_imageview_set_image_resource(env : Void*, iv : Void*, res_id : Int32)
       # Load from asset name (resolved via Resources)
-      fun android_imageview_set_image_named(env : Void*, iv : Void*, name : UInt8*)
+      fun android_imageview_set_image_named(env : Void*, iv : Void*, name : UInt8*, byte_len : Int32) : Int32
+      # Load from an absolute path inside the application's private storage
+      fun android_imageview_set_image_file(env : Void*, iv : Void*, path : UInt8*, byte_len : Int32) : Int32
+      # Decode an encoded image from memory (a prefetched photo)
+      fun android_imageview_set_image_bytes(env : Void*, iv : Void*, data : UInt8*, byte_len : Int32) : Int32
+      fun android_imageview_set_tint(env : Void*, iv : Void*, argb : Int32) : Int32
 
       # --- EditText ---
       fun android_edittext_set_hint(env : Void*, et : Void*, hint : UInt8*, byte_len : Int32)
@@ -101,6 +115,19 @@
       fun android_linearlayout_set_orientation(env : Void*, ll : Void*, orientation : Int32)
       # orientation: 0=HORIZONTAL, 1=VERTICAL
       fun android_linearlayout_set_gravity(env : Void*, ll : Void*, gravity : Int32)
+      fun android_layout_prepare(env : Void*, view : Void*, min_width : Float32, min_height : Float32,
+                                  max_width : Float32, max_height : Float32, fill_horizontal : Int32, fill_vertical : Int32)
+      fun android_layout_wrap(env : Void*, view : Void*) : Void*
+      fun android_view_state_metadata(env : Void*, view : Void*, key : UInt8*, key_len : Int32,
+                                      kind : UInt8*, kind_len : Int32, screen : UInt8*, screen_len : Int32)
+      fun android_view_semantics(env : Void*, view : Void*, packet : UInt8*, byte_len : Int32)
+      fun android_dialog_configure(env : Void*, view : Void*, packet : UInt8*, byte_len : Int32)
+      fun android_sheet_configure(env : Void*, view : Void*, packet : UInt8*, byte_len : Int32)
+      fun android_sheet_request_dismiss(env : Void*, view : Void*)
+      fun android_stack_set_alignment(env : Void*, view : Void*, alignment : Int32)
+      fun android_stack_set_equal_width(env : Void*, view : Void*, enabled : Int32)
+      fun android_layout_add_spacer(env : Void*, parent : Void*, child : Void*, minimum : Float32)
+      fun android_scrollview_configure(env : Void*, view : Void*, horizontal : Int32, vertical : Int32, indicators : Int32)
 
       # --- ViewGroup: add child with LayoutParams ---
       # Adds a child view using WRAP_CONTENT LayoutParams for both dimensions.
@@ -127,6 +154,10 @@
       fun android_view_set_elevation(env : Void*, v : Void*, dp : Float32)
       fun android_view_set_padding(env : Void*, v : Void*,
                                    left : Int32, top : Int32, right : Int32, bottom : Int32)
+      fun android_view_set_padding_f(env : Void*, v : Void*, left : Float32, top : Float32, right : Float32, bottom : Float32)
+      fun android_view_set_size_constraints(env : Void*, v : Void*, min_width : Float32, min_height : Float32,
+                                            fixed_width : Float32, fixed_height : Float32)
+      fun android_linearlayout_set_spacing(env : Void*, ll : Void*, spacing : Float32)
       fun android_view_clear_focus(env : Void*, v : Void*)
 
       # --- CALayer-equivalent: outline/shape for corner radius + border ---
@@ -139,6 +170,7 @@
       fun android_material_button_set_stroke_color(env : Void*, btn : Void*, argb : Int32)
       fun android_material_button_set_stroke_width(env : Void*, btn : Void*, width : Int32)
       fun android_material_button_set_corner_radius(env : Void*, btn : Void*, radius : Int32)
+      fun android_material_button_set_corner_radius_f(env : Void*, btn : Void*, radius : Float32)
       fun android_material_card_set_background_color(env : Void*, card : Void*, argb : Int32)
       fun android_material_card_set_radius(env : Void*, card : Void*, radius : Float32)
       fun android_material_card_set_elevation(env : Void*, card : Void*, elevation : Float32)
@@ -146,6 +178,7 @@
       fun android_material_card_set_stroke_width(env : Void*, card : Void*, width : Int32)
       fun android_toolbar_set_title(env : Void*, toolbar : Void*, title : UInt8*, byte_len : Int32)
       fun android_toolbar_set_title_text_color(env : Void*, toolbar : Void*, argb : Int32)
+      fun android_toolbar_set_navigation(env : Void*, toolbar : Void*, callback_id : UInt64, argb : Int32) : Int32
       fun android_toolbar_add_menu_item(env : Void*, toolbar : Void*, item_id : Int32,
                                         title : UInt8*, byte_len : Int32, show_as_action : Int32)
       fun android_context_start_share_chooser(env : Void*, context : Void*,
@@ -175,6 +208,16 @@
 
       # --- SeekBar (Slider) ---
       fun android_seekbar_set_max(env : Void*, sb : Void*, max : Int32)
+      fun android_togglebutton_set_text_on_off(env : Void*, v : Void*, text : UInt8*, byte_len : Int32)
+      fun android_button_set_open_url_on_click(env : Void*, v : Void*, url : UInt8*, byte_len : Int32)
+      fun android_progressbar_set_indeterminate(env : Void*, pb : Void*, indeterminate : Int32)
+      fun android_datepicker_configure(env : Void*, dp : Void*, year : Int32, month : Int32, day : Int32, min_epoch_ms : Int64, max_epoch_ms : Int64, callback_id : UInt64)
+      fun android_timepicker_configure(env : Void*, tp : Void*, hour : Int32, minute : Int32, twenty_four_hour : Int32, callback_id : UInt64)
+      fun android_tablayout_add_tab(env : Void*, tl : Void*, text : UInt8*, byte_len : Int32)
+      fun android_tablayout_configure(env : Void*, tl : Void*, selected : Int32, has_tint : Int32, tint_argb : Int32, callback_id : UInt64)
+      fun android_menu_listener_new(env : Void*, callback_id : UInt64) : Void*
+      fun android_menu_listener_add_item(env : Void*, listener : Void*, text : UInt8*, byte_len : Int32, destructive : Int32)
+      fun android_view_set_on_click_listener_object(env : Void*, v : Void*, listener : Void*)
       fun android_seekbar_set_progress(env : Void*, sb : Void*, progress : Int32)
       fun android_seekbar_set_progress_tint(env : Void*, sb : Void*, argb : Int32)
       fun android_seekbar_get_progress(env : Void*, sb : Void*) : Int32
@@ -190,6 +233,8 @@
       fun android_seekbar_set_on_change_listener(env : Void*, sb : Void*, callback_id : UInt64)
       # TextWatcher for EditText
       fun android_edittext_set_text_watcher(env : Void*, et : Void*, callback_id : UInt64)
+      fun android_edittext_set_submit_listener(env : Void*, et : Void*, callback_id : UInt64)
+      fun android_edittext_set_read_only(env : Void*, et : Void*)
       # RadioGroup.OnCheckedChangeListener
       fun android_radiogroup_set_on_checked_change_listener(env : Void*, rg : Void*, callback_id : UInt64)
       fun android_searchview_set_on_query_text_listener(env : Void*, sv : Void*,
@@ -210,6 +255,28 @@
       # missing, which Phase 6.5's audit harness verifies separately).
       fun android_view_apply_glass(env : Void*, view : Void*, blur_radius : Float32, fallback_argb : Int32) : Int32
     end
+
+    {% verbatim do %}
+    module LibAndroidBridge
+      {% for method in UI::Android::RawAndroidBridge.methods %}
+        def self.{{method.name}}({{method.args.map(&.name).splat}})
+        {% if ["android_delete_local_ref", "android_delete_global_ref"].includes?(method.name.stringify) %}
+          UI::Android::RawAndroidBridge.{{method.name}}({{method.args.map(&.name).splat}})
+        {% else %}
+          UI::Android::JavaBoundary.check!({{method.args.first.name}})
+          {% if ["", "Void"].includes?(method.return_type.stringify) %}
+          UI::Android::RawAndroidBridge.{{method.name}}({{method.args.map(&.name).splat}})
+          UI::Android::JavaBoundary.check!({{method.args.first.name}})
+          {% else %}
+          %result = UI::Android::RawAndroidBridge.{{method.name}}({{method.args.map(&.name).splat}})
+          UI::Android::JavaBoundary.check!({{method.args.first.name}})
+          %result
+          {% end %}
+        {% end %}
+        end
+      {% end %}
+    end
+    {% end %}
 
     # Renders a UI::View tree to native Android views via the JNI bridge.
     #
@@ -251,6 +318,8 @@
     class Renderer < UI::PlatformVisitor
       # The root NativeView produced by visiting the top-level view.
       @result : NativeView? = nil
+      @created = [] of NativeView
+      @pending_semantics_callbacks = {} of UInt64 => Array(UInt64)
 
       # Stack of NativeViews for container nesting. When visiting children
       # inside a VStack/HStack/ZStack/ScrollView, the parent is on top so
@@ -276,6 +345,8 @@
       # path and the alpha-fallback path.
       property design_tokens : UI::DesignTokens::Tokens = UI::DesignTokens::Tokens.default
 
+      getter navigation = UI::Android::NavigationState.new
+
       # Returns the root NativeView produced by the last top-level visit.
       # Raises if no view has been visited yet.
       def result : NativeView
@@ -285,7 +356,22 @@
       # Convenience: visit a view and return its NativeView.
       def render(view : UI::View) : NativeView
         view.accept(self)
-        result
+        native = result
+        raise "Android semantics callbacks were not adopted by a native view" unless @pending_semantics_callbacks.empty?
+        @created.clear # Ownership transfers to the returned tree.
+        native
+      rescue error
+        # Includes containers not yet attached to their parent when a child
+        # throws, and leaves whose callbacks were registered before attachment.
+        @created.reverse_each(&.teardown!)
+        @created.clear
+        @pending_semantics_callbacks.each_value { |tokens| UI::CallbackRegistry.unregister(tokens) }
+        @pending_semantics_callbacks.clear
+        @stack.clear
+        @stack_is_linear.clear
+        @stack_local_ptrs.clear
+        @result = nil
+        raise error
       end
 
       # -----------------------------------------------------------------
@@ -301,13 +387,15 @@
         # setTextSize (SP units -- Android's scale-independent pixels)
         LibAndroidBridge.android_textview_set_text_size(@env, tv, view.font.size.to_f32)
 
-        # setTypeface style: 0=NORMAL, 1=BOLD, 2=ITALIC, 3=BOLD_ITALIC
-        typeface_style = typeface_style_for(view.font)
-        LibAndroidBridge.android_textview_set_typeface(@env, tv, typeface_style)
+        apply_typeface(tv, view.font)
 
         # setTextColor (ARGB packed int)
-        LibAndroidBridge.android_textview_set_text_color(
-          @env, tv, color_to_argb(view.text_color))
+        text_argb = if role = view.text_color_role
+                      role == LabelRole::Primary ? material_color(:on_surface) : material_color(:on_surface_variant)
+                    else
+                      color_to_argb(view.text_color)
+                    end
+        LibAndroidBridge.android_textview_set_text_color(@env, tv, text_argb)
 
         # setGravity for text alignment
         # Gravity.LEFT=3, Gravity.CENTER_HORIZONTAL=1, Gravity.RIGHT=5, Gravity.START=8388611
@@ -320,8 +408,12 @@
         LibAndroidBridge.android_textview_set_gravity(@env, tv, gravity_val)
 
         # setMaxLines (0 = unlimited in UI::Label, but Android uses Int.MAX_VALUE)
+        # A capped label truncates its tail with an ellipsis, as UILabel does
+        # at numberOfLines; Android otherwise keeps the whole layout and clips
+        # it by height.
         if view.number_of_lines > 0
           LibAndroidBridge.android_textview_set_max_lines(@env, tv, view.number_of_lines)
+          LibAndroidBridge.android_textview_set_ellipsize_end(@env, tv, 1)
         else
           LibAndroidBridge.android_textview_set_max_lines(@env, tv, Int32::MAX)
         end
@@ -346,8 +438,7 @@
         button_size = view.font.size > 0 ? view.font.size.to_f32 : @material_theme.font_size_body.to_f32
         LibAndroidBridge.android_textview_set_text_size(@env, btn, button_size)
 
-        # Typeface
-        LibAndroidBridge.android_textview_set_typeface(@env, btn, typeface_style_for(view.font))
+        apply_typeface(btn, view.font)
 
         background_color = material_color(:primary_container)
         foreground_color = material_color(:on_primary_container)
@@ -388,18 +479,45 @@
             background_color = material_color(:secondary_container)
             foreground_color = material_color(:on_secondary_container)
           end
-          stroke_color = material_color(:outline_variant)
+          # NO HAIRLINE ON THE DEFAULT STYLE. The SwiftUI facade leaves a
+          # default-style button with no chrome at all, so a filled call to
+          # action there is its fill and nothing else, and a transparent
+          # button laid over a tab draws nothing. The `outline_variant` stroke
+          # that used to sit here put a gray ring around every call to action
+          # and a capsule around every tab on the first customer app measured
+          # against its iPhone twin (QuiltPerfect, 2026-09-09). A stroke on
+          # Android now means what it means on iOS: a declared border, or the
+          # Bordered style.
+        end
+
+        # An explicit background or foreground color wins over the style's
+        # Material role, the way the SwiftUI facade applies them on iOS. The
+        # declared foreground default (the iOS system blue) means "unset" there
+        # and here, so a button that never set a color keeps its role colors.
+        if explicit_background = view.background
+          background_color = color_to_argb(explicit_background)
+        end
+        explicit_foreground = view.foreground_color
+        unless explicit_foreground.r == 0.0 && explicit_foreground.g == 0.478 && explicit_foreground.b == 1.0
+          foreground_color = color_to_argb(explicit_foreground)
+        end
+        # A border on a button is its MaterialButton stroke; without a declared
+        # border only the Bordered style draws one.
+        stroke_width_dp = 1
+        if view.border_width > 0.0
+          stroke_width_dp = view.border_width.round.to_i.clamp(1, 64)
+          stroke_color = color_to_argb(view.border_color || explicit_foreground)
         end
 
         LibAndroidBridge.android_textview_set_text_color(@env, btn, foreground_color)
         LibAndroidBridge.android_material_button_set_background_tint(@env, btn, background_color)
 
-        radius = view.corner_radius > 0.0 ? view.corner_radius.round.to_i : @material_theme.corner_radius_large.round.to_i
-        LibAndroidBridge.android_material_button_set_corner_radius(@env, btn, radius)
+        radius = view.corner_radius > 0.0 ? view.corner_radius.to_f32 : @material_theme.corner_radius_large.to_f32
+        LibAndroidBridge.android_material_button_set_corner_radius_f(@env, btn, radius)
 
         if stroke = stroke_color
           LibAndroidBridge.android_material_button_set_stroke_color(@env, btn, stroke)
-          LibAndroidBridge.android_material_button_set_stroke_width(@env, btn, 1)
+          LibAndroidBridge.android_material_button_set_stroke_width(@env, btn, stroke_width_dp)
         else
           LibAndroidBridge.android_material_button_set_stroke_width(@env, btn, 0)
         end
@@ -412,6 +530,31 @@
           end
         end
 
+        # Label lines and alignment, as on UI::Label: 1 keeps the single-line
+        # call to action, 0 wraps without a cap, n caps the wrap. The alignment
+        # is an override: nil lets the renderer decide, and here nil centers (the
+        # SwiftUI facade also centers unless the button fills its row); a set
+        # value sits the label where it says, vertically centered in the button.
+        label_lines = view.number_of_lines
+        if label_lines == 1
+          LibAndroidBridge.android_textview_set_single_line(@env, btn, 1)
+          LibAndroidBridge.android_textview_set_ellipsize_end(@env, btn, 1)
+        elsif label_lines > 1
+          LibAndroidBridge.android_textview_set_single_line(@env, btn, 0)
+          LibAndroidBridge.android_textview_set_max_lines(@env, btn, label_lines)
+          LibAndroidBridge.android_textview_set_ellipsize_end(@env, btn, 1)
+        else
+          LibAndroidBridge.android_textview_set_single_line(@env, btn, 0)
+          LibAndroidBridge.android_textview_set_max_lines(@env, btn, Int32::MAX)
+          LibAndroidBridge.android_textview_set_ellipsize_end(@env, btn, 0)
+        end
+        label_gravity = case view.text_alignment
+                        when Alignment::Leading  then 8388627 # Gravity.START | Gravity.CENTER_VERTICAL
+                        when Alignment::Trailing then 8388629 # Gravity.END | Gravity.CENTER_VERTICAL
+                        else                          17      # Gravity.CENTER
+                        end
+        LibAndroidBridge.android_textview_set_gravity(@env, btn, label_gravity)
+
         LibAndroidBridge.android_view_set_enabled(@env, btn, view.disabled ? 0 : 1)
         if view.disabled
           LibAndroidBridge.android_view_set_alpha(@env, btn, 0.4_f32)
@@ -423,7 +566,7 @@
         # Promote local ref to global for storage in NativeHandle
         global_btn = LibAndroidBridge.android_new_global_ref(@env, btn)
         handle = JNI.wrap_global(global_btn, label: "Button")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         # Wire up on_tap callback via OnClickListener
         if tap_handler = view.on_tap
@@ -441,7 +584,7 @@
       # equivalent of UIStackView (vertical) / NSStackView (vertical).
       # -----------------------------------------------------------------
       def visit(view : UI::VStack)
-        ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        ll = LibAndroidBridge.android_view_new(@env, "dev/assetpipeline/androidhost/CrystalLinearLayout", @context)
 
         # VERTICAL = 1
         LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 1)
@@ -456,13 +599,15 @@
                       else                          1
                       end
         LibAndroidBridge.android_linearlayout_set_gravity(@env, ll, gravity_val)
+        LibAndroidBridge.android_stack_set_alignment(@env, ll, view.alignment.value)
+        LibAndroidBridge.android_linearlayout_set_spacing(@env, ll, view.spacing.to_f32)
 
         # Common properties
         apply_common_properties(ll, view)
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[v]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         # Push onto stack, visit children, pop
         push_stack(native, ll, is_linear: true)
@@ -478,7 +623,7 @@
       # Visit: HStack -> android.widget.LinearLayout (HORIZONTAL)
       # -----------------------------------------------------------------
       def visit(view : UI::HStack)
-        ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        ll = LibAndroidBridge.android_view_new(@env, "dev/assetpipeline/androidhost/CrystalLinearLayout", @context)
 
         # HORIZONTAL = 0
         LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 0)
@@ -493,13 +638,16 @@
                       else                        16
                       end
         LibAndroidBridge.android_linearlayout_set_gravity(@env, ll, gravity_val)
+        LibAndroidBridge.android_stack_set_alignment(@env, ll, view.alignment.value)
+        LibAndroidBridge.android_stack_set_equal_width(@env, ll, view.fill_equally ? 1 : 0)
+        LibAndroidBridge.android_linearlayout_set_spacing(@env, ll, view.spacing.to_f32)
 
         # Common properties
         apply_common_properties(ll, view)
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[h]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         push_stack(native, ll, is_linear: true)
         view.children.each do |child|
@@ -513,23 +661,21 @@
       # -----------------------------------------------------------------
       # Visit: ZStack -> android.widget.FrameLayout
       #
-      # FrameLayout is the Android overlay container. Children are stacked
-      # on top of each other. Each child uses MATCH_PARENT LayoutParams to
-      # fill the frame (equivalent to ZStack's fill behavior).
+      # Children retain intrinsic/exact sizes; only Fill stretches unpinned
+      # dimensions. Native START/END gravity follows the resolved RTL direction.
       # -----------------------------------------------------------------
       def visit(view : UI::ZStack)
-        fl = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+        fl = LibAndroidBridge.android_view_new(@env, "dev/assetpipeline/androidhost/CrystalOverlayLayout", @context)
+        LibAndroidBridge.android_stack_set_alignment(@env, fl, view.alignment.value)
 
         # Common properties
         apply_common_properties(fl, view)
 
         global_fl = LibAndroidBridge.android_new_global_ref(@env, fl)
         handle = JNI.wrap_global(global_fl, label: "FrameLayout[zstack]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
-        # ZStack children use MATCH_PARENT so they overlay each other.
-        # We use a non-linear stack (is_linear: false) so push_native uses
-        # android_viewgroup_add_view_wh with MATCH_PARENT for both dimensions.
+        # NativeLayout supplies each child's FrameLayout gravity and dimensions.
         push_stack(native, fl, is_linear: false)
         view.children.each do |child|
           child.accept(self)
@@ -545,34 +691,30 @@
       def visit(view : UI::Image)
         iv = LibAndroidBridge.android_view_new(@env, "android/widget/ImageView", @context)
 
-        # Load image by asset name (bridges to Resources.getIdentifier + setImageResource)
-        LibAndroidBridge.android_imageview_set_image_named(@env, iv, view.source.to_unsafe)
+        # A catalog name, or an absolute path inside the application's private
+        # storage (the extracted bundle, the files directory, the cache) at the
+        # density the file name declares, which is how iOS loads the same art.
+        loaded = if view.source.starts_with?('/')
+                   LibAndroidBridge.android_imageview_set_image_file(@env, iv, view.source.to_unsafe, view.source.bytesize) == 1
+                 else
+                   LibAndroidBridge.android_imageview_set_image_named(@env, iv, view.source.to_unsafe, view.source.bytesize) == 1
+                 end
+        raise ArgumentError.new("Android image could not load bundled source: #{view.source}") unless loaded
 
         # Scale type -> ImageView.ScaleType
-        # FIT_CENTER=6 (Fit), CENTER_CROP=5 (Fill), FIT_XY=4 (Stretch)
+        # Explicit bridge contract, not Android enum ordinals: 0/1/2.
         scale_type = case view.content_mode
-                     when ContentMode::Fit     then 6 # FIT_CENTER
-                     when ContentMode::Fill    then 5 # CENTER_CROP
-                     when ContentMode::Stretch then 4 # FIT_XY
-                     else                           6
+                     when ContentMode::Fit     then 0 # FIT_CENTER
+                     when ContentMode::Fill    then 1 # CENTER_CROP
+                     when ContentMode::Stretch then 2 # FIT_XY
+                     else                           0
                      end
         LibAndroidBridge.android_imageview_set_scale_type(@env, iv, scale_type)
 
-        # Tint color via setColorFilter (ARGB, SRC_ATOP mode)
-        # We encode tint color as a property that the bridge handles.
-        # The bridge calls setColorFilter(Color.argb(...), PorterDuff.Mode.SRC_ATOP).
-        # We reuse the alpha channel from tint.a clamped to [0,1].
-        # Implementation note: android_view_set_background_color is not appropriate here;
-        # the C bridge has a dedicated tint path for ImageView.
         if tint = view.tint_color
-          # Pack as ARGB int and let the bridge apply it
-          argb = color_to_argb(tint)
-          # Reuse progress_tint bridge as a generic tint -- android_seekbar_set_progress_tint
-          # is specific. Use background_color as a stand-in signal; a production bridge
-          # would expose android_imageview_set_tint(env, iv, argb).
-          # For structural completeness we document the intent here:
-          # LibAndroidBridge.android_imageview_set_tint(@env, iv, argb)
-          _ = argb # suppress unused warning; tint set via future bridge function
+          unless LibAndroidBridge.android_imageview_set_tint(@env, iv, color_to_argb(tint)) == 1
+            raise ArgumentError.new("Android image tint could not be applied")
+          end
         end
 
         # Common properties
@@ -593,6 +735,23 @@
         LibAndroidBridge.android_textinputlayout_set_box_background_color(@env, til, material_color(:surface_variant))
         LibAndroidBridge.android_textinputlayout_set_box_stroke_color(@env, til, material_color(:outline))
         LibAndroidBridge.android_textinputlayout_set_hint_text_color(@env, til, material_color(:on_surface_variant))
+        # The field's style and placeholder color, as the SwiftUI facade reads
+        # them: RoundedBorder keeps the Material filled box, and Plain and
+        # Underline both drop it, so a brand paints the field from its own
+        # container (the AgentC shell's field_shell, after build 19's unreadable
+        # system fields). A filled box layers its color over the surface, so a
+        # transparent filled box is the surface, and an underline-only field
+        # would need a drawable the bridge does not have; the filled box is the
+        # rounded style's twin. An explicit placeholder color replaces the
+        # Material hint color. The box mode is set here, before the edit text
+        # is added, as the layout requires.
+        case view.style
+        when UI::TextFieldStyle::Plain, UI::TextFieldStyle::Underline
+          LibAndroidBridge.android_textinputlayout_set_box_background_mode(@env, til, 0)
+        end
+        if hint_color = view.placeholder_color
+          LibAndroidBridge.android_textinputlayout_set_hint_text_color(@env, til, color_to_argb(hint_color))
+        end
 
         unless view.placeholder.empty?
           LibAndroidBridge.android_textinputlayout_set_hint(@env, til, view.placeholder.to_unsafe, view.placeholder.bytesize)
@@ -631,11 +790,12 @@
 
         # Font size and typeface
         LibAndroidBridge.android_textview_set_text_size(@env, et, view.font.size.to_f32)
-        LibAndroidBridge.android_textview_set_typeface(@env, et, typeface_style_for(view.font))
+        apply_typeface(et, view.font)
 
-        # Text color
+        # Native default tracks Material appearance. An explicit RGBA override
+        # (including explicit black) must still be honored without guessing.
         LibAndroidBridge.android_textview_set_text_color(
-          @env, et, color_to_argb(view.text_color))
+          @env, et, view.text_color_explicit? ? color_to_argb(view.text_color) : material_color(:on_surface))
 
         LibAndroidBridge.android_viewgroup_add_view_wh(@env, til, et, -1, -2)
 
@@ -644,7 +804,12 @@
 
         global_til = LibAndroidBridge.android_new_global_ref(@env, til)
         handle = JNI.wrap_global(global_til, label: "TextInputLayout")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
+
+        if submit_handler = view.on_submit
+          callback_id = native.track_callback_id(UI::CallbackRegistry.register_string(submit_handler))
+          LibAndroidBridge.android_edittext_set_submit_listener(@env, et, callback_id)
+        end
 
         # Wire up on_change via TextWatcher.
         # The Android listener dispatches the latest text value directly so we
@@ -663,43 +828,52 @@
       #
       # Android's ScrollView only scrolls vertically. For horizontal-only
       # scrolling we use HorizontalScrollView. Both-axis scrolling requires
-      # nesting them (HorizontalScrollView containing ScrollView).
+      # nesting them (ScrollView containing HorizontalScrollView).
       # -----------------------------------------------------------------
       def visit(view : UI::ScrollView)
-        # Choose container class based on scroll axes
+        # Choose container class based on scroll axes. Vertical viewports are
+        # the runtime's own ScrollView, which keeps the vertical drags it can
+        # consume: stock Android already gives a nested child the drag first,
+        # Samsung's One UI gives it to the parent (ScrollGesturePolicy).
         class_name = if view.scroll_vertical && !view.scroll_horizontal
-                       "android/widget/ScrollView"
+                       "dev/assetpipeline/androidhost/CrystalScrollView"
                      elsif view.scroll_horizontal && !view.scroll_vertical
                        "android/widget/HorizontalScrollView"
+                     elsif view.scroll_vertical
+                       "dev/assetpipeline/androidhost/CrystalScrollView"
                      else
-                       # Both axes: use ScrollView as outer, handled below.
-                       # For structural simplicity we use ScrollView (vertical)
-                       # as the primary container and note the limitation.
-                       "android/widget/ScrollView"
+                       "android/widget/FrameLayout"
                      end
 
         sv = LibAndroidBridge.android_view_new(@env, class_name, @context)
 
-        # Scrollbar visibility
-        unless view.shows_indicators
-          # Hide scrollbars: setVerticalScrollBarEnabled(false)
-          LibAndroidBridge.android_view_set_visibility(@env, sv, 0) # VISIBLE but...
-          # android_view_set_visibility is for view visibility, not scrollbars.
-          # A production bridge would expose android_scrollview_set_scrollbar_enabled.
-          # We document the intent: sv.setVerticalScrollBarEnabled(!view.shows_indicators)
-        end
+        LibAndroidBridge.android_scrollview_configure(@env, sv,
+          view.scroll_horizontal && !view.scroll_vertical ? 1 : 0,
+          view.scroll_vertical ? 1 : 0, view.shows_indicators ? 1 : 0)
 
         # Common properties
         apply_common_properties(sv, view)
 
         global_sv = LibAndroidBridge.android_new_global_ref(@env, sv)
         handle = JNI.wrap_global(global_sv, label: "ScrollView")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
+
+        content_native = native
+        content_ptr = sv
+        if view.scroll_horizontal && view.scroll_vertical
+          horizontal = LibAndroidBridge.android_view_new(@env, "android/widget/HorizontalScrollView", @context)
+          LibAndroidBridge.android_scrollview_configure(@env, horizontal, 1, 0, view.shows_indicators ? 1 : 0)
+          horizontal_global = LibAndroidBridge.android_new_global_ref(@env, horizontal)
+          content_native = owned_native(JNI.wrap_global(horizontal_global, label: "HorizontalScrollView[inner]"))
+          native.add_child(content_native)
+          LibAndroidBridge.android_viewgroup_add_view(@env, sv, horizontal)
+          content_ptr = horizontal
+        end
 
         # Visit content child and add as the single child of ScrollView.
         # Android ScrollView must have exactly one direct child (typically a LinearLayout).
         if content = view.content
-          push_stack(native, sv, is_linear: false)
+          push_stack(content_native, content_ptr, is_linear: false)
           content.accept(self)
           pop_stack
         end
@@ -750,7 +924,7 @@
 
         global_sw = LibAndroidBridge.android_new_global_ref(@env, sw)
         handle = JNI.wrap_global(global_sw, label: "Switch")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         # Wire up on_change via OnCheckedChangeListener. The Android listener
         # dispatches the updated checked state directly.
@@ -782,7 +956,7 @@
 
         global_cb = LibAndroidBridge.android_new_global_ref(@env, cb)
         handle = JNI.wrap_global(global_cb, label: "CheckBox")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         # Wire up on_change via OnCheckedChangeListener (same pattern as Switch).
         if change_handler = view.on_change
@@ -805,12 +979,9 @@
         # RadioGroup is a LinearLayout subclass (VERTICAL by default on Android)
         LibAndroidBridge.android_linearlayout_set_orientation(@env, rg, 1) # VERTICAL
 
-        # Common properties on the container
-        apply_common_properties(rg, view)
-
         global_rg = LibAndroidBridge.android_new_global_ref(@env, rg)
         handle = JNI.wrap_global(global_rg, label: "RadioGroup")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         # Create a RadioButton for each option and add to the RadioGroup.
         # We track the generated view IDs so we can call check() on the selected one.
@@ -836,7 +1007,7 @@
           # Track RadioButton as child NativeView
           global_rb = LibAndroidBridge.android_new_global_ref(@env, rb)
           rb_handle = JNI.wrap_global(global_rb, label: "RadioButton[#{index}]")
-          rb_native = NativeView.new(rb_handle)
+          rb_native = owned_native(rb_handle)
           native.add_child(rb_native)
         end
 
@@ -844,6 +1015,10 @@
         if view.selected_index >= 0 && view.selected_index < radio_ids.size
           LibAndroidBridge.android_radiogroup_check(@env, rg, radio_ids[view.selected_index])
         end
+
+        # Compound semantics must see the actual options before configuring
+        # focus/disabled state; the group itself is not another keyboard stop.
+        apply_common_properties(rg, view)
 
         # Wire up on_change via OnCheckedChangeListener on the RadioGroup. The
         # listener dispatches the checked child view ID directly and we map it
@@ -907,7 +1082,7 @@
 
         global_sb = LibAndroidBridge.android_new_global_ref(@env, sb)
         handle = JNI.wrap_global(global_sb, label: "SeekBar")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         # Wire up on_change via OnSeekBarChangeListener. The listener dispatches
         # raw progress directly and we convert that integer progress back to the
@@ -944,20 +1119,40 @@
       end
 
       # -----------------------------------------------------------------
-      # Visit: NavigationStack -> android.widget.FrameLayout (navigation container)
+      # Visit: NavigationStack -> native vertical container + Material toolbar.
       # -----------------------------------------------------------------
       def visit(view : UI::NavigationStack)
-        fl = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+        fl = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, fl, 1)
 
         apply_common_properties(fl, view)
 
         global_fl = LibAndroidBridge.android_new_global_ref(@env, fl)
-        handle = JNI.wrap_global(global_fl, label: "FrameLayout[nav-stack]")
-        native = NativeView.new(handle)
+        handle = JNI.wrap_global(global_fl, label: "LinearLayout[nav-stack]")
+        native = owned_native(handle)
 
         # Render the current view (top of stack or root) into this container
-        push_stack(native, fl, is_linear: false)
-        view.current_view.accept(self)
+        push_stack(native, fl, is_linear: true)
+        @navigation.within(view) do
+          if view.shows_navigation_bar
+            toolbar = LibAndroidBridge.android_view_new(@env, "com/google/android/material/appbar/MaterialToolbar", @context)
+            if title = view.title
+              LibAndroidBridge.android_toolbar_set_title(@env, toolbar, title.to_unsafe, title.bytesize)
+            end
+            LibAndroidBridge.android_toolbar_set_title_text_color(@env, toolbar, material_color(:on_surface))
+            global_toolbar = LibAndroidBridge.android_new_global_ref(@env, toolbar)
+            toolbar_native = owned_native(JNI.wrap_global(global_toolbar, label: "MaterialToolbar[navigation]"))
+            unless view.stack.empty?
+              source = view.current_view
+              navigation = @navigation
+              callback_id = toolbar_native.register_callback(-> { navigation.pop_stack(view, source) })
+              success = LibAndroidBridge.android_toolbar_set_navigation(@env, toolbar, callback_id, material_color(:on_surface))
+              raise "Android navigation toolbar unavailable" if success == 0
+            end
+            push_native(toolbar_native, toolbar)
+          end
+          view.current_view.accept(self)
+        end
         pop_stack
 
         push_native(native, fl)
@@ -967,67 +1162,95 @@
       # Visit: NavigationLink -> android.widget.Button (link row)
       # -----------------------------------------------------------------
       def visit(view : UI::NavigationLink)
-        btn = LibAndroidBridge.android_view_new(@env, "android/widget/Button", @context)
-
-        LibAndroidBridge.android_textview_set_text(
-          @env, btn, view.label.to_unsafe, view.label.bytesize)
-
+        owner = @navigation.current_stack || raise ArgumentError.new("Android NavigationLink requires an enclosing NavigationStack")
+        source = owner.current_view
+        btn = LibAndroidBridge.android_view_new(@env, "com/google/android/material/button/MaterialButton", @context)
+        LibAndroidBridge.android_textview_set_text(@env, btn, view.label.to_unsafe, view.label.bytesize)
+        LibAndroidBridge.android_textview_set_text_color(@env, btn, material_color(:on_secondary_container))
+        LibAndroidBridge.android_material_button_set_background_tint(@env, btn, material_color(:secondary_container))
         apply_common_properties(btn, view)
-
-        emit(btn, "Button[nav-link]")
+        global_btn = LibAndroidBridge.android_new_global_ref(@env, btn)
+        native = owned_native(JNI.wrap_global(global_btn, label: "MaterialButton[nav-link]"))
+        navigation = @navigation # Never retain Renderer (and its JNIEnv) in a callback.
+        destination = view.destination
+        callback_id = native.register_callback(-> { navigation.push_link(owner, source, destination) })
+        LibAndroidBridge.android_view_set_on_click_listener(@env, btn, callback_id)
+        push_native(native, btn)
       end
 
       # -----------------------------------------------------------------
       # Visit: TabView -> android.widget.FrameLayout (tab container)
       # -----------------------------------------------------------------
+      # Tier A (tabs suite): a Material tab bar at the declared position over
+      # the selected tab's content. The selection lives in Crystal: a tap
+      # reports the position through the int channel, Crystal updates
+      # `selected_index` and the re-render shows that tab's content.
       def visit(view : UI::TabView)
-        fl = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+        outer = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+        LibAndroidBridge.android_linearlayout_set_orientation(@env, outer, 1)
+        apply_common_properties(outer, view)
+        global_outer = LibAndroidBridge.android_new_global_ref(@env, outer)
+        native = owned_native(JNI.wrap_global(global_outer, label: "LinearLayout[tab-view]"))
 
-        apply_common_properties(fl, view)
+        bar = LibAndroidBridge.android_view_new(@env, "com/google/android/material/tabs/TabLayout", @context)
+        view.tabs.each do |tab|
+          LibAndroidBridge.android_tablayout_add_tab(@env, bar, tab.label.to_unsafe, tab.label.bytesize)
+        end
+        callback_id = 0_u64
+        if change_handler = view.on_change
+          callback_id = native.track_callback_id(
+            UI::CallbackRegistry.register_int(->(index : Int32) { change_handler.call(index) })
+          )
+        end
+        tint = view.selected_tint_color
+        LibAndroidBridge.android_tablayout_configure(
+          @env, bar, view.selected_index, tint ? 1 : 0, tint ? color_to_argb(tint) : 0, callback_id)
 
-        global_fl = LibAndroidBridge.android_new_global_ref(@env, fl)
-        handle = JNI.wrap_global(global_fl, label: "FrameLayout[tab-view]")
-        native = NativeView.new(handle)
-
-        if content = view.current_content
-          push_stack(native, fl, is_linear: false)
-          content.accept(self)
+        content = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+        if current = view.current_content
+          push_stack(native, content, is_linear: false)
+          current.accept(self)
           pop_stack
         end
-
-        push_native(native, fl)
+        if view.bar_position == :top
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, bar, -1, -2)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, content, -1, -2)
+        else
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, content, -1, -2)
+          LibAndroidBridge.android_viewgroup_add_view_wh(@env, outer, bar, -1, -2)
+        end
+        push_native(native, outer)
       end
 
       # -----------------------------------------------------------------
       # Visit: ProgressView -> android.widget.ProgressBar
       # -----------------------------------------------------------------
       def visit(view : UI::ProgressView)
-        # ProgressBar default style is indeterminate circular spinner.
-        # For determinate linear we use android/widget/ProgressBar with horizontal style.
-        pb = LibAndroidBridge.android_view_new(@env, "android/widget/ProgressBar", @context)
-
+        # Material indicators, not a bare ProgressBar: a default ProgressBar is
+        # an indeterminate circular spinner regardless of setProgress, so a
+        # determinate value was silently ignored before.
+        class_name = view.style.circular? ? "com/google/android/material/progressindicator/CircularProgressIndicator" : "com/google/android/material/progressindicator/LinearProgressIndicator"
+        pb = LibAndroidBridge.android_view_new(@env, class_name, @context)
         if val = view.value
-          # Determinate: setIndeterminate(false), setProgress(0..10000)
+          LibAndroidBridge.android_progressbar_set_indeterminate(@env, pb, 0)
           LibAndroidBridge.android_seekbar_set_max(@env, pb, 10000)
           progress = (val * 10000).round.to_i.clamp(0, 10000)
           LibAndroidBridge.android_seekbar_set_progress(@env, pb, progress)
+        else
+          LibAndroidBridge.android_progressbar_set_indeterminate(@env, pb, 1)
         end
-        # else indeterminate: ProgressBar default behavior is indeterminate
-
         if tint = view.tint_color
           LibAndroidBridge.android_seekbar_set_progress_tint(@env, pb, color_to_argb(tint))
         end
-
         apply_common_properties(pb, view)
-
-        emit(pb, "ProgressBar")
+        emit(pb, view.style.circular? ? "CircularProgressIndicator" : "LinearProgressIndicator")
       end
-
       # -----------------------------------------------------------------
-      # Visit: ActivityIndicator -> android.widget.ProgressBar (spinner)
+      # Visit: ActivityIndicator -> Material CircularProgressIndicator (indeterminate)
       # -----------------------------------------------------------------
       def visit(view : UI::ActivityIndicator)
-        spinner = LibAndroidBridge.android_view_new(@env, "android/widget/ProgressBar", @context)
+        spinner = LibAndroidBridge.android_view_new(@env, "com/google/android/material/progressindicator/CircularProgressIndicator", @context)
+        LibAndroidBridge.android_progressbar_set_indeterminate(@env, spinner, 1)
 
         # Visibility: VISIBLE=0, INVISIBLE=4, GONE=8
         unless view.is_animating
@@ -1040,67 +1263,46 @@
 
         apply_common_properties(spinner, view)
 
-        emit(spinner, "ProgressBar[spinner]")
+        emit(spinner, "CircularProgressIndicator[spinner]")
       end
 
       # -----------------------------------------------------------------
-      # Visit: Alert -> inline Material dialog study surface
+      # Visit: Alert -> Activity-owned native Material AlertDialog
       # -----------------------------------------------------------------
       def visit(view : UI::Alert)
-        card = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
-        ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-        LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 1)
+        actions = view.buttons.empty? ? [UI::Alert::AlertButton.new("OK")] : view.buttons
+        render_native_dialog(view, view.title, view.message, actions, actions.find(&.style.==(:cancel)).try(&.action))
+      end
 
-        if view.hidden || !view.is_presented
-          LibAndroidBridge.android_view_set_visibility(@env, card, 8)
-        end
-
-        LibAndroidBridge.android_material_card_set_background_color(@env, card, material_color(:surface))
-        LibAndroidBridge.android_material_card_set_radius(@env, card, @material_theme.corner_radius_large.to_f32)
-        LibAndroidBridge.android_material_card_set_elevation(@env, card, 6.0_f32)
-        LibAndroidBridge.android_view_set_padding(@env, ll, 24, 24, 24, 20)
-        LibAndroidBridge.android_viewgroup_add_view_wh(@env, card, ll, -1, -2)
-
-        global_ll = LibAndroidBridge.android_new_global_ref(@env, card)
-        handle = JNI.wrap_global(global_ll, label: "MaterialCardView[alert]")
-        native = NativeView.new(handle)
-
-        title_tv = new_text_view(view.title, 22.0_f32, material_color(:on_surface), 1)
-        LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, title_tv, -1, -2)
-
-        unless view.message.empty?
-          msg_tv = new_text_view(view.message, 15.0_f32, material_color(:on_surface_variant), 0)
-          LibAndroidBridge.android_view_set_padding(@env, msg_tv, 0, 12, 0, 0)
-          LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, msg_tv, -1, -2)
-        end
-
-        button_row = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-        LibAndroidBridge.android_linearlayout_set_orientation(@env, button_row, 0)
-        LibAndroidBridge.android_view_set_padding(@env, button_row, 0, 20, 0, 0)
-
-        push_spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
-        LibAndroidBridge.android_linearlayout_add_view_weight(@env, button_row, push_spacer, 0, -2, 1.0_f32)
-        LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, button_row, -1, -2)
-
-        push_stack(native, button_row, is_linear: true)
-        if view.buttons.empty?
-          UI::Button.new("OK", role: :default, style: UI::ButtonStyle::Borderless).accept(self)
-        else
-          view.buttons.each do |action|
-            role = case action.style
-                   when :destructive then :destructive
-                   when :cancel      then :cancel
-                   else                   :default
-                   end
-            button = UI::Button.new(action.label, role: role, style: UI::ButtonStyle::Borderless)
-            button.on_tap = action.action if action.action
-            button.accept(self)
+      private def render_native_dialog(view : UI::Alert | UI::ConfirmationDialog, title : String, message : String,
+                                       actions : Array(UI::Alert::AlertButton), cancel_handler : Proc(Nil)?) : Nil
+        anchor = LibAndroidBridge.android_view_new(@env, "dev/assetpipeline/androidhost/NativeDialogAnchor", @context)
+        global = LibAndroidBridge.android_new_global_ref(@env, anchor)
+        native = owned_native(JNI.wrap_global(global, label: "NativeDialogAnchor"))
+        if view.is_presented && !view.hidden
+          if view.minimum_width || view.maximum_width || view.minimum_height || view.maximum_height || view.fill_horizontal
+            raise ArgumentError.new("Native Android alerts use platform window sizing; inline width and height constraints are not supported")
           end
+          UI::Android::Dialogs.validate(title, message, actions)
+          tokens = actions.map do |action|
+            callback = action.action
+            native.register_callback(-> {
+              view.is_presented = false
+              callback.try(&.call)
+              nil
+            })
+          end
+          cancel = native.register_callback(-> {
+            view.is_presented = false
+            cancel_handler.try(&.call)
+            nil
+          })
+          packet = UI::Android::Dialogs.encode(title, message, actions, tokens, cancel)
+          LibAndroidBridge.android_dialog_configure(@env, anchor, packet.to_unsafe, packet.bytesize)
         end
-        pop_stack
-
-        apply_common_non_surface_properties(card, view)
-        push_native(native, card)
+        apply_common_non_surface_properties(anchor, view)
+        LibAndroidBridge.android_view_set_visibility(@env, anchor, 8)
+        push_native(native, anchor)
       end
 
       # -----------------------------------------------------------------
@@ -1141,7 +1343,7 @@
 
           global_container = LibAndroidBridge.android_new_global_ref(@env, container)
           handle = JNI.wrap_global(global_container, label: "LinearLayout[picker-inline]")
-          native = NativeView.new(handle)
+          native = owned_native(handle)
 
           radio_group = if change_handler = view.on_change
                           captured_change_handler = change_handler
@@ -1203,7 +1405,7 @@
 
         global_card = LibAndroidBridge.android_new_global_ref(@env, card)
         handle = JNI.wrap_global(global_card, label: "MaterialCardView[picker]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         if !view.options.empty? && (change_handler = view.on_change)
           callback_id = native.track_callback_id(UI::CallbackRegistry.register_int(change_handler))
@@ -1220,7 +1422,7 @@
         ib = LibAndroidBridge.android_view_new(@env, "android/widget/ImageButton", @context)
 
         # Load icon by name (treated as a drawable resource name)
-        LibAndroidBridge.android_imageview_set_image_named(@env, ib, view.icon.to_unsafe)
+        LibAndroidBridge.android_imageview_set_image_named(@env, ib, view.icon.to_unsafe, view.icon.bytesize)
 
         if view.disabled
           LibAndroidBridge.android_view_set_alpha(@env, ib, 0.4_f32)
@@ -1230,7 +1432,7 @@
 
         global_ib = LibAndroidBridge.android_new_global_ref(@env, ib)
         handle = JNI.wrap_global(global_ib, label: "ImageButton[icon]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         if tap_handler = view.on_tap
           callback_id = native.register_callback(tap_handler)
@@ -1245,33 +1447,61 @@
       # -----------------------------------------------------------------
       def visit(view : UI::ListView)
         ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-
-        # VERTICAL = 1
         LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 1)
-
         apply_common_properties(ll, view)
-
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[list]")
-        native = NativeView.new(handle)
-
+        native = owned_native(handle)
         push_stack(native, ll, is_linear: true)
-
-        view.sections.each do |section|
+        row_tap = view.on_row_tap
+        item_tap = view.on_item_tap
+        flat_index = 0
+        view.sections.each_with_index do |section, section_index|
           if header = section.header
             header_tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
             LibAndroidBridge.android_textview_set_text(
               @env, header_tv, header.to_unsafe, header.bytesize)
             emit(header_tv, "TextView[list-header]")
           end
-
-          section.items.each do |item|
+          section.items.each_with_index do |item, item_index|
+            # Every row is its own container so a tap anywhere on it reaches
+            # Crystal with the row's indexes, whatever the row content is.
+            row_ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
+            LibAndroidBridge.android_linearlayout_set_orientation(@env, row_ll, 1)
+            row_global = LibAndroidBridge.android_new_global_ref(@env, row_ll)
+            row_handle = JNI.wrap_global(row_global, label: "LinearLayout[list-row]")
+            row_native = owned_native(row_handle)
+            native.add_child(row_native)
+            push_stack(row_native, row_ll, is_linear: true)
             item.accept(self)
+            pop_stack
+            if row_tap || item_tap
+              absolute = flat_index
+              callback_id = row_native.register_callback(->{
+                row_tap.try &.call(absolute)
+                item_tap.try &.call(section_index, item_index)
+                nil
+              })
+              LibAndroidBridge.android_view_set_on_click_listener(@env, row_ll, callback_id)
+            end
+            LibAndroidBridge.android_viewgroup_add_view(@env, ll, row_ll)
+            if view.shows_separators && item_index < section.items.size - 1
+              sep = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
+              LibAndroidBridge.android_view_set_background_color(@env, sep, 0x2E3C3C43)
+              sep_global = LibAndroidBridge.android_new_global_ref(@env, sep)
+              sep_native = owned_native(JNI.wrap_global(sep_global, label: "View[list-separator]"))
+              native.add_child(sep_native)
+              LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, sep, -1, 1)
+            end
+            flat_index += 1
+          end
+          if footer = section.footer
+            footer_tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
+            LibAndroidBridge.android_textview_set_text(@env, footer_tv, footer.to_unsafe, footer.bytesize)
+            emit(footer_tv, "TextView[list-footer]")
           end
         end
-
         pop_stack
-
         push_native(native, ll)
       end
 
@@ -1333,7 +1563,7 @@
 
         global_til = LibAndroidBridge.android_new_global_ref(@env, til)
         handle = JNI.wrap_global(global_til, label: "TextInputLayout[secure]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         if change_handler = view.on_change
           callback_id = native.track_callback_id(UI::CallbackRegistry.register_string(change_handler))
@@ -1356,7 +1586,7 @@
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[stepper]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         push_stack(native, ll, is_linear: true)
 
@@ -1414,8 +1644,6 @@
         # HORIZONTAL = 0
         LibAndroidBridge.android_linearlayout_set_orientation(@env, rg, 0)
 
-        apply_common_properties(rg, view)
-
         segment_ids = Array(Int32).new(view.segments.size)
 
         view.segments.each_with_index do |segment, index|
@@ -1432,9 +1660,11 @@
           LibAndroidBridge.android_radiogroup_check(@env, rg, segment_ids[view.selected_index])
         end
 
+        apply_common_properties(rg, view)
+
         global_rg = LibAndroidBridge.android_new_global_ref(@env, rg)
         handle = JNI.wrap_global(global_rg, label: "RadioGroup[segmented]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         if change_handler = view.on_change
           captured_segment_ids = segment_ids
@@ -1458,10 +1688,24 @@
       # -----------------------------------------------------------------
       def visit(view : UI::DatePicker)
         dp = LibAndroidBridge.android_view_new(@env, "android/widget/DatePicker", @context)
-
         apply_common_properties(dp, view)
-
-        emit(dp, "DatePicker")
+        global_dp = LibAndroidBridge.android_new_global_ref(@env, dp)
+        handle = JNI.wrap_global(global_dp, label: "DatePicker")
+        native = owned_native(handle)
+        callback_id = 0_u64
+        if handler = view.on_change
+          base = view.selected_date
+          callback_id = native.track_callback_id(UI::CallbackRegistry.register_string(->(value : String) {
+            if date = picker_date(value, base)
+              handler.call(date)
+            end
+            nil
+          }))
+        end
+        date = view.selected_date
+        LibAndroidBridge.android_datepicker_configure(@env, dp, date.year, date.month - 1, date.day,
+          picker_epoch_ms(view.minimum_date), picker_epoch_ms(view.maximum_date), callback_id)
+        push_native(native, dp)
       end
 
       # -----------------------------------------------------------------
@@ -1469,10 +1713,23 @@
       # -----------------------------------------------------------------
       def visit(view : UI::TimePicker)
         tp = LibAndroidBridge.android_view_new(@env, "android/widget/TimePicker", @context)
-
         apply_common_properties(tp, view)
-
-        emit(tp, "TimePicker")
+        global_tp = LibAndroidBridge.android_new_global_ref(@env, tp)
+        handle = JNI.wrap_global(global_tp, label: "TimePicker")
+        native = owned_native(handle)
+        callback_id = 0_u64
+        if handler = view.on_change
+          base = view.selected_time
+          callback_id = native.track_callback_id(UI::CallbackRegistry.register_string(->(value : String) {
+            if time = picker_time(value, base)
+              handler.call(time)
+            end
+            nil
+          }))
+        end
+        time = view.selected_time
+        LibAndroidBridge.android_timepicker_configure(@env, tp, time.hour, time.minute, view.shows_24_hour ? 1 : 0, callback_id)
+        push_native(native, tp)
       end
 
       # -----------------------------------------------------------------
@@ -1494,7 +1751,7 @@
 
         global_sv = LibAndroidBridge.android_new_global_ref(@env, sv)
         handle = JNI.wrap_global(global_sv, label: "SearchView")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         change_callback_id = if change_handler = view.on_change
                                native.track_callback_id(UI::CallbackRegistry.register_string(change_handler))
@@ -1648,6 +1905,10 @@
       # Visit: TextArea -> android.widget.EditText (multiline)
       # -----------------------------------------------------------------
       def visit(view : UI::TextArea)
+        render_multiline(view)
+      end
+
+      private def render_multiline(view : UI::TextArea | UI::TextEditor)
         til = new_material_view(
           "com/google/android/material/textfield/TextInputLayout",
           "Widget_Material3_TextInputLayout_FilledBox"
@@ -1674,9 +1935,10 @@
 
         # InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE = 0x00020001
         LibAndroidBridge.android_edittext_set_input_type(@env, et, 0x00020001)
+        LibAndroidBridge.android_edittext_set_read_only(@env, et) unless view.is_editable
 
         LibAndroidBridge.android_textview_set_text_size(@env, et, view.font.size.to_f32)
-        LibAndroidBridge.android_textview_set_typeface(@env, et, typeface_style_for(view.font))
+        apply_typeface(et, view.font)
         LibAndroidBridge.android_textview_set_text_color(@env, et, color_to_argb(view.text_color))
         LibAndroidBridge.android_viewgroup_add_view_wh(@env, til, et, -1, -2)
 
@@ -1684,7 +1946,7 @@
 
         global_et = LibAndroidBridge.android_new_global_ref(@env, til)
         handle = JNI.wrap_global(global_et, label: "TextInputLayout[textarea]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         if change_handler = view.on_change
           callback_id = native.track_callback_id(UI::CallbackRegistry.register_string(change_handler))
@@ -1698,25 +1960,32 @@
       # Visit: Grid -> android.widget.LinearLayout (grid rows)
       # -----------------------------------------------------------------
       def visit(view : UI::Grid)
-        ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-
+        ll = LibAndroidBridge.android_view_new(@env, "dev/assetpipeline/androidhost/CrystalLinearLayout", @context)
         # VERTICAL = 1
         LibAndroidBridge.android_linearlayout_set_orientation(@env, ll, 1)
-
         apply_common_properties(ll, view)
-
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[grid]")
-        native = NativeView.new(handle)
-
+        native = owned_native(handle)
+        LibAndroidBridge.android_linearlayout_set_spacing(@env, ll, view.row_spacing.to_f32) if view.row_spacing > 0.0
         push_stack(native, ll, is_linear: true)
         view.children.each do |row|
+          # HORIZONTAL = 0: every row is its own container so cells sit side by side.
+          row_ll = LibAndroidBridge.android_view_new(@env, "dev/assetpipeline/androidhost/CrystalLinearLayout", @context)
+          LibAndroidBridge.android_linearlayout_set_orientation(@env, row_ll, 0)
+          LibAndroidBridge.android_linearlayout_set_spacing(@env, row_ll, view.column_spacing.to_f32) if view.column_spacing > 0.0
+          row_global = LibAndroidBridge.android_new_global_ref(@env, row_ll)
+          row_handle = JNI.wrap_global(row_global, label: "LinearLayout[grid-row]")
+          row_native = owned_native(row_handle)
+          native.add_child(row_native)
+          push_stack(row_native, row_ll, is_linear: true)
           row.each do |cell|
             cell.accept(self)
           end
+          pop_stack
+          LibAndroidBridge.android_viewgroup_add_view(@env, ll, row_ll)
         end
         pop_stack
-
         push_native(native, ll)
       end
 
@@ -1733,7 +2002,7 @@
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[form]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         push_stack(native, ll, is_linear: true)
 
@@ -1757,7 +2026,7 @@
             if content = field.content
               row_global = LibAndroidBridge.android_new_global_ref(@env, row_ll)
               row_handle = JNI.wrap_global(row_global, label: "LinearLayout[form-row]")
-              row_native = NativeView.new(row_handle)
+              row_native = owned_native(row_handle)
               push_stack(row_native, row_ll, is_linear: true)
               content.accept(self)
               pop_stack
@@ -1792,7 +2061,7 @@
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[split]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         push_stack(native, ll, is_linear: true)
 
@@ -1838,70 +2107,48 @@
       end
 
       # -----------------------------------------------------------------
-      # Visit: Sheet -> inline Material bottom-sheet surface
+      # Visit: Sheet -> Activity-owned Material BottomSheetDialog
       # -----------------------------------------------------------------
       def visit(view : UI::Sheet)
-        card = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
-        content = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-        LibAndroidBridge.android_linearlayout_set_orientation(@env, content, 1)
-
-        unless view.is_presented
-          LibAndroidBridge.android_view_set_visibility(@env, card, 8)
-        end
-
-        LibAndroidBridge.android_material_card_set_background_color(@env, card, material_color(:surface))
-        LibAndroidBridge.android_material_card_set_radius(@env, card, @material_theme.corner_radius_large.to_f32)
-        LibAndroidBridge.android_material_card_set_elevation(@env, card, 10.0_f32)
-        LibAndroidBridge.android_material_card_set_stroke_color(@env, card, material_color(:outline_variant))
-        LibAndroidBridge.android_material_card_set_stroke_width(@env, card, 1)
-        LibAndroidBridge.android_view_set_padding(@env, content, 20, 16, 20, 20)
-        LibAndroidBridge.android_viewgroup_add_view_wh(@env, card, content, -1, -2)
-
-        if view.shows_drag_indicator
-          handle_bar = LibAndroidBridge.android_view_new(@env, "android/view/View", @context)
-          LibAndroidBridge.android_view_set_background_color(@env, handle_bar, material_color(:outline))
-          LibAndroidBridge.android_view_set_corner_radius(@env, handle_bar, 3.0_f32)
-          LibAndroidBridge.android_view_set_alpha(@env, handle_bar, 0.7_f32)
-          LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, handle_bar, 48, 6)
-        end
-
-        detents = view.detents.map(&.to_s.gsub('_', ' ').capitalize).join(" • ")
-        title = new_text_view("Bottom sheet", 18.0_f32, material_color(:on_surface), 1)
-        subtitle = new_text_view("Detents: #{detents}  Active: #{view.selected_detent.to_s.gsub('_', ' ').capitalize}", 13.0_f32, material_color(:on_surface_variant), 0)
-        LibAndroidBridge.android_view_set_padding(@env, title, 0, 12, 0, 4)
-        LibAndroidBridge.android_view_set_padding(@env, subtitle, 0, 0, 0, 16)
-        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, title, -1, -2)
-        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, subtitle, -1, -2)
-
-        global_card = LibAndroidBridge.android_new_global_ref(@env, card)
-        handle = JNI.wrap_global(global_card, label: "MaterialCardView[sheet]")
-        native = NativeView.new(handle)
-
-        if content_view = view.content
-          inner = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-          LibAndroidBridge.android_linearlayout_set_orientation(@env, inner, 1)
-          LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, inner, -1, -2)
-          push_stack(native, inner, is_linear: true)
+        anchor = LibAndroidBridge.android_view_new(@env, "dev/assetpipeline/androidhost/NativeSheetAnchor", @context)
+        global = LibAndroidBridge.android_new_global_ref(@env, anchor)
+        native = owned_native(JNI.wrap_global(global, label: "NativeSheetAnchor"))
+        env = @env
+        owner_thread = Thread.current
+        view.__android_bind_dismiss(-> {
+          raise "Android sheet dismissal requires its rendering thread" unless Thread.current == owner_thread
+          LibAndroidBridge.android_sheet_request_dismiss(env, native.handle.ptr!) unless native.torn_down?
+          nil
+        })
+        if view.is_presented && !view.hidden
+          if view.minimum_width || view.maximum_width || view.minimum_height || view.maximum_height || view.fill_horizontal
+            raise ArgumentError.new("Android sheets use native detents; inline outer width and height constraints are not supported")
+          end
+          content_view = view.content || raise ArgumentError.new("Android sheets require a content root")
+          lifecycle = native.track_callback_id(UI::CallbackRegistry.register_int(->(event : Int32) {
+            raise ArgumentError.new("Invalid native sheet lifecycle event") unless event == 0 || event == 1
+            native.retire_callbacks!
+            if event == 1
+              view.__android_did_dismiss
+            else
+              UI::Android::Sheets.stage_retirement(view)
+            end
+            nil
+          }))
+          changed = native.track_callback_id(UI::CallbackRegistry.register_int(->(value : Int32) {
+            raise ArgumentError.new("Invalid native sheet detent") unless 0 <= value <= 2
+            view.selected_detent = {:small, :medium, :large}[value]
+            nil
+          }))
+          packet = UI::Android::Sheets.encode(view, lifecycle, changed)
+          LibAndroidBridge.android_sheet_configure(@env, anchor, packet.to_unsafe, packet.bytesize)
+          push_stack(native, anchor, is_linear: false)
           content_view.accept(self)
           pop_stack
         end
-
-        if dismiss_handler = view.on_dismiss
-          footer = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-          LibAndroidBridge.android_linearlayout_set_orientation(@env, footer, 0)
-          LibAndroidBridge.android_view_set_padding(@env, footer, 0, 16, 0, 0)
-          spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
-          LibAndroidBridge.android_linearlayout_add_view_weight(@env, footer, spacer, 0, -2, 1.0_f32)
-          LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, footer, -1, -2)
-          push_stack(native, footer, is_linear: true)
-          dismiss_button = UI::Button.new("Dismiss", role: :cancel, style: UI::ButtonStyle::Borderless)
-          dismiss_button.on_tap = dismiss_handler
-          dismiss_button.accept(self)
-          pop_stack
-        end
-
-        apply_common_non_surface_properties(card, view)
-        push_native(native, card)
+        apply_common_non_surface_properties(anchor, view)
+        LibAndroidBridge.android_view_set_visibility(@env, anchor, 8)
+        push_native(native, anchor)
       end
 
       # -----------------------------------------------------------------
@@ -1952,7 +2199,7 @@
 
         global_outer = LibAndroidBridge.android_new_global_ref(@env, outer)
         handle = JNI.wrap_global(global_outer, label: "LinearLayout[popover]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         if content_view = view.content
           inner = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
@@ -1982,56 +2229,14 @@
       end
 
       # -----------------------------------------------------------------
-      # Visit: ConfirmationDialog -> inline Material dialog study surface
+      # Visit: ConfirmationDialog -> Activity-owned native Material AlertDialog
       # -----------------------------------------------------------------
       def visit(view : UI::ConfirmationDialog)
-        card = LibAndroidBridge.android_view_new(@env, "com/google/android/material/card/MaterialCardView", @context)
-        content = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-        LibAndroidBridge.android_linearlayout_set_orientation(@env, content, 1)
-
-        unless view.is_presented
-          LibAndroidBridge.android_view_set_visibility(@env, card, 8)
-        end
-
-        LibAndroidBridge.android_material_card_set_background_color(@env, card, material_color(:surface))
-        LibAndroidBridge.android_material_card_set_radius(@env, card, @material_theme.corner_radius_large.to_f32)
-        LibAndroidBridge.android_material_card_set_elevation(@env, card, 6.0_f32)
-        LibAndroidBridge.android_view_set_padding(@env, content, 24, 24, 24, 20)
-        LibAndroidBridge.android_viewgroup_add_view_wh(@env, card, content, -1, -2)
-
-        global_ll = LibAndroidBridge.android_new_global_ref(@env, card)
-        handle = JNI.wrap_global(global_ll, label: "MaterialCardView[confirmation-dialog]")
-        native = NativeView.new(handle)
-
-        title_tv = new_text_view(view.title, 22.0_f32, material_color(:on_surface), 1)
-        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, title_tv, -1, -2)
-
-        unless view.message.empty?
-          msg_tv = new_text_view(view.message, 15.0_f32, material_color(:on_surface_variant), 0)
-          LibAndroidBridge.android_view_set_padding(@env, msg_tv, 0, 12, 0, 0)
-          LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, msg_tv, -1, -2)
-        end
-
-        button_row = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
-        LibAndroidBridge.android_linearlayout_set_orientation(@env, button_row, 0)
-        LibAndroidBridge.android_view_set_padding(@env, button_row, 0, 20, 0, 0)
-        push_spacer = LibAndroidBridge.android_view_new(@env, "android/widget/Space", @context)
-        LibAndroidBridge.android_linearlayout_add_view_weight(@env, button_row, push_spacer, 0, -2, 1.0_f32)
-        LibAndroidBridge.android_viewgroup_add_view_wh(@env, content, button_row, -1, -2)
-
-        push_stack(native, button_row, is_linear: true)
-        cancel_button = UI::Button.new(view.cancel_label, role: :cancel, style: UI::ButtonStyle::Borderless)
-        cancel_button.on_tap = view.on_cancel if view.on_cancel
-        cancel_button.accept(self)
-        confirm_style = view.confirm_style == :destructive ? UI::ButtonStyle::Prominent : UI::ButtonStyle::Tinted
-        confirm_role = view.confirm_style == :destructive ? :destructive : :default
-        confirm_button = UI::Button.new(view.confirm_label, role: confirm_role, style: confirm_style)
-        confirm_button.on_tap = view.on_confirm if view.on_confirm
-        confirm_button.accept(self)
-        pop_stack
-
-        apply_common_non_surface_properties(card, view)
-        push_native(native, card)
+        actions = [
+          UI::Alert::AlertButton.new(view.cancel_label, :cancel, view.on_cancel),
+          UI::Alert::AlertButton.new(view.confirm_label, view.confirm_style, view.on_confirm),
+        ]
+        render_native_dialog(view, view.title, view.message, actions, view.on_cancel)
       end
 
       # -----------------------------------------------------------------
@@ -2061,7 +2266,7 @@
 
         global_card = LibAndroidBridge.android_new_global_ref(@env, card)
         handle = JNI.wrap_global(global_card, label: "MaterialCardView[snackbar]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         if action_label = view.action_label
           push_stack(native, row, is_linear: true)
@@ -2091,7 +2296,7 @@
 
         global_fl = LibAndroidBridge.android_new_global_ref(@env, fl)
         handle = JNI.wrap_global(global_fl, label: "MaterialCardView[card]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         LibAndroidBridge.android_material_card_set_background_color(
           @env, fl,
@@ -2112,12 +2317,12 @@
         content_ll = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
         LibAndroidBridge.android_linearlayout_set_orientation(@env, content_ll, 1)
         padding = view.content_padding
-        LibAndroidBridge.android_view_set_padding(
+        LibAndroidBridge.android_view_set_padding_f(
           @env, content_ll,
-          padding.leading.round.to_i,
-          padding.top.round.to_i,
-          padding.trailing.round.to_i,
-          padding.bottom.round.to_i)
+          padding.leading.to_f32,
+          padding.top.to_f32,
+          padding.trailing.to_f32,
+          padding.bottom.to_f32)
         LibAndroidBridge.android_viewgroup_add_view_wh(@env, fl, content_ll, -1, -2)
 
         if title = view.title
@@ -2149,7 +2354,7 @@
 
         global_fl = LibAndroidBridge.android_new_global_ref(@env, fl)
         handle = JNI.wrap_global(global_fl, label: "FrameLayout[surface]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         if content = view.content
           push_stack(native, fl, is_linear: false)
@@ -2170,6 +2375,21 @@
         LibAndroidBridge.android_view_set_background_color(@env, v, color_to_argb(c))
 
         apply_common_properties(v, view)
+
+        # A rule is its thickness across the axis it separates and spans the
+        # other, as the SwiftUI Divider does. A plain View measured as
+        # wrap-content takes whatever its parent offers: nothing in an
+        # unbounded column, so no rule ever drew here, and every leftover
+        # pixel in an exact one, where it starved the page beside a pinned
+        # tab bar (the QuiltPerfect shell on the Galaxy, 2026-09-08).
+        thickness = view.thickness > 0.0 ? view.thickness : 1.0
+        horizontal = view.orientation != :vertical
+        LibAndroidBridge.android_layout_prepare(@env, v,
+          layout_dimension(view.minimum_width || (horizontal ? nil : thickness)),
+          layout_dimension(view.minimum_height || (horizontal ? thickness : nil)),
+          layout_dimension(view.maximum_width || (horizontal ? nil : thickness)),
+          layout_dimension(view.maximum_height || (horizontal ? thickness : nil)),
+          (horizontal || view.fill_horizontal) ? 1 : 0, horizontal ? 0 : 1)
 
         emit(v, "View[divider]")
       end
@@ -2216,7 +2436,7 @@
 
         global_fl = LibAndroidBridge.android_new_global_ref(@env, fl)
         handle = JNI.wrap_global(global_fl, label: "FrameLayout[glass]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         if content = view.content
           push_stack(native, fl, is_linear: false)
@@ -2231,10 +2451,47 @@
       # P2 Wave 3 Visit methods
       # -----------------------------------------------------------------
 
+      # There is no network loader here: an application that shows photos it
+      # fetched itself hands the bytes over as preloaded_data, drawn at the
+      # view's content mode with the catalog's decode limits. With no bytes and
+      # a placeholder, the placeholder renders in the image's frame instead of
+      # an empty view; url, is_loading, error_message, on_load and on_error are
+      # the loader's attributes and are not read.
       def visit(view : UI::AsyncImage)
-        iv = LibAndroidBridge.android_view_new(@env, "android/widget/ImageView", @context)
-        apply_common_properties(iv, view)
-        emit(iv, "ImageView[async]")
+        # Preloaded bytes that decode are the photo; bytes that do not (the
+        # host logs why under APImages) leave the view where no bytes would,
+        # on its placeholder, the way a nil UIImage does on iOS. A photo never
+        # takes a screen down.
+        decoded = false
+        if (data = view.preloaded_data) && !data.empty?
+          iv = LibAndroidBridge.android_view_new(@env, "android/widget/ImageView", @context)
+          if LibAndroidBridge.android_imageview_set_image_bytes(@env, iv, data.to_unsafe, data.size) == 1
+            scale_type = case view.content_mode
+                         when ContentMode::Fit     then 0 # FIT_CENTER
+                         when ContentMode::Fill    then 1 # CENTER_CROP
+                         when ContentMode::Stretch then 2 # FIT_XY
+                         else                           0
+                         end
+            LibAndroidBridge.android_imageview_set_scale_type(@env, iv, scale_type)
+            apply_common_properties(iv, view)
+            emit(iv, "ImageView[async]")
+            decoded = true
+          end
+        end
+        return if decoded
+        if placeholder = view.placeholder
+          frame = LibAndroidBridge.android_view_new(@env, "android/widget/FrameLayout", @context)
+          apply_common_properties(frame, view)
+          native = owned_native(JNI.wrap_global(LibAndroidBridge.android_new_global_ref(@env, frame), label: "FrameLayout[async placeholder]"))
+          push_stack(native, frame, is_linear: false)
+          placeholder.accept(self)
+          pop_stack
+          push_native(native, frame)
+        else
+          iv = LibAndroidBridge.android_view_new(@env, "android/widget/ImageView", @context)
+          apply_common_properties(iv, view)
+          emit(iv, "ImageView[async]")
+        end
       end
 
       def visit(view : UI::RichText)
@@ -2252,15 +2509,50 @@
         LibAndroidBridge.android_textview_set_text(
           @env, btn, view.label.to_unsafe, view.label.bytesize)
         apply_common_properties(btn, view)
-        emit(btn, "Button[link]")
+        global_btn = LibAndroidBridge.android_new_global_ref(@env, btn)
+        handle = JNI.wrap_global(global_btn, label: "Button[link]")
+        native = owned_native(handle)
+        if tap_handler = view.on_tap
+          # Crystal owns the tap; navigation or URL handling happens there.
+          callback_id = native.register_callback(tap_handler)
+          LibAndroidBridge.android_view_set_on_click_listener(@env, btn, callback_id)
+        elsif view.opens_in_browser && !view.url.empty?
+          LibAndroidBridge.android_button_set_open_url_on_click(@env, btn, view.url.to_unsafe, view.url.bytesize)
+        end
+        push_native(native, btn)
       end
 
+      # Tier A (tabs suite): a button that opens a platform popup menu of the
+      # Crystal items. A pop-up button's face shows the selected item; a
+      # pull-down button's face shows its own label. A pick runs that item's
+      # Crystal action by index, so any selection state stays in Crystal.
       def visit(view : UI::MenuButton)
         btn = LibAndroidBridge.android_view_new(@env, "android/widget/Button", @context)
-        LibAndroidBridge.android_textview_set_text(
-          @env, btn, view.label.to_unsafe, view.label.bytesize)
+        face = view.label
+        if !view.is_pull_down && (selected = view.items[view.selected_index]?)
+          face = selected.label
+        end
+        LibAndroidBridge.android_textview_set_text(@env, btn, face.to_unsafe, face.bytesize)
         apply_common_properties(btn, view)
-        emit(btn, "Button[menu]")
+        global_btn = LibAndroidBridge.android_new_global_ref(@env, btn)
+        native = owned_native(JNI.wrap_global(global_btn, label: "Button[menu]"))
+        unless view.items.empty?
+          items = view.items
+          callback_id = native.track_callback_id(
+            UI::CallbackRegistry.register_int(->(index : Int32) do
+              if item = items[index]?
+                item.action.try &.call
+              end
+            end)
+          )
+          listener = LibAndroidBridge.android_menu_listener_new(@env, callback_id)
+          items.each do |item|
+            LibAndroidBridge.android_menu_listener_add_item(
+              @env, listener, item.label.to_unsafe, item.label.bytesize, item.is_destructive ? 1 : 0)
+          end
+          LibAndroidBridge.android_view_set_on_click_listener_object(@env, btn, listener)
+        end
+        push_native(native, btn)
       end
 
       # Phase 4 — Tier 3. UI::ContextMenu is Apple-family only (flag?(:macos)
@@ -2275,7 +2567,7 @@
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[context-menu-fallback]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         view.items.each do |entry|
           case entry
@@ -2284,7 +2576,7 @@
             LibAndroidBridge.android_view_set_background_color(@env, sep, 0x2E3C3C43)
             sep_global = LibAndroidBridge.android_new_global_ref(@env, sep)
             sep_handle = JNI.wrap_global(sep_global, label: "View[context-menu-separator]")
-            sep_native = NativeView.new(sep_handle)
+            sep_native = owned_native(sep_handle)
             native.add_child(sep_native)
             LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, sep, -1, 1)
           when UI::ContextMenuWithWebFallback::Item
@@ -2301,7 +2593,7 @@
             LibAndroidBridge.android_view_set_padding(@env, tv, 24, 18, 24, 18)
             tv_global = LibAndroidBridge.android_new_global_ref(@env, tv)
             tv_handle = JNI.wrap_global(tv_global, label: "TextView[context-menu-item]")
-            tv_native = NativeView.new(tv_handle)
+            tv_native = owned_native(tv_handle)
             native.add_child(tv_native)
             LibAndroidBridge.android_viewgroup_add_view_wh(@env, ll, tv, -1, -2)
           end
@@ -2312,24 +2604,23 @@
 
       def visit(view : UI::ToggleButton)
         btn = LibAndroidBridge.android_view_new(@env, "android/widget/ToggleButton", @context)
-        LibAndroidBridge.android_textview_set_text(
-          @env, btn, view.label.to_unsafe, view.label.bytesize)
+        # ToggleButton replaces its text with textOn/textOff on every state
+        # change; give both the label so the control keeps its name.
+        LibAndroidBridge.android_togglebutton_set_text_on_off(@env, btn, view.label.to_unsafe, view.label.bytesize)
+        LibAndroidBridge.android_switch_set_checked(@env, btn, view.is_selected ? 1 : 0)
         apply_common_properties(btn, view)
-        emit(btn, "ToggleButton")
+        global_btn = LibAndroidBridge.android_new_global_ref(@env, btn)
+        handle = JNI.wrap_global(global_btn, label: "ToggleButton")
+        native = owned_native(handle)
+        if toggle_handler = view.on_toggle
+          callback_id = native.track_callback_id(UI::CallbackRegistry.register_bool(toggle_handler))
+          LibAndroidBridge.android_view_set_on_checked_change_listener(@env, btn, callback_id)
+        end
+        push_native(native, btn)
       end
 
       def visit(view : UI::TextEditor)
-        et = LibAndroidBridge.android_view_new(@env, "android/widget/EditText", @context)
-        unless view.text.empty?
-          LibAndroidBridge.android_edittext_set_text(
-            @env, et, view.text.to_unsafe, view.text.bytesize)
-        end
-        unless view.placeholder.empty?
-          LibAndroidBridge.android_edittext_set_hint(
-            @env, et, view.placeholder.to_unsafe, view.placeholder.bytesize)
-        end
-        apply_common_properties(et, view)
-        emit(et, "EditText[editor]")
+        render_multiline(view)
       end
 
       # -----------------------------------------------------------------
@@ -2358,6 +2649,7 @@
         end
 
         apply_common_properties(v, view)
+        apply_intrinsic_size(v, view, view.size, view.size)
         emit(v, "View[circle]")
       end
 
@@ -2377,6 +2669,7 @@
         end
 
         apply_common_properties(v, view)
+        apply_intrinsic_size(v, view, view.width, view.height)
         emit(v, "View[rectangle]")
       end
 
@@ -2403,6 +2696,7 @@
         end
 
         apply_common_properties(v, view)
+        apply_intrinsic_size(v, view, view.width, view.height)
         emit(v, "View[rounded-rectangle]")
       end
 
@@ -2428,6 +2722,7 @@
         end
 
         apply_common_properties(v, view)
+        apply_intrinsic_size(v, view, view.width, view.height)
         emit(v, "View[capsule]")
       end
 
@@ -2744,7 +3039,7 @@
 
         global_card = LibAndroidBridge.android_new_global_ref(@env, card)
         handle = JNI.wrap_global(global_card, label: "MaterialCardView[color-picker]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
         selected_argb = color_to_argb(view.selected_color)
         color_change_handler = view.on_change
 
@@ -2854,7 +3149,7 @@
 
         global_ptr = LibAndroidBridge.android_new_global_ref(@env, container)
         handle = JNI.wrap_global(global_ptr, label: "FrameLayout[tooltip]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         if content = view.content
           push_stack(native, container, is_linear: false)
@@ -2902,7 +3197,7 @@
 
         global_card = LibAndroidBridge.android_new_global_ref(@env, card)
         handle = JNI.wrap_global(global_card, label: "MaterialCardView[activity-view]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         header = LibAndroidBridge.android_view_new(@env, "android/widget/LinearLayout", @context)
         LibAndroidBridge.android_linearlayout_set_orientation(@env, header, 0)
@@ -3058,7 +3353,9 @@
           @env, "android/widget/LinearLayout", @context)
         # VERTICAL orientation = 1
         LibAndroidBridge.android_linearlayout_set_orientation(@env, outer, 1)
-
+        global_ptr = LibAndroidBridge.android_new_global_ref(@env, outer)
+        handle = JNI.wrap_global(global_ptr, label: "LinearLayout[disclosure-group]")
+        native = owned_native(handle)
         # Header row LinearLayout (horizontal = 0)
         header_row = LibAndroidBridge.android_view_new(
           @env, "android/widget/LinearLayout", @context)
@@ -3083,29 +3380,31 @@
         LibAndroidBridge.android_viewgroup_add_view(@env, header_row, title_tv)
         LibAndroidBridge.android_viewgroup_add_view(@env, outer, header_row)
 
-        # Content block (visible when expanded)
+        # The header activates the owner's toggle with the opposite state; the
+        # owner rebuilds, so the chevron and content follow Crystal, not the tap.
+        if toggle = view.on_toggle
+          requested = !view.expanded
+          callback_id = native.register_callback(->{ toggle.call(requested); nil })
+          LibAndroidBridge.android_view_set_on_click_listener(@env, header_row, callback_id)
+        end
+        # Content block (visible when expanded), owned by this group.
         if view.expanded && !view.content.empty?
+          push_stack(native, outer, is_linear: true)
           content_ll = LibAndroidBridge.android_view_new(
             @env, "android/widget/LinearLayout", @context)
           LibAndroidBridge.android_linearlayout_set_orientation(@env, content_ll, 1)
-
           global_content = LibAndroidBridge.android_new_global_ref(@env, content_ll)
           content_handle = JNI.wrap_global(global_content, label: "LinearLayout[disclosure-content]")
-          content_native = NativeView.new(content_handle)
-
+          content_native = owned_native(content_handle)
           push_stack(content_native, content_ll, is_linear: true)
           view.content.each do |child|
             child.accept(self)
           end
           pop_stack
-
           LibAndroidBridge.android_viewgroup_add_view(@env, outer, content_ll)
+          pop_stack
         end
-
         apply_common_properties(outer, view)
-        global_ptr = LibAndroidBridge.android_new_global_ref(@env, outer)
-        handle = JNI.wrap_global(global_ptr, label: "LinearLayout[disclosure-group]")
-        native = NativeView.new(handle)
         push_native(native, outer)
       end
 
@@ -3125,7 +3424,7 @@
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[path-control-fallback]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         view.components.each_with_index do |component, index|
           tv = LibAndroidBridge.android_view_new(@env, "android/widget/TextView", @context)
@@ -3133,7 +3432,7 @@
           LibAndroidBridge.android_textview_set_text_color(@env, tv, 0xFF111111_u32.to_i32)
           tv_global = LibAndroidBridge.android_new_global_ref(@env, tv)
           tv_handle = JNI.wrap_global(tv_global, label: "TextView[path-control-segment]")
-          tv_native = NativeView.new(tv_handle)
+          tv_native = owned_native(tv_handle)
           native.add_child(tv_native)
           LibAndroidBridge.android_viewgroup_add_view(@env, ll, tv)
 
@@ -3144,7 +3443,7 @@
           LibAndroidBridge.android_textview_set_text_color(@env, sep, 0xFF8E8E93_u32.to_i32)
           sep_global = LibAndroidBridge.android_new_global_ref(@env, sep)
           sep_handle = JNI.wrap_global(sep_global, label: "TextView[path-control-sep]")
-          sep_native = NativeView.new(sep_handle)
+          sep_native = owned_native(sep_handle)
           native.add_child(sep_native)
           LibAndroidBridge.android_viewgroup_add_view(@env, ll, sep)
         end
@@ -3187,7 +3486,7 @@
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[inline-action-row]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         push_stack(native, ll, is_linear: true)
 
@@ -3259,7 +3558,7 @@
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[android-swipe-action-row]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         push_stack(native, ll, is_linear: true)
 
@@ -3329,7 +3628,7 @@
 
         global_layout = LibAndroidBridge.android_new_global_ref(@env, layout)
         handle = JNI.wrap_global(global_layout, label: "FrameLayout[full-screen-cover]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         push_stack(native, layout, is_linear: false)
 
@@ -3360,7 +3659,7 @@
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[inspector]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         push_stack(native, ll, is_linear: true)
 
@@ -3399,7 +3698,7 @@
 
         global_ll = LibAndroidBridge.android_new_global_ref(@env, ll)
         handle = JNI.wrap_global(global_ll, label: "LinearLayout[toolbar-item-group]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
         push_stack(native, ll, is_linear: true)
 
@@ -3432,7 +3731,7 @@
 
         global_space = LibAndroidBridge.android_new_global_ref(@env, space)
         handle = JNI.wrap_global(global_space, label: "Space[ToolbarSpacer:#{view.flexible? ? "flexible" : "fixed"}]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
         push_native(native, space)
       end
 
@@ -3451,22 +3750,20 @@
       end
 
       private def theme_color_to_argb(color : UI::ThemeColor) : Int32
-        # Phase 6.12A — fail loud when a sentinel-derived ThemeColor reaches
-        # the Android ARGB packer. The `css_override` field carries the
-        # platform-resolved CSS token (e.g. "AccentColor") for sentinel
-        # colours; the honest Android emission is `?attr/colorPrimary`, not
-        # a numeric ARGB. The deferred Android XML / resource generator
-        # must learn the resource-reference path before this raises in
-        # production. Until then, the Android renderer is intentionally
-        # incompatible with `Tokens.default` — consumers must apply
-        # `Tokens.default.with_brand(...)` to materialise a concrete brand.
-        if color.css_override
+        # Resolve the platform-accent sentinel from the active Material theme
+        # instead of baking its intentionally empty RGB payload. This is the
+        # runtime equivalent of Android XML's `?attr/colorPrimary`.
+        if color.css_override == "AccentColor"
+          return LibAndroidBridge.android_context_resolve_material_color(
+            @env,
+            @context,
+            "colorPrimary".to_unsafe,
+            0xFF6750A4_u32.unsafe_as(Int32)
+          )
+        elsif color.css_override
           raise UI::DesignTokens::AndroidRendererNotImplemented.new(
             "Cannot serialize a sentinel-derived ThemeColor (css_override=" \
-            "#{color.css_override.inspect}) as Android ARGB. Apply " \
-            "Tokens.default.with_brand(YourBrand.new) to materialise the " \
-            "brand colour, or update the Android renderer to emit a " \
-            "`?attr/colorPrimary` resource reference for sentinel roles."
+            "#{color.css_override.inspect}) as Android ARGB."
           )
         end
         a = (color.a * 255.0).round.to_i.clamp(0, 255)
@@ -3516,7 +3813,16 @@
                 else
                   theme.surface
                 end
-        theme_color_to_argb(color)
+        attribute = case role
+                    when :background         then "colorSurface"
+                    when :on_background      then "colorOnSurface"
+                    when :inverse_surface    then "colorSurfaceInverse"
+                    when :inverse_on_surface then "colorOnSurfaceInverse"
+                    else
+                      "color" + role.to_s.split('_').map(&.capitalize).join
+                    end
+        LibAndroidBridge.android_context_resolve_material_color(
+          @env, @context, attribute.to_unsafe, theme_color_to_argb(color))
       end
 
       private def zero_padding?(insets : UI::EdgeInsets) : Bool
@@ -3547,6 +3853,19 @@
         )
       end
 
+      # A font's family resolves through the host's registry (a bundled face the
+      # application registered under that name), then Android's generic families,
+      # then the platform default; "system" is the default at the font's style.
+      private def apply_typeface(v : Void*, font : UI::Font) : Nil
+        style = typeface_style_for(font)
+        family = font.family
+        if family.empty? || family == "system"
+          LibAndroidBridge.android_textview_set_typeface(@env, v, style)
+        elsif LibAndroidBridge.android_textview_set_typeface_family(@env, v, family.to_unsafe, family.bytesize, style) != 1
+          LibAndroidBridge.android_textview_set_typeface(@env, v, style)
+        end
+      end
+
       # Map a UI::Font to an Android Typeface style integer.
       # Typeface.NORMAL=0, Typeface.BOLD=1, Typeface.ITALIC=2, Typeface.BOLD_ITALIC=3
       private def typeface_style_for(font : UI::Font) : Int32
@@ -3561,6 +3880,24 @@
       end
 
       private def apply_common_non_surface_properties(v : Void*, view : UI::View) : Nil
+        key = view.state_key || ""
+        if view.state_key && (key.empty? || key.bytesize > 256)
+          raise ArgumentError.new("Android state_key must contain 1..256 UTF-8 bytes")
+        end
+        kind = view.class.name
+        screen = if view.is_a?(UI::NavigationStack)
+                   if explicit = view.current_view.state_key
+                     raise ArgumentError.new("Android screen state_key must contain 1..256 UTF-8 bytes") if explicit.empty? || explicit.bytesize > 256
+                     "key:#{explicit}"
+                   else
+                     "process:#{view.current_view.native_state_identity}"
+                   end
+                 else
+                   ""
+                 end
+        LibAndroidBridge.android_view_state_metadata(@env, v, key.to_unsafe, key.bytesize,
+          kind.to_unsafe, kind.bytesize, screen.to_unsafe, screen.bytesize)
+
         # Hidden: GONE removes from layout, INVISIBLE keeps space
         if view.hidden
           LibAndroidBridge.android_view_set_visibility(@env, v, 8) # GONE
@@ -3577,92 +3914,49 @@
           LibAndroidBridge.android_view_set_elevation(@env, v, view.shadow_radius.to_f32)
         end
 
-        # Padding (convert from Float64 to Int32 dp -> px is handled in the C bridge)
+        # Keep fractional logical dimensions until the bridge rounds dp to px.
         p = view.padding
         if p.top != 0.0 || p.trailing != 0.0 || p.bottom != 0.0 || p.leading != 0.0
-          LibAndroidBridge.android_view_set_padding(
+          LibAndroidBridge.android_view_set_padding_f(
             @env, v,
-            p.leading.round.to_i, # left
-            p.top.round.to_i,
-            p.trailing.round.to_i, # right
-            p.bottom.round.to_i          )
+            p.leading.to_f32,
+            p.top.to_f32,
+            p.trailing.to_f32,
+            p.bottom.to_f32)
         end
 
-        # Phase 10B.2a — Compose Android's single `contentDescription`
-        # channel from the label + value + hint. Android's accessibility API
-        # exposes one string per view (TalkBack reads it as-is), so we
-        # concatenate the available pieces with a separator the way
-        # screen-reader users expect: "<label>, <value>. <hint>".
-        #
-        # Setting `setStateDescription` separately (API 30+) is the long-term
-        # right answer for the value channel; until the JNI bridge gains that
-        # entry point we fold value into contentDescription so older devices
-        # still get the announcement.
-        composed = compose_android_content_description(view)
-        if composed
-          LibAndroidBridge.android_view_set_content_description(
-            @env, v, composed.to_unsafe, composed.bytesize)
-        elsif tid = view.test_id
-          # Fall through to test_id when no label / hint / value was set.
-          # This keeps the legacy test-tag behavior intact.
-          LibAndroidBridge.android_view_set_content_description(
-            @env, v, tid.to_unsafe, tid.bytesize)
+        min_width, min_height = view.minimum_width, view.minimum_height
+        max_width, max_height = view.maximum_width, view.maximum_height
+        # A label's preferred wrap width is its maximum width here: the TextView
+        # measures up to it and wraps there, which is what UIKit does with
+        # preferredMaxLayoutWidth for a multi-line label. An explicit maximum wins.
+        if view.is_a?(UI::Label) && (preferred = view.preferred_max_layout_width) && preferred > 0.0
+          max_width ||= preferred
         end
+        fill_vertical = false
+        if view.is_a?(UI::ScrollView)
+          min_width = max_width = view.frame_width if view.frame_width != 0
+          fill_vertical = view.fill_vertical
+          min_height = max_height = view.frame_height if view.frame_height != 0 && !fill_vertical
+        end
+        # `root_fill` (`fill_screen!`) is the screen's outer root filling its
+        # host, which UIKit pins and web sizes to the viewport; on Android it
+        # fills both axes of the parent it is mounted in.
+        fill_horizontal = view.fill_horizontal || view.root_fill
+        fill_vertical ||= view.root_fill
+        LibAndroidBridge.android_layout_prepare(@env, v, layout_dimension(min_width), layout_dimension(min_height),
+          layout_dimension(max_width), layout_dimension(max_height), fill_horizontal ? 1 : 0, fill_vertical ? 1 : 0)
 
-        # Phase 10B.2a — Accessibility traits map to setEnabled / setSelected
-        # where Android has a direct analog. Unmapped traits silently fall
-        # through; the broader trait surface awaits a richer JNI bridge.
-        view.accessibility_traits.each do |trait|
-          case trait
-          when :not_enabled
-            LibAndroidBridge.android_view_set_enabled(@env, v, 0)
-          end
+        # Keep pending tokens accounted for even if metadata setup fails before
+        # this local View is promoted/adopted by a NativeView owner.
+        raise ArgumentError.new("Android supports at most 16 custom accessibility actions per view") if view.accessibility_actions.size > Semantics::MAX_ACTIONS
+        tokens = [] of UInt64
+        unless view.accessibility_actions.empty?
+          @pending_semantics_callbacks[v.address] = tokens
+          view.accessibility_actions.each { |action| tokens << UI::CallbackRegistry.register(action.callback) }
         end
-
-        # Phase 10B.2b — Focus management. We can clear focus when the
-        # caller explicitly opts out (`focusable = false` overriding a
-        # focusable default). `focused = true` requires a
-        # `android_view_request_focus` JNI bridge entry point that the
-        # current `LibAndroidBridge` does not expose; the gap is
-        # documented in the close handoff and the Crystal-side data
-        # stays on the View object so an app wiring its own JNI can
-        # honor it.
-        if view.focusable == false
-          LibAndroidBridge.android_view_clear_focus(@env, v)
-        end
-
-        # Phase 10B.2b — Accessibility actions / keyboard shortcuts on
-        # Android. The brief lists Android as best-effort because the
-        # `AccessibilityNodeInfo.addAction` surface requires installing
-        # a per-View `AccessibilityDelegate`, and the keyboard layer
-        # uses `View.OnKeyListener` — neither is exposed through the
-        # current JNI bridge. We document the gap honestly here rather
-        # than silently drop the data: when the Crystal-side surface
-        # has actions or a keyboard shortcut, the renderer counts the
-        # gap in a future bridge upgrade.
-        #
-        # The Crystal-side `accessibility_actions` and `keyboard_shortcut`
-        # data is still available on the View object after `render`, so
-        # an app that wants to wire its own delegate via raw JNI can do
-        # so. The lint diagnostic in the handoff calls this out.
-        # (No-op intentionally; honest limitation documented in handoff.)
-      end
-
-      # Phase 10B.2a — Build the composite contentDescription announcement.
-      # Returns nil when no AX text is configured.
-      private def compose_android_content_description(view : UI::View) : String?
-        parts = [] of String
-        if label = view.accessibility_label
-          parts << label
-        end
-        if value = view.accessibility_value
-          parts << value
-        end
-        if hint = view.accessibility_hint
-          parts << hint
-        end
-        return nil if parts.empty?
-        parts.join(". ")
+        packet = Semantics.encode(view, tokens)
+        LibAndroidBridge.android_view_semantics(@env, v, packet.to_unsafe, packet.bytesize)
       end
 
       # Apply common View base-class properties to an Android View local ref.
@@ -3674,8 +3968,8 @@
       #   - clip_to_bounds -> setClipToOutline(true)
       #   - shadow        -> setElevation(dp) -- Android uses elevation for shadow
       #   - border        -> setStroke(width, argb) via GradientDrawable
-      #   - padding       -> setPadding(l, t, r, b) in pixels
-      #   - accessibility -> setContentDescription
+      #   - padding       -> setPadding(l, t, r, b), converting dp to pixels
+      #   - accessibility/focus -> checked NativeSemantics metadata/delegate
       private def apply_common_properties(v : Void*, view : UI::View) : Nil
         apply_common_non_surface_properties(v, view)
 
@@ -3697,6 +3991,42 @@
           bc = view.border_color || UI::Color.new(r: 0.0, g: 0.0, b: 0.0)
           LibAndroidBridge.android_view_set_stroke(@env, v, view.border_width.to_f32, color_to_argb(bc))
         end
+      end
+
+      # Native pickers report "YYYY-MM-DD" and "HH:MM"; the base value keeps the
+      # part the picker does not own. Malformed reports are ignored, not raised.
+      private def picker_epoch_ms(time : Time?) : Int64
+        time ? time.to_unix_ms : 0_i64
+      end
+      private def picker_date(value : String, base : Time) : Time?
+        parts = value.split('-')
+        return nil unless parts.size == 3
+        year, month, day = parts[0].to_i?, parts[1].to_i?, parts[2].to_i?
+        return nil unless year && month && day
+        Time.utc(year, month, day, base.hour, base.minute, base.second)
+      rescue ArgumentError
+        nil
+      end
+      private def picker_time(value : String, base : Time) : Time?
+        parts = value.split(':')
+        return nil unless parts.size == 2
+        hour, minute = parts[0].to_i?, parts[1].to_i?
+        return nil unless hour && minute
+        Time.utc(base.year, base.month, base.day, hour, minute, 0)
+      rescue ArgumentError
+        nil
+      end
+      # Shapes carry their own size; explicit common constraints still win.
+      private def apply_intrinsic_size(v : Void*, view : UI::View, width : Float64, height : Float64) : Nil
+        LibAndroidBridge.android_layout_prepare(@env, v,
+          layout_dimension(view.minimum_width || width), layout_dimension(view.minimum_height || height),
+          layout_dimension(view.maximum_width || width), layout_dimension(view.maximum_height || height),
+          view.fill_horizontal ? 1 : 0, 0)
+      end
+      private def layout_dimension(value : Float64?) : Float32
+        return -1.0_f32 unless value
+        raise ArgumentError.new("Android layout dimensions must be finite and between 0 and 1000000 dp") unless value.finite? && value >= 0 && value <= 1_000_000
+        value.to_f32
       end
 
       # Current local ref for the stack top (the raw JNI pointer for addView calls).
@@ -3733,11 +4063,17 @@
       end
 
       # Wrap a local ref in a global NativeHandle + NativeView and emit it.
+      private def owned_native(handle : NativeHandle) : NativeView
+        native = NativeView.new(handle)
+        @created << native
+        native
+      end
+
       # Standard path for leaf views (Label, Image) with no callbacks.
       private def emit(local_ptr : Void*, label : String) : Nil
         global_ptr = LibAndroidBridge.android_new_global_ref(@env, local_ptr)
         handle = JNI.wrap_global(global_ptr, label: label)
-        native = NativeView.new(handle)
+        native = owned_native(handle)
         push_native(native, local_ptr)
       end
 
@@ -3746,26 +4082,9 @@
       private def emit_spacer(local_ptr : Void*, min_length : Float64) : Nil
         global_ptr = LibAndroidBridge.android_new_global_ref(@env, local_ptr)
         handle = JNI.wrap_global(global_ptr, label: "Space[spacer]")
-        native = NativeView.new(handle)
+        native = owned_native(handle)
 
-        if parent = @stack.last?
-          parent.add_child(native)
-          if parent.handle.valid?
-            parent_local = @stack_local_ptrs.last?
-            unless parent_local.nil? || parent_local.null?
-              # Use weight=1 so the Space expands in a LinearLayout
-              # WRAP_CONTENT = -2, MATCH_PARENT = -1
-              min_px = min_length.round.to_i
-              LibAndroidBridge.android_linearlayout_add_view_weight(
-                @env, parent_local, local_ptr,
-                min_px > 0 ? min_px : -2, # width: min or WRAP_CONTENT
-                min_px > 0 ? min_px : -2, # height: min or WRAP_CONTENT
-                1.0_f32              )    # weight: 1 (flex expand)
-            end
-          end
-        else
-          @result = native
-        end
+        push_native(native, local_ptr, min_length)
       end
 
       # Register a NativeView with the current parent container, or set it
@@ -3773,22 +4092,35 @@
       #
       # `local_ptr` is the JNI local ref for the view being registered.
       # It is needed for the addView call; the NativeView itself holds the global ref.
-      private def push_native(native : NativeView, local_ptr : Void*) : Nil
+      private def push_native(native : NativeView, local_ptr : Void*, spacer_minimum : Float64? = nil) : Nil
+        if tokens = @pending_semantics_callbacks.delete(local_ptr.address)
+          tokens.each { |token| native.track_callback_id(token) }
+        end
+        if !(wrapper_ptr = LibAndroidBridge.android_layout_wrap(@env, local_ptr)).null?
+          wrapper_global = LibAndroidBridge.android_new_global_ref(@env, wrapper_ptr)
+          wrapper = owned_native(JNI.wrap_global(wrapper_global, label: "FrameLayout[bounds]"))
+          wrapper.add_child(native)
+          native = wrapper
+          local_ptr = wrapper_ptr
+        end
         if parent = @stack.last?
           parent.add_child(native)
 
           parent_local = @stack_local_ptrs.last?
           unless parent_local.nil? || parent_local.null?
-            if @stack_is_linear.last?
-              # LinearLayout: WRAP_CONTENT for both dimensions by default
-              LibAndroidBridge.android_viewgroup_add_view(@env, parent_local, local_ptr)
+            # Let each Android parent supply its default layout parameters,
+            # preserving explicit child sizes. In particular ScrollView needs
+            # a wrap-content scrolling axis, not forced MATCH_PARENT height.
+            if spacer_minimum
+              LibAndroidBridge.android_layout_add_spacer(@env, parent_local, local_ptr, layout_dimension(spacer_minimum))
             else
-              # FrameLayout (ZStack) or ScrollView: MATCH_PARENT to fill parent
-              LibAndroidBridge.android_viewgroup_add_view_wh(
-                @env, parent_local, local_ptr, -1, -1) # MATCH_PARENT
+              LibAndroidBridge.android_viewgroup_add_view(@env, parent_local, local_ptr)
             end
           end
         else
+          if spacer_minimum
+            LibAndroidBridge.android_layout_add_spacer(@env, Pointer(Void).null, local_ptr, layout_dimension(spacer_minimum))
+          end
           @result = native
         end
       end

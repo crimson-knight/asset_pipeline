@@ -1,0 +1,141 @@
+# Android renderer tiers — September 6, 2026
+
+The cross-platform attribute view, every view type against every renderer with the attributes each visit reads, is generated into [the view parity matrix](view-parity-matrix.md) by `scripts/view_parity_matrix.rb`.
+
+Classification of every `UI::View` type against the Android Views renderer,
+per the plan's Phase 2 tiers. "A core" means a native instrumentation suite
+asserts the control's behavior on API 31, 35 and 36 (the named contract
+suites in `samples/cross_platform/android_host/app/src/androidTest`). "B
+preview" renders natively in a study fixture but has no behavioral contract.
+"unverified" has a renderer handler that no Android fixture or test exercises;
+it must not appear in a support claim until it does. "D unsupported" has no
+handler and fails with an explicit diagnostic. Promotion to A still requires
+the Phase 2 exit gate per control (accessibility roles and traits, theme,
+lifecycle, phone/tablet matrix); the contract suites cover the listed aspects.
+
+| View | Handler | Exercised by | Tier | Basis |
+| --- | --- | --- | --- | --- |
+| `ActionSheet` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `ActionSheetWithWebFallback` | yes | — | unverified | handler exists; no Android fixture or test |
+| `ActivityIndicator` | yes | basics | A core | basics (indeterminate, paused visibility) |
+| `ActivityRing` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `ActivityRings` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `ActivityView` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
+| `ActivityViewPresenter` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `Alert` | yes | dialog, sheet | A core | dialogs |
+| `AndroidSwipeActionRow` | yes | — | unverified | handler exists; no Android fixture or test |
+| `AsyncImage` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Button` | yes | basics, compound_focus, dialog, failure, focus, layout, layout_contract, material_bridge, navigation, semantics, sheet, view_state | A core | layout, semantics, focus, dialogs, sheets |
+| `Canvas` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Capsule` | yes | structure | A core | structure (intrinsic size, fill, outline clip) |
+| `Card` | yes | layout, material_bridge | A core | layout |
+| `ChartView` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
+| `Checkbox` | yes | material_bridge, semantics | A core | semantics, compound focus |
+| `Circle` | yes | structure | A core | structure (intrinsic size, fill, outline clip) |
+| `ColorPicker` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
+| `ColumnView` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Item` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `ComboBox` | yes | material_bridge | A core | compound focus |
+| `Complication` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `ComplicationWithWebFallback` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `ConfirmationDialog` | yes | dialog | A core | dialogs |
+| `ContextMenu` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `ContextMenuWithWebFallback` | yes | — | unverified | handler exists; no Android fixture or test |
+| `DatePicker` | yes | pickers | A core | pickers (Crystal date shown, bounds honored, change reported and re-rendered, survives recreation) |
+| `DisclosureGroup` | yes | structure | A core | structure (header tap calls back to Crystal, expanded state survives recreation, accessibility text) |
+| `Divider` | yes | basics | A core | basics (geometry) |
+| `Form` | yes | structure | A core | structure (section header, labeled fields, footer, in order) |
+| `FullScreenCover` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Gauge` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `GlassBackground` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Grid` | yes | structure | A core | structure (one native row per row, cells side by side) |
+| `HStack` | yes | failure, focus, layout, layout_contract, material_bridge | A core | layout (equal width, RTL) |
+| `IconButton` | yes | basics | A core | basics (drawable, label, callback) |
+| `Image` | yes | image | A core | images |
+| `ImageWell` | yes | — | unverified | handler exists; no Android fixture or test |
+| `InlineActionRow` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Inspector` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Label` | yes | basics, compound_focus, dialog, failure, focus, layout, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | layout, text, semantics |
+| `LinkButton` | yes | basics | A core | basics (on_tap, browser fallback) |
+| `ListView` | yes | structure | A core | structure (section headers, one container per row, separators, row and item taps reach Crystal, state survives recreation) |
+| `MapView` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
+| `MenuButton` | yes | tabs | A core | tabs (pull-down face shows the label, pop-up face shows the selected item, a tap opens a platform popup menu of the Crystal items with destructive tint, picks reach Crystal by index, state survives recreation) |
+| `NavigationLink` | yes | navigation, view_state | A core | navigation |
+| `NavigationSplitView` | yes | — | unverified | handler exists; no Android fixture or test |
+| `NavigationStack` | yes | failure, navigation, view_state | A core | navigation |
+| `OutlineView` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Node` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `PageControl` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Panel` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `PathControl` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `PathControlWithWebFallback` | yes | — | unverified | handler exists; no Android fixture or test |
+| `PathView` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Picker` | yes | material_bridge, semantics | A core | semantics, compound focus |
+| `Popover` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
+| `PopoverPresenter` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `ProgressView` | yes | basics | A core | basics (Material indicators, real ratios) |
+| `RadioGroup` | yes | compound_focus, material_bridge, semantics | A core | semantics, focus |
+| `RatingIndicator` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Rectangle` | yes | structure | A core | structure (intrinsic size, fill) |
+| `RichText` | yes | — | unverified | handler exists; no Android fixture or test |
+| `RoundedRectangle` | yes | structure | A core | structure (intrinsic size, fill, outline clip) |
+| `ScrollView` | yes | focus, layout_contract, view_state | A core | layout, view state; vertical viewports are the runtime's `CrystalScrollView`, which keeps the vertical drags it can consume on every skin (September 7, physical device) |
+| `SearchField` | yes | material_bridge | A core | text |
+| `SecureField` | yes | basics | A core | basics (masking, Crystal-owned restoration) |
+| `SegmentedControl` | yes | compound_focus | A core | focus |
+| `Sheet` | yes | material_bridge, sheet | A core | sheets, window matrix |
+| `SheetPresenter` | no | sheet | D unsupported | raises AndroidRendererNotImplemented |
+| `Slider` | yes | material_bridge, semantics | A core | semantics, compound focus |
+| `Snackbar` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
+| `SnackbarPresenter` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `Spacer` | yes | layout_contract, view_state | A core | layout |
+| `Stepper` | yes | material_bridge | A core | compound focus |
+| `Surface` | yes | — | unverified | handler exists; no Android fixture or test |
+| `SwipeAction` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `SwipeActionRow` | yes | — | unverified | handler exists; no Android fixture or test |
+| `TabView` | yes | tabs | A core | tabs (Material tab bar at the declared position with the Crystal labels, selected index applied before the listener, a tap reaches Crystal which renders that tab's content, state survives recreation) |
+| `TextArea` | yes | basics | A core | basics (multi-line, callback) |
+| `TextEditor` | yes | text | A core | text, view state |
+| `TextField` | yes | failure, focus, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | text, view state, focus, sheets |
+| `TimePicker` | yes | pickers | A core | pickers (24-hour mode, Crystal time shown, changes reported and re-rendered, survives recreation) |
+| `Toggle` | yes | material_bridge, semantics | A core | semantics, compound focus |
+| `ToggleButton` | yes | basics | A core | basics (label in both states, on_toggle) |
+| `TokenField` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Token` | no | — | D unsupported | raises AndroidRendererNotImplemented |
+| `Toolbar` | yes | material_bridge | A core | navigation |
+| `ToolbarItemGroup` | yes | — | unverified | handler exists; no Android fixture or test |
+| `ToolbarSpacer` | yes | — | unverified | handler exists; no Android fixture or test |
+| `Tooltip` | yes | — | unverified | handler exists; no Android fixture or test |
+| `VideoPlayer` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
+| `VStack` | yes | basics, compound_focus, dialog, failure, focus, image, layout, layout_contract, material_bridge, navigation, semantics, sheet, text, view_state | A core | layout |
+| `WebViewComponent` | yes | material_bridge | B preview | renders in the study fixture; no behavioral contract |
+| `ZStack` | yes | layout_contract | A core | layout |
+
+## Totals
+
+- A core: 46
+- B preview: 8
+- D unsupported: 17
+- unverified: 24
+
+## Next promotions
+
+The unverified group is the largest. `TabView` and `MenuButton` joined a
+tabs suite (September 7): the tab bar is a Material `TabLayout` whose taps
+reach Crystal through the int channel, and a menu button opens a platform
+`PopupMenu` whose picks run the item's Crystal action by index. Promote
+next, each through its own fixture and contract suite: the image and drawing
+surfaces (`AsyncImage`, `Canvas`), then the wrappers and fallbacks. `ListView` joined the structure suite with
+tappable rows and separators. The structure suite (September 6) promoted
+the four shapes, `Grid`, `Form` and `DisclosureGroup`; the Android handlers
+now give shapes their intrinsic size, lay out a grid as real rows, and let a
+disclosure header call back to Crystal through the new optional
+`DisclosureGroup#on_toggle`. The pickers suite (same day) promoted
+`DatePicker` and `TimePicker`: the handlers now show the Crystal value, apply
+date bounds and the 24-hour mode, and report changes through a discrete
+string dispatch that refreshes the tree, unlike editor keystrokes. `Popover`, `Snackbar`, `MapView`, `ChartView`,
+`VideoPlayer`, `WebViewComponent`, `ColorPicker` and `ActivityView` stay preview
+until their platform dependencies are split from the core target (Phase 2).
+`ActionSheet`, `ActivityRing(s)`, `Gauge`, `Panel` and the complication views
+remain unsupported; Android has no native counterpart for several of them and
+they need an explicit design, not a stub.

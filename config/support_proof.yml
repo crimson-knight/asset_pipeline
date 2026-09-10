@@ -1,0 +1,56 @@
+# Proof ledger for docs/support-matrix.md (read by scripts/support_matrix.rb).
+# One entry per thing that has actually run, with the date and where the
+# evidence is. Pins and CI lanes are read from their own sources; this file
+# only records executions. Keep entries factual and dated; remove nothing,
+# add a newer entry when a proof is repeated.
+proofs:
+  - target: android
+    runtime: "Android 16 (API 36), arm64-v8a, physical phone"
+    what: "Samsung Galaxy A15 5G (SM-A156U, One UI 8): make test-android, 64 device tests and both isolated failure lanes, driver exit 0"
+    date: "2026-09-07"
+    evidence: "docs/android-ci.md, section Physical device, September 7"
+  - target: android
+    runtime: "Android 12, 15 and 16 (API 31, 35, 36), x86_64 emulators"
+    what: "GitHub ubuntu-24.04 runners, Google APIs Pixel 6 images: make test-android green on all three lanes (runs 22 to 33; run 34401749237 on 2026-09-09)"
+    date: "2026-09-09"
+    evidence: "docs/android-ci.md, section Run results, September 6"
+  - target: android
+    runtime: "Android 16 (API 36) with 16 KB pages, arm64-v8a emulator"
+    what: "The API 36 migration proof on an Apple Silicon emulator"
+    date: "2026-09-06"
+    evidence: "docs/android-36-proof-2026-09-06.md"
+  - target: android
+    runtime: "Android 16 (API 36), physical phone, a generated consumer"
+    what: "The QuiltPerfect customer app (happy_coach branch quilt-android) rendering its five screens from the live API, brand-walked in both appearances"
+    date: "2026-09-09"
+    evidence: "happy_coach mobile/android/demo_releases/README.md (outside this repository)"
+  - target: ios
+    runtime: "iOS 26 simulator, Xcode 26"
+    what: "The HIG validation ledger: 61 implemented surfaces, 49 studies at pass_with_notes, screenshots from samples/cross_platform/ios_host UI tests"
+    date: "2026-04-17"
+    evidence: "docs/APPLE_NATIVE_UI_STATUS.md, docs/apple-native-validation/index.html"
+  - target: macos
+    runtime: "macOS 26, Apple Silicon"
+    what: "The macOS host showcase (samples/cross_platform/macos_host) built with the ObjC bridges and SwiftKit for the same ledger"
+    date: "2026-04-17"
+    evidence: "docs/APPLE_NATIVE_UI_STATUS.md"
+  - target: web
+    runtime: "Linux x86_64 (ubuntu-24.04), Crystal 1.21.0"
+    what: "spec/web/ui and spec/android_ci_spec.cr in the Android workflow's host-contracts step, every run"
+    date: "2026-09-09"
+    evidence: ".github/workflows/android-native.yml, step Host and entrypoint contracts"
+  - target: ios
+    runtime: "iOS 26.5 simulator (iPhone 17 Pro), Xcode 26.6, macOS 26.5.2"
+    what: "make test-ios: the HIG host's ten Phase03 behavior UI tests, built with the fork after the runtime-init fix in the bridge, 144 s"
+    date: "2026-09-10"
+    evidence: "docs/apple-ci.md, section The first local run"
+  - target: macos
+    runtime: "macOS 26.5.2, Xcode 26.6, Apple Silicon"
+    what: "samples/cross_platform/macos_host built unsigned with the fork after the SwiftKit scratch-path and OSLog link fixes (7.1 MB arm64 executable); not run, its screenshot path needs Screen Recording consent"
+    date: "2026-09-10"
+    evidence: "docs/apple-ci.md, section The first local run"
+  - target: web
+    runtime: "macOS 26.5.2, Crystal 1.21.0 (stock)"
+    what: "make test-web: 2272 examples, 0 failures, 66 pending, 17 s"
+    date: "2026-09-10"
+    evidence: "docs/apple-ci.md; the Apple lane runs it on both images"

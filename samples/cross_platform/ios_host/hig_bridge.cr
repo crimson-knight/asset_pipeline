@@ -28,6 +28,13 @@ module CrystalHIGHost::Bridge
   def self.initialize_runtime
     return if @@initialized
     GC.init
+    # Crystal 1.21 leaves the thread registry, the fiber bookkeeping and the
+    # once mechanism uninitialized until Crystal.init_runtime, which the
+    # generated main would call; the iOS embedding hides that main, so the
+    # bridge calls it, as the happy_coach iOS shell does. Without it the first
+    # constant read (Crystal.once -> Fiber.current -> Thread.current) pushes
+    # onto an unallocated list and the host crashes at 0x18.
+    Crystal.init_runtime
     # iOS-specific: explicitly seed every probe singleton's class
     # variables. Crystal's normal class-variable initialisation runs
     # from `__crystal_main`, but the iOS embedding hides `_main` (via

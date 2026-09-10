@@ -1,0 +1,217 @@
+name: Android native validation
+
+'on':
+  workflow_dispatch:
+    inputs:
+      report_selftest:
+        description: 'Also open and close a self-test issue (lane:selftest) to prove the reporter tags the maintainers'
+        type: boolean
+        default: false
+  schedule:
+    # Nightly, so a runner image, SDK package or emulator change is found the
+    # morning after it lands, not on the next pull request. GitHub runs this
+    # from the default branch only; the report job below opens the issue.
+    - cron: '17 6 * * *'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'spec/**'
+      - 'scripts/**'
+      - 'config/android*'
+      - 'android/**'
+      - 'samples/cross_platform/android_host/**'
+      - 'shard.yml'
+      - 'shard.lock'
+      - 'Makefile'
+      - '.github/workflows/android-native.yml'
+      - '.github/workflows/initiative-cross-platform-ui.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'spec/**'
+      - 'scripts/**'
+      - 'config/android*'
+      - 'android/**'
+      - 'samples/cross_platform/android_host/**'
+      - 'shard.yml'
+      - 'shard.lock'
+      - 'Makefile'
+      - '.github/workflows/android-native.yml'
+      - '.github/workflows/initiative-cross-platform-ui.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Native Android API ${{ matrix.api }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # Runtime API levels as strings, because Android names minor SDK releases
+        # (36.1, 37.0). 31 is the floor, 36 the target. The newest released runtime
+        # (ANDROID_NEXT_RUNTIME in the toolchain env) runs in android-next.yml,
+        # nightly and on dispatch, until it is stable enough to gate pull requests.
+        api: ['31', '35', '36']
+    env:
+      CRYSTAL_CACHE_DIR: ${{ github.workspace }}/build/crystal-cache/android-ci
+      CRYSTAL_CROSS_DEPS: ${{ github.workspace }}/build/android-deps
+      ANDROID_TEST_EVIDENCE: ${{ github.workspace }}/build/android-ci/native
+      ANDROID_SERIAL: emulator-5554
+      JOBS: '2'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Read canonical toolchain pins
+        id: pins
+        shell: bash
+        run: |
+          source config/android_toolchain.env
+          printf 'crystal=%s\njava=%s\n' "$CRYSTAL_ANDROID_VERSION" "$ANDROID_JAVA_VERSION" >> "$GITHUB_OUTPUT"
+      - name: Install pinned Crystal
+        uses: crystal-lang/install-crystal@d8ef131ecec0352ce0e39b81b0a6d95def58fe2f # v1 branch
+        with:
+          crystal: ${{ steps.pins.outputs.crystal }}
+      - name: Install Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.pins.outputs.java }}
+      - name: Install Android SDK tools
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install native build prerequisites and pinned SDK packages
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang cmake autoconf automake libtool pkg-config libgc-dev libevent-dev libpcre2-dev libssl-dev libxml2-dev libyaml-dev zlib1g-dev
+          source config/android_toolchain.env
+          sdkmanager "platforms;android-$ANDROID_COMPILE_SDK" "build-tools;$ANDROID_BUILD_TOOLS_VERSION" "ndk;$ANDROID_NDK_VERSION"
+          bash scripts/doctor_android.sh
+      - name: Require hardware acceleration
+        shell: bash
+        run: |
+          test -c /dev/kvm
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          # udev applies the rule asynchronously; one matrix job checked before
+          # the mode landed and failed with the device present. Give it a
+          # moment, then fall back to setting the mode directly.
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            if test -r /dev/kvm && test -w /dev/kvm; then exit 0; fi
+            sleep 1
+          done
+          sudo chmod 0666 /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: Host and entrypoint contracts
+        shell: bash
+        run: |
+          mkdir -p build/android-ci
+          bash scripts/tests/android_target_entrypoint.sh build/android-ci/entrypoint
+          crystal spec spec/android_ci_spec.cr spec/web/ui spec/android_next_ci_spec.cr spec/apple_ci_spec.cr --error-trace > build/android-ci/shared-specs.txt 2>&1
+          # The generated renderer parity matrix must match the renderers it was generated from.
+          ruby scripts/view_parity_matrix.rb --check
+          # The generated support matrix must match the pins and lanes it was generated from.
+          ruby scripts/support_matrix.rb --check
+      - name: Build both verified native dependency bundles
+        shell: bash
+        run: |
+          source scripts/android_env.sh
+          while IFS= read -r abi; do
+            BUILD_DIR="$CRYSTAL_CROSS_DEPS" bash scripts/build_android_deps.sh "$abi"
+          done < <(android_each_abi)
+      - name: Native build, runtime and isolated failure gates
+        # The lane owns its emulator (scripts/ci/android_emulator.sh): the same
+        # Google APIs x86_64 Pixel 6 image, 4 cores, 4 GiB, 1 GiB heap, no
+        # window, SwiftShader, no snapshot, animations on, software keyboard;
+        # it waits for the input service, which Android 17 brings up after
+        # sys.boot_completed, then runs the complete target and always tears down.
+        # The level is ANDROID_RUNTIME_API: ANDROID_API is the shard's own native
+        # compile-floor override and must never carry a runtime level.
+        shell: bash
+        env:
+          ANDROID_RUNTIME_API: ${{ matrix.api }}
+          EMULATOR_TARGET: google_apis
+          EMULATOR_ARCH: x86_64
+          EMULATOR_PROFILE: pixel_6
+          EMULATOR_CORES: '4'
+          EMULATOR_RAM_MB: '4096'
+          EMULATOR_HEAP_MB: '1024'
+          EMULATOR_BOOT_TIMEOUT: '900'
+          EMULATOR_LOG_DIR: build/android-ci/emulator
+        run: bash scripts/ci/android_emulator.sh run "$ANDROID_RUNTIME_API" 5554 -- make test-android
+      - name: Verify tracked sources were not rewritten
+        run: git diff --exit-code
+      - name: Retain evidence and packages, including failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-native-api-${{ matrix.api }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            build/android-ci/
+            samples/cross_platform/android_host/app/build/outputs/apk/
+            samples/cross_platform/android_host/app/build/outputs/bundle/
+  report:
+    # Turns the matrix outcome into one issue that tags the maintainers, and
+    # closes it on recovery. Pull requests carry their own checks, so this runs
+    # for the scheduled, dispatched and push runs nobody is watching.
+    name: Report the outcome
+    needs: native
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Open, update or close the lane's issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ needs.native.result }}
+          LANE: android-native
+          WORKFLOW_NAME: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+          MAINTAINERS: ${{ vars.CI_MAINTAINERS }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: bash scripts/ci/report_outcome.sh
+      - name: Reporter self-test (dispatch input only)
+        # Opens a lane:selftest issue that tags the maintainers, then closes it,
+        # with the runner's own token: the live proof of the reporter without a
+        # failing gate. Never runs on a schedule, a push or a pull request.
+        if: github.event_name == 'workflow_dispatch' && inputs.report_selftest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LANE: selftest
+          WORKFLOW_NAME: ${{ github.workflow }} (reporter self-test)
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+          MAINTAINERS: ${{ vars.CI_MAINTAINERS }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          OUTCOME=failure bash scripts/ci/report_outcome.sh
+          OUTCOME=success bash scripts/ci/report_outcome.sh

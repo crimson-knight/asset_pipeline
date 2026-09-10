@@ -2,13 +2,40 @@
 # (Android HIG / Material visual catalog bridge — same rationale as
 #  hig_showcase.cr; widgets selected by slug, not by test_id.)
 
-require "../../../scripts/crystal_init"
-require "../../../src/ui"
+require "../../../src/ui/android/application"
+require "./android_layout_fixture"
+require "./android_layout_contract_fixture"
+require "./android_view_state_fixture"
+require "./android_semantics_fixture"
+require "./android_focus_fixture"
+require "./android_compound_focus_fixture"
+require "./android_image_fixture"
+require "./android_text_fixture"
+require "./android_navigation_fixture"
+require "./android_failure_fixture"
+require "./android_java_failure_fixture"
+require "./android_dialog_fixture"
+require "./android_sheet_fixture"
+require "./android_basics_fixture"
+require "./android_structure_fixture"
+require "./android_pickers_fixture"
+require "./android_tabs_fixture"
+require "./android_tick_fixture"
+require "./android_viewport_fixture"
+require "./android_assets_fixture"
+require "./android_directories_fixture"
+require "./android_photo_fixture"
+require "./android_async_image_fixture"
+require "./android_button_fixture"
+require "./android_settings_fixture"
+require "./android_text_field_style_fixture"
+require "./android_appearance_fixture"
 
 module AndroidMaterialHost
   module Bridge
-    @@runtime_initialized = false
-    @@last_native : UI::NativeView? = nil
+    # Integration fixtures can supply app screens while reusing this host's JNI,
+    # renderer ownership and lifecycle. Production scaffolds will use a lean host.
+    @@component_builders = {} of String => Proc(UI::View)
     @@interaction_fired : Bool? = nil
     @@interaction_toggle_on : Bool? = nil
     @@interaction_checkbox_checked : Bool? = nil
@@ -21,14 +48,9 @@ module AndroidMaterialHost
     @@selection_stepper_value : Float64? = nil
     @@selection_search_value : String? = nil
     @@surface_note_value : String? = nil
+    @@surface_sheet : UI::Sheet? = nil
     @@palette_color_value : UI::Color? = nil
     @@activity_note_value : String? = nil
-
-    def self.initialize_runtime : Nil
-      return if @@runtime_initialized
-      crystal_init
-      @@runtime_initialized = true
-    end
 
     def self.record_interaction_fire : Nil
       self.interaction_fired_state = true
@@ -202,33 +224,65 @@ module AndroidMaterialHost
       @@activity_note_value = value
     end
 
-    def self.render_slug(env : Void*, context : Void*, slug : String) : Void*
-      initialize_runtime
-
-      # Keep the most recent native tree strongly reachable while the Android
-      # host owns the mounted view hierarchy.
-      view = build_component(slug)
-      renderer = UI::Android::Renderer.new(env, context)
-      native = renderer.render(view)
-      @@last_native = native
-      native.handle.ptr!
+    def self.register_component(slug : String, &builder : -> UI::View) : Nil
+      raise ArgumentError.new("Component slug cannot be empty") if slug.empty?
+      raise ArgumentError.new("Component already registered: #{slug}") if @@component_builders.has_key?(slug)
+      @@component_builders[slug] = builder
     end
 
     def self.build_component(slug : String) : UI::View
+      @@tick_fixture_mounted = slug == "tick-contract"
+      @@viewport_fixture_mounted = slug == "viewport-contract"
+      @@photo_fixture_mounted = slug == "photo-contract"
+      if builder = @@component_builders[slug]?
+        return builder.call
+      end
       case slug
-      when "buttons"      then build_buttons
-      when "text-fields"  then build_text_fields
-      when "cards"        then build_cards
-      when "dialogs"      then build_dialogs
-      when "app-bars"     then build_app_bars
-      when "interaction-smoke" then build_interaction_smoke
-      when "selection-controls" then build_selection_controls
-      when "transient-surfaces" then build_transient_surfaces
-      when "share-color" then build_share_color
-      when "webview"      then build_webview
-      when "map-view"     then build_map_view
-      when "video-player" then build_video_player
-      when "chart-view"   then build_chart_view
+      when "density-smoke"        then AndroidLayoutFixture.build
+      when "layout-contract"      then AndroidLayoutContractFixture.matrix
+      when "layout-equal-width"   then AndroidLayoutContractFixture.equal_width
+      when "view-state"           then AndroidViewStateFixture.navigation
+      when "semantics"            then AndroidSemanticsFixture.build
+      when "semantics-focus"      then AndroidSemanticsFixture.build(true)
+      when "semantics-invalid"    then AndroidSemanticsFixture.invalid
+      when "focus-visibility"     then AndroidFocusFixture.build
+      when "compound-focus"       then AndroidCompoundFocusFixture.build
+      when "dialogs-contract"     then AndroidDialogFixture.build
+      when "sheets-contract"      then AndroidSheetFixture.build
+      when "basics-contract"      then AndroidBasicsFixture.build
+      when "structure-contract"   then AndroidStructureFixture.build
+      when "pickers-contract"     then AndroidPickersFixture.build
+      when "tabs-contract"        then AndroidTabsFixture.build
+      when "layout-interaction"   then AndroidLayoutContractFixture.interaction
+      when "layout-hugging"       then AndroidLayoutContractFixture.hugging
+      when "layout-fill-screen"   then AndroidLayoutContractFixture.fill_screen
+      when "tick-contract"        then AndroidTickFixture.build
+      when "viewport-contract"    then AndroidViewportFixture.build(UI::Android::Application.viewport)
+      when "assets-contract"      then AndroidAssetsFixture.build(UI::Android::Application.bundled_assets_dir, register_bundle_fonts)
+      when "directories-contract" then AndroidDirectoriesFixture.build(UI::Android::Application.files_dir, UI::Android::Application.cache_dir)
+      when "async-image-contract" then AndroidAsyncImageFixture.build(bundle_mark_bytes, bundle_photo_bytes)
+      when "button-contract"      then AndroidButtonFixture.build
+      when "text-field-styles"    then AndroidTextFieldStyleFixture.build
+      when "appearance-contract"  then AndroidAppearanceFixture.build(UI::Android::Application.dark_appearance?)
+      when "settings-contract"    then AndroidSettingsFixture.build(UI::Android::Application.setting("SAMPLE_DISPLAY_NAME"), UI::Android::Application.setting("SAMPLE_DEMO_ID"), UI::Android::Application.setting("SAMPLE_NOT_SET"))
+      when "photo-contract"       then AndroidPhotoFixture.build(photo_snapshot, -> { photo_begin(UI::Android::Photos::Source::Library) }, -> { photo_begin(UI::Android::Photos::Source::Camera) }, -> { photo_reset })
+      when "image-smoke"          then AndroidImageFixture.build
+      when "text/雪😀\0end"         then AndroidTextFixture.build
+      when "navigation"           then AndroidNavigationFixture.build
+      when "failure-render"       then AndroidFailureFixture.partial_tree
+      when "buttons"              then build_buttons
+      when "text-fields"          then build_text_fields
+      when "cards"                then build_cards
+      when "dialogs"              then build_dialogs
+      when "app-bars"             then build_app_bars
+      when "interaction-smoke"    then build_interaction_smoke
+      when "selection-controls"   then build_selection_controls
+      when "transient-surfaces"   then build_transient_surfaces
+      when "share-color"          then build_share_color
+      when "webview"              then build_webview
+      when "map-view"             then build_map_view
+      when "video-player"         then build_video_player
+      when "chart-view"           then build_chart_view
       else
         build_fallback(slug)
       end
@@ -239,7 +293,6 @@ module AndroidMaterialHost
       stack.test_id = "android-material-study-root"
       stack.accessibility_label = "Android Material study"
       stack.padding = UI::EdgeInsets.new(top: 20.0, trailing: 20.0, bottom: 20.0, leading: 20.0)
-      stack.background = UI::Color.new(r: 0.98, g: 0.97, b: 0.99)
       stack.corner_radius = 20.0
       stack
     end
@@ -247,16 +300,13 @@ module AndroidMaterialHost
     private def self.heading(text : String) : UI::Label
       label = UI::Label.new(text)
       label.font = UI::Font.new(size: 22.0, weight: :bold)
-      label.text_color = UI::Color.new(r: 0.11, g: 0.11, b: 0.15)
-      label.text_color_role = nil
       label
     end
 
     private def self.subheading(text : String) : UI::Label
       label = UI::Label.new(text)
       label.font = UI::Font.new(size: 14.0, weight: :regular)
-      label.text_color = UI::Color.new(r: 0.34, g: 0.35, b: 0.4)
-      label.text_color_role = nil
+      label.text_color_role = UI::LabelRole::Secondary
       label.number_of_lines = 0
       label
     end
@@ -264,8 +314,6 @@ module AndroidMaterialHost
     private def self.body_label(text : String) : UI::Label
       label = UI::Label.new(text)
       label.font = UI::Font.new(size: 15.0, weight: :regular)
-      label.text_color = UI::Color.new(r: 0.16, g: 0.16, b: 0.2)
-      label.text_color_role = nil
       label.number_of_lines = 0
       label
     end
@@ -358,23 +406,7 @@ module AndroidMaterialHost
     end
 
     private def self.build_dialogs : UI::View
-      stack = root_stack
-      stack << heading("Material dialogs")
-      stack << subheading("Inline renderer studies for alert and confirmation flows.")
-
-      alert = UI::Alert.new("Publish this release?", "The screenshot ledger will update after the Android renderer mount contains real output.")
-      alert.is_presented = true
-      alert.add_button("Review", style: :cancel)
-      alert.add_button("Publish", style: :default)
-      stack << alert
-
-      confirm = UI::ConfirmationDialog.new("Discard the draft?", "Unsaved Android evidence annotations will be removed.")
-      confirm.is_presented = true
-      confirm.cancel_label = "Keep editing"
-      confirm.confirm_label = "Discard"
-      confirm.confirm_style = :destructive
-      stack << confirm
-      stack
+      AndroidDialogFixture.build
     end
 
     private def self.build_app_bars : UI::View
@@ -501,16 +533,21 @@ module AndroidMaterialHost
     private def self.build_transient_surfaces : UI::View
       stack = root_stack
       stack << heading("Transient surfaces")
-      stack << subheading("Bottom-sheet, popover, and snackbar surfaces upgraded from placeholder containers to Material-style compositions.")
+      stack << subheading("A native Android sheet, with separate inline popover and snackbar previews.")
 
       sheet_content = UI::VStack.new(10.0, UI::Alignment::Leading)
       sheet_content << body_label("Review the current Android matrix before promoting any study.")
       sheet_content << body_label("Captured evidence stays pending until fidelity and matrix coverage are both clear.")
-      sheet = UI::Sheet.new(sheet_content)
-      sheet.is_presented = true
-      sheet.selected_detent = :medium
-      sheet.detents = [:medium, :large]
-      sheet.on_dismiss = Proc(Nil).new { set_surface_note("Sheet dismiss callback fired.") }
+      sheet = @@surface_sheet ||= UI::Sheet.new.tap do |value|
+        value.state_key = "transient-sheet"
+        value.accessibility_label = "Android review sheet"
+        value.is_presented = true
+        value.selected_detent = :medium
+        value.detents = [:medium, :large]
+        value.on_dismiss = Proc(Nil).new { set_surface_note("Sheet dismiss callback fired.") }
+      end
+      sheet.content = sheet_content
+      stack << UI::Button.new("Open review sheet") { sheet.is_presented = true; nil }
       stack << sheet
 
       popover_content = UI::VStack.new(8.0, UI::Alignment::Leading)
@@ -660,7 +697,7 @@ module AndroidMaterialHost
       map.zoom_level = 11.5
       map.annotations = [
         UI::MapAnnotation.new(latitude: 40.741, longitude: -73.989, title: "Capture site"),
-        UI::MapAnnotation.new(latitude: 40.729, longitude: -73.996, title: "Validation lab")
+        UI::MapAnnotation.new(latitude: 40.729, longitude: -73.996, title: "Validation lab"),
       ]
       map.shows_user_location = true
       stack << map
@@ -690,7 +727,7 @@ module AndroidMaterialHost
         UI::ChartDataPoint.new(label: "Buttons", value: 4.0),
         UI::ChartDataPoint.new(label: "Dialogs", value: 3.0),
         UI::ChartDataPoint.new(label: "Media", value: 4.0),
-        UI::ChartDataPoint.new(label: "Host", value: 2.0)
+        UI::ChartDataPoint.new(label: "Host", value: 2.0),
       ]
       stack << chart
 
@@ -700,11 +737,98 @@ module AndroidMaterialHost
       trend.data_points = [
         UI::ChartDataPoint.new(label: "Shell", value: 1.0),
         UI::ChartDataPoint.new(label: "Renderer", value: 2.0),
-        UI::ChartDataPoint.new(label: "Accepted", value: 3.0)
+        UI::ChartDataPoint.new(label: "Accepted", value: 3.0),
       ]
       trend.show_legend = false
       stack << trend
       stack
+    end
+
+    # The host tick contract: count every tick, re-render only while the tick
+    # fixture is on screen so no other fixture's editor is replaced by a clock.
+    @@tick_fixture_mounted = false
+
+    def self.tick : Nil
+      AndroidTickFixture.tick!
+      UI::Android::Application.invalidate if @@tick_fixture_mounted
+      photo_tick
+    end
+
+    # The host viewport contract: re-render on a change only while the
+    # viewport fixture is on screen and a tree is already mounted, so the
+    # other fixtures keep their first frame and their focused editors.
+    @@viewport_fixture_mounted = false
+
+    def self.viewport_changed : Nil
+      UI::Android::Application.invalidate if @@viewport_fixture_mounted && UI::Android::Application.mounted?
+    end
+
+    # The assets contract: register the bundle's face once, under the name the
+    # fixture's label uses, and report how many faces the bridge registered.
+    @@bundle_fonts : Int32? = nil
+
+    def self.register_bundle_fonts : Int32
+      @@bundle_fonts ||= begin
+        dir = UI::Android::Application.bundled_assets_dir
+        dir && UI::Android::Fonts.register("Inter-SemiBold", File.join(dir, "fonts/Inter_semibold.ttf")) ? 1 : 0
+      end
+    end
+
+    # The photo contract: the picker is polled on the tick while the fixture
+    # is on screen, and a state change re-renders it.
+    @@photo_fixture_mounted = false
+    @@photo_state_seen = UI::Android::Photos::State::Idle
+
+    def self.photo_snapshot : AndroidPhotoFixture::Snapshot
+      state = UI::Android::Photos.state
+      @@photo_state_seen = state
+      bytes = state.ready? ? (UI::Android::Photos.take.try(&.size) || 0) : 0
+      AndroidPhotoFixture::Snapshot.new(state.to_s, bytes, UI::Android::Photos.width, UI::Android::Photos.height,
+        UI::Android::Photos.available?(UI::Android::Photos::Source::Library),
+        UI::Android::Photos.available?(UI::Android::Photos::Source::Camera),
+        state.error? ? UI::Android::Photos.error_message : "none")
+    end
+
+    def self.photo_begin(source : UI::Android::Photos::Source) : Nil
+      UI::Android::Photos.begin(source)
+      UI::Android::Application.invalidate
+    end
+
+    def self.photo_reset : Nil
+      UI::Android::Photos.reset
+      UI::Android::Application.invalidate
+    end
+
+    def self.photo_tick : Nil
+      return unless @@photo_fixture_mounted
+      state = UI::Android::Photos.state
+      return if state == @@photo_state_seen
+      @@photo_state_seen = state
+      UI::Android::Application.invalidate
+    end
+
+    # The async image contract's bytes: the bundle's mark, read the way an
+    # application reads a photo it prefetched.
+    def self.bundle_photo_bytes : Bytes?
+      bundle_file_bytes("art/photo-1200x900.jpg")
+    end
+
+    private def self.bundle_file_bytes(name : String) : Bytes?
+      dir = UI::Android::Application.bundled_assets_dir
+      return nil unless dir
+      path = File.join(dir, name)
+      File.file?(path) ? File.read(path).to_slice : nil
+    rescue
+      nil
+    end
+
+    def self.bundle_mark_bytes : Bytes?
+      dir = UI::Android::Application.bundled_assets_dir
+      return nil unless dir
+      path = File.join(dir, AndroidAssetsFixture::MARK)
+      File.file?(path) ? File.read(path).to_slice : nil
+    rescue
+      nil
     end
 
     private def self.build_fallback(slug : String) : UI::View
@@ -716,7 +840,9 @@ module AndroidMaterialHost
   end
 end
 
-fun crystal_android_host_render_slug(env : Void*, context : Void*, slug_ptr : UInt8*) : Void*
-  slug = slug_ptr.null? ? "buttons" : String.new(slug_ptr)
-  AndroidMaterialHost::Bridge.render_slug(env, context, slug)
+UI::Android::Application.configure do |slug|
+  AndroidMaterialHost::Bridge.build_component(slug)
 end
+
+UI::Android::Application.on_tick(1000) { AndroidMaterialHost::Bridge.tick }
+UI::Android::Application.on_viewport { |_viewport| AndroidMaterialHost::Bridge.viewport_changed }

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The adapter owns safe-area/keyboard sizing once. Material still owns
+         the native surface, drag behavior, shape, colors and accessibility. -->
+    <style name="APNativeSheetDialog" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/APNativeSheetSurface</item>
+        <item name="enableEdgeToEdge">false</item>
+    </style>
+    <style name="APNativeSheetSurface" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="paddingBottomSystemWindowInsets">false</item>
+        <item name="paddingTopSystemWindowInsets">false</item>
+        <item name="paddingLeftSystemWindowInsets">false</item>
+        <item name="paddingRightSystemWindowInsets">false</item>
+        <item name="marginLeftSystemWindowInsets">false</item>
+        <item name="marginRightSystemWindowInsets">false</item>
+        <item name="marginTopSystemWindowInsets">false</item>
+    </style>
+</resources>

@@ -3,6 +3,12 @@
 **Date:** 2026-05-25
 **Branch:** `phase-10-c-0`
 **Discovery scope:** best-effort attempt per `architecture-decisions.md` Decision 5.
+**Android update (2026-09-04):** The Android host-only conclusion below is
+superseded by the [current runtime proof](../android-runtime-proof-2026-09-04.md).
+The macOS/iOS entries remain historical and were not reverified by that work.
+**Android CI update (2026-09-06):** The former ignored Android placeholder has
+been replaced by the real [native validation entrypoint and declared CI lane](../android-ci.md).
+Local workflow/host checks are not evidence of an executed remote CI matrix.
 Each platform is tested with the canonical command from CLAUDE.md Build & Test +
 Native App Development Workflow sections. Outcome is one of three statuses:
 
@@ -34,7 +40,7 @@ cosmetic follow-up.
 | web (default `crystal`) | `verified` | `crystal spec spec/web/` runs the 117-spec lane. |
 | macOS (`acrystal -Dmacos`) | `attempted-blocked` (two distinct blockers) | (1) Spec-entry require: AX specs need `require "../../src/ui"` ahead of `require "../../src/ui/ax_test"` so `callback_registry.cr` `fun crystal_ui_*_callback_dispatch` defs are linked into the binary (objc_bridge.o references them). Probe verified; applied to the 14 native_macos specs during migration. (2) C collection bridge: `src/ui/native/objc_collections.cr` declares `lib LibCollectionBridge { fun nsstring_to_utf8(...); fun objc_add_subviews_batch(...); ... }` but the implementing C/Obj-C source (`collection_bridge.c` / `.m`) is NOT in the repo. `make test-macos` link step fails with ~40 undefined symbols. Sample apps under `samples/cross_platform/macos_host/` link successfully today, implying the bridge .m lives outside `src/ui/native/` or is implemented by a downstream sample. Remediation: locate or stub the C trampolines. Deferred to a follow-up native-runner phase. |
 | iOS (`acrystal -Dios`) | `attempted-blocked` (cross-compile libgc missing) | Linker pulls `/opt/homebrew/Cellar/bdw-gc/8.2.12/lib/libgc.dylib` which is macOS-built. iOS path needs cross-compiled `libcascade.a` flow per `samples/initiative-cross-platform-ui-demo/ios/build_crystal_lib.sh` — not a single-binary `acrystal spec` flow. Remediation deferred to 10C.1 or a follow-up runner phase. |
-| Android (`acrystal -Dandroid`) | `attempted-blocked` (Crystal stdlib host-only) | `acrystal build -Dandroid` fails with `Error: can't find file 'c/sys/epoll'` — stdlib's `src/c/sys/epoll.cr` only ships on Linux Crystal builds. Android target needs Linux-targeted Crystal + NDK toolchain. Remediation owner: Phase 10D / cross-platform CI follow-up. |
+| Android (Crystal 1.21.0 + explicit Android target + NDK) | `verified` for dual-ABI cross-build/package and ARM64 emulator smoke | Use `scripts/run_android_smoke.sh <serial>`. Physical-device proof, x86_64 runtime, the complete component surface and CI remain open. |
 
 ## macOS — `attempted-blocked` (one-line spec fix path)
 
@@ -146,7 +152,12 @@ Existing `.github/workflows/initiative-cross-platform-ui.yml` `build-ios` job
 already runs an iOS-simulator artifact build via xcodebuild. That path
 continues to work; the `make test-ios` lane is the *spec* runner gap.
 
-## Android — `attempted-blocked` (Crystal stdlib host-only)
+## Android — historical failed host-target command
+
+The May command below did not select an Android target triple. It is retained
+as diagnostic history, not a current requirement for a Linux build host.
+The September toolchain uses `--cross-compile --target aarch64-linux-android31`
+and `--target x86_64-linux-android31` with the local x86 bionic overlay.
 
 ### Command attempted
 
@@ -169,17 +180,18 @@ file. The `agent-crystal` Homebrew tap installs the macOS-targeted stdlib only.
 
 ### Next remediation owner
 
-Deferred. Needs Linux-targeted Crystal compiler + Android NDK + JNI bridge
-build. Android target is documented as Tier 3 in `docs/initiative-cross-platform-ui/tier-matrix.md`
-with implementation deferred to Phase 10D or later. `$ANDROID_HOME` unset on
-this host; NDK install + CI runner are open items.
+The compiler/NDK/JNI build and ARM64 emulator interaction are now proven. The
+remaining scope is tracked in `docs/ANDROID_COMPILE_TARGET_IMPLEMENTATION_PLAN.md`.
 
 ### CI feasibility
 
-`ubuntu-latest` runner with Android SDK setup is the architect-decided path
-per `architecture-decisions.md` Decision 5. Job runs as `continue-on-error: true`
-until 10B.1c / 10D introduces the Crystal-on-Android toolchain. Until then the
-Android job is a placeholder.
+The original `continue-on-error` placeholder is historical. The September 6
+`android-native.yml` declaration uses explicit Ubuntu 24.04, API 31/35 x86_64
+emulators and the complete `make test-android` driver without ignored failures.
+See [the validation runbook](../android-ci.md) and
+[the local checkpoint](../android-ci-entrypoint-proof-2026-09-06.md) for the
+verified scope and outstanding independent-runner/runtime gates. No remote CI
+run is implied by the declaration.
 
 ## Open questions
 

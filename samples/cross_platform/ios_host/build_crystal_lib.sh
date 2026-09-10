@@ -131,18 +131,39 @@ if [[ -f "$SWIFTKIT_BRIDGE_SRC" ]]; then
 fi
 
 info "Compiling AssetPipelineSwiftKit Swift facade for $BUILD_TARGET..."
+# Its own scratch path: a build into the package's default .build repoints
+# .build/release at the iOS objects, and the macOS host and `make test-macos`
+# then link iOS Simulator objects into a macOS binary (ld64.lld refuses).
+SWIFTKIT_SCRATCH="$SWIFTKIT_PACKAGE_DIR/.build/ios-$BUILD_TARGET"
 swift build -c release \
     --package-path "$SWIFTKIT_PACKAGE_DIR" \
+    --scratch-path "$SWIFTKIT_SCRATCH" \
     --triple "$LLVM_TARGET" \
     --sdk "$SDK_PATH"
 
-# Swift puts the archive at .build/<triple>/release/lib*.a; gather it.
-SWIFTKIT_SRC_LIB="$SWIFTKIT_PACKAGE_DIR/.build/$LLVM_TARGET/release/libAssetPipelineSwiftKit.a"
-if [[ -f "$SWIFTKIT_SRC_LIB" ]]; then
+# Ask SwiftPM where it put the products: the location has moved between Swift
+# versions (Xcode 27 resolved the dependencies under the scratch path and built
+# elsewhere), so the same flags with --show-bin-path are the only stable answer.
+# A search of the package's build trees is the fallback; without the archive
+# the Xcode project's link of build/swiftkit_<target>.a fails later, so stop here.
+SWIFTKIT_BIN_PATH="$(swift build -c release \
+    --package-path "$SWIFTKIT_PACKAGE_DIR" \
+    --scratch-path "$SWIFTKIT_SCRATCH" \
+    --triple "$LLVM_TARGET" \
+    --sdk "$SDK_PATH" \
+    --show-bin-path 2>/dev/null || true)"
+SWIFTKIT_SRC_LIB="$SWIFTKIT_BIN_PATH/libAssetPipelineSwiftKit.a"
+if [[ ! -f "$SWIFTKIT_SRC_LIB" ]]; then
+    SWIFTKIT_SRC_LIB="$(find "$SWIFTKIT_SCRATCH" "$SWIFTKIT_PACKAGE_DIR/.build" -type f -name libAssetPipelineSwiftKit.a -path "*$LLVM_TARGET*" 2>/dev/null | head -n 1)"
+fi
+if [[ -n "$SWIFTKIT_SRC_LIB" && -f "$SWIFTKIT_SRC_LIB" ]]; then
     cp "$SWIFTKIT_SRC_LIB" "$SWIFTKIT_BUILD_TARGET"
-    ok "SwiftKit static library staged at $SWIFTKIT_BUILD_TARGET"
+    ok "SwiftKit static library staged at $SWIFTKIT_BUILD_TARGET (from $SWIFTKIT_SRC_LIB)"
 else
-    info "Swift archive not found at $SWIFTKIT_SRC_LIB — Xcode link step will need to locate it manually"
+    info "SwiftPM bin path: ${SWIFTKIT_BIN_PATH:-(none)}"
+    find "$SWIFTKIT_PACKAGE_DIR/.build" -maxdepth 3 -type d 2>/dev/null | sed 's/^/  /' >&2
+    find "$SWIFTKIT_PACKAGE_DIR/.build" -type f -name 'libAssetPipelineSwiftKit.a' 2>/dev/null | sed 's/^  archive: /  /' >&2
+    fail "Swift archive libAssetPipelineSwiftKit.a not found for $LLVM_TARGET"
 fi
 
 # ---------------------------------------------------------------------------

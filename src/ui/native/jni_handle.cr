@@ -28,8 +28,8 @@ module UI
     # deleted -- the caller or the enclosing local frame will handle that.
     #
     # The `env` pointer is needed for the `NewGlobalRef` call but is NOT stored
-    # in the handle. JNI global refs must be deleted with a valid `JNIEnv*`
-    # at release time -- this is handled by `NativeView`, which stores the env.
+    # in the handle. At release time the native bridge obtains a thread-local
+    # `JNIEnv*` from the process JavaVM recorded during `JNI_OnLoad`.
     def self.global(env : Void*, local_ref : Void*, label : String? = nil) : NativeHandle
       {% if flag?(:android) %}
         global_ptr = LibJNICollectionBridge.jni_new_global_ref(env, local_ref)

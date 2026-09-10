@@ -1,34 +1,100 @@
+require "../android/callback_boundary"
+
+# Checked Android exports. Legacy void exports below keep their ABI; Android
+# hosts use these statuses and never infer success from a swallowed exception.
+fun crystal_android_host_callback_void(tag : UInt64) : Int32
+  UI::Android::CallbackBoundary.protect("void") { UI::CallbackRegistry.call(tag) }
+end
+
+fun crystal_android_host_callback_string(tag : UInt64, value : UInt8*, byte_len : Int32) : Int32
+  UI::Android::CallbackBoundary.protect("string") do
+    raise ArgumentError.new("Invalid native string length") if byte_len < 0 || (value.null? && byte_len > 0)
+    UI::CallbackRegistry.call_string(tag, value.null? ? "" : String.new(value, byte_len)) unless tag == 0_u64
+  end
+end
+
+fun crystal_android_host_callback_bool(tag : UInt64, value : Int32) : Int32
+  UI::Android::CallbackBoundary.protect("bool") { UI::CallbackRegistry.call_bool(tag, value != 0) }
+end
+
+fun crystal_android_host_callback_float(tag : UInt64, value : Float64) : Int32
+  UI::Android::CallbackBoundary.protect("float") { UI::CallbackRegistry.call_float(tag, value) }
+end
+
+fun crystal_android_host_callback_int(tag : UInt64, value : Int32) : Int32
+  UI::Android::CallbackBoundary.protect("int") { UI::CallbackRegistry.call_int(tag, value) }
+end
+
 # C-exported callback for the CrystalActionDispatcher ObjC class.
 # Called from ObjC when a button's action fires: dispatch: -> crystal_ui_callback_dispatch(tag)
 fun crystal_ui_callback_dispatch(tag : UInt64) : Void
-  UI::CallbackRegistry.call(tag)
+  {% if flag?(:android) %}
+    crystal_android_host_callback_void(tag)
+  {% else %}
+    UI::CallbackRegistry.call(tag)
+  {% end %}
 end
 
 fun crystal_ui_string_callback_dispatch(tag : UInt64, value : UInt8*) : Void
   return if tag == 0_u64 || value.null?
-  UI::CallbackRegistry.call_string(tag, String.new(value))
+  {% if flag?(:android) %}
+    UI::Android::CallbackBoundary.protect("legacy string") { UI::CallbackRegistry.call_string(tag, String.new(value)) }
+  {% else %}
+    UI::CallbackRegistry.call_string(tag, String.new(value))
+  {% end %}
+end
+
+# Length-delimited UTF-8 entrypoint for Android/JNI and other byte-aware hosts.
+# Keep the legacy C-string entrypoint for existing Apple bridge callers.
+fun crystal_ui_string_callback_dispatch_bytes(tag : UInt64, value : UInt8*, byte_len : Int32) : Void
+  return if tag == 0_u64 || value.null? || byte_len < 0
+  {% if flag?(:android) %}
+    crystal_android_host_callback_string(tag, value, byte_len)
+  {% else %}
+    UI::CallbackRegistry.call_string(tag, String.new(value, byte_len))
+  {% end %}
 end
 
 fun crystal_ui_string_bool_callback_dispatch(tag : UInt64, value : UInt8*) : Int32
   return 1 if tag == 0_u64
-
-  resolved = value.null? ? "" : String.new(value)
-  UI::CallbackRegistry.call_string_bool(tag, resolved) ? 1 : 0
+  {% if flag?(:android) %}
+    result = 0
+    status = UI::Android::CallbackBoundary.protect("legacy string policy") do
+      resolved = value.null? ? "" : String.new(value)
+      result = UI::CallbackRegistry.call_string_bool(tag, resolved) ? 1 : 0
+    end
+    status == 0 ? 0 : result
+  {% else %}
+    resolved = value.null? ? "" : String.new(value)
+    UI::CallbackRegistry.call_string_bool(tag, resolved) ? 1 : 0
+  {% end %}
 end
 
 fun crystal_ui_bool_callback_dispatch(tag : UInt64, value : Int32) : Void
   return if tag == 0_u64
-  UI::CallbackRegistry.call_bool(tag, value != 0)
+  {% if flag?(:android) %}
+    crystal_android_host_callback_bool(tag, value)
+  {% else %}
+    UI::CallbackRegistry.call_bool(tag, value != 0)
+  {% end %}
 end
 
 fun crystal_ui_float_callback_dispatch(tag : UInt64, value : Float64) : Void
   return if tag == 0_u64
-  UI::CallbackRegistry.call_float(tag, value)
+  {% if flag?(:android) %}
+    crystal_android_host_callback_float(tag, value)
+  {% else %}
+    UI::CallbackRegistry.call_float(tag, value)
+  {% end %}
 end
 
 fun crystal_ui_int_callback_dispatch(tag : UInt64, value : Int32) : Void
   return if tag == 0_u64
-  UI::CallbackRegistry.call_int(tag, value)
+  {% if flag?(:android) %}
+    crystal_android_host_callback_int(tag, value)
+  {% else %}
+    UI::CallbackRegistry.call_int(tag, value)
+  {% end %}
 end
 
 # -----------------------------------------------------------------------------
@@ -49,7 +115,11 @@ end
 # -----------------------------------------------------------------------------
 fun ap_swiftkit_invoke_action(token : UInt64, value : Float64) : Void
   return if token == 0_u64
-  UI::CallbackRegistry.invoke_swiftkit(token, value)
+  {% if flag?(:android) %}
+    UI::Android::CallbackBoundary.protect("legacy action") { UI::CallbackRegistry.invoke_swiftkit(token, value) }
+  {% else %}
+    UI::CallbackRegistry.invoke_swiftkit(token, value)
+  {% end %}
 end
 
 # Phase 6.10 Rem 4 (Item 1) — string-valued SwiftKit action trampoline.
@@ -63,8 +133,12 @@ end
 fun ap_swiftkit_invoke_action_string(token : UInt64, value : LibC::Char*) : Void
   return if token == 0_u64
   return if value.null?
-  text = String.new(value)
-  UI::CallbackRegistry.invoke_swiftkit_string(token, text)
+  {% if flag?(:android) %}
+    UI::Android::CallbackBoundary.protect("legacy string action") { UI::CallbackRegistry.invoke_swiftkit_string(token, String.new(value)) }
+  {% else %}
+    text = String.new(value)
+    UI::CallbackRegistry.invoke_swiftkit_string(token, text)
+  {% end %}
 end
 
 # The Crystal-side address of `ap_swiftkit_invoke_action` is needed by
@@ -268,7 +342,11 @@ module UI
     # Missing IDs default to `true` so native policy delegates stay permissive
     # instead of failing closed when a view has already been torn down.
     def self.call_string_bool(id : UInt64, value : String) : Bool
-      string_bool_callbacks[id]?.try { |box| box.callback.call(value) } || true
+      if box = string_bool_callbacks[id]?
+        box.callback.call(value)
+      else
+        true
+      end
     end
 
     # Register a Bool callback proc and return its unique ID.
@@ -410,6 +488,8 @@ module UI
     #
     # Intended for use in test cleanup (`Spec.after_each`). Do NOT call
     # this in production code -- use `unregister` for targeted cleanup.
+    # Keep IDs process-unique: an outstanding NativeView may finalize after
+    # this clear, and its old token must never remove or invoke a new callback.
     def self.clear : Nil
       @@callbacks.try(&.clear)
       @@string_callbacks.try(&.clear)
@@ -418,7 +498,6 @@ module UI
       @@float_callbacks.try(&.clear)
       @@int_callbacks.try(&.clear)
       @@time_callbacks.try(&.clear)
-      @@next_id = 1_u64
     end
   end
 end

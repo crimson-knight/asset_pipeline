@@ -1,5 +1,10 @@
 # Transient Surfaces
 
+Historical April 18, 2026 inline-composition captures, not proof of the current
+native Sheet window. The [new Sheet contract](../../android-sheets.md) and its
+runtime checkpoint supersede this report's Sheet implementation description;
+the older popover/snackbar observations remain historical too.
+
 - Study purpose: validate Android-owned transient surfaces after replacing placeholder sheet, popover, and snackbar boxes with renderer-backed compositions.
 - Native classes involved: `com.google.android.material.card.MaterialCardView`, `android.widget.LinearLayout`, `android.widget.Space`, `android.widget.TextView`, `android.view.View`.
 - Current renderer status: renderer-backed with current phone, tablet, light, and dark captures from April 18, 2026.

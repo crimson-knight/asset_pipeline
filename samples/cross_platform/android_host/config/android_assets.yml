@@ -1,0 +1,18 @@
+schema_version: 1
+images:
+  raster:
+    source: build/image-fixtures/contrast.png
+  jpeg:
+    source: build/image-fixtures/contrast.jpg
+  too_many_pixels:
+    source: build/image-fixtures/too_many_pixels.png
+  too_wide:
+    source: build/image-fixtures/too_wide.png
+  density_limit:
+    source: build/image-fixtures/density_limit.png
+    density: mdpi
+  "contract/雪 😀":
+    source: assets/contrast.xml
+    dark_source: assets/contrast_dark.xml
+  contrast:
+    source: assets/contrast.xml

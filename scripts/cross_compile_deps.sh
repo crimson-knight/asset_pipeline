@@ -13,24 +13,31 @@
 #   $BUILD_DIR/
 #     ios-device/lib/        libgc.a  libpcre2-8.a
 #     ios-simulator/lib/     libgc.a  libpcre2-8.a
-#     android-arm64/lib/     libgc.a  libpcre2-8.a
+#     android/<abi>/api-<api>/<contract-sha256>/lib/
+#                           libgc.a  libcord.a  libpcre2-8.a  libpcre2-posix.a
 #
 # After running this script, export CRYSTAL_CROSS_DEPS to $BUILD_DIR and
 # pass --library-path / -L flags to Crystal and the linker.
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=android_env.sh
+source "$SCRIPT_DIR/android_env.sh"
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
 BUILD_DIR="${BUILD_DIR:-/tmp/crystal-cross-deps}"
-BDWGC_VERSION="${BDWGC_VERSION:-8.2.6}"
-PCRE2_VERSION="${PCRE2_VERSION:-10.44}"
+BDWGC_VERSION="${BDWGC_VERSION:-$BDWGC_ANDROID_VERSION}"
+ATOMIC_OPS_VERSION="${ATOMIC_OPS_VERSION:-$ATOMIC_OPS_ANDROID_VERSION}"
+PCRE2_VERSION="${PCRE2_VERSION:-$PCRE2_ANDROID_VERSION}"
 IOS_DEPLOYMENT_TARGET="${IOS_DEPLOYMENT_TARGET:-17.0}"
-ANDROID_API="${ANDROID_API:-31}"
+ANDROID_API="${ANDROID_API:-$ANDROID_NATIVE_API}"
+ANDROID_ABIS="${ANDROID_ABIS:-$ANDROID_SUPPORTED_ABIS}"
 
-ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-/opt/homebrew/share/android-commandlinetools/ndk/28.2.13676358}"
+ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-}"
 
 BDWGC_SRC="${BUILD_DIR}/src/bdwgc"
 PCRE2_SRC="${BUILD_DIR}/src/pcre2"
@@ -56,24 +63,9 @@ require_xcode() {
         || die "iOS SDK not found. Install Xcode and run 'sudo xcode-select --install'."
 }
 
-require_ndk() {
-    [[ -d "$ANDROID_NDK_HOME" ]] \
-        || die "Android NDK not found at '$ANDROID_NDK_HOME'. Set ANDROID_NDK_HOME."
-    NDK_HOST_TAG=""
-    for tag in darwin-x86_64 linux-x86_64; do
-        if [[ -d "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$tag" ]]; then
-            NDK_HOST_TAG="$tag"
-            break
-        fi
-    done
-    [[ -n "$NDK_HOST_TAG" ]] \
-        || die "Cannot find NDK prebuilt toolchain under $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/"
-    NDK_TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$NDK_HOST_TAG/bin"
-    NDK_CLANG="$NDK_TOOLCHAIN/aarch64-linux-android${ANDROID_API}-clang"
-    NDK_AR="$NDK_TOOLCHAIN/llvm-ar"
-    [[ -x "$NDK_CLANG" ]] \
-        || die "NDK clang not found: $NDK_CLANG"
-}
+
+
+
 
 # Clone or update a git repository
 clone_or_update() {
@@ -84,6 +76,12 @@ clone_or_update() {
         step "Cloning $url -> $dest"
         git clone --depth 1 --branch "$tag" "$url" "$dest"
     fi
+
+    local expected_commit actual_commit
+    expected_commit="$(git -C "$dest" rev-list -n 1 "$tag")"
+    actual_commit="$(git -C "$dest" rev-parse HEAD)"
+    [[ -n "$expected_commit" && "$actual_commit" == "$expected_commit" ]] \
+        || die "$dest is at $actual_commit, expected tag $tag ($expected_commit)"
 }
 
 # ---------------------------------------------------------------------------
@@ -96,11 +94,20 @@ fetch_bdwgc() {
         "https://github.com/ivmai/bdwgc.git" \
         "$BDWGC_SRC" \
         "v${BDWGC_VERSION}"
-    # libatomic_ops is a submodule; bdwgc needs it
+    # The upstream bdwgc git checkout does not vendor libatomic_ops. It is
+    # required for the thread-enabled configuration Crystal needs on iOS.
+    # Pin it just as we pin bdwgc and PCRE2 so cross-builds stay reproducible.
     if [[ ! -d "$BDWGC_SRC/libatomic_ops/src" ]]; then
-        step "Fetching libatomic_ops submodule"
-        (cd "$BDWGC_SRC" && git submodule update --init --depth 1)
+        step "Cloning libatomic_ops -> $BDWGC_SRC/libatomic_ops"
+        git clone --depth 1 --branch "v${ATOMIC_OPS_VERSION}" \
+            "https://github.com/ivmai/libatomic_ops.git" \
+            "$BDWGC_SRC/libatomic_ops"
     fi
+    local atomic_expected atomic_actual
+    atomic_expected="$(git -C "$BDWGC_SRC/libatomic_ops" rev-list -n 1 "v${ATOMIC_OPS_VERSION}")"
+    atomic_actual="$(git -C "$BDWGC_SRC/libatomic_ops" rev-parse HEAD)"
+    [[ -n "$atomic_expected" && "$atomic_actual" == "$atomic_expected" ]] \
+        || die "libatomic_ops is at $atomic_actual, expected v${ATOMIC_OPS_VERSION} ($atomic_expected)"
     # Run autoconf if configure doesn't exist
     if [[ ! -f "$BDWGC_SRC/configure" ]]; then
         step "Running autogen in bdwgc"
@@ -121,9 +128,15 @@ build_bdwgc() {
     step "Configuring libgc for $host"
     (
         cd "$build_dir"
-        # Note: --disable-threads keeps the GC simple on iOS where pthreads
-        # have restrictions inside the App Sandbox. Enable with --enable-threads=posix
-        # for multi-threaded Crystal apps.
+        # Crystal's normal runtime calls Boehm's GC_pthread_* wrappers, even
+        # when an application does not explicitly create a worker.  iOS allows
+        # pthreads inside the app sandbox, so the cross-runtime must expose
+        # those wrappers; a --disable-threads archive fails later at the final
+        # Xcode link with unresolved GC_pthread_create/GC_pthread_detach.
+        # Cross-builds must not inherit Homebrew/macOS include or library
+        # paths from the developer shell. Those paths can silently poison a
+        # target archive even when configure and make return success.
+        env -u CPPFLAGS -u CFLAGS -u LDFLAGS -u LIBS \
         "$BDWGC_SRC/configure" \
             --host="$host" \
             --prefix="$prefix" \
@@ -210,7 +223,7 @@ build_ios_device() {
         "$cc" \
         "$gnu_host" \
         "-mios-version-min=${IOS_DEPLOYMENT_TARGET}" \
-        "--disable-threads"
+        "--enable-threads=posix"
 
     # --- libpcre2 ---
     # Write a cmake toolchain file for iOS device
@@ -257,7 +270,7 @@ build_ios_simulator() {
         "$cc" \
         "$gnu_host" \
         "-mios-simulator-version-min=${IOS_DEPLOYMENT_TARGET}" \
-        "--disable-threads"
+        "--enable-threads=posix"
 
     # --- libpcre2 ---
     local tc_file="${BUILD_DIR}/ios-simulator-toolchain.cmake"
@@ -284,38 +297,17 @@ EOF
 # Android (aarch64-linux-android, API 31)
 # ---------------------------------------------------------------------------
 
+build_android_abi() {
+    BUILD_DIR="$BUILD_DIR" ANDROID_API="$ANDROID_API" JOBS="$JOBS" \
+        bash "$SCRIPT_DIR/build_android_deps.sh" "$1"
+}
+
 build_android() {
-    info "Building for Android (aarch64-linux-android${ANDROID_API})"
-
-    require_ndk
-
-    local prefix="${BUILD_DIR}/android-arm64"
-    local gnu_host="aarch64-linux-android"
-
-    # --- libgc ---
-    fetch_bdwgc
-    build_bdwgc \
-        "$prefix" \
-        "$NDK_CLANG" \
-        "$gnu_host" \
-        "-fPIC" \
-        "AR=$NDK_AR"
-
-    # --- libpcre2 ---
-    # Android NDK provides its own CMake toolchain file
-    local ndk_tc_file="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake"
-    if [[ ! -f "$ndk_tc_file" ]]; then
-        die "NDK CMake toolchain not found: $ndk_tc_file"
-    fi
-
-    fetch_pcre2
-    build_pcre2_cmake "$prefix" "$ndk_tc_file" \
-        "-DANDROID_ABI=arm64-v8a" \
-        "-DANDROID_PLATFORM=android-${ANDROID_API}" \
-        "-DANDROID_NDK=$ANDROID_NDK_HOME"
-
-    info "Android arm64 deps ready in $prefix"
-    ls -lh "$prefix/lib/"*.a
+    local abi
+    while IFS= read -r abi; do
+        [[ -n "$abi" ]] || continue
+        build_android_abi "$abi"
+    done < <(android_each_abi "$ANDROID_ABIS")
 }
 
 # ---------------------------------------------------------------------------
@@ -346,15 +338,17 @@ case "$TARGET" in
         echo "Usage: $0 [ios|android|all]"
         echo ""
         echo "  ios       Build libgc + libpcre2 for iOS device and simulator"
-        echo "  android   Build libgc + libpcre2 for Android arm64 (API ${ANDROID_API})"
+        echo "  android   Build libgc + libpcre2 for Android ABIs (API ${ANDROID_API})"
         echo "  all       Build all three targets (default)"
         echo ""
         echo "Environment variables:"
         echo "  BUILD_DIR              Output directory (default: /tmp/crystal-cross-deps)"
         echo "  BDWGC_VERSION          BoehmGC version to fetch (default: ${BDWGC_VERSION})"
+        echo "  ATOMIC_OPS_VERSION     libatomic_ops version (default: ${ATOMIC_OPS_VERSION})"
         echo "  PCRE2_VERSION          PCRE2 version to fetch  (default: ${PCRE2_VERSION})"
         echo "  IOS_DEPLOYMENT_TARGET  Minimum iOS version     (default: ${IOS_DEPLOYMENT_TARGET})"
         echo "  ANDROID_API            Android API level        (default: ${ANDROID_API})"
+        echo "  ANDROID_ABIS           Comma-separated ABIs      (default: ${ANDROID_ABIS})"
         echo "  ANDROID_NDK_HOME       Path to Android NDK"
         echo "  JOBS                   Parallel make jobs       (default: auto)"
         exit 1

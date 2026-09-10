@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The camera capture target: one file under the app's private cache. An
+     application that lets Crystal take photos declares a FileProvider with
+     these paths (see docs/android-photos.md). -->
+<paths>
+    <cache-path name="ap_photos" path="ap_photos/" />
+</paths>
