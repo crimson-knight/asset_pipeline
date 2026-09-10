@@ -72,3 +72,16 @@ calls `Crystal.init_runtime` after `GC.init`, and the ten behavior tests
 pass on an iPhone 17 Pro under iOS 26.5 with Xcode 26.6 in 144 seconds
 (evidence outside the repository, with the other proof directories). The
 first run also showed that stock Crystal is not enough for iOS, above.
+
+The macOS host then failed twice in the same local run, and both are lane
+findings rather than runner ones. First, the iOS build had repointed the
+SwiftKit package's `.build/release` at its iOS Simulator objects, and the
+macOS host linked them (`has platform iOS Simulator, which is different
+from target platform macOS`, 21 times); `build_crystal_lib.sh` now builds
+SwiftKit for iOS under its own scratch path (`.build/ios-<target>`), so the
+package's default build stays the host's. Second, SwiftKit's sources import
+`os` (Apple's logging overlay) and the host's link line never added that
+Swift library, so the force-loaded archive left
+`swift_FORCE_LOAD_$_swiftOSLog` undefined; the macOS host Makefile now
+links `-lswiftOSLog` from the SDK's Swift library directory. With both, the
+host links unsigned in about twenty seconds after the Crystal build.

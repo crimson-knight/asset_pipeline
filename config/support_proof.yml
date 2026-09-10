@@ -44,3 +44,13 @@ proofs:
     what: "make test-ios: the HIG host's ten Phase03 behavior UI tests, built with the fork after the runtime-init fix in the bridge, 144 s"
     date: "2026-09-10"
     evidence: "docs/apple-ci.md, section The first local run"
+  - target: macos
+    runtime: "macOS 26.5.2, Xcode 26.6, Apple Silicon"
+    what: "samples/cross_platform/macos_host built unsigned with the fork after the SwiftKit scratch-path and OSLog link fixes (7.1 MB arm64 executable); not run, its screenshot path needs Screen Recording consent"
+    date: "2026-09-10"
+    evidence: "docs/apple-ci.md, section The first local run"
+  - target: web
+    runtime: "macOS 26.5.2, Crystal 1.21.0 (stock)"
+    what: "make test-web: 2272 examples, 0 failures, 66 pending, 17 s"
+    date: "2026-09-10"
+    evidence: "docs/apple-ci.md; the Apple lane runs it on both images"

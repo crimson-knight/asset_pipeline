@@ -49,9 +49,15 @@ Runner `ubuntu-24.04`, image `google_apis` `x86_64` `pixel_6` (4 cores, 4096 MB)
 | Compiler for the Apple targets | `crimson-knight/agent-crystal/agent-crystal` 1.21.0-incremental-1 (`acrystal`; stock Crystal has no iOS bindings) | `config/apple_toolchain.env` |
 | Runner images | current `macos-26`, preview `xcode-27` | `config/apple_toolchain.env` |
 
-### CI lanes
+### CI lanes (`.github/workflows/apple-native.yml`)
 
-No `apple-native.yml` yet; the Apple lanes are the next waypoint.
+Triggers: pull request, push to main, schedule (47 6 * * * UTC), manual dispatch.
+
+| Job | Runner | Role |
+| --- | --- | --- |
+| native | macos-26 | current |
+| native | xcode-27 | preview |
+| report | ubuntu-24.04 |  |
 
 ## Web
 
@@ -74,4 +80,6 @@ What has actually run, by date. A pin without a row here is a declaration, not a
 | ios | iOS 26 simulator, Xcode 26 | The HIG validation ledger: 61 implemented surfaces, 49 studies at pass_with_notes, screenshots from samples/cross_platform/ios_host UI tests | 2026-04-17 | docs/APPLE_NATIVE_UI_STATUS.md, docs/apple-native-validation/index.html |
 | ios | iOS 26.5 simulator (iPhone 17 Pro), Xcode 26.6, macOS 26.5.2 | make test-ios: the HIG host's ten Phase03 behavior UI tests, built with the fork after the runtime-init fix in the bridge, 144 s | 2026-09-10 | docs/apple-ci.md, section The first local run |
 | macos | macOS 26, Apple Silicon | The macOS host showcase (samples/cross_platform/macos_host) built with the ObjC bridges and SwiftKit for the same ledger | 2026-04-17 | docs/APPLE_NATIVE_UI_STATUS.md |
+| macos | macOS 26.5.2, Xcode 26.6, Apple Silicon | samples/cross_platform/macos_host built unsigned with the fork after the SwiftKit scratch-path and OSLog link fixes (7.1 MB arm64 executable); not run, its screenshot path needs Screen Recording consent | 2026-09-10 | docs/apple-ci.md, section The first local run |
 | web | Linux x86_64 (ubuntu-24.04), Crystal 1.21.0 | spec/web/ui and spec/android_ci_spec.cr in the Android workflow's host-contracts step, every run | 2026-09-09 | .github/workflows/android-native.yml, step Host and entrypoint contracts |
+| web | macOS 26.5.2, Crystal 1.21.0 (stock) | make test-web: 2272 examples, 0 failures, 66 pending, 17 s | 2026-09-10 | docs/apple-ci.md; the Apple lane runs it on both images |

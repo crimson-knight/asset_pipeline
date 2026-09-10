@@ -54,7 +54,8 @@ MACOS_FRAMEWORKS := -framework AppKit -framework Foundation \
 	-framework CoreGraphics -framework ImageIO -framework QuartzCore \
 	-framework UserNotifications \
 	-framework WebKit -framework MapKit -framework CoreLocation -framework AVKit -framework AVFoundation \
-	-lobjc
+	-lobjc \
+	-L$(shell xcrun --sdk macosx --show-sdk-path)/usr/lib/swift -lswiftOSLog
 
 # The Swift runtime lives at /usr/lib/swift on macOS 13+; embedding the
 # rpath lets the binary load Foundation/SwiftUI without DYLD overrides.

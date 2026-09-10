@@ -1,0 +1,5 @@
+# actionlint 1.7.12 predates GitHub's Xcode preview runner label; declare it
+# so the lint keeps checking every other label strictly.
+self-hosted-runner:
+  labels:
+    - xcode-27

@@ -131,13 +131,18 @@ if [[ -f "$SWIFTKIT_BRIDGE_SRC" ]]; then
 fi
 
 info "Compiling AssetPipelineSwiftKit Swift facade for $BUILD_TARGET..."
+# Its own scratch path: a build into the package's default .build repoints
+# .build/release at the iOS objects, and the macOS host and `make test-macos`
+# then link iOS Simulator objects into a macOS binary (ld64.lld refuses).
+SWIFTKIT_SCRATCH="$SWIFTKIT_PACKAGE_DIR/.build/ios-$BUILD_TARGET"
 swift build -c release \
     --package-path "$SWIFTKIT_PACKAGE_DIR" \
+    --scratch-path "$SWIFTKIT_SCRATCH" \
     --triple "$LLVM_TARGET" \
     --sdk "$SDK_PATH"
 
-# Swift puts the archive at .build/<triple>/release/lib*.a; gather it.
-SWIFTKIT_SRC_LIB="$SWIFTKIT_PACKAGE_DIR/.build/$LLVM_TARGET/release/libAssetPipelineSwiftKit.a"
+# Swift puts the archive at <scratch>/<triple>/release/lib*.a; gather it.
+SWIFTKIT_SRC_LIB="$SWIFTKIT_SCRATCH/$LLVM_TARGET/release/libAssetPipelineSwiftKit.a"
 if [[ -f "$SWIFTKIT_SRC_LIB" ]]; then
     cp "$SWIFTKIT_SRC_LIB" "$SWIFTKIT_BUILD_TARGET"
     ok "SwiftKit static library staged at $SWIFTKIT_BUILD_TARGET"
