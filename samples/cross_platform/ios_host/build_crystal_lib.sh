@@ -141,17 +141,29 @@ swift build -c release \
     --triple "$LLVM_TARGET" \
     --sdk "$SDK_PATH"
 
-# Swift puts the archive under <scratch>/<triple>/release/; the triple directory's
-# name has changed between Swift versions (Xcode 27 wrote it elsewhere than
-# Xcode 26), so find it under the scratch path and refuse to continue without
-# it: the Xcode project links build/swiftkit_<target>.a and fails later otherwise.
-SWIFTKIT_SRC_LIB="$(find "$SWIFTKIT_SCRATCH" -type f -name libAssetPipelineSwiftKit.a -path '*release*' | head -n 1)"
+# Ask SwiftPM where it put the products: the location has moved between Swift
+# versions (Xcode 27 resolved the dependencies under the scratch path and built
+# elsewhere), so the same flags with --show-bin-path are the only stable answer.
+# A search of the package's build trees is the fallback; without the archive
+# the Xcode project's link of build/swiftkit_<target>.a fails later, so stop here.
+SWIFTKIT_BIN_PATH="$(swift build -c release \
+    --package-path "$SWIFTKIT_PACKAGE_DIR" \
+    --scratch-path "$SWIFTKIT_SCRATCH" \
+    --triple "$LLVM_TARGET" \
+    --sdk "$SDK_PATH" \
+    --show-bin-path 2>/dev/null || true)"
+SWIFTKIT_SRC_LIB="$SWIFTKIT_BIN_PATH/libAssetPipelineSwiftKit.a"
+if [[ ! -f "$SWIFTKIT_SRC_LIB" ]]; then
+    SWIFTKIT_SRC_LIB="$(find "$SWIFTKIT_SCRATCH" "$SWIFTKIT_PACKAGE_DIR/.build" -type f -name libAssetPipelineSwiftKit.a -path "*$LLVM_TARGET*" 2>/dev/null | head -n 1)"
+fi
 if [[ -n "$SWIFTKIT_SRC_LIB" && -f "$SWIFTKIT_SRC_LIB" ]]; then
     cp "$SWIFTKIT_SRC_LIB" "$SWIFTKIT_BUILD_TARGET"
     ok "SwiftKit static library staged at $SWIFTKIT_BUILD_TARGET (from $SWIFTKIT_SRC_LIB)"
 else
-    find "$SWIFTKIT_SCRATCH" -maxdepth 3 -type d | sed 's/^/  /' >&2
-    fail "Swift archive libAssetPipelineSwiftKit.a not found under $SWIFTKIT_SCRATCH"
+    info "SwiftPM bin path: ${SWIFTKIT_BIN_PATH:-(none)}"
+    find "$SWIFTKIT_PACKAGE_DIR/.build" -maxdepth 3 -type d 2>/dev/null | sed 's/^/  /' >&2
+    find "$SWIFTKIT_PACKAGE_DIR/.build" -type f -name 'libAssetPipelineSwiftKit.a' 2>/dev/null | sed 's/^  archive: /  /' >&2
+    fail "Swift archive libAssetPipelineSwiftKit.a not found for $LLVM_TARGET"
 fi
 
 # ---------------------------------------------------------------------------
