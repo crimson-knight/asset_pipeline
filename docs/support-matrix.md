@@ -40,7 +40,7 @@ Runner `ubuntu-24.04`, image `google_apis` `x86_64` `pixel_6` (4 cores, 4096 MB)
 | 31 | Android 12 | the floor (`ANDROID_MIN_SDK`) |
 | 35 | Android 15 | an intermediate release |
 | 36 | Android 16 | the target (`ANDROID_TARGET_SDK`) |
-| 37.0 | Android 17 (SDK 37.0) | the newest released runtime (`ANDROID_NEXT_RUNTIME`): `android-next.yml`, schedule (47 5 * * * UTC), manual dispatch; its own issue lane, never the pull-request gate |
+| 37.0 | Android 17 (SDK 37.0) | the newest released runtime (`ANDROID_NEXT_RUNTIME`): `android-next.yml`, push to main, android-target, schedule (47 5 * * * UTC), manual dispatch; its own issue lane, never the pull-request gate |
 
 ## Apple
 

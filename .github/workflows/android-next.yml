@@ -1,7 +1,8 @@
 name: Android next runtime
 
 # The newest released Android runtime (ANDROID_NEXT_RUNTIME in
-# config/android_toolchain.env), nightly and on dispatch only: the same gate as
+# config/android_toolchain.env), nightly, on dispatch, and on a push that changes
+# this lane or its pins (never on pull requests): the same gate as
 # android-native.yml on the same launcher, kept out of the pull-request check
 # so an unstable new image (Android 17's x86_64 image crashed its system
 # server mid-suite on 2026-09-10) cannot mask a real regression there. A
@@ -18,6 +19,13 @@ name: Android next runtime
   schedule:
     # Nightly, before the supported-runtime lane. GitHub runs this from the default branch only.
     - cron: '47 5 * * *'
+  push:
+    # Not a code gate: a push that changes this lane or its pins runs it once, which
+    # is also how a branch registers a schedule-and-dispatch workflow at all.
+    branches: [main, android-target]
+    paths:
+      - '.github/workflows/android-next.yml'
+      - 'config/android_toolchain.env'
 
 permissions:
   contents: read

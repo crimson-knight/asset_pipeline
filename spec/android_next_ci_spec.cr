@@ -11,8 +11,10 @@ describe "Android next runtime declaration" do
   report = workflow["jobs"]["report"]
   pins = File.read(File.join(root, "config/android_toolchain.env"))
 
-  it "runs nightly and on dispatch, never as a pull-request or push gate" do
-    workflow["on"].as_h.keys.map(&.as_s).sort.should eq(["schedule", "workflow_dispatch"])
+  it "runs nightly, on dispatch, and on a push to its own file or the pins, never as a pull-request gate" do
+    workflow["on"].as_h.keys.map(&.as_s).sort.should eq(["push", "schedule", "workflow_dispatch"])
+    workflow["on"]["push"]["branches"].as_a.map(&.as_s).should eq(["main", "android-target"])
+    workflow["on"]["push"]["paths"].as_a.map(&.as_s).sort.should eq([".github/workflows/android-next.yml", "config/android_toolchain.env"])
     workflow["on"]["schedule"].as_a.first["cron"].as_s.should match(/\A\d{1,2} \d{1,2} \* \* \*\z/)
     workflow["on"]["workflow_dispatch"]["inputs"]["report_selftest"]["default"].as_bool.should be_false
   end
