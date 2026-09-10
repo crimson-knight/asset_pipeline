@@ -25,6 +25,9 @@
 #   EMULATOR_BOOT_TIMEOUT=900 (seconds)  EMULATOR_INPUT_TIMEOUT=120 (seconds)
 #   EMULATOR_LOG_DIR=build/android-ci/emulator   logs, the pid file, the boot record
 #   EMULATOR_SKIP_INSTALL=1   do not call sdkmanager (the image is already present)
+#
+# Pass the runtime level as an argument, never as ANDROID_API in the environment:
+# ANDROID_API is the shard's native compile-floor override (android_env.sh).
 set -euo pipefail
 
 sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"

@@ -78,9 +78,12 @@ describe "Android CI declaration" do
   it "boots one explicitly named emulator through the lane's own launcher and runs the complete Makefile target on it" do
     gate = steps.find { |step| step["name"].as_s == "Native build, runtime and isolated failure gates" }.not_nil!
     gate["uses"]?.should be_nil
-    gate["run"].as_s.should eq(%(bash scripts/ci/android_emulator.sh run "$ANDROID_API" 5554 -- make test-android))
+    gate["run"].as_s.should eq(%(bash scripts/ci/android_emulator.sh run "$ANDROID_RUNTIME_API" 5554 -- make test-android))
     env = gate["env"]
-    env["ANDROID_API"].as_s.should eq("${{ matrix.api }}")
+    env["ANDROID_RUNTIME_API"].as_s.should eq("${{ matrix.api }}")
+    # ANDROID_API is the shard's native compile-floor override; a runtime level there
+    # made the bridge look for an API 36 compiler on the runner.
+    env["ANDROID_API"]?.should be_nil
     env["EMULATOR_TARGET"].as_s.should eq("google_apis")
     env["EMULATOR_ARCH"].as_s.should eq("x86_64")
     env["EMULATOR_PROFILE"].as_s.should eq("pixel_6")
