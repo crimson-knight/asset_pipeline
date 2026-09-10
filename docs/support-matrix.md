@@ -46,6 +46,8 @@ Runner `ubuntu-24.04`, image `google_apis` `x86_64` `pixel_6` (4 cores, 4096 MB)
 | --- | --- | --- |
 | iOS deployment target | 26.0 | `samples/cross_platform/ios_host/project.yml` |
 | SwiftKit platform floors | iOS 16, macOS 13, watchOS 10 | `swift/AssetPipelineSwiftKit/Package.swift` |
+| Compiler for the Apple targets | `crimson-knight/agent-crystal/agent-crystal` 1.21.0-incremental-1 (`acrystal`; stock Crystal has no iOS bindings) | `config/apple_toolchain.env` |
+| Runner images | current `macos-26`, preview `xcode-27` | `config/apple_toolchain.env` |
 
 ### CI lanes
 

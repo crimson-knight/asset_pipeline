@@ -23,7 +23,9 @@ consumer:
   shard pin, not by editing Gradle.
 - The Apple floors are the iOS deployment target in the iOS host's
   `project.yml` and the platform floors in `swift/AssetPipelineSwiftKit/Package.swift`.
-- The Crystal compiler every lane installs is `CRYSTAL_ANDROID_VERSION`.
+- The Crystal compiler every lane installs is `CRYSTAL_ANDROID_VERSION`; the
+  Apple lanes additionally install the fork named in `config/apple_toolchain.env`,
+  the only compiler with the iOS targets (`docs/apple-ci.md`).
 
 A consumer that overrides a pin (a lower `targetSdk` in its own
 `android-app.properties`, say) is allowed to lag by one release and is on

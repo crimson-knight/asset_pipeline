@@ -39,3 +39,8 @@ proofs:
     what: "spec/web/ui and spec/android_ci_spec.cr in the Android workflow's host-contracts step, every run"
     date: "2026-09-09"
     evidence: ".github/workflows/android-native.yml, step Host and entrypoint contracts"
+  - target: ios
+    runtime: "iOS 26.5 simulator (iPhone 17 Pro), Xcode 26.6, macOS 26.5.2"
+    what: "make test-ios: the HIG host's ten Phase03 behavior UI tests, built with the fork after the runtime-init fix in the bridge, 144 s"
+    date: "2026-09-10"
+    evidence: "docs/apple-ci.md, section The first local run"
