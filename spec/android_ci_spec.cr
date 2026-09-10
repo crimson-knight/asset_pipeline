@@ -7,14 +7,23 @@ describe "Android CI declaration" do
   workflow = YAML.parse(File.read(File.join(root, ".github/workflows/android-native.yml")))
   native = workflow["jobs"]["native"]
   steps = native["steps"].as_a
+  report = workflow["jobs"]["report"]
 
-  it "declares both minimum and current API runtime gates on an explicit Linux runner" do
+  it "declares the floor, the target and the newest released runtime on an explicit Linux runner" do
     native["runs-on"].as_s.should eq("ubuntu-24.04")
-    native["strategy"]["matrix"]["api"].as_a.map(&.as_i).should eq([31, 35, 36])
+    # Strings, because Android names minor SDK releases (36.1, 37.0) and the
+    # emulator action takes the value verbatim.
+    native["strategy"]["matrix"]["api"].as_a.map(&.as_s).should eq(["31", "35", "36", "37.0"])
     native["strategy"]["fail-fast"].as_bool.should be_false
     native["timeout-minutes"].as_i.should be >= 45
-    workflow["on"].as_h.keys.map(&.as_s).sort.should eq(["pull_request", "push", "workflow_dispatch"])
+    workflow["on"].as_h.keys.map(&.as_s).sort.should eq(["pull_request", "push", "schedule", "workflow_dispatch"])
     workflow["on"]["push"]["branches"].as_a.map(&.as_s).should eq(["main"])
+  end
+
+  it "runs nightly without anyone pushing" do
+    crons = workflow["on"]["schedule"].as_a.map { |entry| entry["cron"].as_s }
+    crons.size.should eq(1)
+    crons.first.should match(/\A\d{1,2} \d{1,2} \* \* \*\z/)
   end
 
   it "never ignores or conditionally skips a mandatory gate" do
@@ -28,13 +37,41 @@ describe "Android CI declaration" do
     end
   end
 
-  it "pins every external action and gives checkout no persistent credential" do
-    steps.compact_map { |step| step["uses"]?.try(&.as_s) }.each do |action|
-      action.should match(/\A[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[0-9a-f]{40}\z/)
+  it "pins every external action in every job and gives checkout no persistent credential" do
+    workflow["jobs"].as_h.each_value do |job|
+      job["steps"].as_a.each do |step|
+        if action = step["uses"]?.try(&.as_s)
+          action.should match(/\A[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[0-9a-f]{40}\z/)
+        end
+        if step["name"].as_s == "Checkout"
+          step["with"]["persist-credentials"].as_bool.should be_false
+        end
+      end
     end
-    steps.find { |step| step["name"].as_s == "Checkout" }.not_nil!["with"]["persist-credentials"].as_bool.should be_false
     workflow["permissions"].as_h.size.should eq(1)
     workflow["permissions"]["contents"].as_s.should eq("read")
+  end
+
+  it "reports the outcome to an issue on the runs nobody is watching, and only there" do
+    report["needs"].as_s.should eq("native")
+    report["if"].as_s.should contain("always()")
+    report["if"].as_s.should contain("github.event_name != 'pull_request'")
+    report["permissions"].as_h.size.should eq(2)
+    report["permissions"]["contents"].as_s.should eq("read")
+    report["permissions"]["issues"].as_s.should eq("write")
+    reporter = report["steps"].as_a.find { |step| step["run"]? }.not_nil!
+    reporter["run"].as_s.should eq("bash scripts/ci/report_outcome.sh")
+    env = reporter["env"]
+    env["OUTCOME"].as_s.should eq("${{ needs.native.result }}")
+    env["LANE"].as_s.should eq("android-native")
+    env["MAINTAINERS"].as_s.should eq("${{ vars.CI_MAINTAINERS }}")
+    env["GH_TOKEN"].as_s.should eq("${{ github.token }}")
+    File::Info.executable?(File.join(root, "scripts/ci/report_outcome.sh")).should be_true
+    File::Info.executable?(File.join(root, "scripts/tests/report_outcome.sh")).should be_true
+    selftest = report["steps"].as_a.find { |step| step["name"].as_s.starts_with?("Reporter self-test") }.not_nil!
+    selftest["if"].as_s.should eq("github.event_name == 'workflow_dispatch' && inputs.report_selftest")
+    selftest["env"]["LANE"].as_s.should eq("selftest")
+    workflow["on"]["workflow_dispatch"]["inputs"]["report_selftest"]["default"].as_bool.should be_false
   end
 
   it "uses the complete Makefile target on one explicitly named emulator with a software keyboard" do
@@ -57,6 +94,8 @@ describe "Android CI declaration" do
     runs.should contain("bash scripts/build_android_deps.sh")
     runs.should contain("bash scripts/tests/android_target_entrypoint.sh")
     runs.should contain("crystal spec spec/android_ci_spec.cr spec/web/ui")
+    runs.should contain("ruby scripts/view_parity_matrix.rb --check")
+    runs.should contain("ruby scripts/support_matrix.rb --check")
     runs.should contain("test -c /dev/kvm")
     runs.should contain("git diff --exit-code")
     runs.should_not contain("|| true")
