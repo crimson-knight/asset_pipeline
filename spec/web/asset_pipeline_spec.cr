@@ -77,8 +77,14 @@ describe AssetPipeline::FrontLoader do
     # Test both of these, this ensures the overlapping file names are still created correctly.
     front_loader.render_import_map_tag.gsub(" ", "").gsub("\n", "").should eq(final_import_map)
 
-    File.write("spec/test_js/some_js.js", "// Here's some text for the comment\n\nconsole.log('test-modified-#{Time.utc.to_unix_ms}');")
-    front_loader.render_import_map_tag.gsub(" ", "").gsub("\n", "").should_not eq(final_import_map)
+    # The fixture is a tracked file; put it back so the run leaves the tree as it found it.
+    original = File.read("spec/test_js/some_js.js")
+    begin
+      File.write("spec/test_js/some_js.js", "// Here's some text for the comment\n\nconsole.log('test-modified-#{Time.utc.to_unix_ms}');")
+      front_loader.render_import_map_tag.gsub(" ", "").gsub("\n", "").should_not eq(final_import_map)
+    ensure
+      File.write("spec/test_js/some_js.js", original)
+    end
   end
 
   it "property rerenders the import map src url when a dependency fingerprint changes" do
@@ -100,9 +106,13 @@ describe AssetPipeline::FrontLoader do
 
     front_loader.render_import_map_as_file.gsub(" ", "").gsub("\n", "").should eq(final_import_map)
 
-    File.write("spec/test_js/some_js.js", "// Here's some text for the comment\n\nconsole.log('test-modified-#{Time.utc.to_unix_ms}');")
-
-    front_loader.render_import_map_as_file.gsub(" ", "").gsub("\n", "").should_not eq(final_import_map)
+    original = File.read("spec/test_js/some_js.js")
+    begin
+      File.write("spec/test_js/some_js.js", "// Here's some text for the comment\n\nconsole.log('test-modified-#{Time.utc.to_unix_ms}');")
+      front_loader.render_import_map_as_file.gsub(" ", "").gsub("\n", "").should_not eq(final_import_map)
+    ensure
+      File.write("spec/test_js/some_js.js", original)
+    end
   end
 
   it "properly creates an import map with a specificed asset base path" do
