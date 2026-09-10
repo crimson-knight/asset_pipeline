@@ -15,6 +15,7 @@
 #
 # Runs on Ruby 2.6 and later; no gems beyond the standard library.
 require "yaml"
+require "date"
 
 ROOT = File.expand_path("..", __dir__)
 TARGET = File.join(ROOT, "docs", "support-matrix.md")
@@ -26,6 +27,13 @@ ANDROID_NAMES = {
 
 def read(path)
   File.read(File.join(ROOT, path))
+end
+
+# Psych 4 (Ruby 3.1+) makes load_file a safe load that rejects Date and
+# aliases; Psych 3 (Ruby 2.6) does not. One explicit safe load behaves the
+# same on both, and the ledger keeps its dates as strings.
+def load_yaml(path)
+  YAML.safe_load(File.read(path), permitted_classes: [Date], aliases: true)
 end
 
 def env_pins(path)
@@ -65,7 +73,7 @@ end
 def load_workflow(path)
   full = File.join(ROOT, path)
   return nil unless File.exist?(full)
-  YAML.safe_load(File.read(full), aliases: true) rescue YAML.load_file(full)
+  load_yaml(full)
 end
 
 def table(headers, rows)
@@ -77,8 +85,8 @@ end
 pins = env_pins("config/android_toolchain.env")
 android = load_workflow(".github/workflows/android-native.yml")
 apple = load_workflow(".github/workflows/apple-native.yml")
-proof = YAML.load_file(File.join(ROOT, "config", "support_proof.yml"))["proofs"]
-ios_project = YAML.load_file(File.join(ROOT, "samples", "cross_platform", "ios_host", "project.yml"))
+proof = load_yaml(File.join(ROOT, "config", "support_proof.yml"))["proofs"]
+ios_project = load_yaml(File.join(ROOT, "samples", "cross_platform", "ios_host", "project.yml"))
 ios_target = ios_project["options"]["deploymentTarget"]["iOS"]
 swift_floors = read("swift/AssetPipelineSwiftKit/Package.swift").scan(/\.(iOS|macOS|watchOS)\(\.v(\d+)\)/).map { |os, v| "#{os} #{v}" }
 crystal_requirement = read("shard.yml")[/^crystal:\s*['"]?([^'"\n]+)['"]?/, 1]
