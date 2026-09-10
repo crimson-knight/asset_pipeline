@@ -85,3 +85,23 @@ Swift library, so the force-loaded archive left
 `swift_FORCE_LOAD_$_swiftOSLog` undefined; the macOS host Makefile now
 links `-lswiftOSLog` from the SDK's Swift library directory. With both, the
 host links unsigned in about twenty seconds after the Crystal build.
+
+## First run on iOS 27 (2026-09-10, dispatch 34487546525 at dcec15a3)
+
+With the archive found through SwiftPM, the `xcode-27` image built the host
+with Xcode 27 beta and ran the behavior suite on an iPhone 17 Pro under the
+iOS 27.0 simulator. The host launches and renders; three tests pass
+(`testBX10_darkModeTintShift_dark`, `testBX10_darkModeTintShift_light`,
+`testBX12_runtimeInitOrder`) and seven fail on assertions:
+`testBX1_buttonTapFiresHandler`, `testBX3_toggleValueCallback`,
+`testBX4_sliderValueCallback`, `testBX5_runtimeOverrideRerender`,
+`testBX6_formChildrenNonZero`, `testBX8_sheetDismissReturnsFocus`,
+`testBX9_touchTargetMinimum`. The same suite passes ten of ten on the
+`macos-26` image under iOS 26.5 in the same run, so this is the iOS 27
+beta changing how the hosted SwiftUI controls report and react under the
+bindings (taps, value callbacks, rerender after an override, form child
+counts, focus after a sheet, touch-target sizes), which is exactly what the
+preview lane exists to say before the release reaches phones. The lane
+keeps `lane:apple-native` open until it is understood; the current lane
+stays green. The assertions are listed in the evidence directory outside
+the repository.
