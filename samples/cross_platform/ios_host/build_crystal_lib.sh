@@ -141,13 +141,17 @@ swift build -c release \
     --triple "$LLVM_TARGET" \
     --sdk "$SDK_PATH"
 
-# Swift puts the archive at <scratch>/<triple>/release/lib*.a; gather it.
-SWIFTKIT_SRC_LIB="$SWIFTKIT_SCRATCH/$LLVM_TARGET/release/libAssetPipelineSwiftKit.a"
-if [[ -f "$SWIFTKIT_SRC_LIB" ]]; then
+# Swift puts the archive under <scratch>/<triple>/release/; the triple directory's
+# name has changed between Swift versions (Xcode 27 wrote it elsewhere than
+# Xcode 26), so find it under the scratch path and refuse to continue without
+# it: the Xcode project links build/swiftkit_<target>.a and fails later otherwise.
+SWIFTKIT_SRC_LIB="$(find "$SWIFTKIT_SCRATCH" -type f -name libAssetPipelineSwiftKit.a -path '*release*' | head -n 1)"
+if [[ -n "$SWIFTKIT_SRC_LIB" && -f "$SWIFTKIT_SRC_LIB" ]]; then
     cp "$SWIFTKIT_SRC_LIB" "$SWIFTKIT_BUILD_TARGET"
-    ok "SwiftKit static library staged at $SWIFTKIT_BUILD_TARGET"
+    ok "SwiftKit static library staged at $SWIFTKIT_BUILD_TARGET (from $SWIFTKIT_SRC_LIB)"
 else
-    info "Swift archive not found at $SWIFTKIT_SRC_LIB — Xcode link step will need to locate it manually"
+    find "$SWIFTKIT_SCRATCH" -maxdepth 3 -type d | sed 's/^/  /' >&2
+    fail "Swift archive libAssetPipelineSwiftKit.a not found under $SWIFTKIT_SCRATCH"
 fi
 
 # ---------------------------------------------------------------------------
