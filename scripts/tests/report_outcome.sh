@@ -22,6 +22,7 @@ for arg in "$@"; do
   fi
 done
 case "$1 $2" in
+  "api repos/example/repo") printf '%s' "${STUB_HAS_ISSUES:-true}" ;;
   "api repos/example/repo/issues?state=open&labels=ci-failure,lane:android-native&per_page=50")
     if [ -n "${STUB_OPEN_ISSUE:-}" ]; then printf '%s' "$STUB_OPEN_ISSUE"; fi ;;
   "issue create")
@@ -77,7 +78,7 @@ check "labels are not touched on success" log_lacks "label create"
 
 echo "# scenario 4: success with nothing open does nothing"
 run_reporter success STUB_OPEN_ISSUE=""
-check "only the open-issue query ran" count_in_log "^gh" 1
+check "only the issue-setting and open-issue queries ran" count_in_log "^gh" 2
 check "the query is the issues endpoint, not the search listing" log_has "gh api repos/example/repo/issues"
 
 echo "# scenario 5: a cancelled run is not a verdict"
@@ -98,6 +99,11 @@ check "stderr explains the retry" grep -q "assignment to example refused" "$TMP/
 
 echo "# scenario 8: an unknown outcome is an error, not silence"
 if run_reporter bogus STUB_OPEN_ISSUE=""; then echo "FAIL unknown outcome exited 0"; failures=$((failures + 1)); else echo "ok   unknown outcome exits nonzero"; fi
+
+echo "# scenario 10: a repository with issues disabled is named, not guessed at"
+if run_reporter failure STUB_OPEN_ISSUE="" STUB_HAS_ISSUES=false; then echo "FAIL disabled issues exited 0"; failures=$((failures + 1)); else echo "ok   disabled issues exit nonzero"; fi
+check "the message names the setting to flip" grep -q "enable them with: gh repo edit example/repo --enable-issues" "$TMP/err.txt"
+check "nothing was created" log_lacks "issue create"
 
 echo "# scenario 9: dry run prints commands and touches nothing"
 run_reporter failure REPORT_DRY_RUN=1 REPORT_DRY_RUN_OPEN_ISSUE=""
