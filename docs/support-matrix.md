@@ -8,9 +8,11 @@ is in `docs/compatibility-policy.md`.
 
 ## Android
 
-Supported runtimes: **Android 12 (API 31) through Android 17**.
-The floor is `ANDROID_MIN_SDK`; the ceiling is the newest CI lane. API levels
-between the lanes are supported by policy and not exercised by CI.
+Supported runtimes: **Android 12 (API 31) through Android 16**.
+The floor is `ANDROID_MIN_SDK`; the ceiling is the newest lane of the pull-request
+gate. API levels between the lanes are supported by policy and not exercised by
+CI; the newest released runtime is exercised nightly, not supported, until its
+lane is stable enough to join the gate.
 
 ### Pins (`config/android_toolchain.env`)
 
@@ -38,7 +40,7 @@ Runner `ubuntu-24.04`, image `google_apis` `x86_64` `pixel_6` (4 cores, 4096 MB)
 | 31 | Android 12 | the floor (`ANDROID_MIN_SDK`) |
 | 35 | Android 15 | an intermediate release |
 | 36 | Android 16 | the target (`ANDROID_TARGET_SDK`) |
-| 37.0 | Android 17 (SDK 37.0) | the newest release; above the compile floor |
+| 37.0 | Android 17 (SDK 37.0) | the newest released runtime (`ANDROID_NEXT_RUNTIME`): `android-next.yml`, schedule (47 5 * * * UTC), manual dispatch; its own issue lane, never the pull-request gate |
 
 ## Apple
 

@@ -110,8 +110,10 @@ doc << "is in `docs/compatibility-policy.md`.\n\n"
 
 doc << "## Android\n\n"
 doc << "Supported runtimes: **#{android_name(min_sdk)} (API #{min_sdk}) through #{android_name(newest_lane == newest_lane.floor ? newest_lane.to_i : newest_lane)}**.\n"
-doc << "The floor is `ANDROID_MIN_SDK`; the ceiling is the newest CI lane. API levels\n"
-doc << "between the lanes are supported by policy and not exercised by CI.\n\n"
+doc << "The floor is `ANDROID_MIN_SDK`; the ceiling is the newest lane of the pull-request\n"
+doc << "gate. API levels between the lanes are supported by policy and not exercised by\n"
+doc << "CI; the newest released runtime is exercised nightly, not supported, until its\n"
+doc << "lane is stable enough to join the gate.\n\n"
 doc << "### Pins (`config/android_toolchain.env`)\n\n"
 doc << table(%w[Pin Value Meaning], [
   ["`ANDROID_MIN_SDK`", pins["ANDROID_MIN_SDK"], "oldest runtime an app installs on (#{android_name(min_sdk)})"],
@@ -131,14 +133,20 @@ doc << "\n\n### CI lanes (`.github/workflows/android-native.yml`)\n\n"
 doc << "Runner `#{native['runs-on']}`, image `#{image['EMULATOR_TARGET']}` `#{image['EMULATOR_ARCH']}` `#{image['EMULATOR_PROFILE']}` "
 doc << "(#{image['EMULATOR_CORES']} cores, #{image['EMULATOR_RAM_MB']} MB), one job per runtime, "
 doc << "`make test-android` on each through `scripts/ci/android_emulator.sh`. Triggers: #{triggers(android)}.\n\n"
-doc << table(["Runtime API", "Android release", "Role"], matrix_apis.map { |api|
+lane_rows = matrix_apis.map { |api|
   role = if api.to_i == min_sdk then "the floor (`ANDROID_MIN_SDK`)"
          elsif api.to_i == pins["ANDROID_TARGET_SDK"].to_i then "the target (`ANDROID_TARGET_SDK`)"
          elsif api.to_f == newest_lane then "the newest release; above the compile floor"
          else "an intermediate release"
          end
   [api, android_name(api), role]
-})
+}
+if (next_runtime = pins["ANDROID_NEXT_RUNTIME"])
+  next_workflow = load_workflow(".github/workflows/android-next.yml")
+  where = next_workflow ? "`android-next.yml`, #{triggers(next_workflow)}; its own issue lane, never the pull-request gate" : "no android-next.yml yet"
+  lane_rows << [next_runtime, android_name(next_runtime), "the newest released runtime (`ANDROID_NEXT_RUNTIME`): #{where}"]
+end
+doc << table(["Runtime API", "Android release", "Role"], lane_rows)
 doc << "\n\n"
 
 doc << "## Apple\n\n"

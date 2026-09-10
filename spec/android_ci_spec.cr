@@ -10,11 +10,11 @@ describe "Android CI declaration" do
   steps = native["steps"].as_a
   report = workflow["jobs"]["report"]
 
-  it "declares the floor, the target and the newest released runtime on an explicit Linux runner" do
+  it "declares the floor, an intermediate release and the target on an explicit Linux runner" do
     native["runs-on"].as_s.should eq("ubuntu-24.04")
-    # Strings, because Android names minor SDK releases (36.1, 37.0) and the
-    # emulator action takes the value verbatim.
-    native["strategy"]["matrix"]["api"].as_a.map(&.as_s).should eq(["31", "35", "36", "37.0"])
+    # Strings, because Android names minor SDK releases (36.1, 37.0). The newest
+    # released runtime runs in android-next.yml, never in this gate.
+    native["strategy"]["matrix"]["api"].as_a.map(&.as_s).should eq(["31", "35", "36"])
     native["strategy"]["fail-fast"].as_bool.should be_false
     native["timeout-minutes"].as_i.should be >= 45
     workflow["on"].as_h.keys.map(&.as_s).sort.should eq(["pull_request", "push", "schedule", "workflow_dispatch"])

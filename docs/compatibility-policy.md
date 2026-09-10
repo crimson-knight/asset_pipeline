@@ -72,9 +72,13 @@ a sales conversation should say proven.
 ### How a new Android release enters
 
 1. **The day a system image exists** (`sdkmanager --list` shows
-   `system-images;android-<version>;google_apis;x86_64`): add the version to
-   the matrix as a string (`'37.0'`). The nightly then says whether the new
-   runtime breaks the gate, with the release still weeks from phones.
+   `system-images;android-<version>;google_apis;x86_64`): set
+   `ANDROID_NEXT_RUNTIME` in the toolchain env to it. The nightly
+   `android-next.yml` lane then says whether the new runtime, or its image,
+   breaks the gate, with the release still weeks from phones, and without
+   touching the pull-request check. When that lane has been green long
+   enough, the version joins the matrix as a string (`'37.0'`) and the
+   next release takes its place.
 2. **When it is stable and the behavior changes are audited** the way Android
    16 was (`docs/android-36-readiness.md`, `docs/android-36-proof-2026-09-06.md`):
    bump `ANDROID_COMPILE_SDK` and `ANDROID_TARGET_SDK`, with the build tools
