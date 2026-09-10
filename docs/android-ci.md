@@ -124,8 +124,9 @@ The workflow:
    a software-only emulator or ignore an unavailable device.
 3. Runs entrypoint and shared/configuration host contracts, then builds both
    ABI dependency bundles from the pinned recipes.
-4. Runs the exact public `make test-android` target against its owned
-   `emulator-5554`, with a software keyboard and animations enabled.
+4. Boots its own `emulator-5554` through `scripts/ci/android_emulator.sh`
+   (a software keyboard, animations enabled) and runs the exact public
+   `make test-android` target on it, tearing the emulator down afterward.
 5. Rejects tracked source rewrites and retains evidence/APKs/App Bundles for
    14 days, including on failure. Missing all requested artifact paths is an
    artifact-step error, not a silent upload success.
@@ -147,10 +148,10 @@ message explicitly points to the separate Android target.
 Action behavior was checked against primary sources:
 [Crystal installation action](https://crystal-lang.github.io/install-crystal/index.html),
 [Java setup](https://github.com/actions/setup-java),
-[Android SDK setup](https://github.com/android-actions/setup-android), and
-[Android emulator runner](https://github.com/ReactiveCircus/android-emulator-runner).
-The emulator runner's annotated v2 tag was resolved to its peeled commit before
-pinning. Local workflow syntax validation uses
+[Android SDK setup](https://github.com/android-actions/setup-android), and, until
+2026-09-10, the [Android emulator runner](https://github.com/ReactiveCircus/android-emulator-runner)
+(its annotated v2 tag resolved to its peeled commit before pinning); the lane
+now launches the emulator itself, see the Android 17 section below. Local workflow syntax validation uses
 [actionlint 1.7.12](https://github.com/rhysd/actionlint/releases/tag/v1.7.12).
 
 
@@ -564,3 +565,37 @@ from `config/android_toolchain.env`, this workflow, the Apple pins and
 step runs it with `--check` and fails when the document is stale; change a
 source, rerun the script, commit the result. `docs/compatibility-policy.md`
 says what supported means and how a new OS release enters the matrix.
+
+## Android 17 and the lane's own launcher (2026-09-10)
+
+The first run with `37.0` in the matrix (34478398433) installed
+`system-images;android-37.0;google_apis;x86_64`, created the Pixel 6 AVD and
+booted it, and then failed before `make test-android` started: the emulator
+action's one unconditional post-boot call, `adb shell input keyevent 82`,
+answered `cmd: Failure calling service input: Broken pipe (32)` and the
+action exited 224. Android 17's image reports `sys.boot_completed` before its
+input service accepts a call; the action (v2.38.0, the latest) has no retry
+and no way to skip the call. The emulator log also carried
+`Failed to find ColorBuffer: 37` from SwiftShader during boot, which did not
+stop the boot. The pull-request run of the same commit (34478395747) got past
+the keyevent, ran the host contracts, and then failed installing the debug
+APK: `Requested internal only, but not enough space` from the package
+installer, the image's default data partition being too small for the two
+APKs; that run also logged the emulator's own `settings put` call failing
+with the same broken pipe, so the image's shell service calls are flaky in
+the first seconds after boot.
+
+The lane therefore owns its emulator from this date:
+`scripts/ci/android_emulator.sh run <api> <port> -- make test-android`
+installs the platform, the emulator and the image with `sdkmanager`, creates
+the AVD with the same settings the lane stabilized on (Google APIs x86_64
+Pixel 6, 4 cores, 4 GiB RAM, 1 GiB heap, a 4 GiB data partition, no hardware
+keyboard), launches with
+the same options (no window, SwiftShader, no snapshot, no audio, no boot
+animation, animations left on), waits for `sys.boot_completed`, then waits
+until `input keyevent 82` succeeds (retrying every two seconds, two minutes
+at most), runs the command with `ANDROID_SERIAL` set, and always tears the
+emulator down. `build/android-ci/emulator/boot-<port>.txt` records the image,
+the fingerprint, the SDK level and how many input attempts the boot took;
+the emulator and `sdkmanager` logs sit beside it in the retained evidence.
+The same script is what a generated app's lane will call.

@@ -5,6 +5,7 @@
 #   config/android_toolchain.env            the Android pins
 #   .github/workflows/android-native.yml    the Android CI lanes
 #   .github/workflows/apple-native.yml      the Apple CI lanes (when present)
+#   config/apple_toolchain.env              the Apple pins (fork compiler, runner images)
 #   samples/cross_platform/ios_host/project.yml   the iOS deployment target
 #   swift/AssetPipelineSwiftKit/Package.swift     the SwiftKit platform floors
 #   shard.yml                               the Crystal requirement
@@ -83,6 +84,7 @@ def table(headers, rows)
 end
 
 pins = env_pins("config/android_toolchain.env")
+apple_pins = File.exist?(File.join(ROOT, "config", "apple_toolchain.env")) ? env_pins("config/apple_toolchain.env") : {}
 android = load_workflow(".github/workflows/android-native.yml")
 apple = load_workflow(".github/workflows/apple-native.yml")
 proof = load_yaml(File.join(ROOT, "config", "support_proof.yml"))["proofs"]
@@ -93,8 +95,8 @@ crystal_requirement = read("shard.yml")[/^crystal:\s*['"]?([^'"\n]+)['"]?/, 1]
 
 native = android["jobs"]["native"]
 matrix_apis = native["strategy"]["matrix"]["api"].map(&:to_s)
-emulator = native["steps"].find { |step| (step["uses"] || "").start_with?("reactivecircus/android-emulator-runner") }
-image = emulator["with"]
+gate = native["steps"].find { |step| step["name"] == "Native build, runtime and isolated failure gates" }
+image = gate["env"]
 min_sdk = pins["ANDROID_MIN_SDK"].to_i
 newest_lane = matrix_apis.map(&:to_f).max
 
@@ -126,8 +128,9 @@ doc << table(%w[Pin Value Meaning], [
   ["`CRYSTAL_ANDROID_VERSION`", pins["CRYSTAL_ANDROID_VERSION"], "Crystal compiler every lane installs"]
 ])
 doc << "\n\n### CI lanes (`.github/workflows/android-native.yml`)\n\n"
-doc << "Runner `#{native['runs-on']}`, image `#{image['target']}` `#{image['arch']}` `#{image['profile']}`, one job per runtime, "
-doc << "`#{image['script']}` on each. Triggers: #{triggers(android)}.\n\n"
+doc << "Runner `#{native['runs-on']}`, image `#{image['EMULATOR_TARGET']}` `#{image['EMULATOR_ARCH']}` `#{image['EMULATOR_PROFILE']}` "
+doc << "(#{image['EMULATOR_CORES']} cores, #{image['EMULATOR_RAM_MB']} MB), one job per runtime, "
+doc << "`make test-android` on each through `scripts/ci/android_emulator.sh`. Triggers: #{triggers(android)}.\n\n"
 doc << table(["Runtime API", "Android release", "Role"], matrix_apis.map { |api|
   role = if api.to_i == min_sdk then "the floor (`ANDROID_MIN_SDK`)"
          elsif api.to_i == pins["ANDROID_TARGET_SDK"].to_i then "the target (`ANDROID_TARGET_SDK`)"
@@ -139,10 +142,15 @@ doc << table(["Runtime API", "Android release", "Role"], matrix_apis.map { |api|
 doc << "\n\n"
 
 doc << "## Apple\n\n"
-doc << table(%w[Pin Value Source], [
+apple_rows = [
   ["iOS deployment target", ios_target, "`samples/cross_platform/ios_host/project.yml`"],
   ["SwiftKit platform floors", swift_floors.join(", "), "`swift/AssetPipelineSwiftKit/Package.swift`"]
-])
+]
+unless apple_pins.empty?
+  apple_rows << ["Compiler for the Apple targets", "`#{apple_pins["CRYSTAL_FORK_TAP"]}/#{apple_pins["CRYSTAL_FORK_FORMULA"]}` #{apple_pins["CRYSTAL_FORK_VERSION"]} (`#{apple_pins["CRYSTAL_FORK_COMMAND"]}`; stock Crystal has no iOS bindings)", "`config/apple_toolchain.env`"]
+  apple_rows << ["Runner images", "current `#{apple_pins["APPLE_RUNNER_CURRENT"]}`, preview `#{apple_pins["APPLE_RUNNER_PREVIEW"]}`", "`config/apple_toolchain.env`"]
+end
+doc << table(%w[Pin Value Source], apple_rows)
 doc << "\n\n"
 if apple
   jobs = apple["jobs"]

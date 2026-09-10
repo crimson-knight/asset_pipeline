@@ -4,7 +4,8 @@ require "yaml"
 # Configuration contracts, not an assertion that remote CI has executed.
 describe "Android CI declaration" do
   root = File.expand_path("..", __DIR__)
-  workflow = YAML.parse(File.read(File.join(root, ".github/workflows/android-native.yml")))
+  text = File.read(File.join(root, ".github/workflows/android-native.yml"))
+  workflow = YAML.parse(text)
   native = workflow["jobs"]["native"]
   steps = native["steps"].as_a
   report = workflow["jobs"]["report"]
@@ -74,17 +75,23 @@ describe "Android CI declaration" do
     workflow["on"]["workflow_dispatch"]["inputs"]["report_selftest"]["default"].as_bool.should be_false
   end
 
-  it "uses the complete Makefile target on one explicitly named emulator with a software keyboard" do
-    emulator = steps.find { |step| step["name"].as_s == "Native build, runtime and isolated failure gates" }.not_nil!
-    emulator["uses"].as_s.should start_with("reactivecircus/android-emulator-runner@")
-    inputs = emulator["with"]
-    inputs["script"].as_s.should eq("make test-android")
-    inputs["arch"].as_s.should eq("x86_64")
-    inputs["emulator-port"].as_i.should eq(5554)
-    inputs["disable-animations"].as_bool.should be_false
-    inputs["enable-hw-keyboard"].as_bool.should be_false
+  it "boots one explicitly named emulator through the lane's own launcher and runs the complete Makefile target on it" do
+    gate = steps.find { |step| step["name"].as_s == "Native build, runtime and isolated failure gates" }.not_nil!
+    gate["uses"]?.should be_nil
+    gate["run"].as_s.should eq(%(bash scripts/ci/android_emulator.sh run "$ANDROID_API" 5554 -- make test-android))
+    env = gate["env"]
+    env["ANDROID_API"].as_s.should eq("${{ matrix.api }}")
+    env["EMULATOR_TARGET"].as_s.should eq("google_apis")
+    env["EMULATOR_ARCH"].as_s.should eq("x86_64")
+    env["EMULATOR_PROFILE"].as_s.should eq("pixel_6")
+    env["EMULATOR_CORES"].as_s.should eq("4")
+    env["EMULATOR_RAM_MB"].as_s.should eq("4096")
+    # The launcher's defaults stand: no window, SwiftShader, no snapshot, animations on, software keyboard.
+    env["EMULATOR_OPTIONS"]?.should be_nil
     native["env"]["ANDROID_SERIAL"].as_s.should eq("emulator-5554")
     native["env"].as_h.keys.map(&.as_s).none?(&.starts_with?("ANDROID_SMOKE_")).should be_true
+    File::Info.executable?(File.join(root, "scripts/ci/android_emulator.sh")).should be_true
+    text.should_not contain("android-emulator-runner")
   end
 
   it "reads toolchain pins, builds the declared ABI bundles and runs host contracts" do

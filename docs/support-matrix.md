@@ -31,7 +31,7 @@ between the lanes are supported by policy and not exercised by CI.
 
 ### CI lanes (`.github/workflows/android-native.yml`)
 
-Runner `ubuntu-24.04`, image `google_apis` `x86_64` `pixel_6`, one job per runtime, `make test-android` on each. Triggers: pull request, push to main, schedule (17 6 * * * UTC), manual dispatch.
+Runner `ubuntu-24.04`, image `google_apis` `x86_64` `pixel_6` (4 cores, 4096 MB), one job per runtime, `make test-android` on each through `scripts/ci/android_emulator.sh`. Triggers: pull request, push to main, schedule (17 6 * * * UTC), manual dispatch.
 
 | Runtime API | Android release | Role |
 | --- | --- | --- |

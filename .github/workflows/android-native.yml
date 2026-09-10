@@ -132,20 +132,23 @@ jobs:
             BUILD_DIR="$CRYSTAL_CROSS_DEPS" bash scripts/build_android_deps.sh "$abi"
           done < <(android_each_abi)
       - name: Native build, runtime and isolated failure gates
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2 peeled commit
-        with:
-          api-level: ${{ matrix.api }}
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          emulator-port: 5554
-          cores: 4
-          ram-size: 4096M
-          heap-size: 1024M
-          disable-animations: false
-          enable-hw-keyboard: false
-          emulator-boot-timeout: 900
-          script: make test-android
+        # The lane owns its emulator (scripts/ci/android_emulator.sh): the same
+        # Google APIs x86_64 Pixel 6 image, 4 cores, 4 GiB, 1 GiB heap, no
+        # window, SwiftShader, no snapshot, animations on, software keyboard;
+        # it waits for the input service, which Android 17 brings up after
+        # sys.boot_completed, then runs the complete target and always tears down.
+        shell: bash
+        env:
+          ANDROID_API: ${{ matrix.api }}
+          EMULATOR_TARGET: google_apis
+          EMULATOR_ARCH: x86_64
+          EMULATOR_PROFILE: pixel_6
+          EMULATOR_CORES: '4'
+          EMULATOR_RAM_MB: '4096'
+          EMULATOR_HEAP_MB: '1024'
+          EMULATOR_BOOT_TIMEOUT: '900'
+          EMULATOR_LOG_DIR: build/android-ci/emulator
+        run: bash scripts/ci/android_emulator.sh run "$ANDROID_API" 5554 -- make test-android
       - name: Verify tracked sources were not rewritten
         run: git diff --exit-code
       - name: Retain evidence and packages, including failures
