@@ -22,7 +22,8 @@ for arg in "$@"; do
   fi
 done
 case "$1 $2" in
-  "issue list") printf '%s' "${STUB_OPEN_ISSUE:-}" ;;
+  "api repos/example/repo/issues?state=open&labels=ci-failure,lane:android-native&per_page=50")
+    if [ -n "${STUB_OPEN_ISSUE:-}" ]; then printf '%s' "$STUB_OPEN_ISSUE"; fi ;;
   "issue create")
     if [ "${STUB_REFUSE_ASSIGNEE:-0}" = "1" ]; then
       for arg in "$@"; do [ "$arg" = "--assignee" ] && { echo "stub: assignee refused" >&2; exit 1; }; done
@@ -77,7 +78,7 @@ check "labels are not touched on success" log_lacks "label create"
 echo "# scenario 4: success with nothing open does nothing"
 run_reporter success STUB_OPEN_ISSUE=""
 check "only the open-issue query ran" count_in_log "^gh" 1
-check "the query is the issue list" log_has "gh issue list"
+check "the query is the issues endpoint, not the search listing" log_has "gh api repos/example/repo/issues"
 
 echo "# scenario 5: a cancelled run is not a verdict"
 run_reporter cancelled STUB_OPEN_ISSUE="7"

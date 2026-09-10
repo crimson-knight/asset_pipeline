@@ -76,12 +76,24 @@ ensure_labels() {
 }
 
 open_issue_number() {
+  # The issues endpoint, not the search-backed listing: the listing lagged once
+  # and reported no open issue while one existed, and the reporter opened a
+  # duplicate. Three attempts, then a loud failure rather than a guess.
   if [ "$dry_run" = "1" ]; then
     echo "${REPORT_DRY_RUN_OPEN_ISSUE:-}"
     return 0
   fi
-  gh issue list -R "$repository" --state open --label "${failure_label},${lane_label}" \
-    --json number --jq 'sort_by(.number) | .[0].number // empty' --limit 20
+  local attempt result
+  for attempt in 1 2 3; do
+    if result="$(gh api "repos/${repository}/issues?state=open&labels=${failure_label},${lane_label}&per_page=50" \
+        --jq '[.[] | select(.pull_request == null)] | sort_by(.number) | .[0].number // empty')"; then
+      echo "$result"
+      return 0
+    fi
+    sleep $((attempt * 5))
+  done
+  echo "report_outcome: could not list the open issues for ${lane_label} after three attempts" >&2
+  return 1
 }
 
 context_lines() {
