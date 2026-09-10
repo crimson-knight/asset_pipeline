@@ -44,7 +44,12 @@ input_timeout="${EMULATOR_INPUT_TIMEOUT:-120}"
 log_dir="${EMULATOR_LOG_DIR:-build/android-ci/emulator}"
 adb="$sdk/platform-tools/adb"
 emulator_bin="$sdk/emulator/emulator"
-avd_home="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
+# One AVD home for both tools: on the GitHub runner avdmanager writes under the
+# XDG config directory while the emulator searches ANDROID_AVD_HOME, the SDK
+# home and ~/.android/avd; both honor ANDROID_AVD_HOME, so the launcher owns it.
+export ANDROID_AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
+mkdir -p "$ANDROID_AVD_HOME"
+avd_home="$ANDROID_AVD_HOME"
 
 sdk_tool() { # sdk_tool <name>: cmdline-tools/latest first, then any
   local name="$1" candidate
