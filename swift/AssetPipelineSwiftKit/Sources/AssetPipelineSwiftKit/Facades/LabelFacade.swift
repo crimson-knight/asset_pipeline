@@ -56,7 +56,7 @@ public class LabelFacade: NSObject {
         }
 
         let body = APSKLabelHost(state: state, overrides: overrides)
-        return HostingHelpers.host(body)
+        return HostingHelpers.host(body, wrapsText: true)
     }
 }
 

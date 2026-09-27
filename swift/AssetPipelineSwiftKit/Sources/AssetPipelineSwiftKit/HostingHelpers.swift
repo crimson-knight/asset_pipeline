@@ -207,7 +207,12 @@ enum HostingHelpers {
     /// embedded in a UIKit subtree (the Crystal renderer's UIStackView
     /// root model). AppKit is unaffected — NSHostingView reports actions
     /// independently of NSViewController containment.
-    static func host<V: View>(_ view: V, kind: String = "") -> APSKPlatformView {
+    ///
+    /// `wrapsText` (AppKit only) hosts the content in
+    /// `APSKWrappingTextHostingView`, which reports the height the content
+    /// needs at the width Auto Layout actually gave it. Text facades pass it so
+    /// a wrapped label grows its stack row instead of truncating to one line.
+    static func host<V: View>(_ view: V, kind: String = "", wrapsText: Bool = false) -> APSKPlatformView {
         // Apply the brand tint last so it cascades into every child view
         // SwiftUI considers part of this hosted root. Hosted roots are
         // isolated tint scopes — there is no propagation across
@@ -267,7 +272,9 @@ enum HostingHelpers {
         // saves us from `NSHostingController.sizingOptions` ordering
         // bugs. The view is a +0-retain NSView; ObjC.owned on the
         // Crystal side bumps it to +1 immediately.
-        let hostingView = NSHostingView(rootView: sized)
+        let hostingView: NSHostingView<AnyView> = wrapsText
+            ? APSKWrappingTextHostingView(rootView: sized)
+            : NSHostingView(rootView: sized)
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         platformView = hostingView
         lifetimeOwner = hostingView
@@ -315,5 +322,77 @@ struct APSKHostedChild: NSViewRepresentable {
     let view: APSKPlatformView
     func makeNSView(context: Context) -> APSKPlatformView { view }
     func updateNSView(_: APSKPlatformView, context: Context) {}
+}
+#endif
+
+#if os(macOS)
+/// NSHostingView for wrapping text, with height-for-width sizing.
+///
+/// A plain NSHostingView reports the SwiftUI content's ideal size as its
+/// intrinsic content size. For a `Text` that is the single-line size, and it
+/// never changes when Auto Layout squeezes the view narrower (an NSStackView
+/// row that fits a long label into the remaining width). The row then keeps
+/// the one-line height, SwiftUI truncates the text, and a label that should
+/// wrap to three lines reserves one — or, with fixedSize(vertical:), draws
+/// three lines into a one-line slot and overlaps the next row.
+///
+/// This subclass keeps the ideal width (so the view still compresses under
+/// its compression resistance) but reports the height the content needs at
+/// the width it was last laid out at, and re-invalidates whenever that width
+/// changes — the same contract as NSTextField's preferredMaxLayoutWidth
+/// update-in-layout pattern. The measurement runs the same root view in a
+/// separate NSHostingController, whose `sizeThatFits(in:)` answers for an
+/// arbitrary proposed width.
+///
+/// The default `.maxSize` sizing option is dropped: it caps the height at the
+/// content's unconstrained (single line) height at required priority, which
+/// is exactly the height the wrapped text must be allowed to exceed. `.minSize`
+/// stays, so a short label keeps its required minimum width and a long
+/// neighbor, not the short label, is the one that compresses.
+final class APSKWrappingTextHostingView: NSHostingView<AnyView> {
+    private var laidOutWidth: CGFloat = 0
+    private var cachedHeight: (width: CGFloat, height: CGFloat)? = nil
+    private lazy var measuringController = NSHostingController(rootView: rootView)
+
+    required init(rootView: AnyView) {
+        super.init(rootView: rootView)
+        sizingOptions = [.minSize, .intrinsicContentSize]
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    override var intrinsicContentSize: NSSize {
+        let ideal = super.intrinsicContentSize
+        guard laidOutWidth > 0 else { return ideal }
+        if let cached = cachedHeight, cached.width == laidOutWidth {
+            return NSSize(width: ideal.width, height: cached.height)
+        }
+        measuringController.rootView = rootView
+        let fitted = measuringController.sizeThatFits(
+            in: CGSize(width: laidOutWidth, height: CGFloat.greatestFiniteMagnitude)
+        )
+        let height = fitted.height.rounded(.up)
+        cachedHeight = (laidOutWidth, height)
+        return NSSize(width: ideal.width, height: height)
+    }
+
+    override func invalidateIntrinsicContentSize() {
+        // SwiftUI invalidates when the content changes (new text, font, line
+        // cap); the cached height belongs to the old content.
+        cachedHeight = nil
+        super.invalidateIntrinsicContentSize()
+    }
+
+    override func layout() {
+        super.layout()
+        let width = bounds.width
+        if abs(width - laidOutWidth) > 0.5 {
+            laidOutWidth = width
+            invalidateIntrinsicContentSize()
+        }
+    }
 }
 #endif

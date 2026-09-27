@@ -20,7 +20,7 @@
 #   `make test-macos` depends on `src/ui/native/objc_bridge.o`
 #   (`$(AP_BRIDGE_OBJ)`), `src/ui/native/swiftkit_bridge.o`
 #   (`$(SK_BRIDGE_OBJ)`), and the spec-only first-responder, preview-state,
-#   text-field alignment, and text-field color bridges.
+#   text-field alignment, text-field color, and layout measurement bridges.
 #   All are compiled with `-fno-objc-arc`
 #   (the bridges manage their own memory). The `.o` files are .gitignored
 #   build artifacts — never check them in.
@@ -43,6 +43,8 @@ SPEC_TEXT_FIELD_BRIDGE_OBJ := src/ui/native/text_field_alignment_spec_bridge.o
 SPEC_TEXT_FIELD_BRIDGE_SRC := spec/native_macos/support/text_field_alignment_test_bridge.m
 SPEC_TEXT_FIELD_COLOR_BRIDGE_OBJ := src/ui/native/text_field_color_spec_bridge.o
 SPEC_TEXT_FIELD_COLOR_BRIDGE_SRC := spec/native_macos/support/text_field_color_test_bridge.m
+SPEC_LAYOUT_BRIDGE_OBJ := src/ui/native/layout_measurement_spec_bridge.o
+SPEC_LAYOUT_BRIDGE_SRC := spec/native_macos/support/layout_measurement_test_bridge.m
 
 SWIFTKIT_DIR  := swift/AssetPipelineSwiftKit
 SWIFTKIT_LIB  := $(SWIFTKIT_DIR)/.build/release/libAssetPipelineSwiftKit.a
@@ -62,6 +64,7 @@ MACOS_LINK_FLAGS := \
 	$(abspath $(AP_BRIDGE_OBJ)) $(abspath $(SK_BRIDGE_OBJ)) $(abspath $(COL_BRIDGE_OBJ)) \
 	$(abspath $(SPEC_FOCUS_BRIDGE_OBJ)) $(abspath $(SPEC_PREVIEW_BRIDGE_OBJ)) \
 	$(abspath $(SPEC_TEXT_FIELD_BRIDGE_OBJ)) $(abspath $(SPEC_TEXT_FIELD_COLOR_BRIDGE_OBJ)) \
+	$(abspath $(SPEC_LAYOUT_BRIDGE_OBJ)) \
 	-Wl,-force_load,$(abspath $(SWIFTKIT_LIB)) \
 	$(MACOS_FRAMEWORKS) \
 	-L$(SWIFT_RUNTIME_LIB_DIR) \
@@ -92,7 +95,7 @@ MACOS_SPEC_ARGS ?=
 test-web:
 	$(CRYSTAL) spec spec/web/
 
-test-macos: $(AP_BRIDGE_OBJ) $(SK_BRIDGE_OBJ) $(COL_BRIDGE_OBJ) $(SPEC_FOCUS_BRIDGE_OBJ) $(SPEC_PREVIEW_BRIDGE_OBJ) $(SPEC_TEXT_FIELD_BRIDGE_OBJ) $(SPEC_TEXT_FIELD_COLOR_BRIDGE_OBJ) $(SWIFTKIT_LIB)
+test-macos: $(AP_BRIDGE_OBJ) $(SK_BRIDGE_OBJ) $(COL_BRIDGE_OBJ) $(SPEC_FOCUS_BRIDGE_OBJ) $(SPEC_PREVIEW_BRIDGE_OBJ) $(SPEC_TEXT_FIELD_BRIDGE_OBJ) $(SPEC_TEXT_FIELD_COLOR_BRIDGE_OBJ) $(SPEC_LAYOUT_BRIDGE_OBJ) $(SWIFTKIT_LIB)
 	CRYSTAL_CACHE_DIR=$(MACOS_SPEC_CACHE_DIR) $(ACRYSTAL) spec spec/native_macos/ $(MACOS_SPEC_FLAGS) \
 		--link-flags="$(MACOS_LINK_FLAGS)" $(MACOS_SPEC_ARGS)
 
@@ -138,10 +141,13 @@ $(SPEC_TEXT_FIELD_BRIDGE_OBJ): $(SPEC_TEXT_FIELD_BRIDGE_SRC)
 $(SPEC_TEXT_FIELD_COLOR_BRIDGE_OBJ): $(SPEC_TEXT_FIELD_COLOR_BRIDGE_SRC)
 	clang -c $(SPEC_TEXT_FIELD_COLOR_BRIDGE_SRC) -o $(SPEC_TEXT_FIELD_COLOR_BRIDGE_OBJ) -fno-objc-arc
 
+$(SPEC_LAYOUT_BRIDGE_OBJ): $(SPEC_LAYOUT_BRIDGE_SRC)
+	clang -c $(SPEC_LAYOUT_BRIDGE_SRC) -o $(SPEC_LAYOUT_BRIDGE_OBJ) -fno-objc-arc
+
 $(SWIFTKIT_LIB): $(wildcard $(SWIFTKIT_DIR)/Sources/AssetPipelineSwiftKit/*.swift) \
                  $(wildcard $(SWIFTKIT_DIR)/Sources/AssetPipelineSwiftKit/**/*.swift) \
                  $(SWIFTKIT_DIR)/Package.swift
 	swift build -c release --package-path $(SWIFTKIT_DIR)
 
 clean-bridges:
-	rm -f $(AP_BRIDGE_OBJ) $(SK_BRIDGE_OBJ) $(COL_BRIDGE_OBJ) $(SPEC_FOCUS_BRIDGE_OBJ) $(SPEC_PREVIEW_BRIDGE_OBJ) $(SPEC_TEXT_FIELD_BRIDGE_OBJ) $(SPEC_TEXT_FIELD_COLOR_BRIDGE_OBJ)
+	rm -f $(AP_BRIDGE_OBJ) $(SK_BRIDGE_OBJ) $(COL_BRIDGE_OBJ) $(SPEC_FOCUS_BRIDGE_OBJ) $(SPEC_PREVIEW_BRIDGE_OBJ) $(SPEC_TEXT_FIELD_BRIDGE_OBJ) $(SPEC_TEXT_FIELD_COLOR_BRIDGE_OBJ) $(SPEC_LAYOUT_BRIDGE_OBJ)
