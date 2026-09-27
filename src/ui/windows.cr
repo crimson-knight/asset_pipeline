@@ -197,6 +197,7 @@ module UI
     # (the web target leaves window chrome to the browser).
     def apply(configuration : WindowConfiguration) : Bool
       {% if flag?(:macos) || flag?(:ios) %}
+        UI::MainThread.assert!("UI::Windows.apply")
         subtitle_ptr = configuration.subtitle ? configuration.subtitle.not_nil!.to_unsafe : Pointer(UInt8).null
         preferred = configuration.normalized_preferred_size
         minimum = configuration.minimum_size

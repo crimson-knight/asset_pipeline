@@ -123,6 +123,7 @@ module UI
       end
 
       def install(menu_bar : UI::MenuBar) : Bool
+        UI::MainThread.assert!("UI::MenuBars.install")
         LibObjCBridge.ap_menu_bar_install(menu_bar.to_payload.to_unsafe) == 1
       end
     {% else %}

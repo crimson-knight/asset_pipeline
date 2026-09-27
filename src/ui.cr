@@ -47,6 +47,9 @@ require "./ui/state"
 require "./ui/view_adapter"
 
 # Native platform infrastructure (memory management, FFI handles, callbacks)
+# Keeps the main fiber on the main thread under execution contexts (macOS)
+# and provides `UI::MainThread.assert!` for AppKit/UIKit entry points.
+require "./ui/native/main_thread"
 require "./ui/native/release_strategy"
 require "./ui/native/lib_objc_runtime"
 require "./ui/native/handle_tracker"

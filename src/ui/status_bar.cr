@@ -127,6 +127,7 @@ module UI
 
     def apply(appearance : StatusBarAppearance) : Bool
       {% if flag?(:macos) || flag?(:ios) %}
+        UI::MainThread.assert!("UI::StatusBars.apply")
         LibObjCBridge.ap_status_bar_apply(
           appearance.style.value,
           appearance.hidden ? 1 : 0,
@@ -139,6 +140,7 @@ module UI
 
     {% if flag?(:macos) || flag?(:ios) %}
       def install_item(item : UI::StatusBar) : Bool
+        UI::MainThread.assert!("UI::StatusBars.install_item")
         title_ptr = item.title ? item.title.not_nil!.to_unsafe : Pointer(UInt8).null
         icon_ptr = item.icon ? item.icon.not_nil!.to_unsafe : Pointer(UInt8).null
         tooltip_ptr = item.tooltip ? item.tooltip.not_nil!.to_unsafe : Pointer(UInt8).null

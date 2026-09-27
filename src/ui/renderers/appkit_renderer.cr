@@ -3,6 +3,7 @@
 
 {% if flag?(:macos) %}
   require "../platform_visitor"
+  require "../native/main_thread"
   require "../native/native_handle"
   require "../native/native_view"
   require "../native/callback_registry"
@@ -330,6 +331,7 @@
 
       # Convenience: visit a view and return its NativeView.
       def render(view : UI::View) : NativeView
+        UI::MainThread.assert!("UI::AppKit::Renderer#render")
         # Bound autoreleased AppKit/SwiftKit temporaries to this render pass.
         # Each NativeHandle owns its returned native object, so the completed
         # tree remains valid after this pool drains and can be attached and
