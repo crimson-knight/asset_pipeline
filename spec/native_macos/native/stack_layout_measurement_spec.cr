@@ -210,4 +210,40 @@ require "../../../src/ui"
       end
     end
   end
+
+  describe "Fixed-width timestamp cell inside an HStack row on macOS" do
+    # A padded 160 pt cell whose monospace timestamp Label is itself pinned to
+    # 160 and fill_horizontal: neither the child's fill nor the Label's
+    # hosting view may widen the cell.
+    [600.0, 780.0].each do |window_width|
+      it "starts the event column at 160 plus spacing in a #{window_width.to_i} pt row" do
+        timestamp = UI::Label.new("10:42:07.123")
+        timestamp.font = UI::Font.new(size: 12.0, family: "monospace")
+        timestamp.minimum_width = 160.0
+        timestamp.maximum_width = 160.0
+        timestamp.fill_horizontal = true
+        cell = UI::VStack.new(spacing: 0.0, alignment: UI::Alignment::Leading)
+        cell.minimum_width = 160.0
+        cell.maximum_width = 160.0
+        cell.padding = UI::EdgeInsets.new(top: 12.0)
+        cell << timestamp
+        event_column = UI::VStack.new(spacing: 2.0, alignment: UI::Alignment::Leading)
+        event_column << caption("Build finished")
+        event_column << caption(WRAPPED_COPY)
+        row = UI::HStack.new(spacing: 12.0)
+        row << cell
+        row << event_column
+
+        with_hosted_layout(row, window_width) do |hosted|
+          cell_frame = hosted.frame(hosted.node(0))
+          event_frame = hosted.frame(hosted.node(1))
+          title_frame = hosted.frame(hosted.node(1, 0))
+          report = "cell #{cell_frame}, event #{event_frame}, title #{title_frame}"
+          cell_frame.width.should be_close(160.0, 0.5), report
+          event_frame.x.should be_close(172.0, 0.5), report
+          title_frame.x.should be_close(172.0, 0.5), report
+        end
+      end
+    end
+  end
 {% end %}
