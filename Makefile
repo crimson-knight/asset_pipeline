@@ -2,7 +2,7 @@
 #
 # Targets:
 #   test-web       — runs the default web spec lane with plain `crystal`.
-#   test-macos     — runs the macOS native spec lane with `acrystal -Dmacos -Dwithout_mt`
+#   test-macos     — runs the macOS native spec lane with `acrystal -Dmacos`
 #                    + ObjC bridge + AppKit/ApplicationServices framework
 #                    link flags. Requires the macOS SwiftKit static lib
 #                    (built via `swift build -c release`).
@@ -79,11 +79,10 @@ MACOS_LINK_FLAGS := \
 	-Wl,-rpath,/usr/lib/swift
 
 # AppKit must run on the main thread, and the native specs call it from the
-# main fiber. Under Crystal's execution-context runtime (the default since
-# 1.21) the monitor thread can move the main fiber to a pool thread after any
-# blocking syscall (File.open, getaddrinfo), and the next AppKit call then
-# traps (SIGTRAP). -Dwithout_mt keeps the main fiber on the main thread.
-MACOS_SPEC_FLAGS := -Dmacos -Dwithout_mt
+# main fiber. The specs run under the default execution-context runtime, like
+# real apps: src/ui/native/main_thread.cr keeps the main fiber on the main
+# thread across blocking syscalls (see spec/native_macos/main_thread_affinity_spec.cr).
+MACOS_SPEC_FLAGS := -Dmacos
 
 # `crystal spec` writes its binary to $(CRYSTAL_CACHE_DIR)/crystal-run-spec.tmp,
 # and the default cache dir is shared by every checkout on the machine, so a
