@@ -189,6 +189,11 @@ module UI
           el.add_style("text-decoration: line-through")
         end
 
+        # Letter tracking: points map 1:1 to CSS px.
+        unless view.tracking == 0.0
+          el.add_style("letter-spacing: #{view.tracking}px")
+        end
+
         if keycap = view.as?(UI::Keycap)
           el.set_attribute("data-ap-keycap-style", keycap.style.to_s.underscore)
           case keycap.style

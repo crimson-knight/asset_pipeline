@@ -58,6 +58,16 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       FakeLibObjCBridge.refute_sent(:setFontWeight)
       # fill_horizontal default false → no fill frame
       FakeLibObjCBridge.refute_sent(:setFillHorizontal)
+      # tracking default 0.0 → no tracking setter
+      FakeLibObjCBridge.refute_sent(:setTracking)
+    end
+
+    it "emits setTracking in points when tracking is set" do
+      view = UI::Label.new("STANDING BY")
+      view.tracking = 1.32
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setTracking, times: 1, args: [target, "1.32"])
     end
 
     it "emits setFillHorizontal when fill_horizontal=true" do

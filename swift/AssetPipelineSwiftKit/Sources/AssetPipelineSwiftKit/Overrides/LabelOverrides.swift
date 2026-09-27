@@ -38,6 +38,9 @@ public class LabelOverrides: ViewOverrides {
     // strikethrough); `true` applies `.strikethrough(true)` so completed
     // todo rows render with a HIG-correct line through the title.
     @objc public var strikethrough: NSNumber? = nil
+    // Letter tracking in points (UI::Label#tracking). nil = the font's own
+    // spacing; a value applies `.tracking(_:)` to the Text.
+    @objc public var tracking: NSNumber? = nil
     // When the renderer pins this label to fill its container width
     // (UI::View#fill_horizontal), the SwiftUI Text otherwise centers in the
     // wide hosting view — a full-width title/subtitle rendered centered instead
