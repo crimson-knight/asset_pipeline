@@ -110,6 +110,7 @@ automatically.
 | `number_of_lines` | `Int32` | `0` | Maximum line count. `0` means unlimited. Required for any label whose text may wrap. |
 | `selectable` | `Bool` | `false` | Allows people to select and copy the read-only text on supported platforms. It never makes the label editable. |
 | `tracking` | `Float64` | `0.0` | Letter tracking in points, added after every character (SwiftUI `.tracking(_:)`, the same unit as `NSAttributedString.Key.kern`). `0.0` keeps the font's own spacing. Convert an em value with `label.font.size * em`. Negative values tighten. |
+| `line_height` | `Float64?` | `nil` | Distance in points from the top of one wrapped line to the top of the next. `nil` keeps the font's natural pitch. On Apple platforms a value at or below the natural line height has no effect, because SwiftUI can only add line spacing. |
 | `accessibility_label` | `String?` | `nil` (inherits `text`) | VoiceOver label override. Inherited from `UI::View`. Set when the visible text is a glyph, abbreviation, or visual-only decoration. |
 
 Set `selectable = true` for useful values such as paths, addresses, and
@@ -184,6 +185,11 @@ use 12pt Secondary for contrast demonstration only.
 identically in light and dark appearance. The tracked label stays one
 `Text`: VoiceOver reads the whole string as one static text, and selection,
 copy, wrapping, and truncation work on the plain string.
+
+**Line height with tracking:** `line_height` and `tracking` compose on one
+`Text`. A tracked label that wraps inside an HStack row keeps its tracking on
+every line, spaces its lines at `line_height`, grows the row so the next row
+never overlaps it, and stays one static text for VoiceOver.
 
 ## Customization / brand override
 _How to go from the HIG-default look to your brand voice, without giving
@@ -283,16 +289,19 @@ body copy that users must read. HIG: *"quaternaryLabel -- Watermark text."*
 ## What happens on each platform
 - **Web**: emits a `span`. `selectable = true` adds `user-select: text`;
   the default output remains unchanged.
-  A non-zero `tracking` adds `letter-spacing: <points>px`.
+  A non-zero `tracking` adds `letter-spacing: <points>px`, and a set
+  `line_height` adds `line-height: <points>px`.
 - **Android**: emits a `TextView`; `selectable = true` calls
   `setTextIsSelectable(true)`.
   A non-zero `tracking` calls `setLetterSpacing(tracking / font.size)`,
-  because Android letter spacing is in em.
+  because Android letter spacing is in em. `line_height` is not mapped yet.
 - **iOS and iPadOS**: SwiftUI `Text` uses `.textSelection(.enabled)` when
   `selectable = true`. The label remains read-only and uses the same text,
   font, alignment, wrapping, and line limit for display and selection.
   `LabelRole` maps to UIKit's dynamic label colors.
   A non-zero `tracking` applies `.tracking(_:)` in points (iOS 16+).
+  A set `line_height` adds `.lineSpacing(line_height - natural line height)`
+  for the resolved font.
 - **macOS**: the AppKit renderer hosts SwiftUI `Text`; `selectable = true`
   enables `.textSelection(.enabled)` on that text. The glyphs, selection
   highlight, and measured text share one renderer. A Label rendered directly
@@ -303,6 +312,15 @@ body copy that users must read. HIG: *"quaternaryLabel -- Watermark text."*
   Measured at 2x on "STANDING BY" at 11 pt with 1.32 pt tracking, the ink
   grows by (glyph count - 1) x tracking and the layout width by glyph count
   x tracking: SwiftUI keeps the trailing space after the last glyph.
+  A set `line_height` adds `.lineSpacing(line_height - natural line height)`
+  for the resolved font. Labels are hosted in a height-for-width hosting
+  view, so a label that wraps inside an HStack row grows the row instead of
+  truncating or overlapping the next row. SwiftUI adds the spacing between
+  lines only: measured at 2x, a 12 pt system label with 1.32 pt tracking and
+  a 16 pt `line_height` that wraps to four lines in an HStack row draws its
+  lines 16 pt apart, and the row is 63 pt tall, 48 pt (3 x 16) taller than a
+  one-line row of 15 pt. Each wrapped line inks 9 x 1.32 pt wider than the
+  untracked line, the same width as the word drawn alone.
 
 If a renderer constructs an `NSTextField` directly, it must keep
 `isEditable = false` and map `selectable` to `isSelectable`. It must also

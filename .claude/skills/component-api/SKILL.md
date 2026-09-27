@@ -288,6 +288,7 @@ class UI::Label < UI::View
   property number_of_lines : Int32 = 0
   property selectable : Bool = false
   property tracking : Float64 = 0.0
+  property line_height : Float64? = nil
 
   def initialize(@text : String)
 end
@@ -302,6 +303,7 @@ end
 | `number_of_lines` | `Int32` | `0` | Max lines to display (0 = unlimited) |
 | `selectable` | `Bool` | `false` | Allows people to select and copy the read-only text on supported platforms |
 | `tracking` | `Float64` | `0.0` | Letter tracking in points after every character (SwiftUI `.tracking`, CSS `letter-spacing` px, Android `setLetterSpacing` em). Convert em with `font.size * em` |
+| `line_height` | `Float64?` | `nil` | Points from one wrapped line to the next (SwiftUI line spacing above the natural height, CSS `line-height` px). `nil` keeps the natural pitch |
 
 **Example:**
 ```crystal

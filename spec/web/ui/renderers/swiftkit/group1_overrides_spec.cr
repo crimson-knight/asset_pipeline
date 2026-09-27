@@ -60,6 +60,8 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       FakeLibObjCBridge.refute_sent(:setFillHorizontal)
       # tracking default 0.0 → no tracking setter
       FakeLibObjCBridge.refute_sent(:setTracking)
+      # line_height default nil → no line height setter
+      FakeLibObjCBridge.refute_sent(:setLineHeight)
     end
 
     it "emits setTracking in points when tracking is set" do
@@ -68,6 +70,26 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       target = FakeLibObjCBridge.next_sentinel_pointer
       UI::Native::Populator.populate_label(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setTracking, times: 1, args: [target, "1.32"])
+      FakeLibObjCBridge.refute_sent(:setLineHeight)
+    end
+
+    it "emits setLineHeight alone when only line_height is set" do
+      view = UI::Label.new("Saved to /Users/example/Documents/report.txt")
+      view.line_height = 16.0
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setLineHeight, times: 1, args: [target, "16.0"])
+      FakeLibObjCBridge.refute_sent(:setTracking)
+    end
+
+    it "emits both setTracking and setLineHeight when both are set" do
+      view = UI::Label.new("STANDING BY")
+      view.tracking = 1.32
+      view.line_height = 16.0
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setTracking, times: 1, args: [target, "1.32"])
+      FakeLibObjCBridge.assert_sent(:setLineHeight, times: 1, args: [target, "16.0"])
     end
 
     it "emits setFillHorizontal when fill_horizontal=true" do
