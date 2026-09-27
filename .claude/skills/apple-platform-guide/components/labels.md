@@ -109,6 +109,7 @@ automatically.
 | `text_alignment` | `UI::Alignment` | `Alignment::Leading` | Leading / Center / Trailing. HIG expects leading for prose; center for titles over cards. |
 | `number_of_lines` | `Int32` | `0` | Maximum line count. `0` means unlimited. Required for any label whose text may wrap. |
 | `selectable` | `Bool` | `false` | Allows people to select and copy the read-only text on supported platforms. It never makes the label editable. |
+| `tracking` | `Float64` | `0.0` | Letter tracking in points, added after every character (SwiftUI `.tracking(_:)`, the same unit as `NSAttributedString.Key.kern`). `0.0` keeps the font's own spacing. Convert an em value with `label.font.size * em`. Negative values tighten. |
 | `accessibility_label` | `String?` | `nil` (inherits `text`) | VoiceOver label override. Inherited from `UI::View`. Set when the visible text is a glyph, abbreviation, or visual-only decoration. |
 
 Set `selectable = true` for useful values such as paths, addresses, and
@@ -179,6 +180,11 @@ See gaps.md for the proposal.
 with `symbol_name` for icon glyphs. The row-header labels in the gallery
 use 12pt Secondary for contrast demonstration only.
 
+**Tracking:** `tracking` is a spacing value, not a color, so it renders
+identically in light and dark appearance. The tracked label stays one
+`Text`: VoiceOver reads the whole string as one static text, and selection,
+copy, wrapping, and truncation work on the plain string.
+
 ## Customization / brand override
 _How to go from the HIG-default look to your brand voice, without giving
 up HIG's legibility, hit targets, or appearance-tracking._
@@ -192,6 +198,23 @@ path.text_color_role = UI::LabelRole::Secondary
 ```
 Selection changes interaction only. Keep semantic colors for automatic
 light/dark adaptation, or use the explicit brand-color examples below.
+
+**Track uppercase overlines, grid headers, and display titles.**
+```crystal
+# Design specs give tracking in em; convert with the label's font size.
+overline = UI::Label.new("STANDING BY")
+overline.font = UI::Font.new(family: "monospace", size: 11.0)
+overline.text_color_role = UI::LabelRole::Secondary
+overline.tracking = overline.font.size * 0.12   # 0.12 em = 1.32 pt
+
+title = UI::Label.new("Overview")
+title.font = UI::Font.new(size: 34.0, weight: :bold)
+title.tracking = title.font.size * 0.06         # 0.06 em = 2.04 pt
+```
+Set the font before computing the value: `tracking` stores points, so
+changing the font size later does not rescale it. Never fake tracking with
+one label per letter or with thin spaces; that makes VoiceOver spell the word
+and breaks selection, copy, and wrapping.
 
 **Use a brand primary color for accent text while keeping system labels.**
 ```crystal
@@ -260,20 +283,31 @@ body copy that users must read. HIG: *"quaternaryLabel -- Watermark text."*
 ## What happens on each platform
 - **Web**: emits a `span`. `selectable = true` adds `user-select: text`;
   the default output remains unchanged.
+  A non-zero `tracking` adds `letter-spacing: <points>px`.
 - **Android**: emits a `TextView`; `selectable = true` calls
   `setTextIsSelectable(true)`.
+  A non-zero `tracking` calls `setLetterSpacing(tracking / font.size)`,
+  because Android letter spacing is in em.
 - **iOS and iPadOS**: SwiftUI `Text` uses `.textSelection(.enabled)` when
   `selectable = true`. The label remains read-only and uses the same text,
   font, alignment, wrapping, and line limit for display and selection.
   `LabelRole` maps to UIKit's dynamic label colors.
+  A non-zero `tracking` applies `.tracking(_:)` in points (iOS 16+).
 - **macOS**: the AppKit renderer hosts SwiftUI `Text`; `selectable = true`
   enables `.textSelection(.enabled)` on that text. The glyphs, selection
   highlight, and measured text share one renderer. A Label rendered directly
   as an `NSTextField` must remain non-editable and set `isSelectable` from
   the property.
+  A non-zero `tracking` applies `.tracking(_:)` in points (macOS 13+) with
+  every font path: system, weight-only, `"monospace"`, and custom families.
+  Measured at 2x on "STANDING BY" at 11 pt with 1.32 pt tracking, the ink
+  grows by (glyph count - 1) x tracking and the layout width by glyph count
+  x tracking: SwiftUI keeps the trailing space after the last glyph.
 
 If a renderer constructs an `NSTextField` directly, it must keep
-`isEditable = false` and map `selectable` to `isSelectable`.
+`isEditable = false` and map `selectable` to `isSelectable`. It must also
+map `tracking` to the `.kern` attribute of an attributed string that keeps
+the font, color, alignment, and line break mode.
 
 ## HIG citations (validated)
 - Labels -> Abstract: *"A label is a static piece of text that people can
