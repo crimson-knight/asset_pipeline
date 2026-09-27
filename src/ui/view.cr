@@ -221,9 +221,32 @@ module UI
     Brushed
   end
 
+  # Color space a Noise texture's turbulence is generated in, matching the SVG
+  # `color-interpolation-filters` attribute on the texture's filter.
+  #
+  # - `LinearRGB` (the SVG default, and this library's default): the generated
+  #   turbulence channels are linear-light values. The color channels are
+  #   encoded to sRGB with the sRGB transfer function before compositing; the
+  #   generated alpha stays as generated. This is what an SVG filter without the
+  #   attribute means, so a browser design that leaves it unset matches this.
+  # - `SRGB`: the generated channel values are used directly as sRGB values,
+  #   matching `color-interpolation-filters="sRGB"`. Grain reads darker than
+  #   `LinearRGB`: stronger over light fills and weaker over dark ones.
+  enum ColorInterpolationFilters
+    LinearRGB
+    SRGB
+
+    # The SVG attribute value, `"linearRGB"` or `"sRGB"`.
+    def svg_value : String
+      linear_rgb? ? "linearRGB" : "sRGB"
+    end
+  end
+
   # Generated texture kind and alpha, with validated Noise parameters.
-  # Noise parameters use SVG feTurbulence units and defaults. Brushed ignores
-  # these Noise-specific values so its existing appearance remains unchanged.
+  # Noise parameters use SVG feTurbulence units and defaults, including the
+  # filter color space (`color_interpolation_filters`, default `LinearRGB` as in
+  # SVG). Brushed ignores these Noise-specific values so its existing
+  # appearance remains unchanged.
   #
   # ```
   # UI::TextureOverlay.new(
@@ -235,6 +258,9 @@ module UI
   #   tile_size: 128,
   # )
   # ```
+  #
+  # Pass `color_interpolation_filters: UI::ColorInterpolationFilters::SRGB` to
+  # match a filter that sets `color-interpolation-filters="sRGB"`.
   struct TextureOverlay
     getter texture_kind : TextureKind
     getter texture_opacity : Float64
@@ -242,6 +268,7 @@ module UI
     getter octave_count : Int32
     getter seed : Int32
     getter tile_size : Int32
+    getter color_interpolation_filters : ColorInterpolationFilters
 
     def initialize(
       @texture_kind : TextureKind,
@@ -250,6 +277,7 @@ module UI
       @octave_count : Int32 = 3,
       @seed : Int32 = 4,
       @tile_size : Int32 = 160,
+      @color_interpolation_filters : ColorInterpolationFilters = ColorInterpolationFilters::LinearRGB,
     )
       unless @texture_opacity >= 0.0 && @texture_opacity <= 1.0
         raise SurfaceCraftError.new("Texture opacity must be between 0 and 1")
@@ -379,6 +407,9 @@ module UI
     property seed : Int32
     @[JSON::Field(key: "tileSize")]
     property tile_size : Int32
+    # SVG `color-interpolation-filters` value; emitted for Noise only.
+    @[JSON::Field(key: "colorInterpolationFilters", emit_null: false)]
+    property color_interpolation_filters : String? = nil
 
     def initialize(
       @kind : String,
@@ -387,6 +418,7 @@ module UI
       @octave_count : Int32,
       @seed : Int32,
       @tile_size : Int32,
+      @color_interpolation_filters : String? = nil,
     )
     end
   end
@@ -518,6 +550,9 @@ module UI
     end
 
     private def self.texture_payload(texture : TextureOverlay) : SurfaceCraftTexturePayload
+      color_interpolation_filters = if texture.texture_kind == TextureKind::Noise
+                                      texture.color_interpolation_filters.svg_value
+                                    end
       SurfaceCraftTexturePayload.new(
         kind: texture.texture_kind.to_s.downcase,
         opacity: texture.texture_opacity,
@@ -525,6 +560,7 @@ module UI
         octave_count: texture.octave_count,
         seed: texture.seed,
         tile_size: texture.tile_size,
+        color_interpolation_filters: color_interpolation_filters,
       )
     end
   end

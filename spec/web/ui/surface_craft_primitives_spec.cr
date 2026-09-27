@@ -61,6 +61,7 @@ describe "surface-craft UI primitives" do
       noise.octave_count.should eq(3)
       noise.seed.should eq(4)
       noise.tile_size.should eq(160)
+      noise.color_interpolation_filters.should eq(UI::ColorInterpolationFilters::LinearRGB)
 
       expect_raises(UI::SurfaceCraftError, "Texture base frequency must be between 0 and 16") do
         UI::TextureOverlay.new(
@@ -83,6 +84,11 @@ describe "surface-craft UI primitives" do
           tile_size: 1025,
         )
       end
+    end
+
+    it "maps the filter color space to the SVG color-interpolation-filters values" do
+      UI::ColorInterpolationFilters::LinearRGB.svg_value.should eq("linearRGB")
+      UI::ColorInterpolationFilters::SRGB.svg_value.should eq("sRGB")
     end
   end
 
@@ -112,6 +118,21 @@ describe "surface-craft UI primitives" do
       style_json.should contain(%("innerShadows":[{"color":"role:text-inverse","x":0.0,"y":1.0,"blur":2.0}]))
       style_json.should contain(%("dropShadows":[{"color":"role:text-primary","x":0.0,"y":3.0,"blur":8.0}]))
       style_json.should contain(%("texture":{"kind":"brushed","opacity":0.08,"baseFrequency":0.72,"octaveCount":3,"seed":4,"tileSize":160}))
+
+      default_noise_style = UI::SurfaceStyle.new(
+        texture_overlay: UI::TextureOverlay.new(texture_kind: UI::TextureKind::Noise, texture_opacity: 0.07),
+      )
+      UI::SurfaceCraftEncoding.style_json(default_noise_style).should contain(
+        %("texture":{"kind":"noise","opacity":0.07,"baseFrequency":0.72,"octaveCount":3,"seed":4,"tileSize":160,"colorInterpolationFilters":"linearRGB"})
+      )
+      srgb_noise_style = UI::SurfaceStyle.new(
+        texture_overlay: UI::TextureOverlay.new(
+          texture_kind: UI::TextureKind::Noise,
+          texture_opacity: 0.07,
+          color_interpolation_filters: UI::ColorInterpolationFilters::SRGB,
+        ),
+      )
+      UI::SurfaceCraftEncoding.style_json(srgb_noise_style).should contain(%("colorInterpolationFilters":"sRGB"))
 
       view = UI::VStack.new
       view.background_fill_color = UI::ColorRole::SurfacePanel
@@ -170,10 +191,30 @@ describe "surface-craft UI primitives" do
       if encoded_svg
         decoded_svg = String.new(Base64.decode(encoded_svg))
         decoded_svg.should contain(%(width="128" height="128"))
-        decoded_svg.should contain(%(color-interpolation-filters="sRGB"))
+        decoded_svg.should contain(%(color-interpolation-filters="linearRGB"))
         decoded_svg.should contain(%(type="fractalNoise" baseFrequency="0.83" numOctaves="3" seed="7" stitchTiles="stitch"))
         decoded_svg.should contain(%(opacity="0.07"))
         decoded_svg.should contain(%(1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1))
+      else
+        fail "Noise texture data URI was not emitted"
+      end
+    end
+
+    it "emits an sRGB Noise filter when the texture asks for sRGB" do
+      surface = UI::Surface.new(UI::Label.new("Noise panel"))
+      surface.texture_overlay = UI::TextureOverlay.new(
+        texture_kind: UI::TextureKind::Noise,
+        texture_opacity: 0.07,
+        color_interpolation_filters: UI::ColorInterpolationFilters::SRGB,
+      )
+      html = UI::Web::Renderer.new.render(surface)
+      encoded_svg = if data_uri = html.split("data:image/svg+xml;base64,")[1]?
+                      data_uri.split("&quot;").first?
+                    end
+
+      if encoded_svg
+        decoded_svg = String.new(Base64.decode(encoded_svg))
+        decoded_svg.should contain(%(<filter id="grain" color-interpolation-filters="sRGB">))
       else
         fail "Noise texture data URI was not emitted"
       end

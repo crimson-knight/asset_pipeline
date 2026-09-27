@@ -5102,6 +5102,13 @@ enum {
     AP_NOISE_GRADIENT_CHANNELS = 4,
 };
 
+// SVG `color-interpolation-filters` for a Noise tile. The values match
+// UI::ColorInterpolationFilters (LinearRGB = 0, SRGB = 1).
+typedef enum {
+    AP_NOISE_COLOR_INTERPOLATION_LINEAR_RGB = 0,
+    AP_NOISE_COLOR_INTERPOLATION_SRGB = 1,
+} APSurfaceNoiseColorInterpolation;
+
 typedef struct {
     int lattice_selector[AP_NOISE_PERMUTATION_SIZE];
     double gradient[AP_NOISE_GRADIENT_CHANNELS][AP_NOISE_PERMUTATION_SIZE][2];
@@ -5278,6 +5285,12 @@ static double ap_surface_noise_turbulence(
     return sum;
 }
 
+// The sRGB transfer function (IEC 61966-2-1), linear light to encoded sRGB.
+static double ap_surface_noise_linear_to_srgb(double linear_value) {
+    if (linear_value <= 0.0031308) return 12.92 * linear_value;
+    return 1.055 * pow(linear_value, 1.0 / 2.4) - 0.055;
+}
+
 static void ap_surface_noise_release_pixels(void *info, const void *data, size_t size) {
     (void)info;
     (void)size;
@@ -5289,10 +5302,13 @@ static CGImageRef ap_surface_noise_generate_tile(
     int octave_count,
     int seed,
     int tile_size,
-    CGFloat backing_scale) {
+    CGFloat backing_scale,
+    APSurfaceNoiseColorInterpolation color_interpolation) {
     if (!isfinite(base_frequency) || base_frequency < 0.0 || base_frequency > 16.0 ||
         octave_count < 1 || octave_count > 8 || tile_size < 1 || tile_size > 1024 ||
-        !isfinite(backing_scale) || backing_scale <= 0.0) return NULL;
+        !isfinite(backing_scale) || backing_scale <= 0.0 ||
+        (color_interpolation != AP_NOISE_COLOR_INTERPOLATION_LINEAR_RGB &&
+         color_interpolation != AP_NOISE_COLOR_INTERPOLATION_SRGB)) return NULL;
 
     long pixel_size_long = lround((double)tile_size * backing_scale);
     if (pixel_size_long < 1 || pixel_size_long > 4096) return NULL;
@@ -5328,7 +5344,15 @@ static CGImageRef ap_surface_noise_generate_tile(
             // by its generated alpha just as a decoded SVG image would be.
             double alpha = channel_values[3];
             for (int channel = 0; channel < 3; channel++) {
-                pixel_bytes[offset + channel] = (uint8_t)lround(channel_values[channel] * alpha * 255.0);
+                double color_value = channel_values[channel];
+                // In linearRGB the generated color channels are linear light.
+                // Like Chrome's filter output conversion (Skia's linear-to-sRGB
+                // color filter), encode each unpremultiplied color channel to
+                // sRGB and leave alpha as generated; premultiply afterward.
+                if (color_interpolation == AP_NOISE_COLOR_INTERPOLATION_LINEAR_RGB) {
+                    color_value = ap_surface_noise_linear_to_srgb(color_value);
+                }
+                pixel_bytes[offset + channel] = (uint8_t)lround(color_value * alpha * 255.0);
             }
             pixel_bytes[offset + 3] = (uint8_t)lround(alpha * 255.0);
         }
@@ -5379,16 +5403,17 @@ static CGImageRef ap_surface_noise_tile(
     int octave_count,
     int seed,
     int tile_size,
-    CGFloat backing_scale) {
-    NSString *key = [NSString stringWithFormat:@"%.17g:%d:%d:%d:%.17g",
-        base_frequency, octave_count, seed, tile_size, (double)backing_scale];
+    CGFloat backing_scale,
+    APSurfaceNoiseColorInterpolation color_interpolation) {
+    NSString *key = [NSString stringWithFormat:@"%.17g:%d:%d:%d:%.17g:%d",
+        base_frequency, octave_count, seed, tile_size, (double)backing_scale, (int)color_interpolation];
     NSCache<NSString *, id> *cache = ap_surface_noise_tile_cache();
     @synchronized(cache) {
         id cached_value = [cache objectForKey:key];
         if (cached_value != nil) return CGImageRetain((__bridge CGImageRef)cached_value);
 
         CGImageRef tile = ap_surface_noise_generate_tile(
-            base_frequency, octave_count, seed, tile_size, backing_scale);
+            base_frequency, octave_count, seed, tile_size, backing_scale, color_interpolation);
         if (tile == NULL) return NULL;
         NSUInteger cost = CGImageGetBytesPerRow(tile) * CGImageGetHeight(tile);
         [cache setObject:(__bridge id)tile forKey:key cost:cost];
@@ -5396,14 +5421,17 @@ static CGImageRef ap_surface_noise_tile(
     }
 }
 
+// color_interpolation_filters: 0 = linearRGB, 1 = sRGB (UI::ColorInterpolationFilters).
 void *ap_surface_noise_texture_tile_create(
     double base_frequency,
     int octave_count,
     int seed,
     int tile_size,
-    double backing_scale) {
+    double backing_scale,
+    int color_interpolation_filters) {
     return (void *)ap_surface_noise_tile(
-        base_frequency, octave_count, seed, tile_size, (CGFloat)backing_scale);
+        base_frequency, octave_count, seed, tile_size, (CGFloat)backing_scale,
+        (APSurfaceNoiseColorInterpolation)color_interpolation_filters);
 }
 
 static CGImageRef ap_surface_brushed_texture_tile(void) {
@@ -5450,7 +5478,13 @@ static CGImageRef ap_surface_texture_tile(NSString *kind, NSDictionary *texture,
         [seed_value intValue] : 4;
     int tile_size = [tile_size_value respondsToSelector:@selector(intValue)] ?
         [tile_size_value intValue] : 160;
-    return ap_surface_noise_tile(base_frequency, octave_count, seed, tile_size, backing_scale);
+    // A payload without the key means the SVG default, linearRGB.
+    id color_interpolation_value = texture[@"colorInterpolationFilters"];
+    APSurfaceNoiseColorInterpolation color_interpolation =
+        [color_interpolation_value isKindOfClass:[NSString class]] &&
+        [color_interpolation_value isEqualToString:@"sRGB"] ?
+        AP_NOISE_COLOR_INTERPOLATION_SRGB : AP_NOISE_COLOR_INTERPOLATION_LINEAR_RGB;
+    return ap_surface_noise_tile(base_frequency, octave_count, seed, tile_size, backing_scale, color_interpolation);
 }
 
 static NSArray<CALayer *> *ap_surface_layers_named(CALayer *root, NSString *name) {

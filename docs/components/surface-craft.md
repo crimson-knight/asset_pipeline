@@ -16,7 +16,7 @@ UI::View exposes these optional properties:
 | linear_gradient | UI::LinearGradient? | Two or more ordered stops and a clockwise angle in degrees |
 | list_of_inner_shadows | Array(UI::InnerShadow) | Inset shadows; a light top edge and dark lower edge make a bevel |
 | list_of_drop_shadows | Array(UI::DropShadow) | One or more outside shadows, composed with legacy shadow_* properties |
-| texture_overlay | UI::TextureOverlay? | Tiled Noise or Brushed grain and opacity from 0.0 to 1.0 |
+| texture_overlay | UI::TextureOverlay? | Tiled Noise or Brushed grain and opacity from 0.0 to 1.0; Noise generates in linearRGB (the SVG default) unless color_interpolation_filters is UI::ColorInterpolationFilters::SRGB |
 
 UI::ColorRole accepts BrandPrimary, BrandAccent, SurfaceCanvas, SurfaceElevated, SurfacePanel, SurfaceSunken, SurfaceInverse, TextPrimary, TextInverse, and Warning. Use a role where a surface should follow the active theme; use UI::Color for a fixed brand color.
 

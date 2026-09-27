@@ -151,7 +151,7 @@ Every role is a `ColorPalette` field at [src/ui/design_tokens.cr:350](../src/ui/
 
 | Layer | What it controls and exact API | Scope and current reach |
 | --- | --- | --- |
-| Surfaces | `SurfaceStyle` holds `background_fill_color`, `linear_gradient`, `list_of_inner_shadows`, `list_of_drop_shadows`, and `texture_overlay`. Other views expose those surface properties individually on `UI::View`; there is no `view.surface_style = ...` property. [src/ui/view.cr:238](../src/ui/view.cr#L238), [src/ui/view.cr:270](../src/ui/view.cr#L270), [src/ui/view.cr:854](../src/ui/view.cr#L854), [src/ui/view.cr:865](../src/ui/view.cr#L865), [src/ui/view.cr:901](../src/ui/view.cr#L901) | Per view. SurfaceStyle is accepted by Form sections; set equivalent view properties on other controls. macOS SwiftUI/AppKit and web render these primitives. Noise takes `base_frequency`, `octave_count`, `seed`, and `tile_size`; see [Noise texture parameters](#noise-texture-parameters). |
+| Surfaces | `SurfaceStyle` holds `background_fill_color`, `linear_gradient`, `list_of_inner_shadows`, `list_of_drop_shadows`, and `texture_overlay`. Other views expose those surface properties individually on `UI::View`; there is no `view.surface_style = ...` property. [src/ui/view.cr:264](../src/ui/view.cr#L264), [src/ui/view.cr:298](../src/ui/view.cr#L298), [src/ui/view.cr:890](../src/ui/view.cr#L890), [src/ui/view.cr:901](../src/ui/view.cr#L901), [src/ui/view.cr:937](../src/ui/view.cr#L937) | Per view. SurfaceStyle is accepted by Form sections; set equivalent view properties on other controls. macOS SwiftUI/AppKit and web render these primitives. Noise takes `base_frequency`, `octave_count`, `seed`, `tile_size`, and `color_interpolation_filters`; see [Noise texture parameters](#noise-texture-parameters). |
 | Form sections | `UI::Form#add_section(header, footer, tab_shape:, tab_icon:, panel_style:, tab_style:)` returns a `FormSection`. [src/ui/views/form.cr:50](../src/ui/views/form.cr#L50), [src/ui/views/form.cr:99](../src/ui/views/form.cr#L99) | Per section. `TabShape` is `Angled`, `Rounded`, `Notched`, or `Flush`; `tab_icon` is an SF Symbol name on macOS. iOS and Android keep the plain grouped Form. |
 | Toggles | `UI::Toggle#appearance`, `track_color`, `knob_color`, `on_color`, and `lamp_color`; `ToggleAppearance` is `Native`, `Pill`, `Rocker`, `Slide`, or `LampPill`. [src/ui/views/toggle.cr:36](../src/ui/views/toggle.cr#L36), [src/ui/view.cr:261](../src/ui/view.cr#L261) | Per view. Web and macOS implement the custom appearances; iOS keeps its native switch. |
 | Keycaps | `UI::Keycap#style`; `KeycapStyle` is `Outlined`, `Sculpted`, `Inset`, or `Text`. [src/ui/views/keycap.cr:8](../src/ui/views/keycap.cr#L8), [src/ui/view.cr:270](../src/ui/view.cr#L270) | Per view. macOS and web render the SurfaceCraft treatment; other platforms retain a label. |
@@ -163,14 +163,26 @@ Every role is a `ColorPalette` field at [src/ui/design_tokens.cr:350](../src/ui/
 
 #### Noise texture parameters
 
-`UI::TextureOverlay` accepts `base_frequency`, `octave_count`, `seed`, and
-`tile_size` in addition to the texture kind and opacity. Noise defaults match
-the web renderer: frequency `0.72`, 3 octaves, seed `4`, and a 160 point tile.
+`UI::TextureOverlay` accepts `base_frequency`, `octave_count`, `seed`,
+`tile_size`, and `color_interpolation_filters` in addition to the texture kind
+and opacity. Noise defaults match the web renderer: frequency `0.72`, 3 octaves,
+seed `4`, a 160 point tile, and `UI::ColorInterpolationFilters::LinearRGB`.
 Frequency may range from `0` through `16`; octave count from `1` through `8`;
 and tile size from `1` through `1024` points. Seed accepts any `Int32`. Web and
 macOS use the same stitched, grayscale SVG turbulence parameters. On macOS the
 tile is baked at one pixel per device pixel, so a 128 point tile is 256 pixels
 at 2x backing scale. The Brushed texture keeps its existing fixed treatment.
+
+`color_interpolation_filters` is the SVG `color-interpolation-filters`
+attribute of the Noise filter ([src/ui/view.cr:235](../src/ui/view.cr#L235)).
+The default, `LinearRGB`, is the SVG default: an SVG filter that does not set
+the attribute generates its turbulence in linear light and encodes the color
+channels to sRGB, so use it to match a browser design that leaves the
+attribute unset. `SRGB` matches `color-interpolation-filters="sRGB"`, which
+uses the generated values directly as sRGB and gives darker grain: stronger
+over light fills and weaker over dark ones. The web renderer writes the
+attribute into the generated SVG, and macOS converts the tile the same way.
+Brushed ignores it.
 
 ```crystal
 module AcmeSkin
@@ -182,6 +194,15 @@ module AcmeSkin
       octave_count: 3,
       seed: 7,
       tile_size: 128,
+    )
+  end
+
+  # Matches a filter that sets color-interpolation-filters="sRGB".
+  def self.build_srgb_noise_texture_overlay : UI::TextureOverlay
+    UI::TextureOverlay.new(
+      texture_kind: UI::TextureKind::Noise,
+      texture_opacity: 0.07,
+      color_interpolation_filters: UI::ColorInterpolationFilters::SRGB,
     )
   end
 end

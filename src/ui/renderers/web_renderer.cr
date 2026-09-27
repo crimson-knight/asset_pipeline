@@ -2672,7 +2672,7 @@ module UI
           seed = texture.seed
           tile_size = texture.tile_size
           color_matrix = "1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1"
-          color_interpolation = " color-interpolation-filters=\"sRGB\""
+          color_interpolation = %( color-interpolation-filters="#{texture.color_interpolation_filters.svg_value}")
           overlay_opacity = texture.texture_opacity.to_s
           turbulence_type = "fractalNoise"
         else

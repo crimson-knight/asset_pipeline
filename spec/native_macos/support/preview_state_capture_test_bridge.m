@@ -11,7 +11,8 @@ extern void *ap_surface_noise_texture_tile_create(
     int octave_count,
     int seed,
     int tile_size,
-    double backing_scale);
+    double backing_scale,
+    int color_interpolation_filters);
 
 @interface APSpecBackingScaleWindow : NSWindow
 @property(nonatomic) CGFloat specBackingScaleFactor;
@@ -86,8 +87,9 @@ int32_t ap_spec_render_noise_red_grayscale_reference(
         (size_t)capacity < output_width * output_height * 4) return 0;
 
     @autoreleasepool {
+        // The noise-tile fixture sets color-interpolation-filters="sRGB" (1).
         CGImageRef noise_tile = (CGImageRef)ap_surface_noise_texture_tile_create(
-            base_frequency, octave_count, seed, tile_size, backing_scale);
+            base_frequency, octave_count, seed, tile_size, backing_scale, 1);
         if (noise_tile == NULL) return 0;
 
         size_t tile_width = CGImageGetWidth(noise_tile);

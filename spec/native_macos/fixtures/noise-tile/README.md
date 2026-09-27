@@ -6,7 +6,9 @@ from the shared RGBA tile before drawing it, so this fixture checks the lattice
 channel independently of the browser's RGBA compositing. The 128 by 128
 user-unit tile is rendered at 256 by 256 pixels to match a 128 point native
 tile on a 2x display. `color-interpolation-filters="sRGB"` keeps the reference
-in the color space used by the native tile.
+in the color space of the tile the spec requests: the spec bridge asks
+`ap_surface_noise_texture_tile_create` for an sRGB tile (`1`), not the
+`UI::TextureOverlay` default, linearRGB.
 
 Exact command, run from the repository root:
 
