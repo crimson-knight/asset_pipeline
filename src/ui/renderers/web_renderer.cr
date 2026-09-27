@@ -3132,6 +3132,12 @@ module UI
           el.set_attribute("role", ax_role_to_aria(role_sym))
         end
 
+        # Hides the element and its subtree from assistive tech while it
+        # stays visible (unlike `role="none"`, which keeps the text).
+        if view.accessibility_hidden
+          el.set_attribute("aria-hidden", "true")
+        end
+
         # Phase 10B.2a — Accessibility value -> aria-valuetext. Used for
         # widgets where the role implies a value (slider, progress,
         # spinbutton) so the AT announces the human-readable string

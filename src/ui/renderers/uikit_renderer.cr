@@ -5539,6 +5539,13 @@
           end
         end
 
+        # `accessibility_hidden` wins over every opt-in above and hides
+        # the view's descendants along with it.
+        if view.accessibility_hidden
+          LibObjCBridge.objc_send_bool(ptr, sel("setIsAccessibilityElement:"), 0)
+          LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElementsHidden:"), 1)
+        end
+
         # Discrete gesture surface — swipe (4 directions) + long-press.
         #
         # Tokens are registered in the CallbackRegistry (strong Crystal reference)

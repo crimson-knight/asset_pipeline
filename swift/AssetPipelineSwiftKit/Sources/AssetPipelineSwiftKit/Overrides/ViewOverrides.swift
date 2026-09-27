@@ -176,6 +176,11 @@ public class ViewOverrides: NSObject {
     // SwiftUI `AccessibilityTraits` and emits a single
     // `.accessibilityAddTraits(...)` call.
     @objc(apskAccessibilityTraitsMask) public var apskAccessibilityTraitsMask: NSNumber? = nil
+    // `UI::View#accessibility_hidden`. When true, CommonModifiers.apply
+    // emits `.accessibilityHidden(true)`, which removes the view and its
+    // descendants from the accessibility tree while it stays visible.
+    // nil (the Crystal default of false) leaves SwiftUI's behavior alone.
+    @objc(apskAccessibilityHidden) public var apskAccessibilityHidden: NSNumber? = nil
 
     // Phase 10B.2b — action + focus + keyboard accessibility slots.
     //

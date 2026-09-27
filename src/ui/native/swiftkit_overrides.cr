@@ -189,6 +189,7 @@ module UI
         if role_sym = view.effective_accessibility_role
           sender.set_string(target, :setApskAccessibilityRole, role_sym.to_s)
         end
+        sender.set_bool(target, :setApskAccessibilityHidden, view.accessibility_hidden ? true : nil)
 
         # Compose the UIAccessibilityTraits bitmask: each trait symbol
         # OR'd with the role-derived trait bit. The bit positions match

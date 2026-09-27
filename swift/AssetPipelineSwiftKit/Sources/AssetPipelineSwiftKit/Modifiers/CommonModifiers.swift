@@ -197,6 +197,12 @@ enum CommonModifiers {
             // Reserved for future heading-level / image-label specialisation.
             // The trait flag was already applied via the bitmask above.
         }
+        // `UI::View#accessibility_hidden` removes the view and its
+        // descendants from the accessibility tree while it stays visible,
+        // e.g. a visible Label that repeats a sibling Toggle's name.
+        if overrides.apskAccessibilityHidden?.boolValue == true {
+            current = AnyView(current.accessibilityHidden(true))
+        }
 
         // Phase 10B.2b — Custom accessibility actions. The Crystal
         // side surfaces the action names as a comma-joined string.

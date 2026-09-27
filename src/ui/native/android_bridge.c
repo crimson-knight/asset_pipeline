@@ -876,6 +876,19 @@ void android_view_clear_focus(void *env_ptr, void *v) {
     (*env)->DeleteLocalRef(env, cls);
 }
 
+// View.setImportantForAccessibility(int). Mode 4 is
+// IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS, which hides the view and
+// its whole subtree from TalkBack while it stays visible.
+void android_view_set_important_for_accessibility(void *env_ptr, void *v, int32_t mode) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)v);
+    jmethodID method = ap_try_get_method(env, cls, "setImportantForAccessibility", "(I)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)v, method, mode);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
 void android_view_set_corner_radius(void *env_ptr, void *v, float radius) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jobject drawable = ap_ensure_gradient_background(env, (jobject)v);

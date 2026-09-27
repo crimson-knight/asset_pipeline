@@ -181,4 +181,41 @@ describe "UI::View static AX metadata (Phase 10B.2a)" do
       html.should contain(%(aria-description="Dismisses the sheet"))
     end
   end
+
+  describe "accessibility_hidden" do
+    it "defaults to false and emits no aria-hidden" do
+      label = UI::Label.new("Enable sync")
+      label.accessibility_hidden.should be_false
+      render(label).should_not contain("aria-hidden")
+    end
+
+    it "emits aria-hidden=\"true\" on a hidden Label while keeping its text" do
+      label = UI::Label.new("Enable sync")
+      label.accessibility_hidden = true
+      html = render(label)
+      html.should contain(%(aria-hidden="true"))
+      html.should contain("Enable sync")
+    end
+
+    it "hides only the Label, not a sibling Toggle, in a checkbox row" do
+      toggle = UI::Toggle.new
+      toggle.accessibility_label = "Enable sync"
+      label = UI::Label.new("Enable sync")
+      label.accessibility_hidden = true
+      row = UI::HStack.new
+      row << toggle
+      row << label
+      html = render(row)
+      html.scan(%(aria-hidden="true")).size.should eq(1)
+      html.should match(/<span[^>]*aria-hidden="true"[^>]*>Enable sync<\/span>/)
+    end
+
+    it "keeps role=\"none\" separate from hiding" do
+      label = UI::Label.new("Enable sync")
+      label.accessibility_role = :none
+      html = render(label)
+      html.should contain(%(role="none"))
+      html.should_not contain("aria-hidden")
+    end
+  end
 end

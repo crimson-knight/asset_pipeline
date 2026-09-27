@@ -735,6 +735,26 @@ module UI
     #   :none     — explicit "no role" (web emits `role="none"`).
     property accessibility_role : Symbol? = nil
 
+    # Removes this view and every descendant from the accessibility tree
+    # while leaving it visible. Use it for text that repeats what a sibling
+    # control already announces, such as a visible Label next to a native
+    # Toggle that carries the same name.
+    #
+    # This is not `accessibility_role = :none`: `:none` removes only the
+    # role (web `role="none"` still reads the text), while this hides the
+    # content itself.
+    #
+    # Per-platform mapping:
+    #   Web      — `aria-hidden="true"`.
+    #   SwiftUI  — `.accessibilityHidden(true)` (AppKit, UIKit, and WatchKit
+    #              views hosted through SwiftKit).
+    #   AppKit   — `setAccessibilityElement:NO` plus an empty
+    #              `accessibilityChildren` on raw NSViews.
+    #   UIKit    — `isAccessibilityElement = NO` plus
+    #              `accessibilityElementsHidden = YES` on raw UIViews.
+    #   Android  — `importantForAccessibility = NO_HIDE_DESCENDANTS`.
+    property accessibility_hidden : Bool = false
+
     # Phase 10B.2a — UIKit-style traits surfaced to assistive tech as a
     # set of capability flags. Examples:
     #   :selected         — the element is in a selected state

@@ -130,6 +130,8 @@
       fun android_view_set_padding(env : Void*, v : Void*,
                                    left : Int32, top : Int32, right : Int32, bottom : Int32)
       fun android_view_clear_focus(env : Void*, v : Void*)
+      # mode: 4 = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+      fun android_view_set_important_for_accessibility(env : Void*, v : Void*, mode : Int32)
 
       # --- CALayer-equivalent: outline/shape for corner radius + border ---
       # Applies a rounded rectangle outline provider for corner radius
@@ -251,6 +253,9 @@
     # native_view = renderer.result # => NativeView wrapping a TextView global ref
     # ```
     class Renderer < UI::PlatformVisitor
+      # android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+      IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS = 4
+
       # The root NativeView produced by visiting the top-level view.
       @result : NativeView? = nil
 
@@ -3674,6 +3679,12 @@
         # honor it.
         if view.focusable == false
           LibAndroidBridge.android_view_clear_focus(@env, v)
+        end
+
+        # Hides the view and its subtree from TalkBack while it stays visible.
+        if view.accessibility_hidden
+          LibAndroidBridge.android_view_set_important_for_accessibility(
+            @env, v, IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS)
         end
 
         # Phase 10B.2b — Accessibility actions / keyboard shortcuts on

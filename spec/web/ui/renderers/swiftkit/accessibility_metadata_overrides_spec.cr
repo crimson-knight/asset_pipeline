@@ -84,6 +84,21 @@ describe UI::Native::Populator, "accessibility metadata forwarding" do
       FakeLibObjCBridge.assert_sent(:setApskAccessibilityRole, args: [target, "header"])
     end
 
+    it "forwards accessibility_hidden via setApskAccessibilityHidden:" do
+      view = UI::Label.new("Enable sync")
+      view.accessibility_hidden = true
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingAXSender.new)
+      FakeLibObjCBridge.assert_sent(:setApskAccessibilityHidden, args: [target, "true"])
+    end
+
+    it "leaves setApskAccessibilityHidden: unsent at the default" do
+      view = UI::Label.new("Enable sync")
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingAXSender.new)
+      FakeLibObjCBridge.refute_sent(:setApskAccessibilityHidden)
+    end
+
     it "forwards composed trait + role bitmask via setApskAccessibilityTraitsMask:" do
       view = UI::Button.new("X")
       view.accessibility_traits = [:selected, :not_enabled]

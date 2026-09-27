@@ -4969,6 +4969,13 @@
           end
         end
 
+        # `accessibility_hidden` wins over every opt-in above. An NSView
+        # that is not an accessibility element still promotes its
+        # children to its parent, so the children are cleared as well.
+        if view.accessibility_hidden
+          hide_from_accessibility(ptr)
+        end
+
         # Discrete gesture surface — swipe (4 directions) + long-press.
         #
         # macOS uses NSPanGestureRecognizer for swipe: the bridge installs one
@@ -5039,6 +5046,13 @@
         when :none         then "AXUnknown"
         else                    nil
         end
+      end
+
+      # Removes a raw NSView and its subtree from the accessibility tree.
+      private def hide_from_accessibility(ptr : Void*) : Nil
+        LibObjCBridge.objc_send_bool(ptr, sel("setAccessibilityElement:"), 0)
+        no_children = LibObjCBridge.objc_send(LibObjCBridge.objc_getClass("NSArray"), sel("array"))
+        LibObjCBridge.objc_send_void_id(ptr, sel("setAccessibilityChildren:"), no_children)
       end
 
       # Push a container NativeView onto the nesting stack.
