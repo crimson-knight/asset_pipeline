@@ -91,6 +91,21 @@ module UI
     # Other renderers may ignore it.
     property preferred_max_layout_width : Float64? = nil
 
+    # Line height in points: the distance from the top of one wrapped line to
+    # the top of the next. `nil` keeps the font's natural line pitch.
+    #
+    # The SwiftUI facade (macOS and iOS) adds the difference from the
+    # font's natural line height as line spacing, so a value at or below the
+    # natural line height leaves the natural pitch. The web renderer emits CSS
+    # `line-height`.
+    #
+    # ```
+    # caption = UI::Label.new("Saved to /Users/example/Documents/report.txt")
+    # caption.font = UI::Font.new(size: 12.0)
+    # caption.line_height = 16.0
+    # ```
+    property line_height : Float64? = nil
+
     # Phase 6.11 — strikethrough toggle. Renderers map to:
     #   SwiftUI / UIKit / AppKit : `.strikethrough(true)`
     #   Web                       : `text-decoration: line-through`

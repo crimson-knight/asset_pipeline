@@ -58,6 +58,12 @@ public class LabelOverrides: ViewOverrides {
     // screens whose labels wrap dynamic content. Takes precedence over
     // fillHorizontal. nil = SwiftUI default sizing.
     @objc public var preferredMaxLayoutWidth: NSNumber? = nil
+    // Line height in points: the distance from one line of wrapped text to the
+    // next. SwiftUI has no line-height modifier on the deployment targets, so the
+    // facade adds `.lineSpacing(lineHeight - natural line height)` for the
+    // resolved font. A value at or below the font's natural line height leaves
+    // the natural pitch (SwiftUI cannot tighten lines). nil = natural pitch.
+    @objc public var lineHeight: NSNumber? = nil
 
     @objc public override init() { super.init() }
 }

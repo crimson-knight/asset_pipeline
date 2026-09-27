@@ -13,6 +13,11 @@
 
 import SwiftUI
 import Foundation
+#if os(macOS)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
 
 @objc(APSKLabelFacade)
 public class LabelFacade: NSObject {
@@ -51,7 +56,7 @@ public class LabelFacade: NSObject {
         }
 
         let body = APSKLabelHost(state: state, overrides: overrides)
-        return HostingHelpers.host(body)
+        return HostingHelpers.host(body, wrapsText: true)
     }
 }
 
@@ -125,6 +130,14 @@ private struct APSKLabelHost: View {
         case "center":   content = AnyView(content.multilineTextAlignment(.center))
         case "trailing": content = AnyView(content.multilineTextAlignment(.trailing))
         default: break
+        }
+
+        if let lineHeight = overrides.lineHeight?.doubleValue, lineHeight > 0 {
+            let natural = APSKLabelLineMetrics.naturalLineHeight(for: overrides)
+            let extra = max(0, CGFloat(lineHeight) - natural)
+            if extra > 0 {
+                content = AnyView(content.lineSpacing(extra))
+            }
         }
 
         if let n = overrides.numberOfLines, n.intValue > 0 {
@@ -204,4 +217,62 @@ private extension Font.Weight {
         default: return nil
         }
     }
+}
+
+// Natural line height of the font the label facade resolves, so a requested
+// line height can be expressed as SwiftUI `lineSpacing` (the extra space
+// between lines). Mirrors the font selection in `APSKLabelHost.body`.
+enum APSKLabelLineMetrics {
+    static func naturalLineHeight(for overrides: LabelOverrides) -> CGFloat {
+        let explicitSize = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? CGFloat($0) : nil }
+        #if os(macOS)
+        let font: NSFont
+        if let family = overrides.fontFamily, family != "system", !family.isEmpty {
+            let size = explicitSize ?? 17.0
+            if family == "monospace" {
+                font = NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
+            } else {
+                font = NSFont(name: family, size: size) ?? NSFont.systemFont(ofSize: size)
+            }
+        } else if let size = explicitSize {
+            font = NSFont.systemFont(ofSize: size, weight: platformWeight(overrides.fontWeight))
+        } else {
+            font = NSFont.preferredFont(forTextStyle: .body)
+        }
+        return NSLayoutManager().defaultLineHeight(for: font)
+        #elseif canImport(UIKit)
+        let font: UIFont
+        if let family = overrides.fontFamily, family != "system", !family.isEmpty {
+            let size = explicitSize ?? 17.0
+            if family == "monospace" {
+                font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+            } else {
+                font = UIFont(name: family, size: size) ?? UIFont.systemFont(ofSize: size)
+            }
+        } else if let size = explicitSize {
+            font = UIFont.systemFont(ofSize: size, weight: platformWeight(overrides.fontWeight))
+        } else {
+            font = UIFont.preferredFont(forTextStyle: .body)
+        }
+        return font.lineHeight
+        #else
+        return explicitSize.map { $0 * 1.2 } ?? 20.0
+        #endif
+    }
+
+    #if os(macOS)
+    private static func platformWeight(_ rawValue: NSNumber?) -> NSFont.Weight {
+        weightTable[rawValue?.intValue ?? 0].map { NSFont.Weight(rawValue: $0) } ?? .regular
+    }
+    #elseif canImport(UIKit)
+    private static func platformWeight(_ rawValue: NSNumber?) -> UIFont.Weight {
+        weightTable[rawValue?.intValue ?? 0].map { UIFont.Weight(rawValue: $0) } ?? .regular
+    }
+    #endif
+
+    // SwiftUI weight rawValues (see `Font.Weight(rawValue:)` above) to the
+    // platform font weight scale.
+    private static let weightTable: [Int: CGFloat] = [
+        -3: -0.8, -2: -0.6, -1: -0.4, 0: 0.0, 1: 0.23, 2: 0.3, 3: 0.4, 4: 0.56, 5: 0.62,
+    ]
 }

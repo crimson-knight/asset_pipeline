@@ -177,6 +177,11 @@ module UI
           el.add_style("user-select: text")
         end
 
+        # Line height in points (CSS px).
+        if line_height = view.line_height
+          el.add_style("line-height: #{line_height}px")
+        end
+
         # Line clamping
         if view.number_of_lines > 0
           el.add_style("display: -webkit-box; -webkit-line-clamp: #{view.number_of_lines}; -webkit-box-orient: vertical; overflow: hidden")

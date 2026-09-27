@@ -428,6 +428,10 @@ module UI
         # height under-reservation / overlap). set_number no-ops on nil.
         sender.set_number(target, :setPreferredMaxLayoutWidth, view.preferred_max_layout_width)
 
+        # Line height in points; the facade converts it to SwiftUI line spacing
+        # for the resolved font. set_number no-ops on nil.
+        sender.set_number(target, :setLineHeight, view.line_height)
+
         if keycap = view.as?(UI::Keycap)
           sender.set_string(target, :setApskSurfaceCraftKeycapStyle, keycap.style.to_s.underscore)
         end
