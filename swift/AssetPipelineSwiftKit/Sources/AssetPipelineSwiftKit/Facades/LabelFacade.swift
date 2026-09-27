@@ -99,6 +99,14 @@ private struct APSKLabelHost: View {
             content = AnyView(content.fontWeight(weight))
         }
 
+        // Letter tracking in points. `.tracking(_:)` on the view reaches the
+        // Text through the environment, so it composes with every font path
+        // above (system, weight-only, monospaced, custom registered family)
+        // and keeps the Text one string for VoiceOver, selection and wrapping.
+        if let tracking = overrides.tracking {
+            content = AnyView(content.tracking(CGFloat(tracking.doubleValue)))
+        }
+
         switch overrides.labelRole {
         case "primary":
             content = AnyView(content.foregroundStyle(.primary))

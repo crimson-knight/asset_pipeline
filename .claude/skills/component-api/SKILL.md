@@ -287,6 +287,7 @@ class UI::Label < UI::View
   property text_alignment : Alignment = Alignment::Leading
   property number_of_lines : Int32 = 0
   property selectable : Bool = false
+  property tracking : Float64 = 0.0
 
   def initialize(@text : String)
 end
@@ -300,6 +301,7 @@ end
 | `text_alignment` | `Alignment` | `Leading` | Horizontal text alignment |
 | `number_of_lines` | `Int32` | `0` | Max lines to display (0 = unlimited) |
 | `selectable` | `Bool` | `false` | Allows people to select and copy the read-only text on supported platforms |
+| `tracking` | `Float64` | `0.0` | Letter tracking in points after every character (SwiftUI `.tracking`, CSS `letter-spacing` px, Android `setLetterSpacing` em). Convert em with `font.size * em` |
 
 **Example:**
 ```crystal
@@ -310,6 +312,10 @@ title.text_alignment = UI::Alignment::Center
 
 path = UI::Label.new("/Users/example/Documents/report.pdf")
 path.selectable = true  # selectable, still read-only
+
+overline = UI::Label.new("STANDING BY")
+overline.font = UI::Font.new(family: "monospace", size: 11.0)
+overline.tracking = overline.font.size * 0.12  # 0.12 em = 1.32 pt
 ```
 
 ---

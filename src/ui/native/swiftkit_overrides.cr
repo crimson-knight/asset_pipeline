@@ -409,6 +409,12 @@ module UI
           sender.set_bool(target, :setStrikethrough, true)
         end
 
+        # Letter tracking in points. Emit only when set so an untracked label
+        # keeps the font's own spacing.
+        unless view.tracking == 0.0
+          sender.set_number(target, :setTracking, view.tracking)
+        end
+
         # fill_horizontal: the renderer pins the label's hosting view to fill the
         # container width, but the SwiftUI Text then centers in it. Tell the facade
         # to apply a maxWidth frame so the text fills + aligns (leading by default)

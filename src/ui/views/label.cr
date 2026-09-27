@@ -99,6 +99,28 @@ module UI
     # the underlying todo is `completed`.
     property strikethrough : Bool = false
 
+    # Letter tracking in points: extra space added after every character,
+    # the Apple convention shared by SwiftUI `.tracking(_:)` and
+    # `NSAttributedString.Key.kern`. Positive values open the text up,
+    # negative values tighten it, and the default `0.0` leaves the font's
+    # own spacing untouched. The text stays one string, so VoiceOver reads
+    # it as a word, selection and copy return the plain text, and wrapping
+    # and truncation keep working.
+    #
+    # Typographic specs usually give tracking in em. Convert with the
+    # label's font size:
+    #
+    # ```
+    # overline = UI::Label.new("STANDING BY")
+    # overline.font = UI::Font.new(family: "monospace", size: 11.0)
+    # overline.tracking = overline.font.size * 0.12 # 0.12 em = 1.32 pt
+    # ```
+    #
+    # Renderers map it to SwiftUI `.tracking(_:)` (macOS / iOS), CSS
+    # `letter-spacing` in px (web), and `TextView#setLetterSpacing` in em
+    # (Android).
+    property tracking : Float64 = 0.0
+
     def initialize(@text : String)
     end
 

@@ -59,6 +59,7 @@
       fun android_textview_set_text(env : Void*, tv : Void*, text : UInt8*, byte_len : Int32)
       fun android_textview_set_text_is_selectable(env : Void*, tv : Void*, selectable : Int32)
       fun android_textview_set_text_size(env : Void*, tv : Void*, size_sp : Float32)
+      fun android_textview_set_letter_spacing(env : Void*, tv : Void*, letter_spacing_em : Float32)
       fun android_textview_set_text_color(env : Void*, tv : Void*, argb : Int32)
       fun android_textview_set_gravity(env : Void*, tv : Void*, gravity : Int32)
       fun android_textview_set_max_lines(env : Void*, tv : Void*, max : Int32)
@@ -305,6 +306,12 @@
 
         # setTextSize (SP units -- Android's scale-independent pixels)
         LibAndroidBridge.android_textview_set_text_size(@env, tv, view.font.size.to_f32)
+
+        # Letter tracking: TextView takes em, so divide the points by the text
+        # size (both are in the same scaled unit).
+        if view.tracking != 0.0 && view.font.size > 0.0
+          LibAndroidBridge.android_textview_set_letter_spacing(@env, tv, (view.tracking / view.font.size).to_f32)
+        end
 
         # setTypeface style: 0=NORMAL, 1=BOLD, 2=ITALIC, 3=BOLD_ITALIC
         typeface_style = typeface_style_for(view.font)

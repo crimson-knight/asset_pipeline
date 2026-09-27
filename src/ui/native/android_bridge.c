@@ -211,6 +211,17 @@ void android_textview_set_text_size(void *env_ptr, void *tv, float size_sp) {
     (*env)->DeleteLocalRef(env, cls);
 }
 
+// Letter spacing in em (TextView#setLetterSpacing, API 21+).
+void android_textview_set_letter_spacing(void *env_ptr, void *tv, float letter_spacing_em) {
+    JNIEnv *env = (JNIEnv *)env_ptr;
+    jclass cls = (*env)->GetObjectClass(env, (jobject)tv);
+    jmethodID method = ap_get_method(env, cls, "setLetterSpacing", "(F)V");
+    if (method) {
+        (*env)->CallVoidMethod(env, (jobject)tv, method, letter_spacing_em);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+}
+
 void android_textview_set_text_color(void *env_ptr, void *tv, int32_t argb) {
     JNIEnv *env = (JNIEnv *)env_ptr;
     jclass cls = (*env)->GetObjectClass(env, (jobject)tv);
