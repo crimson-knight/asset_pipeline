@@ -503,4 +503,49 @@ require "../../../src/ui"
       end
     end
   end
+
+  # A padded list row: a short status column beside a details column, top
+  # aligned, in a full-width page above a second row.
+  private def padded_aligned_row(details : UI::View, alignment : UI::Alignment) : UI::VStack
+    row = UI::HStack.new(spacing: 8.0, alignment: alignment)
+    row.padding = UI::EdgeInsets.new(top: 12.0, leading: 16.0, bottom: 12.0, trailing: 16.0)
+    row << caption("Running")
+    details.fill_horizontal = true
+    row << details
+    page = page_with_row(row)
+    page << caption("next row")
+    page
+  end
+
+  describe "Padding of an aligned HStack row on macOS" do
+    [UI::Alignment::Top, UI::Alignment::Center, UI::Alignment::Bottom, UI::Alignment::Fill].each do |alignment|
+      it "keeps the bottom padding below the tallest child of a #{alignment}-aligned row" do
+        details = UI::VStack.new(spacing: 4.0, alignment: UI::Alignment::Leading)
+        details << caption("Build finished")
+        details << caption(WRAPPED_COPY)
+
+        with_hosted_layout(padded_aligned_row(details, alignment), 420.0) do |hosted|
+          row_frame = hosted.frame(hosted.node(0))
+          status_frame = hosted.frame(hosted.node(0, 0))
+          details_frame = hosted.frame(hosted.node(0, 1))
+          next_frame = hosted.frame(hosted.node(1))
+          report = "row #{row_frame}, status #{status_frame}, details #{details_frame}, next #{next_frame}"
+          details_frame.top.should be_close(row_frame.top + 12.0, 0.5), report
+          row_frame.bottom.should be_close(details_frame.bottom + 12.0, 0.5), report
+          next_frame.top.should be >= row_frame.bottom - 0.5, report
+        end
+      end
+    end
+
+    it "keeps the bottom padding below a wrapped Label in a top-aligned row" do
+      with_hosted_layout(padded_aligned_row(caption(WRAPPED_COPY), UI::Alignment::Top), 420.0) do |hosted|
+        row_frame = hosted.frame(hosted.node(0))
+        label_frame = hosted.frame(hosted.node(0, 1))
+        report = "row #{row_frame}, label #{label_frame}"
+        hosted.list_of_line_tops(hosted.node(0, 1)).size.should be >= 2, report
+        label_frame.top.should be_close(row_frame.top + 12.0, 0.5), report
+        row_frame.bottom.should be_close(label_frame.bottom + 12.0, 0.5), report
+      end
+    end
+  end
 {% end %}

@@ -724,6 +724,38 @@ void objc_constrain_equal_width_offset(void *child, void *parent, double delta) 
     wc.active = YES;
 }
 
+// Holds a horizontal NSStackView's top and bottom edge insets around every
+// arranged subview. NSStackView keeps its perpendicular insets only at
+// priority 250 ("NSStackView.Edge.Min.*"), which ties with the stack's own
+// hugging, so a padded row shrank to its tallest child and dropped its bottom
+// padding (or, when center or bottom aligned, both). Priority 999 beats
+// hugging and compression resistance without making a row that also has a
+// fixed height unsatisfiable.
+void objc_stack_hold_vertical_insets(void *stack_ptr) {
+#if TARGET_OS_OSX
+    if (stack_ptr == NULL) return;
+    NSStackView *stack = (NSStackView *)stack_ptr;
+    if (stack.orientation != NSUserInterfaceLayoutOrientationHorizontal) return;
+    NSEdgeInsets insets = stack.edgeInsets;
+    NSMutableArray<NSLayoutConstraint *> *constraints = [NSMutableArray array];
+    for (NSView *arranged in [NSArray arrayWithArray:stack.arrangedSubviews]) {
+        NSLayoutConstraint *top = [arranged.topAnchor constraintGreaterThanOrEqualToAnchor:stack.topAnchor
+                                                                                  constant:insets.top];
+        NSLayoutConstraint *bottom = [stack.bottomAnchor constraintGreaterThanOrEqualToAnchor:arranged.bottomAnchor
+                                                                                     constant:insets.bottom];
+        top.priority = 999;
+        bottom.priority = 999;
+        top.identifier = @"ap.stack.inset.top";
+        bottom.identifier = @"ap.stack.inset.bottom";
+        [constraints addObject:top];
+        [constraints addObject:bottom];
+    }
+    [NSLayoutConstraint activateConstraints:constraints];
+#else
+    (void)stack_ptr;
+#endif
+}
+
 // Pin a child view to its parent's layout margins on iOS. The macOS branch
 // falls back to edge pinning; UIKit is the current caller.
 void objc_pin_child_to_layout_margins(void *parent, void *child) {

@@ -94,13 +94,17 @@ MACOS_SPEC_CACHE_DIR := $(CURDIR)/.crystal-cache
 # Extra spec-runner arguments, e.g. `make test-macos MACOS_SPEC_ARGS=-v`.
 MACOS_SPEC_ARGS ?=
 
+# Spec files or directories the macOS lane runs. Narrow it for a focused run,
+# e.g. `make test-macos MACOS_SPEC_PATHS=spec/native_macos/surface_craft_primitives_spec.cr`.
+MACOS_SPEC_PATHS ?= spec/native_macos/
+
 .PHONY: test-web test-macos test-ios test-android test-all lint clean-bridges
 
 test-web:
 	$(CRYSTAL) spec spec/web/
 
 test-macos: $(AP_BRIDGE_OBJ) $(SK_BRIDGE_OBJ) $(COL_BRIDGE_OBJ) $(SPEC_FOCUS_BRIDGE_OBJ) $(SPEC_PREVIEW_BRIDGE_OBJ) $(SPEC_TEXT_FIELD_BRIDGE_OBJ) $(SPEC_TEXT_FIELD_COLOR_BRIDGE_OBJ) $(SPEC_LABEL_TRACKING_BRIDGE_OBJ) $(SPEC_LAYOUT_BRIDGE_OBJ) $(SWIFTKIT_LIB)
-	CRYSTAL_CACHE_DIR=$(MACOS_SPEC_CACHE_DIR) $(ACRYSTAL) spec spec/native_macos/ $(MACOS_SPEC_FLAGS) \
+	CRYSTAL_CACHE_DIR=$(MACOS_SPEC_CACHE_DIR) $(ACRYSTAL) spec $(MACOS_SPEC_PATHS) $(MACOS_SPEC_FLAGS) \
 		--link-flags="$(MACOS_LINK_FLAGS)" $(MACOS_SPEC_ARGS)
 
 test-ios:

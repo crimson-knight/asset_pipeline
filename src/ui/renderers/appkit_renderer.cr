@@ -101,6 +101,7 @@
       fun objc_constrain_maximum_width(view : Void*, max_w : Float64) : Void
       fun objc_constrain_equal_width(child : Void*, parent : Void*) : Void
       fun objc_constrain_equal_width_offset(child : Void*, parent : Void*, delta : Float64) : Void
+      fun objc_stack_hold_vertical_insets(stack : Void*) : Void
       fun objc_pin_child_to_superview_edges(parent : Void*, child : Void*) : Void
       # Honors ZStack#alignment for the directional cases (Leading/Trailing/Top/
       # Bottom): pins the aligned edge required, soft-fills the opposite edge so
@@ -692,6 +693,12 @@
           child.accept(self)
         end
         pop_stack
+
+        # NSStackView holds its top and bottom insets only weakly, so a padded
+        # row shrank to its tallest child. Hold them around every child.
+        if p.top > 0 || p.bottom > 0
+          LibObjCBridge.objc_stack_hold_vertical_insets(ptr)
+        end
 
         push_native(native)
       end
