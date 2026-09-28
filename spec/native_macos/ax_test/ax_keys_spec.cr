@@ -1,58 +1,81 @@
 {% if flag?(:macos) %}
+  require "spec"
+  require "../../../src/ui"
+  require "../../../src/ui/ax_test"
 
-require "spec"
-require "../../../src/ui"
-require "../../../src/ui/ax_test"
-
-# A6 — Synthetic keyboard events via CGEvent.
-#
-# These specs verify the API surface and that calls do not raise. Real
-# end-to-end verification (key actually delivered to focused app, focus
-# advanced, menu dismissed) requires the spec runner to have
-# Accessibility permission. CGEventPost without permission is silently
-# dropped by the OS — no exception is thrown.
-describe UI::AXTest::Keys do
-  describe "named key helpers" do
-    it "exposes all named keys without raising" do
-      # All named helpers should be callable. We don't assert side
-      # effects — that requires a focused fixture app. We do assert
-      # no exception escapes.
-      UI::AXTest::Keys.escape!
-      UI::AXTest::Keys.tab!
-      UI::AXTest::Keys.shift_tab!
-      UI::AXTest::Keys.return!
-      UI::AXTest::Keys.arrow_up!
-      UI::AXTest::Keys.arrow_down!
-      UI::AXTest::Keys.arrow_left!
-      UI::AXTest::Keys.arrow_right!
-      UI::AXTest::Keys.space!
-      UI::AXTest::Keys.delete!
-    end
-
-    it "exposes the generic press(keycode, modifiers) API" do
-      # Cmd+Tab (app switcher) — posts a key event but we cannot
-      # observe it without a fixture. Just verify it runs.
-      UI::AXTest::Keys.press(UI::AXTest::Keys::TAB, LibCGEvent::CGEventFlagCommand)
+  # A6 — Synthetic keyboard events via CGEvent, delivered to ONE process.
+  #
+  # Every example posts to a throwaway `/bin/sleep` process that has no windows,
+  # so nothing typed here can reach the owner's apps. Real delivery into a
+  # focused field is covered by the fixture-app specs (surface craft, Voyager),
+  # which pass their own launched App.
+  private def with_key_sink(&)
+    sink = Process.new("/bin/sleep", ["30"])
+    begin
+      yield sink.pid.to_i32
+    ensure
+      sink.terminate rescue nil
+      sink.wait rescue nil
     end
   end
 
-  describe "#type" do
-    it "types a multi-character string without raising" do
-      UI::AXTest::Keys.type("hello world 123")
+  describe UI::AXTest::Keys do
+    describe "named key helpers" do
+      it "posts every named key to the target pid without raising" do
+        with_key_sink do |target_pid|
+          UI::AXTest::Keys.escape!(target_pid)
+          UI::AXTest::Keys.tab!(target_pid)
+          UI::AXTest::Keys.shift_tab!(target_pid)
+          UI::AXTest::Keys.return!(target_pid)
+          UI::AXTest::Keys.arrow_up!(target_pid)
+          UI::AXTest::Keys.arrow_down!(target_pid)
+          UI::AXTest::Keys.arrow_left!(target_pid)
+          UI::AXTest::Keys.arrow_right!(target_pid)
+          UI::AXTest::Keys.space!(target_pid)
+          UI::AXTest::Keys.delete!(target_pid)
+        end
+      end
+
+      it "posts press(keycode, modifiers) to the target pid" do
+        with_key_sink do |target_pid|
+          UI::AXTest::Keys.press(target_pid, UI::AXTest::Keys::TAB, LibCGEvent::CGEventFlagShift)
+        end
+      end
     end
 
-    it "handles unicode characters" do
-      UI::AXTest::Keys.type("café — résumé — 中文")
+    describe "#type" do
+      it "types a multi-character string into the target pid" do
+        with_key_sink do |target_pid|
+          UI::AXTest::Keys.type(target_pid, "hello world 123")
+        end
+      end
+
+      it "handles unicode characters" do
+        with_key_sink do |target_pid|
+          UI::AXTest::Keys.type(target_pid, "café — résumé — 中文")
+        end
+      end
+
+      it "handles an empty string" do
+        with_key_sink do |target_pid|
+          UI::AXTest::Keys.type(target_pid, "")
+        end
+      end
+
+      it "refuses a line break instead of pressing Return" do
+        with_key_sink do |target_pid|
+          expect_raises(UI::AXTest::Keys::LineBreakRefused) do
+            UI::AXTest::Keys.type(target_pid, "first line\nsecond line")
+          end
+          expect_raises(UI::AXTest::Keys::LineBreakRefused) do
+            UI::AXTest::Keys.type(target_pid, "carriage\r")
+          end
+        end
+      end
     end
 
-    it "handles an empty string" do
-      UI::AXTest::Keys.type("")
+    describe "permission integration" do
+      pending "delivers an Escape key to a focused fixture app and verifies dismiss (requires Accessibility permission)"
     end
   end
-
-  describe "permission integration" do
-    pending "delivers an Escape key to a focused fixture app and verifies dismiss (requires Accessibility permission)"
-  end
-end
-
 {% end %}

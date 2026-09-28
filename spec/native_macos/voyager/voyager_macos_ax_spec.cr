@@ -61,12 +61,12 @@
           email = VoyagerAX.find_in(win, identifier: "voyager-sign-in-email").not_nil!
           email.click
           sleep(0.2.seconds)
-          UI::AXTest::Keys.type("captain@voyager.app")
+          UI::AXTest::Keys.type(app, "captain@voyager.app")
           sleep(0.2.seconds)
 
-          UI::AXTest::Keys.tab! # email -> password (AXPress won't move focus mid-edit)
+          UI::AXTest::Keys.tab!(app) # email -> password (AXPress won't move focus mid-edit)
           sleep(0.2.seconds)
-          UI::AXTest::Keys.type("hunter2")
+          UI::AXTest::Keys.type(app, "hunter2")
           sleep(0.2.seconds)
 
           submit = (VoyagerAX.find_in(win, identifier: "voyager-sign-in-submit") ||

@@ -188,11 +188,6 @@ lib LibCGEvent
   alias CGEventRef = Void*
   alias CGEventSourceRef = Void*
 
-  # CGEventTapLocation values
-  CGHIDEventTap         = 0
-  CGSessionEventTap     = 1
-  CGAnnotatedSessionEventTap = 2
-
   # CGEventFlags (bitmask of modifier keys)
   CGEventFlagShift   = 0x00020000_u64
   CGEventFlagControl = 0x00040000_u64
@@ -200,7 +195,9 @@ lib LibCGEvent
   CGEventFlagCommand = 0x00100000_u64
 
   fun CGEventCreateKeyboardEvent(src : CGEventSourceRef, keycode : UInt16, key_down : UInt8) : CGEventRef
-  fun CGEventPost(tap : Int32, evt : CGEventRef) : Void
+  # Delivers the event only to the process with this pid. AXTest never posts to
+  # the global HID tap, which would type into whatever app has focus.
+  fun CGEventPostToPid(pid : LibC::PidT, evt : CGEventRef) : Void
   fun CGEventSetFlags(evt : CGEventRef, flags : UInt64) : Void
   fun CGEventKeyboardSetUnicodeString(evt : CGEventRef, length : LibC::Long, str : UInt16*) : Void
 end

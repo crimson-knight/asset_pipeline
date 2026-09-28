@@ -94,7 +94,7 @@ require "./support/surface_craft_ax_support"
 
           toggle = SurfaceCraftAX.find_required(window, "surface-craft-slide-toggle")
           toggle.focus!.should be_true
-          UI::AXTest::Keys.space!
+          UI::AXTest::Keys.space!(app)
           sleep(0.35.seconds)
           window = SurfaceCraftAX.window(app)
           raise SurfaceCraftAX::NO_WINDOW unless window
@@ -106,7 +106,7 @@ require "./support/surface_craft_ax_support"
 
           toggle = SurfaceCraftAX.find_required(window, "surface-craft-slide-toggle")
           toggle.focus!.should be_true
-          UI::AXTest::Keys.space!
+          UI::AXTest::Keys.space!(app)
           sleep(0.35.seconds)
           window = SurfaceCraftAX.window(app)
           raise SurfaceCraftAX::NO_WINDOW unless window

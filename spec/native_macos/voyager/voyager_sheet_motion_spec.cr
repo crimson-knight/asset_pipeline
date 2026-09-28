@@ -94,7 +94,7 @@
           save.enabled?.should be_false
           title.click
           sleep(0.2.seconds)
-          UI::AXTest::Keys.type("Buy milk")
+          UI::AXTest::Keys.type(app, "Buy milk")
           sleep(0.4.seconds)
 
           save_after = (VoyagerAX.find_in(VoyagerAX.content_window(app).not_nil!,
