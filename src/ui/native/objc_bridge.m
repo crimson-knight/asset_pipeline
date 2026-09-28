@@ -5615,6 +5615,17 @@ static void ap_surface_round_to_root(CALayer *layer, CALayer *root) {
     layer.masksToBounds = YES;
 }
 
+// Converts a CSS shadow offset (y grows downward) into a CALayer
+// shadowOffset for a sublayer of *view*'s layer. A layer-backed view draws
+// its layer's sublayers in its own coordinate space, where y grows upward
+// unless the view is flipped, so an unflipped view needs the y offset
+// negated for the shadow to fall below the box as the CSS one does.
+static CGSize ap_surface_css_shadow_offset(NSView *view, NSDictionary *shadow) {
+    CGFloat offset_x = [shadow[@"x"] doubleValue];
+    CGFloat offset_y = [shadow[@"y"] doubleValue];
+    return CGSizeMake(offset_x, view.isFlipped ? offset_y : -offset_y);
+}
+
 static void ap_surface_apply_preview_feedback(CALayer *root, NSDictionary *values) {
     BOOL had_preview_state = NO;
     for (CALayer *layer in [NSArray arrayWithArray:root.sublayers]) {
@@ -5674,7 +5685,9 @@ static void ap_surface_apply_preview_feedback(CALayer *root, NSDictionary *value
         root.shadowColor = NSColor.blackColor.CGColor;
         root.shadowOpacity = 0.16;
         root.shadowRadius = is_hover ? 7 : 5;
-        root.shadowOffset = CGSizeMake(0, is_hover ? 3 : 1);
+        // The translations above assume an unflipped layer (positive y is
+        // up); the lift shadow falls below the face, so its height is negative.
+        root.shadowOffset = CGSizeMake(0, is_hover ? -3 : -1);
     }
 
     if (uses_edge && (is_hover || is_pressed || is_focus)) {
@@ -5843,7 +5856,7 @@ void appkit_view_apply_surface_craft(void *view_ptr, const char *json) {
                 layer.shadowColor = ap_surface_color(color).CGColor;
                 layer.shadowOpacity = 1.0;
                 layer.shadowRadius = [shadow[@"blur"] doubleValue];
-                layer.shadowOffset = CGSizeMake([shadow[@"x"] doubleValue], [shadow[@"y"] doubleValue]);
+                layer.shadowOffset = ap_surface_css_shadow_offset(view, shadow);
                 [root insertSublayer:layer atIndex:0];
             }
         }
@@ -5869,7 +5882,7 @@ void appkit_view_apply_surface_craft(void *view_ptr, const char *json) {
                 layer.shadowColor = ap_surface_color(color).CGColor;
                 layer.shadowOpacity = 0.55;
                 layer.shadowRadius = [shadow[@"blur"] doubleValue];
-                layer.shadowOffset = CGSizeMake([shadow[@"x"] doubleValue], [shadow[@"y"] doubleValue]);
+                layer.shadowOffset = ap_surface_css_shadow_offset(view, shadow);
                 ap_surface_round_to_root(layer, root);
                 [root addSublayer:layer];
             }

@@ -66,6 +66,18 @@ require "../../src/ui"
       largest_margin_alpha : UInt8*,
       masks_to_bounds : Int32*,
     ) : Int32
+    fun ap_spec_composite_window_hosted_vertical_edges(
+      view : Void*,
+      point_width : Float64,
+      point_height : Float64,
+      margin : Float64,
+      inside_depth : Float64,
+      dark : Int32,
+      largest_alpha_above : UInt8*,
+      largest_alpha_below : UInt8*,
+      top_inside_rgba : UInt8*,
+      bottom_inside_rgba : UInt8*,
+    ) : Int32
     fun ap_spec_view_clips_to_bounds(view : Void*) : Int32
     fun ap_spec_surface_path_size_after_layout(
       view : Void*,
@@ -211,6 +223,43 @@ require "../../src/ui"
       native.teardown!
     end
     WindowHostedComposite.new(center_rgba, corner_rgba.each_slice(4).to_a, largest_margin_alpha, masks_to_bounds == 1)
+  end
+
+  # Where a window-hosted surface's shadows landed vertically.
+  private record VerticalShadowComposite,
+    largest_alpha_above : UInt8,
+    largest_alpha_below : UInt8,
+    top_inside_rgba : Array(UInt8),
+    bottom_inside_rgba : Array(UInt8)
+
+  # Renders *surface* with the AppKit renderer, hosts it in a borderless
+  # NSWindow, composites it with Core Animation's renderer, and reports the
+  # strongest shadow straight above and below it plus the face pixels
+  # *inside_depth* points inside its top and bottom edges.
+  private def composite_vertical_shadow_edges(surface : UI::View, dark_appearance : Bool, inside_depth : Float64 = 4.0) : VerticalShadowComposite
+    native = UI::AppKit::Renderer.new.render(surface)
+    largest_alpha_above = 0_u8
+    largest_alpha_below = 0_u8
+    top_inside_rgba = Array(UInt8).new(4, 0_u8)
+    bottom_inside_rgba = Array(UInt8).new(4, 0_u8)
+    begin
+      result = UI::ObjC.autoreleasepool do
+        PreviewStateCaptureTestBridge.ap_spec_composite_window_hosted_vertical_edges(
+          native.handle.ptr!, 160.0, 64.0, 24.0, inside_depth, dark_appearance ? 1 : 0,
+          pointerof(largest_alpha_above), pointerof(largest_alpha_below),
+          top_inside_rgba.to_unsafe, bottom_inside_rgba.to_unsafe,
+        )
+      end
+      result.should eq(1)
+    ensure
+      native.teardown!
+    end
+    VerticalShadowComposite.new(largest_alpha_above, largest_alpha_below, top_inside_rgba, bottom_inside_rgba)
+  end
+
+  # Sum of the RGB channels, a coarse brightness for comparing two face pixels.
+  private def surface_craft_channel_sum(rgba : Array(UInt8)) : Int32
+    rgba[0].to_i + rgba[1].to_i + rgba[2].to_i
   end
 
   # A shadowed panel that also carries a gradient, a Noise texture, and an
@@ -523,6 +572,33 @@ require "../../src/ui"
         layered.center_rgba.should_not eq(plain.center_rgba), report
         # Unclipped, the square gradient and texture layers paint the corners.
         layered.list_of_corner_rgba.should eq(plain.list_of_corner_rgba), report
+      end
+    end
+
+    {
+      {"dark", true, UI::Color.new(r: 43.0 / 255.0, g: 50.0 / 255.0, b: 69.0 / 255.0)},
+      {"light", false, UI::Color.new(r: 251.0 / 255.0, g: 248.0 / 255.0, b: 242.0 / 255.0)},
+    }.each do |appearance_name, dark_appearance, fill|
+      it "casts a positive-y drop shadow below the panel, as CSS does (#{appearance_name})" do
+        # A CSS box-shadow's y offset grows downward. An unflipped AppKit
+        # layer reads a positive shadowOffset height as up, so copying the CSS
+        # offset unchanged cast every kit shadow above its face.
+        composite = composite_vertical_shadow_edges(surface_craft_shadowed_panel(fill, with_drop_shadows: true), dark_appearance)
+        report = composite.to_s
+        composite.largest_alpha_below.should be > 32, report
+        composite.largest_alpha_below.should be > composite.largest_alpha_above, report
+      end
+
+      it "shades a positive-y inner shadow along the panel's top edge, as CSS does (#{appearance_name})" do
+        # CSS `inset 0 3px 2px` shades the inside of the top edge and leaves
+        # the bottom edge clear.
+        surface = surface_craft_shadowed_panel(fill, with_drop_shadows: false)
+        surface.list_of_inner_shadows = [
+          UI::InnerShadow.new(shadow_color: UI::Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.6), offset_y: 3.0, blur_radius: 2.0),
+        ]
+        composite = composite_vertical_shadow_edges(surface, dark_appearance, inside_depth: 5.0)
+        report = composite.to_s
+        surface_craft_channel_sum(composite.top_inside_rgba).should be < surface_craft_channel_sum(composite.bottom_inside_rgba), report
       end
     end
 

@@ -700,6 +700,18 @@ static uint8_t *ap_spec_composite_layer_rgba(CALayer *layer, NSUInteger pixel_wi
             pixels[offset] = pixels[offset + 2];
             pixels[offset + 2] = blue;
         }
+        // Core Animation renders the unflipped layer tree with its origin at
+        // the bottom left, so the texture's first row is the bottom of the
+        // picture. Reverse the rows so row 0 is the top, as a window shows it.
+        uint8_t *row_buffer = malloc(bytes_per_row);
+        if (row_buffer != NULL) {
+            for (NSUInteger top_row = 0, bottom_row = pixel_height - 1; top_row < bottom_row; top_row++, bottom_row--) {
+                memcpy(row_buffer, pixels + top_row * bytes_per_row, bytes_per_row);
+                memcpy(pixels + top_row * bytes_per_row, pixels + bottom_row * bytes_per_row, bytes_per_row);
+                memcpy(pixels + bottom_row * bytes_per_row, row_buffer, bytes_per_row);
+            }
+            free(row_buffer);
+        }
     }
     [texture release];
     [queue release];
@@ -786,6 +798,79 @@ int32_t ap_spec_composite_view_with_shadows(
 // the content view's layer tree with Core Animation's renderer, which draws
 // layer shadows as the window server does.
 //
+// Returns a calloc'd RGBA buffer (rows top down) of *pixel_width* x
+// *pixel_height* the caller frees, or NULL when Metal or the renderer is
+// unavailable. Writes whether AppKit left the view's layer clipping its
+// sublayers into *masks_to_bounds* when it is not NULL.
+static uint8_t *ap_spec_composite_window_hosted_pixels(
+    NSView *view,
+    double point_width,
+    double point_height,
+    double margin,
+    int32_t dark,
+    NSUInteger pixel_width,
+    NSUInteger pixel_height,
+    int32_t *masks_to_bounds) {
+    NSApplication *application = [NSApplication sharedApplication];
+    [application setActivationPolicy:NSApplicationActivationPolicyAccessory];
+
+    APSpecOffscreenCaptureWindow *window = [[APSpecOffscreenCaptureWindow alloc]
+        initWithContentRect:NSMakeRect(-30000, -30000, pixel_width, pixel_height)
+                  styleMask:NSWindowStyleMaskBorderless
+                    backing:NSBackingStoreBuffered
+                      defer:NO];
+    [window setReleasedWhenClosed:NO];
+    window.appearance = [NSAppearance appearanceNamed:(dark != 0 ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua)];
+    window.opaque = NO;
+    window.backgroundColor = NSColor.clearColor;
+
+    NSView *content = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, pixel_width, pixel_height)];
+    content.wantsLayer = YES;
+    window.contentView = content;
+    [content release];
+
+    view.translatesAutoresizingMaskIntoConstraints = NO;
+    [content addSubview:view];
+    [NSLayoutConstraint activateConstraints:@[
+        [view.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:margin],
+        [view.topAnchor constraintEqualToAnchor:content.topAnchor constant:margin],
+        [view.widthAnchor constraintEqualToConstant:point_width],
+        [view.heightAnchor constraintEqualToConstant:point_height],
+    ]];
+    for (int pass = 0; pass < 4; pass++) {
+        [content layoutSubtreeIfNeeded];
+        [window displayIfNeeded];
+        [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode
+                              beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.02]];
+    }
+    [CATransaction flush];
+    if (masks_to_bounds != NULL) *masks_to_bounds = view.layer.masksToBounds ? 1 : 0;
+
+    // Composite the content view's layer as the window hosts it: detach it
+    // from the frame view's layer for the render only, then put it back.
+    CALayer *content_layer = content.layer;
+    CALayer *frame_layer = content_layer.superlayer;
+    NSUInteger content_index = frame_layer != nil ? [frame_layer.sublayers indexOfObject:content_layer] : NSNotFound;
+    CGRect content_frame = content_layer.frame;
+    [content_layer retain];
+    [content_layer removeFromSuperlayer];
+    content_layer.frame = CGRectMake(0, 0, pixel_width, pixel_height);
+    uint8_t *pixels = ap_spec_composite_layer_rgba(content_layer, pixel_width, pixel_height);
+    content_layer.frame = content_frame;
+    if (frame_layer != nil && content_index != NSNotFound) {
+        [frame_layer insertSublayer:content_layer atIndex:(unsigned)content_index];
+    }
+    [content_layer release];
+
+    [view removeFromSuperview];
+    [window close];
+    [window release];
+    return pixels;
+}
+
+// Composites *view* hosted in a window (see
+// ap_spec_composite_window_hosted_pixels).
+//
 // Writes the center pixel of the view into *center_rgba*, the four corner
 // pixels of the view's box (16 bytes) into *corner_rgba*, the largest alpha
 // outside the box into *largest_margin_alpha*, and whether AppKit left the
@@ -805,63 +890,11 @@ int32_t ap_spec_composite_window_hosted_view(
         largest_margin_alpha == NULL || masks_to_bounds == NULL) return 0;
     if (point_width < 1.0 || point_height < 1.0 || margin < 1.0) return 0;
     @autoreleasepool {
-        NSApplication *application = [NSApplication sharedApplication];
-        [application setActivationPolicy:NSApplicationActivationPolicyAccessory];
-
         NSUInteger pixel_width = (NSUInteger)ceil(point_width + margin * 2.0);
         NSUInteger pixel_height = (NSUInteger)ceil(point_height + margin * 2.0);
-        APSpecOffscreenCaptureWindow *window = [[APSpecOffscreenCaptureWindow alloc]
-            initWithContentRect:NSMakeRect(-30000, -30000, pixel_width, pixel_height)
-                      styleMask:NSWindowStyleMaskBorderless
-                        backing:NSBackingStoreBuffered
-                          defer:NO];
-        [window setReleasedWhenClosed:NO];
-        window.appearance = [NSAppearance appearanceNamed:(dark != 0 ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua)];
-        window.opaque = NO;
-        window.backgroundColor = NSColor.clearColor;
-
-        NSView *content = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, pixel_width, pixel_height)];
-        content.wantsLayer = YES;
-        window.contentView = content;
-        [content release];
-
-        NSView *view = (NSView *)view_ptr;
-        view.translatesAutoresizingMaskIntoConstraints = NO;
-        [content addSubview:view];
-        [NSLayoutConstraint activateConstraints:@[
-            [view.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:margin],
-            [view.topAnchor constraintEqualToAnchor:content.topAnchor constant:margin],
-            [view.widthAnchor constraintEqualToConstant:point_width],
-            [view.heightAnchor constraintEqualToConstant:point_height],
-        ]];
-        for (int pass = 0; pass < 4; pass++) {
-            [content layoutSubtreeIfNeeded];
-            [window displayIfNeeded];
-            [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode
-                                  beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.02]];
-        }
-        [CATransaction flush];
-        *masks_to_bounds = view.layer.masksToBounds ? 1 : 0;
-
-        // Composite the content view's layer as the window hosts it: detach it
-        // from the frame view's layer for the render only, then put it back.
-        CALayer *content_layer = content.layer;
-        CALayer *frame_layer = content_layer.superlayer;
-        NSUInteger content_index = frame_layer != nil ? [frame_layer.sublayers indexOfObject:content_layer] : NSNotFound;
-        CGRect content_frame = content_layer.frame;
-        [content_layer retain];
-        [content_layer removeFromSuperlayer];
-        content_layer.frame = CGRectMake(0, 0, pixel_width, pixel_height);
-        uint8_t *pixels = ap_spec_composite_layer_rgba(content_layer, pixel_width, pixel_height);
-        content_layer.frame = content_frame;
-        if (frame_layer != nil && content_index != NSNotFound) {
-            [frame_layer insertSublayer:content_layer atIndex:(unsigned)content_index];
-        }
-        [content_layer release];
-
-        [view removeFromSuperview];
-        [window close];
-        [window release];
+        uint8_t *pixels = ap_spec_composite_window_hosted_pixels(
+            (NSView *)view_ptr, point_width, point_height, margin, dark,
+            pixel_width, pixel_height, masks_to_bounds);
         if (pixels == NULL) return 0;
 
         NSUInteger left = (NSUInteger)floor(margin);
@@ -876,6 +909,62 @@ int32_t ap_spec_composite_window_hosted_view(
         ap_spec_copy_rgba(pixels, pixel_width, right, bottom, corner_rgba + 12);
         *largest_margin_alpha = ap_spec_largest_alpha_outside(
             pixels, pixel_width, pixel_height, margin, point_width, point_height);
+        free(pixels);
+        return 1;
+    }
+}
+
+// Composites *view* hosted in a window (see
+// ap_spec_composite_window_hosted_pixels) and reports where its shadows
+// landed vertically: the largest alpha in the margin straight above the box
+// and straight below it (the columns the box spans), and the pixels just
+// inside the box's top and bottom edges at *inside_depth* points in, on the
+// center column. Returns 0 when Metal or the renderer is unavailable.
+int32_t ap_spec_composite_window_hosted_vertical_edges(
+    void *view_ptr,
+    double point_width,
+    double point_height,
+    double margin,
+    double inside_depth,
+    int32_t dark,
+    uint8_t *largest_alpha_above,
+    uint8_t *largest_alpha_below,
+    uint8_t *top_inside_rgba,
+    uint8_t *bottom_inside_rgba) {
+    if (view_ptr == NULL || largest_alpha_above == NULL || largest_alpha_below == NULL ||
+        top_inside_rgba == NULL || bottom_inside_rgba == NULL) return 0;
+    if (point_width < 1.0 || point_height < 1.0 || margin < 1.0) return 0;
+    if (inside_depth < 0.0 || inside_depth * 2.0 >= point_height) return 0;
+    @autoreleasepool {
+        NSUInteger pixel_width = (NSUInteger)ceil(point_width + margin * 2.0);
+        NSUInteger pixel_height = (NSUInteger)ceil(point_height + margin * 2.0);
+        uint8_t *pixels = ap_spec_composite_window_hosted_pixels(
+            (NSView *)view_ptr, point_width, point_height, margin, dark,
+            pixel_width, pixel_height, NULL);
+        if (pixels == NULL) return 0;
+
+        NSUInteger box_left = (NSUInteger)floor(margin);
+        NSUInteger box_right = (NSUInteger)ceil(margin + point_width);
+        NSUInteger box_top = (NSUInteger)floor(margin);
+        NSUInteger box_bottom = (NSUInteger)ceil(margin + point_height);
+        uint8_t above = 0;
+        uint8_t below = 0;
+        for (NSUInteger x = box_left; x < box_right; x++) {
+            for (NSUInteger y = 0; y < box_top; y++) {
+                uint8_t alpha = pixels[(y * pixel_width + x) * 4 + 3];
+                if (alpha > above) above = alpha;
+            }
+            for (NSUInteger y = box_bottom; y < pixel_height; y++) {
+                uint8_t alpha = pixels[(y * pixel_width + x) * 4 + 3];
+                if (alpha > below) below = alpha;
+            }
+        }
+        *largest_alpha_above = above;
+        *largest_alpha_below = below;
+        NSUInteger center_x = (NSUInteger)(margin + point_width / 2.0);
+        ap_spec_copy_rgba(pixels, pixel_width, center_x, (NSUInteger)floor(margin + inside_depth), top_inside_rgba);
+        ap_spec_copy_rgba(pixels, pixel_width, center_x,
+            (NSUInteger)ceil(margin + point_height - inside_depth) - 1, bottom_inside_rgba);
         free(pixels);
         return 1;
     }
