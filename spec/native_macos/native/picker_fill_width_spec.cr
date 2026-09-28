@@ -11,7 +11,7 @@ require "../../../src/ui"
   end
 
   private def measured_picker_width(is_fill_horizontal : Bool, column_width : Float64) : Float64
-    picker = UI::Picker.new(["Claude Code", "Codex"], 0)
+    picker = UI::Picker.new(["Local agent", "Cloud"], 0)
     picker.style = UI::PickerStyle::Menu
     picker.fill_horizontal = is_fill_horizontal
     column = UI::VStack.new(0.0, UI::Alignment::Fill)
