@@ -5716,6 +5716,13 @@ void appkit_view_apply_surface_craft(void *view_ptr, const char *json) {
                 layer.name = [NSString stringWithFormat:@"ap.surfaceCraft.drop.%lu", (unsigned long)shadow_index++];
                 layer.frame = root.bounds;
                 layer.autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
+                // A CSS box-shadow is never painted under its own box. This
+                // sublayer sits above the root's background, so it carries the
+                // root's face as its body: the body covers the shadow's inside
+                // and only the part outside the box shows. Without the body,
+                // an on-screen panel darkens by the shadow's alpha.
+                layer.backgroundColor = root.backgroundColor;
+                layer.cornerRadius = root.cornerRadius;
                 CGPathRef shadow_path = CGPathCreateWithRoundedRect(root.bounds, root.cornerRadius, root.cornerRadius, NULL);
                 layer.shadowPath = shadow_path;
                 CGPathRelease(shadow_path);
