@@ -292,6 +292,7 @@ class UI::Label < UI::View
   property trailing_link_text : String? = nil
   property on_trailing_link_tap : Proc(Nil)? = nil
   property trailing_link_url : String? = nil
+  property trailing_link_color : Color? = nil
 
   def initialize(@text : String)
 end
@@ -307,9 +308,10 @@ end
 | `selectable` | `Bool` | `false` | Allows people to select and copy the read-only text on supported platforms |
 | `tracking` | `Float64` | `0.0` | Letter tracking in points after every character (SwiftUI `.tracking`, CSS `letter-spacing` px, Android `setLetterSpacing` em). Convert em with `font.size * em` |
 | `line_height` | `Float64?` | `nil` | Points from one wrapped line to the next (SwiftUI line spacing above the natural height, CSS `line-height` px). `nil` keeps the natural pitch |
-| `trailing_link_text` | `String?` | `nil` | Link text drawn inline after `text`, underlined in the accent color, wrapping with the paragraph. VoiceOver reads it as a link |
+| `trailing_link_text` | `String?` | `nil` | Link text drawn inline after `text`, underlined in `trailing_link_color`, wrapping with the paragraph. VoiceOver reads it as a link |
 | `on_trailing_link_tap` | `Proc(Nil)?` | `nil` | Runs when the trailing link is clicked (macOS / iOS); wins over `trailing_link_url` |
 | `trailing_link_url` | `String?` | `nil` | Opened by the system when no handler is set; the web `href` (without it the web draws an underlined span) |
+| `trailing_link_color` | `Color?` | `nil` | Ink of the link and its underline; `nil` = the label's own ink, never the accent color |
 
 **Example:**
 ```crystal

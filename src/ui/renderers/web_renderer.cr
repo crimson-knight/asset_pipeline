@@ -211,6 +211,14 @@ module UI
                    Components::Elements::Span.new
                  end
           link.add_style("text-decoration: underline")
+          # The link keeps the paragraph's ink unless it has its own color,
+          # instead of the browser's default link blue.
+          link_color = if trailing_link_color = view.trailing_link_color
+                         color_css(trailing_link_color)
+                       else
+                         "inherit"
+                       end
+          link.add_style("color: #{link_color}")
           link << link_text
           el << link
         end

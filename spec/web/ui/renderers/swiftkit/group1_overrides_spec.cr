@@ -65,6 +65,20 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       # trailing_link_text default nil → no link setters
       FakeLibObjCBridge.refute_sent(:setTrailingLinkText)
       FakeLibObjCBridge.refute_sent(:setTrailingLinkUrl)
+      FakeLibObjCBridge.refute_sent(:setTrailingLinkColor)
+    end
+
+    it "emits setTrailingLinkColor only when the link has its own color" do
+      view = UI::Label.new("Choose where results are saved.")
+      view.trailing_link_text = "How saving works"
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setTrailingLinkColor)
+
+      view.trailing_link_color = UI::Color.new(r: 0.2, g: 0.4, b: 0.6)
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setTrailingLinkColor, times: 1)
     end
 
     it "emits setTrailingLinkText, and setTrailingLinkUrl only with a URL" do

@@ -60,4 +60,22 @@ describe "UI::Label trailing link on the web" do
     html.should_not contain("<a")
     html.should contain(">How saving works</span>")
   end
+
+  it "keeps the paragraph's ink on the link instead of the browser's link blue" do
+    label = UI::Label.new("Choose where results are saved.")
+    label.trailing_link_text = "How saving works"
+    label.trailing_link_url = "https://example.com/saving"
+
+    render_tracking_label(label).should contain("color: inherit")
+  end
+
+  it "draws the link in its own color when one is set" do
+    label = UI::Label.new("Choose where results are saved.")
+    label.trailing_link_text = "How saving works"
+    label.trailing_link_color = UI::Color.new(r: 0.2, g: 0.4, b: 0.6)
+
+    html = render_tracking_label(label)
+    html.should contain("color: rgba(51, 102, 153, 1.0)")
+    html.should_not contain("color: inherit")
+  end
 end

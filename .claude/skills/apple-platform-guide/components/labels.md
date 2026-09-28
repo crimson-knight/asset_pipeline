@@ -111,9 +111,10 @@ automatically.
 | `selectable` | `Bool` | `false` | Allows people to select and copy the read-only text on supported platforms. It never makes the label editable. |
 | `tracking` | `Float64` | `0.0` | Letter tracking in points, added after every character (SwiftUI `.tracking(_:)`, the same unit as `NSAttributedString.Key.kern`). `0.0` keeps the font's own spacing. Convert an em value with `label.font.size * em`. Negative values tighten. |
 | `line_height` | `Float64?` | `nil` | Distance in points from the top of one wrapped line to the top of the next. `nil` keeps the font's natural pitch. On Apple platforms a value at or below the natural line height has no effect, because SwiftUI can only add line spacing. |
-| `trailing_link_text` | `String?` | `nil` | Link text drawn inline after `text` in the same SwiftUI `Text`, underlined in the accent color, so a paragraph can end in a link that wraps with it. VoiceOver reads it as an `AXLink` inside the paragraph. |
+| `trailing_link_text` | `String?` | `nil` | Link text drawn inline after `text` in the same SwiftUI `Text`, underlined in `trailing_link_color`, so a paragraph can end in a link that wraps with it. VoiceOver reads it as an `AXLink` inside the paragraph. |
 | `on_trailing_link_tap` | `Proc(Nil)?` | `nil` | Runs when the trailing link is clicked. Takes precedence over `trailing_link_url`. |
 | `trailing_link_url` | `String?` | `nil` | Opened by the system when no handler is set, and the web `href`. |
+| `trailing_link_color` | `Color?` | `nil` | Ink of the link text and underline. `nil` draws it in the label's own ink (`text_color` or the `text_color_role` color), never the accent color. |
 | `accessibility_label` | `String?` | `nil` (inherits `text`) | VoiceOver label override. Inherited from `UI::View`. Set when the visible text is a glyph, abbreviation, or visual-only decoration. |
 
 Set `selectable = true` for useful values such as paths, addresses, and

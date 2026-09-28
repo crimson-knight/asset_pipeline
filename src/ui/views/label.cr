@@ -136,9 +136,9 @@ module UI
     # (Android).
     property tracking : Float64 = 0.0
 
-    # Link text drawn inline right after `text`, underlined in the accent
-    # color, so a paragraph can end in a link that wraps with it. `nil` (the
-    # default) draws no link.
+    # Link text drawn inline right after `text`, underlined in
+    # `trailing_link_color`, so a paragraph can end in a link that wraps with
+    # it. `nil` (the default) draws no link.
     #
     # ```
     # helper = UI::Label.new("Choose where results are saved.")
@@ -158,6 +158,12 @@ module UI
     # Destination the trailing link opens when no `on_trailing_link_tap` is
     # set (the system opens it on macOS and iOS), and the `href` on the web.
     property trailing_link_url : String? = nil
+
+    # Ink of the trailing link text and its underline. `nil` (the default)
+    # draws the link in the label's own ink (`text_color`, or the
+    # `text_color_role` color), never the platform accent color, so a helper
+    # paragraph's link reads as part of the paragraph.
+    property trailing_link_color : Color? = nil
 
     def initialize(@text : String)
     end

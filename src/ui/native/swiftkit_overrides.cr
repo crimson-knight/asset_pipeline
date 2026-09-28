@@ -423,6 +423,7 @@ module UI
           if link_url = view.trailing_link_url
             sender.set_string(target, :setTrailingLinkUrl, link_url)
           end
+          sender.set_color(target, :setTrailingLinkColor, view.trailing_link_color)
         end
 
         # fill_horizontal: the renderer pins the label's hosting view to fill the

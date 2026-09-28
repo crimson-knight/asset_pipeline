@@ -90,6 +90,35 @@ private struct APSKLabelHost: View {
         return Text(attributed)
     }
 
+    // The trailing link's ink: its own color, else the label's ink.
+    private var trailingLinkInk: Color {
+        if let linkColor = overrides.trailingLinkColor {
+            return Self.swiftColor(linkColor)
+        }
+        if let labelInk = overrides.foregroundColor {
+            return Self.swiftColor(labelInk)
+        }
+        switch overrides.labelRole {
+        case "secondary": return .secondary
+        #if os(macOS)
+        case "tertiary": return Color(nsColor: .tertiaryLabelColor)
+        case "quaternary": return Color(nsColor: .quaternaryLabelColor)
+        #elseif canImport(UIKit) && !os(watchOS)
+        case "tertiary": return Color(uiColor: .tertiaryLabel)
+        case "quaternary": return Color(uiColor: .quaternaryLabel)
+        #endif
+        default: return .primary
+        }
+    }
+
+    private static func swiftColor(_ color: APSKPlatformColor) -> Color {
+        #if canImport(UIKit)
+        return Color(uiColor: color)
+        #else
+        return Color(nsColor: color)
+        #endif
+    }
+
     var body: some View {
         var content: AnyView = AnyView(labelText)
 
@@ -241,6 +270,9 @@ private struct APSKLabelHost: View {
             content = AnyView(content.textSelection(.enabled))
         }
         if overrides.trailingLinkText != nil {
+            // SwiftUI draws a Text link run in the environment tint, not the
+            // Text's foreground style, so tint the Text with the link's ink.
+            content = AnyView(content.tint(trailingLinkInk))
             let linkToken = overrides.trailingLinkToken?.uint64Value ?? 0
             content = AnyView(content.environment(\.openURL, OpenURLAction { url in
                 if linkToken != 0 {
