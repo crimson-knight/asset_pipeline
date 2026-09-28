@@ -22,6 +22,120 @@ enum SurfaceCraftModifiers {
         dictionary(from: spec)["fill"] is String
     }
 
+    /// True when *spec* paints a face of its own: a fill or a gradient.
+    static func hasSurfaceFace(_ spec: String?) -> Bool {
+        let values = dictionary(from: spec)
+        return values["fill"] is String || linearGradient(from: values) != nil
+    }
+
+    /// The part of *spec* that is not a face: its interaction feedback and
+    /// preview state. nil when nothing but the face was set.
+    static func specWithoutFace(_ spec: String?) -> String? {
+        let values = dictionary(from: spec)
+        var remaining: [String: Any] = [:]
+        for key in ["feedback", "previewState"] {
+            if let value = values[key] { remaining[key] = value }
+        }
+        guard !remaining.isEmpty,
+              let data = try? JSONSerialization.data(withJSONObject: remaining) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// Draws the face *spec* describes as one view, for a control whose face
+    /// changes with its interaction phase: *baseColor* first, then the fill
+    /// and the gradient above it, the texture, and the inner shadows, all
+    /// clipped to the rounded rectangle, with the drop shadows cast by that
+    /// shape. A control places it behind its label with `.background`.
+    static func face(spec: String?, baseColor: Color?, cornerRadius: CGFloat) -> AnyView {
+        let values = dictionary(from: spec)
+        let shape = RoundedRectangle(cornerRadius: cornerRadius)
+        var face = AnyView(ZStack {
+            if let baseColor { baseColor }
+            if let fill = values["fill"] as? String { color(from: fill) }
+            if let gradient = linearGradient(from: values) { gradient }
+        })
+        if let texture = values["texture"] as? [String: Any],
+           let kind = texture["kind"] as? String,
+           let opacity = (texture["opacity"] as? NSNumber)?.doubleValue {
+            if kind == "noise" {
+                let baseFrequency = (texture["baseFrequency"] as? NSNumber)?.doubleValue ?? 0.72
+                let octaveCount = (texture["octaveCount"] as? NSNumber)?.int32Value ?? 3
+                let seed = (texture["seed"] as? NSNumber)?.int32Value ?? 4
+                let tileSize = (texture["tileSize"] as? NSNumber)?.int32Value ?? 160
+                if baseFrequency.isFinite, (0.0...16.0).contains(baseFrequency),
+                   (1...8).contains(octaveCount), (1...1024).contains(tileSize) {
+                    face = AnyView(face.overlay {
+                        SurfaceCraftNoiseTextureOverlay(
+                            baseFrequency: baseFrequency, octaveCount: octaveCount, seed: seed,
+                            tileSize: tileSize, opacity: opacity, shape: shape
+                        )
+                    })
+                }
+            } else if let image = textureImage(kind: kind) {
+                face = AnyView(face.overlay {
+                    Image(decorative: image, scale: 1)
+                        .resizable(resizingMode: .tile)
+                        .opacity(opacity)
+                        .allowsHitTesting(false)
+                })
+            }
+        }
+        if let shadows = values["innerShadows"] as? [[String: Any]], !shadows.isEmpty {
+            face = AnyView(face.overlay { innerShadowOverlay(shadows, shape: shape) })
+        }
+        face = AnyView(face.clipShape(shape))
+        if let shadows = values["dropShadows"] as? [[String: Any]] {
+            for shadow in shadows {
+                guard let value = shadow["color"] as? String else { continue }
+                face = AnyView(face.shadow(
+                    color: color(from: value),
+                    radius: CGFloat(shadow["blur"] as? Double ?? 0),
+                    x: CGFloat(shadow["x"] as? Double ?? 0),
+                    y: CGFloat(shadow["y"] as? Double ?? 0)
+                ))
+            }
+        }
+        return face
+    }
+
+    private static func linearGradient(from values: [String: Any]) -> LinearGradient? {
+        guard let gradient = values["gradient"] as? [String: Any],
+              let stops = gradient["stops"] as? [[String: Any]], stops.count >= 2 else { return nil }
+        let colors = stops.compactMap { stop -> Gradient.Stop? in
+            guard let value = stop["color"] as? String,
+                  let position = stop["position"] as? Double else { return nil }
+            return Gradient.Stop(color: color(from: value), location: position)
+        }
+        guard colors.count >= 2 else { return nil }
+        let angle = (gradient["angle"] as? Double ?? 0) * .pi / 180
+        let dx = sin(angle)
+        let dy = -cos(angle)
+        return LinearGradient(
+            gradient: Gradient(stops: colors),
+            startPoint: UnitPoint(x: 0.5 - dx / 2, y: 0.5 - dy / 2),
+            endPoint: UnitPoint(x: 0.5 + dx / 2, y: 0.5 + dy / 2)
+        )
+    }
+
+    private static func innerShadowOverlay(_ shadows: [[String: Any]], shape: RoundedRectangle) -> some View {
+        ZStack {
+            ForEach(shadows.indices, id: \.self) { index in
+                let shadow = shadows[index]
+                if let value = shadow["color"] as? String {
+                    shape
+                        .stroke(color(from: value), lineWidth: max(1, CGFloat((shadow["blur"] as? Double ?? 0) * 2)))
+                        .blur(radius: CGFloat(shadow["blur"] as? Double ?? 0))
+                        .offset(
+                            x: CGFloat(shadow["x"] as? Double ?? 0),
+                            y: CGFloat(shadow["y"] as? Double ?? 0)
+                        )
+                }
+            }
+        }
+        .mask(shape)
+        .allowsHitTesting(false)
+    }
+
     static func apply(
         _ view: AnyView,
         spec: String?,
@@ -36,30 +150,14 @@ enum SurfaceCraftModifiers {
 
         let fill = values["fill"] as? String
         var didApplyGradient = false
-        if let gradient = values["gradient"] as? [String: Any],
-           let stops = gradient["stops"] as? [[String: Any]], stops.count >= 2 {
-            let colors = stops.compactMap { stop -> Gradient.Stop? in
-                guard let value = stop["color"] as? String,
-                      let position = stop["position"] as? Double else { return nil }
-                return Gradient.Stop(color: color(from: value), location: position)
-            }
-            if colors.count >= 2 {
-                let angle = (gradient["angle"] as? Double ?? 0) * .pi / 180
-                let dx = sin(angle)
-                let dy = -cos(angle)
-                let start = UnitPoint(x: 0.5 - dx / 2, y: 0.5 - dy / 2)
-                let end = UnitPoint(x: 0.5 + dx / 2, y: 0.5 + dy / 2)
-                let linearGradient = LinearGradient(
-                    gradient: Gradient(stops: colors), startPoint: start, endPoint: end
-                )
-                current = AnyView(current.background {
-                    ZStack {
-                        if let fill { color(from: fill) }
-                        linearGradient
-                    }
-                })
-                didApplyGradient = true
-            }
+        if let linearGradient = linearGradient(from: values) {
+            current = AnyView(current.background {
+                ZStack {
+                    if let fill { color(from: fill) }
+                    linearGradient
+                }
+            })
+            didApplyGradient = true
         }
         if !didApplyGradient, let fill {
             current = AnyView(current.background(color(from: fill)))
@@ -108,24 +206,7 @@ enum SurfaceCraftModifiers {
             }
         }
         if let shadows = values["innerShadows"] as? [[String: Any]], !shadows.isEmpty {
-            current = AnyView(current.overlay {
-                ZStack {
-                    ForEach(shadows.indices, id: \.self) { index in
-                        let shadow = shadows[index]
-                        if let value = shadow["color"] as? String {
-                            shape
-                                .stroke(color(from: value), lineWidth: max(1, CGFloat((shadow["blur"] as? Double ?? 0) * 2)))
-                                .blur(radius: CGFloat(shadow["blur"] as? Double ?? 0))
-                                .offset(
-                                    x: CGFloat(shadow["x"] as? Double ?? 0),
-                                    y: CGFloat(shadow["y"] as? Double ?? 0)
-                                )
-                        }
-                    }
-                }
-                .mask(shape)
-                .allowsHitTesting(false)
-            })
+            current = AnyView(current.overlay { innerShadowOverlay(shadows, shape: shape) })
         }
 
         if let style = keycapStyle {
@@ -166,7 +247,7 @@ enum SurfaceCraftModifiers {
         }
     }
 
-    private static func dictionary(from value: String?) -> [String: Any] {
+    static func dictionary(from value: String?) -> [String: Any] {
         guard let value, let data = value.data(using: .utf8),
               let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return [:]
@@ -378,6 +459,10 @@ private struct SurfaceCraftNoiseTextureOverlay: View {
 #if !os(macOS)
 enum SurfaceCraftModifiers {
     static func hasSurfaceFill(_ spec: String?) -> Bool {
+        false
+    }
+
+    static func hasSurfaceFace(_ spec: String?) -> Bool {
         false
     }
 

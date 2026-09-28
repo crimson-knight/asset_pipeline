@@ -79,8 +79,12 @@ describe UI::Native::Populator, "#populate_button" do
       FakeLibObjCBridge.refute_sent(:setFontSize)
       FakeLibObjCBridge.refute_sent(:setFontWeight)
       FakeLibObjCBridge.refute_sent(:setFontFamily)
-      # fill_horizontal default false → no fill frame.
+      # fill_horizontal default false → no fill frame and no label placement.
       FakeLibObjCBridge.refute_sent(:setFillHorizontal)
+      FakeLibObjCBridge.refute_sent(:setTextAlignment)
+      # No hovered or pressed face.
+      FakeLibObjCBridge.refute_sent(:setApskHoveredSurfaceCraftSpec)
+      FakeLibObjCBridge.refute_sent(:setApskPressedSurfaceCraftSpec)
       # foreground_color default (system blue) → not seeded; keep system label.
       FakeLibObjCBridge.refute_sent(:setForegroundColor)
     end
@@ -109,6 +113,31 @@ describe UI::Native::Populator, "#populate_button" do
       target = FakeLibObjCBridge.next_sentinel_pointer
       UI::Native::Populator.populate_button(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setFillHorizontal, times: 1, args: [target, "true"])
+      # The filled label is placed by text_alignment, Center by default.
+      FakeLibObjCBridge.assert_sent(:setTextAlignment, times: 1, args: [target, "center"])
+    end
+
+    it "sends a filled button's leading text_alignment" do
+      view = UI::Button.new("I always procrastinate")
+      view.fill_horizontal = true
+      view.text_alignment = UI::Alignment::Leading
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setTextAlignment, times: 1, args: [target, "leading"])
+    end
+
+    it "emits the hovered and pressed faces as surface-craft JSON" do
+      view = UI::Button.new("Save")
+      view.hovered_surface_style = UI::SurfaceStyle.new(background_fill_color: UI::Color.new(r: 1.0, g: 0.0, b: 0.0))
+      view.pressed_surface_style = UI::SurfaceStyle.new(
+        list_of_inner_shadows: [UI::InnerShadow.new(shadow_color: UI::Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.2), offset_y: 1.0, blur_radius: 2.0)],
+      )
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_button(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setApskHoveredSurfaceCraftSpec, times: 1,
+        args: [target, %({"fill":"rgba(255.0,0.0,0.0,1.0)"})])
+      FakeLibObjCBridge.assert_sent(:setApskPressedSurfaceCraftSpec, times: 1,
+        args: [target, %({"innerShadows":[{"color":"rgba(0.0,0.0,0.0,0.2)","x":0.0,"y":1.0,"blur":2.0}]})])
     end
   end
 

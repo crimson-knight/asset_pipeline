@@ -125,13 +125,46 @@ private struct APSKButtonHost: View {
         // by framing the whole Button afterward — makes the Button itself
         // full-width BEFORE its background/clip are applied, so a sage CTA's
         // background fills the row instead of hugging the label. fill_horizontal
-        // leading-aligns its label; prominent centers.
+        // places its label by textAlignment (leading when none was sent);
+        // prominent centers.
         let fillH = overrides.fillHorizontal?.boolValue == true
+        let labelAlignment: Alignment
+        switch overrides.textAlignment {
+        case "center": labelAlignment = .center
+        case "trailing": labelAlignment = .trailing
+        case "leading": labelAlignment = .leading
+        default: labelAlignment = fillH ? .leading : .center
+        }
+        switch overrides.textAlignment {
+        case "center": labelContent = AnyView(labelContent.multilineTextAlignment(.center))
+        case "trailing": labelContent = AnyView(labelContent.multilineTextAlignment(.trailing))
+        case "leading": labelContent = AnyView(labelContent.multilineTextAlignment(.leading))
+        default: break
+        }
         if wantsStretchedProminent || fillH {
             labelContent = AnyView(
-                labelContent.frame(maxWidth: .infinity, alignment: fillH ? .leading : .center)
+                labelContent.frame(maxWidth: .infinity, alignment: fillH ? labelAlignment : .center)
             )
         }
+
+        // A surface-craft face (fill, gradient, or a hovered/pressed face)
+        // is drawn by APSKSurfaceFaceButtonStyle, inside the Button, so it
+        // follows the real hover and press. See that file.
+        #if os(macOS)
+        let usesSurfaceFace = SurfaceCraftModifiers.hasSurfaceFace(overrides.apskSurfaceCraftSpec)
+            || overrides.apskHoveredSurfaceCraftSpec != nil
+            || overrides.apskPressedSurfaceCraftSpec != nil
+        #else
+        let usesSurfaceFace = false
+        #endif
+        let hasOwnPadding = overrides.paddingTop != nil || overrides.paddingLeading != nil
+            || overrides.paddingBottom != nil || overrides.paddingTrailing != nil
+        let labelInsets = EdgeInsets(
+            top: overrides.paddingTop.map { CGFloat($0.doubleValue) } ?? 0,
+            leading: overrides.paddingLeading.map { CGFloat($0.doubleValue) } ?? 0,
+            bottom: overrides.paddingBottom.map { CGFloat($0.doubleValue) } ?? 0,
+            trailing: overrides.paddingTrailing.map { CGFloat($0.doubleValue) } ?? 0
+        )
 
         var base: AnyView
         if overrides.role == "destructive" {
@@ -146,14 +179,14 @@ private struct APSKButtonHost: View {
         // its content-shape hit-test rect). Use `.contentShape` to also
         // expand the AX hit rect so XCUITest's `frame.size` reads the
         // touch-target floor rather than the natural body-text rect.
-        if let mh = overrides.minHeight {
+        if !usesSurfaceFace, let mh = overrides.minHeight {
             let mhCG = CGFloat(mh.doubleValue)
             base = AnyView(
                 base.frame(minHeight: mhCG)
                     .contentShape(Rectangle())
             )
         }
-        if let mw = overrides.minWidth {
+        if !usesSurfaceFace, let mw = overrides.minWidth {
             let mwCG = CGFloat(mw.doubleValue)
             // Phase 6.11 Iter 4: the stretched-prominent recipe pushes the
             // *label* to fill horizontally above; the outer width pin is
@@ -182,7 +215,25 @@ private struct APSKButtonHost: View {
         // `prominent` and `tinted`: `.bordered` and `.borderless` are
         // already visible without an accent.
         var content: AnyView = base
-        switch overrides.style {
+        #if os(macOS)
+        if usesSurfaceFace {
+            // The face replaces the style's own chrome, and takes the label
+            // insets and minimum size so it covers the whole control.
+            let baseColor = state.backgroundColor.map { Color(nsColor: $0) }
+            content = AnyView(content.buttonStyle(APSKSurfaceFaceButtonStyle(
+                restingSpec: overrides.apskSurfaceCraftSpec,
+                hoveredSpec: overrides.apskHoveredSurfaceCraftSpec,
+                pressedSpec: overrides.apskPressedSurfaceCraftSpec,
+                previewState: overrides.apskPreviewState,
+                baseColor: baseColor,
+                cornerRadius: CGFloat(state.cornerRadius?.doubleValue ?? 0),
+                insets: labelInsets,
+                minimumWidth: overrides.minWidth.map { CGFloat($0.doubleValue) },
+                minimumHeight: overrides.minHeight.map { CGFloat($0.doubleValue) }
+            )))
+        }
+        #endif
+        switch usesSurfaceFace ? nil : overrides.style {
         case "prominent":
             // Phase 6.11 Iter 4 — Item 1.
             //
@@ -276,7 +327,7 @@ private struct APSKButtonHost: View {
         // `:secondary` arrives via `setRole`, not `setStyle`, in the bridge.
         // Only override when no explicit style was provided so app code that
         // sets a style alongside `:secondary` still wins.
-        if overrides.role == "secondary" && overrides.style == nil {
+        if overrides.role == "secondary" && overrides.style == nil && !usesSurfaceFace {
             content = AnyView(content.buttonStyle(.bordered))
         }
         // Font cascade. Mirrors LabelFacade so a Crystal-side
@@ -321,15 +372,9 @@ private struct APSKButtonHost: View {
         // (the canonical SwiftUI order: content → padding → background → clip).
         // The same insets are nulled on the `shadowed` overrides further down so
         // CommonModifiers does not double-apply them outside the background.
-        if overrides.paddingTop != nil || overrides.paddingLeading != nil
-            || overrides.paddingBottom != nil || overrides.paddingTrailing != nil {
-            let insets = EdgeInsets(
-                top: overrides.paddingTop.map { CGFloat($0.doubleValue) } ?? 0,
-                leading: overrides.paddingLeading.map { CGFloat($0.doubleValue) } ?? 0,
-                bottom: overrides.paddingBottom.map { CGFloat($0.doubleValue) } ?? 0,
-                trailing: overrides.paddingTrailing.map { CGFloat($0.doubleValue) } ?? 0
-            )
-            content = AnyView(content.padding(insets))
+        // A surface face already took the insets inside the Button.
+        if hasOwnPadding && !usesSurfaceFace {
+            content = AnyView(content.padding(labelInsets))
         }
 
         // ----- Reactive (Remediation 4) override layer ---------------------
@@ -342,7 +387,8 @@ private struct APSKButtonHost: View {
         // equivalents in `makeReactiveButton`, so this stays the single
         // source of truth for those three properties.
 
-        if let bg = state.backgroundColor {
+        // A surface face draws the background and its rounding itself.
+        if !usesSurfaceFace, let bg = state.backgroundColor {
             #if canImport(UIKit)
             content = AnyView(content.background(Color(uiColor: bg)))
             #elseif canImport(AppKit)
@@ -358,7 +404,7 @@ private struct APSKButtonHost: View {
             #endif
         }
 
-        if let cr = state.cornerRadius {
+        if !usesSurfaceFace, let cr = state.cornerRadius {
             content = AnyView(
                 content.clipShape(RoundedRectangle(cornerRadius: CGFloat(cr.doubleValue)))
             )
@@ -420,7 +466,14 @@ private struct APSKButtonHost: View {
         shadowed.style = overrides.style
         shadowed.disabled = overrides.disabled
         shadowed.symbolName = overrides.symbolName
-        content = CommonModifiers.apply(content, overrides: shadowed)
+        // The surface face drew the fill, gradient, texture, and shadows; only
+        // its interaction feedback is left for the shared surface modifier.
+        #if os(macOS)
+        if usesSurfaceFace {
+            shadowed.apskSurfaceCraftSpec = SurfaceCraftModifiers.specWithoutFace(overrides.apskSurfaceCraftSpec)
+        }
+        #endif
+        content = CommonModifiers.apply(content, overrides: shadowed, surfaceCornerRadius: state.cornerRadius)
         return content
     }
 }

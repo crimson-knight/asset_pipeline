@@ -582,7 +582,7 @@ require "../../src/ui"
       it "casts a positive-y drop shadow below the panel, as CSS does (#{appearance_name})" do
         # A CSS box-shadow's y offset grows downward. An unflipped AppKit
         # layer reads a positive shadowOffset height as up, so copying the CSS
-        # offset unchanged cast every kit shadow above its face.
+        # offset unchanged cast every such shadow above its face.
         composite = composite_vertical_shadow_edges(surface_craft_shadowed_panel(fill, with_drop_shadows: true), dark_appearance)
         report = composite.to_s
         composite.largest_alpha_below.should be > 32, report

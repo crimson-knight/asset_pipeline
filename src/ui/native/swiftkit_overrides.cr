@@ -328,11 +328,20 @@ module UI
           sender.set_string(target, :setFontFamily, font.family)
         end
 
-        # fill_horizontal: the renderer pins the button wide, but a plain text
-        # button centers its label. Tell the facade to fill + leading-align the
-        # label so a row/card-filling button reads left, not centered.
+        # fill_horizontal: the renderer pins the button wide. Tell the facade
+        # to fill the width and place the label by text_alignment (Center by
+        # default, Leading for a row/card-filling content button).
         if view.fill_horizontal
           sender.set_bool(target, :setFillHorizontal, true)
+          sender.set_string(target, :setTextAlignment, view.text_alignment.to_s.downcase)
+        end
+
+        # Hover and pressed faces for a surface-faced button.
+        if hovered_style = view.hovered_surface_style
+          sender.set_string(target, :setApskHoveredSurfaceCraftSpec, UI::SurfaceCraftEncoding.style_json(hovered_style))
+        end
+        if pressed_style = view.pressed_surface_style
+          sender.set_string(target, :setApskPressedSurfaceCraftSpec, UI::SurfaceCraftEncoding.style_json(pressed_style))
         end
 
         # Foreground (label) color — SEEDED at construction so the initial render

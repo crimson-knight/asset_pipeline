@@ -84,8 +84,34 @@ module UI
     # Set `Leading`/`Trailing` for content buttons whose label is body text that
     # should read left/right-aligned (e.g. a wrapping tappable affirmation/thought
     # card, matching the Expo design's left-aligned Pressable text). Web emits
-    # `text-align`; native button renderers currently treat the label as centered.
+    # `text-align`. The native SwiftUI facades place a `fill_horizontal`
+    # button's label by it and align wrapped lines by it.
     property text_alignment : Alignment = Alignment::Center
+
+    # Face the native button draws while the pointer is over it, in place of
+    # its resting surface (`background_fill_color`, `linear_gradient`, inner
+    # and drop shadows, texture). `nil` keeps the resting face and adds a
+    # faint hover tint. Applies once the button has a surface face: a
+    # `background_fill_color`, a `linear_gradient`, or a hovered or pressed
+    # surface style.
+    #
+    # ```
+    # save = UI::Button.new("Save", style: UI::ButtonStyle::Borderless) { save_meeting }
+    # save.background_fill_color = UI::Color.new(r: 0.93, g: 0.91, b: 0.87)
+    # save.corner_radius = 6.0
+    # save.hovered_surface_style = UI::SurfaceStyle.new(
+    #   background_fill_color: UI::Color.new(r: 0.96, g: 0.94, b: 0.9))
+    # ```
+    #
+    # macOS draws it in the SwiftUI button facade, where it follows real
+    # pointer hover and `preview_state` Hover; the web renderer ignores it.
+    property hovered_surface_style : SurfaceStyle? = nil
+
+    # Face the native button draws while it is pressed, in place of its
+    # resting surface. `nil` keeps the resting face and darkens it slightly.
+    # It follows a real press and `preview_state` Pressed, like
+    # `hovered_surface_style`.
+    property pressed_surface_style : SurfaceStyle? = nil
 
     # Whether the button is disabled (non-interactive).
     #

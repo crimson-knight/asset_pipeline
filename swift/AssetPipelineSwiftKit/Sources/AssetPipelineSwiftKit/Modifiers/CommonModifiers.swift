@@ -26,7 +26,16 @@ enum CommonModifiers {
     /// (`frame(minHeight:)`) instead of an exact height, for content whose
     /// height depends on its width: a wrapping Label keeps at least its
     /// minimum line box and grows to every wrapped line.
-    static func apply<V: View>(_ view: V, overrides: ViewOverrides, growsPastMinimumHeight: Bool = false) -> AnyView {
+    ///
+    /// `surfaceCornerRadius` rounds the surface-craft layers (texture, inner
+    /// shadows, preview focus ring) when the facade clipped the view itself
+    /// and left `overrides.cornerRadius` nil, as the Button facade does.
+    static func apply<V: View>(
+        _ view: V,
+        overrides: ViewOverrides,
+        growsPastMinimumHeight: Bool = false,
+        surfaceCornerRadius: NSNumber? = nil
+    ) -> AnyView {
         var current = AnyView(view)
         let hasSurfaceFill = SurfaceCraftModifiers.hasSurfaceFill(overrides.apskSurfaceCraftSpec)
 
@@ -291,7 +300,7 @@ enum CommonModifiers {
                 current,
                 spec: overrides.apskSurfaceCraftSpec,
                 keycapStyle: overrides.apskSurfaceCraftKeycapStyle,
-                cornerRadius: overrides.cornerRadius,
+                cornerRadius: surfaceCornerRadius ?? overrides.cornerRadius,
                 previewState: overrides.apskPreviewState
             )
         }

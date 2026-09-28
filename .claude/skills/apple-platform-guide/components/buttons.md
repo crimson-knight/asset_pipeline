@@ -92,6 +92,9 @@ per style. No Liquid Glass material on the button surface.
 | `foreground_color` | `UI::Color` | `Color(0.0, 0.478, 1.0)` | Label tint for Default/Bordered/Borderless non-destructive roles. Baked RGBA (not adaptive). Overridden by `systemRedColor` when `role == :destructive`. |
 | `disabled` | `Bool` | `false` | When `true`, renderers call `setEnabled:NO`; platform handles grayed-out appearance. |
 | `on_tap` | `Proc(Nil)?` | `nil` | Tap / click handler. Wired via `CrystalActionDispatcher` on both platforms. |
+| `text_alignment` | `UI::Alignment` | `Center` | Places a `fill_horizontal` button's label (Center, or Leading for a row/card content button) and aligns wrapped lines. |
+| `hovered_surface_style` | `UI::SurfaceStyle?` | `nil` | macOS: face drawn while the pointer is over a surface-faced button (one with `background_fill_color`, `linear_gradient`, or a hovered/pressed style), in place of the resting face. `nil` = resting face with a faint hover tint. Also shown for `preview_state` Hover. |
+| `pressed_surface_style` | `UI::SurfaceStyle?` | `nil` | macOS: face drawn while a surface-faced button is pressed. `nil` = resting face darkened slightly. Also shown for `preview_state` Pressed. A surface face is drawn inside the SwiftUI Button, gradient above `background`, clipped to `corner_radius`, so the native control keeps its action, focus, and accessibility. |
 | `accessibility_label` | `String?` | `nil` | VoiceOver label. Set for every button whose visual label does not fully describe the action (icons, abbreviations). |
 
 ### ButtonStyle enum

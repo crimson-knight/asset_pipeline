@@ -35,11 +35,20 @@ public class ButtonOverrides: ViewOverrides {
     // height instead of truncating inside a fill_horizontal container.
     @objc public var numberOfLines: NSNumber? = nil
     // When the renderer pins this button to fill its container width
-    // (UI::View#fill_horizontal), a plain text button centers its label in the
-    // wide frame — a row/card-filling label rendered centered instead of leading.
-    // `true` makes the facade fill the width and LEADING-align the label (mirrors
-    // LabelOverrides.fillHorizontal). nil = default (intrinsic, centered) sizing.
+    // (UI::View#fill_horizontal), `true` makes the facade stretch the label
+    // across the width and place it by textAlignment (mirrors
+    // LabelOverrides.fillHorizontal). nil = default (intrinsic) sizing.
     @objc public var fillHorizontal: NSNumber? = nil
+    // Label placement (UI::Button#text_alignment): "leading" | "center" |
+    // "trailing". Places a fillHorizontal label and aligns wrapped lines.
+    // nil = leading for a fillHorizontal label, the pre-alignment behavior.
+    @objc public var textAlignment: String? = nil
+    // Surface-craft JSON faces (UI::Button#hovered_surface_style and
+    // #pressed_surface_style) that replace the resting face while the pointer
+    // is over the button or while it is pressed. nil = the resting face with
+    // a faint hover tint or a slight pressed darkening.
+    @objc(apskHoveredSurfaceCraftSpec) public var apskHoveredSurfaceCraftSpec: String? = nil
+    @objc(apskPressedSurfaceCraftSpec) public var apskPressedSurfaceCraftSpec: String? = nil
 
     @objc public override init() { super.init() }
 }

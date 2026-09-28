@@ -130,3 +130,25 @@ void ap_spec_tracking_window_close(void *window_ptr) {
     [window close];
     [window release];
 }
+
+// Sends a left mouse down (is_down != 0) or up to the window at (x, y)
+// points from the content view's top-left corner, through sendEvent: as
+// AppKit delivers a real click, without making the window key. Returns 0
+// when the window has no content view.
+int32_t ap_spec_tracking_send_mouse(void *window_ptr, double x, double y, int32_t is_down) {
+    NSWindow *window = (NSWindow *)window_ptr;
+    NSView *root = [window contentView];
+    if (root == nil) return 0;
+    NSPoint window_point = NSMakePoint(x, NSHeight([root frame]) - y);
+    NSEvent *event = [NSEvent mouseEventWithType:(is_down != 0 ? NSEventTypeLeftMouseDown : NSEventTypeLeftMouseUp)
+                                        location:window_point
+                                   modifierFlags:0
+                                       timestamp:[[NSProcessInfo processInfo] systemUptime]
+                                    windowNumber:[window windowNumber]
+                                         context:nil
+                                     eventNumber:0
+                                      clickCount:1
+                                        pressure:(is_down != 0 ? 1.0 : 0.0)];
+    [window sendEvent:event];
+    return 1;
+}
