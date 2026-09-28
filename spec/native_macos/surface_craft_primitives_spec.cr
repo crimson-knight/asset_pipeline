@@ -46,6 +46,14 @@ require "../../src/ui"
     fun ap_spec_appkit_view_layer_translation_y(view : Void*) : Float64
     fun ap_spec_appkit_view_layer_shadow_opacity(view : Void*) : Float32
     fun ap_spec_drop_shadow_layer_carries_face(view : Void*, name : UInt8*) : Int32
+    fun ap_spec_surface_path_size_after_layout(
+      view : Void*,
+      name : UInt8*,
+      point_width : Float64,
+      point_height : Float64,
+      path_width : Float64*,
+      path_height : Float64*,
+    ) : Int32
   end
 
   lib NoiseTextureFixtureBridge
@@ -250,6 +258,38 @@ require "../../src/ui"
       UI::AppKit::LibObjCBridge.appkit_view_has_surface_layer(native_view, "ap.surfaceCraft.drop.0").should eq(1)
       UI::AppKit::LibObjCBridge.appkit_view_has_surface_layer(native_view, "ap.surfaceCraft.drop.1").should eq(1)
       UI::AppKit::LibObjCBridge.appkit_view_has_surface_layer(native_view, "ap.surfaceCraft.inner.0").should eq(1)
+    end
+
+    it "rebuilds drop- and inner-shadow paths from the laid-out bounds of a view styled before layout" do
+      surface = UI::VStack.new
+      surface.corner_radius = 6.0
+      surface.list_of_inner_shadows = [
+        UI::InnerShadow.new(shadow_color: UI::ColorRole::TextInverse, offset_y: 1.0, blur_radius: 2.0),
+      ]
+      surface.list_of_drop_shadows = [
+        UI::DropShadow.new(shadow_color: UI::ColorRole::TextPrimary, offset_y: 4.0, blur_radius: 8.0),
+      ]
+
+      native_view = surface_craft_test_nsview
+      if json = surface.surface_craft_json
+        UI::AppKit::LibObjCBridge.appkit_view_apply_surface_craft(native_view, json.to_unsafe)
+      else
+        fail "surface-craft payload was not created"
+      end
+
+      drop_width = drop_height = 0.0
+      PreviewStateCaptureTestBridge.ap_spec_surface_path_size_after_layout(
+        native_view, "ap.surfaceCraft.drop.0", 180.0, 42.0, pointerof(drop_width), pointerof(drop_height),
+      ).should eq(1)
+      drop_width.should eq(180.0)
+      drop_height.should eq(42.0)
+
+      inner_width = inner_height = 0.0
+      PreviewStateCaptureTestBridge.ap_spec_surface_path_size_after_layout(
+        native_view, "ap.surfaceCraft.inner.0", 180.0, 42.0, pointerof(inner_width), pointerof(inner_height),
+      ).should eq(1)
+      inner_width.should eq(178.0)
+      inner_height.should eq(40.0)
     end
 
     it "keeps the existing fixed brushed tile and multiply compositing" do
