@@ -639,6 +639,9 @@ module UI
         unless view.style == UI::PickerStyle::Menu
           sender.set_string(target, :setPickerStyle, view.style.to_s.downcase)
         end
+        # fill_horizontal: the facade gives the picker a flexible width so it
+        # spans its container instead of hugging its widest option.
+        sender.set_bool(target, :setFillHorizontal, true) if view.fill_horizontal
       end
 
       def self.populate_date_picker(target : String, view : UI::DatePicker, sender : Sender)
