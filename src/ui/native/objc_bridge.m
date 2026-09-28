@@ -63,9 +63,11 @@ static char apsk_pending_focus_key;
 static char apsk_focus_result_key;
 static char ap_surface_craft_texture_payload_key;
 static char ap_surface_craft_applied_layout_key;
+static char ap_surface_craft_prior_clips_to_bounds_key;
 
 void appkit_view_apply_surface_craft(void *view_ptr, const char *json);
 static void ap_surface_refresh_shadow_paths(CALayer *root);
+static void ap_surface_update_clipping(NSView *view);
 
 static NSString *ap_surface_craft_layout_signature(NSView *view, CALayer *root) {
     if (root == nil) return nil;
@@ -140,7 +142,10 @@ static void ap_surface_craft_apply_after_layout(NSView *view) {
     // Drop- and inner-shadow paths are built from the bounds at apply time,
     // which are empty for a view styled before its first layout; rebuild
     // them from the laid-out bounds.
-    if (self.wantsLayer) ap_surface_refresh_shadow_paths(self.layer);
+    if (self.wantsLayer) {
+        ap_surface_refresh_shadow_paths(self.layer);
+        ap_surface_update_clipping(self);
+    }
 }
 @end
 #endif
@@ -5579,6 +5584,50 @@ static void ap_surface_refresh_shadow_paths(CALayer *root) {
     }
 }
 
+// True when a surface-craft layer of *root* paints outside its box: a drop
+// shadow, or the shadow a lift preview state puts on the root itself.
+static BOOL ap_surface_paints_outside_box(CALayer *root) {
+    if (root == nil) return NO;
+    if (root.shadowOpacity > 0.0f && root.shadowColor != NULL) return YES;
+    for (CALayer *layer in [NSArray arrayWithArray:root.sublayers]) {
+        if ([layer.name hasPrefix:@"ap.surfaceCraft.drop."]) return YES;
+    }
+    return NO;
+}
+
+// Setting a corner radius on an AppKit view's own layer turns on the view's
+// clipsToBounds, so the layer clips its sublayers to its bounds, and the
+// drop-shadow sublayers (and a lift preview's own shadow) never show in a live
+// window. While a surface paints outside its box, turn that clipping off; the
+// face, gradient, texture, and inner-shadow layers round themselves. Restore
+// the view's own setting once nothing paints outside any more.
+static void ap_surface_update_clipping(NSView *view) {
+    CALayer *root = view.layer;
+    if (root == nil) return;
+    NSNumber *prior_clips_to_bounds = objc_getAssociatedObject(view, &ap_surface_craft_prior_clips_to_bounds_key);
+    if (ap_surface_paints_outside_box(root)) {
+        if (prior_clips_to_bounds == nil) {
+            objc_setAssociatedObject(view, &ap_surface_craft_prior_clips_to_bounds_key,
+                @(view.clipsToBounds), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }
+        if (view.clipsToBounds) view.clipsToBounds = NO;
+        if (root.masksToBounds) root.masksToBounds = NO;
+    } else if (prior_clips_to_bounds != nil) {
+        view.clipsToBounds = prior_clips_to_bounds.boolValue;
+        objc_setAssociatedObject(view, &ap_surface_craft_prior_clips_to_bounds_key,
+            nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+}
+
+// Rounds a full-size surface-craft sublayer to *root*'s corners and clips its
+// contents and sublayers there, so it stays inside the face when the root
+// itself does not clip.
+static void ap_surface_round_to_root(CALayer *layer, CALayer *root) {
+    layer.cornerRadius = root.cornerRadius;
+    layer.cornerCurve = root.cornerCurve;
+    layer.masksToBounds = YES;
+}
+
 static void ap_surface_apply_preview_feedback(CALayer *root, NSDictionary *values) {
     BOOL had_preview_state = NO;
     for (CALayer *layer in [NSArray arrayWithArray:root.sublayers]) {
@@ -5726,6 +5775,7 @@ void appkit_view_apply_surface_craft(void *view_ptr, const char *json) {
                 layer.locations = locations;
                 layer.startPoint = CGPointMake(0.5 - sin(radians) * 0.5, 0.5 - cos(radians) * 0.5);
                 layer.endPoint = CGPointMake(0.5 + sin(radians) * 0.5, 0.5 + cos(radians) * 0.5);
+                ap_surface_round_to_root(layer, root);
                 [root insertSublayer:layer atIndex:0];
             }
         }
@@ -5738,6 +5788,7 @@ void appkit_view_apply_surface_craft(void *view_ptr, const char *json) {
             vertical.frame = root.bounds;
             vertical.autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
             vertical.opacity = (float)[texture[@"opacity"] doubleValue];
+            ap_surface_round_to_root(vertical, root);
             CAReplicatorLayer *row = [CAReplicatorLayer layer];
             CALayer *image = [CALayer layer];
 
@@ -5832,12 +5883,13 @@ void appkit_view_apply_surface_craft(void *view_ptr, const char *json) {
                 layer.shadowOpacity = 0.55;
                 layer.shadowRadius = [shadow[@"blur"] doubleValue];
                 layer.shadowOffset = CGSizeMake([shadow[@"x"] doubleValue], [shadow[@"y"] doubleValue]);
-                layer.masksToBounds = YES;
+                ap_surface_round_to_root(layer, root);
                 [root addSublayer:layer];
             }
         }
 
         ap_surface_apply_preview_feedback(root, values);
+        ap_surface_update_clipping(view);
         NSString *layout_signature = ap_surface_craft_layout_signature(view, root);
         objc_setAssociatedObject(view, &ap_surface_craft_applied_layout_key,
             layout_signature, OBJC_ASSOCIATION_COPY_NONATOMIC);

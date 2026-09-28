@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 extern void appkit_view_apply_surface_craft(void *view_ptr, const char *json);
 extern void *ap_surface_noise_texture_tile_create(
@@ -646,6 +647,91 @@ void ap_spec_set_view_dark_appearance(void *view_ptr, int32_t dark) {
     view.appearance = [NSAppearance appearanceNamed:(dark != 0 ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua)];
 }
 
+// Composites *layer* (which must have no superlayer) with Core Animation's own
+// renderer into a *pixel_width* x *pixel_height* sRGB texture at 1x. Unlike
+// renderInContext, this draws layer shadows, as the window server does for a
+// live window. Returns a calloc'd RGBA buffer (rows top down, 4 bytes per
+// pixel, straight from BGRA) the caller frees, or NULL when Metal or the
+// renderer is unavailable.
+static uint8_t *ap_spec_composite_layer_rgba(CALayer *layer, NSUInteger pixel_width, NSUInteger pixel_height) {
+    if (layer == nil || layer.superlayer != nil || pixel_width == 0 || pixel_height == 0) return NULL;
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    if (device == nil) return NULL;
+    id<MTLCommandQueue> queue = [device newCommandQueue];
+
+    MTLTextureDescriptor *descriptor = [MTLTextureDescriptor
+        texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                     width:pixel_width
+                                    height:pixel_height
+                                 mipmapped:NO];
+    descriptor.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+    descriptor.storageMode = MTLStorageModeManaged;
+    id<MTLTexture> texture = [device newTextureWithDescriptor:descriptor];
+
+    CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    CARenderer *renderer = [CARenderer rendererWithMTLTexture:texture options:@{
+        kCARendererColorSpace: (__bridge id)srgb,
+        kCARendererMetalCommandQueue: queue,
+    }];
+    renderer.layer = layer;
+    renderer.bounds = CGRectMake(0, 0, pixel_width, pixel_height);
+    [CATransaction flush];
+    [renderer beginFrameAtTime:CACurrentMediaTime() timeStamp:NULL];
+    [renderer addUpdateRect:renderer.bounds];
+    [renderer render];
+    [renderer endFrame];
+
+    id<MTLCommandBuffer> readback = [queue commandBuffer];
+    id<MTLBlitCommandEncoder> blit = [readback blitCommandEncoder];
+    [blit synchronizeResource:texture];
+    [blit endEncoding];
+    [readback commit];
+    [readback waitUntilCompleted];
+    renderer.layer = nil;
+    CGColorSpaceRelease(srgb);
+
+    NSUInteger bytes_per_row = pixel_width * 4;
+    uint8_t *pixels = calloc(pixel_height, bytes_per_row);
+    if (pixels != NULL) {
+        [texture getBytes:pixels bytesPerRow:bytes_per_row
+               fromRegion:MTLRegionMake2D(0, 0, pixel_width, pixel_height) mipmapLevel:0];
+        for (NSUInteger offset = 0; offset < pixel_height * bytes_per_row; offset += 4) {
+            uint8_t blue = pixels[offset];
+            pixels[offset] = pixels[offset + 2];
+            pixels[offset + 2] = blue;
+        }
+    }
+    [texture release];
+    [queue release];
+    [device release];
+    return pixels;
+}
+
+static void ap_spec_copy_rgba(const uint8_t *pixels, NSUInteger pixel_width, NSUInteger x, NSUInteger y, uint8_t *out_rgba) {
+    const uint8_t *pixel = pixels + (y * pixel_width + x) * 4;
+    memcpy(out_rgba, pixel, 4);
+}
+
+// The largest alpha outside the view's box, where only shadow can land.
+static uint8_t ap_spec_largest_alpha_outside(
+    const uint8_t *pixels, NSUInteger pixel_width, NSUInteger pixel_height,
+    double margin, double point_width, double point_height) {
+    NSUInteger inner_left = (NSUInteger)floor(margin);
+    NSUInteger inner_top = (NSUInteger)floor(margin);
+    NSUInteger inner_right = (NSUInteger)ceil(margin + point_width);
+    NSUInteger inner_bottom = (NSUInteger)ceil(margin + point_height);
+    uint8_t largest_alpha = 0;
+    for (NSUInteger y = 0; y < pixel_height; y++) {
+        for (NSUInteger x = 0; x < pixel_width; x++) {
+            BOOL inside_view = x >= inner_left && x < inner_right && y >= inner_top && y < inner_bottom;
+            if (inside_view) continue;
+            uint8_t alpha = pixels[(y * pixel_width + x) * 4 + 3];
+            if (alpha > largest_alpha) largest_alpha = alpha;
+        }
+    }
+    return largest_alpha;
+}
+
 // Lays *view* out at *point_width* x *point_height* and composites its layer
 // tree with Core Animation's own renderer into an sRGB texture at 1x, with
 // *margin* points of clear space on every side. Unlike renderInContext, this
@@ -670,21 +756,8 @@ int32_t ap_spec_composite_view_with_shadows(
         CALayer *root = view.layer;
         if (root == nil || root.superlayer != nil) return 0;
 
-        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-        if (device == nil) return 0;
-        id<MTLCommandQueue> queue = [device newCommandQueue];
-
         NSUInteger pixel_width = (NSUInteger)ceil(point_width + margin * 2.0);
         NSUInteger pixel_height = (NSUInteger)ceil(point_height + margin * 2.0);
-        MTLTextureDescriptor *descriptor = [MTLTextureDescriptor
-            texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
-                                         width:pixel_width
-                                        height:pixel_height
-                                     mipmapped:NO];
-        descriptor.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
-        descriptor.storageMode = MTLStorageModeManaged;
-        id<MTLTexture> texture = [device newTextureWithDescriptor:descriptor];
-
         // A container gives the shadow room to land inside the texture.
         CALayer *container = [CALayer layer];
         container.frame = CGRectMake(0, 0, pixel_width, pixel_height);
@@ -692,70 +765,125 @@ int32_t ap_spec_composite_view_with_shadows(
         CGRect original_frame = root.frame;
         [container addSublayer:root];
         root.frame = CGRectMake(margin, margin, point_width, point_height);
-
-        CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-        CARenderer *renderer = [CARenderer rendererWithMTLTexture:texture options:@{
-            kCARendererColorSpace: (__bridge id)srgb,
-            kCARendererMetalCommandQueue: queue,
-        }];
-        renderer.layer = container;
-        renderer.bounds = container.bounds;
-        [CATransaction flush];
-        [renderer beginFrameAtTime:CACurrentMediaTime() timeStamp:NULL];
-        [renderer addUpdateRect:renderer.bounds];
-        [renderer render];
-        [renderer endFrame];
-
-        id<MTLCommandBuffer> readback = [queue commandBuffer];
-        id<MTLBlitCommandEncoder> blit = [readback blitCommandEncoder];
-        [blit synchronizeResource:texture];
-        [blit endEncoding];
-        [readback commit];
-        [readback waitUntilCompleted];
-
-        renderer.layer = nil;
+        uint8_t *pixels = ap_spec_composite_layer_rgba(container, pixel_width, pixel_height);
         [root removeFromSuperlayer];
         root.frame = original_frame;
-        CGColorSpaceRelease(srgb);
+        if (pixels == NULL) return 0;
 
-        NSUInteger bytes_per_row = pixel_width * 4;
-        uint8_t *pixels = calloc(pixel_height, bytes_per_row);
-        if (pixels == NULL) {
-            [texture release];
-            [queue release];
-            [device release];
-            return 0;
-        }
-        [texture getBytes:pixels bytesPerRow:bytes_per_row
-               fromRegion:MTLRegionMake2D(0, 0, pixel_width, pixel_height) mipmapLevel:0];
-
-        NSUInteger center_x = (NSUInteger)(margin + point_width / 2.0);
-        NSUInteger center_y = (NSUInteger)(margin + point_height / 2.0);
-        uint8_t *center = pixels + center_y * bytes_per_row + center_x * 4;
-        center_rgba[0] = center[2];
-        center_rgba[1] = center[1];
-        center_rgba[2] = center[0];
-        center_rgba[3] = center[3];
-
-        uint8_t largest_alpha = 0;
-        NSUInteger inner_left = (NSUInteger)floor(margin);
-        NSUInteger inner_top = (NSUInteger)floor(margin);
-        NSUInteger inner_right = (NSUInteger)ceil(margin + point_width);
-        NSUInteger inner_bottom = (NSUInteger)ceil(margin + point_height);
-        for (NSUInteger y = 0; y < pixel_height; y++) {
-            for (NSUInteger x = 0; x < pixel_width; x++) {
-                BOOL inside_view = x >= inner_left && x < inner_right && y >= inner_top && y < inner_bottom;
-                if (inside_view) continue;
-                uint8_t alpha = pixels[y * bytes_per_row + x * 4 + 3];
-                if (alpha > largest_alpha) largest_alpha = alpha;
-            }
-        }
-        *largest_margin_alpha = largest_alpha;
-
+        ap_spec_copy_rgba(pixels, pixel_width,
+            (NSUInteger)(margin + point_width / 2.0), (NSUInteger)(margin + point_height / 2.0), center_rgba);
+        *largest_margin_alpha = ap_spec_largest_alpha_outside(
+            pixels, pixel_width, pixel_height, margin, point_width, point_height);
         free(pixels);
-        [texture release];
-        [queue release];
-        [device release];
         return 1;
     }
+}
+
+// Hosts *view* in a real borderless NSWindow (never ordered in, so nothing
+// reaches a screen) at *margin* points inside the window's layer-backed
+// content view, pinned to *point_width* x *point_height*, and lets AppKit lay
+// it out and display it exactly as it would in a live window. Then composites
+// the content view's layer tree with Core Animation's renderer, which draws
+// layer shadows as the window server does.
+//
+// Writes the center pixel of the view into *center_rgba*, the four corner
+// pixels of the view's box (16 bytes) into *corner_rgba*, the largest alpha
+// outside the box into *largest_margin_alpha*, and whether AppKit left the
+// view's layer clipping its sublayers into *masks_to_bounds*. Returns 0 when
+// Metal or the renderer is unavailable.
+int32_t ap_spec_composite_window_hosted_view(
+    void *view_ptr,
+    double point_width,
+    double point_height,
+    double margin,
+    int32_t dark,
+    uint8_t *center_rgba,
+    uint8_t *corner_rgba,
+    uint8_t *largest_margin_alpha,
+    int32_t *masks_to_bounds) {
+    if (view_ptr == NULL || center_rgba == NULL || corner_rgba == NULL ||
+        largest_margin_alpha == NULL || masks_to_bounds == NULL) return 0;
+    if (point_width < 1.0 || point_height < 1.0 || margin < 1.0) return 0;
+    @autoreleasepool {
+        NSApplication *application = [NSApplication sharedApplication];
+        [application setActivationPolicy:NSApplicationActivationPolicyAccessory];
+
+        NSUInteger pixel_width = (NSUInteger)ceil(point_width + margin * 2.0);
+        NSUInteger pixel_height = (NSUInteger)ceil(point_height + margin * 2.0);
+        APSpecOffscreenCaptureWindow *window = [[APSpecOffscreenCaptureWindow alloc]
+            initWithContentRect:NSMakeRect(-30000, -30000, pixel_width, pixel_height)
+                      styleMask:NSWindowStyleMaskBorderless
+                        backing:NSBackingStoreBuffered
+                          defer:NO];
+        [window setReleasedWhenClosed:NO];
+        window.appearance = [NSAppearance appearanceNamed:(dark != 0 ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua)];
+        window.opaque = NO;
+        window.backgroundColor = NSColor.clearColor;
+
+        NSView *content = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, pixel_width, pixel_height)];
+        content.wantsLayer = YES;
+        window.contentView = content;
+        [content release];
+
+        NSView *view = (NSView *)view_ptr;
+        view.translatesAutoresizingMaskIntoConstraints = NO;
+        [content addSubview:view];
+        [NSLayoutConstraint activateConstraints:@[
+            [view.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:margin],
+            [view.topAnchor constraintEqualToAnchor:content.topAnchor constant:margin],
+            [view.widthAnchor constraintEqualToConstant:point_width],
+            [view.heightAnchor constraintEqualToConstant:point_height],
+        ]];
+        for (int pass = 0; pass < 4; pass++) {
+            [content layoutSubtreeIfNeeded];
+            [window displayIfNeeded];
+            [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode
+                                  beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.02]];
+        }
+        [CATransaction flush];
+        *masks_to_bounds = view.layer.masksToBounds ? 1 : 0;
+
+        // Composite the content view's layer as the window hosts it: detach it
+        // from the frame view's layer for the render only, then put it back.
+        CALayer *content_layer = content.layer;
+        CALayer *frame_layer = content_layer.superlayer;
+        NSUInteger content_index = frame_layer != nil ? [frame_layer.sublayers indexOfObject:content_layer] : NSNotFound;
+        CGRect content_frame = content_layer.frame;
+        [content_layer retain];
+        [content_layer removeFromSuperlayer];
+        content_layer.frame = CGRectMake(0, 0, pixel_width, pixel_height);
+        uint8_t *pixels = ap_spec_composite_layer_rgba(content_layer, pixel_width, pixel_height);
+        content_layer.frame = content_frame;
+        if (frame_layer != nil && content_index != NSNotFound) {
+            [frame_layer insertSublayer:content_layer atIndex:(unsigned)content_index];
+        }
+        [content_layer release];
+
+        [view removeFromSuperview];
+        [window close];
+        [window release];
+        if (pixels == NULL) return 0;
+
+        NSUInteger left = (NSUInteger)floor(margin);
+        NSUInteger top = (NSUInteger)floor(margin);
+        NSUInteger right = (NSUInteger)ceil(margin + point_width) - 1;
+        NSUInteger bottom = (NSUInteger)ceil(margin + point_height) - 1;
+        ap_spec_copy_rgba(pixels, pixel_width,
+            (NSUInteger)(margin + point_width / 2.0), (NSUInteger)(margin + point_height / 2.0), center_rgba);
+        ap_spec_copy_rgba(pixels, pixel_width, left, top, corner_rgba);
+        ap_spec_copy_rgba(pixels, pixel_width, right, top, corner_rgba + 4);
+        ap_spec_copy_rgba(pixels, pixel_width, left, bottom, corner_rgba + 8);
+        ap_spec_copy_rgba(pixels, pixel_width, right, bottom, corner_rgba + 12);
+        *largest_margin_alpha = ap_spec_largest_alpha_outside(
+            pixels, pixel_width, pixel_height, margin, point_width, point_height);
+        free(pixels);
+        return 1;
+    }
+}
+
+// Returns 1 when *view* clips its subviews and its layer clips its sublayers.
+int32_t ap_spec_view_clips_to_bounds(void *view_ptr) {
+    if (view_ptr == NULL) return 0;
+    NSView *view = (NSView *)view_ptr;
+    return view.clipsToBounds && view.layer.masksToBounds ? 1 : 0;
 }

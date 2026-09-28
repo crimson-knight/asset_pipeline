@@ -55,6 +55,18 @@ require "../../src/ui"
       center_rgba : UInt8*,
       largest_margin_alpha : UInt8*,
     ) : Int32
+    fun ap_spec_composite_window_hosted_view(
+      view : Void*,
+      point_width : Float64,
+      point_height : Float64,
+      margin : Float64,
+      dark : Int32,
+      center_rgba : UInt8*,
+      corner_rgba : UInt8*,
+      largest_margin_alpha : UInt8*,
+      masks_to_bounds : Int32*,
+    ) : Int32
+    fun ap_spec_view_clips_to_bounds(view : Void*) : Int32
     fun ap_spec_surface_path_size_after_layout(
       view : Void*,
       name : UInt8*,
@@ -166,6 +178,56 @@ require "../../src/ui"
         UI::DropShadow.new(shadow_color: UI::Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.2), offset_y: 4.0, blur_radius: 9.0),
       ]
     end
+    surface
+  end
+
+  # What Core Animation composites for a surface rendered by the AppKit
+  # renderer and hosted in a real NSWindow.
+  private record WindowHostedComposite,
+    center_rgba : Array(UInt8),
+    list_of_corner_rgba : Array(Array(UInt8)),
+    largest_margin_alpha : UInt8,
+    masks_to_bounds : Bool
+
+  # Renders *surface* with the AppKit renderer (which sets the corner radius on
+  # the view's own layer before SurfaceCraft), hosts it in a borderless
+  # NSWindow so AppKit applies its live-window layer settings, and composites
+  # it with Core Animation's renderer, which draws layer shadows.
+  private def composite_window_hosted_surface(surface : UI::View, dark_appearance : Bool) : WindowHostedComposite
+    native = UI::AppKit::Renderer.new.render(surface)
+    center_rgba = Array(UInt8).new(4, 0_u8)
+    corner_rgba = Array(UInt8).new(16, 0_u8)
+    largest_margin_alpha = 0_u8
+    masks_to_bounds = 0
+    begin
+      result = UI::ObjC.autoreleasepool do
+        PreviewStateCaptureTestBridge.ap_spec_composite_window_hosted_view(
+          native.handle.ptr!, 160.0, 64.0, 24.0, dark_appearance ? 1 : 0,
+          center_rgba.to_unsafe, corner_rgba.to_unsafe, pointerof(largest_margin_alpha), pointerof(masks_to_bounds),
+        )
+      end
+      result.should eq(1)
+    ensure
+      native.teardown!
+    end
+    WindowHostedComposite.new(center_rgba, corner_rgba.each_slice(4).to_a, largest_margin_alpha, masks_to_bounds == 1)
+  end
+
+  # A shadowed panel that also carries a gradient, a Noise texture, and an
+  # inner shadow, each of which must stay inside the rounded corners.
+  private def surface_craft_layered_panel(fill : UI::Color) : UI::VStack
+    surface = surface_craft_shadowed_panel(fill, with_drop_shadows: true)
+    surface.linear_gradient = UI::LinearGradient.new(
+      list_of_stops: [
+        UI::GradientStop.new(stop_color: UI::Color.new(r: 0.9, g: 0.5, b: 0.1), stop_position: 0.0),
+        UI::GradientStop.new(stop_color: UI::Color.new(r: 0.1, g: 0.5, b: 0.9), stop_position: 1.0),
+      ],
+      gradient_angle: 135.0,
+    )
+    surface.texture_overlay = UI::TextureOverlay.new(texture_kind: UI::TextureKind::Noise, texture_opacity: 0.5)
+    surface.list_of_inner_shadows = [
+      UI::InnerShadow.new(shadow_color: UI::Color.new(r: 1.0, g: 1.0, b: 1.0, a: 0.9), offset_y: 1.0, blur_radius: 2.0),
+    ]
     surface
   end
 
@@ -422,6 +484,62 @@ require "../../src/ui"
         reference_margin_alpha.should eq(0)
         shadowed_margin_alpha.should be > 0
         shadowed_rgba.should eq(reference_rgba)
+      end
+    end
+
+    {
+      {"dark", true, UI::Color.new(r: 43.0 / 255.0, g: 50.0 / 255.0, b: 69.0 / 255.0)},
+      {"light", false, UI::Color.new(r: 251.0 / 255.0, g: 248.0 / 255.0, b: 242.0 / 255.0)},
+    }.each do |appearance_name, dark_appearance, fill|
+      it "draws a rounded panel's drop shadow outside it in a window-hosted view (#{appearance_name})" do
+        # Setting a corner radius on a view's own layer makes AppKit clip the
+        # layer's sublayers, and the drop-shadow layers are sublayers, so a
+        # rounded panel's shadow never showed in a live window.
+        reference = composite_window_hosted_surface(surface_craft_shadowed_panel(fill, with_drop_shadows: false), dark_appearance)
+        shadowed = composite_window_hosted_surface(surface_craft_shadowed_panel(fill, with_drop_shadows: true), dark_appearance)
+        report = "reference #{reference}, shadowed #{shadowed}"
+
+        # AppKit's clipping stays on a rounded panel without a shadow.
+        reference.masks_to_bounds.should be_true, report
+        reference.center_rgba[3].should eq(255), report
+        reference.largest_margin_alpha.should eq(0), report
+        reference.list_of_corner_rgba.each { |corner| corner[3].should eq(0), report }
+
+        shadowed.largest_margin_alpha.should be > 32, report
+        shadowed.center_rgba.should eq(reference.center_rgba), report
+        # Only shadow reaches the corner pixels: the fill stays rounded.
+        shadowed.list_of_corner_rgba.each do |corner|
+          corner[3].should be < 255, report
+          corner.should_not eq(shadowed.center_rgba), report
+        end
+      end
+
+      it "keeps a shadowed panel's gradient, texture, and inner shadow inside its rounded corners (#{appearance_name})" do
+        plain = composite_window_hosted_surface(surface_craft_shadowed_panel(fill, with_drop_shadows: true), dark_appearance)
+        layered = composite_window_hosted_surface(surface_craft_layered_panel(fill), dark_appearance)
+        report = "plain #{plain}, layered #{layered}"
+
+        layered.largest_margin_alpha.should eq(plain.largest_margin_alpha), report
+        layered.center_rgba.should_not eq(plain.center_rgba), report
+        # Unclipped, the square gradient and texture layers paint the corners.
+        layered.list_of_corner_rgba.should eq(plain.list_of_corner_rgba), report
+      end
+    end
+
+    it "gives a rounded view its own clipping back once its drop shadows are removed" do
+      fill = UI::Color.new(r: 0.2, g: 0.3, b: 0.4)
+      native = UI::AppKit::Renderer.new.render(surface_craft_shadowed_panel(fill, with_drop_shadows: true))
+      begin
+        view = native.handle.ptr!
+        PreviewStateCaptureTestBridge.ap_spec_view_clips_to_bounds(view).should eq(0)
+        if json = surface_craft_shadowed_panel(fill, with_drop_shadows: false).surface_craft_json
+          UI::AppKit::LibObjCBridge.appkit_view_apply_surface_craft(view, json.to_unsafe)
+        else
+          fail "surface-craft payload was not created"
+        end
+        PreviewStateCaptureTestBridge.ap_spec_view_clips_to_bounds(view).should eq(1)
+      ensure
+        native.teardown!
       end
     end
 
