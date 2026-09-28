@@ -22,7 +22,11 @@
 import SwiftUI
 
 enum CommonModifiers {
-    static func apply<V: View>(_ view: V, overrides: ViewOverrides) -> AnyView {
+    /// `growsPastMinimumHeight` makes a lone `minHeight` a floor
+    /// (`frame(minHeight:)`) instead of an exact height, for content whose
+    /// height depends on its width: a wrapping Label keeps at least its
+    /// minimum line box and grows to every wrapped line.
+    static func apply<V: View>(_ view: V, overrides: ViewOverrides, growsPastMinimumHeight: Bool = false) -> AnyView {
         var current = AnyView(view)
         let hasSurfaceFill = SurfaceCraftModifiers.hasSurfaceFill(overrides.apskSurfaceCraftSpec)
 
@@ -98,6 +102,8 @@ enum CommonModifiers {
             // / etc. actually grows to that size.
             if let mh = minH, let mxh = maxH, mh == mxh {
                 current = AnyView(current.frame(height: mh))
+            } else if let mh = minH, maxH == nil, growsPastMinimumHeight {
+                current = AnyView(current.frame(minHeight: mh))
             } else if let mh = minH, maxH == nil {
                 // Only minHeight: treat as exact for the touch-target use
                 // case. If the caller wants a flexible floor with no

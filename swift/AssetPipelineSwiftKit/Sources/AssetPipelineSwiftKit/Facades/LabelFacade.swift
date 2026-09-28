@@ -56,7 +56,10 @@ public class LabelFacade: NSObject {
         }
 
         let body = APSKLabelHost(state: state, overrides: overrides)
-        return HostingHelpers.host(body, wrapsText: true)
+        // A label that does not fill its row hugs its text, so the row gives its
+        // slack to a filling sibling instead of stretching the label.
+        let fillsWidth = overrides.fillHorizontal?.boolValue == true
+        return HostingHelpers.host(body, wrapsText: true, hugsWidth: !fillsWidth)
     }
 }
 
@@ -150,47 +153,71 @@ private struct APSKLabelHost: View {
             content = AnyView(content.strikethrough(true))
         }
 
-        // fill_horizontal: the renderer pins the hosting view wide; without a
-        // maxWidth frame the SwiftUI Text centers in it (a full-width title or
-        // subtitle rendered centered instead of leading). Fill the width and
-        // position the text per textAlignment — default leading.
-        //
-        // `.fixedSize(horizontal: false, vertical: true)` is the key for WRAPPING:
-        // the NSHostingView computes its intrinsic height at the Text's one-line
-        // ideal width BEFORE the equal-width constraint pins it wider, so a long
-        // subtitle truncated to a single line. fixedSize(vertical:) forces the
-        // Text to take its natural multi-line height for the proposed width, so it
-        // wraps and grows instead of truncating. Harmless on single-line labels.
-        if overrides.fillHorizontal?.boolValue == true || overrides.preferredMaxLayoutWidth != nil {
-            let frameAlign: Alignment
-            switch overrides.textAlignment {
-            case "center":   frameAlign = .center
-            case "trailing": frameAlign = .trailing
-            default:         frameAlign = .leading
+        // Where the text sits when its frame is wider than the text: a
+        // fill_horizontal label the renderer pins wide, a label pinned to a
+        // minimum/maximum width column, or a label a required stack constraint
+        // stretches. Without an aligned frame the SwiftUI Text centers in that
+        // space. Position it per textAlignment, default leading.
+        let frameAlign: Alignment
+        switch overrides.textAlignment {
+        case "center":   frameAlign = .center
+        case "trailing": frameAlign = .trailing
+        default:         frameAlign = .leading
+        }
+        // The aligning outer frames below are for a label hosted in a platform
+        // view, whose hosting view reports only the ideal width to the stack.
+        // On watchOS the whole tree is SwiftUI, where a maxWidth: .infinity
+        // frame would make every label greedy inside an HStack.
+        #if os(watchOS)
+        let alignsInsideHostedFrame = false
+        #else
+        let alignsInsideHostedFrame = true
+        #endif
+
+        // `.fixedSize(horizontal: false, vertical: true)` is the key for WRAPPING
+        // a filled or preferred-width label: the NSHostingView computes its
+        // intrinsic height at the Text's one-line ideal width BEFORE the
+        // equal-width constraint pins it wider, so a long subtitle truncated to
+        // a single line. fixedSize(vertical:) forces the Text to take its natural
+        // multi-line height for the proposed width, so it wraps and grows instead
+        // of truncating. Harmless on single-line labels.
+        if let pmlw = overrides.preferredMaxLayoutWidth {
+            // Explicit width → SwiftUI computes the correct WRAPPED height at
+            // this width, so the NSHostingView reports multi-line height to
+            // the NSStackView and the next stacked element no longer overlaps
+            // a wrapped label. (A bare `.frame(maxWidth:.infinity)` reports the
+            // single-line ideal height at fitting-size time — the root of the
+            // long-standing fill-label-height under-reservation bug.) Takes
+            // precedence over fillHorizontal. The outer flexible frame keeps
+            // the ideal width at `pmlw` and places the fixed-width text at the
+            // leading edge (per textAlignment) when the renderer pins the label
+            // wider, e.g. a fill_horizontal label in a Fill-aligned VStack.
+            content = AnyView(
+                content
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: CGFloat(pmlw.doubleValue), alignment: frameAlign)
+            )
+            if alignsInsideHostedFrame {
+                content = AnyView(content.frame(maxWidth: .infinity, alignment: frameAlign))
             }
-            if let pmlw = overrides.preferredMaxLayoutWidth {
-                // Explicit width → SwiftUI computes the correct WRAPPED height at
-                // this width, so the NSHostingView reports multi-line height to
-                // the NSStackView and the next stacked element no longer overlaps
-                // a wrapped label. (A bare `.frame(maxWidth:.infinity)` reports the
-                // single-line ideal height at fitting-size time — the root of the
-                // long-standing fill-label-height under-reservation bug.) Takes
-                // precedence over fillHorizontal.
-                content = AnyView(
-                    content
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(width: CGFloat(pmlw.doubleValue), alignment: frameAlign)
-                )
-            } else {
-                content = AnyView(
-                    content
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: frameAlign)
-                )
-            }
+        } else if overrides.fillHorizontal?.boolValue == true {
+            content = AnyView(
+                content
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: frameAlign)
+            )
+        } else if alignsInsideHostedFrame {
+            // A flexible frame keeps the Text's ideal width (the label still
+            // hugs its text) and aligns it inside a wider column, such as the
+            // exact `frame(width:)` CommonModifiers applies for a label whose
+            // minimum_width == maximum_width.
+            content = AnyView(content.frame(maxWidth: .infinity, alignment: frameAlign))
         }
 
-        content = CommonModifiers.apply(content, overrides: overrides)
+        // A minimum height is the label's line box, never a cap: a wrapped label
+        // grows past it to show every line instead of drawing them over the next
+        // view.
+        content = CommonModifiers.apply(content, overrides: overrides, growsPastMinimumHeight: true)
         if overrides.selectable?.boolValue == true {
             content = AnyView(content.textSelection(.enabled))
         }

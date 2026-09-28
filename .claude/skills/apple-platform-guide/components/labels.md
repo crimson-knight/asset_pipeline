@@ -321,6 +321,17 @@ body copy that users must read. HIG: *"quaternaryLabel -- Watermark text."*
   lines 16 pt apart, and the row is 63 pt tall, 48 pt (3 x 16) taller than a
   one-line row of 15 pt. Each wrapped line inks 9 x 1.32 pt wider than the
   untracked line, the same width as the word drawn alone.
+  A label without `fill_horizontal` hugs its text: its hosting view holds its
+  ideal width at `NSLayoutPriorityDefaultHigh`, so an HStack gives its slack
+  to a filling sibling or a `Spacer`, not to the label. When the label is
+  still wider than its text (a `minimum_width == maximum_width` column, a
+  `preferred_max_layout_width` label that fills a column, or a required
+  stack constraint), the text sits at the edge `text_alignment` names
+  (leading by default) instead of the center. A lone `minimum_height` is a
+  floor for a Label, so a wrapped label grows past it. Measured in the stack
+  layout specs: a 152 pt label column starts its text within 2.5 pt of the
+  column edge and its filling value at 152 + spacing; two short labels in a
+  row sit one spacing apart.
 
 If a renderer constructs an `NSTextField` directly, it must keep
 `isEditable = false` and map `selectable` to `isSelectable`. It must also

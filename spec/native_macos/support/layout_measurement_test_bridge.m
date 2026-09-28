@@ -145,6 +145,57 @@ int32_t ap_spec_layout_ink_rows(void *window_ptr, void *view_ptr, uint8_t *out_r
     return rows;
 }
 
+// Draws `view_ptr` into a bitmap and writes the horizontal extent of its ink,
+// {leading, trailing}, in points from the view's leading edge (same ink test
+// as ap_spec_layout_ink_rows). Returns 0 when the view drew no ink.
+int32_t ap_spec_layout_ink_span(void *window_ptr, void *view_ptr, double *out_span) {
+    NSWindow *window = (NSWindow *)window_ptr;
+    NSView *view = (NSView *)view_ptr;
+    if (out_span == NULL || view.window != window) return 0;
+    [[window contentView] layoutSubtreeIfNeeded];
+
+    NSRect bounds = [view bounds];
+    if (NSWidth(bounds) < 1.0 || NSHeight(bounds) < 1.0) return 0;
+    NSBitmapImageRep *cached = [view bitmapImageRepForCachingDisplayInRect:bounds];
+    if (cached == nil) return 0;
+    [view cacheDisplayInRect:bounds toBitmapImageRep:cached];
+
+    NSInteger pixel_width = [cached pixelsWide];
+    NSInteger pixel_height = [cached pixelsHigh];
+    CGFloat scale = pixel_width / NSWidth(bounds);
+
+    uint8_t *rgba = calloc((size_t)(pixel_width * pixel_height * 4), 1);
+    if (rgba == NULL) return 0;
+    CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+    CGContextRef context = CGBitmapContextCreate(
+        rgba, pixel_width, pixel_height, 8, pixel_width * 4, srgb,
+        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    CGColorSpaceRelease(srgb);
+    if (context == NULL) {
+        free(rgba);
+        return 0;
+    }
+    CGContextDrawImage(context, CGRectMake(0, 0, pixel_width, pixel_height), [cached CGImage]);
+    CGContextRelease(context);
+
+    NSInteger leading = -1;
+    NSInteger trailing = -1;
+    for (NSInteger row = 0; row < pixel_height; row++) {
+        for (NSInteger column = 0; column < pixel_width; column++) {
+            uint8_t *pixel = rgba + (row * pixel_width + column) * 4;
+            if (pixel[3] > 128 && pixel[0] < 128 && pixel[1] < 128 && pixel[2] < 128) {
+                if (leading < 0 || column < leading) leading = column;
+                if (column > trailing) trailing = column;
+            }
+        }
+    }
+    free(rgba);
+    if (leading < 0) return 0;
+    out_span[0] = leading / scale;
+    out_span[1] = (trailing + 1) / scale;
+    return 1;
+}
+
 int32_t ap_spec_layout_application_is_active(void) {
     return [NSApp isActive] ? 1 : 0;
 }

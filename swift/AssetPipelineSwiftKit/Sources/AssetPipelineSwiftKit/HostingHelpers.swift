@@ -212,7 +212,12 @@ enum HostingHelpers {
     /// `APSKWrappingTextHostingView`, which reports the height the content
     /// needs at the width Auto Layout actually gave it. Text facades pass it so
     /// a wrapped label grows its stack row instead of truncating to one line.
-    static func host<V: View>(_ view: V, kind: String = "", wrapsText: Bool = false) -> APSKPlatformView {
+    ///
+    /// `hugsWidth` (AppKit, with `wrapsText`) makes the hosting view hug its
+    /// content's ideal width at `NSLayoutPriorityDefaultHigh`, so a stack row
+    /// stretches a filling sibling instead of the label. Pass false for content
+    /// that should fill the width the renderer gives it.
+    static func host<V: View>(_ view: V, kind: String = "", wrapsText: Bool = false, hugsWidth: Bool = false) -> APSKPlatformView {
         // Apply the brand tint last so it cascades into every child view
         // SwiftUI considers part of this hosted root. Hosted roots are
         // isolated tint scopes — there is no propagation across
@@ -272,9 +277,16 @@ enum HostingHelpers {
         // saves us from `NSHostingController.sizingOptions` ordering
         // bugs. The view is a +0-retain NSView; ObjC.owned on the
         // Crystal side bumps it to +1 immediately.
-        let hostingView: NSHostingView<AnyView> = wrapsText
-            ? APSKWrappingTextHostingView(rootView: sized)
-            : NSHostingView(rootView: sized)
+        let hostingView: NSHostingView<AnyView>
+        if wrapsText {
+            let wrappingView = APSKWrappingTextHostingView(rootView: sized)
+            if hugsWidth {
+                wrappingView.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+            }
+            hostingView = wrappingView
+        } else {
+            hostingView = NSHostingView(rootView: sized)
+        }
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         platformView = hostingView
         lifetimeOwner = hostingView
@@ -349,6 +361,12 @@ struct APSKHostedChild: NSViewRepresentable {
 /// is exactly the height the wrapped text must be allowed to exceed. `.minSize`
 /// stays, so a short label keeps its required minimum width and a long
 /// neighbor, not the short label, is the one that compresses.
+///
+/// Without `.maxSize` nothing caps the width either, so a stack row could
+/// stretch the label past its text. A label that does not fill its row hugs
+/// its ideal width through its horizontal content-hugging priority
+/// (`HostingHelpers.host(_:hugsWidth:)`), and its content aligns itself
+/// inside any wider frame a required constraint still imposes.
 final class APSKWrappingTextHostingView: NSHostingView<AnyView> {
     private var laidOutWidth: CGFloat = 0
     private var cachedHeight: (width: CGFloat, height: CGFloat)? = nil
