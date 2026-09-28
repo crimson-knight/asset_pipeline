@@ -528,6 +528,21 @@ describe UI::Native::Populator, "Group 2 default-detection" do
       UI::Native::Populator.populate_picker(target, view, RecordingSender.new)
       FakeLibObjCBridge.assert_sent(:setPickerStyle, times: 1, args: [target, "wheel"])
     end
+
+    it "skips fillHorizontal for a picker that hugs its options" do
+      view = UI::Picker.new(["a", "b"])
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_picker(target, view, RecordingSender.new)
+      FakeLibObjCBridge.refute_sent(:setFillHorizontal)
+    end
+
+    it "emits fillHorizontal for a fill_horizontal picker" do
+      view = UI::Picker.new(["a", "b"])
+      view.fill_horizontal = true
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_picker(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setFillHorizontal, times: 1, args: [target, "true"])
+    end
   end
 
   describe "#populate_date_picker" do
