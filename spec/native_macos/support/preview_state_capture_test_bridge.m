@@ -593,3 +593,16 @@ float ap_spec_appkit_view_layer_shadow_opacity(void *view_ptr) {
     CALayer *root = view.layer;
     return root == nil ? 0 : root.shadowOpacity;
 }
+
+// Returns 1 when the named drop-shadow layer carries its host's face as an
+// opaque body: the same background color and corner radius as the root layer.
+int32_t ap_spec_drop_shadow_layer_carries_face(void *view_ptr, const char *name) {
+    if (view_ptr == NULL || name == NULL) return 0;
+    NSView *view = (NSView *)view_ptr;
+    CALayer *root = view.layer;
+    if (root == nil || root.backgroundColor == NULL) return 0;
+    CALayer *drop_layer = ap_spec_surface_layer_named(root, [NSString stringWithUTF8String:name]);
+    if (drop_layer == nil || drop_layer.backgroundColor == NULL) return 0;
+    if (!CGColorEqualToColor(drop_layer.backgroundColor, root.backgroundColor)) return 0;
+    return drop_layer.cornerRadius == root.cornerRadius ? 1 : 0;
+}

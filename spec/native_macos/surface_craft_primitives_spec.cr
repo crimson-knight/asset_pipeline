@@ -45,6 +45,7 @@ require "../../src/ui"
     fun ap_spec_surface_layer_count(view : Void*, name : UInt8*) : Int32
     fun ap_spec_appkit_view_layer_translation_y(view : Void*) : Float64
     fun ap_spec_appkit_view_layer_shadow_opacity(view : Void*) : Float32
+    fun ap_spec_drop_shadow_layer_carries_face(view : Void*, name : UInt8*) : Int32
   end
 
   lib NoiseTextureFixtureBridge
@@ -295,6 +296,28 @@ require "../../src/ui"
       tile_pixel_height.should eq(64)
       (texture_opacity - 0.08).abs.should be <= 0.001
       has_compositing_filter.should eq(1)
+    end
+
+    it "gives each drop-shadow layer the face as its body, so the shadow stays outside the box as a CSS box-shadow does" do
+      # The drop layers sit above the root's background. Without a body, the
+      # window server paints each shadow across the whole face: a 45% black
+      # shadow darkened a #2B3245 panel to about #1D212B in a live window.
+      # renderInContext does not draw layer shadows, so this checks the body.
+      surface = UI::VStack.new
+      surface.background_fill_color = UI::Color.new(r: 43.0 / 255.0, g: 50.0 / 255.0, b: 69.0 / 255.0)
+      surface.corner_radius = 8.0
+      surface.list_of_drop_shadows = [
+        UI::DropShadow.new(shadow_color: UI::Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.45), offset_y: 1.0, blur_radius: 2.0),
+        UI::DropShadow.new(shadow_color: UI::Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.2), offset_y: 4.0, blur_radius: 9.0),
+      ]
+      native = UI::AppKit::Renderer.new.render(surface)
+      begin
+        view = native.handle.ptr!
+        PreviewStateCaptureTestBridge.ap_spec_drop_shadow_layer_carries_face(view, "ap.surfaceCraft.drop.0").should eq(1)
+        PreviewStateCaptureTestBridge.ap_spec_drop_shadow_layer_carries_face(view, "ap.surfaceCraft.drop.1").should eq(1)
+      ensure
+        native.teardown!
+      end
     end
 
     it "attaches Noise to an ordered-out window and rebakes after its backing scale changes" do
