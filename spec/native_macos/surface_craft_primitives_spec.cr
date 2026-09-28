@@ -46,6 +46,15 @@ require "../../src/ui"
     fun ap_spec_appkit_view_layer_translation_y(view : Void*) : Float64
     fun ap_spec_appkit_view_layer_shadow_opacity(view : Void*) : Float32
     fun ap_spec_drop_shadow_layer_carries_face(view : Void*, name : UInt8*) : Int32
+    fun ap_spec_set_view_dark_appearance(view : Void*, dark : Int32) : Void
+    fun ap_spec_composite_view_with_shadows(
+      view : Void*,
+      point_width : Float64,
+      point_height : Float64,
+      margin : Float64,
+      center_rgba : UInt8*,
+      largest_margin_alpha : UInt8*,
+    ) : Int32
     fun ap_spec_surface_path_size_after_layout(
       view : Void*,
       name : UInt8*,
@@ -124,6 +133,40 @@ require "../../src/ui"
     cls = SurfaceCraftObjCRuntime.objc_getClass("NSView")
     allocated = UI::AppKit::LibObjCBridge.objc_send(cls, SurfaceCraftObjCRuntime.sel_registerName("alloc"))
     UI::AppKit::LibObjCBridge.objc_send(allocated, SurfaceCraftObjCRuntime.sel_registerName("init"))
+  end
+
+  # Composites a surface-craft panel with Core Animation's renderer (which
+  # draws layer shadows, unlike renderInContext) and returns the RGBA at the
+  # panel's center plus the largest alpha that landed outside the panel.
+  private def composite_surface_craft_panel(surface : UI::View, dark_appearance : Bool) : {Array(UInt8), UInt8}
+    native_view = surface_craft_test_nsview
+    PreviewStateCaptureTestBridge.ap_spec_set_view_dark_appearance(native_view, dark_appearance ? 1 : 0)
+    if json = surface.surface_craft_json
+      UI::AppKit::LibObjCBridge.appkit_view_apply_surface_craft(native_view, json.to_unsafe)
+    else
+      fail "surface-craft payload was not created"
+    end
+
+    center_rgba = Array(UInt8).new(4, 0_u8)
+    largest_margin_alpha = 0_u8
+    PreviewStateCaptureTestBridge.ap_spec_composite_view_with_shadows(
+      native_view, 160.0, 64.0, 24.0, center_rgba.to_unsafe, pointerof(largest_margin_alpha),
+    ).should eq(1)
+    {center_rgba, largest_margin_alpha}
+  end
+
+  # A filled, rounded panel under a two-layer drop shadow.
+  private def surface_craft_shadowed_panel(fill : UI::Color, with_drop_shadows : Bool) : UI::VStack
+    surface = UI::VStack.new
+    surface.background_fill_color = fill
+    surface.corner_radius = 8.0
+    if with_drop_shadows
+      surface.list_of_drop_shadows = [
+        UI::DropShadow.new(shadow_color: UI::Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.45), offset_y: 1.0, blur_radius: 2.0),
+        UI::DropShadow.new(shadow_color: UI::Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.2), offset_y: 4.0, blur_radius: 9.0),
+      ]
+    end
+    surface
   end
 
   private def surface_craft_gray_statistics(pixels : Array(UInt8), pixel_width : Int32, pixel_height : Int32) : {Float64, Float64}
@@ -357,6 +400,28 @@ require "../../src/ui"
         PreviewStateCaptureTestBridge.ap_spec_drop_shadow_layer_carries_face(view, "ap.surfaceCraft.drop.1").should eq(1)
       ensure
         native.teardown!
+      end
+    end
+
+    {
+      {"dark", true, UI::Color.new(r: 43.0 / 255.0, g: 50.0 / 255.0, b: 69.0 / 255.0)},
+      {"light", false, UI::Color.new(r: 251.0 / 255.0, g: 248.0 / 255.0, b: 242.0 / 255.0)},
+    }.each do |appearance_name, dark_appearance, fill|
+      it "keeps a drop-shadowed panel's exact fill color when Core Animation composites it (#{appearance_name})" do
+        # Shadowed panels drew darker in dark mode and gray in light mode in
+        # live windows, because each drop shadow was also painted across the
+        # face. Core Animation's renderer draws layer shadows as the window
+        # server does, so the face pixel must match the same panel without
+        # shadows, byte for byte, while the shadow still lands outside it.
+        reference_rgba, reference_margin_alpha = composite_surface_craft_panel(
+          surface_craft_shadowed_panel(fill, with_drop_shadows: false), dark_appearance)
+        shadowed_rgba, shadowed_margin_alpha = composite_surface_craft_panel(
+          surface_craft_shadowed_panel(fill, with_drop_shadows: true), dark_appearance)
+
+        reference_rgba[3].should eq(255)
+        reference_margin_alpha.should eq(0)
+        shadowed_margin_alpha.should be > 0
+        shadowed_rgba.should eq(reference_rgba)
       end
     end
 

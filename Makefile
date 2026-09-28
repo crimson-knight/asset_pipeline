@@ -57,7 +57,7 @@ MACOS_FRAMEWORKS := \
 	-framework AppKit -framework Foundation \
 	-framework SwiftUI -framework Combine \
 	-framework ApplicationServices -framework CoreFoundation \
-	-framework CoreGraphics -framework ImageIO -framework QuartzCore \
+	-framework CoreGraphics -framework ImageIO -framework QuartzCore -framework Metal \
 	-framework UserNotifications \
 	-framework WebKit -framework MapKit -framework CoreLocation \
 	-framework AVKit -framework AVFoundation \

@@ -1,5 +1,6 @@
 #import <AppKit/AppKit.h>
 #import <ImageIO/ImageIO.h>
+#import <Metal/Metal.h>
 #import <QuartzCore/QuartzCore.h>
 #include <math.h>
 #include <stdio.h>
@@ -634,5 +635,127 @@ int32_t ap_spec_surface_path_size_after_layout(
             return 1;
         }
         return 0;
+    }
+}
+
+// Sets *view*'s appearance to Dark Aqua (dark != 0) or Aqua, so surface-craft
+// colors applied afterward resolve as they would in that appearance.
+void ap_spec_set_view_dark_appearance(void *view_ptr, int32_t dark) {
+    if (view_ptr == NULL) return;
+    NSView *view = (NSView *)view_ptr;
+    view.appearance = [NSAppearance appearanceNamed:(dark != 0 ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua)];
+}
+
+// Lays *view* out at *point_width* x *point_height* and composites its layer
+// tree with Core Animation's own renderer into an sRGB texture at 1x, with
+// *margin* points of clear space on every side. Unlike renderInContext, this
+// draws layer shadows, as the window server does for a live window.
+//
+// Writes the RGBA of the pixel at the center of the view into *center_rgba*
+// and the largest alpha found in the margin (where only shadow can land) into
+// *largest_margin_alpha*. Returns 0 when Metal or the renderer is unavailable.
+int32_t ap_spec_composite_view_with_shadows(
+    void *view_ptr,
+    double point_width,
+    double point_height,
+    double margin,
+    uint8_t *center_rgba,
+    uint8_t *largest_margin_alpha) {
+    if (view_ptr == NULL || center_rgba == NULL || largest_margin_alpha == NULL) return 0;
+    if (point_width < 1.0 || point_height < 1.0 || margin < 1.0) return 0;
+    @autoreleasepool {
+        NSView *view = (NSView *)view_ptr;
+        [view setFrame:NSMakeRect(0, 0, point_width, point_height)];
+        [view layout];
+        CALayer *root = view.layer;
+        if (root == nil || root.superlayer != nil) return 0;
+
+        id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+        if (device == nil) return 0;
+        id<MTLCommandQueue> queue = [device newCommandQueue];
+
+        NSUInteger pixel_width = (NSUInteger)ceil(point_width + margin * 2.0);
+        NSUInteger pixel_height = (NSUInteger)ceil(point_height + margin * 2.0);
+        MTLTextureDescriptor *descriptor = [MTLTextureDescriptor
+            texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                         width:pixel_width
+                                        height:pixel_height
+                                     mipmapped:NO];
+        descriptor.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+        descriptor.storageMode = MTLStorageModeManaged;
+        id<MTLTexture> texture = [device newTextureWithDescriptor:descriptor];
+
+        // A container gives the shadow room to land inside the texture.
+        CALayer *container = [CALayer layer];
+        container.frame = CGRectMake(0, 0, pixel_width, pixel_height);
+        container.backgroundColor = NULL;
+        CGRect original_frame = root.frame;
+        [container addSublayer:root];
+        root.frame = CGRectMake(margin, margin, point_width, point_height);
+
+        CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+        CARenderer *renderer = [CARenderer rendererWithMTLTexture:texture options:@{
+            kCARendererColorSpace: (__bridge id)srgb,
+            kCARendererMetalCommandQueue: queue,
+        }];
+        renderer.layer = container;
+        renderer.bounds = container.bounds;
+        [CATransaction flush];
+        [renderer beginFrameAtTime:CACurrentMediaTime() timeStamp:NULL];
+        [renderer addUpdateRect:renderer.bounds];
+        [renderer render];
+        [renderer endFrame];
+
+        id<MTLCommandBuffer> readback = [queue commandBuffer];
+        id<MTLBlitCommandEncoder> blit = [readback blitCommandEncoder];
+        [blit synchronizeResource:texture];
+        [blit endEncoding];
+        [readback commit];
+        [readback waitUntilCompleted];
+
+        renderer.layer = nil;
+        [root removeFromSuperlayer];
+        root.frame = original_frame;
+        CGColorSpaceRelease(srgb);
+
+        NSUInteger bytes_per_row = pixel_width * 4;
+        uint8_t *pixels = calloc(pixel_height, bytes_per_row);
+        if (pixels == NULL) {
+            [texture release];
+            [queue release];
+            [device release];
+            return 0;
+        }
+        [texture getBytes:pixels bytesPerRow:bytes_per_row
+               fromRegion:MTLRegionMake2D(0, 0, pixel_width, pixel_height) mipmapLevel:0];
+
+        NSUInteger center_x = (NSUInteger)(margin + point_width / 2.0);
+        NSUInteger center_y = (NSUInteger)(margin + point_height / 2.0);
+        uint8_t *center = pixels + center_y * bytes_per_row + center_x * 4;
+        center_rgba[0] = center[2];
+        center_rgba[1] = center[1];
+        center_rgba[2] = center[0];
+        center_rgba[3] = center[3];
+
+        uint8_t largest_alpha = 0;
+        NSUInteger inner_left = (NSUInteger)floor(margin);
+        NSUInteger inner_top = (NSUInteger)floor(margin);
+        NSUInteger inner_right = (NSUInteger)ceil(margin + point_width);
+        NSUInteger inner_bottom = (NSUInteger)ceil(margin + point_height);
+        for (NSUInteger y = 0; y < pixel_height; y++) {
+            for (NSUInteger x = 0; x < pixel_width; x++) {
+                BOOL inside_view = x >= inner_left && x < inner_right && y >= inner_top && y < inner_bottom;
+                if (inside_view) continue;
+                uint8_t alpha = pixels[y * bytes_per_row + x * 4 + 3];
+                if (alpha > largest_alpha) largest_alpha = alpha;
+            }
+        }
+        *largest_margin_alpha = largest_alpha;
+
+        free(pixels);
+        [texture release];
+        [queue release];
+        [device release];
+        return 1;
     }
 }
