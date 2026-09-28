@@ -593,3 +593,33 @@ float ap_spec_appkit_view_layer_shadow_opacity(void *view_ptr) {
     CALayer *root = view.layer;
     return root == nil ? 0 : root.shadowOpacity;
 }
+
+// Resizes *view* to *point_width* x *point_height*, runs its layout pass, and
+// reports the bounding box of the named surface-craft layer's shadow path
+// (a drop layer) or shape path (an inner layer). Returns 0 when the layer or
+// its path is missing.
+int32_t ap_spec_surface_path_size_after_layout(
+    void *view_ptr,
+    const char *name,
+    double point_width,
+    double point_height,
+    double *path_width,
+    double *path_height) {
+    if (view_ptr == NULL || name == NULL || path_width == NULL || path_height == NULL) return 0;
+    @autoreleasepool {
+        NSView *view = (__bridge NSView *)view_ptr;
+        [view setFrame:NSMakeRect(0, 0, point_width, point_height)];
+        [view layout];
+        NSString *target = [NSString stringWithUTF8String:name];
+        for (CALayer *layer in [NSArray arrayWithArray:view.layer.sublayers]) {
+            if (![layer.name isEqualToString:target]) continue;
+            CGPathRef path = [layer isKindOfClass:[CAShapeLayer class]] ? ((CAShapeLayer *)layer).path : layer.shadowPath;
+            if (path == NULL) return 0;
+            CGRect box = CGPathGetBoundingBox(path);
+            *path_width = CGRectGetWidth(box);
+            *path_height = CGRectGetHeight(box);
+            return 1;
+        }
+        return 0;
+    }
+}
