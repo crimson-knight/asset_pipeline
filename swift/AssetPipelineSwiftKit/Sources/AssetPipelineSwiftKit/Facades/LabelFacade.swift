@@ -71,8 +71,27 @@ private struct APSKLabelHost: View {
     @ObservedObject var state: APSKLabelState
     let overrides: LabelOverrides
 
+    // The link a trailing link carries when it has no URL of its own. Its
+    // click is always answered by the handler or discarded, never opened.
+    private static let handlerOnlyLinkURL = URL(string: "apsk-label-link:trailing")!
+
+    // The label text, followed by the inline trailing link when one is set.
+    // One Text keeps the link on the paragraph's lines, so it wraps with it
+    // and VoiceOver reads it as a link inside the text.
+    private var labelText: Text {
+        guard let linkText = overrides.trailingLinkText, !linkText.isEmpty else {
+            return Text(state.text)
+        }
+        var attributed = AttributedString(state.text.isEmpty ? "" : state.text + " ")
+        var link = AttributedString(linkText)
+        link.link = overrides.trailingLinkUrl.flatMap(URL.init(string:)) ?? Self.handlerOnlyLinkURL
+        link.underlineStyle = .single
+        attributed.append(link)
+        return Text(attributed)
+    }
+
     var body: some View {
-        var content: AnyView = AnyView(Text(state.text))
+        var content: AnyView = AnyView(labelText)
 
         // Font size + weight. Apply `.font(.system(size:weight:))` when
         // a Crystal-side `UI::Font.size` / `UI::Font.weight` override
@@ -220,6 +239,16 @@ private struct APSKLabelHost: View {
         content = CommonModifiers.apply(content, overrides: overrides, growsPastMinimumHeight: true)
         if overrides.selectable?.boolValue == true {
             content = AnyView(content.textSelection(.enabled))
+        }
+        if overrides.trailingLinkText != nil {
+            let linkToken = overrides.trailingLinkToken?.uint64Value ?? 0
+            content = AnyView(content.environment(\.openURL, OpenURLAction { url in
+                if linkToken != 0 {
+                    CallbackBridge.fire(token: linkToken, value: 0)
+                    return .handled
+                }
+                return url == Self.handlerOnlyLinkURL ? .discarded : .systemAction
+            }))
         }
         return content
     }

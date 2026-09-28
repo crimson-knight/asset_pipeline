@@ -199,6 +199,22 @@ module UI
           el.add_style("letter-spacing: #{view.tracking}px")
         end
 
+        # Inline trailing link. A tap handler has no web channel, so only a
+        # URL makes a real anchor; without one the text stays underlined.
+        if link_text = view.trailing_link_text
+          el << " " unless view.text.empty?
+          link = if link_url = view.trailing_link_url
+                   anchor = Components::Elements::A.new
+                   anchor.set_attribute("href", link_url)
+                   anchor
+                 else
+                   Components::Elements::Span.new
+                 end
+          link.add_style("text-decoration: underline")
+          link << link_text
+          el << link
+        end
+
         if keycap = view.as?(UI::Keycap)
           el.set_attribute("data-ap-keycap-style", keycap.style.to_s.underscore)
           case keycap.style

@@ -370,6 +370,12 @@
         target_str = overrides_ptr.address.to_s(16)
         UI::Native::Populator.populate_label(target_str, view, sender)
 
+        link_token = 0_u64
+        if view.trailing_link_text && (link_handler = view.on_trailing_link_tap)
+          link_token = UI::CallbackRegistry.register_action(&link_handler)
+          sender.set_number(target_str, :setTrailingLinkToken, link_token.to_f64)
+        end
+
         state_slot = Pointer(Void).null.as(Void*)
         state_box = pointerof(state_slot)
         # Pin `text` into a local before reaching for `to_unsafe` so the
@@ -385,6 +391,7 @@
           view.swiftkit_state_handle = state_slot
         end
         native = NativeView.new(handle)
+        native.track_callback_id(link_token) unless link_token == 0_u64
         push_native(native)
       end
 

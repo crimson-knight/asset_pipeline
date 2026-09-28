@@ -136,6 +136,29 @@ module UI
     # (Android).
     property tracking : Float64 = 0.0
 
+    # Link text drawn inline right after `text`, underlined in the accent
+    # color, so a paragraph can end in a link that wraps with it. `nil` (the
+    # default) draws no link.
+    #
+    # ```
+    # helper = UI::Label.new("Choose where results are saved.")
+    # helper.trailing_link_text = "How saving works"
+    # helper.on_trailing_link_tap = -> { show_saving_help }
+    # ```
+    #
+    # macOS and iOS draw it in the SwiftUI Text, so VoiceOver reads it as a
+    # link inside the paragraph. The web renderer emits an `<a>` when
+    # `trailing_link_url` is set, and an underlined `<span>` otherwise.
+    property trailing_link_text : String? = nil
+
+    # Called when the trailing link is clicked on macOS and iOS. It takes
+    # precedence over `trailing_link_url`.
+    property on_trailing_link_tap : Proc(Nil)? = nil
+
+    # Destination the trailing link opens when no `on_trailing_link_tap` is
+    # set (the system opens it on macOS and iOS), and the `href` on the web.
+    property trailing_link_url : String? = nil
+
     def initialize(@text : String)
     end
 

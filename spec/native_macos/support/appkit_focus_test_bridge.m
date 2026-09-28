@@ -207,6 +207,43 @@ int ap_spec_triple_click_at_ax_point(void *window_ptr, double ax_x, double ax_y)
     return 1;
 }
 
+// Clicks once, as a person does, at the accessibility point: a mouse-down
+// then a mouse-up delivered through the window's sendEvent:, as the window
+// server delivers them, so SwiftUI's own event handling sees the click. The
+// borderless window cannot become key, so the click neither makes it key nor
+// activates the application. Returns 0 when nothing is hit.
+int ap_spec_click_at_ax_point(void *window_ptr, double ax_x, double ax_y) {
+    NSWindow *window = (NSWindow *)window_ptr;
+    NSView *hit = ap_spec_view_hit_at_ax_point(window, ax_x, ax_y);
+    if (hit == nil) {
+        return 0;
+    }
+
+    NSPoint window_point = ap_spec_window_point_for_ax_point(window, ax_x, ax_y);
+    NSTimeInterval now = [[NSProcessInfo processInfo] systemUptime];
+    NSEvent *mouse_down = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDown
+                                             location:window_point
+                                        modifierFlags:0
+                                            timestamp:now
+                                         windowNumber:[window windowNumber]
+                                              context:nil
+                                          eventNumber:0
+                                           clickCount:1
+                                             pressure:1];
+    NSEvent *mouse_up = [NSEvent mouseEventWithType:NSEventTypeLeftMouseUp
+                                           location:window_point
+                                      modifierFlags:0
+                                          timestamp:now + 0.05
+                                       windowNumber:[window windowNumber]
+                                            context:nil
+                                          eventNumber:0
+                                           clickCount:1
+                                             pressure:0];
+    [window sendEvent:mouse_down];
+    [window sendEvent:mouse_up];
+    return 1;
+}
+
 // Sends copy: along the window's responder chain from its first responder,
 // which is where Edit > Copy (Cmd+C) delivers it. Returns 1 when a
 // responder accepted copy:, 0 when none in the chain implements it.

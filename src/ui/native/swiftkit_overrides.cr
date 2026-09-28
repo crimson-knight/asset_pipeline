@@ -416,6 +416,15 @@ module UI
           sender.set_number(target, :setTracking, view.tracking)
         end
 
+        # Inline trailing link. The renderer registers the tap handler and
+        # sends its token separately.
+        if link_text = view.trailing_link_text
+          sender.set_string(target, :setTrailingLinkText, link_text)
+          if link_url = view.trailing_link_url
+            sender.set_string(target, :setTrailingLinkUrl, link_url)
+          end
+        end
+
         # fill_horizontal: the renderer pins the label's hosting view to fill the
         # container width, but the SwiftUI Text then centers in it. Tell the facade
         # to apply a maxWidth frame so the text fills + aligns (leading by default)

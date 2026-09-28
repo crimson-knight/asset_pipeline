@@ -64,6 +64,15 @@ public class LabelOverrides: ViewOverrides {
     // resolved font. A value at or below the font's natural line height leaves
     // the natural pitch (SwiftUI cannot tighten lines). nil = natural pitch.
     @objc public var lineHeight: NSNumber? = nil
+    // Link text drawn inline after the label text (UI::Label#trailing_link_text),
+    // underlined in the accent color. nil = no link.
+    @objc public var trailingLinkText: String? = nil
+    // Action token fired when the trailing link is clicked. nil or 0 = no
+    // handler; the link then opens trailingLinkUrl through the system.
+    @objc public var trailingLinkToken: NSNumber? = nil
+    // Destination opened when no handler is wired. nil = the link does nothing
+    // without a handler.
+    @objc public var trailingLinkUrl: String? = nil
 
     @objc public override init() { super.init() }
 }

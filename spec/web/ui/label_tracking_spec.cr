@@ -34,3 +34,30 @@ describe "UI::Label tracking on the web" do
     render_tracking_label(UI::Label.new("Plain")).should_not contain("letter-spacing")
   end
 end
+
+describe "UI::Label trailing link on the web" do
+  it "draws no link by default" do
+    render_tracking_label(UI::Label.new("Plain")).should_not contain("<a")
+  end
+
+  it "ends the paragraph with an underlined anchor when a URL is set" do
+    label = UI::Label.new("Choose where results are saved.")
+    label.trailing_link_text = "How saving works"
+    label.trailing_link_url = "https://example.com/saving"
+
+    html = render_tracking_label(label)
+    html.should contain("Choose where results are saved. <a")
+    html.should contain(%(href="https://example.com/saving"))
+    html.should contain(">How saving works</a>")
+    html.should contain("text-decoration: underline")
+  end
+
+  it "underlines the link text in a span when no URL is set" do
+    label = UI::Label.new("Choose where results are saved.")
+    label.trailing_link_text = "How saving works"
+
+    html = render_tracking_label(label)
+    html.should_not contain("<a")
+    html.should contain(">How saving works</span>")
+  end
+end

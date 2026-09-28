@@ -62,6 +62,23 @@ describe UI::Native::Populator, "Group 1 default-detection" do
       FakeLibObjCBridge.refute_sent(:setTracking)
       # line_height default nil → no line height setter
       FakeLibObjCBridge.refute_sent(:setLineHeight)
+      # trailing_link_text default nil → no link setters
+      FakeLibObjCBridge.refute_sent(:setTrailingLinkText)
+      FakeLibObjCBridge.refute_sent(:setTrailingLinkUrl)
+    end
+
+    it "emits setTrailingLinkText, and setTrailingLinkUrl only with a URL" do
+      view = UI::Label.new("Choose where results are saved.")
+      view.trailing_link_text = "How saving works"
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setTrailingLinkText, times: 1, args: [target, "How saving works"])
+      FakeLibObjCBridge.refute_sent(:setTrailingLinkUrl)
+
+      view.trailing_link_url = "https://example.com/saving"
+      target = FakeLibObjCBridge.next_sentinel_pointer
+      UI::Native::Populator.populate_label(target, view, RecordingSender.new)
+      FakeLibObjCBridge.assert_sent(:setTrailingLinkUrl, times: 1, args: [target, "https://example.com/saving"])
     end
 
     it "emits setTracking in points when tracking is set" do
