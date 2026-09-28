@@ -65,6 +65,7 @@ static char ap_surface_craft_texture_payload_key;
 static char ap_surface_craft_applied_layout_key;
 
 void appkit_view_apply_surface_craft(void *view_ptr, const char *json);
+static void ap_surface_refresh_shadow_paths(CALayer *root);
 
 static NSString *ap_surface_craft_layout_signature(NSView *view, CALayer *root) {
     if (root == nil) return nil;
@@ -136,6 +137,10 @@ static void ap_surface_craft_apply_after_layout(NSView *view) {
     [self ap_surface_craft_view_did_layout];
 
     ap_surface_craft_apply_after_layout(self);
+    // Drop- and inner-shadow paths are built from the bounds at apply time,
+    // which are empty for a view styled before its first layout; rebuild
+    // them from the laid-out bounds.
+    if (self.wantsLayer) ap_surface_refresh_shadow_paths(self.layer);
 }
 @end
 #endif
@@ -5487,9 +5492,12 @@ static CGImageRef ap_surface_texture_tile(NSString *kind, NSDictionary *texture,
     return ap_surface_noise_tile(base_frequency, octave_count, seed, tile_size, backing_scale, color_interpolation);
 }
 
+// Every sublayer walk enumerates a copy: AppKit can add or remove sublayers
+// (a backing-scale or layout callback) while a live CALayerArray is being
+// enumerated, which raises "Collection was mutated while being enumerated".
 static NSArray<CALayer *> *ap_surface_layers_named(CALayer *root, NSString *name) {
     NSMutableArray<CALayer *> *matches = [NSMutableArray array];
-    for (CALayer *layer in root.sublayers) {
+    for (CALayer *layer in [NSArray arrayWithArray:root.sublayers]) {
         if ([layer.name isEqualToString:name]) [matches addObject:layer];
     }
     return matches;
@@ -5497,15 +5505,51 @@ static NSArray<CALayer *> *ap_surface_layers_named(CALayer *root, NSString *name
 
 static void ap_surface_remove_layers_with_prefix(CALayer *root, NSString *prefix) {
     NSMutableArray<CALayer *> *matching_layers = [NSMutableArray array];
-    for (CALayer *layer in root.sublayers) {
+    for (CALayer *layer in [NSArray arrayWithArray:root.sublayers]) {
         if ([layer.name hasPrefix:prefix]) [matching_layers addObject:layer];
     }
     for (CALayer *layer in matching_layers) [layer removeFromSuperlayer];
 }
 
+// Returns a rounded-rect path for *rect*, with the corner radius clamped to
+// half the shorter side so an empty or small rect stays a valid path.
+static CGPathRef ap_surface_create_rounded_path(CGRect rect, CGFloat corner_radius) {
+    CGFloat limit = MIN(CGRectGetWidth(rect), CGRectGetHeight(rect)) / 2.0;
+    CGFloat radius = MAX(0.0, MIN(corner_radius, limit));
+    return CGPathCreateWithRoundedRect(rect, radius, radius, NULL);
+}
+
+// Rebuilds the drop- and inner-shadow paths of *root*'s surface-craft layers
+// when they no longer match its bounds.
+static void ap_surface_refresh_shadow_paths(CALayer *root) {
+    if (root == nil || root.sublayers.count == 0) return;
+    CGRect bounds = root.bounds;
+    for (CALayer *layer in [NSArray arrayWithArray:root.sublayers]) {
+        NSString *name = layer.name;
+        if (name == nil) continue;
+        if ([name hasPrefix:@"ap.surfaceCraft.drop."]) {
+            CGPathRef current_path = layer.shadowPath;
+            if (current_path != NULL && CGRectEqualToRect(CGPathGetBoundingBox(current_path), bounds)) continue;
+            layer.frame = bounds;
+            CGPathRef shadow_path = ap_surface_create_rounded_path(bounds, root.cornerRadius);
+            layer.shadowPath = shadow_path;
+            CGPathRelease(shadow_path);
+        } else if ([name hasPrefix:@"ap.surfaceCraft.inner."] && [layer isKindOfClass:[CAShapeLayer class]]) {
+            CAShapeLayer *shape_layer = (CAShapeLayer *)layer;
+            CGRect inset = CGRectInset(bounds, 1, 1);
+            CGPathRef current_path = shape_layer.path;
+            if (current_path != NULL && CGRectEqualToRect(CGPathGetBoundingBox(current_path), inset)) continue;
+            shape_layer.frame = bounds;
+            CGPathRef inner_path = ap_surface_create_rounded_path(inset, root.cornerRadius);
+            shape_layer.path = inner_path;
+            CGPathRelease(inner_path);
+        }
+    }
+}
+
 static void ap_surface_apply_preview_feedback(CALayer *root, NSDictionary *values) {
     BOOL had_preview_state = NO;
-    for (CALayer *layer in root.sublayers) {
+    for (CALayer *layer in [NSArray arrayWithArray:root.sublayers]) {
         if ([layer.name hasPrefix:@"ap.surfaceCraft.preview."]) {
             had_preview_state = YES;
             break;
@@ -5723,7 +5767,7 @@ void appkit_view_apply_surface_craft(void *view_ptr, const char *json) {
                 // an on-screen panel darkens by the shadow's alpha.
                 layer.backgroundColor = root.backgroundColor;
                 layer.cornerRadius = root.cornerRadius;
-                CGPathRef shadow_path = CGPathCreateWithRoundedRect(root.bounds, root.cornerRadius, root.cornerRadius, NULL);
+                CGPathRef shadow_path = ap_surface_create_rounded_path(root.bounds, root.cornerRadius);
                 layer.shadowPath = shadow_path;
                 CGPathRelease(shadow_path);
                 layer.shadowColor = ap_surface_color(color).CGColor;
@@ -5746,7 +5790,7 @@ void appkit_view_apply_surface_craft(void *view_ptr, const char *json) {
                 layer.frame = root.bounds;
                 layer.autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
                 CGRect inset = CGRectInset(root.bounds, 1, 1);
-                CGPathRef inner_path = CGPathCreateWithRoundedRect(inset, root.cornerRadius, root.cornerRadius, NULL);
+                CGPathRef inner_path = ap_surface_create_rounded_path(inset, root.cornerRadius);
                 layer.path = inner_path;
                 CGPathRelease(inner_path);
                 layer.fillColor = NSColor.clearColor.CGColor;

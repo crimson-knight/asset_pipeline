@@ -55,6 +55,14 @@ public class PickerFacade: NSObject {
         default: break
         }
 
+        // fill_horizontal: a flexible max width lets the hosting view grow
+        // past the picker's ideal width (its `.maxSize` sizing option
+        // otherwise pins the view to its widest option), so the picker spans
+        // the width its container offers.
+        if overrides.fillHorizontal?.boolValue == true {
+            content = AnyView(content.frame(maxWidth: .infinity))
+        }
+
         content = CommonModifiers.apply(content, overrides: overrides)
         return HostingHelpers.host(IntHost(storage: storage, content: content))
     }
