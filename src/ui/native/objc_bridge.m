@@ -5103,7 +5103,9 @@ static NSColor *ap_surface_color(NSString *value) {
             CGFloat g = parts[1].doubleValue / 255.0;
             CGFloat b = parts[2].doubleValue / 255.0;
             CGFloat a = parts[3].doubleValue;
-            return [NSColor colorWithCalibratedRed:r green:g blue:b alpha:a];
+            // CSS rgba() is sRGB, as the SwiftUI facade and the Noise tile
+            // read it. Generic RGB drew #2B3245 as #394257.
+            return [NSColor colorWithSRGBRed:r green:g blue:b alpha:a];
         }
     }
     if (![value hasPrefix:@"role:"]) return NSColor.clearColor;
@@ -5119,21 +5121,6 @@ static NSColor *ap_surface_color(NSString *value) {
     if ([role isEqualToString:@"text-inverse"]) return NSColor.windowBackgroundColor;
     if ([role isEqualToString:@"warning"]) return NSColor.systemOrangeColor;
     return NSColor.clearColor;
-}
-
-static NSColor *ap_surface_srgb_color(NSString *value) {
-    if ([value hasPrefix:@"rgba("] && [value hasSuffix:@")"]) {
-        NSString *components = [[value substringFromIndex:5] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@")"]];
-        NSArray<NSString *> *parts = [components componentsSeparatedByString:@","];
-        if (parts.count == 4) {
-            CGFloat r = parts[0].doubleValue / 255.0;
-            CGFloat g = parts[1].doubleValue / 255.0;
-            CGFloat b = parts[2].doubleValue / 255.0;
-            CGFloat a = parts[3].doubleValue;
-            return [NSColor colorWithSRGBRed:r green:g blue:b alpha:a];
-        }
-    }
-    return ap_surface_color(value);
 }
 
 enum {
@@ -5750,7 +5737,7 @@ void appkit_view_apply_surface_craft(void *view_ptr, const char *json) {
 
         NSString *fill = values[@"fill"];
         if ([fill isKindOfClass:[NSString class]]) {
-            root.backgroundColor = (has_noise_texture ? ap_surface_srgb_color(fill) : ap_surface_color(fill)).CGColor;
+            root.backgroundColor = ap_surface_color(fill).CGColor;
         }
 
         for (CALayer *old in ap_surface_layers_named(root, @"ap.surfaceCraft.gradient")) [old removeFromSuperlayer];

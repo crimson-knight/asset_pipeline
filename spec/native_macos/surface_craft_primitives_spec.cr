@@ -526,6 +526,25 @@ require "../../src/ui"
       end
     end
 
+    # Panel ground colors in the appearance each is used in, as sRGB bytes.
+    {
+      {"dark panel", true, {0x2B_u8, 0x32_u8, 0x45_u8}},
+      {"dark ground", true, {0x23_u8, 0x29_u8, 0x3A_u8}},
+      {"dark groove", true, {0x17_u8, 0x1B_u8, 0x27_u8}},
+      {"light panel", false, {0xFB_u8, 0xF8_u8, 0xF2_u8}},
+      {"light ground", false, {0xF1_u8, 0xEC_u8, 0xE3_u8}},
+      {"light groove", false, {0xD8_u8, 0xCF_u8, 0xBF_u8}},
+    }.each do |color_name, dark_appearance, srgb_bytes|
+      it "composites an rgba fill at its exact sRGB bytes (#{color_name})" do
+        # CSS colors are sRGB. Filling with Generic RGB drew #2B3245 as
+        # #394257 and #FBF8F2 as #FCF9F5.
+        red, green, blue = srgb_bytes
+        fill = UI::Color.new(r: red / 255.0, g: green / 255.0, b: blue / 255.0)
+        composite = composite_window_hosted_surface(surface_craft_shadowed_panel(fill, with_drop_shadows: false), dark_appearance)
+        composite.center_rgba.should eq([red, green, blue, 255_u8]), "#{color_name}: #{composite.center_rgba}"
+      end
+    end
+
     it "gives a rounded view its own clipping back once its drop shadows are removed" do
       fill = UI::Color.new(r: 0.2, g: 0.3, b: 0.4)
       native = UI::AppKit::Renderer.new.render(surface_craft_shadowed_panel(fill, with_drop_shadows: true))

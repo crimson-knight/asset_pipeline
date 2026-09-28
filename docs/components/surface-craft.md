@@ -45,6 +45,23 @@ panel.texture_overlay = UI::TextureOverlay.new(
 
 The old shadow_radius, shadow_color, and shadow_offset_* properties remain supported. Their shadow is composed with the new arrays when both are set.
 
+### Raw AppKit views: color space and clipping
+
+Literal UI::Color fills, gradient stops, and shadow colors are sRGB on every platform, as CSS reads them. Raw AppKit views now build them with `colorWithSRGBRed:`, matching the SwiftUI facades and the Noise tile. Earlier releases built them in Generic RGB (`colorWithCalibratedRed:`), which composited lighter than the requested hex, most visibly on dark surfaces:
+
+| Fill | Appearance | Before (Generic RGB) | Now (sRGB) |
+|---|---|---|---|
+| #2B3245 | Dark | #394257 (57, 66, 87) | #2B3245 |
+| #23293A | Dark | #2E374B (46, 55, 75) | #23293A |
+| #171B27 | Dark | #1E2434 (30, 36, 52) | #171B27 |
+| #FBF8F2 | Light | #FCF9F5 (252, 249, 245) | #FBF8F2 |
+| #F1ECE3 | Light | #F4F0E8 (244, 240, 232) | #F1ECE3 |
+| #D8CFBF | Light | #E0D8CA (224, 216, 202) | #D8CFBF |
+
+Migration: a raw AppKit surface now draws the exact hex it declares. If an app tuned a literal color by eye against the old, lighter render, measure that surface again rather than keeping the compensation.
+
+AppKit turns on a view's `clipsToBounds` when its layer gets a corner radius, which clipped a rounded surface's drop shadows away in a live window. While a surface has a drop shadow (or a lift preview shadow), SurfaceCraft turns that clipping off and rounds its own gradient, texture, and inner-shadow layers to the corner radius instead; the view's own clipping returns when the shadows are removed. Migration: the child views of a rounded, drop-shadowed surface are no longer clipped to its corners, so a child that fills the surface edge to edge (a header band, an image) needs its own corner radius.
+
 ## Tabbed Form sections
 
 UI::Form#add_section keeps the tab attached to its fields. Omitting tab_shape preserves the current section rendering. The tab and panel both accept UI::SurfaceStyle values.
