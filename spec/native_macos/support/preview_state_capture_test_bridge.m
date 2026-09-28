@@ -605,6 +605,8 @@ int32_t ap_spec_drop_shadow_layer_carries_face(void *view_ptr, const char *name)
     if (drop_layer == nil || drop_layer.backgroundColor == NULL) return 0;
     if (!CGColorEqualToColor(drop_layer.backgroundColor, root.backgroundColor)) return 0;
     return drop_layer.cornerRadius == root.cornerRadius ? 1 : 0;
+}
+
 // Resizes *view* to *point_width* x *point_height*, runs its layout pass, and
 // reports the bounding box of the named surface-craft layer's shadow path
 // (a drop layer) or shape path (an inner layer). Returns 0 when the layer or
