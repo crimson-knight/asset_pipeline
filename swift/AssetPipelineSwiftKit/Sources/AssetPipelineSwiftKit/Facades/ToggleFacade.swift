@@ -168,13 +168,13 @@ private struct ToggleHost: View {
         let lamp = machinedColor(values["lamp"] as? String, fallback: Color.orange)
         switch appearance {
         case "pill":
-            return AnyView(toggle.toggleStyle(PillToggleStyle(track: track, knob: knob, on: on, lamp: lamp)))
+            return AnyView(toggle.toggleStyle(PillToggleStyle(track: track, knob: knob, on: on, lamp: lamp, showsLabel: !label.isEmpty)))
         case "rocker":
-            return AnyView(toggle.toggleStyle(RockerToggleStyle(track: track, knob: knob, on: on, lamp: lamp)))
+            return AnyView(toggle.toggleStyle(RockerToggleStyle(track: track, knob: knob, on: on, lamp: lamp, showsLabel: !label.isEmpty)))
         case "slide":
-            return AnyView(toggle.toggleStyle(SlideToggleStyle(track: track, knob: knob, on: on, lamp: lamp)))
+            return AnyView(toggle.toggleStyle(SlideToggleStyle(track: track, knob: knob, on: on, lamp: lamp, showsLabel: !label.isEmpty)))
         case "lamp_pill":
-            return AnyView(toggle.toggleStyle(LampPillToggleStyle(track: track, knob: knob, on: on, lamp: lamp)))
+            return AnyView(toggle.toggleStyle(LampPillToggleStyle(track: track, knob: knob, on: on, lamp: lamp, showsLabel: !label.isEmpty)))
         default:
             return nil
         }

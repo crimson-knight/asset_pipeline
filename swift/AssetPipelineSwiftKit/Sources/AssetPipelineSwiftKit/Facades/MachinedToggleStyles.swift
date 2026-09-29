@@ -8,10 +8,12 @@ struct PillToggleStyle: ToggleStyle {
     let knob: Color
     let on: Color
     let lamp: Color
+    var showsLabel: Bool = true
 
     func makeBody(configuration: Configuration) -> some View {
         MachinedToggleBody(configuration: configuration, appearance: .pill,
-                           track: track, knob: knob, on: on, lamp: lamp)
+                           track: track, knob: knob, on: on, lamp: lamp,
+                           showsLabel: showsLabel)
     }
 }
 
@@ -20,10 +22,12 @@ struct RockerToggleStyle: ToggleStyle {
     let knob: Color
     let on: Color
     let lamp: Color
+    var showsLabel: Bool = true
 
     func makeBody(configuration: Configuration) -> some View {
         MachinedToggleBody(configuration: configuration, appearance: .rocker,
-                           track: track, knob: knob, on: on, lamp: lamp)
+                           track: track, knob: knob, on: on, lamp: lamp,
+                           showsLabel: showsLabel)
     }
 }
 
@@ -32,10 +36,12 @@ struct SlideToggleStyle: ToggleStyle {
     let knob: Color
     let on: Color
     let lamp: Color
+    var showsLabel: Bool = true
 
     func makeBody(configuration: Configuration) -> some View {
         MachinedToggleBody(configuration: configuration, appearance: .slide,
-                           track: track, knob: knob, on: on, lamp: lamp)
+                           track: track, knob: knob, on: on, lamp: lamp,
+                           showsLabel: showsLabel)
     }
 }
 
@@ -44,10 +50,12 @@ struct LampPillToggleStyle: ToggleStyle {
     let knob: Color
     let on: Color
     let lamp: Color
+    var showsLabel: Bool = true
 
     func makeBody(configuration: Configuration) -> some View {
         MachinedToggleBody(configuration: configuration, appearance: .lampPill,
-                           track: track, knob: knob, on: on, lamp: lamp)
+                           track: track, knob: knob, on: on, lamp: lamp,
+                           showsLabel: showsLabel)
     }
 }
 
@@ -60,23 +68,37 @@ private struct MachinedToggleBody: View {
     let knob: Color
     let on: Color
     let lamp: Color
+    /// False when the toggle has no visible label (a settings row supplies
+    /// its own). The control then is the whole view, so its frame, click
+    /// target, and hover highlight are the track itself rather than a row
+    /// padded out by an empty label and a spacer.
+    let showsLabel: Bool
 
     var body: some View {
         Button {
             configuration.isOn.toggle()
         } label: {
-            HStack(spacing: 12) {
-                configuration.label
-                Spacer(minLength: 10)
-                control
-            }
-            .contentShape(Rectangle())
+            labeledControl
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityValue(configuration.isOn ? Text("On") : Text("Off"))
         .accessibilityRepresentation {
             Toggle(isOn: configuration.$isOn) { configuration.label }
+        }
+    }
+
+    @ViewBuilder
+    private var labeledControl: some View {
+        if showsLabel {
+            HStack(spacing: 12) {
+                configuration.label
+                Spacer(minLength: 10)
+                control
+            }
+        } else {
+            control
         }
     }
 
