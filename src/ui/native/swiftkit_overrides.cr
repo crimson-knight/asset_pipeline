@@ -102,7 +102,8 @@ module UI
         def set_bool_array(target : String, setter : Symbol, values : Array(Bool))
         end
 
-        # Scalar Int setter (selectedIndex etc.). nil skips.
+        # Set an `NSNumber?` field from an `Int32?` (selectedIndex, the
+        # accessibility action count). nil skips.
         def set_int(target : String, setter : Symbol, value : Int32?)
         end
 
@@ -1244,7 +1245,7 @@ module UI
 
         def set_int(target : String, setter : Symbol, value : Int32?)
           return if value.nil?
-          LibSwiftKitBridge.apsk_overrides_set_int(
+          LibSwiftKitBridge.apsk_overrides_set_int_boxed(
             @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe,
             value.to_i64,
           )

@@ -361,19 +361,22 @@ void apsk_overrides_set_bool_array(void *target, const char *setter_name,
     ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, arr);
 }
 
-void apsk_overrides_set_int(void *target, const char *setter_name,
-                            long long value) {
+// Boxed Int64 setter. Every scalar property on an `APSK*Overrides` class is
+// declared `NSNumber?`, so the value is boxed before dispatch. This replaced
+// `apsk_overrides_set_int`, which sent a raw NSInteger: objc_msgSend then
+// handed the integer to an object-typed setter, which retained it as a
+// pointer (an accessibility action count of 1 crashed at address 0x1).
+void apsk_overrides_set_int_boxed(void *target, const char *setter_name,
+                                  long long value) {
     if (target == NULL || setter_name == NULL) return;
+    NSNumber *boxed = [NSNumber numberWithLongLong:value];
     SEL sel = sel_registerName(setter_name);
-    ((void (*)(id, SEL, NSInteger))objc_msgSend)(
-        (id)target, sel, (NSInteger)value);
+    ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, boxed);
 }
 
-// Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter. Unlike
-// `apsk_overrides_set_int` which calls the setter with a raw NSInteger
-// (used for `Int`-typed Swift properties like `selectedIndex`), this
-// trampoline boxes the UInt64 into an `NSNumber` and passes the boxed
-// number to the setter. Used by `apskAccessibilityTraitsMask` (declared
+// Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter. Like
+// `apsk_overrides_set_int_boxed`, this trampoline boxes the UInt64 into an
+// `NSNumber` and passes the boxed number to the setter. Used by `apskAccessibilityTraitsMask` (declared
 // as `NSNumber?` in `ViewOverrides.swift`) so the SwiftUI side can
 // read `traitsBox.uint64Value` back from the bitmask.
 void apsk_overrides_set_uint64_boxed(void *target, const char *setter_name,

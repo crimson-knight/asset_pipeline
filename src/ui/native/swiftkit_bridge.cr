@@ -148,13 +148,14 @@
                                         values_ptr : UInt64*, count : Int32)
     fun apsk_overrides_set_bool_array(target : Void*, setter_name : UInt8*,
                                       values_ptr : Int32*, count : Int32)
-    # Setter for an `Int`-typed scalar property (used by selectedIndex on
-    # TabView / MenuButton facades).
-    fun apsk_overrides_set_int(target : Void*, setter_name : UInt8*, value : Int64)
+    # Boxed Int64 setter for an `NSNumber?` property (selectedIndex on the
+    # TabView / MenuButton facades, apskAccessibilityActionCount). Every
+    # override property is object-typed, so there is no raw-integer setter:
+    # a raw integer sent to an `NSNumber?` setter is retained as a pointer.
+    fun apsk_overrides_set_int_boxed(target : Void*, setter_name : UInt8*, value : Int64)
     # Phase 10B.2a iter 2 (Codex Finding 1) — boxed UInt64 setter.
-    # Used by `apskAccessibilityTraitsMask` (Swift `NSNumber?`). Unlike
-    # `apsk_overrides_set_int`, this boxes the value via NSNumber before
-    # calling the setter so the property receives a boxed reference type.
+    # Used by `apskAccessibilityTraitsMask` and the confirmation dialog's
+    # callback tokens (Swift `NSNumber?`).
     fun apsk_overrides_set_uint64_boxed(target : Void*, setter_name : UInt8*, value : UInt64)
     # Phase 10D-polish iter 2 (B-POPOVER-ANCHOR-VIEW) — set an `AnyObject?`
     # property from a raw ObjC pointer (UIView*/NSView*). NULL clears.

@@ -2316,15 +2316,15 @@
         if confirm = view.on_confirm
           tok = UI::CallbackRegistry.register_action(&confirm)
           callback_ids << tok
-          LibSwiftKitBridge.apsk_overrides_set_int(
-            overrides_ptr, "setConfirmToken:".to_unsafe, tok.to_i64,
+          LibSwiftKitBridge.apsk_overrides_set_uint64_boxed(
+            overrides_ptr, "setConfirmToken:".to_unsafe, tok,
           )
         end
         if cancel = view.on_cancel
           tok = UI::CallbackRegistry.register_action(&cancel)
           callback_ids << tok
-          LibSwiftKitBridge.apsk_overrides_set_int(
-            overrides_ptr, "setCancelToken:".to_unsafe, tok.to_i64,
+          LibSwiftKitBridge.apsk_overrides_set_uint64_boxed(
+            overrides_ptr, "setCancelToken:".to_unsafe, tok,
           )
         end
 

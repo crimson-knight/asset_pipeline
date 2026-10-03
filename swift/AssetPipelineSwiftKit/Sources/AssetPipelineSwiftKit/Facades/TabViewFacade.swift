@@ -29,7 +29,7 @@ public class TabViewFacade: NSObject {
         // Thread the Crystal callback token so a tab change fires
         // CallbackBridge.fire(token, Double(index)) — previously hardcoded
         // to 0, so the on_change handler never received the new index.
-        let storage = IntStorage(initial: overrides.selectedIndex, token: actionToken)
+        let storage = IntStorage(initial: overrides.selectedIndex?.intValue ?? 0, token: actionToken)
 
         var content: AnyView = AnyView(
             TabView(selection: storage.binding) {
