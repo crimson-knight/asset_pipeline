@@ -1,3 +1,7 @@
 // Here's some text for the comment
 
-console.log('test-modified-1791047264219');
+<<<<<<< Updated upstream
+console.log('test-modified-1779914053160');
+=======
+console.log('test-modified-1779750869068');
+>>>>>>> Stashed changes
