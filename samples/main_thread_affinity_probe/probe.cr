@@ -6,9 +6,22 @@
 #   -Dwith_main_thread_fix  requires UI::MainThread (src/ui/native/main_thread.cr)
 #   --workers               also runs CPU and File.open work in a Parallel
 #                           context and checks it used threads other than main
+#   --blocking-io           the main fiber waits on a pipe fed by a Parallel
+#                           fiber, reads a 4 MB file, and sleeps
+#   --mutex                 the main fiber contends one `Mutex` with four
+#                           Parallel fibers that hold it across File.open
+#   --native-callback       native code calls Crystal synchronously and through
+#                           the main dispatch queue; each callback opens files
+#                           and takes a contended `Mutex`
 #
-# Exit 0: the window initialized on the main thread. Without the fix the
-# expected failure is SIGTRAP (exit 133) from the NSWindow initializer.
+# Each case checks `pthread_main_np` after every wait and prints
+# `case=<name> ok=<bool> off_main_observations=<count>`.
+#
+# Exit 0: the window initialized on the main thread and every case stayed on
+# it. Without the fix the expected failure is SIGTRAP (exit 133) from the
+# NSWindow initializer. Exit 2: the main fiber ended off the main thread.
+# Exit 3: the worker sums or threads were wrong. Exit 4: a case lost data or
+# saw the main fiber off the main thread.
 
 {% if flag?(:with_main_thread_fix) %}
   require "../../src/ui/native/main_thread"
@@ -19,7 +32,11 @@ require "wait_group"
 lib LibProbe
   fun probe_make_offscreen_window : LibC::Int
   fun pthread_main_np : LibC::Int
+  fun probe_call_back_synchronously(callback : LibC::Int -> Void, count : LibC::Int) : LibC::Int
+  fun probe_call_back_on_main_queue(callback : LibC::Int -> Void, count : LibC::Int, timeout_seconds : LibC::Double) : LibC::Int
 end
+
+require "./probe_cases"
 
 SYSCALL_WINDOW         = 150.milliseconds
 SYSCALL_DEADLINE       = 2.seconds
@@ -76,6 +93,15 @@ on_main_after_syscalls = LibProbe.pthread_main_np == 1
 STDOUT.puts "opens=#{count_of_opens} main_thread_after_syscalls=#{on_main_after_syscalls} thread=#{Thread.current.name}"
 STDOUT.flush
 
+list_of_case_results = [] of ProbeCases::CaseResult
+list_of_case_results << ProbeCases::WaitOnBlockingIoFromMainFiber.new.perform if ARGV.includes?("--blocking-io")
+list_of_case_results << ProbeCases::ContendForMutexFromMainFiber.new.perform if ARGV.includes?("--mutex")
+list_of_case_results << ProbeCases::CallBackIntoCrystalFromNativeCode.new.perform if ARGV.includes?("--native-callback")
+list_of_case_results.each do |case_result|
+  STDOUT.puts case_result.summary
+  STDOUT.flush
+end
+
 {% if flag?(:with_main_thread_fix) %}
   UI::MainThread.assert!("probe NSWindow init")
 {% end %}
@@ -90,4 +116,6 @@ if use_workers
   exit 3 unless worker_sums_match && off_main > 0
 end
 
-exit(LibProbe.pthread_main_np == 1 ? 0 : 2)
+exit 2 unless LibProbe.pthread_main_np == 1
+exit 4 unless list_of_case_results.all?(&.passed?)
+exit 0
