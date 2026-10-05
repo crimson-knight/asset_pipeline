@@ -88,6 +88,15 @@ void *apsk_button_overrides_new(void) {
     return ((id (*)(Class, SEL))objc_msgSend)(cls, sel_registerName("new"));
 }
 
+// Every `apsk_*_overrides_new` allocator returns the object `+new` made, so
+// the caller owns it (+1). The `make_*` facade the overrides are passed to
+// keeps its own strong reference for as long as the Swift view needs it;
+// the caller releases its ownership here once that call returns.
+void apsk_overrides_release(void *overrides) {
+    if (overrides == NULL) return;
+    [(id)overrides release];
+}
+
 // -----------------------------------------------------------------------------
 // Runtime initialization
 // -----------------------------------------------------------------------------

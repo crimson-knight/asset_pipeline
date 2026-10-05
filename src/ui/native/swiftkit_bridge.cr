@@ -59,10 +59,12 @@
     fun apsk_runtime_clear_brand_tint
 
     # -------------------------------------------------------------------------
-    # Overrides constructors. Each returns a +0 retained `APSK*Overrides`
-    # instance. The Crystal renderer then sets fields through the
-    # `apsk_overrides_set_*` trampolines below before passing the object
-    # pointer into the matching `make_*` call.
+    # Overrides constructors. Each returns an `APSK*Overrides` instance the
+    # caller owns (+1, from `+new`). The Crystal renderer sets fields through
+    # the `apsk_overrides_set_*` trampolines below, passes the object pointer
+    # into the matching `make_*` call (the Swift view it builds keeps its own
+    # strong reference), and then drops its ownership with
+    # `apsk_overrides_release`.
     # -------------------------------------------------------------------------
     fun apsk_view_overrides_new : Void*
     fun apsk_button_overrides_new : Void*
@@ -111,6 +113,10 @@
 
     # ---- Glass (P1 — the Phase 3 "headline visual differentiator") -----
     fun apsk_glass_background_overrides_new : Void*
+
+    # Drops the ownership an `apsk_*_overrides_new` call handed to the
+    # caller. A NULL pointer is a no-op.
+    fun apsk_overrides_release(overrides : Void*)
 
     # -------------------------------------------------------------------------
     # Overrides field setters. Each takes the `APSK*Overrides` pointer,

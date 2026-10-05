@@ -386,6 +386,7 @@
         ptr = LibSwiftKitBridge.apsk_make_label_reactive(
           text.to_unsafe, overrides_ptr, state_box,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
 
         handle = ObjC.owned(ptr, label: "NSHostingView[Label]")
         unless state_slot.null?
@@ -458,6 +459,7 @@
         ptr = LibSwiftKitBridge.apsk_make_button_reactive(
           button_label.to_unsafe, overrides_ptr, action_token, state_box,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
 
         # 4. Wrap and track. The NSHostingController is associated with the
         #    NSView via objc_setAssociatedObject inside HostingHelpers.host,
@@ -776,6 +778,7 @@
         UI::Native::Populator.populate_image(target_str, view, sender)
 
         ptr = LibSwiftKitBridge.apsk_make_image(view.source.to_unsafe, overrides_ptr)
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         emit(ptr, "NSHostingView[Image]")
       end
 
@@ -823,6 +826,7 @@
           view.placeholder.to_unsafe, view.text.to_unsafe,
           overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[TextField]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -966,6 +970,7 @@
           view.label.to_unsafe, view.is_on ? 1 : 0, overrides_ptr,
           action_token, state_box,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Toggle]")
         unless state_slot.null?
           handle.state_handle = state_slot
@@ -995,6 +1000,7 @@
         ptr = LibSwiftKitBridge.apsk_make_checkbox(
           view.label.to_unsafe, view.is_checked ? 1 : 0, overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Checkbox]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1028,6 +1034,7 @@
           opts_buf.as(Void*), opt_count.to_i32, view.selected_index.to_i32,
           overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[RadioGroup]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1056,6 +1063,7 @@
           view.value, view.minimum, view.maximum, overrides_ptr,
           action_token, state_box,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Slider]")
         unless state_slot.null?
           handle.state_handle = state_slot
@@ -1087,6 +1095,7 @@
         ptr = LibSwiftKitBridge.apsk_make_navigation_stack(
           child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[NavigationStack]")
         native = NativeView.new(handle)
         children_native.each { |c| native.add_child(c) }
@@ -1112,6 +1121,7 @@
           view.label.to_unsafe, child_buf.as(Void*),
           children_native.size.to_i32, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[NavigationLink]")
         native = NativeView.new(handle)
         children_native.each { |c| native.add_child(c) }
@@ -1172,6 +1182,7 @@
         ptr = LibSwiftKitBridge.apsk_make_tab_view(
           child_buf.as(Void*), children_native.size.to_i32, overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[TabView]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1263,6 +1274,7 @@
         ptr = LibSwiftKitBridge.apsk_make_alert(
           view.title.to_unsafe, view.message.to_unsafe, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Alert]")
         native = NativeView.new(handle)
         callback_ids.each { |id| native.track_callback_id(id) }
@@ -1293,6 +1305,7 @@
           view.label.to_unsafe, opts_buf.as(Void*), opt_count.to_i32,
           view.selected_index.to_i32, overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Picker]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1316,6 +1329,7 @@
         ptr = LibSwiftKitBridge.apsk_make_icon_button(
           view.icon.to_unsafe, overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[IconButton]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1358,6 +1372,7 @@
         ptr = LibSwiftKitBridge.apsk_make_list_view(
           child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[ListView]")
         native = NativeView.new(handle)
         children_native.each { |c| native.add_child(c) }
@@ -1556,6 +1571,7 @@
         ptr = LibSwiftKitBridge.apsk_make_secure_field(
           view.placeholder.to_unsafe, view.text.to_unsafe, overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[SecureField]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1582,6 +1598,7 @@
           view.label.to_unsafe, view.value, view.minimum, view.maximum,
           overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Stepper]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1612,6 +1629,7 @@
           segs_buf.as(Void*), seg_count.to_i32, view.selected_index.to_i32,
           overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[SegmentedControl]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1638,6 +1656,7 @@
         ptr = LibSwiftKitBridge.apsk_make_date_picker(
           view.label.to_unsafe, epoch, overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[DatePicker]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1664,6 +1683,7 @@
         ptr = LibSwiftKitBridge.apsk_make_time_picker(
           view.label.to_unsafe, epoch, overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[TimePicker]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1693,6 +1713,7 @@
           view.placeholder.to_unsafe, view.text.to_unsafe,
           overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[SearchField]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1722,6 +1743,7 @@
           view.placeholder.to_unsafe, view.text.to_unsafe,
           overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[TextArea]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -1753,6 +1775,7 @@
         ptr = LibSwiftKitBridge.apsk_make_grid(
           child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Grid]")
         native = NativeView.new(handle)
         children_native.each { |c| native.add_child(c) }
@@ -1792,6 +1815,7 @@
         ptr = LibSwiftKitBridge.apsk_make_form(
           child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Form]")
         native = NativeView.new(handle)
         children_native.each { |c| native.add_child(c) }
@@ -1849,6 +1873,7 @@
         ptr = LibSwiftKitBridge.apsk_make_navigation_split_view(
           child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[NavigationSplitView]")
         native = NativeView.new(handle)
         children_native.each { |c| native.add_child(c) }
@@ -1903,6 +1928,7 @@
         ptr = LibSwiftKitBridge.apsk_make_toolbar(
           Pointer(Void*).null.as(Void*), 0_i32, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Toolbar]")
         native = NativeView.new(handle)
         callback_ids.each { |id| native.track_callback_id(id) }
@@ -1959,6 +1985,7 @@
           child_buf.as(Void*), children_native.size.to_i32,
           overrides_ptr, dismiss_token, state_box,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Sheet]")
         unless state_slot.null?
           handle.state_handle = state_slot
@@ -2026,6 +2053,7 @@
           child_buf.as(Void*), children_native.size.to_i32,
           overrides_ptr, dismiss_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Popover]")
         native = NativeView.new(handle)
         callback_ids.each { |id| native.track_callback_id(id) }
@@ -2074,6 +2102,7 @@
         ptr = LibSwiftKitBridge.apsk_make_confirmation_dialog_reactive(
           view.title.to_unsafe, view.message.to_unsafe, overrides_ptr, state_box,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[ConfirmationDialog]")
         unless state_slot.null?
           handle.state_handle = state_slot
@@ -2161,6 +2190,7 @@
         ptr = LibSwiftKitBridge.apsk_make_card(
           child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Card]")
         native = NativeView.new(handle)
         children_native.each { |c| native.add_child(c) }
@@ -2294,6 +2324,7 @@
         ptr = LibSwiftKitBridge.apsk_make_surface(
           child_buf.as(Void*), children_native.size.to_i32, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[Surface]")
         native = NativeView.new(handle)
         children_native.each { |c| native.add_child(c) }
@@ -2310,6 +2341,7 @@
         UI::Native::Populator.populate_divider(target_str, view, sender)
 
         ptr = LibSwiftKitBridge.apsk_make_divider(overrides_ptr)
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         emit(ptr, "NSHostingView[Divider]")
       end
 
@@ -2348,6 +2380,7 @@
         end
 
         ptr = LibSwiftKitBridge.apsk_make_glass_background(overrides_ptr, child_ptr)
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[GlassBackground]")
         native = NativeView.new(handle)
         if c = child_native
@@ -2437,6 +2470,7 @@
         ptr = LibSwiftKitBridge.apsk_make_link_button(
           view.label.to_unsafe, view.url.to_unsafe, overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[LinkButton]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -2487,6 +2521,7 @@
         ptr = LibSwiftKitBridge.apsk_make_menu_button(
           view.label.to_unsafe, overrides_ptr,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[MenuButton]")
         native = NativeView.new(handle)
         callback_ids.each { |id| native.track_callback_id(id) }
@@ -2628,6 +2663,7 @@
         ptr = LibSwiftKitBridge.apsk_make_toggle_button(
           view.label.to_unsafe, overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[ToggleButton]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -2654,6 +2690,7 @@
           view.placeholder.to_unsafe, view.text.to_unsafe,
           overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[TextEditor]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
@@ -3366,6 +3403,7 @@
         ptr = LibSwiftKitBridge.apsk_make_color_picker(
           view.label.to_unsafe, c.r, c.g, c.b, c.a, overrides_ptr, action_token,
         )
+        LibSwiftKitBridge.apsk_overrides_release(overrides_ptr)
         handle = ObjC.owned(ptr, label: "NSHostingView[ColorPicker]")
         native = NativeView.new(handle)
         native.track_callback_id(action_token) unless action_token == 0_u64
