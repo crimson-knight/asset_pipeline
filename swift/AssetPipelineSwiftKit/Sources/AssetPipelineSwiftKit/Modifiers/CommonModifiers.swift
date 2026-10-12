@@ -99,11 +99,14 @@ enum CommonModifiers {
             if let mh = minH, let mxh = maxH, mh == mxh {
                 current = AnyView(current.frame(height: mh))
             } else if let mh = minH, maxH == nil {
-                // Only minHeight: treat as exact for the touch-target use
-                // case. If the caller wants a flexible floor with no
-                // ceiling they should set maxHeight = .infinity (or any
-                // explicit max) explicitly on the Crystal side.
-                current = AnyView(current.frame(height: mh))
+                if overrides is LabelOverrides {
+                    // A label's line-height floor preserves its multiline
+                    // intrinsic height so enclosing cards reserve the answer.
+                    current = AnyView(current.frame(minHeight: mh))
+                } else {
+                    // Controls retain their existing minimum target-size pin.
+                    current = AnyView(current.frame(height: mh))
+                }
             } else if let mh = minH, let mxh = maxH {
                 current = AnyView(current.frame(minHeight: mh, maxHeight: mxh))
             } else if let mxh = maxH {
