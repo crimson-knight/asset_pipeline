@@ -112,7 +112,7 @@ private struct ToggleHost: View {
         // ----- macOS + watchOS path: SwiftUI Toggle (BX3 is iOS-only; watchOS has
         // no UISwitch, so SwiftUI Toggle is the native control there) -----
         let toggle = Toggle(label, isOn: $storage.value)
-            .onChange(of: storage.value) { newValue in
+            .observingValueChanges(of: storage.value) { newValue in
                 if storage.suppressNextFire {
                     storage.suppressNextFire = false
                     return

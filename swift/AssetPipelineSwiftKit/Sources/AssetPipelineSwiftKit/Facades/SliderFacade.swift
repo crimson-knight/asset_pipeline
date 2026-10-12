@@ -83,7 +83,7 @@ struct SliderDoubleHost: View {
         }
 
         var content = AnyView(
-            slider.onChange(of: storage.value) { newValue in
+            slider.observingValueChanges(of: storage.value) { newValue in
                 if storage.suppressNextFire {
                     storage.suppressNextFire = false
                     return
