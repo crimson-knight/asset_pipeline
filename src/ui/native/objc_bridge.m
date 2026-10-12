@@ -4546,6 +4546,19 @@ int ap_print_text_macos(const char *text_cstr, const char *job_name_cstr) {
 //
 // Synchronous via runModal — NSOpenPanel returns when the user dismisses
 // the panel.
+static NSArray *ap_content_types_for_picker(NSString *identifiers) {
+    Class uniform_type = NSClassFromString(@"UTType");
+    if (uniform_type == Nil) return nil;
+    NSMutableArray *content_types = [NSMutableArray array];
+    for (NSString *identifier in [identifiers componentsSeparatedByString:@","]) {
+        id content_type = ((id (*)(Class, SEL, id))objc_msgSend)(
+            uniform_type, sel_registerName("typeWithIdentifier:"), identifier);
+        if (content_type == nil) return nil;
+        [content_types addObject:content_type];
+    }
+    return content_types;
+}
+
 int ap_open_file_picker_macos(const char *utis_cstr, unsigned long long token) {
     NSString *utis = ap_string_from_cstr(utis_cstr);
     void (^work)(void) = ^{
@@ -4554,16 +4567,12 @@ int ap_open_file_picker_macos(const char *utis_cstr, unsigned long long token) {
         panel.canChooseDirectories = NO;
         panel.allowsMultipleSelection = NO;
         if (utis && utis.length) {
-            NSArray<NSString *> *types = [utis componentsSeparatedByString:@","];
-            if (@available(macOS 11.0, *)) {
-                // UTType API requires casts that depend on UniformType
-                // Identifiers framework. Defer to allowedFileTypes (legacy
-                // but still works on 11+) so we don't take a new link
-                // dependency.
-                panel.allowedFileTypes = types;
-            } else {
-                panel.allowedFileTypes = types;
+            NSArray *content_types = ap_content_types_for_picker(utis);
+            if (content_types == nil) {
+                crystal_ui_string_callback_dispatch(token, "");
+                return;
             }
+            panel.allowedContentTypes = content_types;
         }
         NSModalResponse response = [panel runModal];
         if (response == NSModalResponseOK && panel.URLs.firstObject) {

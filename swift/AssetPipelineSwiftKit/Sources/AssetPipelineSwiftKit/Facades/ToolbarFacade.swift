@@ -72,7 +72,7 @@ public class ToolbarFacade: NSObject {
         // Mirrors GlassBackgroundFacade.swift:64-70.
         if #available(iOS 26.0, macOS 26.0, *) {
             content = AnyView(content.glassEffect())
-        } else if #available(iOS 16.0, macOS 13.0, *) {
+        } else {
             let materialKey: String = overrides.materialSemantic ?? "system_resolved"
             let mat: Material = MaterialSemanticResolver.material(for: materialKey) ?? .bar
             content = AnyView(content.toolbarBackground(mat, for: .automatic))
