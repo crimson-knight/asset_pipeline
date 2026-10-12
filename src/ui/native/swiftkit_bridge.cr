@@ -1,7 +1,7 @@
 # swiftkit_bridge.cr — Crystal-side typed wrapper around
 # AssetPipelineSwiftKit's `@objc` facade classes.
 #
-# Every Tier 1 / Tier 2 widget that has a SwiftUI counterpart gets a
+# Tier 1 / Tier 2 widgets with a SwiftUI counterpart receive a
 # matching `fun` here so call sites in `uikit_renderer.cr` /
 # `appkit_renderer.cr` stay readable and typecheckable. The actual
 # `objc_msgSend` happens inside C trampolines in
@@ -22,6 +22,11 @@
 {% if flag?(:macos) || flag?(:ios) || flag?(:watchos) %}
   @[Link(framework: "Foundation")]
   lib LibSwiftKitBridge
+    # Intrinsic sizing for a plain host with both axes fixed by its caller.
+    # Returns the previous public option bits, or -1 for unsupported hosts.
+    fun apsk_apply_intrinsic_size_to_fixed_host(view : Void*, width : Float64, height : Float64) : Int64
+    fun apsk_restore_fixed_host_sizing(view : Void*, options : Int64) : Bool
+
     # Phase 12.A — Interaction-contracts NSLog bridge. See
     # swiftkit_bridge.m §"Interaction-contracts NSLog bridge".
     fun apsk_apic_log(msg : UInt8*)
@@ -155,7 +160,7 @@
     fun apsk_overrides_set_bool_array(target : Void*, setter_name : UInt8*,
                                       values_ptr : Int32*, count : Int32)
     # Boxed Int64 setter for an `NSNumber?` property (selectedIndex on the
-    # TabView / MenuButton facades, apskAccessibilityActionCount). Every
+    # TabView / MenuButton facades, apskAccessibilityActionCount). Each
     # override property is object-typed, so there is no raw-integer setter:
     # a raw integer sent to an `NSNumber?` setter is retained as a pointer.
     fun apsk_overrides_set_int_boxed(target : Void*, setter_name : UInt8*, value : Int64)

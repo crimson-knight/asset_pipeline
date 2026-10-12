@@ -50,6 +50,22 @@ bool apsk_register_font(const char *path) {
 extern Class objc_getClass(const char *name);
 extern SEL sel_registerName(const char *name);
 
+// Fixed hosting leaves can retain intrinsic sizing while their declared frame
+// owns both axes. A negative result preserves unsupported/wrapping hosts.
+long apsk_apply_intrinsic_size_to_fixed_host(void *view, double width, double height) {
+    Class cls = objc_getClass("APSKFixedHostingSizePolicy");
+    if (cls == nil || view == NULL) return -1;
+    return ((long (*)(Class, SEL, id, double, double))objc_msgSend)(
+        cls, sel_registerName("applyToView:width:height:"), (id)view, width, height);
+}
+
+bool apsk_restore_fixed_host_sizing(void *view, long options) {
+    Class cls = objc_getClass("APSKFixedHostingSizePolicy");
+    if (cls == nil || view == NULL) return false;
+    return ((bool (*)(Class, SEL, id, long))objc_msgSend)(
+        cls, sel_registerName("restoreView:options:"), (id)view, options);
+}
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
