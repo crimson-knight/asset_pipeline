@@ -116,6 +116,7 @@
       fun objc_set_horizontal_fill_priority(view : Void*) : Void
       fun objc_set_vertical_fill_priority(view : Void*) : Void
       fun objc_constrain_height(view : Void*, h : Float64) : Void
+      fun objc_constrain_maximum_height(view : Void*, max_h : Float64) : Void
       fun nsscrollview_scroll_to_end(scroll_view : Void*) : Void
       fun nsscrollview_is_at_bottom(scroll_view : Void*, tolerance : Float64) : Int32
       # ComboBox value-drop fix (macOS) — wire an NSComboBox's text +
@@ -2567,7 +2568,7 @@
         LibObjCBridge.objc_send_bool(inner, sel("setTranslatesAutoresizingMaskIntoConstraints:"), 0)
         LibObjCBridge.objc_add_subview(effect, inner)
 
-        %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anchor_sel|
+        %w[topAnchor bottomAnchor leadingAnchor trailingAnchor].each do |anchor_sel|
           inner_anchor = LibObjCBridge.objc_send(inner, sel(anchor_sel))
           effect_anchor = LibObjCBridge.objc_send(effect, sel(anchor_sel))
           next if inner_anchor.null? || effect_anchor.null?
@@ -3513,7 +3514,7 @@
         LibObjCBridge.objc_add_subview(effect, outer_stack)
 
         # Pin outer_stack to effect on all four edges.
-        %w(topAnchor bottomAnchor leadingAnchor trailingAnchor).each do |anch|
+        %w[topAnchor bottomAnchor leadingAnchor trailingAnchor].each do |anch|
           ia = LibObjCBridge.objc_send(outer_stack, sel(anch))
           ea = LibObjCBridge.objc_send(effect, sel(anch))
           next if ia.null? || ea.null?
@@ -4867,6 +4868,8 @@
 
         if min_h = view.minimum_height
           LibObjCBridge.objc_constrain_height(ptr, min_h)
+        elsif max_h = view.maximum_height
+          LibObjCBridge.objc_constrain_maximum_height(ptr, max_h)
         end
 
         # Phase 6.10 Rem 4 (Item 2D) — root_fill sizes to the live

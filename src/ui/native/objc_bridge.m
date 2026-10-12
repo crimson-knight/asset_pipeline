@@ -1140,6 +1140,17 @@ void objc_constrain_height(void *view, double h) {
     hc.active = YES;
 }
 
+// Cap a view's height while letting its content remain shorter. The cap
+// survives removal from and reinsertion into an AppKit stack, keeping a
+// progressively joined fixed-content row at its caller's intended limit.
+void objc_constrain_maximum_height(void *view, double max_h) {
+    BridgeView *v = (BridgeView *)view;
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    NSLayoutConstraint *hc = [v.heightAnchor constraintLessThanOrEqualToConstant:(CGFloat)max_h];
+    hc.priority = 999;
+    hc.active = YES;
+}
+
 // Constrain the MINIMUM height of a view. The view can grow taller than min_h
 // but never shorter. Used for iOS sheet detent sizing so the sheet fills at
 // least its .medium detent height (~520pt) and Cancel/CTA buttons are visible.
