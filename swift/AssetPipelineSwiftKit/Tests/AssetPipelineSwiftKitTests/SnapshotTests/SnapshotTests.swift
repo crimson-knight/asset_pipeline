@@ -27,11 +27,14 @@ final class SnapshotTests: XCTestCase {
     override func setUp() {
         super.setUp()
         APSKRuntime.clearBrandTint()
-        // Toggle this to `true` once when you want to regenerate baselines
-        // (also pass `isRecording = true` per call).
-        // Per swift-snapshot-testing 1.17 docs: setting the env var
-        // `RECORD_SNAPSHOTS=1` flips the package-wide recording mode.
-        isRecording = ProcessInfo.processInfo.environment["RECORD_SNAPSHOTS"] == "1"
+    }
+
+    override func invokeTest() {
+        let recordMode: SnapshotTestingConfiguration.Record =
+            ProcessInfo.processInfo.environment["RECORD_SNAPSHOTS"] == "1" ? .all : .missing
+        withSnapshotTesting(record: recordMode) {
+            super.invokeTest()
+        }
     }
 
     // MARK: - Default Button

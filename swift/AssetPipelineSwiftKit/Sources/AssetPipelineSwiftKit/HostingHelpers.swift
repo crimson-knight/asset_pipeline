@@ -385,6 +385,13 @@ final class APSKWrappingTextHostingView: NSHostingView<AnyView> {
     override var intrinsicContentSize: NSSize {
         let ideal = super.intrinsicContentSize
         guard laidOutWidth > 0 else { return ideal }
+        // The existing host already reports the required height when its
+        // ideal width fits. Keep width-dependent measurement for compressed
+        // content and preserve the measured-height rounding convention.
+        if laidOutWidth.isFinite, ideal.width.isFinite, ideal.height.isFinite,
+           ideal.width >= 0, ideal.height >= 0, laidOutWidth >= ideal.width {
+            return NSSize(width: ideal.width, height: ideal.height.rounded(.up))
+        }
         if let cached = cachedHeight, cached.width == laidOutWidth {
             return NSSize(width: ideal.width, height: cached.height)
         }
