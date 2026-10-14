@@ -37,8 +37,8 @@ public typealias APSKHostingController = NSHostingController
 // On AppKit we prefer NSHostingView directly over NSHostingController:
 // the view *is* the hosting surface, reports the SwiftUI root's
 // intrinsic content size to NSStackView without any extra sizing-options
-// dance, and produces a stable +1-retain NSView pointer the Crystal
-// renderer can hand to `ObjC.owned(...)`. NSHostingController exists
+// dance. The C facade perimeter retains the result before the Crystal
+// renderer hands it to `ObjC.owned(...)`. NSHostingController exists
 // for cases where the SwiftUI root needs to participate in a view
 // controller hierarchy (e.g. an NSWindow's contentViewController); a
 // Crystal-driven AppKit renderer never needs that layer.
@@ -190,9 +190,9 @@ enum HostingHelpers {
     /// Wrap `view` in a hosting controller, retain the controller for the
     /// lifetime of its `.view`, and return the platform view.
     ///
-    /// Crystal's `NativeHandle` takes ownership of the returned view pointer
-    /// (+1 retain). The hosting controller is associated with the view via
-    /// `objc_setAssociatedObject` so it lives as long as the view does.
+    /// AppKit's C facade perimeter retains the returned view before Crystal's
+    /// `NativeHandle` consumes that ownership. UIKit associates its distinct
+    /// hosting controller with the view for its existing lifetime behavior.
     ///
     /// The `.frame(minWidth: 1, minHeight: 1)` defensive sizing is required
     /// for the SwiftUI Form/List re-measure quirk documented in §5.6.
@@ -275,8 +275,8 @@ enum HostingHelpers {
         // SwiftUI surface, reports `intrinsicContentSize` accurately to
         // NSStackView's gravity-areas distribution out of the box, and
         // saves us from `NSHostingController.sizingOptions` ordering
-        // bugs. The view is a +0-retain NSView; ObjC.owned on the
-        // Crystal side bumps it to +1 immediately.
+        // bugs. The Swift return uses ARC ownership; AppKit's C facade
+        // perimeter supplies the +1 that Crystal's ObjC.owned consumes.
         let hostingView: NSHostingView<AnyView>
         if wrapsText {
             let wrappingView = APSKWrappingTextHostingView(rootView: sized)
@@ -292,13 +292,10 @@ enum HostingHelpers {
         lifetimeOwner = hostingView
         #endif
 
-        // Keep the lifetime owner pinned for as long as the platform
-        // view lives. On AppKit they are the same object, but the
-        // association is cheap and uniform across platforms. On UIKit
-        // the container already strongly references the controller via
-        // its stored property, but we keep the association too as a
-        // belt-and-suspenders measure.
-        if let owner = lifetimeOwner {
+        // Keep a distinct hosting controller pinned while its platform view
+        // lives. An AppKit hosting view owns its SwiftUI content directly;
+        // its external owner determines the lifetime of that view and root.
+        if let owner = lifetimeOwner, owner !== platformView {
             objc_setAssociatedObject(
                 platformView,
                 &kHostingControllerKey,

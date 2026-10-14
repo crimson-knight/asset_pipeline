@@ -10,9 +10,9 @@
 // `objc_msgSend` casting.
 //
 // Compile (macOS / iOS) with `-fno-objc-arc`; this file follows the same
-// memory convention as `objc_bridge.m`: returned objects are autoreleased
-// per Cocoa convention, the Crystal-side `NativeHandle` takes ownership
-// with `objc_retain` (+1) on the receiving side.
+// memory convention as `objc_bridge.m`: AppKit facade creation returns an
+// explicitly retained view (+1), which Crystal's `ObjC.owned` consumes.
+// UIKit keeps its existing controller/view lifetime behavior.
 //
 // Phase 3 ships the Button facade end-to-end. Phase 3 remediation /
 // follow-up commits add a trampoline per widget in the §6 coverage list.
@@ -251,6 +251,17 @@ void apsk_overrides_set_string(void *target, const char *setter_name,
     ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, ns_value);
 }
 
+// AppKit facade creation transfers one owned view to Crystal's ObjC.owned.
+// Swift's typed factory return follows Cocoa +0 rules; the C perimeter supplies
+// +1 before its autorelease scope ends. UIKit keeps its existing controller lease.
+static void *apsk_retain_created_platform_view(id view) {
+#if TARGET_OS_IPHONE
+    return view;
+#else
+    return [view retain];
+#endif
+}
+
 // -----------------------------------------------------------------------------
 // Facade entry points
 // -----------------------------------------------------------------------------
@@ -263,8 +274,8 @@ void *apsk_make_button(const char *label,
     if (cls == nil) return NULL;
     NSString *ns_label = apsk_nsstring(label);
     SEL sel = sel_registerName("makeButtonWithLabel:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
-        cls, sel, ns_label, (id)overrides, action_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, ns_label, (id)overrides, action_token));
 }
 
 // ---------------------------------------------------------------------------
@@ -451,8 +462,8 @@ void *apsk_make_navigation_stack(const void *child_views, int child_count,
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeNavigationStackWithChildViews:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, children, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides));
 }
 
 void *apsk_make_navigation_link(const char *label, const void *child_views,
@@ -461,8 +472,8 @@ void *apsk_make_navigation_link(const char *label, const void *child_views,
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeNavigationLinkWithLabel:childViews:overrides:");
-    return ((id (*)(Class, SEL, id, id, id))objc_msgSend)(
-        cls, sel, apsk_nsstring(label), children, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, id))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), children, (id)overrides));
 }
 
 void *apsk_make_navigation_split_view(const void *child_views, int child_count,
@@ -471,8 +482,8 @@ void *apsk_make_navigation_split_view(const void *child_views, int child_count,
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeNavigationSplitViewWithChildViews:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, children, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides));
 }
 
 void *apsk_make_tab_view(const void *child_views, int child_count,
@@ -481,8 +492,8 @@ void *apsk_make_tab_view(const void *child_views, int child_count,
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeTabViewWithChildViews:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
-        cls, sel, children, (id)overrides, action_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, children, (id)overrides, action_token));
 }
 
 void *apsk_make_sheet(const void *child_views, int child_count,
@@ -491,8 +502,8 @@ void *apsk_make_sheet(const void *child_views, int child_count,
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeSheetWithChildViews:overrides:dismissToken:");
-    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
-        cls, sel, children, (id)overrides, dismiss_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, children, (id)overrides, dismiss_token));
 }
 
 void *apsk_make_popover(const void *child_views, int child_count,
@@ -501,17 +512,17 @@ void *apsk_make_popover(const void *child_views, int child_count,
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makePopoverWithChildViews:overrides:dismissToken:");
-    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
-        cls, sel, children, (id)overrides, dismiss_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, children, (id)overrides, dismiss_token));
 }
 
 void *apsk_make_alert(const char *title, const char *message, void *overrides) {
     Class cls = objc_getClass("APSKAlertFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeAlertWithTitle:message:overrides:");
-    return ((id (*)(Class, SEL, id, id, id))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, id))objc_msgSend)(
         cls, sel, apsk_nsstring(title),
-        apsk_nsstring(message ? message : ""), (id)overrides);
+        apsk_nsstring(message ? message : ""), (id)overrides));
 }
 
 void *apsk_make_confirmation_dialog(const char *title, const char *message,
@@ -519,9 +530,9 @@ void *apsk_make_confirmation_dialog(const char *title, const char *message,
     Class cls = objc_getClass("APSKConfirmationDialogFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeConfirmationDialogWithTitle:message:overrides:");
-    return ((id (*)(Class, SEL, id, id, id))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, id))objc_msgSend)(
         cls, sel, apsk_nsstring(title),
-        apsk_nsstring(message ? message : ""), (id)overrides);
+        apsk_nsstring(message ? message : ""), (id)overrides));
 }
 
 void *apsk_make_toolbar(const void *child_views, int child_count,
@@ -530,8 +541,8 @@ void *apsk_make_toolbar(const void *child_views, int child_count,
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeToolbarWithChildViews:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, children, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides));
 }
 
 void *apsk_make_form(const void *child_views, int child_count, void *overrides) {
@@ -539,8 +550,8 @@ void *apsk_make_form(const void *child_views, int child_count, void *overrides) 
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeFormWithChildViews:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, children, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides));
 }
 
 void *apsk_make_grid(const void *child_views, int child_count, void *overrides) {
@@ -548,8 +559,8 @@ void *apsk_make_grid(const void *child_views, int child_count, void *overrides) 
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeGridWithChildViews:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, children, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides));
 }
 
 void *apsk_make_card(const void *child_views, int child_count, void *overrides) {
@@ -557,8 +568,8 @@ void *apsk_make_card(const void *child_views, int child_count, void *overrides) 
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeCardWithChildViews:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, children, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides));
 }
 
 // watchOS-only: compose child boundary nodes into a SwiftUI VStack/HStack.
@@ -572,8 +583,8 @@ void *apsk_make_watch_stack(const void *child_views, int child_count,
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeStackWithChildViews:axis:spacing:alignment:overrides:rootFill:");
-    return ((id (*)(Class, SEL, id, long, double, long, id, long))objc_msgSend)(
-        cls, sel, children, axis, spacing, alignment, (id)overrides, (long)root_fill);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, long, double, long, id, long))objc_msgSend)(
+        cls, sel, children, axis, spacing, alignment, (id)overrides, (long)root_fill));
 }
 
 void *apsk_make_surface(const void *child_views, int child_count, void *overrides) {
@@ -581,16 +592,16 @@ void *apsk_make_surface(const void *child_views, int child_count, void *override
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeSurfaceWithChildViews:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, children, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides));
 }
 
 void *apsk_make_menu_button(const char *label, void *overrides) {
     Class cls = objc_getClass("APSKMenuButtonFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeMenuButtonWithLabel:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, apsk_nsstring(label), (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), (id)overrides));
 }
 
 void *apsk_make_toggle_button(const char *label, void *overrides,
@@ -598,8 +609,8 @@ void *apsk_make_toggle_button(const char *label, void *overrides,
     Class cls = objc_getClass("APSKToggleButtonFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeToggleButtonWithLabel:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
-        cls, sel, apsk_nsstring(label), (id)overrides, action_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), (id)overrides, action_token));
 }
 
 void *apsk_make_list_view(const void *child_views, int child_count,
@@ -608,8 +619,8 @@ void *apsk_make_list_view(const void *child_views, int child_count,
     if (cls == nil) return NULL;
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName("makeListViewWithChildViews:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, children, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, children, (id)overrides));
 }
 
 // Phase 10D-refocus — SwipeActionRow trampoline.
@@ -621,8 +632,8 @@ void *apsk_make_swipe_action_row(void *content_view, void *overrides) {
     Class cls = objc_getClass("APSKSwipeActionRowFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeSwipeActionRowWithContentView:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, (id)content_view, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, (id)content_view, (id)overrides));
 }
 
 // ---------------------------------------------------------------------------
@@ -634,8 +645,8 @@ void *apsk_make_glass_background(void *overrides, void *child_view) {
     Class cls = objc_getClass("APSKGlassBackgroundFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeGlassBackgroundWithOverrides:childView:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, (id)overrides, (id)child_view);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, (id)overrides, (id)child_view));
 }
 
 // ---------------------------------------------------------------------------
@@ -664,16 +675,16 @@ void *apsk_make_label(const char *text, void *overrides) {
     Class cls = objc_getClass("APSKLabelFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeLabelWithText:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, apsk_nsstring(text), (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, apsk_nsstring(text), (id)overrides));
 }
 
 void *apsk_make_image(const char *source, void *overrides) {
     Class cls = objc_getClass("APSKImageFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeImageWithSource:overrides:");
-    return ((id (*)(Class, SEL, id, id))objc_msgSend)(
-        cls, sel, apsk_nsstring(source), (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id))objc_msgSend)(
+        cls, sel, apsk_nsstring(source), (id)overrides));
 }
 
 void *apsk_make_text_field(const char *placeholder, const char *initial_text,
@@ -681,9 +692,9 @@ void *apsk_make_text_field(const char *placeholder, const char *initial_text,
     Class cls = objc_getClass("APSKTextFieldFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeTextFieldWithPlaceholder:initialText:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(placeholder), apsk_nsstring(initial_text),
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 void *apsk_make_secure_field(const char *placeholder, const char *initial_text,
@@ -691,9 +702,9 @@ void *apsk_make_secure_field(const char *placeholder, const char *initial_text,
     Class cls = objc_getClass("APSKSecureFieldFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeSecureFieldWithPlaceholder:initialText:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(placeholder), apsk_nsstring(initial_text),
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 void *apsk_make_search_field(const char *placeholder, const char *initial_text,
@@ -701,9 +712,9 @@ void *apsk_make_search_field(const char *placeholder, const char *initial_text,
     Class cls = objc_getClass("APSKSearchFieldFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeSearchFieldWithPlaceholder:initialText:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(placeholder), apsk_nsstring(initial_text),
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 void *apsk_make_text_area(const char *placeholder, const char *initial_text,
@@ -711,9 +722,9 @@ void *apsk_make_text_area(const char *placeholder, const char *initial_text,
     Class cls = objc_getClass("APSKTextAreaFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeTextAreaWithPlaceholder:initialText:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(placeholder), apsk_nsstring(initial_text),
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 void *apsk_make_text_editor(const char *placeholder, const char *initial_text,
@@ -721,9 +732,9 @@ void *apsk_make_text_editor(const char *placeholder, const char *initial_text,
     Class cls = objc_getClass("APSKTextEditorFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeTextEditorWithPlaceholder:initialText:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(placeholder), apsk_nsstring(initial_text),
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 void *apsk_make_link_button(const char *label, const char *url,
@@ -731,9 +742,9 @@ void *apsk_make_link_button(const char *label, const char *url,
     Class cls = objc_getClass("APSKLinkButtonFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeLinkButtonWithLabel:url:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(label), apsk_nsstring(url),
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 void *apsk_make_icon_button(const char *icon, void *overrides,
@@ -741,22 +752,22 @@ void *apsk_make_icon_button(const char *icon, void *overrides,
     Class cls = objc_getClass("APSKIconButtonFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeIconButtonWithIcon:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
-        cls, sel, apsk_nsstring(icon), (id)overrides, action_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(icon), (id)overrides, action_token));
 }
 
 void *apsk_make_divider(void *overrides) {
     Class cls = objc_getClass("APSKDividerFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeDividerWithOverrides:");
-    return ((id (*)(Class, SEL, id))objc_msgSend)(cls, sel, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id))objc_msgSend)(cls, sel, (id)overrides));
 }
 
 void *apsk_make_spacer(void *overrides) {
     Class cls = objc_getClass("APSKSpacerFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeSpacerWithOverrides:");
-    return ((id (*)(Class, SEL, id))objc_msgSend)(cls, sel, (id)overrides);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id))objc_msgSend)(cls, sel, (id)overrides));
 }
 
 // ---------------------------------------------------------------------------
@@ -768,8 +779,8 @@ void *apsk_make_toggle(const char *label, int is_on, void *overrides,
     Class cls = objc_getClass("APSKToggleFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeToggleWithLabel:isOn:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, BOOL, id, unsigned long long))objc_msgSend)(
-        cls, sel, apsk_nsstring(label), is_on != 0, (id)overrides, action_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, BOOL, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), is_on != 0, (id)overrides, action_token));
 }
 
 void *apsk_make_checkbox(const char *label, int is_on, void *overrides,
@@ -777,8 +788,8 @@ void *apsk_make_checkbox(const char *label, int is_on, void *overrides,
     Class cls = objc_getClass("APSKCheckboxFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeCheckboxWithLabel:isOn:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, BOOL, id, unsigned long long))objc_msgSend)(
-        cls, sel, apsk_nsstring(label), is_on != 0, (id)overrides, action_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, BOOL, id, unsigned long long))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), is_on != 0, (id)overrides, action_token));
 }
 
 void *apsk_make_radio_group(const void *options_ptr, int option_count,
@@ -789,8 +800,8 @@ void *apsk_make_radio_group(const void *options_ptr, int option_count,
     NSArray<NSString *> *arr = apsk_nsarray_from_cstrings(
         (const char **)options_ptr, option_count);
     SEL sel = sel_registerName("makeRadioGroupWithOptions:selectedIndex:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, NSInteger, id, unsigned long long))objc_msgSend)(
-        cls, sel, arr, (NSInteger)selected_index, (id)overrides, action_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, NSInteger, id, unsigned long long))objc_msgSend)(
+        cls, sel, arr, (NSInteger)selected_index, (id)overrides, action_token));
 }
 
 void *apsk_make_slider(double value, double minimum, double maximum,
@@ -798,8 +809,8 @@ void *apsk_make_slider(double value, double minimum, double maximum,
     Class cls = objc_getClass("APSKSliderFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeSliderWithValue:minimum:maximum:overrides:actionToken:");
-    return ((id (*)(Class, SEL, double, double, double, id, unsigned long long))objc_msgSend)(
-        cls, sel, value, minimum, maximum, (id)overrides, action_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, double, double, double, id, unsigned long long))objc_msgSend)(
+        cls, sel, value, minimum, maximum, (id)overrides, action_token));
 }
 
 void *apsk_make_stepper(const char *label, double value, double minimum,
@@ -808,9 +819,9 @@ void *apsk_make_stepper(const char *label, double value, double minimum,
     Class cls = objc_getClass("APSKStepperFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeStepperWithLabel:value:minimum:maximum:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, double, double, double, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, double, double, double, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(label), value, minimum, maximum,
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 void *apsk_make_segmented_control(const void *segments_ptr, int segment_count,
@@ -821,8 +832,8 @@ void *apsk_make_segmented_control(const void *segments_ptr, int segment_count,
     NSArray<NSString *> *arr = apsk_nsarray_from_cstrings(
         (const char **)segments_ptr, segment_count);
     SEL sel = sel_registerName("makeSegmentedControlWithSegments:selectedIndex:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, NSInteger, id, unsigned long long))objc_msgSend)(
-        cls, sel, arr, (NSInteger)selected_index, (id)overrides, action_token);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, NSInteger, id, unsigned long long))objc_msgSend)(
+        cls, sel, arr, (NSInteger)selected_index, (id)overrides, action_token));
 }
 
 void *apsk_make_picker(const char *label, const void *options_ptr,
@@ -833,9 +844,9 @@ void *apsk_make_picker(const char *label, const void *options_ptr,
     NSArray<NSString *> *arr = apsk_nsarray_from_cstrings(
         (const char **)options_ptr, option_count);
     SEL sel = sel_registerName("makePickerWithLabel:options:selectedIndex:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, id, NSInteger, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, NSInteger, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(label), arr, (NSInteger)selected_index,
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 void *apsk_make_date_picker(const char *label, double initial_epoch,
@@ -843,9 +854,9 @@ void *apsk_make_date_picker(const char *label, double initial_epoch,
     Class cls = objc_getClass("APSKDatePickerFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeDatePickerWithLabel:initialEpoch:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, double, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, double, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(label), initial_epoch,
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 void *apsk_make_time_picker(const char *label, double initial_epoch,
@@ -853,9 +864,9 @@ void *apsk_make_time_picker(const char *label, double initial_epoch,
     Class cls = objc_getClass("APSKTimePickerFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeTimePickerWithLabel:initialEpoch:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, double, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, double, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(label), initial_epoch,
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 void *apsk_make_color_picker(const char *label, double r, double g, double b,
@@ -864,9 +875,9 @@ void *apsk_make_color_picker(const char *label, double r, double g, double b,
     Class cls = objc_getClass("APSKColorPickerFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeColorPickerWithLabel:initialR:initialG:initialB:initialA:overrides:actionToken:");
-    return ((id (*)(Class, SEL, id, double, double, double, double, id, unsigned long long))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, double, double, double, double, id, unsigned long long))objc_msgSend)(
         cls, sel, apsk_nsstring(label), r, g, b, a,
-        (id)overrides, action_token);
+        (id)overrides, action_token));
 }
 
 // ---------------------------------------------------------------------------
@@ -887,8 +898,8 @@ void *apsk_make_label_reactive(const char *text, void *overrides,
     Class cls = objc_getClass("APSKLabelFacade");
     if (cls == nil) return NULL;
     SEL sel = sel_registerName("makeReactiveLabelWithText:overrides:outState:");
-    return ((id (*)(Class, SEL, id, id, void **))objc_msgSend)(
-        cls, sel, apsk_nsstring(text), (id)overrides, out_state);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, void **))objc_msgSend)(
+        cls, sel, apsk_nsstring(text), (id)overrides, out_state));
 }
 
 void *apsk_make_button_reactive(const char *label, void *overrides,
@@ -898,8 +909,8 @@ void *apsk_make_button_reactive(const char *label, void *overrides,
     if (cls == nil) return NULL;
     SEL sel = sel_registerName(
         "makeReactiveButtonWithLabel:overrides:actionToken:outState:");
-    return ((id (*)(Class, SEL, id, id, unsigned long long, void **))objc_msgSend)(
-        cls, sel, apsk_nsstring(label), (id)overrides, action_token, out_state);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, unsigned long long, void **))objc_msgSend)(
+        cls, sel, apsk_nsstring(label), (id)overrides, action_token, out_state));
 }
 
 void *apsk_make_toggle_reactive(const char *label, int is_on, void *overrides,
@@ -909,9 +920,9 @@ void *apsk_make_toggle_reactive(const char *label, int is_on, void *overrides,
     if (cls == nil) return NULL;
     SEL sel = sel_registerName(
         "makeReactiveToggleWithLabel:isOn:overrides:actionToken:outState:");
-    return ((id (*)(Class, SEL, id, BOOL, id, unsigned long long, void **))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, BOOL, id, unsigned long long, void **))objc_msgSend)(
         cls, sel, apsk_nsstring(label), is_on != 0, (id)overrides,
-        action_token, out_state);
+        action_token, out_state));
 }
 
 void *apsk_make_slider_reactive(double value, double minimum, double maximum,
@@ -921,8 +932,8 @@ void *apsk_make_slider_reactive(double value, double minimum, double maximum,
     if (cls == nil) return NULL;
     SEL sel = sel_registerName(
         "makeReactiveSliderWithValue:minimum:maximum:overrides:actionToken:outState:");
-    return ((id (*)(Class, SEL, double, double, double, id, unsigned long long, void **))objc_msgSend)(
-        cls, sel, value, minimum, maximum, (id)overrides, action_token, out_state);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, double, double, double, id, unsigned long long, void **))objc_msgSend)(
+        cls, sel, value, minimum, maximum, (id)overrides, action_token, out_state));
 }
 
 // Phase 3 Remediation 10 — reactive Sheet trampoline. Mirrors the static
@@ -937,8 +948,8 @@ void *apsk_make_sheet_reactive(const void *child_views, int child_count,
     NSArray *children = apsk_nsarray_from_views(child_views, child_count);
     SEL sel = sel_registerName(
         "makeReactiveSheetWithChildViews:overrides:dismissToken:outState:");
-    return ((id (*)(Class, SEL, id, id, unsigned long long, void **))objc_msgSend)(
-        cls, sel, children, (id)overrides, dismiss_token, out_state);
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, unsigned long long, void **))objc_msgSend)(
+        cls, sel, children, (id)overrides, dismiss_token, out_state));
 }
 
 // Phase 12.C — reactive ConfirmationDialog trampoline (Codex iter-1
@@ -954,9 +965,9 @@ void *apsk_make_confirmation_dialog_reactive(const char *title,
     if (cls == nil) return NULL;
     SEL sel = sel_registerName(
         "makeReactiveConfirmationDialogWithTitle:message:overrides:outState:");
-    return ((id (*)(Class, SEL, id, id, id, void **))objc_msgSend)(
+    return apsk_retain_created_platform_view(((id (*)(Class, SEL, id, id, id, void **))objc_msgSend)(
         cls, sel, apsk_nsstring(title),
-        apsk_nsstring(message ? message : ""), (id)overrides, out_state);
+        apsk_nsstring(message ? message : ""), (id)overrides, out_state));
 }
 
 // The `apsk_*_set_*` and `apsk_state_release` functions themselves are
