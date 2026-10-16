@@ -12,7 +12,8 @@ private func apSurfaceNoiseTextureTileCreate(
     _ octaveCount: Int32,
     _ seed: Int32,
     _ tileSize: Int32,
-    _ backingScale: Double
+    _ backingScale: Double,
+    _ colorInterpolationFilters: Int32
 ) -> UnsafeRawPointer?
 
 enum SurfaceCraftModifiers {
@@ -62,12 +63,14 @@ enum SurfaceCraftModifiers {
                 let octaveCount = (texture["octaveCount"] as? NSNumber)?.int32Value ?? 3
                 let seed = (texture["seed"] as? NSNumber)?.int32Value ?? 4
                 let tileSize = (texture["tileSize"] as? NSNumber)?.int32Value ?? 160
+                let colorInterpolationFilters: Int32 = texture["colorInterpolationFilters"] as? String == "sRGB" ? 1 : 0
                 if baseFrequency.isFinite, (0.0...16.0).contains(baseFrequency),
                    (1...8).contains(octaveCount), (1...1024).contains(tileSize) {
                     face = AnyView(face.overlay {
                         SurfaceCraftNoiseTextureOverlay(
                             baseFrequency: baseFrequency, octaveCount: octaveCount, seed: seed,
-                            tileSize: tileSize, opacity: opacity, shape: shape
+                            tileSize: tileSize, colorInterpolationFilters: colorInterpolationFilters,
+                            opacity: opacity, shape: shape
                         )
                     })
                 }
@@ -170,6 +173,7 @@ enum SurfaceCraftModifiers {
                 let octaveCount = (texture["octaveCount"] as? NSNumber)?.int32Value ?? 3
                 let seed = (texture["seed"] as? NSNumber)?.int32Value ?? 4
                 let tileSize = (texture["tileSize"] as? NSNumber)?.int32Value ?? 160
+                let colorInterpolationFilters: Int32 = texture["colorInterpolationFilters"] as? String == "sRGB" ? 1 : 0
                 if baseFrequency.isFinite, (0.0...16.0).contains(baseFrequency),
                    (1...8).contains(octaveCount), (1...1024).contains(tileSize) {
                     current = AnyView(current.overlay {
@@ -178,6 +182,7 @@ enum SurfaceCraftModifiers {
                             octaveCount: octaveCount,
                             seed: seed,
                             tileSize: tileSize,
+                            colorInterpolationFilters: colorInterpolationFilters,
                             opacity: opacity,
                             shape: shape
                         )
@@ -428,6 +433,7 @@ private struct SurfaceCraftNoiseTextureOverlay: View {
     let octaveCount: Int32
     let seed: Int32
     let tileSize: Int32
+    let colorInterpolationFilters: Int32
     let opacity: Double
     let shape: RoundedRectangle
 
@@ -449,7 +455,8 @@ private struct SurfaceCraftNoiseTextureOverlay: View {
                 octaveCount,
                 seed,
                 tileSize,
-                Double(displayScale)
+                Double(displayScale),
+                colorInterpolationFilters
               ) else { return nil }
         return Unmanaged<CGImage>.fromOpaque(pointer).takeRetainedValue()
     }
