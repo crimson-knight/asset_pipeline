@@ -2,6 +2,7 @@
 # Part of the asset_pipeline cross-platform UI::View catalog.
 
 require "../view"
+require "../background_gradient"
 
 # Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
@@ -11,6 +12,8 @@ module UI
   # on top of earlier ones. Alignment controls positioning
   # within the stack bounds.
   class ZStack < View
+    include PaintsBackgroundGradient
+
     # Alignment of children within the overlay
     property alignment : Alignment = Alignment::Center
 

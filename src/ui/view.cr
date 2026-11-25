@@ -577,6 +577,12 @@ module UI
     # Blur modifier
     property blur_radius : Float64 = 0.0
 
+    # Rotation about the view's center, in degrees; positive turns clockwise
+    # on screen (a story stamp tilted with `-6.0` leans to the left). Like
+    # SwiftUI's rotationEffect it changes only how the view is drawn: the view
+    # keeps its layout size and its neighbors do not move. Drawn on macOS.
+    property rotation_degrees : Float64 = 0.0
+
     # Size constraints
     property minimum_width : Float64? = nil
     property minimum_height : Float64? = nil

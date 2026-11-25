@@ -96,7 +96,22 @@
       # NSBitmapImageRep, optionally written to `png_path`.
       fun ap_snapshot_view(view : Void*, appearance : UInt8*, width : Float64,
                            height : Float64, png_path : UInt8*) : Void*
+      # The same render with app-styled controls drawn in a named interaction
+      # state: "hover", "pressed", "focused" or "none" (see objc_bridge.m).
+      fun ap_snapshot_view_in_interaction_state(view : Void*, appearance : UInt8*, width : Float64,
+                                                height : Float64, png_path : UInt8*, state : UInt8*) : Void*
       fun ap_snapshot_rgba_at(snapshot : Void*, x : Float64, y : Float64, values : Float64*) : Int32
+      # UI::View#rotation_degrees: rotate about the center, clockwise on
+      # screen for positive degrees, without changing the layout size.
+      fun ap_view_set_rotation_degrees(view : Void*, degrees : Float64) : Void
+      fun ap_view_read_rotation_degrees(view : Void*) : Float64
+      # Stack gradient + grain background (kind 0 = linear, 1 = radial).
+      fun ap_stack_set_background_gradient(stack : Void*, kind : Int32, colors : Void**,
+                                           locations : Float64*, count : Int32,
+                                           start_x : Float64, start_y : Float64,
+                                           end_x : Float64, end_y : Float64,
+                                           grain_opacity : Float64, corner_radius : Float64) : Void*
+      fun objc_constrain_maximum_height(view : Void*, max_h : Float64) : Void
       fun ap_snapshot_release(snapshot : Void*) : Void
       fun nscolor_white_alpha(white : Float64, alpha : Float64) : Void*
       fun nscolor_label_primary : Void*
@@ -358,7 +373,7 @@
         # `phase-03-stopped-early-2026-05-20.md`.
         ensure_swiftkit_runtime!
 
-        view.accept(self)
+        visit_and_rotate(view)
         nv = result
         # Wire tab order for editable text fields
         fields = [] of Void*
@@ -580,7 +595,7 @@
         # Push onto stack, visit children, pop
         push_stack(native, is_nsstack: true)
         view.children.each do |child|
-          child.accept(self)
+          visit_and_rotate(child)
         end
         pop_stack
 
@@ -641,6 +656,7 @@
           end
         end
 
+        apply_background_gradient(ptr, view)
         push_native(native)
 
         # Phase B — fluid container fills its parent (greedy, capped at max,
@@ -712,15 +728,19 @@
 
         push_stack(native, is_nsstack: true)
         view.children.each do |child|
-          child.accept(self)
+          visit_and_rotate(child)
         end
         pop_stack
 
         # Top and bottom padding: edgeInsets alone does not hold a horizontal
         # NSStackView's children off its bottom edge, so pin both gaps.
         if p.top > 0 || p.bottom > 0
-          LibObjCBridge.ap_stack_require_vertical_insets(ptr, p.top, p.bottom, alignment_val)
+          # Fill rows stretch their children; the other alignments keep each
+          # child at its own fitting height (see objc_bridge.m).
+          cross_axis_alignment = view.alignment == Alignment::Fill ? 0_i64 : alignment_val
+          LibObjCBridge.ap_stack_require_vertical_insets(ptr, p.top, p.bottom, cross_axis_alignment)
         end
+        apply_background_gradient(ptr, view)
 
         push_native(native)
       end
@@ -743,7 +763,7 @@
 
         push_stack(native, is_nsstack: false)
         view.children.each do |child|
-          child.accept(self)
+          visit_and_rotate(child)
         end
         pop_stack
 
@@ -776,6 +796,7 @@
             LibObjCBridge.objc_pin_child_aligned(ptr, child_nv.handle.ptr!, align_code)
           end
         end
+        apply_background_gradient(ptr, view)
 
         push_native(native)
       end
@@ -1442,7 +1463,7 @@
 
               col_count = 0
               while col_count < cols && (row_idx + col_count) < items.size
-                items[row_idx + col_count].accept(self)
+                visit_and_rotate(items[row_idx + col_count])
                 col_count += 1
               end
 
@@ -1498,7 +1519,7 @@
               card_native = NativeView.new(card_handle)
               push_stack(card_native, is_nsstack: true)
               section.items.each_with_index do |item, idx|
-                item.accept(self)
+                visit_and_rotate(item)
                 if view.shows_separators && idx < section.items.size - 1
                   sep_ptr = alloc_init("NSBox")
                   LibObjCBridge.objc_send_long(sep_ptr, sel("setBoxType:"), 2_i64)
@@ -1511,7 +1532,7 @@
               # Plain / Grouped / Sidebar: flat vertical list with optional
               # NSBox separator lines between rows.
               section.items.each_with_index do |item, idx|
-                item.accept(self)
+                visit_and_rotate(item)
                 if view.shows_separators && idx < section.items.size - 1
                   sep_ptr = alloc_init("NSBox")
                   LibObjCBridge.objc_send_long(sep_ptr, sel("setBoxType:"), 2_i64)
@@ -1528,19 +1549,19 @@
       end
 
       def visit(view : UI::OutlineView)
-        view.fallback_view.accept(self)
+        visit_and_rotate(view.fallback_view)
       end
 
       def visit(view : UI::ColumnView)
-        view.fallback_view.accept(self)
+        visit_and_rotate(view.fallback_view)
       end
 
       def visit(view : UI::TokenField)
-        view.fallback_view.accept(self)
+        visit_and_rotate(view.fallback_view)
       end
 
       def visit(view : UI::ImageWell)
-        view.fallback_view.accept(self)
+        visit_and_rotate(view.fallback_view)
       end
 
       # -----------------------------------------------------------------
@@ -2280,7 +2301,7 @@
 
         if content = view.content
           push_stack(outer_native, is_nsstack: true)
-          content.accept(self)
+          visit_and_rotate(content)
           pop_stack
         end
 
@@ -2679,7 +2700,7 @@
       # -----------------------------------------------------------------
 
       def visit(view : UI::Circle)
-        ptr = alloc_init("NSView")
+        ptr = alloc_init(shape_class_name(view.fill_color, view.stroke_color))
         LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)
         # NSStackView: TAMIC:NO + NSLayoutConstraints pins the diameter.
         LibObjCBridge.objc_constrain_size(ptr, view.size, view.size)
@@ -2697,12 +2718,13 @@
             LibObjCBridge.objc_send_id(layer, sel("setBorderColor:"), cg_border)
           end
         end
+        apply_shape_dynamic_colors(ptr, view.fill_color, view.stroke_color)
         apply_common_properties(ptr, view)
         emit(ptr, "NSView[circle]")
       end
 
       def visit(view : UI::Rectangle)
-        ptr = alloc_init("NSView")
+        ptr = alloc_init(shape_class_name(view.fill_color, view.stroke_color))
         LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)
         # Pin explicit size constraints so NSStackView does not collapse the view to zero.
         LibObjCBridge.objc_constrain_size(ptr, view.width, view.height)
@@ -2718,12 +2740,13 @@
             LibObjCBridge.objc_send_id(layer, sel("setBorderColor:"), cg_border)
           end
         end
+        apply_shape_dynamic_colors(ptr, view.fill_color, view.stroke_color)
         apply_common_properties(ptr, view)
         emit(ptr, "NSView[rectangle]")
       end
 
       def visit(view : UI::RoundedRectangle)
-        ptr = alloc_init("NSView")
+        ptr = alloc_init(shape_class_name(view.fill_color, view.stroke_color))
         LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)
         # Pin explicit size constraints so NSStackView does not collapse the view to zero.
         LibObjCBridge.objc_constrain_size(ptr, view.width, view.height)
@@ -2740,12 +2763,13 @@
             LibObjCBridge.objc_send_id(layer, sel("setBorderColor:"), cg_border)
           end
         end
+        apply_shape_dynamic_colors(ptr, view.fill_color, view.stroke_color)
         apply_common_properties(ptr, view)
         emit(ptr, "NSView[rounded-rectangle]")
       end
 
       def visit(view : UI::Capsule)
-        ptr = alloc_init("NSView")
+        ptr = alloc_init(shape_class_name(view.fill_color, view.stroke_color))
         LibObjCBridge.objc_send_bool(ptr, sel("setWantsLayer:"), 1)
         layer = LibObjCBridge.objc_send(ptr, sel("layer"))
         unless layer.null?
@@ -2761,6 +2785,7 @@
             LibObjCBridge.objc_send_id(layer, sel("setBorderColor:"), cg_border)
           end
         end
+        apply_shape_dynamic_colors(ptr, view.fill_color, view.stroke_color)
         apply_common_properties(ptr, view)
         emit(ptr, "NSView[capsule]")
       end
@@ -3423,7 +3448,7 @@
         native = NativeView.new(handle)
         if content = view.content
           push_stack(native, is_nsstack: false)
-          content.accept(self)
+          visit_and_rotate(content)
           pop_stack
         end
         push_native(native)
@@ -3851,7 +3876,7 @@
 
           push_stack(content_native, is_nsstack: true)
           view.content.each do |child|
-            child.accept(self)
+            visit_and_rotate(child)
           end
           pop_stack
 
@@ -4562,6 +4587,59 @@
         end
       end
 
+      # Class for a shape view: an `APDynamicColorView` when its fill or
+      # stroke is a `UI::Color.dynamic(...)`, so its layer colors follow the
+      # appearance; a plain NSView otherwise.
+      private def shape_class_name(fill_color : UI::Color, stroke_color : UI::Color?) : String
+        shape_follows_appearance?(fill_color, stroke_color) ? "APDynamicColorView" : "NSView"
+      end
+
+      private def shape_follows_appearance?(fill_color : UI::Color, stroke_color : UI::Color?) : Bool
+        return true if fill_color.dynamic?
+        stroke_color ? stroke_color.dynamic? : false
+      end
+
+      # Store a shape's dynamic fill and stroke on its `APDynamicColorView`,
+      # which resolves them for its effective appearance now and again on
+      # every appearance change. A CGColor set once is fixed to whichever
+      # appearance was current at render time (the dark one on a dark Mac).
+      private def apply_shape_dynamic_colors(ptr : Void*, fill_color : UI::Color, stroke_color : UI::Color?) : Nil
+        return unless shape_follows_appearance?(fill_color, stroke_color)
+        no_color = Pointer(Void).null
+        stroke_ptr = stroke_color ? resolve_color(stroke_color) : no_color
+        LibObjCBridge.ap_view_set_layer_style(ptr, resolve_color(fill_color), stroke_ptr, no_color, 0, 0.0, 0.0, 0.0)
+      end
+
+      # Draw a stack's `background_gradient` and `grain_opacity` behind its
+      # children (an `APGradientBackgroundView`, see objc_bridge.m). Stop
+      # colors stay NSColors, so dynamic stops follow the appearance.
+      private def apply_background_gradient(ptr : Void*, view : UI::PaintsBackgroundGradient) : Nil
+        gradient = view.background_gradient
+        grain_opacity = view.grain_opacity.clamp(0.0, 1.0)
+        return if gradient.nil? && grain_opacity <= 0.0
+
+        list_of_stop_colors = [] of Void*
+        list_of_stop_locations = [] of Float64
+        start_point = UI::UnitPoint::TOP
+        end_point = UI::UnitPoint::BOTTOM
+        is_this_a_radial_gradient = false
+        if gradient
+          gradient.list_of_color_stops.each do |color_stop|
+            list_of_stop_colors << resolve_color(color_stop.color)
+            list_of_stop_locations << color_stop.location
+          end
+          start_point = gradient.start_point
+          end_point = gradient.end_point
+          is_this_a_radial_gradient = gradient.radial?
+        end
+        LibObjCBridge.ap_stack_set_background_gradient(
+          ptr, is_this_a_radial_gradient ? 1 : 0,
+          list_of_stop_colors.to_unsafe, list_of_stop_locations.to_unsafe, list_of_stop_colors.size,
+          start_point.x, start_point.y, end_point.x, end_point.y,
+          grain_opacity, view.corner_radius,
+        )
+      end
+
       # True when a container's fill, border or shadow uses a
       # `UI::Color.dynamic(...)`. Such a container is allocated as an
       # `APDynamicColorStackView` / `APDynamicColorView`, which re-resolves its
@@ -4876,6 +4954,12 @@
           LibObjCBridge.objc_constrain_height(ptr, min_h)
         end
 
+        # A height cap: the view may be shorter, never taller. (With a
+        # minimum_height the exact pin above already decides the height.)
+        if (max_h = view.maximum_height) && view.minimum_height.nil?
+          LibObjCBridge.objc_constrain_maximum_height(ptr, max_h)
+        end
+
         # Phase 6.10 Rem 4 (Item 2D) — root_fill sizes to the live
         # macOS window. The author opts a root view in via
         # `view.root_fill = true`.
@@ -5126,6 +5210,25 @@
         buf
       end
 
+      # Visit `view`, then turn the native view the visit produced by the
+      # view's `rotation_degrees`. Every visit goes through here, so any view
+      # (an AppKit view or a hosted SwiftUI one) can be rotated.
+      private def visit_and_rotate(view : UI::View) : Nil
+        parent = @stack.last?
+        child_count_before_visit = parent ? parent.children.size : 0
+        result_before_visit = @result
+        view.accept(self)
+        return if view.rotation_degrees == 0.0
+
+        produced_native = if parent
+                            parent.children.size > child_count_before_visit ? parent.children.last : nil
+                          else
+                            @result.same?(result_before_visit) ? nil : @result
+                          end
+        return unless produced_native && produced_native.handle.valid?
+        LibObjCBridge.ap_view_set_rotation_degrees(produced_native.handle.ptr!, view.rotation_degrees)
+      end
+
       # Visit a child view subtree in isolation, returning its NativeView
       # without adding it to the current parent stack.  Used by NSScrollView
       # to obtain the documentView NativeView pointer before wiring it with
@@ -5138,7 +5241,7 @@
         @stack = [] of NativeView
         @stack_is_nsstack = [] of Bool
         @result = nil
-        view.accept(self)
+        visit_and_rotate(view)
         detached = @result
         @stack = saved_stack
         @stack_is_nsstack = saved_is_nsstack

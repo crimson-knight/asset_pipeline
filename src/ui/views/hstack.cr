@@ -2,6 +2,7 @@
 # Part of the asset_pipeline cross-platform UI::View catalog.
 
 require "../view"
+require "../background_gradient"
 
 # Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
@@ -10,6 +11,8 @@ module UI
   # Children are laid out sequentially along the horizontal axis
   # with configurable spacing and alignment.
   class HStack < View
+    include PaintsBackgroundGradient
+
     # The HIG-conformant default horizontal rhythm for adjacent
     # controls. Mirrors `UI::VStack::DEFAULT_SPACING_PT` (12pt) for
     # symmetry — controls in a row have the same air as rows in a
