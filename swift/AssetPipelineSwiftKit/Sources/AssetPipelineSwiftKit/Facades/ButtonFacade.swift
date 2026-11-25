@@ -269,7 +269,10 @@ private struct APSKButtonHost: View {
                 fill: state.backgroundColor.map { Color(nsColor: $0) },
                 cornerRadius: state.cornerRadius.map { CGFloat($0.doubleValue) },
                 border: appBorder,
-                usesDefaultForeground: state.foregroundColor == nil
+                usesDefaultForeground: state.foregroundColor == nil,
+                minimumWidth: wantsStretchedProminent ? nil : overrides.minWidth.map { CGFloat($0.doubleValue) },
+                minimumHeight: overrides.minHeight.map { CGFloat($0.doubleValue) },
+                isDestructive: overrides.role == "destructive"
             )))
             if wantsStretchedProminent, let mw = overrides.minWidth {
                 content = AnyView(content.frame(width: CGFloat(mw.doubleValue)))

@@ -111,6 +111,29 @@ require "../../../src/ui"
         color_close?(pixel(ptr, "dark", 5.0, 5.0), RED, PIXEL_TOLERANCE).should be_true
       end
 
+      it "fills the whole minimum height, not only the label" do
+        button = UI::Button.new("Go")
+        button.background = RED
+        button.minimum_height = 44.0
+        button.padding = UI::EdgeInsets.new(top: 0.0, leading: 12.0, bottom: 0.0, trailing: 12.0)
+        row = UI::HStack.new(alignment: UI::Alignment::Top)
+        row << button
+
+        values = pixel(render_native(row), "light", 4.0, 41.0)
+        color_close?(values, RED, PIXEL_TOLERANCE).should be_true
+        values[3].should be > 0.9
+      end
+
+      it "draws a larger font on a borderless button, where the chrome does not change" do
+        plain = UI::Button.new("Join the room")
+        plain.style = UI::ButtonStyle::Borderless
+        sized = UI::Button.new("Join the room")
+        sized.style = UI::ButtonStyle::Borderless
+        sized.font = UI::Font.new(size: 30.0, weight: :bold)
+
+        fitting_size(render_native(sized))[0].should be > fitting_size(render_native(plain))[0] * 1.8
+      end
+
       it "dims the whole fill, not only the label, when disabled" do
         enabled = UI::Button.new("Go")
         enabled.background = RED

@@ -36,6 +36,12 @@ struct APSKAppStyledButtonStyle: ButtonStyle {
     let border: (width: CGFloat, color: Color)?
     /// True when the app set no foreground color.
     let usesDefaultForeground: Bool
+    /// The button's minimum size (UI::View minimum_width / minimum_height),
+    /// so the fill covers the whole touch target, not only the label.
+    let minimumWidth: CGFloat?
+    let minimumHeight: CGFloat?
+    /// True for `role: :destructive`; the default label color is red.
+    let isDestructive: Bool
 
     @Environment(\.isEnabled) private var isEnabled
 
@@ -50,13 +56,19 @@ struct APSKAppStyledButtonStyle: ButtonStyle {
         // The app's own foreground is applied by ButtonFacade outside this
         // style and reaches the label through the environment; setting one
         // here would override it.
-        let label: AnyView = usesDefaultForeground && drawsDefaultChrome
-            ? AnyView(configuration.label.foregroundStyle(defaultForeground))
-            : AnyView(configuration.label)
+        let label: AnyView
+        if usesDefaultForeground && isDestructive {
+            label = AnyView(configuration.label.foregroundStyle(Color.red))
+        } else if usesDefaultForeground && drawsDefaultChrome {
+            label = AnyView(configuration.label.foregroundStyle(defaultForeground))
+        } else {
+            label = AnyView(configuration.label)
+        }
 
         var body = AnyView(
             label
                 .padding(insets)
+                .frame(minWidth: minimumWidth, minHeight: minimumHeight)
                 .background(shape.fill(fill ?? defaultFill))
                 .clipShape(shape)
         )
