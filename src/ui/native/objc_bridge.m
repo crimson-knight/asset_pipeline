@@ -204,6 +204,371 @@ void *nscolor_rgba(double r, double g, double b, double a) {
 #endif
 }
 
+// A dynamic NSColor/UIColor for a Crystal `UI::Color.dynamic(light:, dark:)`:
+// it resolves to the light components in a light appearance and to the dark
+// components in a dark appearance. Built by `APSKDynamicColor`
+// (AssetPipelineSwiftKit, DynamicColor.swift) so there is one definition of
+// which appearance counts as dark; a build without the Swift kit linked
+// falls back to the light color.
+void *nscolor_dynamic(double lr, double lg, double lb, double la,
+                      double dr, double dg, double db, double da) {
+    Class cls = objc_getClass("APSKDynamicColor");
+    if (cls != nil) {
+        SEL sel = sel_registerName(
+            "makeColorWithLightRed:lightGreen:lightBlue:lightAlpha:"
+            "darkRed:darkGreen:darkBlue:darkAlpha:");
+        id color = ((id (*)(Class, SEL, double, double, double, double,
+                            double, double, double, double))objc_msgSend)(
+            cls, sel, lr, lg, lb, la, dr, dg, db, da);
+        if (color != nil) return color;
+    }
+    return nscolor_rgba(lr, lg, lb, la);
+}
+
+#if TARGET_OS_OSX
+// ------------------------------------------------------------
+// Layer style for container views (VStack / HStack / ZStack).
+//
+// A CALayer holds CGColors, which are fixed values: a dynamic NSColor turned
+// into a CGColor is resolved once, for whatever appearance was current at that
+// moment. `APLayerStyle` keeps the NSColors themselves on the view (as an
+// associated object) and re-resolves them against the view's effective
+// appearance whenever it changes, so a stack filled with a dynamic color
+// follows the Mac between light and dark.
+//
+// The container classes below call `ap_view_reapply_layer_style` from
+// `viewDidChangeEffectiveAppearance`. The renderer allocates them in place of
+// NSStackView / NSView only for containers that carry a dynamic color.
+// ------------------------------------------------------------
+@interface APLayerStyle : NSObject {
+@public
+    NSColor *background;
+    NSColor *border;
+    NSColor *shadow;
+    double shadowRadius;
+    double shadowOffsetX;
+    double shadowOffsetY;
+    BOOL hasShadow;
+}
+@end
+
+@implementation APLayerStyle
+- (void)dealloc {
+    [background release];
+    [border release];
+    [shadow release];
+    [super dealloc];
+}
+@end
+
+static const void *kAPLayerStyleKey = &kAPLayerStyleKey;
+
+static void ap_apply_layer_style(NSView *view, APLayerStyle *style) {
+    if (view == nil || style == nil) return;
+    [view setWantsLayer:YES];
+    CALayer *layer = [view layer];
+    if (layer == nil) return;
+    void (^apply)(void) = ^{
+        if (style->background) layer.backgroundColor = [style->background CGColor];
+        if (style->border) layer.borderColor = [style->border CGColor];
+        if (style->hasShadow) {
+            NSColor *shadowColor = style->shadow ?: [NSColor colorWithWhite:0.0 alpha:0.25];
+            layer.masksToBounds = NO;
+            layer.shadowColor = [shadowColor CGColor];
+            layer.shadowOpacity = 1.0;
+            layer.shadowRadius = (CGFloat)style->shadowRadius;
+            // UI::View shadow offsets follow the SwiftUI / UIKit convention
+            // (positive y moves the shadow DOWN). An AppKit layer's y axis
+            // points up unless its geometry is flipped.
+            CGFloat dy = layer.geometryFlipped ? (CGFloat)style->shadowOffsetY
+                                               : -(CGFloat)style->shadowOffsetY;
+            layer.shadowOffset = CGSizeMake((CGFloat)style->shadowOffsetX, dy);
+        }
+    };
+    // macOS 11+; the SwiftKit companion the renderer links already requires 13.
+    [[view effectiveAppearance] performAsCurrentDrawingAppearance:apply];
+}
+
+// Store and apply a container's layer colors and shadow. Any color may be
+// NULL (left as it is). `has_shadow` 0 leaves the layer shadow untouched.
+void ap_view_set_layer_style(void *view_ptr, void *background, void *border,
+                             void *shadow_color, int has_shadow,
+                             double shadow_radius, double shadow_offset_x,
+                             double shadow_offset_y) {
+    NSView *view = (NSView *)view_ptr;
+    if (view == nil) return;
+    APLayerStyle *style = [[APLayerStyle alloc] init];
+    style->background = [(NSColor *)background retain];
+    style->border = [(NSColor *)border retain];
+    style->shadow = [(NSColor *)shadow_color retain];
+    style->hasShadow = has_shadow != 0;
+    style->shadowRadius = shadow_radius;
+    style->shadowOffsetX = shadow_offset_x;
+    style->shadowOffsetY = shadow_offset_y;
+    objc_setAssociatedObject(view, kAPLayerStyleKey, style, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [style release];
+    ap_apply_layer_style(view, style);
+}
+
+// Re-resolve the stored layer style for the view's current appearance.
+void ap_view_reapply_layer_style(void *view_ptr) {
+    NSView *view = (NSView *)view_ptr;
+    if (view == nil) return;
+    APLayerStyle *style = objc_getAssociatedObject(view, kAPLayerStyleKey);
+    ap_apply_layer_style(view, style);
+}
+
+static void ap_write_cgcolor_rgba(CGColorRef cg, double *out) {
+    out[0] = out[1] = out[2] = out[3] = -1.0;
+    if (cg == NULL) return;
+    NSColor *c = [[NSColor colorWithCGColor:cg] colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+    if (c == nil) return;
+    out[0] = c.redComponent; out[1] = c.greenComponent;
+    out[2] = c.blueComponent; out[3] = c.alphaComponent;
+}
+
+// A view's resolved layer style, for specs and diagnostics. Writes 18 values:
+//   [0] cornerRadius  [1] borderWidth
+//   [2..5]   borderColor RGBA      [6..9]  backgroundColor RGBA
+//   [10] shadowRadius [11] shadowOffset.width [12] shadowOffset.height
+//   [13] shadowOpacity  [14..17] shadowColor RGBA
+// A missing color reads as -1 in each channel. Returns 0 when the view has
+// no layer.
+int ap_view_read_layer_style(void *view_ptr, double *out) {
+    NSView *view = (NSView *)view_ptr;
+    CALayer *layer = [view layer];
+    if (layer == nil || out == NULL) return 0;
+    out[0] = layer.cornerRadius;
+    out[1] = layer.borderWidth;
+    ap_write_cgcolor_rgba(layer.borderColor, out + 2);
+    ap_write_cgcolor_rgba(layer.backgroundColor, out + 6);
+    out[10] = layer.shadowRadius;
+    out[11] = layer.shadowOffset.width;
+    out[12] = layer.shadowOffset.height;
+    out[13] = layer.shadowOpacity;
+    ap_write_cgcolor_rgba(layer.shadowColor, out + 14);
+    return 1;
+}
+
+// The size Auto Layout / SwiftUI wants for a view, written to out[0..1].
+void ap_view_fitting_size(void *view_ptr, double *out) {
+    NSView *view = (NSView *)view_ptr;
+    if (view == nil || out == NULL) return;
+    NSSize size = [view fittingSize];
+    out[0] = size.width;
+    out[1] = size.height;
+}
+
+// ------------------------------------------------------------
+// Offscreen rendering of a native view.
+//
+// Places the view in a borderless window that is never ordered on screen,
+// pins the window to the light ("light") or dark ("dark") appearance, sizes
+// it to `width` x `height` points (the view's fitting size when either is
+// <= 0), lays it out and rasterizes it with cacheDisplayInRect:. No Screen
+// Recording permission is involved. When `png_path` is non-NULL the bitmap is
+// also written there as a PNG.
+//
+// Pass a top-level view (a renderer result): the view is moved into the
+// offscreen window, keeps fixed width and height constraints afterwards, and
+// is not returned to any previous superview.
+//
+// Returns an NSBitmapImageRep (+1 retained; release with
+// `ap_snapshot_release`), or NULL on failure. `ap_snapshot_rgba_at` reads one
+// pixel (top-left origin, in POINTS) for specs.
+// ------------------------------------------------------------
+void *ap_snapshot_view(void *view_ptr, const char *appearance_name,
+                       double width, double height, const char *png_path) {
+    NSView *view = (NSView *)view_ptr;
+    if (view == nil) return NULL;
+    @autoreleasepool {
+        NSSize fitting = [view fittingSize];
+        CGFloat w = width > 0 ? (CGFloat)width : fitting.width;
+        CGFloat h = height > 0 ? (CGFloat)height : fitting.height;
+        if (w < 1) w = 1;
+        if (h < 1) h = 1;
+
+        NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, w, h)
+                                                       styleMask:NSWindowStyleMaskBorderless
+                                                         backing:NSBackingStoreBuffered
+                                                           defer:NO];
+        [window setReleasedWhenClosed:NO];
+        BOOL dark = appearance_name != NULL && strcmp(appearance_name, "dark") == 0;
+        NSAppearance *appearance = [NSAppearance appearanceNamed:
+            dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
+        [window setAppearance:appearance];
+        [window setBackgroundColor:[NSColor windowBackgroundColor]];
+
+        NSView *content = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, w, h)];
+        [content setWantsLayer:YES];
+        [window setContentView:content];
+        [content release];
+
+        [view retain];
+        [view removeFromSuperview];
+        [view setTranslatesAutoresizingMaskIntoConstraints:NO];
+        [content addSubview:view];
+        [NSLayoutConstraint activateConstraints:@[
+            [[view leadingAnchor] constraintEqualToAnchor:[content leadingAnchor]],
+            [[view topAnchor] constraintEqualToAnchor:[content topAnchor]],
+            [[view widthAnchor] constraintEqualToConstant:w],
+            [[view heightAnchor] constraintEqualToConstant:h],
+        ]];
+        [content layoutSubtreeIfNeeded];
+        [content displayIfNeeded];
+        // Let SwiftUI hosting views and appearance-change callbacks settle.
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+        [content layoutSubtreeIfNeeded];
+
+        NSRect bounds = [content bounds];
+        NSBitmapImageRep *rep = [content bitmapImageRepForCachingDisplayInRect:bounds];
+        if (rep != nil) {
+            [content cacheDisplayInRect:bounds toBitmapImageRep:rep];
+            [rep retain];
+            if (png_path != NULL) {
+                NSData *png = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+                [png writeToFile:[NSString stringWithUTF8String:png_path] atomically:YES];
+            }
+        }
+
+        [view removeFromSuperview];
+        [view release];
+        [window close];
+        [window release];
+        return rep;
+    }
+}
+
+// One pixel of a snapshot as sRGB RGBA (0..1) into out[0..3]; (x, y) are in
+// points from the top-left corner. Returns 0 when out of range.
+int ap_snapshot_rgba_at(void *rep_ptr, double x, double y, double *out) {
+    NSBitmapImageRep *rep = (NSBitmapImageRep *)rep_ptr;
+    if (rep == nil || out == NULL) return 0;
+    CGFloat scale = rep.size.width > 0 ? (CGFloat)rep.pixelsWide / rep.size.width : 1.0;
+    NSInteger px = (NSInteger)(x * scale);
+    NSInteger py = (NSInteger)(y * scale);
+    if (px < 0 || py < 0 || px >= rep.pixelsWide || py >= rep.pixelsHigh) return 0;
+    NSColor *c = [[rep colorAtX:px y:py] colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+    if (c == nil) return 0;
+    out[0] = c.redComponent; out[1] = c.greenComponent;
+    out[2] = c.blueComponent; out[3] = c.alphaComponent;
+    return 1;
+}
+
+void ap_snapshot_release(void *rep_ptr) {
+    if (rep_ptr) [(NSBitmapImageRep *)rep_ptr release];
+}
+
+// Set a view's appearance by name ("dark" = Dark Aqua, anything else = Aqua).
+// Hosts use it to pin a window or view to one appearance; specs use it to
+// switch appearance and observe the views that follow it.
+void ap_view_set_appearance(void *view_ptr, const char *name) {
+    NSView *view = (NSView *)view_ptr;
+    if (view == nil) return;
+    BOOL dark = name != NULL && strcmp(name, "dark") == 0;
+    [view setAppearance:[NSAppearance appearanceNamed:
+        dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua]];
+}
+
+// Stack padding constraints sit just below required so a parent that caps
+// the stack smaller than child + padding (a fixed-height toolbar row, a
+// fixed-width sidebar) wins without an unsatisfiable-constraint break, the
+// way edgeInsets gave way before.
+static const NSLayoutPriority kAPStackInsetPriority = 999;
+
+// Top and bottom padding for a horizontal NSStackView.
+//
+// A horizontal NSStackView does not hold its arranged subviews off the
+// bottom edge: `edgeInsets.bottom` does not survive fitting (a 40pt child
+// with insets top 0 / bottom 30 fits in 40pt, and top 20 / bottom 30 fits in
+// 80pt, the top inset mirrored by centering), and its center alignment
+// centers on the whole stack rather than on the padded area.
+//
+// This takes over the cross axis: it clears the stack's own vertical
+// alignment and vertical insets, then pins every arranged subview inside the
+// padded area at priority 999 and aligns it there. `alignment` is the
+// NSLayoutAttribute the renderer chose: 3 = top, 4 = bottom, anything else
+// centers within the padded area.
+void ap_stack_require_vertical_insets(void *stack_ptr, double top, double bottom,
+                                      long alignment) {
+    NSStackView *stack = (NSStackView *)stack_ptr;
+    if (stack == nil) return;
+    NSEdgeInsets insets = [stack edgeInsets];
+    insets.top = 0;
+    insets.bottom = 0;
+    [stack setEdgeInsets:insets];
+    [stack setAlignment:NSLayoutAttributeNotAnAttribute];
+
+    NSMutableArray *constraints = [NSMutableArray array];
+    for (NSView *child in [stack arrangedSubviews]) {
+        [constraints addObject:[[child topAnchor]
+            constraintGreaterThanOrEqualToAnchor:[stack topAnchor] constant:(CGFloat)top]];
+        [constraints addObject:[[stack bottomAnchor]
+            constraintGreaterThanOrEqualToAnchor:[child bottomAnchor] constant:(CGFloat)bottom]];
+        if (alignment == NSLayoutAttributeTop) {
+            [constraints addObject:[[child topAnchor]
+                constraintEqualToAnchor:[stack topAnchor] constant:(CGFloat)top]];
+        } else if (alignment == NSLayoutAttributeBottom) {
+            [constraints addObject:[[stack bottomAnchor]
+                constraintEqualToAnchor:[child bottomAnchor] constant:(CGFloat)bottom]];
+        } else {
+            // Center of the padded area: (top - bottom) / 2 below the
+            // stack's center in AppKit's y-down anchor math.
+            [constraints addObject:[[child centerYAnchor]
+                constraintEqualToAnchor:[stack centerYAnchor]
+                               constant:(CGFloat)((top - bottom) / 2.0)]];
+        }
+    }
+    for (NSLayoutConstraint *constraint in constraints) {
+        constraint.priority = kAPStackInsetPriority;
+    }
+    [NSLayoutConstraint activateConstraints:constraints];
+}
+
+// Leading and trailing padding for a vertical NSStackView: the same
+// weakness on the other axis. A leading-aligned VStack fits to its widest
+// child plus the leading inset only, so that child runs into the trailing
+// edge. Hold every arranged subview at least `leading` from the leading edge
+// and `trailing` from the trailing edge at priority 999. The stack's own
+// alignment constraints are kept. The renderer applies it to leading-aligned
+// stacks only.
+void ap_stack_require_horizontal_insets(void *stack_ptr, double leading, double trailing) {
+    NSStackView *stack = (NSStackView *)stack_ptr;
+    if (stack == nil) return;
+    NSMutableArray *constraints = [NSMutableArray array];
+    for (NSView *child in [stack arrangedSubviews]) {
+        [constraints addObject:[[child leadingAnchor]
+            constraintGreaterThanOrEqualToAnchor:[stack leadingAnchor] constant:(CGFloat)leading]];
+        [constraints addObject:[[stack trailingAnchor]
+            constraintGreaterThanOrEqualToAnchor:[child trailingAnchor] constant:(CGFloat)trailing]];
+    }
+    for (NSLayoutConstraint *constraint in constraints) {
+        constraint.priority = kAPStackInsetPriority;
+    }
+    [NSLayoutConstraint activateConstraints:constraints];
+}
+
+@interface APDynamicColorStackView : NSStackView
+@end
+
+@implementation APDynamicColorStackView
+- (void)viewDidChangeEffectiveAppearance {
+    [super viewDidChangeEffectiveAppearance];
+    ap_view_reapply_layer_style(self);
+}
+@end
+
+@interface APDynamicColorView : NSView
+@end
+
+@implementation APDynamicColorView
+- (void)viewDidChangeEffectiveAppearance {
+    [super viewDidChangeEffectiveAppearance];
+    ap_view_reapply_layer_style(self);
+}
+@end
+#endif
+
 // [NSColor/UIColor colorWithWhite:alpha:]
 void *nscolor_white_alpha(double white, double alpha) {
 #if TARGET_OS_OSX

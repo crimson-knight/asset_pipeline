@@ -129,6 +129,12 @@
     # -------------------------------------------------------------------------
     fun apsk_overrides_set_color(target : Void*, setter_name : UInt8*,
                                  r : Float64, g : Float64, b : Float64, a : Float64)
+    # Dynamic counterpart of `apsk_overrides_set_color` for a
+    # `UI::Color.dynamic(light:, dark:)`: `l*` is the light-appearance color,
+    # `d*` the dark-appearance color.
+    fun apsk_overrides_set_dynamic_color(target : Void*, setter_name : UInt8*,
+                                         lr : Float64, lg : Float64, lb : Float64, la : Float64,
+                                         dr : Float64, dg : Float64, db : Float64, da : Float64)
     fun apsk_overrides_set_number(target : Void*, setter_name : UInt8*, value : Float64)
     fun apsk_overrides_set_bool(target : Void*, setter_name : UInt8*, value : Int32)
     fun apsk_overrides_set_string(target : Void*, setter_name : UInt8*, value : UInt8*)
@@ -339,6 +345,16 @@
                                          r : Float64, g : Float64,
                                          b : Float64, a : Float64)
     fun apsk_button_clear_foreground_color(state : Void*)
+    fun apsk_button_set_background_dynamic_color(state : Void*,
+                                                 lr : Float64, lg : Float64, lb : Float64, la : Float64,
+                                                 dr : Float64, dg : Float64, db : Float64, da : Float64)
+    fun apsk_button_set_foreground_dynamic_color(state : Void*,
+                                                 lr : Float64, lg : Float64, lb : Float64, la : Float64,
+                                                 dr : Float64, dg : Float64, db : Float64, da : Float64)
+    # Replaces the label font. size <= 0 = no explicit size; has_weight 0 =
+    # no explicit weight; NULL/empty family = the system face.
+    fun apsk_button_set_font(state : Void*, size : Float64, has_weight : Int32,
+                             weight_raw_value : Int32, family : UInt8*)
     fun apsk_button_set_corner_radius(state : Void*, value : Float64)
     fun apsk_button_clear_corner_radius(state : Void*)
     # Phase 6.11 — reactive disabled mutator (parallel to set_value /

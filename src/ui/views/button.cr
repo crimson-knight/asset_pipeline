@@ -206,7 +206,13 @@ module UI
       {% if flag?(:macos) || flag?(:ios) %}
         if sh = @swiftkit_state_handle
           if c = new_color
-            LibSwiftKitBridge.apsk_button_set_background_color(sh, c.r, c.g, c.b, c.a)
+            if dark = c.dark
+              LibSwiftKitBridge.apsk_button_set_background_dynamic_color(
+                sh, c.r, c.g, c.b, c.a, dark.r, dark.g, dark.b, dark.a,
+              )
+            else
+              LibSwiftKitBridge.apsk_button_set_background_color(sh, c.r, c.g, c.b, c.a)
+            end
           else
             LibSwiftKitBridge.apsk_button_clear_background_color(sh)
           end
@@ -220,12 +226,39 @@ module UI
       @foreground_color = new_color
       {% if flag?(:macos) || flag?(:ios) %}
         if sh = @swiftkit_state_handle
-          LibSwiftKitBridge.apsk_button_set_foreground_color(
-            sh, new_color.r, new_color.g, new_color.b, new_color.a,
-          )
+          if dark = new_color.dark
+            LibSwiftKitBridge.apsk_button_set_foreground_dynamic_color(
+              sh, new_color.r, new_color.g, new_color.b, new_color.a,
+              dark.r, dark.g, dark.b, dark.a,
+            )
+          else
+            LibSwiftKitBridge.apsk_button_set_foreground_color(
+              sh, new_color.r, new_color.g, new_color.b, new_color.a,
+            )
+          end
         end
       {% end %}
       new_color
+    end
+
+    # Assigns the label font.
+    #
+    # Reactive: after the renderer has emitted the SwiftUI hosting view, the
+    # new size, weight and family reach the rendered label without a tree
+    # rebuild. The encoding matches `Populator.populate_button`, so an update
+    # and a fresh render draw the same font.
+    def font=(new_font : Font) : Font
+      @font = new_font
+      {% if flag?(:macos) || flag?(:ios) %}
+        if sh = @swiftkit_state_handle
+          size = new_font.size == 17.0 ? 0.0 : new_font.size
+          has_weight = new_font.weight == :regular ? 0 : 1
+          weight_raw_value = UI::Native::Populator.swiftui_font_weight_rawvalue(new_font.weight)
+          family = new_font.family == "system" ? "" : new_font.family
+          LibSwiftKitBridge.apsk_button_set_font(sh, size, has_weight, weight_raw_value, family.to_unsafe)
+        end
+      {% end %}
+      new_font
     end
 
     # Assigns the corner radius (pt).

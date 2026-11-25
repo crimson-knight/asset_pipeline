@@ -356,7 +356,7 @@ module UI
         # Emit only when non-default (default = system blue) so standard buttons
         # keep the system label color.
         fg = view.foreground_color
-        unless fg.r == 0.0 && fg.g == 0.478 && fg.b == 1.0
+        unless fg.dark.nil? && fg.r == 0.0 && fg.g == 0.478 && fg.b == 1.0
           sender.set_color(target, :setForegroundColor, fg)
         end
       end
@@ -1168,10 +1168,21 @@ module UI
 
         def set_color(target : String, setter : Symbol, color : UI::Color?)
           return if color.nil?
-          LibSwiftKitBridge.apsk_overrides_set_color(
-            @overrides_ptr, Populator.objc_setter_selector(setter).to_unsafe,
-            color.r, color.g, color.b, color.a,
-          )
+          selector = Populator.objc_setter_selector(setter)
+          if dark = color.dark
+            # A `UI::Color.dynamic(...)` crosses as a dynamic platform color
+            # so SwiftUI resolves it per appearance and redraws on a switch.
+            LibSwiftKitBridge.apsk_overrides_set_dynamic_color(
+              @overrides_ptr, selector.to_unsafe,
+              color.r, color.g, color.b, color.a,
+              dark.r, dark.g, dark.b, dark.a,
+            )
+          else
+            LibSwiftKitBridge.apsk_overrides_set_color(
+              @overrides_ptr, selector.to_unsafe,
+              color.r, color.g, color.b, color.a,
+            )
+          end
         end
 
         def set_number(target : String, setter : Symbol, value : Float64?)

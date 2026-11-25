@@ -73,6 +73,31 @@
       # --- Section 4: Convenience helpers ---
       fun nsstring_from_cstr(str : UInt8*) : Void*
       fun nscolor_rgba(r : Float64, g : Float64, b : Float64, a : Float64) : Void*
+      # Dynamic NSColor for `UI::Color.dynamic(light:, dark:)` (l* = light, d* = dark).
+      fun nscolor_dynamic(lr : Float64, lg : Float64, lb : Float64, la : Float64,
+                          dr : Float64, dg : Float64, db : Float64, da : Float64) : Void*
+      # Container layer style: stores the colors (re-resolved on an appearance
+      # change by APDynamicColorStackView / APDynamicColorView) and the shadow.
+      fun ap_view_set_layer_style(view : Void*, background : Void*, border : Void*,
+                                  shadow_color : Void*, has_shadow : Int32,
+                                  shadow_radius : Float64, shadow_offset_x : Float64,
+                                  shadow_offset_y : Float64) : Void
+      fun ap_view_reapply_layer_style(view : Void*) : Void
+      # HStack top/bottom padding at required priority (see objc_bridge.m).
+      fun ap_stack_require_horizontal_insets(stack : Void*, leading : Float64, trailing : Float64) : Void
+      fun ap_stack_require_vertical_insets(stack : Void*, top : Float64, bottom : Float64, alignment : Int64) : Void
+      # Resolved layer style (18 values, see objc_bridge.m) for specs and
+      # diagnostics. Returns 0 when the view has no layer.
+      fun ap_view_read_layer_style(view : Void*, values : Float64*) : Int32
+      fun ap_view_fitting_size(view : Void*, values : Float64*) : Void
+      # Pin a view to the light ("light") or dark ("dark") appearance.
+      fun ap_view_set_appearance(view : Void*, name : UInt8*) : Void
+      # Offscreen rendering (no Screen Recording permission): returns a +1
+      # NSBitmapImageRep, optionally written to `png_path`.
+      fun ap_snapshot_view(view : Void*, appearance : UInt8*, width : Float64,
+                           height : Float64, png_path : UInt8*) : Void*
+      fun ap_snapshot_rgba_at(snapshot : Void*, x : Float64, y : Float64, values : Float64*) : Int32
+      fun ap_snapshot_release(snapshot : Void*) : Void
       fun nscolor_white_alpha(white : Float64, alpha : Float64) : Void*
       fun nscolor_label_primary : Void*
       fun nscolor_label_secondary : Void*
@@ -456,7 +481,7 @@
       # Visit: VStack -> NSStackView (vertical, orientation = 1)
       # -----------------------------------------------------------------
       def visit(view : UI::VStack)
-        ptr = alloc_init("NSStackView")
+        ptr = alloc_init(stack_class_name(view))
 
         # NSUserInterfaceLayoutOrientationVertical = 1
         LibObjCBridge.objc_send_long(ptr, sel("setOrientation:"), 1_i64)
@@ -522,8 +547,10 @@
         unless layer_ptr.null?
           explicit_bg = view.background
           bg_ns = if c = explicit_bg
-                    # View has an explicit background — use it. Alpha=0 means transparent.
-                    LibObjCBridge.nscolor_rgba(c.r, c.g, c.b, c.a)
+                    # View has an explicit background — use it. Alpha=0 means
+                    # transparent. A dynamic color is re-resolved per appearance
+                    # by `apply_container_layer_style` below.
+                    resolve_color(c)
                   else
                     # No explicit background. The bake policy (pure, unit-tested in
                     # UI::StackBake) keeps the LIVE app TRANSPARENT so the parent's
@@ -545,6 +572,7 @@
             LibObjCBridge.objc_send_void_id(layer_ptr, sel("setBackgroundColor:"), cg_bg) unless cg_bg.null?
           end
         end
+        apply_container_layer_style(ptr, view)
 
         handle = ObjC.owned(ptr, label: "NSStackView[v]")
         native = NativeView.new(handle)
@@ -555,6 +583,15 @@
           child.accept(self)
         end
         pop_stack
+
+        # Leading and trailing padding: edgeInsets alone lets a leading-aligned
+        # VStack's widest child run into its trailing edge, so pin both gaps.
+        # A fluid_width stack pins each child to its full width below, so it
+        # keeps the edgeInsets behavior.
+        leading_aligned = view.alignment == Alignment::Leading || view.alignment == Alignment::Fill
+        if (p.leading > 0 || p.trailing > 0) && leading_aligned && view.fluid_width.nil?
+          LibObjCBridge.ap_stack_require_horizontal_insets(ptr, p.leading, p.trailing)
+        end
 
         # Each child NativeView was added to native.children and its raw
         # ptr was added as an arranged subview during push_native.
@@ -621,7 +658,7 @@
       # Visit: HStack -> NSStackView (horizontal, orientation = 0)
       # -----------------------------------------------------------------
       def visit(view : UI::HStack)
-        ptr = alloc_init("NSStackView")
+        ptr = alloc_init(stack_class_name(view))
 
         # NSUserInterfaceLayoutOrientationHorizontal = 0
         LibObjCBridge.objc_send_long(ptr, sel("setOrientation:"), 0_i64)
@@ -668,6 +705,7 @@
 
         # Common properties
         apply_common_properties(ptr, view)
+        apply_container_layer_style(ptr, view)
 
         handle = ObjC.owned(ptr, label: "NSStackView[h]")
         native = NativeView.new(handle)
@@ -677,6 +715,12 @@
           child.accept(self)
         end
         pop_stack
+
+        # Top and bottom padding: edgeInsets alone does not hold a horizontal
+        # NSStackView's children off its bottom edge, so pin both gaps.
+        if p.top > 0 || p.bottom > 0
+          LibObjCBridge.ap_stack_require_vertical_insets(ptr, p.top, p.bottom, alignment_val)
+        end
 
         push_native(native)
       end
@@ -688,10 +732,11 @@
       # on top. Each child gets an autoresizing mask to fill the parent.
       # -----------------------------------------------------------------
       def visit(view : UI::ZStack)
-        ptr = alloc_init("NSView")
+        ptr = alloc_init(carries_dynamic_layer_color?(view) ? "APDynamicColorView" : "NSView")
 
         # Common properties
         apply_common_properties(ptr, view)
+        apply_container_layer_style(ptr, view)
 
         handle = ObjC.owned(ptr, label: "NSView[zstack]")
         native = NativeView.new(handle)
@@ -4510,7 +4555,48 @@
 
       # Resolve a UI::Color to an NSColor pointer via the bridge convenience.
       private def resolve_color(color : UI::Color) : Void*
-        LibObjCBridge.nscolor_rgba(color.r, color.g, color.b, color.a)
+        if dark = color.dark
+          LibObjCBridge.nscolor_dynamic(color.r, color.g, color.b, color.a, dark.r, dark.g, dark.b, dark.a)
+        else
+          LibObjCBridge.nscolor_rgba(color.r, color.g, color.b, color.a)
+        end
+      end
+
+      # True when a container's fill, border or shadow uses a
+      # `UI::Color.dynamic(...)`. Such a container is allocated as an
+      # `APDynamicColorStackView` / `APDynamicColorView`, which re-resolves its
+      # layer colors whenever the appearance changes.
+      private def carries_dynamic_layer_color?(view : UI::View) : Bool
+        [view.background, view.border_color, view.shadow_color].any? do |color|
+          color ? color.dynamic? : false
+        end
+      end
+
+      # Class to allocate for a VStack / HStack.
+      private def stack_class_name(view : UI::View) : String
+        carries_dynamic_layer_color?(view) ? "APDynamicColorStackView" : "NSStackView"
+      end
+
+      # Corner radius and border width are set by `apply_common_properties`;
+      # this adds the container's shadow, and stores the container's colors so
+      # a dynamic fill, border or shadow follows the appearance. Containers
+      # only: hosted SwiftUI widgets draw their own shadow through
+      # CommonModifiers.
+      private def apply_container_layer_style(ptr : Void*, view : UI::View) : Nil
+        has_shadow = view.shadow_radius > 0.0
+        return unless has_shadow || carries_dynamic_layer_color?(view)
+
+        no_color = Pointer(Void).null
+        background_color = view.background
+        background_ptr = background_color ? resolve_color(background_color) : no_color
+        border_color = view.border_color
+        border_ptr = border_color && view.border_width > 0.0 ? resolve_color(border_color) : no_color
+        shadow_color = view.shadow_color
+        shadow_ptr = shadow_color ? resolve_color(shadow_color) : no_color
+        LibObjCBridge.ap_view_set_layer_style(
+          ptr, background_ptr, border_ptr, shadow_ptr, has_shadow ? 1 : 0,
+          view.shadow_radius, view.shadow_offset_x, view.shadow_offset_y,
+        )
       end
 
       # The unified design-tokens model. Host apps can swap this with a

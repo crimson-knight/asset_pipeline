@@ -74,16 +74,30 @@ public final class APSKButtonState: NSObject, ObservableObject {
     // Todo editor disables Save while the title is whitespace-only).
     @Published public var isDisabled: Bool
 
+    // Label font. Seeded from `overrides.fontFamily` / `fontSize` /
+    // `fontWeight`, replaced as a set through `apsk_button_set_font` when
+    // Crystal assigns `UI::Button#font=` after render. nil fields keep
+    // SwiftUI's default for that part of the font.
+    @Published public var fontFamily: String?
+    @Published public var fontSize: NSNumber?
+    @Published public var fontWeight: NSNumber?
+
     public init(
         backgroundColor: APSKPlatformColor? = nil,
         foregroundColor: APSKPlatformColor? = nil,
         cornerRadius: NSNumber? = nil,
-        isDisabled: Bool = false
+        isDisabled: Bool = false,
+        fontFamily: String? = nil,
+        fontSize: NSNumber? = nil,
+        fontWeight: NSNumber? = nil
     ) {
         self.backgroundColor = backgroundColor
         self.foregroundColor = foregroundColor
         self.cornerRadius = cornerRadius
         self.isDisabled = isDisabled
+        self.fontFamily = fontFamily
+        self.fontSize = fontSize
+        self.fontWeight = fontWeight
         super.init()
     }
 }
@@ -191,6 +205,61 @@ public func apskButtonSetBackgroundColor(
         red: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: CGFloat(a)
     )
     apskMainAsync { state.backgroundColor = color }
+}
+
+// Dynamic variant: `l*` is the light-appearance color, `d*` the
+// dark-appearance color. The platform color resolves per appearance and
+// SwiftUI redraws the button when the appearance changes.
+@_cdecl("apsk_button_set_background_dynamic_color")
+public func apskButtonSetBackgroundDynamicColor(
+    _ stateHandle: UnsafeMutableRawPointer,
+    _ lr: Double, _ lg: Double, _ lb: Double, _ la: Double,
+    _ dr: Double, _ dg: Double, _ db: Double, _ da: Double
+) {
+    let state = Unmanaged<APSKButtonState>.fromOpaque(stateHandle)
+        .takeUnretainedValue()
+    let color = APSKDynamicColor.make(
+        light: (lr, lg, lb, la), dark: (dr, dg, db, da)
+    )
+    apskMainAsync { state.backgroundColor = color }
+}
+
+@_cdecl("apsk_button_set_foreground_dynamic_color")
+public func apskButtonSetForegroundDynamicColor(
+    _ stateHandle: UnsafeMutableRawPointer,
+    _ lr: Double, _ lg: Double, _ lb: Double, _ la: Double,
+    _ dr: Double, _ dg: Double, _ db: Double, _ da: Double
+) {
+    let state = Unmanaged<APSKButtonState>.fromOpaque(stateHandle)
+        .takeUnretainedValue()
+    let color = APSKDynamicColor.make(
+        light: (lr, lg, lb, la), dark: (dr, dg, db, da)
+    )
+    apskMainAsync { state.foregroundColor = color }
+}
+
+// Replaces the button's label font. `size <= 0` means "no explicit size",
+// `hasWeight == 0` means "no explicit weight", and a NULL or empty family
+// means the system face — the same encoding the populator uses on first
+// render, so an update and a fresh render draw the same font.
+@_cdecl("apsk_button_set_font")
+public func apskButtonSetFont(
+    _ stateHandle: UnsafeMutableRawPointer,
+    _ size: Double,
+    _ hasWeight: Int32,
+    _ weightRawValue: Int32,
+    _ cFamily: UnsafePointer<CChar>?
+) {
+    let state = Unmanaged<APSKButtonState>.fromOpaque(stateHandle)
+        .takeUnretainedValue()
+    let family = cFamily.map { String(cString: $0) }.flatMap { $0.isEmpty ? nil : $0 }
+    let boxedSize: NSNumber? = size > 0 ? NSNumber(value: size) : nil
+    let boxedWeight: NSNumber? = hasWeight != 0 ? NSNumber(value: weightRawValue) : nil
+    apskMainAsync {
+        state.fontFamily = family
+        state.fontSize = boxedSize
+        state.fontWeight = boxedWeight
+    }
 }
 
 @_cdecl("apsk_button_clear_background_color")

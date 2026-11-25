@@ -46,3 +46,7 @@ swift/AssetPipelineSwiftKit/Package.resolved
 # is fetched on first harness run and cached under vendor/cdp/. Not committed.
 /vendor/cdp/
 .claude/worktrees/
+
+# examples/native_styling showcase build and renders
+/output/bin/
+/output/native-styling/
