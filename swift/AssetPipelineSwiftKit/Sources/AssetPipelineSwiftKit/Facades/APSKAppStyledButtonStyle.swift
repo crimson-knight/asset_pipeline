@@ -47,11 +47,12 @@ struct APSKAppStyledButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         let drawsDefaultChrome = fill == nil
-        let shape = RoundedRectangle(cornerRadius: cornerRadius ?? (drawsDefaultChrome ? (isProminent ? 8 : 6) : 0))
-        let insets = padding ?? (drawsDefaultChrome
-            ? EdgeInsets(top: isProminent ? 6 : 4, leading: isProminent ? 14 : 10,
-                         bottom: isProminent ? 6 : 4, trailing: isProminent ? 14 : 10)
-            : EdgeInsets())
+        // A padding or radius the app did not set falls back to the bezel's
+        // proportions, so a button that set only a fill keeps room around its
+        // label and rounded corners, as the system bezel gave it.
+        let shape = RoundedRectangle(cornerRadius: cornerRadius ?? (isProminent ? 8 : 6))
+        let insets = padding ?? EdgeInsets(top: isProminent ? 6 : 4, leading: isProminent ? 14 : 10,
+                                           bottom: isProminent ? 6 : 4, trailing: isProminent ? 14 : 10)
 
         // The app's own foreground is applied by ButtonFacade outside this
         // style and reaches the label through the environment; setting one
