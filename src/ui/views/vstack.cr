@@ -2,6 +2,7 @@
 # Part of the asset_pipeline cross-platform UI::View catalog.
 
 require "../view"
+require "../background_gradient"
 
 # Top-level namespace for the asset_pipeline cross-platform UI system.
 module UI
@@ -10,6 +11,8 @@ module UI
   # Children are laid out sequentially along the vertical axis
   # with configurable spacing and alignment.
   class VStack < View
+    include PaintsBackgroundGradient
+
     # The HIG-conformant default vertical rhythm for stacked form
     # content. Phase 6.10 Rem 1 raised this from 8pt to 12pt because
     # 8pt produced visually-overlapping form fields on iOS (the

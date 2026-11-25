@@ -487,8 +487,20 @@ static const NSLayoutPriority kAPStackInsetPriority = 999;
 // This takes over the cross axis: it clears the stack's own vertical
 // alignment and vertical insets, then pins every arranged subview inside the
 // padded area at priority 999 and aligns it there. `alignment` is the
-// NSLayoutAttribute the renderer chose: 3 = top, 4 = bottom, anything else
+// NSLayoutAttribute the renderer chose: 3 = top, 4 = bottom, 0 = fill (the
+// UI::Alignment::Fill row: top-pinned and free to stretch), anything else
 // centers within the padded area.
+//
+// Clearing the stack's alignment also drops NSStackView's own hold on each
+// child's height, which left a child with no intrinsic height (an empty or
+// container VStack) free to stretch to the row's full height. So every child
+// of a top, center or bottom row also gets a height == 0 pull at priority
+// 249, just under the standard content hugging: it only settles that slack,
+// so the child keeps its own fitting height the way an unpadded row keeps it.
+// A child that asked to fill vertically (hugging below 250, see
+// objc_set_vertical_fill_priority) keeps stretching.
+static const NSLayoutPriority kAPStackFittingHeightPriority = 249;
+
 void ap_stack_require_vertical_insets(void *stack_ptr, double top, double bottom,
                                       long alignment) {
     NSStackView *stack = (NSStackView *)stack_ptr;
@@ -505,7 +517,7 @@ void ap_stack_require_vertical_insets(void *stack_ptr, double top, double bottom
             constraintGreaterThanOrEqualToAnchor:[stack topAnchor] constant:(CGFloat)top]];
         [constraints addObject:[[stack bottomAnchor]
             constraintGreaterThanOrEqualToAnchor:[child bottomAnchor] constant:(CGFloat)bottom]];
-        if (alignment == NSLayoutAttributeTop) {
+        if (alignment == NSLayoutAttributeTop || alignment == NSLayoutAttributeNotAnAttribute) {
             [constraints addObject:[[child topAnchor]
                 constraintEqualToAnchor:[stack topAnchor] constant:(CGFloat)top]];
         } else if (alignment == NSLayoutAttributeBottom) {
@@ -523,6 +535,19 @@ void ap_stack_require_vertical_insets(void *stack_ptr, double top, double bottom
         constraint.priority = kAPStackInsetPriority;
     }
     [NSLayoutConstraint activateConstraints:constraints];
+
+    if (alignment == NSLayoutAttributeNotAnAttribute) return;
+    NSMutableArray *fitting_height_pulls = [NSMutableArray array];
+    for (NSView *child in [stack arrangedSubviews]) {
+        BOOL asked_to_fill_vertically =
+            [child contentHuggingPriorityForOrientation:NSLayoutConstraintOrientationVertical]
+            < NSLayoutPriorityDefaultLow;
+        if (asked_to_fill_vertically) continue;
+        NSLayoutConstraint *pull = [[child heightAnchor] constraintEqualToConstant:0];
+        pull.priority = kAPStackFittingHeightPriority;
+        [fitting_height_pulls addObject:pull];
+    }
+    [NSLayoutConstraint activateConstraints:fitting_height_pulls];
 }
 
 // Leading and trailing padding for a vertical NSStackView: the same
@@ -567,6 +592,293 @@ void ap_stack_require_horizontal_insets(void *stack_ptr, double leading, double 
     ap_view_reapply_layer_style(self);
 }
 @end
+
+// ------------------------------------------------------------
+// Rotation about the center (UI::View#rotation_degrees).
+//
+// A layer-backed NSView's layer has its anchor point at the bounds origin,
+// and AppKit owns the layer's geometry: it writes the layer's transform back
+// to identity whenever it updates that geometry (moving into a window, a
+// layout pass, a display). The rotation is therefore a layer transform that
+// moves the center to the anchor, rotates, and moves it back, and it is kept
+// in place by observing the layer's `transform` and `bounds` (key-value
+// observing, which CALayer supports): when AppKit resets the transform or
+// the size changes, the rotation is written again. Like SwiftUI's
+// rotationEffect, it changes only how the view is drawn, never its layout
+// size, and positive degrees turn clockwise on screen.
+// ------------------------------------------------------------
+static void *kAPRotationObservationContext = &kAPRotationObservationContext;
+
+@interface APRotationAboutCenter : NSObject {
+@public
+    NSView *rotatedView;    // weak: the view owns this object
+    CALayer *observedLayer; // retained while observed
+    double degrees;
+    BOOL isWritingTransform;
+}
+- (void)apply;
+@end
+
+@implementation APRotationAboutCenter
+- (CGAffineTransform)transformForCurrentSize {
+    NSView *view = rotatedView;
+    CALayer *layer = observedLayer;
+    NSSize size = [layer bounds].size;
+    CGFloat radians = (CGFloat)(degrees * M_PI / 180.0);
+    // A layer whose geometry is not flipped has y pointing up, where a
+    // positive angle turns counterclockwise on screen.
+    BOOL y_points_down = [view isFlipped] || layer.geometryFlipped;
+    CGFloat screen_clockwise_radians = y_points_down ? radians : -radians;
+    CGAffineTransform transform = CGAffineTransformMakeTranslation(size.width / 2.0, size.height / 2.0);
+    transform = CGAffineTransformRotate(transform, screen_clockwise_radians);
+    return CGAffineTransformTranslate(transform, -size.width / 2.0, -size.height / 2.0);
+}
+- (void)observeLayer:(CALayer *)layer {
+    if (layer == observedLayer) return;
+    if (observedLayer != nil) {
+        [observedLayer removeObserver:self forKeyPath:@"transform" context:kAPRotationObservationContext];
+        [observedLayer removeObserver:self forKeyPath:@"bounds" context:kAPRotationObservationContext];
+        [observedLayer release];
+    }
+    observedLayer = [layer retain];
+    if (observedLayer != nil) {
+        [observedLayer addObserver:self forKeyPath:@"transform" options:0 context:kAPRotationObservationContext];
+        [observedLayer addObserver:self forKeyPath:@"bounds" options:0 context:kAPRotationObservationContext];
+    }
+}
+- (void)apply {
+    NSView *view = rotatedView;
+    if (view == nil || isWritingTransform) return;
+    [view setWantsLayer:YES];
+    [self observeLayer:[view layer]];
+    if (observedLayer == nil) return;
+    CGAffineTransform wanted = [self transformForCurrentSize];
+    if (CGAffineTransformEqualToTransform(observedLayer.affineTransform, wanted)) return;
+    isWritingTransform = YES;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    observedLayer.affineTransform = wanted;
+    [CATransaction commit];
+    isWritingTransform = NO;
+}
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object
+                        change:(NSDictionary *)change context:(void *)context {
+    if (context != kAPRotationObservationContext) {
+        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+        return;
+    }
+    [self apply];
+}
+- (void)dealloc {
+    [self observeLayer:nil];
+    [super dealloc];
+}
+@end
+
+static const void *kAPRotationAboutCenterKey = &kAPRotationAboutCenterKey;
+
+void ap_view_set_rotation_degrees(void *view_ptr, double degrees) {
+    NSView *view = (NSView *)view_ptr;
+    if (view == nil) return;
+    APRotationAboutCenter *rotation = objc_getAssociatedObject(view, kAPRotationAboutCenterKey);
+    if (rotation == nil) {
+        rotation = [[APRotationAboutCenter alloc] init];
+        rotation->rotatedView = view;
+        objc_setAssociatedObject(view, kAPRotationAboutCenterKey, rotation, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [rotation release];
+    }
+    rotation->degrees = degrees;
+    [rotation apply];
+}
+
+// The rotation of a view's layer in degrees, clockwise on screen, for specs
+// and diagnostics. 0 when the view has no layer.
+double ap_view_read_rotation_degrees(void *view_ptr) {
+    NSView *view = (NSView *)view_ptr;
+    CALayer *layer = [view layer];
+    if (layer == nil) return 0.0;
+    CGAffineTransform transform = layer.affineTransform;
+    double radians = atan2(transform.b, transform.a);
+    BOOL y_points_down = [view isFlipped] || layer.geometryFlipped;
+    return (y_points_down ? radians : -radians) * 180.0 / M_PI;
+}
+
+// ------------------------------------------------------------
+// Background gradient and grain for stacks (UI::View#background_gradient,
+// #grain_opacity).
+//
+// The renderer adds an APGradientBackgroundView as the bottom-most,
+// non-arranged subview of the stack, pinned to its edges. Its backing layer
+// is a CAGradientLayer. The stop colors are kept as NSColors and re-resolved
+// whenever the effective appearance changes, so dynamic stops follow light
+// and dark. The grain is a sublayer filled with a static noise tile (the same
+// tile every render) at the app's opacity. The view takes no part in the
+// stack's fitting size: it has no intrinsic size and only equal-edge pins.
+// ------------------------------------------------------------
+static CGImageRef ap_static_noise_tile(void) {
+    static CGImageRef tile = NULL;
+    if (tile != NULL) return tile;
+    const size_t side = 128;
+    unsigned char *pixels = malloc(side * side);
+    if (pixels == NULL) return NULL;
+    // A fixed-seed linear congruential generator: the same grain each render.
+    uint32_t seed = 0x5EEDu;
+    for (size_t i = 0; i < side * side; i++) {
+        seed = seed * 1664525u + 1013904223u;
+        pixels[i] = (unsigned char)(seed >> 24);
+    }
+    CGColorSpaceRef gray = CGColorSpaceCreateDeviceGray();
+    CGContextRef context = CGBitmapContextCreate(pixels, side, side, 8, side, gray, (CGBitmapInfo)kCGImageAlphaNone);
+    if (context != NULL) {
+        tile = CGBitmapContextCreateImage(context);
+        CGContextRelease(context);
+    }
+    CGColorSpaceRelease(gray);
+    free(pixels);
+    return tile;
+}
+
+@interface APGradientBackgroundView : NSView {
+@public
+    NSArray *listOfStopColors;
+    CALayer *grainLayer;
+}
+- (void)reapplyStopColors;
+@end
+
+@implementation APGradientBackgroundView
+- (CALayer *)makeBackingLayer {
+    return [CAGradientLayer layer];
+}
+- (BOOL)isFlipped {
+    return YES; // unit points read from the top-leading corner, as in SwiftUI
+}
+- (NSView *)hitTest:(NSPoint)point {
+    return nil; // a background never takes clicks from the stack's children
+}
+- (void)reapplyStopColors {
+    CAGradientLayer *gradient = (CAGradientLayer *)[self layer];
+    if (![gradient isKindOfClass:[CAGradientLayer class]]) return;
+    NSMutableArray *resolved = [NSMutableArray arrayWithCapacity:[listOfStopColors count]];
+    [[self effectiveAppearance] performAsCurrentDrawingAppearance:^{
+        for (NSColor *color in listOfStopColors) {
+            [resolved addObject:(id)[color CGColor]];
+        }
+    }];
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    gradient.colors = resolved;
+    [CATransaction commit];
+}
+- (void)viewDidChangeEffectiveAppearance {
+    [super viewDidChangeEffectiveAppearance];
+    [self reapplyStopColors];
+}
+- (void)layout {
+    [super layout];
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    grainLayer.frame = [[self layer] bounds];
+    [CATransaction commit];
+}
+- (void)setFrameSize:(NSSize)size {
+    [super setFrameSize:size];
+    [self setNeedsLayout:YES];
+}
+- (void)dealloc {
+    [listOfStopColors release];
+    [grainLayer release];
+    [super dealloc];
+}
+@end
+
+// Add a gradient (and optional grain) behind a stack's children.
+//   kind: 0 = linear (axial), 1 = radial
+//   colors / locations: `count` NSColor pointers and stop locations (0..1)
+//   start / end: unit points from the top-leading corner. Linear runs from
+//     start to end; radial centers on start, and end - start gives the
+//     horizontal and vertical radius as fractions of the width and height.
+//   grain_opacity: 0 for no grain
+//   corner_radius: rounds (and clips) the gradient and grain to the stack's
+//     corners
+// Returns the background view (owned by the stack).
+void *ap_stack_set_background_gradient(void *stack_ptr, int kind, void **colors,
+                                       const double *locations, int count,
+                                       double start_x, double start_y,
+                                       double end_x, double end_y,
+                                       double grain_opacity, double corner_radius) {
+    NSView *stack = (NSView *)stack_ptr;
+    if (stack == nil) return NULL;
+    APGradientBackgroundView *background = [[APGradientBackgroundView alloc] initWithFrame:NSZeroRect];
+    [background setWantsLayer:YES];
+    [background setTranslatesAutoresizingMaskIntoConstraints:NO];
+
+    NSMutableArray *stop_colors = [NSMutableArray arrayWithCapacity:(NSUInteger)count];
+    NSMutableArray *stop_locations = [NSMutableArray arrayWithCapacity:(NSUInteger)count];
+    for (int i = 0; i < count; i++) {
+        if (colors[i] == NULL) continue;
+        [stop_colors addObject:(NSColor *)colors[i]];
+        [stop_locations addObject:@(locations[i])];
+    }
+    background->listOfStopColors = [stop_colors copy];
+
+    CAGradientLayer *gradient = (CAGradientLayer *)[background layer];
+    if ([gradient isKindOfClass:[CAGradientLayer class]]) {
+        gradient.type = kind == 1 ? kCAGradientLayerRadial : kCAGradientLayerAxial;
+        gradient.locations = stop_locations;
+        gradient.startPoint = CGPointMake(start_x, start_y);
+        gradient.endPoint = CGPointMake(end_x, end_y);
+        gradient.cornerRadius = (CGFloat)corner_radius;
+        gradient.masksToBounds = corner_radius > 0;
+        if (grain_opacity > 0) {
+            CALayer *grain = [[CALayer alloc] init];
+            CGImageRef tile = ap_static_noise_tile();
+            if (tile != NULL) {
+                NSImage *tile_image = [[NSImage alloc] initWithCGImage:tile
+                                                                  size:NSMakeSize(CGImageGetWidth(tile) / 2.0,
+                                                                                  CGImageGetHeight(tile) / 2.0)];
+                grain.backgroundColor = [[NSColor colorWithPatternImage:tile_image] CGColor];
+                [tile_image release];
+            }
+            grain.opacity = (float)grain_opacity;
+            [gradient addSublayer:grain];
+            background->grainLayer = grain;
+        }
+    }
+    [background reapplyStopColors];
+
+    [stack addSubview:background positioned:NSWindowBelow relativeTo:nil];
+    [NSLayoutConstraint activateConstraints:@[
+        [[background leadingAnchor] constraintEqualToAnchor:[stack leadingAnchor]],
+        [[background trailingAnchor] constraintEqualToAnchor:[stack trailingAnchor]],
+        [[background topAnchor] constraintEqualToAnchor:[stack topAnchor]],
+        [[background bottomAnchor] constraintEqualToAnchor:[stack bottomAnchor]],
+    ]];
+    [background release];
+    return background;
+}
+
+// ------------------------------------------------------------
+// Offscreen render in an interaction state.
+//
+// `state` names the state a design review wants to see: "hover", "pressed"
+// or "focused" ("none" or NULL renders the resting state). The SwiftKit
+// companion draws every app-styled button in that state while the render is
+// taken, then returns to live input. The companion is weakly linked so this
+// file still links into a host that ships without it; there the state is
+// ignored and the resting state is rendered.
+// ------------------------------------------------------------
+extern void apsk_preview_interaction_state(const char *state) __attribute__((weak_import));
+
+void *ap_snapshot_view_in_interaction_state(void *view_ptr, const char *appearance_name,
+                                            double width, double height,
+                                            const char *png_path, const char *state) {
+    BOOL previews_a_state = apsk_preview_interaction_state != NULL;
+    if (previews_a_state) apsk_preview_interaction_state(state);
+    void *snapshot = ap_snapshot_view(view_ptr, appearance_name, width, height, png_path);
+    if (previews_a_state) apsk_preview_interaction_state("none");
+    return snapshot;
+}
 #endif
 
 // [NSColor/UIColor colorWithWhite:alpha:]
@@ -1375,6 +1687,17 @@ void objc_constrain_height(void *view, double h) {
     BridgeView *v = (BridgeView *)view;
     v.translatesAutoresizingMaskIntoConstraints = NO;
     NSLayoutConstraint *hc = [v.heightAnchor constraintEqualToConstant:(CGFloat)h];
+    hc.priority = 999;
+    hc.active = YES;
+}
+
+// Cap the height of a view (UI::View#maximum_height): the view can be shorter
+// than max_h but never taller. Priority 999, like the other size pins, so a
+// required parent constraint wins without an unsatisfiable-constraint break.
+void objc_constrain_maximum_height(void *view, double max_h) {
+    BridgeView *v = (BridgeView *)view;
+    v.translatesAutoresizingMaskIntoConstraints = NO;
+    NSLayoutConstraint *hc = [v.heightAnchor constraintLessThanOrEqualToConstant:(CGFloat)max_h];
     hc.priority = 999;
     hc.active = YES;
 }
