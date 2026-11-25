@@ -588,7 +588,8 @@
         # VStack's widest child run into its trailing edge, so pin both gaps.
         # A fluid_width stack pins each child to its full width below, so it
         # keeps the edgeInsets behavior.
-        if (p.leading > 0 || p.trailing > 0) && view.fluid_width.nil?
+        leading_aligned = view.alignment == Alignment::Leading || view.alignment == Alignment::Fill
+        if (p.leading > 0 || p.trailing > 0) && leading_aligned && view.fluid_width.nil?
           LibObjCBridge.ap_stack_require_horizontal_insets(ptr, p.leading, p.trailing)
         end
 

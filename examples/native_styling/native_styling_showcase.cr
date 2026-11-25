@@ -70,7 +70,6 @@ module NativeStylingShowcase
 
     root << card("1  BUTTON FONT + FOREGROUND") { |card|
       join = UI::Button.new("Join the room")
-      join.style = UI::ButtonStyle::Borderless
       join.font = UI::Font.new(size: 15.0, weight: :semibold)
       join.foreground_color = UI::Color.new(r: 1.0, g: 1.0, b: 1.0)
       join.background = BRAND

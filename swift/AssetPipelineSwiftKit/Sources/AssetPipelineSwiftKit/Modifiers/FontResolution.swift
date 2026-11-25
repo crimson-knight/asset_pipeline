@@ -8,8 +8,8 @@
 //                       requested size and weight.
 //   any other name    → that registered face (a PostScript name such as
 //                       "CourierPrime-Bold" or a family name such as
-//                       "Michroma"), at the requested size, carrying the
-//                       requested weight when one was set. When the name is
+//                       "Michroma"), at the requested size; the name picks
+//                       the weight. When the name is
 //                       not loadable the resolver reports it once through
 //                       APSKFontDiagnostics and draws the system face at the
 //                       requested size and weight instead.
@@ -60,11 +60,10 @@ enum FontResolution {
                 APSKFontDiagnostics.reportMissingFamily(requestedFamily)
                 return .system(size: pointSize, weight: resolvedWeight)
             }
-            let custom = Font.custom(requestedFamily, size: pointSize)
-            if let w = explicitWeight {
-                return custom.weight(w)
-            }
-            return custom
+            // The name picks the exact face (a PostScript name such as
+            // "CourierPrime-Bold" carries its own weight), so no weight is
+            // layered on top, as before this resolver existed.
+            return Font.custom(requestedFamily, size: pointSize)
         }
     }
 

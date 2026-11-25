@@ -99,6 +99,42 @@ require "../../../src/ui"
       end
     end
 
+    describe "app-styled buttons (system style with an app fill)" do
+      it "draws the app's fill around the padded label in place of the system bezel" do
+        button = UI::Button.new("Go")
+        button.background = RED
+        button.corner_radius = 4.0
+        button.padding = UI::EdgeInsets.new(top: 12.0, leading: 12.0, bottom: 12.0, trailing: 12.0)
+        ptr = render_native(button)
+
+        color_close?(pixel(ptr, "light", 5.0, 5.0), RED, PIXEL_TOLERANCE).should be_true
+        color_close?(pixel(ptr, "dark", 5.0, 5.0), RED, PIXEL_TOLERANCE).should be_true
+      end
+
+      it "dims the whole fill, not only the label, when disabled" do
+        enabled = UI::Button.new("Go")
+        enabled.background = RED
+        enabled.padding = UI::EdgeInsets.new(top: 12.0, leading: 12.0, bottom: 12.0, trailing: 12.0)
+        disabled = UI::Button.new("Go")
+        disabled.background = RED
+        disabled.padding = UI::EdgeInsets.new(top: 12.0, leading: 12.0, bottom: 12.0, trailing: 12.0)
+        disabled.disabled = true
+
+        # Wrapped in a stack: an offscreen render skips the opacity of the
+        # root hosting view itself, so the button must not be the root.
+        enabled_row = UI::HStack.new
+        enabled_row << enabled
+        disabled_row = UI::HStack.new
+        disabled_row << disabled
+        enabled_red = pixel(render_native(enabled_row), "light", 3.0, 3.0)
+        disabled_red = pixel(render_native(disabled_row), "light", 3.0, 3.0)
+        # The offscreen render keeps transparency, so the dimmed fill shows
+        # as a lower alpha at a point inside the padding.
+        enabled_red[3].should be_close(1.0, 0.01)
+        disabled_red[3].should be < 0.6
+      end
+    end
+
     describe "labels" do
       it "fills around the padded text" do
         label = UI::Label.new("Pill")

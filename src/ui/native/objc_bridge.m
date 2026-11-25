@@ -369,6 +369,10 @@ void ap_view_fitting_size(void *view_ptr, double *out) {
 // Recording permission is involved. When `png_path` is non-NULL the bitmap is
 // also written there as a PNG.
 //
+// Pass a top-level view (a renderer result): the view is moved into the
+// offscreen window, keeps fixed width and height constraints afterwards, and
+// is not returned to any previous superview.
+//
 // Returns an NSBitmapImageRep (+1 retained; release with
 // `ap_snapshot_release`), or NULL on failure. `ap_snapshot_rgba_at` reads one
 // pixel (top-left origin, in POINTS) for specs.
@@ -466,6 +470,12 @@ void ap_view_set_appearance(void *view_ptr, const char *name) {
         dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua]];
 }
 
+// Stack padding constraints sit just below required so a parent that caps
+// the stack smaller than child + padding (a fixed-height toolbar row, a
+// fixed-width sidebar) wins without an unsatisfiable-constraint break, the
+// way edgeInsets gave way before.
+static const NSLayoutPriority kAPStackInsetPriority = 999;
+
 // Top and bottom padding for a horizontal NSStackView.
 //
 // A horizontal NSStackView does not hold its arranged subviews off the
@@ -476,7 +486,7 @@ void ap_view_set_appearance(void *view_ptr, const char *name) {
 //
 // This takes over the cross axis: it clears the stack's own vertical
 // alignment and vertical insets, then pins every arranged subview inside the
-// padded area at required priority and aligns it there. `alignment` is the
+// padded area at priority 999 and aligns it there. `alignment` is the
 // NSLayoutAttribute the renderer chose: 3 = top, 4 = bottom, anything else
 // centers within the padded area.
 void ap_stack_require_vertical_insets(void *stack_ptr, double top, double bottom,
@@ -509,6 +519,9 @@ void ap_stack_require_vertical_insets(void *stack_ptr, double top, double bottom
                                constant:(CGFloat)((top - bottom) / 2.0)]];
         }
     }
+    for (NSLayoutConstraint *constraint in constraints) {
+        constraint.priority = kAPStackInsetPriority;
+    }
     [NSLayoutConstraint activateConstraints:constraints];
 }
 
@@ -516,8 +529,9 @@ void ap_stack_require_vertical_insets(void *stack_ptr, double top, double bottom
 // weakness on the other axis. A leading-aligned VStack fits to its widest
 // child plus the leading inset only, so that child runs into the trailing
 // edge. Hold every arranged subview at least `leading` from the leading edge
-// and `trailing` from the trailing edge at required priority. The stack's own
-// alignment constraints are kept.
+// and `trailing` from the trailing edge at priority 999. The stack's own
+// alignment constraints are kept. The renderer applies it to leading-aligned
+// stacks only.
 void ap_stack_require_horizontal_insets(void *stack_ptr, double leading, double trailing) {
     NSStackView *stack = (NSStackView *)stack_ptr;
     if (stack == nil) return;
@@ -527,6 +541,9 @@ void ap_stack_require_horizontal_insets(void *stack_ptr, double leading, double 
             constraintGreaterThanOrEqualToAnchor:[stack leadingAnchor] constant:(CGFloat)leading]];
         [constraints addObject:[[stack trailingAnchor]
             constraintGreaterThanOrEqualToAnchor:[child trailingAnchor] constant:(CGFloat)trailing]];
+    }
+    for (NSLayoutConstraint *constraint in constraints) {
+        constraint.priority = kAPStackInsetPriority;
     }
     [NSLayoutConstraint activateConstraints:constraints];
 }

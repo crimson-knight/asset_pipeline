@@ -7,10 +7,13 @@
 // `button.font = UI::Font.new(size: 24, weight: :bold)` rendered at 13pt, and
 // a filled button showed a gray bezel inside the app's fill. When the app sets
 // a background or a font on a button whose style is not borderless,
-// ButtonFacade renders it with this style: the label in the app's font and
-// foreground, the app's padding / background / corner radius / border around
-// it (applied by ButtonFacade outside the style), and pressed / disabled
-// feedback by opacity.
+// ButtonFacade renders it with this style.
+//
+// The style draws the whole control INSIDE the button body: the label in the
+// app's font and foreground, then the app's padding, fill, corner radius and
+// border. Drawing them inside the body is what makes the whole fill clickable
+// (a SwiftUI Button only hit-tests its own body) and lets pressed / disabled
+// feedback dim the fill along with the label.
 //
 // When the app set a font but no background, the style draws a default fill
 // and padding so the control still reads as a button: a quiet neutral fill
@@ -23,35 +26,47 @@ import SwiftUI
 struct APSKAppStyledButtonStyle: ButtonStyle {
     /// True for `style: Prominent`.
     let isProminent: Bool
-    /// True when the app set no background, so the style draws its own fill.
-    let drawsDefaultChrome: Bool
+    /// The app's padding, or nil for the style's default padding.
+    let padding: EdgeInsets?
+    /// The app's fill, or nil for the style's default fill.
+    let fill: Color?
+    /// The app's corner radius, or nil for the style's default radius.
+    let cornerRadius: CGFloat?
+    /// The app's border width and color, or nil for no border.
+    let border: (width: CGFloat, color: Color)?
     /// True when the app set no foreground color.
     let usesDefaultForeground: Bool
 
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        let label = configuration.label
-            .opacity(isEnabled ? (configuration.isPressed ? 0.7 : 1.0) : 0.45)
-            .contentShape(Rectangle())
-        if drawsDefaultChrome {
-            // The app's own foreground is applied by ButtonFacade outside this
-            // style; setting one here would override it.
-            let tinted: AnyView = usesDefaultForeground
-                ? AnyView(label.foregroundStyle(defaultForeground))
-                : AnyView(label)
-            return AnyView(
-                tinted
-                    .padding(.vertical, isProminent ? 6 : 4)
-                    .padding(.horizontal, isProminent ? 14 : 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: isProminent ? 8 : 6)
-                            .fill(defaultFill.opacity(configuration.isPressed ? 0.8 : 1.0))
-                    )
-                    .accessibilityAddTraits(.isButton)
-            )
+        let drawsDefaultChrome = fill == nil
+        let shape = RoundedRectangle(cornerRadius: cornerRadius ?? (drawsDefaultChrome ? (isProminent ? 8 : 6) : 0))
+        let insets = padding ?? (drawsDefaultChrome
+            ? EdgeInsets(top: isProminent ? 6 : 4, leading: isProminent ? 14 : 10,
+                         bottom: isProminent ? 6 : 4, trailing: isProminent ? 14 : 10)
+            : EdgeInsets())
+
+        // The app's own foreground is applied by ButtonFacade outside this
+        // style and reaches the label through the environment; setting one
+        // here would override it.
+        let label: AnyView = usesDefaultForeground && drawsDefaultChrome
+            ? AnyView(configuration.label.foregroundStyle(defaultForeground))
+            : AnyView(configuration.label)
+
+        var body = AnyView(
+            label
+                .padding(insets)
+                .background(shape.fill(fill ?? defaultFill))
+                .clipShape(shape)
+        )
+        if let border = border {
+            body = AnyView(body.overlay(shape.stroke(border.color, lineWidth: border.width)))
         }
-        return AnyView(label.accessibilityAddTraits(.isButton))
+        return body
+            .contentShape(shape)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1.0) : 0.45)
+            .accessibilityAddTraits(.isButton)
     }
 
     private var defaultFill: Color {

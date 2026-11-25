@@ -249,9 +249,26 @@ private struct APSKButtonHost: View {
 
         if usesAppStyle {
             #if os(macOS)
+            let appPadding: EdgeInsets? = {
+                guard overrides.paddingTop != nil || overrides.paddingLeading != nil
+                    || overrides.paddingBottom != nil || overrides.paddingTrailing != nil else { return nil }
+                return EdgeInsets(
+                    top: overrides.paddingTop.map { CGFloat($0.doubleValue) } ?? 0,
+                    leading: overrides.paddingLeading.map { CGFloat($0.doubleValue) } ?? 0,
+                    bottom: overrides.paddingBottom.map { CGFloat($0.doubleValue) } ?? 0,
+                    trailing: overrides.paddingTrailing.map { CGFloat($0.doubleValue) } ?? 0
+                )
+            }()
+            let appBorder: (width: CGFloat, color: Color)? = {
+                guard let bw = overrides.borderWidth, let bc = overrides.borderColor else { return nil }
+                return (CGFloat(bw.doubleValue), Color(nsColor: bc))
+            }()
             content = AnyView(content.buttonStyle(APSKAppStyledButtonStyle(
                 isProminent: overrides.style == "prominent",
-                drawsDefaultChrome: !appSetsFill,
+                padding: appPadding,
+                fill: state.backgroundColor.map { Color(nsColor: $0) },
+                cornerRadius: state.cornerRadius.map { CGFloat($0.doubleValue) },
+                border: appBorder,
                 usesDefaultForeground: state.foregroundColor == nil
             )))
             if wantsStretchedProminent, let mw = overrides.minWidth {
@@ -395,8 +412,11 @@ private struct APSKButtonHost: View {
         // (the canonical SwiftUI order: content → padding → background → clip).
         // The same insets are nulled on the `shadowed` overrides further down so
         // CommonModifiers does not double-apply them outside the background.
-        if overrides.paddingTop != nil || overrides.paddingLeading != nil
-            || overrides.paddingBottom != nil || overrides.paddingTrailing != nil {
+        // An app-styled button (macOS) draws its padding, fill, clip and border
+        // inside APSKAppStyledButtonStyle so the whole fill is clickable; the
+        // three outer layers below are skipped for it.
+        if !usesAppStyle && (overrides.paddingTop != nil || overrides.paddingLeading != nil
+            || overrides.paddingBottom != nil || overrides.paddingTrailing != nil) {
             let insets = EdgeInsets(
                 top: overrides.paddingTop.map { CGFloat($0.doubleValue) } ?? 0,
                 leading: overrides.paddingLeading.map { CGFloat($0.doubleValue) } ?? 0,
@@ -416,7 +436,7 @@ private struct APSKButtonHost: View {
         // equivalents in `makeReactiveButton`, so this stays the single
         // source of truth for those three properties.
 
-        if let bg = state.backgroundColor {
+        if !usesAppStyle, let bg = state.backgroundColor {
             #if canImport(UIKit)
             content = AnyView(content.background(Color(uiColor: bg)))
             #elseif canImport(AppKit)
@@ -432,7 +452,7 @@ private struct APSKButtonHost: View {
             #endif
         }
 
-        if let cr = state.cornerRadius {
+        if !usesAppStyle, let cr = state.cornerRadius {
             content = AnyView(
                 content.clipShape(RoundedRectangle(cornerRadius: CGFloat(cr.doubleValue)))
             )
@@ -447,7 +467,7 @@ private struct APSKButtonHost: View {
         // secondary button (square outline, wider than the pill). The matching
         // border fields are nulled on the shadow below so CommonModifiers skips
         // its (square) version.
-        if let bw = overrides.borderWidth, let bc = overrides.borderColor {
+        if !usesAppStyle, let bw = overrides.borderWidth, let bc = overrides.borderColor {
             let radius = CGFloat(state.cornerRadius?.doubleValue ?? 0)
             #if canImport(UIKit)
             let strokeColor = Color(uiColor: bc)
