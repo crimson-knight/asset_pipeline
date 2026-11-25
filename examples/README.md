@@ -24,3 +24,16 @@ direction. New design-system examples should start from
 `examples/amber_design_system_demo.cr` is now only a compatibility wrapper for
 the old alpha command name. Treat that filename as compatibility debt, not as
 the naming target for new components or docs.
+
+## Native macOS styling showcase
+
+`examples/native_styling/` renders one screen of app-set styling on native
+macOS views (button font and foreground, padding inside a fill, named /
+monospace / missing font families, rounded bordered shadowed stacks, HStack
+top and bottom padding, dynamic light/dark colors) and writes an offscreen
+render in each appearance:
+
+```bash
+make -C examples/native_styling run OUT=/tmp/native-styling \
+     MICHROMA=/path/to/Michroma-Regular.ttf
+```
