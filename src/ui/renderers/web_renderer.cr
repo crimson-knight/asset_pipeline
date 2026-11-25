@@ -219,7 +219,7 @@ module UI
         c = view.foreground_color
         default_button_color = UI::Color.new(r: 0.0, g: 0.478, b: 1.0)
         unless c == default_button_color
-          el.add_style("color: rgba(#{to_rgb_int(c.r)}, #{to_rgb_int(c.g)}, #{to_rgb_int(c.b)}, #{c.a})")
+          el.add_style("color: #{color_css(c)}")
         end
 
         # Disabled state
@@ -2562,9 +2562,18 @@ module UI
       private def color_css(color : UI::Color, default_token : String? = nil) : String
         if default_token && color == UI::Color.new(r: 0.0, g: 0.0, b: 0.0)
           default_token
+        elsif color.dynamic?
+          # A dynamic color follows the page's `color-scheme` through CSS
+          # `light-dark()`, the web counterpart of the native dynamic color.
+          dark = color.dark_appearance
+          "light-dark(#{rgba_css(color)}, #{rgba_css(dark)})"
         else
-          "rgba(#{to_rgb_int(color.r)}, #{to_rgb_int(color.g)}, #{to_rgb_int(color.b)}, #{color.a})"
+          rgba_css(color)
         end
+      end
+
+      private def rgba_css(color : UI::Color) : String
+        "rgba(#{to_rgb_int(color.r)}, #{to_rgb_int(color.g)}, #{to_rgb_int(color.b)}, #{color.a})"
       end
 
       # Apply common View base-class styles to any element.
@@ -2602,7 +2611,7 @@ module UI
 
         # Background color
         if bg = view.background
-          el.add_style("background-color: rgba(#{to_rgb_int(bg.r)}, #{to_rgb_int(bg.g)}, #{to_rgb_int(bg.b)}, #{bg.a})")
+          el.add_style("background-color: #{color_css(bg)}")
         end
 
         # Hidden
@@ -2628,13 +2637,13 @@ module UI
         # Shadow
         if view.shadow_radius > 0
           sc = view.shadow_color || UI::Color.new(r: 0.0, g: 0.0, b: 0.0, a: 0.3)
-          el.add_style("box-shadow: #{view.shadow_offset_x}px #{view.shadow_offset_y}px #{view.shadow_radius}px rgba(#{to_rgb_int(sc.r)}, #{to_rgb_int(sc.g)}, #{to_rgb_int(sc.b)}, #{sc.a})")
+          el.add_style("box-shadow: #{view.shadow_offset_x}px #{view.shadow_offset_y}px #{view.shadow_radius}px #{color_css(sc)}")
         end
 
         # Border
         if view.border_width > 0
           bc = view.border_color || UI::Color.new(r: 0.0, g: 0.0, b: 0.0)
-          el.add_style("border: #{view.border_width}px solid rgba(#{to_rgb_int(bc.r)}, #{to_rgb_int(bc.g)}, #{to_rgb_int(bc.b)}, #{bc.a})")
+          el.add_style("border: #{view.border_width}px solid #{color_css(bc)}")
         end
 
         # Blur

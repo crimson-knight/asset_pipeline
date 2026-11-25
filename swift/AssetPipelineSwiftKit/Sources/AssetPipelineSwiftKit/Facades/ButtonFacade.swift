@@ -58,7 +58,10 @@ public class ButtonFacade: NSObject {
             backgroundColor: overrides.backgroundColor,
             foregroundColor: overrides.foregroundColor,
             cornerRadius: overrides.cornerRadius,
-            isDisabled: overrides.disabled?.boolValue ?? false
+            isDisabled: overrides.disabled?.boolValue ?? false,
+            fontFamily: overrides.fontFamily,
+            fontSize: overrides.fontSize,
+            fontWeight: overrides.fontWeight
         )
 
         if let outState = outState {
@@ -229,87 +232,115 @@ private struct APSKButtonHost: View {
         // `prominent` and `tinted`: `.bordered` and `.borderless` are
         // already visible without an accent.
         var content: AnyView = base
-        switch overrides.style {
-        case "prominent":
-            // Phase 6.11 Iter 4 — Item 1.
-            //
-            // The Phase 6.8 Fix 1 brand-teal Capsule hardcode is removed.
-            // That workaround was retained while Phase 6.10 Rem 2 was
-            // still investigating a SwiftUI Button tap-closure bug at the
-            // UIHostingController boundary. Phase 6.10 Path A (VC
-            // parenting) closed that bug architecturally, so a prominent
-            // button can now resolve through SwiftUI's stock
-            // `.borderedProminent` style and surface the system tint
-            // (default iOS system blue, or whatever `.tint(...)` happens
-            // to cascade into the hosting environment).
-            //
-            // `.controlSize(.large)` lifts the inner padding to the iOS
-            // "large prominent" floor (~50pt tall) so a pinned-width
-            // sign-in button reads as a primary action, not a chip.
-            //
-            // Phase 6.12C — macOS divergence workaround.
-            //
-            // On macOS, SwiftUI's `.borderedProminent` ignores `.tint()`
-            // and always uses the system accent color. iOS does NOT have
-            // this divergence. Consumers like Cascade install a brand
-            // tint via `APSKRuntime.setBrandTint(...)`, which
-            // `HostingHelpers.host(_:)` then applies as `.tint(brand)`
-            // on the hosted root — that tint reaches `.bordered` /
-            // `.borderless` chrome (Forgot-password link goes teal) but
-            // NOT `.borderedProminent` chrome. To restore the brand
-            // promise on macOS we paint the prominent chrome from
-            // primitives via `APSKBrandProminentButtonStyle` (Capsule +
-            // white foreground + pressed/disabled state coverage). The
-            // style only activates when:
-            //   1. The build target is macOS.
-            //   2. A custom brand is installed
-            //      (`APSKRuntime.brandTint != nil`).
-            // When either condition is false (iOS, or macOS with
-            // SYSTEM_ACCENT / `Tokens.default`), the stock
-            // `.borderedProminent` chain runs unchanged so Voyager
-            // continues to render with the macOS system accent.
-            // See `handoff/phase-06.12c-probe-findings.md` for evidence.
+
+        // macOS: the system bezel ignores an app font and paints its own gray
+        // chrome inside an app fill. When the app set a background or a font
+        // on a button that is not borderless, draw the app's styling instead
+        // (see APSKAppStyledButtonStyle). Read from `state` so a font or fill
+        // assigned after render switches the chrome too.
+        #if os(macOS)
+        let appSetsFill = state.backgroundColor != nil
+        let appSetsFont = state.fontSize != nil
+            || (state.fontFamily.map { !$0.isEmpty && $0 != FontResolution.systemFamily } ?? false)
+        let usesAppStyle = overrides.style != "borderless" && (appSetsFill || appSetsFont)
+        #else
+        let usesAppStyle = false
+        #endif
+
+        if usesAppStyle {
             #if os(macOS)
-            if let activeTint = APSKRuntime.brandTint {
-                content = AnyView(
-                    content.buttonStyle(
-                        APSKBrandProminentButtonStyle(tint: activeTint)
+            content = AnyView(content.buttonStyle(APSKAppStyledButtonStyle(
+                isProminent: overrides.style == "prominent",
+                drawsDefaultChrome: !appSetsFill,
+                usesDefaultForeground: state.foregroundColor == nil
+            )))
+            if wantsStretchedProminent, let mw = overrides.minWidth {
+                content = AnyView(content.frame(width: CGFloat(mw.doubleValue)))
+            }
+            #endif
+        } else {
+            switch overrides.style {
+            case "prominent":
+                // Phase 6.11 Iter 4 — Item 1.
+                //
+                // The Phase 6.8 Fix 1 brand-teal Capsule hardcode is removed.
+                // That workaround was retained while Phase 6.10 Rem 2 was
+                // still investigating a SwiftUI Button tap-closure bug at the
+                // UIHostingController boundary. Phase 6.10 Path A (VC
+                // parenting) closed that bug architecturally, so a prominent
+                // button can now resolve through SwiftUI's stock
+                // `.borderedProminent` style and surface the system tint
+                // (default iOS system blue, or whatever `.tint(...)` happens
+                // to cascade into the hosting environment).
+                //
+                // `.controlSize(.large)` lifts the inner padding to the iOS
+                // "large prominent" floor (~50pt tall) so a pinned-width
+                // sign-in button reads as a primary action, not a chip.
+                //
+                // Phase 6.12C — macOS divergence workaround.
+                //
+                // On macOS, SwiftUI's `.borderedProminent` ignores `.tint()`
+                // and always uses the system accent color. iOS does NOT have
+                // this divergence. Consumers like Cascade install a brand
+                // tint via `APSKRuntime.setBrandTint(...)`, which
+                // `HostingHelpers.host(_:)` then applies as `.tint(brand)`
+                // on the hosted root — that tint reaches `.bordered` /
+                // `.borderless` chrome (Forgot-password link goes teal) but
+                // NOT `.borderedProminent` chrome. To restore the brand
+                // promise on macOS we paint the prominent chrome from
+                // primitives via `APSKBrandProminentButtonStyle` (Capsule +
+                // white foreground + pressed/disabled state coverage). The
+                // style only activates when:
+                //   1. The build target is macOS.
+                //   2. A custom brand is installed
+                //      (`APSKRuntime.brandTint != nil`).
+                // When either condition is false (iOS, or macOS with
+                // SYSTEM_ACCENT / `Tokens.default`), the stock
+                // `.borderedProminent` chain runs unchanged so Voyager
+                // continues to render with the macOS system accent.
+                // See `handoff/phase-06.12c-probe-findings.md` for evidence.
+                #if os(macOS)
+                if let activeTint = APSKRuntime.brandTint {
+                    content = AnyView(
+                        content.buttonStyle(
+                            APSKBrandProminentButtonStyle(tint: activeTint)
+                        )
                     )
-                )
-            } else {
+                } else {
+                    content = AnyView(
+                        content
+                            .controlSize(.large)
+                            .buttonStyle(.borderedProminent)
+                    )
+                }
+                #else
                 content = AnyView(
                     content
                         .controlSize(.large)
                         .buttonStyle(.borderedProminent)
                 )
+                #endif
+                // Re-apply the form-column width after the style so the
+                // touch-target / a11y frame matches the surrounding field
+                // column. The inner `Text(label).frame(maxWidth: .infinity)`
+                // made the *content* stretch within the bordered prominent
+                // chrome; this outer pin caps the overall width to the form
+                // column.
+                if wantsStretchedProminent, let mw = overrides.minWidth {
+                    let mwCG = CGFloat(mw.doubleValue)
+                    content = AnyView(content.frame(width: mwCG))
+                }
+            case "tinted":
+                content = AnyView(content
+                    .tint(.accentColor)
+                    .buttonStyle(.bordered))
+            case "bordered":
+                content = AnyView(content.buttonStyle(.bordered))
+            case "borderless":
+                content = AnyView(content.buttonStyle(.borderless))
+            default:
+                break
             }
-            #else
-            content = AnyView(
-                content
-                    .controlSize(.large)
-                    .buttonStyle(.borderedProminent)
-            )
-            #endif
-            // Re-apply the form-column width after the style so the
-            // touch-target / a11y frame matches the surrounding field
-            // column. The inner `Text(label).frame(maxWidth: .infinity)`
-            // made the *content* stretch within the bordered prominent
-            // chrome; this outer pin caps the overall width to the form
-            // column.
-            if wantsStretchedProminent, let mw = overrides.minWidth {
-                let mwCG = CGFloat(mw.doubleValue)
-                content = AnyView(content.frame(width: mwCG))
-            }
-        case "tinted":
-            content = AnyView(content
-                .tint(.accentColor)
-                .buttonStyle(.bordered))
-        case "bordered":
-            content = AnyView(content.buttonStyle(.bordered))
-        case "borderless":
-            content = AnyView(content.buttonStyle(.borderless))
-        default:
-            break
         }
 
         if overrides.role == "cancel" {
@@ -326,28 +357,24 @@ private struct APSKButtonHost: View {
         if overrides.role == "secondary" && overrides.style == nil {
             content = AnyView(content.buttonStyle(.bordered))
         }
-        // Font cascade. Mirrors LabelFacade so a Crystal-side
-        // `button.font = UI::Font.new(...)` reaches the rendered label.
-        // Priority: custom registered family → system size(+weight) →
-        // weight-only (back-compat with the prior fontWeight-only path).
-        if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
-            // Custom registered font (e.g. "Alegreya-Medium"). Use the
-            // PostScript name for an exact face — custom fonts don't
-            // reliably honour `.fontWeight()`. Size: explicit fontSize else
-            // SwiftUI body default (~17).
-            let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
-            content = AnyView(content.font(.custom(fam, size: CGFloat(sz))))
-        } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
-            let weight: Font.Weight
-            if let w = overrides.fontWeight {
-                weight = Font.Weight(rawValue: w.intValue) ?? .regular
-            } else {
-                weight = .regular
-            }
-            content = AnyView(content.font(.system(size: CGFloat(sz.doubleValue), weight: weight)))
-        } else if let weight = overrides.fontWeight {
-            let resolved = Font.Weight(rawValue: weight.intValue) ?? .regular
-            content = AnyView(content.fontWeight(resolved))
+        // Font cascade. Reads the reactive state (seeded from the
+        // construction-time overrides, mutable through `apsk_button_set_font`)
+        // so a Crystal-side `button.font = UI::Font.new(...)` reaches the
+        // rendered label on first render AND on every later update. Family
+        // resolution (named face, "monospace", system, loud fallback for a
+        // face that is not registered) is shared with LabelFacade.
+        if let font = FontResolution.font(
+            family: state.fontFamily,
+            size: state.fontSize,
+            weight: state.fontWeight
+        ) {
+            content = AnyView(content.font(font))
+        } else if let weight = FontResolution.weightOnly(
+            family: state.fontFamily,
+            size: state.fontSize,
+            weight: state.fontWeight
+        ) {
+            content = AnyView(content.fontWeight(weight))
         }
         // Phase 6.11 — reactive disabled. Source of truth is the state
         // object's `isDisabled` (seeded from `overrides.disabled` and
@@ -504,24 +531,4 @@ private func copyViewOverrides(
     dst.maxHeight = src.maxHeight
     dst.accessibilityIdentifier = src.accessibilityIdentifier
     dst.apskAccessibilityLabel = src.apskAccessibilityLabel
-}
-
-// SwiftUI's `Font.Weight` initializer below is a small extension that
-// lets us reconstruct a weight from the `NSNumber` int rawValue Crystal
-// passes through. The values match SwiftUI's `Font.Weight` static cases.
-private extension Font.Weight {
-    init?(rawValue: Int) {
-        switch rawValue {
-        case -3: self = .ultraLight
-        case -2: self = .thin
-        case -1: self = .light
-        case 0: self = .regular
-        case 1: self = .medium
-        case 2: self = .semibold
-        case 3: self = .bold
-        case 4: self = .heavy
-        case 5: self = .black
-        default: return nil
-        }
-    }
 }

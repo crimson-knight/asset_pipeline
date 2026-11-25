@@ -107,18 +107,6 @@ private struct APSKLabelHost: View {
         #endif
     }
 
-    // Is this family actually loadable? `.custom(name:size:)` does NOT fail
-    // when the name is unknown — it silently resolves to the system face, which
-    // is a bold brand headline turning into regular San Francisco with nothing
-    // anywhere reporting it. Asking UIFont first is the only way to know.
-    private func familyIsLoadable(_ name: String) -> Bool {
-        #if canImport(UIKit)
-        return UIFont(name: name, size: 12.0) != nil
-        #else
-        return NSFont(name: name, size: 12.0) != nil
-        #endif
-    }
-
     var body: some View {
         var content: AnyView = AnyView(Text(state.text))
 
@@ -130,35 +118,24 @@ private struct APSKLabelHost: View {
         // sign-in "Cascade" wordmark looked identical in weight and
         // size to the subtitle below it. The weight rawValue mapping
         // mirrors ButtonOverrides' convention.
-        let resolvedWeight: Font.Weight = {
-            if let w = overrides.fontWeight { return Font.Weight(rawValue: w.intValue) ?? .regular }
-            return .regular
-        }()
-        if let fam = overrides.fontFamily, fam != "system", !fam.isEmpty {
-            // Custom registered font (e.g. "Alegreya-Medium"). Use the
-            // PostScript name for an exact weight/face. Size: the explicit
-            // fontSize, else SwiftUI body default (~17).
-            let sz = (overrides.fontSize?.doubleValue).flatMap { $0 > 0 ? $0 : nil } ?? 17.0
-            if familyIsLoadable(fam) {
-                content = AnyView(content.font(.custom(fam, size: scaled(sz))))
-            } else {
-                // A MISSING FACE IS LOUD AND KEEPS ITS WEIGHT. The old
-                // behaviour here was to hand `.custom` a name SwiftUI could not
-                // resolve, which drew regular San Francisco with no log, no
-                // raise and no gate arm — bundle a face under one PostScript
-                // name, ship it under another, and every bold headline in every
-                // customer's app silently loses both its face AND its weight
-                // while the whole suite stays green.
-                APSKFontDiagnostics.reportMissingFamily(fam)
-                content = AnyView(content.font(.system(size: scaled(sz), weight: resolvedWeight)))
-            }
-        } else if let sz = overrides.fontSize, sz.doubleValue > 0 {
-            let weight = resolvedWeight
-            content = AnyView(content.font(.system(size: scaled(sz.doubleValue), weight: weight)))
-        } else if let w = overrides.fontWeight {
+        //
+        // Family resolution (named face, "monospace", system, and the loud
+        // system fallback for a face that is not registered) is shared with
+        // ButtonFacade through FontResolution.
+        if let font = FontResolution.font(
+            family: overrides.fontFamily,
+            size: overrides.fontSize,
+            weight: overrides.fontWeight,
+            scale: { scaled($0) }
+        ) {
+            content = AnyView(content.font(font))
+        } else if let weight = FontResolution.weightOnly(
+            family: overrides.fontFamily,
+            size: overrides.fontSize,
+            weight: overrides.fontWeight
+        ) {
             // No explicit size but explicit weight — keep the body
             // font and just override the weight via `.fontWeight()`.
-            let weight = Font.Weight(rawValue: w.intValue) ?? .regular
             content = AnyView(content.fontWeight(weight))
         }
 
@@ -242,28 +219,10 @@ private struct APSKLabelHost: View {
             }
         }
 
-        content = CommonModifiers.apply(content, overrides: overrides)
+        // Padding sits INSIDE the fill: a filled label shows its background
+        // around the padded text (content → padding → background → clip),
+        // the same order ButtonFacade uses.
+        content = CommonModifiers.apply(content, overrides: overrides, paddingInsideBackground: true)
         return content
-    }
-}
-
-// Local `Font.Weight` rawValue init. Matches the convention used by
-// ButtonFacade.swift so Crystal's `populate_label` and `populate_button`
-// can emit the same integer rawValues for the same Crystal weight
-// Symbols.
-private extension Font.Weight {
-    init?(rawValue: Int) {
-        switch rawValue {
-        case -3: self = .ultraLight
-        case -2: self = .thin
-        case -1: self = .light
-        case 0: self = .regular
-        case 1: self = .medium
-        case 2: self = .semibold
-        case 3: self = .bold
-        case 4: self = .heavy
-        case 5: self = .black
-        default: return nil
-        }
     }
 }

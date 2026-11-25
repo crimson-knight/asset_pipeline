@@ -147,12 +147,71 @@ module UI
     Grid # Multi-column grid layout (maps to UICollectionView / NSCollectionView semantics)
   end
 
-  # Value type representing an RGBA color
-  record Color,
+  # The red, green, blue and alpha channels of one appearance of a color.
+  # `UI::Color` carries one of these for its dark appearance.
+  record ColorComponents,
     r : Float64,
     g : Float64,
     b : Float64,
     a : Float64 = 1.0
+
+  # Value type representing an RGBA color.
+  #
+  # The `r`/`g`/`b`/`a` channels are the light-appearance color. A color built
+  # with `Color.dynamic(light:, dark:)` also carries `dark` channels; native
+  # renderers then hand the platform a dynamic color (`NSColor` /
+  # `UIColor` with a dynamic provider) that resolves for the current light or
+  # dark appearance and updates when the system switches between them. A color
+  # without `dark` behaves exactly as before.
+  #
+  # ```
+  # ink = UI::Color.dynamic(
+  #   light: UI::Color.new(r: 0.1, g: 0.1, b: 0.12),
+  #   dark: UI::Color.new(r: 0.94, g: 0.94, b: 0.96),
+  # )
+  # label.text_color = ink
+  # ```
+  record Color,
+    r : Float64,
+    g : Float64,
+    b : Float64,
+    a : Float64 = 1.0,
+    dark : ColorComponents? = nil do
+    # Builds a color that resolves to `light` in the light appearance and to
+    # `dark` in the dark appearance. Any `dark` channels already on `light` or
+    # `dark` are ignored.
+    def self.dynamic(light : Color, dark : Color) : Color
+      new(
+        r: light.r, g: light.g, b: light.b, a: light.a,
+        dark: ColorComponents.new(r: dark.r, g: dark.g, b: dark.b, a: dark.a),
+      )
+    end
+
+    # True when this color has a separate dark-appearance value.
+    def dynamic? : Bool
+      !dark.nil?
+    end
+
+    # The light-appearance color, without dark channels.
+    def light_appearance : Color
+      Color.new(r: r, g: g, b: b, a: a)
+    end
+
+    # The dark-appearance color, without dark channels. A color that is not
+    # dynamic returns itself.
+    def dark_appearance : Color
+      if components = dark
+        Color.new(r: components.r, g: components.g, b: components.b, a: components.a)
+      else
+        self
+      end
+    end
+
+    # The color for `appearance` (`:dark` or anything else for light).
+    def resolved_for(appearance : Symbol) : Color
+      appearance == :dark ? dark_appearance : light_appearance
+    end
+  end
 
   # Value type representing a font specification
   record Font,

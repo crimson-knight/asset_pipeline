@@ -221,6 +221,33 @@ void apsk_overrides_set_color(void *target, const char *setter_name,
     ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, color);
 }
 
+// Builds the dynamic platform color for a Crystal `UI::Color.dynamic(...)`
+// through `APSKDynamicColor` (DynamicColor.swift), so the Swift side owns
+// the single definition of which appearance counts as dark.
+static id apsk_make_dynamic_platform_color(double lr, double lg, double lb, double la,
+                                           double dr, double dg, double db, double da) {
+    Class cls = objc_getClass("APSKDynamicColor");
+    if (cls == nil) return nil;
+    SEL sel = sel_registerName(
+        "makeColorWithLightRed:lightGreen:lightBlue:lightAlpha:"
+        "darkRed:darkGreen:darkBlue:darkAlpha:");
+    return ((id (*)(Class, SEL, double, double, double, double,
+                    double, double, double, double))objc_msgSend)(
+        cls, sel, lr, lg, lb, la, dr, dg, db, da);
+}
+
+// Dynamic counterpart of `apsk_overrides_set_color`: `l*` is the
+// light-appearance color, `d*` the dark-appearance color.
+void apsk_overrides_set_dynamic_color(void *target, const char *setter_name,
+                                      double lr, double lg, double lb, double la,
+                                      double dr, double dg, double db, double da) {
+    if (target == NULL || setter_name == NULL) return;
+    id color = apsk_make_dynamic_platform_color(lr, lg, lb, la, dr, dg, db, da);
+    if (color == nil) return;
+    SEL sel = sel_registerName(setter_name);
+    ((void (*)(id, SEL, id))objc_msgSend)((id)target, sel, color);
+}
+
 void apsk_overrides_set_number(void *target, const char *setter_name,
                                double value) {
     if (target == NULL || setter_name == NULL) return;

@@ -22,9 +22,33 @@
 import SwiftUI
 
 enum CommonModifiers {
-    static func apply<V: View>(_ view: V, overrides: ViewOverrides) -> AnyView {
+    /// `paddingInsideBackground: true` moves step 4 (padding) ahead of step 1
+    /// so the background, clip and border wrap the padded content — a filled
+    /// label shows its fill around the padded text. The default keeps the
+    /// historical order (padding outside the fill) for every other facade.
+    static func apply<V: View>(
+        _ view: V,
+        overrides: ViewOverrides,
+        paddingInsideBackground: Bool = false
+    ) -> AnyView {
         var current = AnyView(view)
 
+        let insets: EdgeInsets? = {
+            guard overrides.paddingTop != nil || overrides.paddingLeading != nil
+                || overrides.paddingBottom != nil || overrides.paddingTrailing != nil else {
+                return nil
+            }
+            return EdgeInsets(
+                top: overrides.paddingTop.map { CGFloat($0.doubleValue) } ?? 0,
+                leading: overrides.paddingLeading.map { CGFloat($0.doubleValue) } ?? 0,
+                bottom: overrides.paddingBottom.map { CGFloat($0.doubleValue) } ?? 0,
+                trailing: overrides.paddingTrailing.map { CGFloat($0.doubleValue) } ?? 0
+            )
+        }()
+
+        if paddingInsideBackground, let insets = insets {
+            current = AnyView(current.padding(insets))
+        }
         if let bg = overrides.backgroundColor {
             current = AnyView(current.background(swiftColor(bg)))
         }
@@ -36,14 +60,7 @@ enum CommonModifiers {
                 RoundedRectangle(cornerRadius: CGFloat(r.doubleValue))
             ))
         }
-        if overrides.paddingTop != nil || overrides.paddingLeading != nil
-            || overrides.paddingBottom != nil || overrides.paddingTrailing != nil {
-            let insets = EdgeInsets(
-                top: overrides.paddingTop.map { CGFloat($0.doubleValue) } ?? 0,
-                leading: overrides.paddingLeading.map { CGFloat($0.doubleValue) } ?? 0,
-                bottom: overrides.paddingBottom.map { CGFloat($0.doubleValue) } ?? 0,
-                trailing: overrides.paddingTrailing.map { CGFloat($0.doubleValue) } ?? 0
-            )
+        if !paddingInsideBackground, let insets = insets {
             current = AnyView(current.padding(insets))
         }
         if let bw = overrides.borderWidth, let bc = overrides.borderColor {
